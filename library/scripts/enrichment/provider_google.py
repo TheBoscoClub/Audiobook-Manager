@@ -45,9 +45,10 @@ def _search_google_books(title: str, author: str) -> dict | None:
     url = f"{_GOOGLE_API}?{params}"
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
     try:
-        with (
-            urllib.request.urlopen(req, timeout=10) as resp  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
-        ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+        with urllib.request.urlopen(  # nosec B310 - fixed HTTPS API URLs (Google Books); no user-controlled scheme
+            req, timeout=10
+        ) as resp:
             data = json.loads(resp.read())
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):
         return None
@@ -86,6 +87,61 @@ def _extract_series_from_volume(vol: dict) -> tuple[str, float | None]:
     return ("", None)
 
 
+def _apply_series_from_volume(result: dict, book: dict, vol: dict) -> None:
+    """Populate series / series_sequence from a Google Books volume."""
+    if book.get("series"):
+        return
+    series_name, seq = _extract_series_from_volume(vol)
+    if series_name:
+        result["series"] = series_name
+        if seq is not None:
+            result["series_sequence"] = seq
+
+
+def _apply_isbn_from_volume(result: dict, vol: dict) -> None:
+    """Pick the best ISBN (prefer ISBN_13 over ISBN_10)."""
+    for ident in vol.get("industryIdentifiers", []):
+        if ident.get("type") == "ISBN_13":
+            result["isbn"] = ident["identifier"]
+            return
+        if ident.get("type") == "ISBN_10" and "isbn" not in result:
+            result["isbn"] = ident["identifier"]
+
+
+def _apply_simple_fields_from_volume(result: dict, book: dict, vol: dict) -> None:
+    """Copy description/language/categories/publisher/page_count when appropriate."""
+    if vol.get("description") and not book.get("publisher_summary"):
+        result["description"] = vol["description"]
+    if vol.get("language") and not book.get("language"):
+        result["language"] = vol["language"]
+    if vol.get("categories"):
+        result["google_categories"] = vol["categories"]
+    if vol.get("publisher"):
+        result["publisher"] = vol["publisher"]
+    if vol.get("pageCount"):
+        result["page_count"] = vol["pageCount"]
+
+
+def _apply_publish_date_from_volume(result: dict, vol: dict) -> None:
+    """Extract published_date and published_year."""
+    pub_date = vol.get("publishedDate")
+    if not pub_date:
+        return
+    result["published_date"] = pub_date
+    m = re.match(r"(\d{4})", pub_date)
+    if m:
+        result["published_year"] = int(m.group(1))
+
+
+def _apply_thumbnail_from_volume(result: dict, vol: dict) -> None:
+    """Pick the highest-resolution thumbnail available."""
+    images = vol.get("imageLinks", {})
+    for size in ("extraLarge", "large", "medium", "thumbnail", "smallThumbnail"):
+        if size in images:
+            result["google_thumbnail"] = images[size]
+            return
+
+
 class GoogleBooksProvider(EnrichmentProvider):
     """Enrichment provider backed by the Google Books API."""
 
@@ -107,56 +163,9 @@ class GoogleBooksProvider(EnrichmentProvider):
             return {}
 
         result: dict = {}
-
-        # Series extraction (only if not already set)
-        if not book.get("series"):
-            series_name, seq = _extract_series_from_volume(vol)
-            if series_name:
-                result["series"] = series_name
-                if seq is not None:
-                    result["series_sequence"] = seq
-
-        # ISBN
-        for ident in vol.get("industryIdentifiers", []):
-            if ident.get("type") == "ISBN_13":
-                result["isbn"] = ident["identifier"]
-                break
-            elif ident.get("type") == "ISBN_10" and "isbn" not in result:
-                result["isbn"] = ident["identifier"]
-
-        # Description
-        if vol.get("description") and not book.get("publisher_summary"):
-            result["description"] = vol["description"]
-
-        # Language
-        if vol.get("language") and not book.get("language"):
-            result["language"] = vol["language"]
-
-        # Categories
-        if vol.get("categories"):
-            result["google_categories"] = vol["categories"]
-
-        # Publisher
-        if vol.get("publisher"):
-            result["publisher"] = vol["publisher"]
-
-        # Published date
-        if vol.get("publishedDate"):
-            result["published_date"] = vol["publishedDate"]
-            # Extract year
-            m = re.match(r"(\d{4})", vol["publishedDate"])
-            if m:
-                result["published_year"] = int(m.group(1))
-
-        # Page count
-        if vol.get("pageCount"):
-            result["page_count"] = vol["pageCount"]
-
-        # Thumbnail
-        images = vol.get("imageLinks", {})
-        for size in ("extraLarge", "large", "medium", "thumbnail", "smallThumbnail"):
-            if size in images:
-                result["google_thumbnail"] = images[size]
-                break
-
+        _apply_series_from_volume(result, book, vol)
+        _apply_isbn_from_volume(result, vol)
+        _apply_simple_fields_from_volume(result, book, vol)
+        _apply_publish_date_from_volume(result, vol)
+        _apply_thumbnail_from_volume(result, vol)
         return result

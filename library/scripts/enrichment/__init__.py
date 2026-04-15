@@ -361,6 +361,154 @@ def _default_providers(sources_dir: Path | None = None) -> list[EnrichmentProvid
     ]
 
 
+def _run_provider(
+    provider: EnrichmentProvider,
+    book: dict,
+    all_updates: dict,
+    result: dict,
+    winning_provider: str,
+) -> str:
+    """Run a single provider against the merged book view.
+
+    Mutates ``all_updates`` and ``result`` in place. Returns the (possibly
+    updated) winning_provider name.
+    """
+    if not provider.can_enrich({**book, **all_updates}):
+        return winning_provider
+
+    merged_view = {
+        **book,
+        **{k: v for k, v in all_updates.items() if k not in _SIDE_TABLE_KEYS},
+    }
+    provider_data = provider.enrich(merged_view)
+    if not provider_data:
+        return winning_provider
+
+    new_fields = _merge_updates(merged_view, provider_data)
+    if not new_fields:
+        return winning_provider
+
+    all_updates.update(new_fields)
+    result["providers_used"].append(provider.name)
+    if not winning_provider:
+        winning_provider = provider.name
+
+    if provider.name == "audible":
+        result["audible_enriched"] = True
+    elif provider.name in ("google_books", "openlibrary"):
+        result["isbn_enriched"] = True
+
+    return winning_provider
+
+
+def _run_provider_chain(
+    providers: list[EnrichmentProvider],
+    book: dict,
+    result: dict,
+) -> tuple[dict, str]:
+    """Iterate providers, accumulate updates, short-circuit when series is set."""
+    all_updates: dict = {}
+    winning_provider = ""
+    for provider in providers:
+        winning_provider = _run_provider(
+            provider, book, all_updates, result, winning_provider
+        )
+        # Short-circuit: if series is populated, later fallback providers won't help
+        series_val = all_updates.get("series") or book.get("series")
+        if series_val and result["audible_enriched"]:
+            break
+    return all_updates, winning_provider
+
+
+def _apply_podcast_override(
+    book: dict, all_updates: dict, quiet: bool
+) -> None:
+    """Apply publisher-based podcast detection override."""
+    podcast_override = _detect_podcast_by_publisher(book, all_updates)
+    if podcast_override:
+        all_updates["content_type"] = podcast_override
+        if not quiet:
+            logger.info(
+                "  Publisher-based override: content_type → %s", podcast_override
+            )
+
+
+def _apply_side_tables(
+    cursor: sqlite3.Cursor, book_id: int, book: dict, all_updates: dict
+) -> None:
+    """Apply side-table updates (categories, reviews, narrators, topics)."""
+    if "categories" in all_updates:
+        _apply_categories(cursor, book_id, all_updates["categories"])
+        _apply_genres_from_categories(cursor, book_id, all_updates["categories"])
+
+    if "editorial_reviews" in all_updates:
+        _apply_editorial_reviews(cursor, book_id, all_updates["editorial_reviews"])
+
+    if "narrator_list" in all_updates:
+        _apply_narrators(cursor, book_id, all_updates["narrator_list"])
+
+    summary = all_updates.get("publisher_summary") or book.get(
+        "publisher_summary", ""
+    )
+    if summary:
+        _apply_topics_from_summary(cursor, book_id, summary)
+
+
+def _persist_updates(
+    conn: sqlite3.Connection,
+    cursor: sqlite3.Cursor,
+    book_id: int,
+    book: dict,
+    all_updates: dict,
+    winning_provider: str,
+    result: dict,
+    quiet: bool,
+) -> None:
+    """Write accumulated updates to the database and commit."""
+    if not all_updates:
+        return
+    fields = _apply_scalar_updates(
+        cursor, book_id, all_updates, winning_provider or "local"
+    )
+    result["fields_updated"] = max(fields, 0)
+    _apply_side_tables(cursor, book_id, book, all_updates)
+    conn.commit()
+    if not quiet:
+        logger.info(
+            "  %d fields updated by %s",
+            result["fields_updated"],
+            ", ".join(result["providers_used"]),
+        )
+
+
+def _enrich_book_inner(
+    conn: sqlite3.Connection,
+    cursor: sqlite3.Cursor,
+    book_id: int,
+    quiet: bool,
+    providers: list[EnrichmentProvider],
+    result: dict,
+) -> None:
+    """Core enrichment flow (book load → providers → persist).
+
+    Populates ``result`` in place. Raises on unexpected errors — caller
+    handles the try/except/finally envelope.
+    """
+    book = _load_book(cursor, book_id)
+    if not book:
+        result["errors"].append(f"Book ID {book_id} not found")
+        return
+
+    if not quiet:
+        logger.info("Enriching: %s (ID %d)", book.get("title", "?"), book_id)
+
+    all_updates, winning_provider = _run_provider_chain(providers, book, result)
+    _apply_podcast_override(book, all_updates, quiet)
+    _persist_updates(
+        conn, cursor, book_id, book, all_updates, winning_provider, result, quiet
+    )
+
+
 def enrich_book(
     book_id: int,
     db_path: Path | None = None,
@@ -393,92 +541,7 @@ def enrich_book(
     cursor = conn.cursor()
 
     try:
-        book = _load_book(cursor, book_id)
-        if not book:
-            result["errors"].append(f"Book ID {book_id} not found")
-            return result
-
-        if not quiet:
-            logger.info("Enriching: %s (ID %d)", book.get("title", "?"), book_id)
-
-        all_updates: dict = {}
-        winning_provider = ""
-
-        for provider in providers:
-            if not provider.can_enrich({**book, **all_updates}):
-                continue
-
-            # Pass the merged view (book + accumulated updates) to each provider
-            merged_view = {
-                **book,
-                **{k: v for k, v in all_updates.items() if k not in _SIDE_TABLE_KEYS},
-            }
-            provider_data = provider.enrich(merged_view)
-            if not provider_data:
-                continue
-
-            new_fields = _merge_updates(merged_view, provider_data)
-            if new_fields:
-                all_updates.update(new_fields)
-                result["providers_used"].append(provider.name)
-                if not winning_provider:
-                    winning_provider = provider.name
-
-                if provider.name == "audible":
-                    result["audible_enriched"] = True
-                elif provider.name in ("google_books", "openlibrary"):
-                    result["isbn_enriched"] = True
-
-            # Short-circuit: if series is populated, later fallback providers won't help
-            series_val = all_updates.get("series") or book.get("series")
-            if series_val and result["audible_enriched"]:
-                break
-
-        # Post-provider heuristics: detect podcasts by publisher name
-        podcast_override = _detect_podcast_by_publisher(book, all_updates)
-        if podcast_override:
-            all_updates["content_type"] = podcast_override
-            if not quiet:
-                logger.info(
-                    "  Publisher-based override: content_type → %s", podcast_override
-                )
-
-        # Apply all accumulated updates
-        if all_updates:
-            fields = _apply_scalar_updates(
-                cursor, book_id, all_updates, winning_provider or "local"
-            )
-            result["fields_updated"] = max(fields, 0)
-
-            if "categories" in all_updates:
-                _apply_categories(cursor, book_id, all_updates["categories"])
-                _apply_genres_from_categories(
-                    cursor, book_id, all_updates["categories"]
-                )
-
-            if "editorial_reviews" in all_updates:
-                _apply_editorial_reviews(
-                    cursor, book_id, all_updates["editorial_reviews"]
-                )
-
-            if "narrator_list" in all_updates:
-                _apply_narrators(cursor, book_id, all_updates["narrator_list"])
-
-            # Extract topics from publisher_summary if available
-            summary = all_updates.get("publisher_summary") or book.get(
-                "publisher_summary", ""
-            )
-            if summary:
-                _apply_topics_from_summary(cursor, book_id, summary)
-
-            conn.commit()
-
-            if not quiet:
-                logger.info(
-                    "  %d fields updated by %s",
-                    result["fields_updated"],
-                    ", ".join(result["providers_used"]),
-                )
+        _enrich_book_inner(conn, cursor, book_id, quiet, providers, result)
     except Exception as e:
         result["errors"].append(str(e))
         logger.exception("Enrichment failed for book %d", book_id)

@@ -172,32 +172,22 @@ class DeepLTranslator:
 
     # -- public API ------------------------------------------------------
 
-    def translate(
-        self,
-        texts: list[str],
-        target_locale: str,
-        source_lang: str = "EN",
-    ) -> list[str]:
-        """Translate a batch of texts to the target locale."""
-        if not texts:
-            return []
-
-        hits, misses = self._tm_lookup(texts, target_locale)
-
-        # Build the output array with cache hits in place.
-        output: list[str | None] = [None] * len(texts)
+    def _build_output_with_hits(
+        self, size: int, hits: dict[int, str]
+    ) -> list[str | None]:
+        """Build the output array with cache hits pre-filled."""
+        output: list[str | None] = [None] * size
         for idx, val in hits.items():
             output[idx] = val
+        return output
 
-        if not misses:
-            return [o or "" for o in output]
-
-        miss_texts = [t for _, t in misses]
-        char_count = sum(len(t) for t in miss_texts)
-
-        if self._tracker is not None:
-            self._tracker.check_before_translate(char_count)
-
+    def _build_payload(
+        self,
+        miss_texts: list[str],
+        target_locale: str,
+        source_lang: str,
+    ) -> dict[str, Any]:
+        """Build the DeepL translate API payload."""
         target_lang = LOCALE_TO_DEEPL.get(target_locale, target_locale.upper())
         payload: dict[str, Any] = {
             "text": miss_texts,
@@ -207,7 +197,10 @@ class DeepLTranslator:
         glossary_id = self._resolve_glossary()
         if glossary_id:
             payload["glossary_id"] = glossary_id
+        return payload
 
+    def _call_deepl_api(self, payload: dict[str, Any]) -> list[str] | None:
+        """POST to DeepL /translate. Returns translations list or None on failure."""
         try:
             resp = requests.post(
                 f"{self._base_url}/translate",
@@ -220,29 +213,88 @@ class DeepLTranslator:
             raise
         except requests.RequestException:
             logger.exception("DeepL translate call failed")
-            # Fall back: fill misses with source text (pass-through English).
-            for idx, text in misses:
-                output[idx] = text
-            return [o or "" for o in output]
+            return None
 
         result = resp.json()
-        translations = [t["text"] for t in result.get("translations", [])]
+        return [t["text"] for t in result.get("translations", [])]
 
+    def _fill_misses_with_source(
+        self, output: list[str | None], misses: list[tuple[int, str]]
+    ) -> None:
+        """Fill any None slots in output from the original source text."""
+        for idx, text in misses:
+            if output[idx] is None:
+                output[idx] = text
+
+    def _merge_translations_into_output(
+        self,
+        output: list[str | None],
+        misses: list[tuple[int, str]],
+        translations: list[str],
+        target_locale: str,
+        char_count: int,
+    ) -> None:
+        """Store translation pairs into TM and fill output slots."""
         pairs_to_store: list[tuple[str, str]] = []
         for (idx, src), translated in zip(misses, translations):
             output[idx] = translated
             pairs_to_store.append((src, translated))
-
         self._tm_store(pairs_to_store, target_locale)
         if self._tracker is not None:
             self._tracker.record_usage(char_count)
+        self._fill_misses_with_source(output, misses)
 
-        # Any leftover Nones (e.g., DeepL returned fewer entries than sent)
-        # fall back to the original source text so callers never see None.
+    def _fallback_passthrough(
+        self,
+        output: list[str | None],
+        misses: list[tuple[int, str]],
+    ) -> list[str]:
+        """Fill misses with source text (pass-through English)."""
         for idx, text in misses:
-            if output[idx] is None:
-                output[idx] = text
+            output[idx] = text
         return [o or "" for o in output]
+
+    @staticmethod
+    def _finalize_output(output: list[str | None]) -> list[str]:
+        """Convert None slots to empty strings."""
+        return [o or "" for o in output]
+
+    def _precheck_tracker(self, miss_texts: list[str]) -> int:
+        """Sum char count + notify tracker before translating."""
+        char_count = sum(len(t) for t in miss_texts)
+        if self._tracker is not None:
+            self._tracker.check_before_translate(char_count)
+        return char_count
+
+    def translate(
+        self,
+        texts: list[str],
+        target_locale: str,
+        source_lang: str = "EN",
+    ) -> list[str]:
+        """Translate a batch of texts to the target locale."""
+        if not texts:
+            return []
+
+        hits, misses = self._tm_lookup(texts, target_locale)
+        output = self._build_output_with_hits(len(texts), hits)
+
+        if not misses:
+            return self._finalize_output(output)
+
+        miss_texts = [t for _, t in misses]
+        char_count = self._precheck_tracker(miss_texts)
+
+        payload = self._build_payload(miss_texts, target_locale, source_lang)
+        translations = self._call_deepl_api(payload)
+
+        if translations is None:
+            return self._fallback_passthrough(output, misses)
+
+        self._merge_translations_into_output(
+            output, misses, translations, target_locale, char_count
+        )
+        return self._finalize_output(output)
 
     def translate_one(
         self,

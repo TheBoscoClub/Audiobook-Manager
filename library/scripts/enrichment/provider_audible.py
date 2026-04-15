@@ -58,9 +58,10 @@ def _fetch_audible_product(asin: str) -> dict | None:
     )
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
     try:
-        with (
-            urllib.request.urlopen(req, timeout=15) as resp  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
-        ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+        with urllib.request.urlopen(  # nosec B310 - fixed HTTPS Audible API; no user-controlled scheme
+            req, timeout=15
+        ) as resp:
             data = json.loads(resp.read())
             return data.get("product")
     except urllib.error.HTTPError as e:
@@ -69,9 +70,10 @@ def _fetch_audible_product(asin: str) -> dict | None:
         if e.code == 429:
             time.sleep(5)
             try:
-                with (
-                    urllib.request.urlopen(req, timeout=15) as resp  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
-                ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
+                # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+                with urllib.request.urlopen(  # nosec B310 - fixed HTTPS Audible API; no user-controlled scheme
+                    req, timeout=15
+                ) as resp:
                     data = json.loads(resp.read())
                     return data.get("product")
             except Exception:
@@ -162,6 +164,96 @@ def _get_best_image_url(product: dict) -> str | None:
     return None
 
 
+_AUDIBLE_SCALAR_FIELDS = (
+    "subtitle",
+    "language",
+    "format_type",
+    "release_date",
+    "publisher_summary",
+    "sample_url",
+    "content_type",
+)
+
+
+def _apply_series_from_product(result: dict, book: dict, product: dict) -> None:
+    """Populate series / series_sequence when not already on the book."""
+    series_list = product.get("series", [])
+    if not series_list or book.get("series"):
+        return
+    first_series = series_list[0]
+    result["series"] = first_series.get("title", "")
+    seq = _parse_sequence(first_series.get("sequence", ""))
+    if seq is not None:
+        result["series_sequence"] = seq
+
+
+def _apply_scalar_fields_from_product(result: dict, product: dict) -> None:
+    """Copy simple truthy scalar fields; handle runtime + adult flag separately."""
+    for field in _AUDIBLE_SCALAR_FIELDS:
+        if product.get(field):
+            result[field] = product[field]
+    if product.get("runtime_length_min") is not None:
+        result["runtime_length_min"] = product["runtime_length_min"]
+    if product.get("sku"):
+        result["audible_sku"] = product["sku"]
+    if product.get("is_adult_product") is not None:
+        result["is_adult_product"] = product["is_adult_product"]
+
+
+def _apply_ratings_from_product(result: dict, product: dict) -> None:
+    """Copy all non-None rating fields."""
+    for key, value in _extract_rating(product).items():
+        if value is not None:
+            result[key] = value
+
+
+def _apply_image_from_product(result: dict, product: dict) -> None:
+    """Pick the best image URL if present."""
+    image_url = _get_best_image_url(product)
+    if image_url:
+        result["audible_image_url"] = image_url
+
+
+def _apply_structured_lists_from_product(result: dict, product: dict) -> None:
+    """Copy categories / editorial_reviews lists when non-empty."""
+    categories = _extract_categories(product)
+    if categories:
+        result["categories"] = categories
+    editorial_reviews = _extract_editorial_reviews(product)
+    if editorial_reviews:
+        result["editorial_reviews"] = editorial_reviews
+
+
+def _apply_author_asins_from_product(result: dict, product: dict) -> None:
+    """Extract {name, asin} pairs for authors that have an ASIN."""
+    authors = product.get("authors", [])
+    if not authors:
+        return
+    author_asins = [
+        {"name": a.get("name", ""), "asin": a.get("asin", "")}
+        for a in authors
+        if a.get("asin")
+    ]
+    if author_asins:
+        result["author_asins"] = author_asins
+
+
+def _apply_narrators_from_product(result: dict, product: dict) -> None:
+    """Extract narrator flat column + junction list."""
+    narrators = product.get("narrators", [])
+    if not narrators:
+        return
+    narrator_names = [n.get("name", "") for n in narrators if n.get("name")]
+    if not narrator_names:
+        return
+    result["narrator"] = ", ".join(narrator_names)
+    result["narrator_list"] = [
+        {"name": n.get("name", ""), "asin": n.get("asin", "")}
+        for n in narrators
+        if n.get("name")
+    ]
+
+
 class AudibleProvider(EnrichmentProvider):
     """Enrichment provider backed by the Audible public catalog API."""
 
@@ -187,83 +279,11 @@ class AudibleProvider(EnrichmentProvider):
             return {}
 
         result: dict = {}
-
-        # Series — only populate when not already set on the book
-        series_list = product.get("series", [])
-        if series_list and not book.get("series"):
-            first_series = series_list[0]
-            result["series"] = first_series.get("title", "")
-            seq = _parse_sequence(first_series.get("sequence", ""))
-            if seq is not None:
-                result["series_sequence"] = seq
-
-        # Scalar metadata fields
-        if product.get("subtitle"):
-            result["subtitle"] = product["subtitle"]
-        if product.get("language"):
-            result["language"] = product["language"]
-        if product.get("format_type"):
-            result["format_type"] = product["format_type"]
-        if product.get("runtime_length_min") is not None:
-            result["runtime_length_min"] = product["runtime_length_min"]
-        if product.get("release_date"):
-            result["release_date"] = product["release_date"]
-        if product.get("publisher_summary"):
-            result["publisher_summary"] = product["publisher_summary"]
-
-        # Ratings
-        rating_data = _extract_rating(product)
-        for key, value in rating_data.items():
-            if value is not None:
-                result[key] = value
-
-        # Image
-        image_url = _get_best_image_url(product)
-        if image_url:
-            result["audible_image_url"] = image_url
-
-        # Sample URL
-        if product.get("sample_url"):
-            result["sample_url"] = product["sample_url"]
-
-        # SKU / product identifiers
-        if product.get("sku"):
-            result["audible_sku"] = product["sku"]
-        if product.get("is_adult_product") is not None:
-            result["is_adult_product"] = product["is_adult_product"]
-        if product.get("content_type"):
-            result["content_type"] = product["content_type"]
-
-        # Structured lists
-        categories = _extract_categories(product)
-        if categories:
-            result["categories"] = categories
-
-        editorial_reviews = _extract_editorial_reviews(product)
-        if editorial_reviews:
-            result["editorial_reviews"] = editorial_reviews
-
-        # Author ASINs
-        authors = product.get("authors", [])
-        if authors:
-            author_asins = [
-                {"name": a.get("name", ""), "asin": a.get("asin", "")}
-                for a in authors
-                if a.get("asin")
-            ]
-            if author_asins:
-                result["author_asins"] = author_asins
-
-        # Narrators — extract names for flat column + junction table backfill
-        narrators = product.get("narrators", [])
-        if narrators:
-            narrator_names = [n.get("name", "") for n in narrators if n.get("name")]
-            if narrator_names:
-                result["narrator"] = ", ".join(narrator_names)
-                result["narrator_list"] = [
-                    {"name": n.get("name", ""), "asin": n.get("asin", "")}
-                    for n in narrators
-                    if n.get("name")
-                ]
-
+        _apply_series_from_product(result, book, product)
+        _apply_scalar_fields_from_product(result, product)
+        _apply_ratings_from_product(result, product)
+        _apply_image_from_product(result, product)
+        _apply_structured_lists_from_product(result, product)
+        _apply_author_asins_from_product(result, product)
+        _apply_narrators_from_product(result, product)
         return result
