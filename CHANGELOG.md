@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.2.3.2] - 2026-04-15
+
+Re-release of 8.2.3.1 — the v8.2.3.1 GitHub release was created immutable with no
+tarball asset and could not accept uploads, blocking the upgrade path. Content is
+identical to the intended 8.2.3.1 release.
+
 ## [8.2.3.1] - 2026-04-15
 
 ### Added
@@ -3004,7 +3010,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.2...HEAD
+[8.2.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3...v8.2.3.2
 [8.2.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3...v8.2.3.1
 [8.2.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.2.1...v8.2.3
 [8.2.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.2...v8.2.2.1
