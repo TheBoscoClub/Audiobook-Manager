@@ -20,9 +20,12 @@ fi
 log() { echo "$(date +%H:%M:%S) [translate-check] $*"; }
 
 # Liveness check: if daemon is active AND there are processing rows
-# AND the heartbeat is stale (>15min), restart the daemon. Wedged event
+# AND the heartbeat is stale (>60min), restart the daemon. Wedged event
 # loops show as "active" to systemd but stop touching last_progress_at.
-STALE_THRESHOLD_SEC=900   # 15 minutes
+# Workers only update last_progress_at after each chapter finishes STT.
+# Long chapters (60+ min audio) can take 20-40 min on an L40S, so a
+# 15-min threshold causes false restarts during normal processing.
+STALE_THRESHOLD_SEC=3600   # 60 minutes
 if systemctl is-active --quiet audiobook-translate.service; then
     stale=$(sqlite3 "$DB_PATH" \
         "SELECT COUNT(*) FROM translation_queue \
