@@ -553,17 +553,42 @@ audiobook-import   # Import to database
 audiobook-config   # Show configuration
 ```
 
-### Optional: Local GPU Transcription
+### Optional: Local GPU Transcription (User-At-Own-Risk)
 
-If you use the localization features (subtitles, translations for non-English locales) and your host has an AMD GPU with ROCm support, you can run a local Whisper transcription service for GPU-accelerated speech-to-text. This avoids cloud provider costs and latency.
+If localization features are enabled (subtitles, translations for non-English locales) and your host has a GPU that is **known-good for sustained AI inference workloads**, you can run a local Whisper transcription service for GPU-accelerated speech-to-text. This avoids cloud provider costs and latency.
 
-**Requirements:**
+> ⚠️ **Hardware compatibility matters. Not all GPUs are safe for AI workloads.**
+> The project's default and maintainer-tested path is **remote GPU** (Vast.ai or RunPod). Local GPU is an opt-in option that the maintainer cannot test end-to-end on production-grade hardware.
 
-- AMD GPU with ROCm support (RDNA 2 or newer recommended)
-- `python-pytorch-opt-rocm` and `python-openai-whisper` (Arch/CachyOS) or equivalent PyTorch ROCm packages
-- The audiobook application installed at `/opt/audiobooks`
+**Hardware compatibility matrix:**
 
-**Setup:**
+| Hardware | Status | Notes |
+|----------|--------|-------|
+| NVIDIA consumer/workstation (RTX 30xx, 40xx, A-series, L-series) + CUDA | ✅ Expected to work | Mature CUDA stack, production-grade for AI inference. Remote providers (Vast.ai/RunPod) run these — same class of silicon. |
+| NVIDIA data center (H100, A100, L40S) + CUDA | ✅ Expected to work | Designed for sustained AI workloads. |
+| Enterprise AMD Instinct (MI-series / CDNA) + ROCm | ✅ Expected to work | Purpose-built for compute; ROCm is first-class on this class. |
+| Apple Silicon (M-series) + MPS | ⚠️ Likely works, not integrated here | Whisper runs on MPS via PyTorch, but this project's local-GPU path targets Linux + CUDA/ROCm. Would need adaptation. |
+| **Consumer AMD Radeon (RDNA 2 / RDNA 3) + ROCm** | ⚠️ **KNOWN UNSTABLE** | Well-documented instability under sustained AI inference. **See maintainer's cautionary tale below.** |
+| Integrated GPUs, low-VRAM (<8 GB), or pre-Pascal NVIDIA | ❌ Not recommended | Whisper models won't fit or will thrash. Use CPU fallback or remote GPU. |
+
+**Maintainer's cautionary tale (do not ignore):**
+
+The maintainer attempted this pipeline on an **AMD Radeon 6800 XT (RDNA 2) + ROCm** on CachyOS/Arch Linux. During a Whisper transcription job, the host **crashed catastrophically**: the system became unresponsive, on reboot the UEFI/BIOS configuration had been wiped to defaults, and the project's working tree on local disk was corrupted beyond recovery. The project was only recoverable because it had been pushed to GitHub. This is consistent with the well-documented history of retail Radeon + ROCm instability under AI workloads (driver resets, VRAM corruption, kernel panics, and — in this case — firmware-adjacent damage).
+
+The maintainer **does not have and cannot afford** a GPU that is known-good for local AI inference. Consequently:
+
+- Remote GPU (Vast.ai, RunPod) is the **only path the maintainer tests end-to-end**.
+- Local GPU remains available in the codebase for users whose hardware actually supports sustained AI workloads.
+- If you have retail AMD Radeon RDNA 2 or RDNA 3 hardware: **do not assume it will work**. At minimum, run short jobs first, monitor GPU reset counts (`dmesg | grep amdgpu`), keep your project under version control pushed to a remote, and have filesystem/BIOS backups.
+
+**Setup (if your hardware is on the "expected to work" list above):**
+
+Packages (Arch/CachyOS examples — adapt to your distro):
+
+- NVIDIA + CUDA: `nvidia` + `cuda` + `python-pytorch-cuda` (or the appropriate PyTorch+CUDA build for your platform) + `python-openai-whisper`
+- Enterprise AMD + ROCm: `rocm-hip-runtime` + `python-pytorch-opt-rocm` + `python-openai-whisper`
+
+Then:
 
 ```bash
 cd extras/whisper-gpu
@@ -581,7 +606,7 @@ AUDIOBOOKS_WHISPER_GPU_PORT=8765
 
 **Removal:** `sudo ./setup.sh --uninstall`
 
-This is entirely optional — the application works without it, falling back to cloud providers or CPU-based transcription.
+This is entirely optional — the application works without it, falling back to remote GPU (Vast.ai/RunPod) or CPU-based transcription.
 
 ## Upgrading
 

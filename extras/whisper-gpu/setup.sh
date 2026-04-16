@@ -4,10 +4,17 @@
 # This is NOT part of the standard Audiobook Manager installation.
 # Only install this if:
 #   1. You use the localization/subtitle features (non-English locales)
-#   2. Your host has an AMD GPU with ROCm support
-#   3. You want local GPU-accelerated transcription instead of cloud providers
+#   2. Your host has a GPU that is known-good for sustained AI inference:
+#        - NVIDIA (RTX 30xx/40xx, A-series, L-series, H100, A100, L40S) + CUDA
+#        - Enterprise AMD Instinct (MI-series / CDNA) + ROCm
+#      Consumer AMD Radeon (RDNA 2 / RDNA 3) + ROCm is KNOWN-UNSTABLE under
+#      sustained Whisper inference — see docs/MULTI-LANGUAGE-SETUP.md for the
+#      maintainer's cautionary tale.
+#   3. You want local GPU-accelerated transcription instead of remote providers
 #
-# Requires: python-pytorch-opt-rocm, python-openai-whisper (Arch/CachyOS)
+# Requires (Arch/CachyOS examples — adapt to your distro):
+#   NVIDIA + CUDA: nvidia + cuda + python-pytorch-cuda + python-openai-whisper
+#   Enterprise AMD + ROCm: rocm-hip-runtime + python-pytorch-opt-rocm + python-openai-whisper
 #
 # Usage: sudo ./setup.sh [--uninstall]
 
@@ -44,10 +51,11 @@ fi
 echo "Checking prerequisites…"
 
 if ! python3 -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
-    echo -e "${RED}Error: PyTorch with ROCm is not installed or no GPU detected.${NC}"
+    echo -e "${RED}Error: PyTorch with CUDA/ROCm is not installed or no GPU detected.${NC}"
     echo ""
-    echo "On CachyOS/Arch, install with:"
-    echo "  sudo pacman -S python-pytorch-opt-rocm python-openai-whisper"
+    echo "On CachyOS/Arch:"
+    echo "  NVIDIA + CUDA:          sudo pacman -S nvidia cuda python-pytorch-cuda python-openai-whisper"
+    echo "  Enterprise AMD + ROCm:  sudo pacman -S rocm-hip-runtime python-pytorch-opt-rocm python-openai-whisper"
     echo ""
     echo "Then verify GPU detection:"
     echo "  python3 -c \"import torch; print(torch.cuda.get_device_name(0))\""
@@ -68,6 +76,31 @@ fi
 
 GPU_NAME=$(python3 -c "import torch; print(torch.cuda.get_device_name(0))" 2>/dev/null)
 echo -e "${GREEN}GPU detected: ${GPU_NAME}${NC}"
+
+# Warn on consumer AMD Radeon RDNA 2/3 — known-unstable under sustained AI inference.
+# RDNA 2: 6600/6650/6700/6750/6800/6900/6950 (and XT variants)
+# RDNA 3: 7600/7700/7800/7900 (and XT/XTX variants)
+if echo "${GPU_NAME}" | grep -qiE 'Radeon.*(RX ?(6[6789]|79|77|78)[0-9]{2}|7900)'; then
+    echo ""
+    echo -e "${YELLOW}WARNING: Consumer AMD Radeon RDNA 2/3 detected.${NC}"
+    echo -e "${YELLOW}This hardware class is KNOWN-UNSTABLE under sustained Whisper inference with ROCm.${NC}"
+    echo ""
+    echo "The project maintainer experienced a catastrophic host crash on an RX 6800 XT"
+    echo "(UEFI/BIOS config wiped, working tree corrupted). See docs/MULTI-LANGUAGE-SETUP.md"
+    echo "for the full cautionary tale."
+    echo ""
+    echo "If you proceed:"
+    echo "  - Run short test jobs first, not full-library batches"
+    echo "  - Monitor GPU resets with: dmesg -w | grep amdgpu"
+    echo "  - Keep your project under version control pushed to a remote"
+    echo "  - Have filesystem/BIOS backups"
+    echo ""
+    read -r -p "Continue installing anyway? [y/N] " confirm
+    case "${confirm}" in
+        [yY]|[yY][eE][sS]) ;;
+        *) echo "Aborting. Consider remote GPU (Vast.ai / RunPod) instead — see docs/MULTI-LANGUAGE-SETUP.md."; exit 1 ;;
+    esac
+fi
 
 # Install service script and prepare model cache
 echo "Installing whisper-gpu to ${INSTALL_DIR}…"

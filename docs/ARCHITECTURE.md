@@ -784,7 +784,7 @@ Audio Chapter ──► STT (Whisper) ──► Translation (DeepL) ──► TT
 |----------|-------|------------|----------|
 | Vast.ai Whisper | `VastaiWhisperSTT` | `AUDIOBOOKS_VASTAI_WHISPER_HOST` | Preferred: dedicated GPU instance |
 | RunPod Whisper | `RunPodWhisperSTT` | `AUDIOBOOKS_RUNPOD_API_KEY` | Serverless GPU (cold-start latency) |
-| Local GPU | `LocalWhisperSTT` | `AUDIOBOOKS_STT_PROVIDER=local` | Self-hosted, ROCm AMD or CUDA |
+| Local GPU | `LocalWhisperSTT` | `AUDIOBOOKS_STT_PROVIDER=local` | Self-hosted on known-good AI hardware (NVIDIA CUDA or enterprise AMD Instinct/ROCm); consumer Radeon RDNA 2/3 is unsupported — see docs/MULTI-LANGUAGE-SETUP.md#local-gpu-optional |
 | DeepL Transcription | `DeepLSTT` | `DEEPL_API_KEY` | Legacy fallback (100 MB limit) |
 
 Auto mode (`AUDIOBOOKS_STT_PROVIDER=auto`) selects: Vast.ai → RunPod → Local GPU → DeepL. Runtime fallback retries once against local Whisper on network errors.

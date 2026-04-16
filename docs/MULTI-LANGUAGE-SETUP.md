@@ -107,7 +107,7 @@ The STT layer uses OpenAI's Whisper model. When `AUDIOBOOKS_STT_PROVIDER` is set
 |----------|----------|-----------|
 | **Vast.ai Whisper** | Long-form audiobook transcription | Most reliable throughput. Dedicated GPU instances. Requires manual instance management. |
 | **RunPod Whisper** | Burst workloads, occasional use | Serverless (scales to zero, pay only when processing). Can be resource-constrained under heavy load. |
-| **Local GPU Whisper** | Testing, small batches | Uses host GPU (NVIDIA CUDA or AMD ROCm). Risk of system instability under heavy transcription loads. |
+| **Local GPU Whisper** | Testing, small batches, users with known-good AI hardware | Uses host GPU. Safe only on hardware classes designed for sustained AI inference (NVIDIA CUDA, enterprise AMD Instinct/ROCm). **Consumer AMD Radeon RDNA 2/3 + ROCm is known-unstable — see the cautionary tale in [Local GPU (Optional)](#local-gpu-optional).** |
 | **Local CPU Whisper** | Fallback only | Always available, no external dependencies. Very slow -- unsuitable for full library transcription. |
 
 The workload-aware selection system (`library/localization/selection.py`) distinguishes between short clips (prefer local to avoid cold-start latency) and long-form batch work (prefer remote GPU for throughput).
@@ -220,22 +220,57 @@ RunPod offers serverless GPU endpoints that scale to zero -- you only pay for ac
 
 ### Local GPU (Optional)
 
-If your host machine has an NVIDIA (CUDA) or AMD (ROCm) GPU, you can run Whisper locally. This is useful for testing but can strain host resources during heavy transcription.
+If your host machine has a GPU that is **known-good for sustained AI inference**, you can run Whisper locally instead of (or in addition to) remote providers. The project's default and only maintainer-tested path is remote GPU (Vast.ai / RunPod) — local GPU is an opt-in option and the safety of it depends entirely on your hardware class.
 
-1. **Start a local Whisper service** on your host (details depend on your GPU and framework).
+> ⚠️ **Hardware compatibility matters. Not all GPUs are safe for AI workloads.**
 
-2. **Configure**:
+#### Hardware compatibility matrix
+
+| Hardware | Status | Notes |
+|----------|--------|-------|
+| NVIDIA consumer/workstation (RTX 30xx, 40xx, A-series, L-series) + CUDA | ✅ Expected to work | Mature CUDA stack, production-grade for AI inference. Same silicon class as Vast.ai/RunPod nodes. |
+| NVIDIA data center (H100, A100, L40S) + CUDA | ✅ Expected to work | Designed for sustained AI workloads. |
+| Enterprise AMD Instinct (MI-series / CDNA) + ROCm | ✅ Expected to work | Purpose-built for compute; ROCm is first-class on this class. |
+| Apple Silicon (M-series) + MPS | ⚠️ Not integrated | Whisper runs on MPS via PyTorch, but this project's local-GPU path targets Linux + CUDA/ROCm. |
+| **Consumer AMD Radeon (RDNA 2 / RDNA 3) + ROCm** | ⚠️ **KNOWN UNSTABLE** | Well-documented instability under sustained AI inference. **See cautionary tale below.** |
+| Integrated GPUs, low-VRAM (<8 GB), pre-Pascal NVIDIA | ❌ Not recommended | Models won't fit or will thrash. Use CPU fallback or remote GPU. |
+
+#### Maintainer's cautionary tale
+
+The maintainer attempted this pipeline on an **AMD Radeon 6800 XT (RDNA 2) + ROCm** on CachyOS/Arch Linux. During a Whisper transcription job, the host **crashed catastrophically**: the system became unresponsive, on reboot the UEFI/BIOS configuration had been wiped to defaults, and the project's working tree on local disk was corrupted beyond recovery. The project was only recoverable because it had been pushed to GitHub. This is consistent with the well-documented history of retail Radeon + ROCm instability under AI workloads (driver resets, VRAM corruption, kernel panics, and — in this case — firmware-adjacent damage).
+
+The maintainer **does not have and cannot afford** a GPU that is known-good for local AI inference. Consequently:
+
+- Remote GPU (Vast.ai, RunPod) is the **only path the maintainer tests end-to-end**.
+- Local GPU remains available in the codebase for users whose hardware actually supports sustained AI workloads.
+- If you have retail AMD Radeon RDNA 2 or RDNA 3 hardware: **do not assume it will work**. Short test jobs first, monitor GPU reset counts (`dmesg | grep amdgpu`), keep your project under version control pushed to a remote, and have filesystem/BIOS backups.
+
+#### Setup (hardware on the "expected to work" list)
+
+1. **Install packages** (Arch/CachyOS examples — adapt to your distro):
+
+   - NVIDIA + CUDA: `nvidia` + `cuda` + `python-pytorch-cuda` + `python-openai-whisper`
+   - Enterprise AMD + ROCm: `rocm-hip-runtime` + `python-pytorch-opt-rocm` + `python-openai-whisper`
+
+2. **Start the service**:
 
    ```bash
-   # Local GPU — Whisper service on the host (e.g., over libvirt network for VMs)
+   cd extras/whisper-gpu
+   sudo ./setup.sh
+   ```
+
+3. **Configure** (only required when the GPU service runs on a different host from the app, e.g. app inside a VM, GPU on the host):
+
+   ```bash
+   # Local GPU — Whisper service on a reachable host (e.g., over libvirt network for VMs)
    AUDIOBOOKS_WHISPER_GPU_HOST=192.168.122.1
    AUDIOBOOKS_WHISPER_GPU_PORT=8765
    ```
 
-3. **Considerations**:
-   - Long transcription jobs can cause system instability if the GPU is shared with desktop/display tasks
+4. **Operational notes**:
+   - Long transcription jobs load the GPU hard — avoid sharing the GPU with interactive desktop/display tasks during a batch
    - Local GPU is automatically deprioritized for long-form work when remote providers are configured
-   - Useful as a testing and development tool rather than a production workhorse
+   - Useful as a testing and development tool; for full-library translation, remote providers are the maintainer-tested path
 
 ---
 
@@ -510,8 +545,8 @@ If `--db` is not specified, the tool uses `$AUDIOBOOKS_DATABASE` from your confi
 | Dependency | Purpose |
 |------------|---------|
 | `openai-whisper` | Local CPU fallback for STT (very slow but always available) |
-| CUDA toolkit | NVIDIA GPU acceleration for local Whisper |
-| ROCm | AMD GPU acceleration for local Whisper |
+| CUDA toolkit | NVIDIA GPU acceleration for local Whisper (see [Local GPU (Optional)](#local-gpu-optional) for supported hardware) |
+| ROCm | AMD GPU acceleration for local Whisper — **enterprise AMD Instinct only**; consumer Radeon RDNA 2/3 is known-unstable, see [Local GPU (Optional)](#local-gpu-optional) |
 
 ### Python Package Installation
 

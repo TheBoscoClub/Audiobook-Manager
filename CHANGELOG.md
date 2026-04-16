@@ -9,7 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Local-GPU hardware compatibility guidance and cautionary tale**: `README.md` "Optional: Local GPU Transcription" and `docs/MULTI-LANGUAGE-SETUP.md` "Local GPU (Optional)" now carry a hardware compatibility matrix (✅ NVIDIA + CUDA, ✅ enterprise AMD Instinct/ROCm, ⚠️ consumer AMD Radeon RDNA 2/3 + ROCm known-unstable, ❌ integrated/low-VRAM) and the maintainer's first-person cautionary tale — an AMD Radeon 6800 XT + ROCm Whisper inference job crashed the host, wiped UEFI/BIOS configuration, and corrupted the on-disk working tree (recovered only because the project was pushed to GitHub). The maintainer does not have and cannot afford a known-good local AI GPU, so remote GPU (Vast.ai / RunPod) is the only path tested end-to-end
+- **RDNA 2/3 runtime warning in `extras/whisper-gpu/setup.sh`**: the setup script now inspects the detected GPU name via `torch.cuda.get_device_name(0)` and, if it matches consumer Radeon RDNA 2/3 patterns (RX 66xx–69xx, 77xx–79xx, 7900 variants), prints the cautionary tale and requires an explicit `y` confirmation before installing the systemd service. The warning points at `docs/MULTI-LANGUAGE-SETUP.md` for the full context
+
 ### Changed
+
+- **`extras/whisper-gpu/setup.sh` is vendor-neutral**: header comments and prerequisite-install hints now cover both NVIDIA + CUDA and enterprise AMD + ROCm, not ROCm-only. The `torch.cuda.is_available()` check works for both stacks (PyTorch exposes ROCm through the `cuda` API on AMD)
+- **`library/localization/stt/local_gpu_whisper.py` docstring is vendor-neutral**: removed hardcoded "AMD Radeon GPU" assumption — points at `docs/MULTI-LANGUAGE-SETUP.md` for supported hardware
+- **`docs/ARCHITECTURE.md` STT provider table**: `Local GPU` row now cites supported hardware classes and flags consumer Radeon RDNA 2/3 as unsupported, linking to `docs/MULTI-LANGUAGE-SETUP.md#local-gpu-optional`
 
 ### Fixed
 

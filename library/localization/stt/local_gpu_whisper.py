@@ -1,8 +1,10 @@
 """Local GPU Whisper STT provider.
 
 Calls the host's whisper-gpu.service over HTTP. The service runs on the
-host where the AMD Radeon GPU lives; this provider can run anywhere
-(VM, container, or host) as long as it can reach the service endpoint.
+host where the local GPU lives (NVIDIA + CUDA or enterprise AMD + ROCm —
+see docs/MULTI-LANGUAGE-SETUP.md for supported hardware); this provider
+can run anywhere (VM, container, or host) as long as it can reach the
+service endpoint.
 
 Architecturally identical to the RunPod/Vast.ai providers but with zero
 latency and no billing — the GPU is local.
