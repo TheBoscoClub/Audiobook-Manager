@@ -1,11 +1,10 @@
 """End-to-end localization pipeline orchestrator.
 
 Coordinates STT → Translation → VTT subtitle generation for audiobook
-chapters. Provider selection is workload-aware: short/interactive work
-prefers local providers (no cold-start, no billing minimums), while
-long-form work (chapters, full books) prefers remote GPU for throughput.
-Runtime network errors fall back to local once per request via the
-shared :mod:`library.localization.fallback` helper.
+chapters. Provider selection is workload-aware and GPU-only: remote GPU
+providers (Vast.ai, RunPod, local GPU service) handle all STT work.
+There is no CPU fallback — if no GPU is reachable, the worker fails
+loudly so fleet monitoring can detect and restart it.
 
 Full-book generation splits the audio into chapters (via embedded
 metadata or Audible sidecar) and transcribes each individually,
@@ -32,7 +31,6 @@ from .fallback import with_local_fallback
 from .selection import WorkloadHint
 from .stt.base import STTProvider, Transcript
 from .stt.local_gpu_whisper import LocalGPUWhisperSTT
-from .stt.local_whisper import LocalWhisperSTT
 from .stt.vastai_whisper import VastaiWhisperSTT
 from .stt.whisper_stt import WhisperSTT
 from .subtitles.sync import align_translations
@@ -46,15 +44,12 @@ ProgressCallback = Callable[[int, int, str], None]
 def _transcribe_with_fallback(
     provider: STTProvider, audio_path: Path, source_lang: str
 ) -> Transcript:
-    """Transcribe via ``provider``; on network failure, retry once locally."""
+    """Transcribe via ``provider`` with retries; raises on exhausted retries."""
     return with_local_fallback(
         kind="STT",
         provider_name=provider.name,
         is_local=provider.is_local,
         remote_call=lambda: provider.transcribe(audio_path, language=source_lang),
-        local_call=lambda: LocalWhisperSTT().transcribe(
-            audio_path, language=source_lang
-        ),
     )
 
 
@@ -112,33 +107,39 @@ def get_stt_provider(
     name = (provider_name or STT_PROVIDER or "").lower()
 
     if name == "local":
-        return LocalWhisperSTT()
+        raise ValueError(
+            "Local CPU Whisper has been removed. Use a GPU provider "
+            "(vastai, whisper/runpod, local-gpu) or auto mode."
+        )
     if name == "local-gpu":
         return LocalGPUWhisperSTT(WHISPER_GPU_HOST, WHISPER_GPU_PORT)
     if name == "whisper":
         if RUNPOD_API_KEY and RUNPOD_WHISPER_ENDPOINT:
             return WhisperSTT(RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT)
-        logger.warning("RunPod Whisper requested but not configured — using local")
-        return LocalWhisperSTT()
+        raise ValueError(
+            "RunPod Whisper requested but AUDIOBOOKS_RUNPOD_API_KEY / "
+            "AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT not configured"
+        )
     if name == "vastai":
         if VASTAI_WHISPER_HOST:
             return VastaiWhisperSTT(VASTAI_WHISPER_HOST, VASTAI_WHISPER_PORT)
-        logger.warning("Vast.ai Whisper requested but not configured — using local")
-        return LocalWhisperSTT()
+        raise ValueError(
+            "Vast.ai Whisper requested but AUDIOBOOKS_VASTAI_WHISPER_HOST "
+            "not configured"
+        )
     if name == "deepl":
         from .stt.deepl_stt import DeepLSTT
 
         return DeepLSTT(DEEPL_API_KEY)
 
-    # Auto mode: workload-aware ordering.
+    # Auto mode: workload-aware ordering — GPU only.
     remote = _remote_stt_candidates()
+    if not remote:
+        raise RuntimeError(
+            "No STT provider configured. Set AUDIOBOOKS_VASTAI_WHISPER_HOST, "
+            "AUDIOBOOKS_RUNPOD_API_KEY+ENDPOINT, or AUDIOBOOKS_WHISPER_GPU_HOST."
+        )
 
-    if workload is WorkloadHint.SHORT_CLIP or not remote:
-        if not remote:
-            logger.info("No remote STT configured — using local Whisper")
-        return LocalWhisperSTT()
-
-    # LONG_FORM or ANY with remote available → prefer the first remote.
     chosen = remote[0]
     logger.info("Auto STT: selected %s (workload=%s)", chosen.name, workload.value)
     return chosen

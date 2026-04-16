@@ -1,4 +1,4 @@
-"""Verify pipeline.generate_subtitles falls back to local Whisper on network errors."""
+"""Verify STT network errors raise after retries — no local CPU fallback."""
 
 from pathlib import Path
 from unittest.mock import patch
@@ -8,11 +8,10 @@ import requests
 
 from library.localization.pipeline import _transcribe_with_fallback
 from library.localization.stt.base import Transcript, WordTimestamp
-from library.localization.stt.local_whisper import LocalWhisperSTT
 from library.localization.stt.vastai_whisper import VastaiWhisperSTT
 
 
-def _fake_transcript(provider_name: str = "local-whisper-base") -> Transcript:
+def _fake_transcript(provider_name: str = "vastai-whisper") -> Transcript:
     return Transcript(
         words=[WordTimestamp(word="hello", start_ms=0, end_ms=500)],
         language="en",
@@ -21,7 +20,81 @@ def _fake_transcript(provider_name: str = "local-whisper-base") -> Transcript:
     )
 
 
-def test_fallback_on_connection_error_uses_local_whisper(tmp_path: Path):
+def test_connection_error_raises_after_retries(tmp_path: Path):
+    audio = tmp_path / "ch01.opus"
+    audio.write_bytes(b"\x00")
+
+    remote = VastaiWhisperSTT(host="10.0.0.1")
+    with patch.object(
+        VastaiWhisperSTT,
+        "transcribe",
+        side_effect=requests.exceptions.ConnectionError("refused"),
+    ):
+        with pytest.raises(requests.exceptions.ConnectionError, match="refused"):
+            _transcribe_with_fallback(remote, audio, "en")
+
+
+def test_timeout_raises_after_retries(tmp_path: Path):
+    audio = tmp_path / "ch01.opus"
+    audio.write_bytes(b"\x00")
+
+    remote = VastaiWhisperSTT(host="10.0.0.1")
+    with patch.object(
+        VastaiWhisperSTT,
+        "transcribe",
+        side_effect=requests.exceptions.Timeout("slow"),
+    ):
+        with pytest.raises(requests.exceptions.Timeout, match="slow"):
+            _transcribe_with_fallback(remote, audio, "en")
+
+
+def test_oserror_raises_after_retries(tmp_path: Path):
+    audio = tmp_path / "ch01.opus"
+    audio.write_bytes(b"\x00")
+
+    remote = VastaiWhisperSTT(host="10.0.0.1")
+    with patch.object(
+        VastaiWhisperSTT,
+        "transcribe",
+        side_effect=OSError("network unreachable"),
+    ):
+        with pytest.raises(OSError, match="network unreachable"):
+            _transcribe_with_fallback(remote, audio, "en")
+
+
+def test_remote_success_returns_transcript(tmp_path: Path):
+    audio = tmp_path / "ch01.opus"
+    audio.write_bytes(b"\x00")
+
+    remote = VastaiWhisperSTT(host="10.0.0.1")
+    with patch.object(
+        VastaiWhisperSTT,
+        "transcribe",
+        return_value=_fake_transcript("vastai-whisper"),
+    ) as remote_mock:
+        result = _transcribe_with_fallback(remote, audio, "en")
+
+    assert result.provider == "vastai-whisper"
+    remote_mock.assert_called_once()
+
+
+def test_non_network_error_propagates_immediately(tmp_path: Path):
+    """ValueError, KeyError, etc. propagate without retries."""
+    audio = tmp_path / "ch01.opus"
+    audio.write_bytes(b"\x00")
+
+    remote = VastaiWhisperSTT(host="10.0.0.1")
+    with patch.object(
+        VastaiWhisperSTT,
+        "transcribe",
+        side_effect=ValueError("bad audio format"),
+    ):
+        with pytest.raises(ValueError, match="bad audio format"):
+            _transcribe_with_fallback(remote, audio, "en")
+
+
+def test_retries_before_raising(tmp_path: Path):
+    """Verify all 4 retry attempts are made before raising."""
     audio = tmp_path / "ch01.opus"
     audio.write_bytes(b"\x00")
 
@@ -31,96 +104,10 @@ def test_fallback_on_connection_error_uses_local_whisper(tmp_path: Path):
             VastaiWhisperSTT,
             "transcribe",
             side_effect=requests.exceptions.ConnectionError("refused"),
-        ),
-        patch.object(
-            LocalWhisperSTT, "transcribe", return_value=_fake_transcript()
-        ) as local_mock,
-    ):
-        result = _transcribe_with_fallback(remote, audio, "en")
-
-    assert result.provider == "local-whisper-base"
-    local_mock.assert_called_once_with(audio, language="en")
-
-
-def test_fallback_on_timeout_uses_local_whisper(tmp_path: Path):
-    audio = tmp_path / "ch01.opus"
-    audio.write_bytes(b"\x00")
-
-    remote = VastaiWhisperSTT(host="10.0.0.1")
-    with (
-        patch.object(
-            VastaiWhisperSTT,
-            "transcribe",
-            side_effect=requests.exceptions.Timeout("slow"),
-        ),
-        patch.object(LocalWhisperSTT, "transcribe", return_value=_fake_transcript()),
-    ):
-        result = _transcribe_with_fallback(remote, audio, "en")
-
-    assert result.provider == "local-whisper-base"
-
-
-def test_fallback_on_oserror_uses_local_whisper(tmp_path: Path):
-    audio = tmp_path / "ch01.opus"
-    audio.write_bytes(b"\x00")
-
-    remote = VastaiWhisperSTT(host="10.0.0.1")
-    with (
-        patch.object(
-            VastaiWhisperSTT, "transcribe", side_effect=OSError("network unreachable")
-        ),
-        patch.object(LocalWhisperSTT, "transcribe", return_value=_fake_transcript()),
-    ):
-        result = _transcribe_with_fallback(remote, audio, "en")
-
-    assert result.provider == "local-whisper-base"
-
-
-def test_local_provider_failure_is_not_retried(tmp_path: Path):
-    """If LocalWhisperSTT itself fails, the error must propagate."""
-    audio = tmp_path / "ch01.opus"
-    audio.write_bytes(b"\x00")
-
-    local = LocalWhisperSTT()
-    with patch.object(
-        LocalWhisperSTT, "transcribe", side_effect=OSError("model file missing")
-    ):
-        with pytest.raises(OSError, match="model file missing"):
-            _transcribe_with_fallback(local, audio, "en")
-
-
-def test_remote_success_does_not_invoke_local(tmp_path: Path):
-    audio = tmp_path / "ch01.opus"
-    audio.write_bytes(b"\x00")
-
-    remote = VastaiWhisperSTT(host="10.0.0.1")
-    with (
-        patch.object(
-            VastaiWhisperSTT,
-            "transcribe",
-            return_value=_fake_transcript("vastai-whisper"),
         ) as remote_mock,
-        patch.object(LocalWhisperSTT, "transcribe") as local_mock,
+        patch("library.localization.fallback.time.sleep"),
     ):
-        result = _transcribe_with_fallback(remote, audio, "en")
-
-    assert result.provider == "vastai-whisper"
-    remote_mock.assert_called_once()
-    local_mock.assert_not_called()
-
-
-def test_non_network_error_is_not_caught(tmp_path: Path):
-    """ValueError, KeyError, etc. must propagate — only network errors fall back."""
-    audio = tmp_path / "ch01.opus"
-    audio.write_bytes(b"\x00")
-
-    remote = VastaiWhisperSTT(host="10.0.0.1")
-    with (
-        patch.object(
-            VastaiWhisperSTT, "transcribe", side_effect=ValueError("bad audio format")
-        ),
-        patch.object(LocalWhisperSTT, "transcribe") as local_mock,
-    ):
-        with pytest.raises(ValueError, match="bad audio format"):
+        with pytest.raises(requests.exceptions.ConnectionError):
             _transcribe_with_fallback(remote, audio, "en")
-    local_mock.assert_not_called()
+
+    assert remote_mock.call_count == 4
