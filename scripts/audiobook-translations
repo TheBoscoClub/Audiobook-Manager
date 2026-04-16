@@ -383,7 +383,19 @@ cmd_status_watch() {
         echo -e "${RED}Invalid interval: $interval${NC}" >&2
         exit 1
     fi
-    trap 'printf "\n"; exit 0' INT
+    # Hold the controlling tty in non-canonical (cbreak) mode for the life of
+    # the loop so +/-/a/r/q are delivered to read() immediately. Bash's
+    # `read -n1` only flips the tty while blocked in read(); keys typed during
+    # the cmd_status render window sit in the line-discipline buffer and are
+    # dropped. Holding cbreak across the whole loop fixes that.
+    local _stty_saved=""
+    if [[ -t 0 ]]; then
+        _stty_saved=$(stty -g 2>/dev/null || true)
+    fi
+    _restore_tty() { [[ -n "$_stty_saved" ]] && stty "$_stty_saved" 2>/dev/null || true; }
+    trap '_restore_tty; printf "\n"; exit 0' INT
+    trap '_restore_tty' EXIT
+    [[ -n "$_stty_saved" ]] && stty -icanon -echo min 0 time 0 2>/dev/null || true
     while true; do
         tick=$((tick + 1))
         now_ts=$(date +%s)
@@ -394,10 +406,10 @@ cmd_status_watch() {
         fi
         last_ts=$now_ts
         if [[ "$aggressive" == "1" ]]; then
-            sudo systemctl start audiobook-translate-check.service 2>/dev/null || true
+            sudo systemctl start audiobook-translate-check.service </dev/null 2>/dev/null || true
         elif [[ "$ensure_running" == "1" ]]; then
             if ! systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
-                sudo systemctl start audiobook-translate-check.service 2>/dev/null || true
+                sudo systemctl start audiobook-translate-check.service </dev/null 2>/dev/null || true
             fi
         fi
         local mode_label
