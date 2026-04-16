@@ -91,7 +91,7 @@ def next_pending_job(db_path: str, book_id: int | None = None) -> dict | None:
     """
     conn = get_db(db_path)
     try:
-        now = time.strftime("%Y-%m-%d %H:%M:%S")
+        now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         if book_id:
             row = conn.execute(
                 "UPDATE translation_queue "
@@ -121,7 +121,7 @@ def next_pending_job(db_path: str, book_id: int | None = None) -> dict | None:
 def finish_job(db_path: str, job_id: int, state: str, error: str | None = None) -> None:
     conn = get_db(db_path)
     try:
-        now = time.strftime("%Y-%m-%d %H:%M:%S")
+        now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         conn.execute(
             "UPDATE translation_queue "
             "SET state = ?, error = ?, finished_at = ?, last_progress_at = ? "
