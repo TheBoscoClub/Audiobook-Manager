@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.0.1] - 2026-04-16
+
+### Fixed
+
+- **Asset cache-busting timestamps updated**: stale `?v=` timestamps on CSS/JS/iframe references in `shell.html` and `index.html` caused Chromium's disk cache to serve old flex-layout stylesheets after the v8.3.0 deploy, resulting in a blank library grid that didn't resize on desktop browsers. Updated all cache-buster timestamps to force fresh asset loads
+- **CodeQL security fixes in streaming translation API**: added input validation to all 6 route handlers in `streaming_translate.py` — `_sanitize_locale()` rejects path traversal and log injection via strict regex (`^[a-zA-Z]{2}(?:-[a-zA-Z0-9]{1,8})?$`), and `audiobook_id`/`chapter_index`/`segment_index` are coerced to `int` at route boundaries. Resolves 6 `py/log-injection` and 2 `py/path-injection` CodeQL alerts
+
 ## [8.3.0] - 2026-04-16
 
 ### Added
@@ -3092,7 +3099,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.0...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.0.1...HEAD
+[8.3.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.0...v8.3.0.1
 [8.3.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.6...v8.3.0
 [8.2.3.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.5...v8.2.3.6
 [8.2.3.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.4...v8.2.3.5

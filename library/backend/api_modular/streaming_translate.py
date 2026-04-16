@@ -32,6 +32,21 @@ _library_path: Path | None = None
 SEGMENT_DURATION_SEC = 30
 BUFFER_THRESHOLD = 6  # 3 minutes = 6 segments
 
+# Allowed locale patterns for path/log safety
+_SAFE_LOCALE_RE = None
+
+
+def _sanitize_locale(locale: str) -> str:
+    """Validate locale string — reject path traversal and log injection."""
+    import re
+
+    global _SAFE_LOCALE_RE
+    if _SAFE_LOCALE_RE is None:
+        _SAFE_LOCALE_RE = re.compile(r"^[a-zA-Z]{2}(?:-[a-zA-Z0-9]{1,8})?$")
+    if not isinstance(locale, str) or not _SAFE_LOCALE_RE.match(locale):
+        raise ValueError(f"invalid locale: {locale!r}")
+    return locale
+
 
 def _get_db():
     """Get database connection for this request."""
@@ -261,6 +276,13 @@ def request_streaming_translation():
     if not audiobook_id:
         return jsonify({"error": "audiobook_id required"}), 400
 
+    try:
+        audiobook_id = int(audiobook_id)
+        chapter_index = int(chapter_index)
+        locale = _sanitize_locale(locale)
+    except (ValueError, TypeError):
+        return jsonify({"error": "invalid parameters"}), 400
+
     db = _get_db()
 
     # Check if the active chapter already has subtitles + audio
@@ -353,6 +375,11 @@ def get_segment_bitmap(audiobook_id, chapter_index, locale):
     Used by the player to determine which segments are cached
     (instant seek) vs uncached (need buffering state).
     """
+    try:
+        locale = _sanitize_locale(locale)
+    except (ValueError, TypeError):
+        return jsonify({"error": "invalid locale"}), 400
+
     db = _get_db()
     bitmap = _get_segment_bitmap(db, audiobook_id, chapter_index, locale)
     return jsonify(bitmap)
@@ -362,6 +389,11 @@ def get_segment_bitmap(audiobook_id, chapter_index, locale):
 @guest_allowed
 def get_session_state(audiobook_id, locale):
     """Get current streaming session state."""
+    try:
+        locale = _sanitize_locale(locale)
+    except (ValueError, TypeError):
+        return jsonify({"error": "invalid locale"}), 400
+
     db = _get_db()
     session = db.execute(
         "SELECT * FROM streaming_sessions "
@@ -431,6 +463,14 @@ def handle_seek():
 
     if not audiobook_id:
         return jsonify({"error": "audiobook_id required"}), 400
+
+    try:
+        audiobook_id = int(audiobook_id)
+        chapter_index = int(chapter_index)
+        segment_index = int(segment_index)
+        locale = _sanitize_locale(locale)
+    except (ValueError, TypeError):
+        return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
 
@@ -514,6 +554,14 @@ def segment_complete():
     ):
         return jsonify({"error": "missing fields"}), 400
 
+    try:
+        audiobook_id = int(audiobook_id)
+        chapter_index = int(chapter_index)
+        segment_index = int(segment_index)
+        locale = _sanitize_locale(locale)
+    except (ValueError, TypeError):
+        return jsonify({"error": "invalid parameters"}), 400
+
     db = _get_db()
     db.execute(
         "UPDATE streaming_segments SET state = 'completed', "
@@ -578,6 +626,13 @@ def chapter_complete():
 
     if not all([audiobook_id, chapter_index is not None, locale]):
         return jsonify({"error": "missing fields"}), 400
+
+    try:
+        audiobook_id = int(audiobook_id)
+        chapter_index = int(chapter_index)
+        locale = _sanitize_locale(locale)
+    except (ValueError, TypeError):
+        return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
 
