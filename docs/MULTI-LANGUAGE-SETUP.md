@@ -63,7 +63,12 @@ The architecture supports any BCP 47 locale code. Adding a new language requires
 
 ## Architecture Overview
 
-The localization system is a three-stage pipeline that converts English audiobook content into translated text and narrated audio:
+The localization system is a three-stage pipeline that converts English audiobook content into translated text and narrated audio. Two modes of operation are available:
+
+- **Batch translation** (described below): processes entire chapters in the background via a queue and timer. Ideal for pre-translating the library during off-hours.
+- **Streaming translation** (v8.3.0+): on-demand, real-time translation triggered by playback. When a user presses play on an untranslated book, the system buffers 3 minutes of translated audio, then begins playback while the GPU stays ahead. For the complete streaming architecture, playback flow, state machine, and operational guide, see [STREAMING-TRANSLATION.md](STREAMING-TRANSLATION.md).
+
+Both pipelines share the same permanent cache (`chapter_subtitles` table). A chapter translated by either pipeline serves instantly on future plays.
 
 ```text
 Source Audio (English)

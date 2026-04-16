@@ -827,6 +827,32 @@ Archive contains `manifest.json`, `vtt/*.vtt`, `audio/*.opus`. Import matches bo
 | `string_translations` | DeepL cache: SHA-256 hash → translated string |
 | `translation_queue` | Job queue: audiobook_id, locale, state, step, priority |
 | `deepl_quota` | Monthly character usage tracking |
+| `streaming_sessions` | Active streaming session tracking, GPU warm-up signal |
+| `streaming_segments` | Per-segment state (pending/processing/completed/failed), priority, inline VTT |
+
+### Streaming Translation Pipeline (v8.3.0+)
+
+The streaming pipeline provides on-demand, real-time translation triggered by
+playback. When a user presses play on an untranslated book, the coordinator
+dispatches chapter-level work to GPU workers, buffers 3 minutes of translated
+audio (6 x 30-second segments), then begins playback. Pre-translated books
+(from the batch pipeline above) serve instantly from the shared permanent cache.
+
+Both pipelines write to the same `chapter_subtitles` and
+`chapter_translations_audio` tables. Once a chapter is translated by either
+pipeline, future plays are free — the system self-heals as listening patterns
+fill the cache.
+
+| Component | Path | Purpose |
+|-----------|------|---------|
+| Coordinator API | `library/backend/api_modular/streaming_translate.py` | 7 endpoints: stream, seek, warmup, segment bitmap, session state, worker callbacks |
+| Frontend state machine | `library/web-v2/js/streaming-translate.js` | IDLE → BUFFERING → STREAMING transitions, overlay UI, WebSocket event handling |
+| GPU segment worker | `scripts/stream-translate-worker.py` | Polls `streaming_segments`, splits audio, runs STT + translation, reports completion |
+| Buffering overlay | `library/web-v2/shell.html` + `css/shell.css` | Gold-themed progress bar with segment count |
+| Notification audio | `library/web-v2/audio/translation-buffering-*.mp3` | Localized edge-tts clips played during buffering |
+
+For the complete architecture, playback flow, state machine diagrams, and
+operational guide, see [STREAMING-TRANSLATION.md](STREAMING-TRANSLATION.md).
 
 ### CJK Search & Sort (`library/backend/api_modular/search_cjk.py`)
 
