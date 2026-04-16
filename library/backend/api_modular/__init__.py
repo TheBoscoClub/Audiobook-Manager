@@ -57,6 +57,7 @@ from .i18n_routes import (
 from .translations import translations_bp, init_translations_routes
 from .subtitles import subtitles_bp, init_subtitles_routes
 from .translated_audio import translated_audio_bp, init_translated_audio_routes
+from .streaming_translate import streaming_bp, init_streaming_routes
 from .user_state import init_user_state_routes, user_bp
 from .preferences import preferences_bp
 from .utilities import init_utilities_routes, utilities_bp
@@ -191,6 +192,9 @@ def _register_extension_blueprints(flask_app, database_path, project_root=None):
 
     init_translated_audio_routes(database_path, project_root)
     flask_app.register_blueprint(translated_audio_bp)
+
+    init_streaming_routes(database_path, project_root)
+    flask_app.register_blueprint(streaming_bp)
 
     try:
         from localization.queue import init_queue

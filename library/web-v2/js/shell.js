@@ -42,6 +42,9 @@ class ShellPlayer {
     document.getElementById("sp-rewind").addEventListener("click", () => {
       this.audio.currentTime = Math.max(0, this.audio.currentTime - 30);
       this.saveAfterSeek();
+      if (typeof window.streamingTranslate !== "undefined" && window.streamingTranslate.isStreaming()) {
+        window.streamingTranslate.handleSeek(this.audio.currentTime);
+      }
     });
     document.getElementById("sp-forward").addEventListener("click", () => {
       this.audio.currentTime = Math.min(
@@ -49,6 +52,9 @@ class ShellPlayer {
         this.audio.currentTime + 30,
       );
       this.saveAfterSeek();
+      if (typeof window.streamingTranslate !== "undefined" && window.streamingTranslate.isStreaming()) {
+        window.streamingTranslate.handleSeek(this.audio.currentTime);
+      }
     });
     const speedBtn = document.getElementById("sp-speed");
     speedBtn.addEventListener("click", (e) =>
@@ -89,6 +95,9 @@ class ShellPlayer {
       }
       this._isScrubbing = false;
       this.saveAfterSeek();
+      if (typeof window.streamingTranslate !== "undefined" && !window.streamingTranslate.isIdle()) {
+        window.streamingTranslate.handleSeek(this.audio.currentTime);
+      }
     });
     progressBar.addEventListener("mouseup", () => {
       this._isScrubbing = false;
@@ -375,6 +384,11 @@ class ShellPlayer {
     }
 
     // Subtitles appear as they become available — no playback blocking
+
+    // Check if streaming translation is needed for non-English locales
+    if (locale !== "en" && typeof window.streamingTranslate !== "undefined") {
+      window.streamingTranslate.check(bookId, locale);
+    }
   }
 
   togglePlayPause() {

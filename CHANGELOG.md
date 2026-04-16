@@ -13,6 +13,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.0] - 2026-04-16
+
+### Added
+
+- **Streaming translation pipeline**: on-demand, real-time translation triggered by playback — when a user presses play on an untranslated audiobook, the system dispatches chapter-level work to GPU workers (Vast.ai/RunPod), buffers 3 minutes of translated audio, then begins playback. Pre-translated books (batch pipeline) serve instantly from cache
+  - New state machine: IDLE → BUFFERING (overlay + audio notification) → STREAMING (playing with pipeline ahead)
+  - WebSocket push events: `segment_ready`, `chapter_ready`, `buffer_progress` for real-time player updates
+  - Segment bitmap tracking — player knows instantly which 30-second segments are cached for seamless seek vs re-buffer decisions
+  - Seek/skip handling: ±30s within buffer = seamless; beyond buffer = re-enter buffering with overlay + notification
+  - GPU warm-up on app open for non-English locales to reduce cold-start latency
+  - Consolidation: streaming segments merge into permanent `chapter_subtitles` entries so future plays are free
+- **Streaming coordinator API** (`library/backend/api_modular/streaming_translate.py`): `POST /api/translate/stream`, `GET /api/translate/segments/<id>/<ch>/<locale>`, `GET /api/translate/session/<id>/<locale>`, `POST /api/translate/warmup`, `POST /api/translate/seek`, `POST /api/translate/segment-complete`, `POST /api/translate/chapter-complete`
+- **Streaming worker script** (`scripts/stream-translate-worker.py`): chapter-level GPU worker that polls `streaming_segments` for pending work, splits chapter audio into 30-second segments, processes each through STT → Translation → VTT, and reports completion via HTTP callbacks
+- **Buffering overlay UI**: visual progress bar with spinner, animated slide-up above the player bar, gold-themed to match the existing design — shows segment count progress (e.g., "3 / 6")
+- **Localized buffering notification audio**: pre-generated edge-tts audio clips played during buffering state — `zh-Hans` (XiaoxiaoNeural) and `en` (AriaNeural) fallback
+- **Database migration 004**: `streaming_segments` table (per-segment state tracking with priority, worker assignment, inline VTT content) and `streaming_sessions` table (active session tracking with GPU warm-up signal)
+
 ## [8.2.3.6] - 2026-04-15
 
 ### Fixed
@@ -3075,7 +3092,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.6...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.0...HEAD
+[8.3.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.6...v8.3.0
 [8.2.3.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.5...v8.2.3.6
 [8.2.3.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.4...v8.2.3.5
 [8.2.3.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.3...v8.2.3.4

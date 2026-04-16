@@ -115,6 +115,12 @@
           dispatch("audit-notify", msg);
         } else if (msg.type === "suggestion_new") {
           dispatch("suggestion-new", msg);
+        } else if (msg.type === "segment_ready") {
+          dispatch("segment-ready", msg);
+        } else if (msg.type === "chapter_ready") {
+          dispatch("chapter-ready", msg);
+        } else if (msg.type === "buffer_progress") {
+          dispatch("buffer-progress", msg);
         }
       } catch (e) {
         // ignore malformed messages

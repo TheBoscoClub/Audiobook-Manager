@@ -201,6 +201,20 @@
         </div>
     </div>
 
+    <!-- Streaming translation buffering overlay -->
+    <div id="streaming-overlay" class="streaming-overlay" style="display:none;">
+        <div class="streaming-overlay-content">
+            <div class="streaming-spinner" aria-hidden="true"></div>
+            <div class="streaming-message" id="streaming-message" data-i18n="streaming.preparing">Preparing translation...</div>
+            <div class="streaming-progress-wrap">
+                <div class="streaming-progress-bar">
+                    <div class="streaming-progress-fill" id="streaming-progress-fill" style="width:0%"></div>
+                </div>
+                <div class="streaming-progress-text" id="streaming-progress-text">0 / 6</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Persistent player bar (hidden until a book is played) -->
     <div id="shell-player" hidden>
         <div class="player-cover-wrap">
@@ -412,6 +426,7 @@
     <script data-cfasync="false" src="js/session-persistence.js?v=1776053483"></script>
     <script data-cfasync="false" src="js/shell.js?v=1776053483"></script>
     <script data-cfasync="false" src="js/subtitles.js?v=1776053483"></script>
+    <script data-cfasync="false" src="js/streaming-translate.js?v=1776053483"></script>
     <script data-cfasync="false" src="js/account.js?v=1776053483"></script>
     <script data-cfasync="false" src="js/accessibility.js?v=1776053483"></script>
     <!-- suggestions-admin.js moved to utilities.html (Back Office) -->

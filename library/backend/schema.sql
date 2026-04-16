@@ -463,3 +463,52 @@ CREATE TABLE IF NOT EXISTS chapter_translations_audio (
 
 CREATE INDEX IF NOT EXISTS idx_chapter_audio_book ON chapter_translations_audio(audiobook_id);
 CREATE INDEX IF NOT EXISTS idx_chapter_audio_locale ON chapter_translations_audio(audiobook_id, locale);
+
+-- ================================================================
+-- Streaming translation segments (on-demand translation pipeline)
+-- ================================================================
+
+-- Tracks per-segment translation state for the streaming pipeline.
+-- A "segment" is a 30-second slice of a chapter. The active chapter
+-- streams segments back incrementally; prefetch chapters are processed
+-- whole but tracked here for the segment bitmap.
+CREATE TABLE IF NOT EXISTS streaming_segments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audiobook_id INTEGER NOT NULL,
+    chapter_index INTEGER NOT NULL,
+    segment_index INTEGER NOT NULL,
+    locale TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'pending',   -- pending, processing, completed, failed
+    priority INTEGER NOT NULL DEFAULT 2,     -- 0=active chapter, 1=next, 2=prefetch
+    worker_id TEXT,                          -- GPU worker identifier
+    vtt_content TEXT,                        -- Inline VTT cues for this segment
+    audio_path TEXT,                         -- Path to TTS audio for this segment
+    error TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    UNIQUE(audiobook_id, chapter_index, segment_index, locale),
+    FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_streaming_seg_book ON streaming_segments(audiobook_id, locale);
+CREATE INDEX IF NOT EXISTS idx_streaming_seg_state ON streaming_segments(state, priority);
+CREATE INDEX IF NOT EXISTS idx_streaming_seg_chapter ON streaming_segments(audiobook_id, chapter_index, locale);
+
+-- Streaming translation sessions — tracks an active streaming request
+-- from a player instance. Links a playback event to its segment work.
+CREATE TABLE IF NOT EXISTS streaming_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audiobook_id INTEGER NOT NULL,
+    locale TEXT NOT NULL,
+    active_chapter INTEGER NOT NULL DEFAULT 0,
+    buffer_threshold INTEGER NOT NULL DEFAULT 6,  -- segments before playback starts
+    state TEXT NOT NULL DEFAULT 'buffering',       -- buffering, streaming, completed, cancelled
+    gpu_warm INTEGER NOT NULL DEFAULT 0,           -- 1 if GPU is warmed up
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_streaming_sess_book ON streaming_sessions(audiobook_id, locale);
+CREATE INDEX IF NOT EXISTS idx_streaming_sess_state ON streaming_sessions(state);
