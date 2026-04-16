@@ -13,6 +13,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.2.3.6] - 2026-04-15
+
+### Fixed
+
+- **`localization/fallback.py` now retries the remote provider before falling
+  back to local**: a single transient `requests.exceptions.RequestException` /
+  `OSError` / `TimeoutError` from a RunPod HTTPS proxy used to trigger an
+  immediate permanent CPU fallback, dropping that worker's throughput to
+  ~1/40th of GPU for the rest of the chapter. `with_local_fallback()` now
+  retries up to `REMOTE_MAX_ATTEMPTS=4` times with `(2s, 5s, 15s)` exponential
+  backoff and only falls back to local after all retries fail. Local-provider
+  failures are still not retried — real errors propagate. Observed impact:
+  prevents silent throughput collapse across the 6×L40S fleet during RunPod
+  proxy hiccups, which were the primary cause of the 2026-04-14 stalled
+  backlog. Covered by `library/tests/test_stt_runtime_fallback.py`
+- **`scripts/audiobook-translations` `+` / `-` key handling in the queue
+  manager TUI**: tty was not in cbreak mode, so single-key concurrency
+  adjustments required pressing Enter. Now reads one char at a time
+
 ## [8.2.3.5] - 2026-04-15
 
 ### Added
@@ -3056,7 +3075,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.5...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.6...HEAD
+[8.2.3.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.5...v8.2.3.6
 [8.2.3.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.4...v8.2.3.5
 [8.2.3.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.3...v8.2.3.4
 [8.2.3.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.2...v8.2.3.3
