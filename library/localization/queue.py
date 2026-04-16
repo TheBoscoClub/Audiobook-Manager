@@ -282,7 +282,7 @@ def _next_job() -> dict | None:
         if not row:
             return None
         job = dict(row)
-        now = time.strftime("%Y-%m-%d %H:%M:%S")
+        now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         conn.execute(
             "UPDATE translation_queue "
             "SET state = 'processing', started_at = ?, last_progress_at = ? "
@@ -660,7 +660,7 @@ def _finish_job(job_id: int, state: str, error: str | None = None) -> None:
     global _current_status
     conn = _get_db()
     try:
-        now = time.strftime("%Y-%m-%d %H:%M:%S")
+        now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         conn.execute(
             "UPDATE translation_queue "
             "SET state = ?, error = ?, finished_at = ?, last_progress_at = ? "
