@@ -55,10 +55,10 @@ fi
 _dm001_candidate_count=0
 if [[ -n "$USE_SUDO" ]]; then
     _dm001_candidate_count=$(sudo -u audiobooks sqlite3 "$DB_PATH" \
-        "SELECT COUNT(*) FROM audiobooks WHERE content_type = 'Product';" 2>/dev/null || echo "0")
+        "SELECT COUNT(*) FROM audiobooks WHERE content_type = 'Product';" 2> /dev/null || echo "0")
 else
     _dm001_candidate_count=$(sqlite3 "$DB_PATH" \
-        "SELECT COUNT(*) FROM audiobooks WHERE content_type = 'Product';" 2>/dev/null || echo "0")
+        "SELECT COUNT(*) FROM audiobooks WHERE content_type = 'Product';" 2> /dev/null || echo "0")
 fi
 
 if [[ "$_dm001_candidate_count" == "0" ]]; then

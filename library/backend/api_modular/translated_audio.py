@@ -328,8 +328,8 @@ def generate_translated_audio():
                 )
                 if result.returncode == 0 and result.stdout.strip():
                     duration = float(result.stdout.strip())
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("ffprobe duration probe failed (non-fatal): %s", e)
 
             # Save to database
             gen_conn = sqlite3.connect(db_path)
@@ -643,8 +643,8 @@ def user_request_translated_audio():
                 )
                 if result.returncode == 0 and result.stdout.strip():
                     duration = float(result.stdout.strip())
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("ffprobe duration probe failed (non-fatal): %s", e)
 
             _set_status(int(book_id), locale, phase="saving", message="Saving translated audio…")
             gen_conn = sqlite3.connect(db_path)

@@ -44,7 +44,7 @@ check_requirements() {
     local missing=()
 
     for cmd in curl tar; do
-        if ! command -v "$cmd" &>/dev/null; then
+        if ! command -v "$cmd" &> /dev/null; then
             missing+=("$cmd")
         fi
     done
@@ -66,7 +66,7 @@ get_latest_version() {
     }
 
     # Try jq first, fall back to grep/sed
-    if command -v jq &>/dev/null; then
+    if command -v jq &> /dev/null; then
         echo "$response" | jq -r '.tag_name // empty' | sed 's/^v//'
     else
         echo "$response" | grep '"tag_name"' | head -1 | sed 's/.*"v\?\([^"]*\)".*/\1/'
@@ -101,7 +101,7 @@ main() {
                 shift 2
                 ;;
             --help | -h)
-                cat <<EOF
+                cat << EOF
 Bootstrap installer for Audiobook-Manager
 
 Usage:

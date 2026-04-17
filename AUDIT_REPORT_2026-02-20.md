@@ -2,6 +2,11 @@
 
 **Date**: 2026-02-20 | **Status**: ISSUES | **Phase**: 3 (Report)
 
+> **HISTORICAL ARCHIVE** — This audit report reflects project state as of 2026-02-20.
+> Deployment commands referenced below (`deploy.sh`, `deploy-vm.sh`) were consolidated
+> into `upgrade.sh --remote` in v6.6.3. For current deployment workflows, see
+> `upgrade.sh --help` or `docs/ARCHITECTURE.md`.
+
 ---
 
 ## Executive Summary

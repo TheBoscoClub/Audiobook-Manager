@@ -40,9 +40,12 @@ def normalize_source_filename(title):
     return title.lower().strip()
 
 
-def find_source_file(book_title, book_path):
-    """Find the source AAXC file for a given book"""
-    # Try direct match first
+def find_source_file(_book_title, book_path):
+    """Find the source AAXC file for a given book.
+
+    book_title is retained for API compatibility with call sites but unused —
+    matching is done against the file basename and fuzzy source filename.
+    """
     book_basename = Path(book_path).stem
 
     # Look for AAXC files

@@ -8,7 +8,7 @@
 
 # shellcheck disable=SC2154  # CONF_FILE, USE_SUDO, DRY_RUN set by caller
 
-if grep -q '^AUDIOBOOKS_RUN_DIR=' "$CONF_FILE" 2>/dev/null; then
+if grep -q '^AUDIOBOOKS_RUN_DIR=' "$CONF_FILE" 2> /dev/null; then
     return 0
 fi
 
@@ -20,10 +20,10 @@ if [[ "$DRY_RUN" == "true" ]]; then
 fi
 
 # Derive default from existing VAR_DIR if set, otherwise use standard path
-var_dir=$(grep -oP '^AUDIOBOOKS_VAR_DIR=\K.*' "$CONF_FILE" 2>/dev/null | tr -d '"' || true)
+var_dir=$(grep -oP '^AUDIOBOOKS_VAR_DIR=\K.*' "$CONF_FILE" 2> /dev/null | tr -d '"' || true)
 if [[ -z "$var_dir" ]]; then
     # Check for the older pattern without AUDIOBOOKS_ prefix
-    var_dir=$(grep -oP '^VAR_DIR=\K.*' "$CONF_FILE" 2>/dev/null | tr -d '"' || true)
+    var_dir=$(grep -oP '^VAR_DIR=\K.*' "$CONF_FILE" 2> /dev/null | tr -d '"' || true)
 fi
 run_dir="${var_dir:=/var/lib/audiobooks}/.run"
 
@@ -33,13 +33,13 @@ local_text="
 AUDIOBOOKS_RUN_DIR=\"${run_dir}\""
 
 if [[ -n "$USE_SUDO" ]]; then
-    echo "$local_text" | sudo tee -a "$CONF_FILE" >/dev/null
+    echo "$local_text" | sudo tee -a "$CONF_FILE" > /dev/null
     # Create the directory if it doesn't exist
     sudo mkdir -p "$run_dir"
-    sudo chown audiobooks:audiobooks "$run_dir" 2>/dev/null || true
+    sudo chown audiobooks:audiobooks "$run_dir" 2> /dev/null || true
 else
-    echo "$local_text" >>"$CONF_FILE"
-    mkdir -p "$run_dir" 2>/dev/null || true
+    echo "$local_text" >> "$CONF_FILE"
+    mkdir -p "$run_dir" 2> /dev/null || true
 fi
 
 echo "  Added: AUDIOBOOKS_RUN_DIR=\"${run_dir}\""

@@ -1,5 +1,9 @@
 # Per-User State & Library Experience — Implementation Plan
 
+> **HISTORICAL ARCHIVE** — Plan document from 2026-02-20. Implementation is complete.
+> Deployment commands referenced below (`deploy-vm.sh`) were consolidated into
+> `upgrade.sh --remote` in v6.6.3. For current workflows see `upgrade.sh --help`.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Transform The Library from shared-state to multi-user with per-user positions, listening history, download tracking, My Library tab, admin audit, new books marquee, and About page.

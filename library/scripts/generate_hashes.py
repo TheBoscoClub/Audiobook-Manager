@@ -359,7 +359,7 @@ def show_stats(conn: sqlite3.Connection):
         print(f"{'=' * 60}")
 
         total_wasted = 0
-        for hash_val, count, ids, titles, total_size in duplicates:
+        for hash_val, count, ids, _titles, total_size in duplicates:
             wasted = total_size - (total_size / count)
             total_wasted += wasted
 
@@ -420,7 +420,7 @@ def verify_hashes(sample_size: int = 10):
     failed = 0
     missing = 0
 
-    for audiobook_id, file_path, stored_hash, title, file_size in samples:
+    for _audiobook_id, file_path, stored_hash, title, _file_size in samples:
         display_title = _truncate_title(title)
         print(f"Checking: {display_title}")
 

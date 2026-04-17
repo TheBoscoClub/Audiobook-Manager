@@ -59,7 +59,7 @@ print_header() {
 }
 
 show_help() {
-    cat <<'EOF'
+    cat << 'EOF'
 Audiobook Library - API Architecture Migration
 
 USAGE:
@@ -179,9 +179,9 @@ detect_installation() {
     # Check which architecture is active
     local api_script="$dir/bin/audiobook-api"
     if [[ -f "$api_script" ]]; then
-        if grep -q "api_server.py" "$api_script" 2>/dev/null; then
+        if grep -q "api_server.py" "$api_script" 2> /dev/null; then
             echo "modular"
-        elif grep -q "api.py" "$api_script" 2>/dev/null; then
+        elif grep -q "api.py" "$api_script" 2> /dev/null; then
             echo "monolithic"
         else
             echo "unknown"
@@ -213,7 +213,7 @@ show_status() {
                 for module in "$target/library/backend/api_modular"/*.py; do
                     if [[ -f "$module" ]]; then
                         local name=$(basename "$module")
-                        local lines=$(wc -l <"$module" 2>/dev/null || echo "?")
+                        local lines=$(wc -l < "$module" 2> /dev/null || echo "?")
                         echo "    - $name ($lines lines)"
                     fi
                 done
@@ -226,7 +226,7 @@ show_status() {
             echo "  Entry point: api.py"
             echo ""
             if [[ -f "$target/library/backend/api.py" ]]; then
-                local lines=$(wc -l <"$target/library/backend/api.py")
+                local lines=$(wc -l < "$target/library/backend/api.py")
                 echo "  File size: $lines lines"
             fi
             ;;
@@ -504,15 +504,15 @@ stop_services() {
 
     if $is_system; then
         # System-level services
-        sudo systemctl stop audiobooks.target 2>/dev/null || true
+        sudo systemctl stop audiobooks.target 2> /dev/null || true
         for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover; do
-            sudo systemctl stop "$svc" 2>/dev/null || true
+            sudo systemctl stop "$svc" 2> /dev/null || true
         done
     else
         # User-level services
-        systemctl --user stop audiobooks.target 2>/dev/null || true
+        systemctl --user stop audiobooks.target 2> /dev/null || true
         for svc in audiobook-api audiobook-proxy audiobook-redirect; do
-            systemctl --user stop "$svc" 2>/dev/null || true
+            systemctl --user stop "$svc" 2> /dev/null || true
         done
     fi
 
@@ -522,9 +522,9 @@ stop_services() {
     for svc in audiobook-api audiobook-proxy; do
         local svc_state
         if $is_system; then
-            svc_state=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
+            svc_state=$(systemctl is-active "$svc" 2> /dev/null || echo "inactive")
         else
-            svc_state=$(systemctl --user is-active "$svc" 2>/dev/null || echo "inactive")
+            svc_state=$(systemctl --user is-active "$svc" 2> /dev/null || echo "inactive")
         fi
         if [[ "$svc_state" == "active" ]]; then
             still_running=true
@@ -557,16 +557,16 @@ start_services() {
 
     if $is_system; then
         sudo systemctl daemon-reload
-        sudo systemctl start audiobooks.target 2>/dev/null || {
+        sudo systemctl start audiobooks.target 2> /dev/null || {
             for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover; do
-                sudo systemctl start "$svc" 2>/dev/null || true
+                sudo systemctl start "$svc" 2> /dev/null || true
             done
         }
     else
-        systemctl --user daemon-reload 2>/dev/null || true
-        systemctl --user start audiobooks.target 2>/dev/null || {
+        systemctl --user daemon-reload 2> /dev/null || true
+        systemctl --user start audiobooks.target 2> /dev/null || {
             for svc in audiobook-api audiobook-proxy; do
-                systemctl --user start "$svc" 2>/dev/null || true
+                systemctl --user start "$svc" 2> /dev/null || true
             done
         }
     fi
@@ -577,9 +577,9 @@ start_services() {
     for svc in audiobook-api audiobook-proxy; do
         local svc_state
         if $is_system; then
-            svc_state=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
+            svc_state=$(systemctl is-active "$svc" 2> /dev/null || echo "inactive")
         else
-            svc_state=$(systemctl --user is-active "$svc" 2>/dev/null || echo "inactive")
+            svc_state=$(systemctl --user is-active "$svc" 2> /dev/null || echo "inactive")
         fi
         if [[ "$svc_state" == "active" ]]; then
             echo -e "  $svc: ${GREEN}$svc_state${NC}"
@@ -609,7 +609,7 @@ verify_installation_permissions() {
     if [[ "$is_system" == "true" ]]; then
         echo -n "  Checking ownership (audiobooks:audiobooks)... "
         local wrong_owner
-        wrong_owner=$(find "$target_dir" \( ! -user audiobooks -o ! -group audiobooks \) 2>/dev/null | wc -l)
+        wrong_owner=$(find "$target_dir" \( ! -user audiobooks -o ! -group audiobooks \) 2> /dev/null | wc -l)
 
         if [[ "$wrong_owner" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $wrong_owner files/dirs${NC}"
@@ -622,7 +622,7 @@ verify_installation_permissions() {
 
     # Check directory permissions (should be 755)
     echo -n "  Checking directory permissions... "
-    local bad_dirs=$(find "$target_dir" -type d -perm 700 2>/dev/null | wc -l)
+    local bad_dirs=$(find "$target_dir" -type d -perm 700 2> /dev/null | wc -l)
     if [[ "$bad_dirs" -gt 0 ]]; then
         echo -e "${YELLOW}fixing $bad_dirs directories${NC}"
         if [[ "$is_system" == "true" ]]; then
@@ -637,7 +637,7 @@ verify_installation_permissions() {
 
     # Check file permissions (should be 644 for .py, .html, .css, .js)
     echo -n "  Checking file permissions... "
-    local bad_files=$(find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 -o -perm 711 \) 2>/dev/null | wc -l)
+    local bad_files=$(find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 -o -perm 711 \) 2> /dev/null | wc -l)
     if [[ "$bad_files" -gt 0 ]]; then
         echo -e "${YELLOW}fixing $bad_files files${NC}"
         if [[ "$is_system" == "true" ]]; then

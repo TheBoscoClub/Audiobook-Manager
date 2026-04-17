@@ -9,7 +9,7 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 # Get version from VERSION file
-APP_VERSION=$(cat /app/VERSION 2>/dev/null | tr -d '[:space:]' || echo "unknown")
+APP_VERSION=$(cat /app/VERSION 2> /dev/null | tr -d '[:space:]' || echo "unknown")
 
 echo -e "${CYAN}=========================================="
 echo "  Audiobook Library - Docker Container"
@@ -34,7 +34,7 @@ export AUDIOBOOKS_BIND_ADDRESS="${AUDIOBOOKS_BIND_ADDRESS:-0.0.0.0}"
 
 # Function to check if audiobooks are mounted
 check_audiobooks_mounted() {
-    if [ -d /audiobooks ] && [ "$(ls -A /audiobooks 2>/dev/null)" ]; then
+    if [ -d /audiobooks ] && [ "$(ls -A /audiobooks 2> /dev/null)" ]; then
         return 0
     fi
     return 1
@@ -42,7 +42,7 @@ check_audiobooks_mounted() {
 
 # Function to count audiobook files
 count_audiobooks() {
-    find /audiobooks -type f \( -name "*.opus" -o -name "*.m4b" -o -name "*.mp3" -o -name "*.m4a" -o -name "*.flac" \) 2>/dev/null | wc -l
+    find /audiobooks -type f \( -name "*.opus" -o -name "*.m4b" -o -name "*.mp3" -o -name "*.m4a" -o -name "*.flac" \) 2> /dev/null | wc -l
 }
 
 # Function to scan audiobooks
@@ -86,7 +86,7 @@ try:
     print(count)
 except:
     print(0)
-" 2>/dev/null || echo "0")
+" 2> /dev/null || echo "0")
     [ "$count" -gt 0 ]
 }
 
@@ -108,8 +108,8 @@ else
 fi
 
 # Check supplements
-if [ -d "$SUPPLEMENTS_DIR" ] && [ "$(ls -A "$SUPPLEMENTS_DIR" 2>/dev/null)" ]; then
-    SUPPLEMENT_COUNT=$(find "$SUPPLEMENTS_DIR" -type f \( -name "*.pdf" -o -name "*.epub" \) 2>/dev/null | wc -l)
+if [ -d "$SUPPLEMENTS_DIR" ] && [ "$(ls -A "$SUPPLEMENTS_DIR" 2> /dev/null)" ]; then
+    SUPPLEMENT_COUNT=$(find "$SUPPLEMENTS_DIR" -type f \( -name "*.pdf" -o -name "*.epub" \) 2> /dev/null | wc -l)
     echo -e "  Supplements: ${GREEN}$SUPPLEMENT_COUNT files found${NC}"
 else
     echo -e "  Supplements: ${YELLOW}None mounted (optional)${NC}"
@@ -136,7 +136,7 @@ cursor = conn.execute('SELECT COUNT(*) FROM audiobooks')
 count = cursor.fetchone()[0]
 conn.close()
 print(count)
-" 2>/dev/null || echo "0")
+" 2> /dev/null || echo "0")
     echo -e "  Database: ${GREEN}$DB_COUNT audiobooks indexed${NC}"
     NEEDS_INIT=false
 fi
@@ -168,7 +168,7 @@ cursor = conn.execute('SELECT COUNT(*) FROM audiobooks')
 count = cursor.fetchone()[0]
 conn.close()
 print(count)
-" 2>/dev/null || echo "0")
+" 2> /dev/null || echo "0")
             echo -e "  Indexed: ${GREEN}$DB_COUNT audiobooks${NC}"
         fi
     fi
@@ -190,16 +190,16 @@ conn = sqlite3.connect('$DATABASE_PATH')
 with open('/app/backend/schema.sql') as f:
     conn.executescript(f.read())
 conn.close()
-" 2>/dev/null
+" 2> /dev/null
     echo -e "  Database: ${GREEN}Initialized (empty)${NC}"
 fi
 
 # ============================================================================
 # Step 4: Scan supplements if available
 # ============================================================================
-if [ -d "$SUPPLEMENTS_DIR" ] && [ "$(ls -A "$SUPPLEMENTS_DIR" 2>/dev/null)" ]; then
+if [ -d "$SUPPLEMENTS_DIR" ] && [ "$(ls -A "$SUPPLEMENTS_DIR" 2> /dev/null)" ]; then
     echo -e "${CYAN}Scanning supplements...${NC}"
-    cd /app/scripts && python3 scan_supplements.py --supplements-dir "$SUPPLEMENTS_DIR" --quiet 2>/dev/null || true
+    cd /app/scripts && python3 scan_supplements.py --supplements-dir "$SUPPLEMENTS_DIR" --quiet 2> /dev/null || true
     echo -e "  ${GREEN}Supplements scanned${NC}"
     echo ""
 fi
@@ -222,7 +222,7 @@ API_PID=$!
 sleep 2
 
 # Check if API started successfully
-if ! kill -0 $API_PID 2>/dev/null; then
+if ! kill -0 $API_PID 2> /dev/null; then
     echo -e "${RED}Error: API server failed to start${NC}"
     echo "Check logs for details"
 else
@@ -232,7 +232,7 @@ fi
 # Wait for API health check
 echo -n "Waiting for API to be ready"
 for i in {1..10}; do
-    if curl -s "http://localhost:${API_PORT}/api/system/health" >/dev/null 2>&1; then
+    if curl -s "http://localhost:${API_PORT}/api/system/health" > /dev/null 2>&1; then
         echo -e " ${GREEN}✓${NC}"
         break
     fi
@@ -252,7 +252,7 @@ if [ ! -f "$AUDIOBOOKS_CERTS/server.crt" ] || [ ! -f "$AUDIOBOOKS_CERTS/server.k
     openssl req -x509 -newkey rsa:2048 -nodes \
         -keyout "$AUDIOBOOKS_CERTS/server.key" \
         -out "$AUDIOBOOKS_CERTS/server.crt" \
-        -days 365 -subj '/CN=localhost' 2>/dev/null
+        -days 365 -subj '/CN=localhost' 2> /dev/null
     echo -e "  ${GREEN}Certificate generated${NC}"
 fi
 
@@ -263,7 +263,7 @@ python3 proxy_server.py &
 PROXY_PID=$!
 
 sleep 2
-if ! kill -0 $PROXY_PID 2>/dev/null; then
+if ! kill -0 $PROXY_PID 2> /dev/null; then
     echo -e "${RED}Error: HTTPS proxy failed to start${NC}"
 else
     echo -e "  Proxy: ${GREEN}Running on port ${WEB_PORT}${NC} (HTTPS)"
@@ -277,7 +277,7 @@ if [ "${HTTP_REDIRECT_ENABLED:-true}" = "true" ]; then
     REDIRECT_PID=$!
 
     sleep 1
-    if ! kill -0 $REDIRECT_PID 2>/dev/null; then
+    if ! kill -0 $REDIRECT_PID 2> /dev/null; then
         echo -e "${YELLOW}Warning: HTTP redirect server failed to start${NC}"
         REDIRECT_PID=""
     else
@@ -311,7 +311,7 @@ echo ""
 # Handle shutdown gracefully
 cleanup() {
     echo 'Shutting down...'
-    kill "$API_PID" "$PROXY_PID" "${REDIRECT_PID:-}" 2>/dev/null
+    kill "$API_PID" "$PROXY_PID" "${REDIRECT_PID:-}" 2> /dev/null
     exit 0
 }
 trap cleanup SIGTERM SIGINT

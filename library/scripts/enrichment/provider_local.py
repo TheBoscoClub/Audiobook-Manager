@@ -63,11 +63,13 @@ class LocalProvider(EnrichmentProvider):
         super().__init__()
         self.sources_dir = sources_dir
 
-    def can_enrich(self, book: dict) -> bool:
+    def can_enrich(self, book: dict) -> bool:  # pylint: disable=unused-argument
+        # Local provider always attempts enrichment — it reads from .voucher files
+        # and the book's on-disk title regardless of the book dict's contents.
         return True
 
     def enrich(self, book: dict) -> dict:
-        result = {}
+        result: dict[str, str | float] = {}
         file_path = Path(book.get("file_path", ""))
 
         if not book.get("asin"):

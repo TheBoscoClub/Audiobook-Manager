@@ -31,17 +31,17 @@ if [ -d "$LIBRARY_DIR/venv" ]; then
 fi
 
 # Install requirements if needed
-if ! python3 -c "import flask" 2>/dev/null; then
+if ! python3 -c "import flask" 2> /dev/null; then
     echo "Installing Python dependencies..."
     pip install -r "$LIBRARY_DIR/requirements.txt"
 fi
 
 # Kill any existing processes
-pkill -f "python3.*api.py" 2>/dev/null
-pkill -f "python3.*http.server" 2>/dev/null
+pkill -f "python3.*api.py" 2> /dev/null
+pkill -f "python3.*http.server" 2> /dev/null
 
 # Find available port for web server
-while lsof -i:"$WEB_PORT" >/dev/null 2>&1; do
+while lsof -i:"$WEB_PORT" > /dev/null 2>&1; do
     WEB_PORT=$((WEB_PORT + 1))
     if [ "$WEB_PORT" -gt 8099 ]; then
         echo "No available ports in range 8090-8099"
@@ -50,7 +50,7 @@ while lsof -i:"$WEB_PORT" >/dev/null 2>&1; do
 done
 
 # Find available port for API
-while lsof -i:"$API_PORT" >/dev/null 2>&1; do
+while lsof -i:"$API_PORT" > /dev/null 2>&1; do
     API_PORT=$((API_PORT + 1))
     if [ "$API_PORT" -gt 5010 ]; then
         echo "No available ports in range 5001-5010"
@@ -85,15 +85,15 @@ echo "  Press Ctrl+C to stop"
 echo "=========================================="
 
 # Open browser
-if command -v xdg-open &>/dev/null; then
+if command -v xdg-open &> /dev/null; then
     sleep 1
-    xdg-open "http://localhost:$WEB_PORT" 2>/dev/null &
+    xdg-open "http://localhost:$WEB_PORT" 2> /dev/null &
 fi
 
 # Wait for Ctrl+C
 cleanup() {
     echo 'Shutting down...'
-    kill "$API_PID" "$WEB_PID" 2>/dev/null
+    kill "$API_PID" "$WEB_PID" 2> /dev/null
     exit 0
 }
 trap cleanup INT TERM

@@ -283,14 +283,14 @@ if __name__ == "__main__":
     parser.add_argument("--dry-run", action="store_true", help="Don't write changes")
     args = parser.parse_args()
 
-    db_path = args.db_path
-    if not db_path:
+    cli_db_path = args.db_path
+    if not cli_db_path:
         try:
             from library.backend.config import DATABASE_PATH
         except ModuleNotFoundError:
             from backend.config import DATABASE_PATH
 
-        db_path = str(DATABASE_PATH)
+        cli_db_path = str(DATABASE_PATH)
 
-    result = migrate(db_path, dry_run=args.dry_run)
+    result = migrate(cli_db_path, dry_run=args.dry_run)
     print(f"Migration stats: {result}")

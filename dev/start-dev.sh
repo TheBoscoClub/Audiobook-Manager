@@ -48,7 +48,7 @@ HTTP_PORT=${AUDIOBOOKS_HTTP_REDIRECT_PORT:-9081}
 
 echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}   Audiobook-Manager Development Mode${NC}"
-echo -e "${BLUE}   Branch: $(git branch --show-current 2>/dev/null || echo 'unknown')${NC}"
+echo -e "${BLUE}   Branch: $(git branch --show-current 2> /dev/null || echo 'unknown')${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
@@ -59,7 +59,7 @@ check_running() {
 
     if [ -f "$pid_file" ]; then
         local pid=$(cat "$pid_file")
-        if kill -0 "$pid" 2>/dev/null; then
+        if kill -0 "$pid" 2> /dev/null; then
             echo -e "${YELLOW}$name already running (PID: $pid)${NC}"
             echo -e "Run ${BLUE}./dev/stop-dev.sh${NC} first, or:"
             echo -e "  kill $pid"
@@ -84,9 +84,9 @@ check_port() {
     local port=$1
     local name=$2
 
-    if ss -tln 2>/dev/null | grep -q ":$port "; then
+    if ss -tln 2> /dev/null | grep -q ":$port "; then
         echo -e "${RED}Error: Port $port ($name) already in use${NC}"
-        ss -tlnp 2>/dev/null | grep ":$port " || true
+        ss -tlnp 2> /dev/null | grep ":$port " || true
         return 1
     fi
     return 0
@@ -104,7 +104,7 @@ fi
 echo -e "${BLUE}Checking dependencies...${NC}"
 
 # Check Caddy
-if ! command -v caddy &>/dev/null; then
+if ! command -v caddy &> /dev/null; then
     echo -e "${RED}Error: Caddy not installed${NC}"
     echo "Install with: sudo pacman -S caddy"
     exit 1
@@ -120,7 +120,7 @@ fi
 source venv/bin/activate
 
 # Check Flask
-if ! python -c "import flask" 2>/dev/null; then
+if ! python -c "import flask" 2> /dev/null; then
     echo -e "${YELLOW}Installing Flask...${NC}"
     pip install -q flask
 fi
@@ -140,7 +140,7 @@ export AUTH_DATABASE="$AUTH_DB"
 export AUTH_KEY_FILE="$AUTH_KEY"
 
 echo -e "${BLUE}Initializing auth database...${NC}"
-if python auth/cli.py --dev -d "$AUTH_DB" -k "$AUTH_KEY" init 2>/dev/null; then
+if python auth/cli.py --dev -d "$AUTH_DB" -k "$AUTH_KEY" init 2> /dev/null; then
     echo -e "  ${GREEN}✓${NC} Auth database ready"
 else
     echo -e "  ${YELLOW}!${NC} Auth database init failed (may need sqlcipher3)"
@@ -153,9 +153,9 @@ cleanup() {
 
     if [ -f "$CADDY_PID_FILE" ]; then
         local pid=$(cat "$CADDY_PID_FILE")
-        if kill -0 "$pid" 2>/dev/null; then
+        if kill -0 "$pid" 2> /dev/null; then
             echo -e "  Stopping Caddy (PID: $pid)..."
-            kill -TERM "$pid" 2>/dev/null || true
+            kill -TERM "$pid" 2> /dev/null || true
             sleep 1
         fi
         rm -f "$CADDY_PID_FILE"
@@ -163,9 +163,9 @@ cleanup() {
 
     if [ -f "$API_PID_FILE" ]; then
         local pid=$(cat "$API_PID_FILE")
-        if kill -0 "$pid" 2>/dev/null; then
+        if kill -0 "$pid" 2> /dev/null; then
             echo -e "  Stopping API (PID: $pid)..."
-            kill -TERM "$pid" 2>/dev/null || true
+            kill -TERM "$pid" 2> /dev/null || true
             sleep 1
         fi
         rm -f "$API_PID_FILE"
@@ -187,14 +187,14 @@ export AUDIOBOOKS_DATABASE="$PROJECT_DIR/library/backend/audiobooks-dev.db"
 export AUDIOBOOKS_API_PORT="$API_PORT"
 export AUDIOBOOKS_BIND_ADDRESS="127.0.0.1"
 
-python api_server.py >/tmp/audiobooks-dev-api.log 2>&1 &
+python api_server.py > /tmp/audiobooks-dev-api.log 2>&1 &
 API_PID=$!
-echo $API_PID >"$API_PID_FILE"
+echo $API_PID > "$API_PID_FILE"
 
 # Wait for API to be ready
 echo -n "  Waiting for API"
 for i in {1..15}; do
-    if curl -s "http://localhost:$API_PORT/health" >/dev/null 2>&1; then
+    if curl -s "http://localhost:$API_PORT/health" > /dev/null 2>&1; then
         echo -e " ${GREEN}✓${NC}"
         break
     fi
@@ -215,13 +215,13 @@ echo ""
 echo -e "${GREEN}Starting Caddy on port $WEB_PORT...${NC}"
 cd "$PROJECT_DIR"
 
-caddy run --config "$PROJECT_DIR/dev/Caddyfile" --adapter caddyfile >/tmp/audiobooks-dev-caddy.log 2>&1 &
+caddy run --config "$PROJECT_DIR/dev/Caddyfile" --adapter caddyfile > /tmp/audiobooks-dev-caddy.log 2>&1 &
 CADDY_PID=$!
-echo $CADDY_PID >"$CADDY_PID_FILE"
+echo $CADDY_PID > "$CADDY_PID_FILE"
 
 # Wait for Caddy to be ready
 sleep 2
-if ! kill -0 $CADDY_PID 2>/dev/null; then
+if ! kill -0 $CADDY_PID 2> /dev/null; then
     echo -e "${RED}Error: Caddy failed to start. Check /tmp/audiobooks-dev-caddy.log${NC}"
     tail -20 /tmp/audiobooks-dev-caddy.log
     exit 1
@@ -256,19 +256,19 @@ echo ""
 # Open browser (optional)
 if [ "$1" != "--no-browser" ]; then
     sleep 1
-    if command -v xdg-open &>/dev/null; then
-        xdg-open "https://localhost:$WEB_PORT" &>/dev/null &
+    if command -v xdg-open &> /dev/null; then
+        xdg-open "https://localhost:$WEB_PORT" &> /dev/null &
     fi
 fi
 
 # Supervision loop
 while true; do
-    if ! kill -0 $API_PID 2>/dev/null; then
+    if ! kill -0 $API_PID 2> /dev/null; then
         echo -e "${RED}API server died unexpectedly${NC}"
         exit 1
     fi
 
-    if ! kill -0 $CADDY_PID 2>/dev/null; then
+    if ! kill -0 $CADDY_PID 2> /dev/null; then
         echo -e "${RED}Caddy died unexpectedly${NC}"
         exit 1
     fi

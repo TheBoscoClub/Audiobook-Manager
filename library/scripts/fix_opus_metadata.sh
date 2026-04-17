@@ -64,14 +64,14 @@ while IFS= read -r OPUS_FILE; do
     # Method 1: Search by ASIN (B followed by 9 alphanumeric chars)
     ASIN=$(echo "$BASENAME" | grep -oE 'B[0-9A-Z]{9}' | head -1)
     if [ -n "$ASIN" ]; then
-        AAXC_FILE=$(find "$SOURCES_DIR" -maxdepth 1 -name "${ASIN}*.aaxc" -type f 2>/dev/null | head -1)
+        AAXC_FILE=$(find "$SOURCES_DIR" -maxdepth 1 -name "${ASIN}*.aaxc" -type f 2> /dev/null | head -1)
     fi
 
     # Method 2: Search by ISBN (10 or 13 digit number at start)
     if [ -z "$AAXC_FILE" ]; then
         ISBN=$(echo "$BASENAME" | grep -oE '^[0-9]{10,13}' | head -1)
         if [ -n "$ISBN" ]; then
-            AAXC_FILE=$(find "$SOURCES_DIR" -maxdepth 1 -name "${ISBN}*.aaxc" -type f 2>/dev/null | head -1)
+            AAXC_FILE=$(find "$SOURCES_DIR" -maxdepth 1 -name "${ISBN}*.aaxc" -type f 2> /dev/null | head -1)
         fi
     fi
 
@@ -79,7 +79,7 @@ while IFS= read -r OPUS_FILE; do
     if [ -z "$AAXC_FILE" ]; then
         # Normalize basename: remove colons, convert spaces to underscores
         NORMALIZED_TITLE=$(echo "$BASENAME" | sed 's/:/_/g' | sed 's/ /_/g')
-        AAXC_FILE=$(find "$SOURCES_DIR" -maxdepth 1 -name "${NORMALIZED_TITLE}*.aaxc" -type f 2>/dev/null | head -1)
+        AAXC_FILE=$(find "$SOURCES_DIR" -maxdepth 1 -name "${NORMALIZED_TITLE}*.aaxc" -type f 2> /dev/null | head -1)
     fi
 
     # Method 4: Fuzzy title match (try first few words)
@@ -87,26 +87,26 @@ while IFS= read -r OPUS_FILE; do
         # Get first 3 words of title, normalize
         TITLE_START=$(echo "$BASENAME" | sed 's/:/_/g' | cut -d' ' -f1-3 | sed 's/ /_/g')
         if [ -n "$TITLE_START" ] && [ ${#TITLE_START} -gt 5 ]; then
-            AAXC_FILE=$(find "$SOURCES_DIR" -maxdepth 1 -name "${TITLE_START}*.aaxc" -type f 2>/dev/null | head -1)
+            AAXC_FILE=$(find "$SOURCES_DIR" -maxdepth 1 -name "${TITLE_START}*.aaxc" -type f 2> /dev/null | head -1)
         fi
     fi
 
     if [ -z "$AAXC_FILE" ] || [ ! -f "$AAXC_FILE" ]; then
-        echo "⊘ SKIP: $BASENAME (source AAXC not found)" >>"$LOG_FILE"
+        echo "⊘ SKIP: $BASENAME (source AAXC not found)" >> "$LOG_FILE"
         ((SKIPPED++))
         continue
     fi
 
     # Extract ALL metadata from AAXC
-    TITLE=$(ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2>/dev/null)
-    AUTHOR=$(ffprobe -v error -show_entries format_tags=artist -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2>/dev/null)
-    ALBUM_ARTIST=$(ffprobe -v error -show_entries format_tags=album_artist -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2>/dev/null)
-    NARRATOR=$(ffprobe -v error -show_entries format_tags=composer -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2>/dev/null)
-    ALBUM=$(ffprobe -v error -show_entries format_tags=album -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2>/dev/null)
-    PUBLISHER=$(ffprobe -v error -show_entries format_tags=publisher -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2>/dev/null)
-    DATE=$(ffprobe -v error -show_entries format_tags=date -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2>/dev/null)
-    GENRE=$(ffprobe -v error -show_entries format_tags=genre -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2>/dev/null)
-    COMMENT=$(ffprobe -v error -show_entries format_tags=comment -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2>/dev/null)
+    TITLE=$(ffprobe -v error -show_entries format_tags=title -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2> /dev/null)
+    AUTHOR=$(ffprobe -v error -show_entries format_tags=artist -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2> /dev/null)
+    ALBUM_ARTIST=$(ffprobe -v error -show_entries format_tags=album_artist -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2> /dev/null)
+    NARRATOR=$(ffprobe -v error -show_entries format_tags=composer -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2> /dev/null)
+    ALBUM=$(ffprobe -v error -show_entries format_tags=album -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2> /dev/null)
+    PUBLISHER=$(ffprobe -v error -show_entries format_tags=publisher -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2> /dev/null)
+    DATE=$(ffprobe -v error -show_entries format_tags=date -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2> /dev/null)
+    GENRE=$(ffprobe -v error -show_entries format_tags=genre -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2> /dev/null)
+    COMMENT=$(ffprobe -v error -show_entries format_tags=comment -of default=noprint_wrappers=1:nokey=1 "$AAXC_FILE" 2> /dev/null)
 
     # Use AUTHOR if ALBUM_ARTIST is empty
     if [ -z "$ALBUM_ARTIST" ]; then
@@ -115,7 +115,7 @@ while IFS= read -r OPUS_FILE; do
 
     # Skip if no metadata found
     if [ -z "$AUTHOR" ] && [ -z "$NARRATOR" ] && [ -z "$TITLE" ]; then
-        echo "⊘ SKIP: $BASENAME (no metadata in source AAXC)" >>"$LOG_FILE"
+        echo "⊘ SKIP: $BASENAME (no metadata in source AAXC)" >> "$LOG_FILE"
         ((SKIPPED++))
         continue
     fi
@@ -125,7 +125,7 @@ while IFS= read -r OPUS_FILE; do
     COVER_PATH="$COVER_DIR/${FILE_HASH}.jpg"
 
     if [ ! -f "$COVER_PATH" ]; then
-        ffmpeg -nostdin -v quiet -i "$AAXC_FILE" -an -vcodec copy "$COVER_PATH" 2>/dev/null
+        ffmpeg -nostdin -v quiet -i "$AAXC_FILE" -an -vcodec copy "$COVER_PATH" 2> /dev/null
     fi
 
     # Create temp file for metadata update
@@ -149,11 +149,11 @@ while IFS= read -r OPUS_FILE; do
     ffmpeg -nostdin -v warning -i "$OPUS_FILE" \
         "${METADATA_ARGS[@]}" \
         -codec copy \
-        "$TEMP_FILE" 2>&1 | tee "$FFMPEG_LOG" | grep -v "Guessed Channel" >>"$LOG_FILE"
+        "$TEMP_FILE" 2>&1 | tee "$FFMPEG_LOG" | grep -v "Guessed Channel" >> "$LOG_FILE"
 
     # If ffmpeg failed, log the full error
     if [ ! -f "$TEMP_FILE" ] || [ ! -s "$TEMP_FILE" ]; then
-        grep -v "Guessed Channel" "$FFMPEG_LOG" >>"$LOG_FILE"
+        grep -v "Guessed Channel" "$FFMPEG_LOG" >> "$LOG_FILE"
     fi
     rm -f "$FFMPEG_LOG"
 
@@ -164,15 +164,15 @@ while IFS= read -r OPUS_FILE; do
             echo "    Author: $AUTHOR"
             echo "    Narrator: $NARRATOR"
             echo "    Publisher: $PUBLISHER"
-        } >>"$LOG_FILE"
+        } >> "$LOG_FILE"
         ((FIXED++))
     else
-        echo "✗ FAIL: $BASENAME (ffmpeg error)" >>"$LOG_FILE"
+        echo "✗ FAIL: $BASENAME (ffmpeg error)" >> "$LOG_FILE"
         rm -f "$TEMP_FILE"
         ((FAILED++))
     fi
 
-done < <(find "$OPUS_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null)
+done < <(find "$OPUS_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2> /dev/null)
 
 echo "" | tee -a "$LOG_FILE"
 echo "================================================================" | tee -a "$LOG_FILE"

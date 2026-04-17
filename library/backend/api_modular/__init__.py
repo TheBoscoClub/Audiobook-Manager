@@ -192,8 +192,6 @@ def _register_extension_blueprints(flask_app, database_path, project_root=None):
 
         init_queue(database_path, project_root)
     except Exception as e:
-        import logging
-
         logging.getLogger(__name__).warning("Translation queue init failed: %s", e)
 
 

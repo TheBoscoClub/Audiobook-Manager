@@ -105,9 +105,9 @@ cleanup_workers_tunnels() {
     # Kill workers first (they'll finish current chapter)
     for label in "${!WORKER_PIDS[@]}"; do
         local pid=${WORKER_PIDS[$label]}
-        if kill -0 "$pid" 2>/dev/null; then
+        if kill -0 "$pid" 2> /dev/null; then
             log "Stopping worker $label (PID $pid)"
-            kill "$pid" 2>/dev/null
+            kill "$pid" 2> /dev/null
         fi
     done
 
@@ -116,7 +116,7 @@ cleanup_workers_tunnels() {
     while [ $waited -lt 30 ]; do
         local alive=0
         for pid in "${WORKER_PIDS[@]}"; do
-            kill -0 "$pid" 2>/dev/null && ((alive++))
+            kill -0 "$pid" 2> /dev/null && ((alive++))
         done
         [ "$alive" -eq 0 ] && break
         sleep 2
@@ -126,17 +126,17 @@ cleanup_workers_tunnels() {
 
     # Force kill any remaining
     for pid in "${WORKER_PIDS[@]}"; do
-        kill -9 "$pid" 2>/dev/null
+        kill -9 "$pid" 2> /dev/null
     done
 
     # Kill tunnels
     for pid in "${TUNNEL_PIDS[@]}"; do
-        kill "$pid" 2>/dev/null
+        kill "$pid" 2> /dev/null
     done
 
     # Reset any stuck processing jobs back to pending
     sqlite3 "$DB_PATH" \
-        "UPDATE translation_queue SET state = 'pending', started_at = NULL WHERE state = 'processing';" 2>/dev/null
+        "UPDATE translation_queue SET state = 'pending', started_at = NULL WHERE state = 'processing';" 2> /dev/null
 
     rm -f "$PID_FILE"
     log "Cleanup complete"
@@ -156,7 +156,7 @@ start_tunnel() {
 
     # Check if tunnel is already alive
     local pid=${TUNNEL_PIDS[$label]:-0}
-    if [ "$pid" -gt 0 ] && kill -0 "$pid" 2>/dev/null; then
+    if [ "$pid" -gt 0 ] && kill -0 "$pid" 2> /dev/null; then
         return 0
     fi
 
@@ -165,7 +165,7 @@ start_tunnel() {
         -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
         -o ExitOnForwardFailure=yes \
         -p "$ssh_port" -N -L "127.0.0.1:${local_port}:localhost:8000" \
-        "root@${ssh_host}" >"$LOG_DIR/tunnel-${label}.log" 2>&1 &
+        "root@${ssh_host}" > "$LOG_DIR/tunnel-${label}.log" 2>&1 &
     TUNNEL_PIDS[$label]=$!
     log "Tunnel $label started (PID $!)"
 }
@@ -173,8 +173,8 @@ start_tunnel() {
 check_tunnel_health() {
     local local_port=$1 label=$2
     local health
-    health=$(curl -s --connect-timeout 5 --max-time 15 "http://127.0.0.1:${local_port}/health" 2>/dev/null)
-    if echo "$health" | grep -q '"ok"' 2>/dev/null; then
+    health=$(curl -s --connect-timeout 5 --max-time 15 "http://127.0.0.1:${local_port}/health" 2> /dev/null)
+    if echo "$health" | grep -q '"ok"' 2> /dev/null; then
         return 0
     fi
     return 1
@@ -187,9 +187,9 @@ ensure_whisper_server() {
     # Check if server is running on remote
     local health
     health=$(ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
-        -p "$ssh_port" "root@$ssh_host" "curl -s --max-time 10 http://localhost:8000/health" 2>/dev/null)
+        -p "$ssh_port" "root@$ssh_host" "curl -s --max-time 10 http://localhost:8000/health" 2> /dev/null)
 
-    if echo "$health" | grep -q '"ok"' 2>/dev/null; then
+    if echo "$health" | grep -q '"ok"' 2> /dev/null; then
         return 0
     fi
 
@@ -201,14 +201,14 @@ ensure_whisper_server() {
         create_whisper_script "$compute_type"
     fi
     scp -i "$SSH_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
-        -P "$ssh_port" "$script" "root@${ssh_host}:/root/whisper_server.py" 2>/dev/null
+        -P "$ssh_port" "$script" "root@${ssh_host}:/root/whisper_server.py" 2> /dev/null
 
     # Start gunicorn (separate from kill to avoid exit-code issues)
     ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
-        -p "$ssh_port" "root@$ssh_host" "pkill -9 gunicorn 2>/dev/null; echo killed" 2>/dev/null
+        -p "$ssh_port" "root@$ssh_host" "pkill -9 gunicorn 2>/dev/null; echo killed" 2> /dev/null
     ssh -i "$SSH_KEY" -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
         -p "$ssh_port" "root@$ssh_host" \
-        "cd /root; gunicorn -w 1 -k gthread --threads ${WORKERS_PER_GPU} -b 0.0.0.0:8000 --timeout 600 whisper_server:app >> /var/log/whisper.log 2>&1 & echo PID=\$!" 2>/dev/null
+        "cd /root; gunicorn -w 1 -k gthread --threads ${WORKERS_PER_GPU} -b 0.0.0.0:8000 --timeout 600 whisper_server:app >> /var/log/whisper.log 2>&1 & echo PID=\$!" 2> /dev/null
 
     log "Whisper server started on $label — waiting for model load"
 }
@@ -218,7 +218,7 @@ create_whisper_script() {
     # Dead-man TTL: if no /v1/audio/transcriptions request in IDLE_SHUTDOWN_SEC,
     # the instance halts itself. Caps wasted GPU spend even if the local daemon
     # forgets to tear down. IDLE_SHUTDOWN_SEC defaults to 1800 (30 min).
-    cat >"/tmp/whisper_server_${ct}.py" <<PYEOF
+    cat > "/tmp/whisper_server_${ct}.py" << PYEOF
 import tempfile, os, time, logging, threading, subprocess
 from flask import Flask, request, jsonify
 from faster_whisper import WhisperModel
@@ -279,7 +279,7 @@ start_worker() {
 
     # Check if worker is already alive
     local pid=${WORKER_PIDS[$label]:-0}
-    if [ "$pid" -gt 0 ] && kill -0 "$pid" 2>/dev/null; then
+    if [ "$pid" -gt 0 ] && kill -0 "$pid" 2> /dev/null; then
         return 0
     fi
 
@@ -291,7 +291,7 @@ start_worker() {
         AUDIOBOOKS_WHISPER_GPU_PORT=8765 \
         "$VENV_PYTHON" "$BATCH_SCRIPT" \
         --db "$DB_PATH" --library "$LIBRARY_PATH" \
-        >"$LOG_DIR/worker-${label}.log" 2>&1 &
+        > "$LOG_DIR/worker-${label}.log" 2>&1 &
     WORKER_PIDS[$label]=$!
     log "Worker $label started (PID $!)"
 }
@@ -299,20 +299,20 @@ start_worker() {
 # ── Queue Status ─────────────────────────────────────────────────────────────
 get_queue_status() {
     sqlite3 "$DB_PATH" \
-        "SELECT state, COUNT(*) FROM translation_queue GROUP BY state;" 2>/dev/null
+        "SELECT state, COUNT(*) FROM translation_queue GROUP BY state;" 2> /dev/null
 }
 
 get_subtitle_counts() {
     local en zh
-    en=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='en';" 2>/dev/null)
-    zh=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='zh-Hans';" 2>/dev/null)
+    en=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='en';" 2> /dev/null)
+    zh=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM chapter_subtitles WHERE locale='zh-Hans';" 2> /dev/null)
     echo "en=$en zh-Hans=$zh"
 }
 
 # ── Main Loop ────────────────────────────────────────────────────────────────
 main() {
     mkdir -p "$LOG_DIR" "$(dirname "$PID_FILE")"
-    echo $$ >"$PID_FILE"
+    echo $$ > "$PID_FILE"
 
     log "═══════════════════════════════════════════════════════════════"
     log "Translation Daemon starting"
@@ -326,7 +326,7 @@ main() {
 
     # Initial setup: start all tunnels and ensure whisper servers
     for instance in "${VASTAI_INSTANCES[@]}"; do
-        IFS='|' read -r local_port ssh_port ssh_host label compute_type <<<"$instance"
+        IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
         start_tunnel "$local_port" "$ssh_port" "$ssh_host" "$label"
     done
 
@@ -336,13 +336,13 @@ main() {
     # Ensure whisper servers are running on all Vast.ai instances
     local -a whisper_pids=()
     for instance in "${VASTAI_INSTANCES[@]}"; do
-        IFS='|' read -r local_port ssh_port ssh_host label compute_type <<<"$instance"
+        IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
         ensure_whisper_server "$ssh_port" "$ssh_host" "$label" "$compute_type" &
         whisper_pids+=($!)
     done
     # Wait ONLY for the ensure_whisper_server jobs (not SSH tunnel background jobs)
     for pid in "${whisper_pids[@]}"; do
-        wait "$pid" 2>/dev/null
+        wait "$pid" 2> /dev/null
     done
 
     # Wait for model loading
@@ -353,7 +353,7 @@ main() {
     # per tunnel. All N share the same GPU endpoint; atomic UPDATE...RETURNING
     # in next_pending_job() ensures no two workers claim the same book.
     for instance in "${VASTAI_INSTANCES[@]}"; do
-        IFS='|' read -r local_port ssh_port ssh_host label compute_type <<<"$instance"
+        IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
         if check_tunnel_health "$local_port" "$label"; then
             for i in $(seq 1 "$WORKERS_PER_GPU"); do
                 start_worker "127.0.0.1" "$local_port" "${label}-w${i}"
@@ -365,11 +365,11 @@ main() {
 
     # Start workers for RunPod instances — also WORKERS_PER_GPU parallel
     for instance in "${RUNPOD_INSTANCES[@]}"; do
-        IFS='|' read -r url label <<<"$instance"
+        IFS='|' read -r url label <<< "$instance"
         # Health check RunPod
         local health
-        health=$(curl -s --connect-timeout 10 --max-time 30 "$url/health" 2>/dev/null)
-        if echo "$health" | grep -q '"ok"' 2>/dev/null; then
+        health=$(curl -s --connect-timeout 10 --max-time 30 "$url/health" 2> /dev/null)
+        if echo "$health" | grep -q '"ok"' 2> /dev/null; then
             for i in $(seq 1 "$WORKERS_PER_GPU"); do
                 start_worker "$url" "0" "${label}-w${i}"
             done
@@ -388,10 +388,10 @@ main() {
 
         # Check queue
         local pending processing completed failed
-        pending=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
-        processing=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='processing';" 2>/dev/null)
-        completed=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='completed';" 2>/dev/null)
-        failed=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='failed';" 2>/dev/null)
+        pending=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2> /dev/null)
+        processing=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='processing';" 2> /dev/null)
+        completed=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='completed';" 2> /dev/null)
+        failed=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='failed';" 2> /dev/null)
 
         log "Queue: ${pending:-0} pending, ${processing:-0} processing, ${completed:-0} completed, ${failed:-0} failed | $(get_subtitle_counts)"
 
@@ -418,9 +418,9 @@ main() {
         # Phase 1 (serial, fast): spawn tunnel restarts for dead tunnels.
         # start_tunnel is non-blocking (nohup ssh &), so this is ms-scale.
         for instance in "${VASTAI_INSTANCES[@]}"; do
-            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<<"$instance"
+            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
             local tpid=${TUNNEL_PIDS[$label]:-0}
-            if [ "$tpid" -gt 0 ] && ! kill -0 "$tpid" 2>/dev/null; then
+            if [ "$tpid" -gt 0 ] && ! kill -0 "$tpid" 2> /dev/null; then
                 log "Tunnel $label died — restarting"
                 start_tunnel "$local_port" "$ssh_port" "$ssh_host" "$label"
             fi
@@ -432,7 +432,7 @@ main() {
         # every unhealthy instance. Pure side-effect on the remote GPU — no
         # parent state mutated here.
         for instance in "${VASTAI_INSTANCES[@]}"; do
-            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<<"$instance"
+            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
             (
                 if ! check_tunnel_health "$local_port" "$label"; then
                     log "Tunnel $label unhealthy — checking whisper server"
@@ -445,11 +445,11 @@ main() {
 
         # Phase 3 (serial, fast): restart any of the N per-GPU workers that died.
         for instance in "${VASTAI_INSTANCES[@]}"; do
-            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<<"$instance"
+            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
             for i in $(seq 1 "$WORKERS_PER_GPU"); do
                 local wlabel="${label}-w${i}"
                 local wpid=${WORKER_PIDS[$wlabel]:-0}
-                if [ "$wpid" -gt 0 ] && ! kill -0 "$wpid" 2>/dev/null; then
+                if [ "$wpid" -gt 0 ] && ! kill -0 "$wpid" 2> /dev/null; then
                     log "Worker $wlabel died — restarting"
                     if check_tunnel_health "$local_port" "$label"; then
                         start_worker "127.0.0.1" "$local_port" "$wlabel"
@@ -460,17 +460,17 @@ main() {
 
         # Health-check RunPod workers (N per pod)
         for instance in "${RUNPOD_INSTANCES[@]}"; do
-            IFS='|' read -r url label <<<"$instance"
+            IFS='|' read -r url label <<< "$instance"
             local health_checked=""
             for i in $(seq 1 "$WORKERS_PER_GPU"); do
                 local wlabel="${label}-w${i}"
                 local wpid=${WORKER_PIDS[$wlabel]:-0}
-                if [ "$wpid" -gt 0 ] && ! kill -0 "$wpid" 2>/dev/null; then
+                if [ "$wpid" -gt 0 ] && ! kill -0 "$wpid" 2> /dev/null; then
                     log "Worker $wlabel died — restarting"
                     if [ -z "$health_checked" ]; then
                         local health
-                        health=$(curl -s --connect-timeout 10 --max-time 15 "$url/health" 2>/dev/null)
-                        if echo "$health" | grep -q '"ok"' 2>/dev/null; then
+                        health=$(curl -s --connect-timeout 10 --max-time 15 "$url/health" 2> /dev/null)
+                        if echo "$health" | grep -q '"ok"' 2> /dev/null; then
                             health_checked=ok
                         else
                             health_checked=bad

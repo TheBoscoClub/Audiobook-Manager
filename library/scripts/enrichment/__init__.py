@@ -9,6 +9,7 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from scanner.metadata_utils import extract_topics
 
@@ -268,7 +269,9 @@ def _get_or_create_narrator_id(cursor: sqlite3.Cursor, name: str) -> int:
         return row[0]
     sort_name = generate_sort_name(name) or name
     cursor.execute("INSERT INTO narrators (name, sort_name) VALUES (?, ?)", (name, sort_name))
-    return cursor.lastrowid
+    row_id = cursor.lastrowid
+    assert row_id is not None  # sqlite3 guarantees non-None after successful INSERT
+    return row_id
 
 
 def _apply_narrators(cursor: sqlite3.Cursor, book_id: int, narrator_list: list[dict]) -> None:
@@ -472,7 +475,7 @@ def enrich_book(
     Returns a result dict compatible with enrich_single.py's format:
     {audible_enriched, isbn_enriched, fields_updated, errors, providers_used}
     """
-    result = {
+    result: dict[str, Any] = {
         "audible_enriched": False,
         "isbn_enriched": False,
         "fields_updated": 0,

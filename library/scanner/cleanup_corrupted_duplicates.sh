@@ -39,7 +39,7 @@ echo "" | tee -a "$LOG_FILE"
 # Find and remove all corrupted M4B files (< 100KB)
 REMOVED=0
 while IFS= read -r FILE; do
-    SIZE=$(stat -c%s "$FILE" 2>/dev/null)
+    SIZE=$(stat -c%s "$FILE" 2> /dev/null)
     BASENAME=$(basename "$FILE")
 
     if [ "$SIZE" -lt 102400 ]; then
@@ -47,7 +47,7 @@ while IFS= read -r FILE; do
         rm -f "$FILE"
         ((REMOVED++))
     fi
-done < <(find "$CORRUPTED_DIR" -name "*.m4b" -type f 2>/dev/null)
+done < <(find "$CORRUPTED_DIR" -name "*.m4b" -type f 2> /dev/null)
 
 echo "" | tee -a "$LOG_FILE"
 echo "========================================"

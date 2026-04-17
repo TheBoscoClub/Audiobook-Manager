@@ -34,7 +34,7 @@ notify() {
     local title="$1"
     local message="$2"
     local icon="${3:-audio-x-generic}"
-    notify-send -a "Audiobook Re-Downloader" -i "$icon" "$title" "$message" 2>/dev/null
+    notify-send -a "Audiobook Re-Downloader" -i "$icon" "$title" "$message" 2> /dev/null
 }
 
 # Check if priority list exists
@@ -61,14 +61,14 @@ fi
 
 # Parse priority list and extract unique titles
 log "Parsing priority list..."
-grep "^[0-9]" "$PRIORITY_LIST" | sed 's/^[0-9]*\. //' >"$TEMP_DIR/corrupted_titles.txt"
+grep "^[0-9]" "$PRIORITY_LIST" | sed 's/^[0-9]*\. //' > "$TEMP_DIR/corrupted_titles.txt"
 
-TOTAL_CORRUPTED=$(wc -l <"$TEMP_DIR/corrupted_titles.txt")
+TOTAL_CORRUPTED=$(wc -l < "$TEMP_DIR/corrupted_titles.txt")
 log "Found $TOTAL_CORRUPTED corrupted audiobooks in priority list"
 
 # Match titles to ASINs
-: >"$TEMP_DIR/asins_to_redownload.txt"
-: >"$TEMP_DIR/match_log.txt"
+: > "$TEMP_DIR/asins_to_redownload.txt"
+: > "$TEMP_DIR/match_log.txt"
 
 while IFS= read -r TITLE; do
     # Clean the title (remove format indicators like "(OPUS)", "(M4B)", etc.)
@@ -84,18 +84,18 @@ while IFS= read -r TITLE; do
     fi
 
     if [ -n "$ASIN" ]; then
-        echo "$ASIN" >>"$TEMP_DIR/asins_to_redownload.txt"
-        echo "MATCHED: $TITLE -> $ASIN" >>"$TEMP_DIR/match_log.txt"
+        echo "$ASIN" >> "$TEMP_DIR/asins_to_redownload.txt"
+        echo "MATCHED: $TITLE -> $ASIN" >> "$TEMP_DIR/match_log.txt"
     else
-        echo "NOT FOUND: $TITLE" >>"$TEMP_DIR/match_log.txt"
+        echo "NOT FOUND: $TITLE" >> "$TEMP_DIR/match_log.txt"
         log "WARNING: Could not find ASIN for: $TITLE"
     fi
-done <"$TEMP_DIR/corrupted_titles.txt"
+done < "$TEMP_DIR/corrupted_titles.txt"
 
 # Deduplicate ASINs
 sort -u "$TEMP_DIR/asins_to_redownload.txt" -o "$TEMP_DIR/asins_to_redownload.txt"
 
-MATCHED_COUNT=$(wc -l <"$TEMP_DIR/asins_to_redownload.txt")
+MATCHED_COUNT=$(wc -l < "$TEMP_DIR/asins_to_redownload.txt")
 NOT_FOUND=$((TOTAL_CORRUPTED - MATCHED_COUNT))
 
 log "Matched $MATCHED_COUNT ASINs from $TOTAL_CORRUPTED corrupted titles"
@@ -116,9 +116,9 @@ REMOVED_COUNT=0
 
 while IFS= read -r ASIN; do
     # Find and remove all files with this ASIN (including converted files)
-    find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -size 0 -delete 2>/dev/null && ((REMOVED_COUNT++))
-    find "$AUDIOBOOKS_LIBRARY" -name "${ASIN}*" -type f -name "*.opus" -size 0 -delete 2>/dev/null
-done <"$TEMP_DIR/asins_to_redownload.txt"
+    find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -size 0 -delete 2> /dev/null && ((REMOVED_COUNT++))
+    find "$AUDIOBOOKS_LIBRARY" -name "${ASIN}*" -type f -name "*.opus" -size 0 -delete 2> /dev/null
+done < "$TEMP_DIR/asins_to_redownload.txt"
 
 log "Removed $REMOVED_COUNT corrupted files"
 
@@ -137,7 +137,7 @@ while IFS= read -r ASIN; do
     DISPLAY_TITLE="${TITLE:0:50}"
     [ ${#TITLE} -gt 50 ] && DISPLAY_TITLE="${DISPLAY_TITLE}..."
 
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$CURRENT/$MATCHED_COUNT] Re-downloading: $DISPLAY_TITLE" >>"$LOG_FILE"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$CURRENT/$MATCHED_COUNT] Re-downloading: $DISPLAY_TITLE" >> "$LOG_FILE"
     echo -e "${CYAN}[$CURRENT/$MATCHED_COUNT]${NC} Re-downloading: $DISPLAY_TITLE"
 
     notify "Re-downloading" "[$CURRENT/$MATCHED_COUNT] $DISPLAY_TITLE" "emblem-downloads"
@@ -150,11 +150,11 @@ while IFS= read -r ASIN; do
         --filename-mode asin_ascii \
         --overwrite \
         --ignore-errors \
-        2>>"$LOG_FILE"
+        2>> "$LOG_FILE"
 
     # Verify download
     if find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) ! -size 0 -print -quit | grep -q .; then
-        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Re-downloaded: $DISPLAY_TITLE" >>"$LOG_FILE"
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Re-downloaded: $DISPLAY_TITLE" >> "$LOG_FILE"
         echo -e "${GREEN}✓ Re-downloaded:${NC} $DISPLAY_TITLE"
         ((SUCCESS++))
     else
@@ -167,14 +167,14 @@ while IFS= read -r ASIN; do
             --filename-mode asin_ascii \
             --overwrite \
             --ignore-errors \
-            2>>"$LOG_FILE"
+            2>> "$LOG_FILE"
 
         if find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) ! -size 0 -print -quit | grep -q .; then
-            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Re-downloaded (AAX): $DISPLAY_TITLE" >>"$LOG_FILE"
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✓ Re-downloaded (AAX): $DISPLAY_TITLE" >> "$LOG_FILE"
             echo -e "${GREEN}✓ Re-downloaded (AAX):${NC} $DISPLAY_TITLE"
             ((SUCCESS++))
         else
-            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✗ Failed to re-download: $DISPLAY_TITLE" >>"$LOG_FILE"
+            echo "[$(date '+%Y-%m-%d %H:%M:%S')] ✗ Failed to re-download: $DISPLAY_TITLE" >> "$LOG_FILE"
             echo -e "${RED}✗ Failed:${NC} $DISPLAY_TITLE"
             ((FAILED++))
         fi
@@ -185,7 +185,7 @@ while IFS= read -r ASIN; do
         sleep $DOWNLOAD_DELAY
     fi
 
-done <"$TEMP_DIR/asins_to_redownload.txt"
+done < "$TEMP_DIR/asins_to_redownload.txt"
 
 log "=========================================="
 log "Re-download complete: $SUCCESS succeeded, $FAILED failed"

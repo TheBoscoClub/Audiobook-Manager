@@ -29,6 +29,11 @@ librt>=0.9.0
 # radon 6.0.1 requires mando>=0.6,<0.8; stay on the 0.7.x line (latest
 # pre-0.8 release is 0.7.1) so `pip check` stays clean.
 mando>=0.7.1,<0.8
+# astroid is pylint's runtime AST engine. pylint 4.0.5 (latest stable)
+# constrains astroid to `<=4.1.dev0,>=4.0.2`, so stay on the 4.0.x line
+# (latest compatible is 4.0.4) until pylint 4.1.x releases upstream.
+# Re-visit this pin when pylint 4.1+ lands.
+astroid>=4.0.4,<4.1
 packaging>=26.1
 platformdirs>=4.9.6
 types-croniter>=6.2.2.20260408

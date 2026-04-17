@@ -35,7 +35,7 @@ if systemctl is-active --quiet audiobook-translate.service; then
          WHERE state='processing' \
            AND (last_progress_at IS NULL \
                 OR strftime('%s','now') - strftime('%s', last_progress_at) > $STALE_THRESHOLD_SEC);" \
-        2>/dev/null)
+        2> /dev/null)
     if [ "${stale:-0}" -gt 0 ]; then
         log "Daemon wedged: $stale processing rows have no heartbeat in ${STALE_THRESHOLD_SEC}s — restarting"
         systemctl restart audiobook-translate.service
@@ -45,7 +45,7 @@ if systemctl is-active --quiet audiobook-translate.service; then
              WHERE state='processing' \
                AND (last_progress_at IS NULL \
                     OR strftime('%s','now') - strftime('%s', last_progress_at) > $STALE_THRESHOLD_SEC);" \
-            2>/dev/null
+            2> /dev/null
         exit 0
     fi
     log "Translation daemon already running — nothing to do"
@@ -54,7 +54,7 @@ fi
 
 # Count pending translations
 pending=$(sqlite3 "$DB_PATH" \
-    "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
+    "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2> /dev/null)
 
 if [ "${pending:-0}" -eq 0 ]; then
     log "No pending translations — nothing to do"

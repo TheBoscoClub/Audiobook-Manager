@@ -30,7 +30,7 @@ _strip_key() {
     shift
     local -a legacy_globs=("$@")
     local current_value
-    current_value=$(grep -oP "^${key}=\K.*" "$CONF_FILE" 2>/dev/null | tr -d '"' || true)
+    current_value=$(grep -oP "^${key}=\K.*" "$CONF_FILE" 2> /dev/null | tr -d '"' || true)
 
     if [[ -z "$current_value" ]]; then
         return 0
@@ -76,8 +76,8 @@ _strip_key "AUDIOBOOKS_CERTS" '*library/certs'
 if [[ "$DRY_RUN" != "true" ]]; then
     if [[ -n "$USE_SUDO" ]]; then
         sudo mkdir -p /var/lib/audiobooks/covers /var/lib/audiobooks/db
-        sudo chown audiobooks:audiobooks /var/lib/audiobooks/covers /var/lib/audiobooks/db 2>/dev/null || true
+        sudo chown audiobooks:audiobooks /var/lib/audiobooks/covers /var/lib/audiobooks/db 2> /dev/null || true
     else
-        mkdir -p /var/lib/audiobooks/covers /var/lib/audiobooks/db 2>/dev/null || true
+        mkdir -p /var/lib/audiobooks/covers /var/lib/audiobooks/db 2> /dev/null || true
     fi
 fi

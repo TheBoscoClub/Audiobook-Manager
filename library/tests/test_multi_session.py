@@ -252,7 +252,11 @@ class TestAdminSettingsAPI:
         app.config["TESTING"] = True
         app.register_blueprint(auth_bp)
 
-        monkeypatch.setattr("backend.api_modular.auth.get_auth_db", lambda: temp_db)
+        # Set the module-level _auth_db that get_auth_db() reads. This works
+        # across all extracted sub-modules (auth_admin, auth_account, etc.) that
+        # import get_auth_db from .auth — the function reads _auth_db via
+        # LOAD_GLOBAL at call time, not import time.
+        monkeypatch.setattr("backend.api_modular.auth._auth_db", temp_db)
 
         admin = User(
             username="admin_settings",

@@ -233,7 +233,7 @@ def _build_removal_plan(duplicates, conn):
     protected_keepers = []
     space_to_free = 0
 
-    for hash_value, count in duplicates:
+    for hash_value, _count in duplicates:
         files = get_duplicate_details(conn, hash_value)
         if len(files) < 2:
             continue
@@ -254,7 +254,7 @@ def _build_removal_plan(duplicates, conn):
     return files_to_remove, protected_keepers, space_to_free
 
 
-def _print_removal_plan(files_to_remove, protected_keepers, space_to_free):
+def _print_removal_plan(files_to_remove, protected_keepers, _space_to_free):
     """Print the dry-run removal plan."""
     print("\n" + "=" * 70)
     print("PROTECTED FILES (will be kept):")

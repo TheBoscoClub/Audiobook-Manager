@@ -40,7 +40,7 @@ _load_config_file() {
             value=$(eval echo "$value")
             export "$key=$value"
         fi
-    done <"$config_file"
+    done < "$config_file"
 }
 
 # -----------------------------------------------------------------------------
@@ -242,7 +242,7 @@ audiobooks_normalize_permissions() {
     local owner="audiobooks:audiobooks"
     local sudo_cmd=""
     if [[ "$(id -u)" -ne 0 ]]; then
-        if command -v sudo >/dev/null 2>&1; then
+        if command -v sudo > /dev/null 2>&1; then
             sudo_cmd="sudo"
         else
             echo "audiobooks_normalize_permissions: not root and sudo unavailable" >&2
@@ -268,7 +268,7 @@ audiobooks_normalize_permissions() {
     # or the symlinks break and reconcile-filesystem reports "missing wrapper".
     if [[ -d "$target/scripts" ]]; then
         while IFS= read -r -d '' _f; do
-            if $sudo_cmd head -c 2 "$_f" 2>/dev/null | grep -q '^#!'; then
+            if $sudo_cmd head -c 2 "$_f" 2> /dev/null | grep -q '^#!'; then
                 $sudo_cmd chmod 755 "$_f"
             fi
         done < <($sudo_cmd find "$target/scripts" -maxdepth 2 -type f -print0)

@@ -84,7 +84,7 @@ def _match_by_title(book_title: str, audible_by_title: dict) -> tuple[dict | Non
 
     best_ratio = 0
     best_match = None
-    for aud_title, aud_data in audible_by_title.items():
+    for _aud_title, aud_data in audible_by_title.items():
         ratio = similarity(book_title, aud_data["title"])
         if ratio > best_ratio and ratio >= 0.85:
             best_ratio = ratio

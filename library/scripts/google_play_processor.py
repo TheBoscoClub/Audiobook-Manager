@@ -701,7 +701,7 @@ def calculate_file_hash(file_path: Path) -> Optional[str]:
         return None
 
 
-def import_to_database(metadata: Dict, file_path: Path, covers_dir: Path) -> Optional[int]:
+def import_to_database(metadata: Dict, file_path: Path, _covers_dir: Path) -> Optional[int]:
     """Import processed audiobook to database."""
     if not DB_PATH.exists():
         print(f"Database not found: {DB_PATH}")
