@@ -215,6 +215,10 @@ class TestGenerateHashesWorkerThread:
             client.post("/api/utilities/generate-hashes-async")
 
         wait_for_thread_completion(mock_tracker)
+        assert mock_tracker.complete_operation.call_args is not None, (
+            "Worker called fail_operation instead of complete_operation. "
+            f"fail_operation.call_args={mock_tracker.fail_operation.call_args!r}"
+        )
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
