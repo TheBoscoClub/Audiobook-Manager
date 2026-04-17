@@ -59,8 +59,8 @@ vastai set api-key "$VAST_API_KEY"
 
 ```bash
 # The key used for Vast.ai instance SSH tunnels
-SSH_KEY="/home/bosco/.claude/ssh/id_ed25519"
-# Public half must be registered in Vast.ai account: vastai set ssh-key "$(cat ~/.claude/ssh/id_ed25519.pub)"
+SSH_KEY="${HOME}/.ssh/id_ed25519"  # or your project's deploy key
+# Public half must be registered in Vast.ai account: vastai set ssh-key "$(cat "${SSH_KEY}.pub")"
 ```
 
 ### Site-local config

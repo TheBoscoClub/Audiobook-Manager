@@ -47,6 +47,7 @@ def get_db(db_path: str) -> sqlite3.Connection:
 def count_chapters(audio_path: Path) -> int:
     """Count chapters in an audiobook by checking chapter files."""
     from localization.chapters import extract_chapters
+
     try:
         chapters = extract_chapters(audio_path)
         return len(chapters)
@@ -209,21 +210,25 @@ def main():
             pass_count += 1
             logger.info(
                 "  PASS  [%d] %s — en=%d zh=%d",
-                book_id, result["title"][:50],
-                result["en_chapters"], result["zh_chapters"],
+                book_id,
+                result["title"][:50],
+                result["en_chapters"],
+                result["zh_chapters"],
             )
         elif result["status"] == "WARN":
             warn_count += 1
             logger.warning(
                 "  WARN  [%d] %s — %s",
-                book_id, result["title"][:50],
+                book_id,
+                result["title"][:50],
                 "; ".join(result["issues"]),
             )
         else:
             fail_count += 1
             logger.error(
                 "  FAIL  [%d] %s — %s",
-                book_id, result["title"][:50],
+                book_id,
+                result["title"][:50],
                 "; ".join(result["issues"][:3]),
             )
             requeue_ids.append(book_id)
@@ -253,8 +258,15 @@ def main():
     logger.info("  FAIL: %d", fail_count)
     logger.info("")
     logger.info("PROOF — Database counts:")
-    logger.info("  English subtitle chapters: %d (across %d books)", total_en, total_en_books)
-    logger.info("  %s subtitle chapters: %d (across %d books)", args.locale, total_zh, total_zh_books)
+    logger.info(
+        "  English subtitle chapters: %d (across %d books)", total_en, total_en_books
+    )
+    logger.info(
+        "  %s subtitle chapters: %d (across %d books)",
+        args.locale,
+        total_zh,
+        total_zh_books,
+    )
     logger.info("")
     logger.info("PROOF — Queue state:")
     for state, count in sorted(queue_stats.items()):
@@ -262,7 +274,9 @@ def main():
     logger.info("")
     logger.info(
         "PROOF — Coverage: %d / %d books have subtitles (%.1f%%)",
-        total_en_books, total_books, 100 * total_en_books / total_books if total_books else 0,
+        total_en_books,
+        total_books,
+        100 * total_en_books / total_books if total_books else 0,
     )
 
     # Re-queue failed books
@@ -291,7 +305,9 @@ def main():
             "zh_chapters": total_zh,
             "en_books": total_en_books,
             "zh_books": total_zh_books,
-            "coverage_pct": round(100 * total_en_books / total_books, 1) if total_books else 0,
+            "coverage_pct": round(100 * total_en_books / total_books, 1)
+            if total_books
+            else 0,
             "details": results,
         }
         report_path = Path(args.db).parent / "translation-verification.json"

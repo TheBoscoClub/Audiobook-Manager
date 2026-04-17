@@ -41,18 +41,18 @@ pkill -f "python3.*api.py" 2>/dev/null
 pkill -f "python3.*http.server" 2>/dev/null
 
 # Find available port for web server
-while lsof -i:$WEB_PORT >/dev/null 2>&1; do
+while lsof -i:"$WEB_PORT" >/dev/null 2>&1; do
     WEB_PORT=$((WEB_PORT + 1))
-    if [ $WEB_PORT -gt 8099 ]; then
+    if [ "$WEB_PORT" -gt 8099 ]; then
         echo "No available ports in range 8090-8099"
         exit 1
     fi
 done
 
 # Find available port for API
-while lsof -i:$API_PORT >/dev/null 2>&1; do
+while lsof -i:"$API_PORT" >/dev/null 2>&1; do
     API_PORT=$((API_PORT + 1))
-    if [ $API_PORT -gt 5010 ]; then
+    if [ "$API_PORT" -gt 5010 ]; then
         echo "No available ports in range 5001-5010"
         exit 1
     fi
@@ -71,7 +71,7 @@ sleep 2
 
 echo "Starting web server on port $WEB_PORT..."
 cd "$LIBRARY_DIR/web-v2" || exit 1
-python3 -m http.server $WEB_PORT &
+python3 -m http.server "$WEB_PORT" &
 WEB_PID=$!
 
 echo ""
@@ -93,7 +93,7 @@ fi
 # Wait for Ctrl+C
 cleanup() {
     echo 'Shutting down...'
-    kill $API_PID $WEB_PID 2>/dev/null
+    kill "$API_PID" "$WEB_PID" 2>/dev/null
     exit 0
 }
 trap cleanup INT TERM

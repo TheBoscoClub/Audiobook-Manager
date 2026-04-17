@@ -56,9 +56,7 @@ ADMIN_TOTP_SECRET = os.environ.get(
 # WebAuthn origin must match the VM's WEBAUTHN_ORIGIN config
 # (typically https://<FQDN>:<WEB_PORT>). Set WEBAUTHN_ORIGIN explicitly for
 # any run against a remote VM; falls back to localhost for dev-box runs.
-WEBAUTHN_ORIGIN = os.environ.get(
-    "WEBAUTHN_ORIGIN", "https://localhost:9090"
-)
+WEBAUTHN_ORIGIN = os.environ.get("WEBAUTHN_ORIGIN", "https://localhost:9090")
 
 # Test user names
 TOTP_USER = "totptest1"

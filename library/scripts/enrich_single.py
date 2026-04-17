@@ -671,46 +671,47 @@ def enrich_book(
     result = _make_empty_result()
 
     conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    try:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
 
-    cursor.execute(
-        "SELECT id, title, author, asin, isbn, series FROM audiobooks WHERE id = ?",
-        (book_id,),
-    )
-    book = cursor.fetchone()
-    if not book:
-        conn.close()
-        result["errors"].append(f"Book ID {book_id} not found")
-        return result
+        cursor.execute(
+            "SELECT id, title, author, asin, isbn, series FROM audiobooks WHERE id = ?",
+            (book_id,),
+        )
+        book = cursor.fetchone()
+        if not book:
+            result["errors"].append(f"Book ID {book_id} not found")
+            return result
 
-    if not quiet:
-        print(f"  Enriching: {book['title']} (ID {book_id})")
+        if not quiet:
+            print(f"  Enriching: {book['title']} (ID {book_id})")
 
-    if book["asin"]:
-        _try_audible_enrichment(
+        if book["asin"]:
+            _try_audible_enrichment(
+                cursor,
+                book_id,
+                book["asin"],
+                book["series"],
+                now,
+                quiet,
+                result,
+            )
+
+        _try_isbn_enrichment(
             cursor,
             book_id,
-            book["asin"],
-            book["series"],
+            book["isbn"],
+            book["title"],
+            book["author"],
             now,
             quiet,
             result,
         )
 
-    _try_isbn_enrichment(
-        cursor,
-        book_id,
-        book["isbn"],
-        book["title"],
-        book["author"],
-        now,
-        quiet,
-        result,
-    )
-
-    conn.commit()
-    conn.close()
+        conn.commit()
+    finally:
+        conn.close()
 
     if not quiet:
         print(f"    Total: {result['fields_updated']} fields enriched")

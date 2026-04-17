@@ -363,7 +363,13 @@ class AuthDatabase:
         ("access_requests", "preferred_auth_method", "TEXT DEFAULT 'totp'"),
     )
     _V5_ALLOWED_TABLES_FOR_PRAGMA: frozenset[str] = frozenset(
-        {"sessions", "access_requests", "users", "user_listening_history", "user_downloads"}
+        {
+            "sessions",
+            "access_requests",
+            "users",
+            "user_listening_history",
+            "user_downloads",
+        }
     )
 
     @staticmethod

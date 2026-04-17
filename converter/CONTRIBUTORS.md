@@ -30,7 +30,7 @@ The following individuals have contributed to AAXtoMP3 through commits to the or
 - Dirk Loeckx <3196144+dloeckx@users.noreply.github.com>
 - fabh2o <fabrice.h2o@gmail.com>
 - Francis Chong <francis@ignition.hk>
-- greogory <gjbr@pm.me> - *This fork maintainer*
+- Bosco Robinson - *This fork maintainer*
 - James Hewitt <james.hewitt@gmail.com>
 - JarrodCColburn <jcourtlandcolburn@gmail.com>
 - jcat <jcat@nysasounds.co.uk>

@@ -78,7 +78,7 @@ def _chapters_from_ffprobe(audio_path: Path) -> list[Chapter]:
         logger.warning("ffprobe chapter extraction failed: %s", e)
         return []
 
-    chapters = []
+    chapters: list[Chapter] = []
     for ch in data.get("chapters", []):
         start_ms = int(float(ch.get("start_time", 0)) * 1000)
         end_ms = int(float(ch.get("end_time", 0)) * 1000)

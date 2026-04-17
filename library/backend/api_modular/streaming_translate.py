@@ -15,6 +15,7 @@ Endpoints:
 """
 
 import logging
+import re
 import sqlite3
 from pathlib import Path
 
@@ -33,19 +34,59 @@ SEGMENT_DURATION_SEC = 30
 BUFFER_THRESHOLD = 6  # 3 minutes = 6 segments
 
 # Allowed locale patterns for path/log safety
-_SAFE_LOCALE_RE = None
+_SAFE_LOCALE_RE = re.compile(r"^[a-zA-Z]{2}(?:-[a-zA-Z0-9]{1,8})?$")
+
+# Control character stripper for log messages (CRLF injection / log forging defense)
+_LOG_SCRUB_RE = re.compile(r"[\r\n\x00-\x1f\x7f]")
+
+
+def _safe_log_value(value) -> str:
+    """Sanitize a value for safe inclusion in log messages.
+
+    Strips CR, LF, null bytes, and other control characters that could be
+    used for log forging (CRLF injection). Truncates overly long values.
+    """
+    s = str(value) if value is not None else ""
+    s = _LOG_SCRUB_RE.sub("_", s)
+    if len(s) > 200:
+        s = s[:200] + "...(truncated)"
+    return s
 
 
 def _sanitize_locale(locale: str) -> str:
     """Validate locale string — reject path traversal and log injection."""
-    import re
-
-    global _SAFE_LOCALE_RE
-    if _SAFE_LOCALE_RE is None:
-        _SAFE_LOCALE_RE = re.compile(r"^[a-zA-Z]{2}(?:-[a-zA-Z0-9]{1,8})?$")
     if not isinstance(locale, str) or not _SAFE_LOCALE_RE.match(locale):
         raise ValueError(f"invalid locale: {locale!r}")
     return locale
+
+
+def _safe_subtitles_path(
+    library_root: Path, audiobook_id: int, chapter_index: int, locale: str
+) -> Path:
+    """Build a VTT subtitle path and confirm it is inside `library_root`.
+
+    `audiobook_id` and `chapter_index` must be ints; `locale` must already
+    have been validated by `_sanitize_locale`. This function raises
+    `ValueError` if the resolved path escapes the library root (defense in
+    depth against path injection — CodeQL py/path-injection).
+    """
+    if not isinstance(audiobook_id, int) or audiobook_id < 0:
+        raise ValueError(f"invalid audiobook_id: {audiobook_id!r}")
+    if not isinstance(chapter_index, int) or chapter_index < 0:
+        raise ValueError(f"invalid chapter_index: {chapter_index!r}")
+    # Re-validate locale (belt-and-suspenders) to ensure no traversal chars
+    _sanitize_locale(locale)
+
+    root = library_root.resolve()
+    subtitles_dir = (root / "subtitles" / str(audiobook_id)).resolve()
+    # Python 3.9+: Path.is_relative_to
+    if not subtitles_dir.is_relative_to(root):
+        raise ValueError("resolved subtitles dir escapes library root")
+
+    vtt_path = (subtitles_dir / f"ch{chapter_index:03d}.{locale}.vtt").resolve()
+    if not vtt_path.is_relative_to(root):
+        raise ValueError("resolved VTT path escapes library root")
+    return vtt_path
 
 
 def _get_db():
@@ -174,7 +215,7 @@ def _ensure_chapter_segments(
         seg_count,
         audiobook_id,
         chapter_index,
-        locale,
+        _safe_log_value(locale),
         priority,
     )
     return seg_count
@@ -700,10 +741,20 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
     if len(all_vtt.strip()) <= len("WEBVTT"):
         return
 
-    # Write consolidated VTT file
-    subtitles_dir = _library_path / "subtitles" / str(audiobook_id)
-    subtitles_dir.mkdir(parents=True, exist_ok=True)
-    vtt_path = subtitles_dir / f"ch{chapter_index:03d}.{locale}.vtt"
+    # Write consolidated VTT file — validated to live inside library root
+    if _library_path is None:
+        logger.error(
+            "Cannot consolidate streaming chapter — library path not configured"
+        )
+        return
+    try:
+        vtt_path = _safe_subtitles_path(
+            _library_path, audiobook_id, chapter_index, locale
+        )
+    except ValueError as exc:
+        logger.error("Rejected unsafe consolidated VTT path: %s", _safe_log_value(exc))
+        return
+    vtt_path.parent.mkdir(parents=True, exist_ok=True)
     vtt_path.write_text(all_vtt)
 
     # Insert into permanent cache
@@ -719,7 +770,7 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
         "Consolidated streaming segments into permanent VTT: book=%d ch=%d locale=%s",
         audiobook_id,
         chapter_index,
-        locale,
+        _safe_log_value(locale),
     )
 
 

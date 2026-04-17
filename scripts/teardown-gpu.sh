@@ -67,7 +67,7 @@ for inst in (instances if isinstance(instances, list) else []):
                         ((failed++))
                     fi
                 fi
-            done <<< "$ids"
+            done <<<"$ids"
         fi
     fi
 else
@@ -111,7 +111,7 @@ for pod in pods:
                         ((destroyed++))
                     fi
                 fi
-            done <<< "$pod_ids"
+            done <<<"$pod_ids"
         fi
     fi
 else

@@ -35,24 +35,24 @@ QUICK_OUTPUT=""
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --rebuild)
-        REBUILD=true
-        shift
-        ;;
-    --verbose | -v)
-        VERBOSE=true
-        shift
-        ;;
-    --quick-update)
-        # Quick update mode: --quick-update SOURCE_AAXC OUTPUT_OPUS
-        QUICK_UPDATE=true
-        shift
-        QUICK_SOURCE="${1:-}"
-        shift
-        QUICK_OUTPUT="${1:-}"
-        shift
-        ;;
-    *) shift ;;
+        --rebuild)
+            REBUILD=true
+            shift
+            ;;
+        --verbose | -v)
+            VERBOSE=true
+            shift
+            ;;
+        --quick-update)
+            # Quick update mode: --quick-update SOURCE_AAXC OUTPUT_OPUS
+            QUICK_UPDATE=true
+            shift
+            QUICK_SOURCE="${1:-}"
+            shift
+            QUICK_OUTPUT="${1:-}"
+            shift
+            ;;
+        *) shift ;;
     esac
 done
 
@@ -90,26 +90,35 @@ log() {
 # Removes common suffixes, punctuation, collapses spaces, lowercases
 normalize_title() {
     local input="$1"
-    echo "$input" |
+    echo "$input" \
+        |
         # Remove common audiobook suffixes (case insensitive via later lowercase)
-        sed -E 's/[[:space:]]*\([Uu]nabridged\)//g' |
-        sed -E 's/[[:space:]]*\([Aa]bridged\)//g' |
-        sed -E 's/[[:space:]]+[Aa][[:space:]]+[Nn]ovel[[:space:]]*$//g' |
-        sed -E 's/[[:space:]]+[Aa][[:space:]]+[Mm]emoir[[:space:]]*$//g' |
+        sed -E 's/[[:space:]]*\([Uu]nabridged\)//g' \
+        | sed -E 's/[[:space:]]*\([Aa]bridged\)//g' \
+        | sed -E 's/[[:space:]]+[Aa][[:space:]]+[Nn]ovel[[:space:]]*$//g' \
+        | sed -E 's/[[:space:]]+[Aa][[:space:]]+[Mm]emoir[[:space:]]*$//g' \
+        |
         # Convert underscores to spaces
-        tr '_' ' ' |
+        tr '_' ' ' \
+        |
         # Convert hyphens to spaces
-        tr -- '-' ' ' |
+        tr -- '-' ' ' \
+        |
         # Transliterate accented characters to ASCII equivalents
-        iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null |
+        iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null \
+        |
         # Remove punctuation except spaces
-        tr -cd '[:alnum:] ' |
+        tr -cd '[:alnum:] ' \
+        |
         # Collapse multiple spaces
-        tr -s ' ' |
+        tr -s ' ' \
+        |
         # Lowercase
-        tr '[:upper:]' '[:lower:]' |
+        tr '[:upper:]' '[:lower:]' \
+        |
         # Remove leading articles (the, a, an)
-        sed -E 's/^(the|a|an) //' |
+        sed -E 's/^(the|a|an) //' \
+        |
         # Trim whitespace
         sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
 }

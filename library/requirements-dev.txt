@@ -10,7 +10,7 @@ pytest-playwright>=0.7.0
 requests-mock>=1.12.1
 
 # Linters / formatters
-ruff>=0.14.0
+ruff>=0.15.11
 mypy>=1.18.0
 black>=25.11.0
 isort>=7.0.0
@@ -18,3 +18,17 @@ isort>=7.0.0
 # Security scanners
 bandit>=1.9.2
 pip-audit>=2.9.0
+
+# Transitive dev dependencies — pinned to current versions to ensure
+# dev environments stay reproducible across fresh installs. These are
+# pulled in by the tools above; bumping the floor keeps us on the
+# current-major line and avoids CVE-tracked older releases.
+rich>=15.0.0
+greenlet>=3.4.0
+librt>=0.9.0
+mando>=0.8.2
+packaging>=26.1
+platformdirs>=4.9.6
+types-croniter>=6.2.2.20260408
+types-requests>=2.33.0.20260408
+zope.interface>=8.3

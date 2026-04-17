@@ -38,14 +38,14 @@ fi
 # Skip cleanly if translation_queue doesn't exist (fresh installs that haven't
 # initialized localization yet).
 if ! _dm003_sqlite "SELECT 1 FROM sqlite_master WHERE type='table' AND name='translation_queue';" \
-        2>/dev/null | grep -q 1; then
+    2>/dev/null | grep -q 1; then
     return 0
 fi
 
 _dm003_need_progress=false
 _dm003_need_total=false
 _dm003_has_column "last_progress_at" || _dm003_need_progress=true
-_dm003_has_column "total_chapters"   || _dm003_need_total=true
+_dm003_has_column "total_chapters" || _dm003_need_total=true
 
 if ! $_dm003_need_progress && ! $_dm003_need_total; then
     return 0

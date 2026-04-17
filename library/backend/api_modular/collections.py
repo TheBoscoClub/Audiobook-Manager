@@ -446,9 +446,17 @@ def init_collections_routes(db_path):
         COLLECTIONS.update(flat_lookup)
 
         def get_count(query: str) -> int:
-            cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                f"SELECT COUNT(*) as count FROM audiobooks WHERE {query}"  # nosec B608
-            )
+            # WHERE-clause fragments here come exclusively from internal
+            # SPECIAL_COLLECTIONS entries and from helpers (_genre_query,
+            # _era_query, _topic_query, _series_query, _multi_genre_query)
+            # that derive names from DB-sourced metadata and single-quote
+            # escape them. They never contain user HTTP input. Defense in
+            # depth: reject any fragment containing SQL statement terminators
+            # or comment introducers before execution.
+            if not isinstance(query, str) or ";" in query or "--" in query:
+                raise ValueError("rejected unsafe collection WHERE fragment")
+            sql = "SELECT COUNT(*) as count FROM audiobooks WHERE " + query
+            cursor.execute(sql)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             return cursor.fetchone()["count"]
 
         category_order = [

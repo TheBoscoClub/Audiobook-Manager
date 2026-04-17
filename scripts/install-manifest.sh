@@ -26,10 +26,10 @@ REQUIRED_VENVS=(
 # should override the canonical location in audiobooks.conf instead.
 # ---------------------------------------------------------------------------
 PHANTOM_PATHS=(
-    "${LIB_DIR}/venv"                                  # top-level venv (canonical is library/venv)
-    "${LIB_DIR}/library/web-v2/covers"                 # pre-v7 cover dir (canonical is ${STATE_DIR}/covers)
-    "${LIB_DIR}/library/covers"                        # pre-v6 cover dir
-    "${LIB_DIR}/.venv"                                 # dev-machine convention
+    "${LIB_DIR}/venv"                  # top-level venv (canonical is library/venv)
+    "${LIB_DIR}/library/web-v2/covers" # pre-v7 cover dir (canonical is ${STATE_DIR}/covers)
+    "${LIB_DIR}/library/covers"        # pre-v6 cover dir
+    "${LIB_DIR}/.venv"                 # dev-machine convention
 )
 
 # ---------------------------------------------------------------------------

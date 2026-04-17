@@ -197,8 +197,8 @@ dry_run() {
         ! -path "*/venv/*" ! -path "*/__pycache__/*" ! -name "*.pyc" \
         ! -path "*/.pytest_cache/*" ! -name "audiobooks.db" \
         ! -path "*/testdata/*" ! -name "*.local.*" \
-        ! -path "*/.coverage" ! -path "*/htmlcov/*" ! -path "*/.mypy_cache/*" |
-        sed "s|${SCRIPT_DIR}/||" | head -50
+        ! -path "*/.coverage" ! -path "*/htmlcov/*" ! -path "*/.mypy_cache/*" \
+        | sed "s|${SCRIPT_DIR}/||" | head -50
     echo "  ..."
 
     echo ""
@@ -217,8 +217,8 @@ dry_run() {
         echo ""
         echo "=== converter/ ==="
         find "${SCRIPT_DIR}/converter" -type f ! -name "*.aax" ! -name "*.aaxc" \
-            ! -name "*.mp3" ! -name "*.opus" ! -name "*.m4b" |
-            sed "s|${SCRIPT_DIR}/||" | head -20
+            ! -name "*.mp3" ! -name "*.opus" ! -name "*.m4b" \
+            | sed "s|${SCRIPT_DIR}/||" | head -20
     fi
 
     if [[ -d "${SCRIPT_DIR}/etc" ]]; then
@@ -258,23 +258,23 @@ EOF
 
 main() {
     case "${1:-}" in
-    --dry-run)
-        dry_run
-        ;;
-    --clean)
-        clean
-        ;;
-    -h | --help)
-        show_help
-        ;;
-    "")
-        build_release
-        ;;
-    *)
-        log_error "Unknown option: $1"
-        show_help
-        exit 1
-        ;;
+        --dry-run)
+            dry_run
+            ;;
+        --clean)
+            clean
+            ;;
+        -h | --help)
+            show_help
+            ;;
+        "")
+            build_release
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            show_help
+            exit 1
+            ;;
     esac
 }
 

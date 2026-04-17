@@ -99,13 +99,13 @@ convert_file() {
 
     # Only convert DRM-encrypted formats — skip anything playable as-is
     case "$SOURCE_FILE" in
-    *.aaxc) BASENAME=$(basename "$SOURCE_FILE" .aaxc) ;;
-    *.aax) BASENAME=$(basename "$SOURCE_FILE" .aax) ;;
-    *.aa) BASENAME=$(basename "$SOURCE_FILE" .aa) ;;
-    *)
-        echo -e "${YELLOW}⊘ SKIP${NC}: $(basename "$SOURCE_FILE") (playable format, no conversion needed)"
-        return 0
-        ;;
+        *.aaxc) BASENAME=$(basename "$SOURCE_FILE" .aaxc) ;;
+        *.aax) BASENAME=$(basename "$SOURCE_FILE" .aax) ;;
+        *.aa) BASENAME=$(basename "$SOURCE_FILE" .aa) ;;
+        *)
+            echo -e "${YELLOW}⊘ SKIP${NC}: $(basename "$SOURCE_FILE") (playable format, no conversion needed)"
+            return 0
+            ;;
     esac
     local LOG_FILE="$LOG_DIR/conversion_${BASENAME}.log"
 
@@ -140,8 +140,8 @@ convert_file() {
 
     # AAXC/AAX files: use AAXtoMP3 with audible-cli data for DRM decryption
     # shellcheck disable=SC2164,SC2016 # SC2164: cd failure handled by && chain; SC2016: $artist/$title are AAXtoMP3 template vars, not shell vars
-    if cd "$CONVERTER_DIR" &&
-        ionice -c2 -n0 bash "$(basename "$CONVERTER_PATH")" --opus --single --level "$OPUS_LEVEL" \
+    if cd "$CONVERTER_DIR" \
+        && ionice -c2 -n0 bash "$(basename "$CONVERTER_PATH")" --opus --single --level "$OPUS_LEVEL" \
             --use-audible-cli-data \
             --target_dir "$OUTPUT_DIR" \
             -D '$artist/$title' \

@@ -133,9 +133,7 @@ def finish_job(db_path: str, job_id: int, state: str, error: str | None = None) 
         conn.close()
 
 
-def process_book_stt(
-    db_path: str, book_id: int, locale: str, audio_path: Path
-) -> bool:
+def process_book_stt(db_path: str, book_id: int, locale: str, audio_path: Path) -> bool:
     """Run STT + subtitle translation for a single book. Returns True on success."""
     from localization.pipeline import generate_book_subtitles, get_stt_provider
     from localization.selection import WorkloadHint
@@ -156,7 +154,11 @@ def process_book_stt(
     conn.close()
 
     if existing_en:
-        logger.info("  Book %d: %d English chapters already transcribed", book_id, len(existing_en))
+        logger.info(
+            "  Book %d: %d English chapters already transcribed",
+            book_id,
+            len(existing_en),
+        )
 
     stt = get_stt_provider("", workload=WorkloadHint.LONG_FORM)
     logger.info("  STT provider: %s", stt.name)
@@ -166,6 +168,7 @@ def process_book_stt(
     gen_conn.execute("PRAGMA foreign_keys=ON")
 
     try:
+
         def on_progress(ch_idx: int, total: int, title: str):
             logger.info("  Chapter %d/%d: %s", ch_idx + 1, total, title)
             try:
@@ -179,7 +182,9 @@ def process_book_stt(
             except Exception:
                 pass
 
-        def on_chapter_complete(ch_idx: int, source_vtt: Path, translated_vtt: Path | None):
+        def on_chapter_complete(
+            ch_idx: int, source_vtt: Path, translated_vtt: Path | None
+        ):
             gen_conn.execute(
                 "INSERT OR REPLACE INTO chapter_subtitles "
                 "(audiobook_id, chapter_index, locale, vtt_path, "
@@ -235,7 +240,9 @@ def process_book_tts(db_path: str, book_id: int, locale: str, audio_path: Path) 
     output_dir = audio_path.parent / "translated"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info("  TTS provider: %s, voice: %s, chapters: %d", tts.name, voice, len(vtt_rows))
+    logger.info(
+        "  TTS provider: %s, voice: %s, chapters: %d", tts.name, voice, len(vtt_rows)
+    )
 
     for row in vtt_rows:
         ch_idx = row["chapter_index"]
@@ -274,11 +281,21 @@ def process_book_tts(db_path: str, book_id: int, locale: str, audio_path: Path) 
 
         transcode = subprocess.run(
             [
-                "ffmpeg", "-y", "-i", str(intermediate_path),
-                "-c:a", "libopus", "-b:a", "64k", "-vbr", "on",
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(intermediate_path),
+                "-c:a",
+                "libopus",
+                "-b:a",
+                "64k",
+                "-vbr",
+                "on",
                 str(output_path),
             ],
-            capture_output=True, text=True, timeout=300,
+            capture_output=True,
+            text=True,
+            timeout=300,
         )
         if transcode.returncode == 0:
             intermediate_path.unlink(missing_ok=True)
@@ -290,11 +307,18 @@ def process_book_tts(db_path: str, book_id: int, locale: str, audio_path: Path) 
         try:
             result = subprocess.run(
                 [
-                    "ffprobe", "-v", "quiet",
-                    "-show_entries", "format=duration",
-                    "-of", "csv=p=0", str(output_path),
+                    "ffprobe",
+                    "-v",
+                    "quiet",
+                    "-show_entries",
+                    "format=duration",
+                    "-of",
+                    "csv=p=0",
+                    str(output_path),
                 ],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if result.returncode == 0 and result.stdout.strip():
                 duration = float(result.stdout.strip())
@@ -324,10 +348,18 @@ def main():
     parser.add_argument("--db", required=True, help="Path to audiobooks.db")
     parser.add_argument("--library", required=True, help="Path to audiobook library")
     parser.add_argument("--book-id", type=int, help="Process a single book ID")
-    parser.add_argument("--dry-run", action="store_true", help="Show what would be processed")
-    parser.add_argument("--stt-only", action="store_true", help="Only run STT, skip TTS")
-    parser.add_argument("--tts-only", action="store_true", help="Only run TTS, skip STT")
-    parser.add_argument("--vastai-host", help="Vast.ai Whisper host:port (e.g., 127.0.0.1:8100)")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Show what would be processed"
+    )
+    parser.add_argument(
+        "--stt-only", action="store_true", help="Only run STT, skip TTS"
+    )
+    parser.add_argument(
+        "--tts-only", action="store_true", help="Only run TTS, skip STT"
+    )
+    parser.add_argument(
+        "--vastai-host", help="Vast.ai Whisper host:port (e.g., 127.0.0.1:8100)"
+    )
     args = parser.parse_args()
 
     db_path = args.db
@@ -373,7 +405,9 @@ def main():
     ).fetchone()[0]
     conn.close()
 
-    logger.info("Queue: %d pending, %d completed, %d failed", pending, completed, failed)
+    logger.info(
+        "Queue: %d pending, %d completed, %d failed", pending, completed, failed
+    )
 
     if args.dry_run:
         conn = get_db(db_path)
@@ -419,7 +453,12 @@ def main():
 
         audio_path = Path(book["file_path"])
         if not audio_path.exists():
-            finish_job(db_path, job["id"], "failed", error=f"Audio file not found: {audio_path}")
+            finish_job(
+                db_path,
+                job["id"],
+                "failed",
+                error=f"Audio file not found: {audio_path}",
+            )
             continue
 
         processed += 1
@@ -428,7 +467,12 @@ def main():
 
         logger.info(
             "=== [%d/%d] Book %d: %s (locale=%s) === [%.1f books/hr]",
-            processed, processed + pending - 1, book_id, book["title"], locale, rate,
+            processed,
+            processed + pending - 1,
+            book_id,
+            book["title"],
+            locale,
+            rate,
         )
 
         try:
@@ -457,7 +501,9 @@ def main():
     total_elapsed = time.monotonic() - start_time
     logger.info(
         "Batch complete: %d books processed in %.1f minutes (%.1f books/hr)",
-        processed, total_elapsed / 60, processed / (total_elapsed / 3600) if total_elapsed > 0 else 0,
+        processed,
+        total_elapsed / 60,
+        processed / (total_elapsed / 3600) if total_elapsed > 0 else 0,
     )
 
 

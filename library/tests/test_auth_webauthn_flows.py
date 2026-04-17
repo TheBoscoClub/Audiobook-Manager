@@ -18,7 +18,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 # Add library directory to path
 LIBRARY_DIR = Path(__file__).parent.parent
@@ -504,13 +503,6 @@ class TestClaimWebAuthnComplete:
         assert resp.status_code == 400
         assert "verification failed" in resp.get_json()["error"].lower()
 
-    @pytest.mark.skip(
-        reason=(
-            "Pre-existing schema column ordering mismatch: schema.sql and "
-            "AccessRequestRepository._ensure_table create columns in different "
-            "order, causing from_row to mismap claim_expires_at. Tracked separately."
-        )
-    )
     def test_claim_expired_invitation(self, auth_app, auth_db):
         """Expired claim token returns appropriate error."""
         _create_approved_access_request(

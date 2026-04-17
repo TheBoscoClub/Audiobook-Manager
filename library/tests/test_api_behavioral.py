@@ -303,7 +303,8 @@ def _seed_database(db_path: Path) -> None:
     for book in SEED_BOOKS:
         vals = [book.get(c) for c in cols]
         cur.execute(
-            f"INSERT INTO audiobooks ({col_names}) VALUES ({placeholders})", vals  # nosec B608  # test SQL uses hardcoded identifiers
+            f"INSERT INTO audiobooks ({col_names}) VALUES ({placeholders})",
+            vals,  # nosec B608  # test SQL uses hardcoded identifiers
         )
 
     # Authors & narrators (normalized)

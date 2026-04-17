@@ -94,7 +94,7 @@ class XTTSProvider(TTSProvider):
         """Poll a RunPod job until completion or timeout."""
         status_url = f"{RUNPOD_API_URL}/{self._endpoint_id}/status/{job_id}"
         start = time.monotonic()
-        poll_interval = 2
+        poll_interval: float = 2.0
 
         while time.monotonic() - start < max_wait:
             resp = requests.get(

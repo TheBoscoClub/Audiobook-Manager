@@ -353,7 +353,9 @@ def flask_app(session_temp_dir):
         supplements_dir=supplements_dir,
         api_port=5099,
     )
-    app.config["TESTING"] = True  # nosemgrep: python.flask.security.audit.hardcoded-config.avoid_hardcoded_config_TESTING — test-only fixture, required for Flask test client
+    app.config["TESTING"] = (
+        True  # nosemgrep: python.flask.security.audit.hardcoded-config.avoid_hardcoded_config_TESTING — test-only fixture, required for Flask test client
+    )
 
     return app
 
@@ -625,7 +627,9 @@ def auth_app(auth_temp_dir):
         auth_dev_mode=True,
     )
     app.config["AUTH_DEV_MODE"] = True
-    app.config["TESTING"] = True  # nosemgrep: python.flask.security.audit.hardcoded-config.avoid_hardcoded_config_TESTING — test-only fixture, required for Flask test client
+    app.config["TESTING"] = (
+        True  # nosemgrep: python.flask.security.audit.hardcoded-config.avoid_hardcoded_config_TESTING — test-only fixture, required for Flask test client
+    )
 
     # Store test data for tests to use
     app.test_user_secret = secret
@@ -635,6 +639,15 @@ def auth_app(auth_temp_dir):
     app.admin_user_id = admin.id
 
     yield app
+
+    # Session-end teardown: close the AuthDatabase connection to avoid
+    # sqlite3 ResourceWarning during pytest's GC pass.
+    try:
+        close = getattr(auth_db, "close", None)
+        if callable(close):
+            close()
+    except Exception:
+        pass
 
 
 @pytest.fixture(scope="session")

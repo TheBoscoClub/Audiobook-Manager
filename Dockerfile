@@ -7,7 +7,10 @@
 # Build: docker build -t audiobooks .
 # Run:   docker-compose up -d
 
-FROM python:3.14-slim
+# Pinned by sha256 digest for reproducible, supply-chain-safe builds.
+# To refresh: run `docker pull python:3.14-slim && docker inspect python:3.14-slim --format '{{index .RepoDigests 0}}'`
+# Last refreshed: 2026-04-16 (tag: python:3.14-slim)
+FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa
 
 # Read version from VERSION file during build
 ARG APP_VERSION=8.2.3.4

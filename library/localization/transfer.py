@@ -88,15 +88,15 @@ def _fetch_optional(
     return _fetch_locale(conn, key, locale)
 
 
-def _load_export_data(
-    conn: sqlite3.Connection, locale: str | None
-) -> dict:
+def _load_export_data(conn: sqlite3.Connection, locale: str | None) -> dict:
     """Pull every export-relevant row + book directory map from the DB."""
     en_subs = _fetch_locale(conn, "subs_en", None)
     subs = _fetch_locale(conn, "subs_other", locale)
     audio = _fetch_locale(conn, "audio", locale)
     meta = _fetch_locale(conn, "meta", locale)
-    collections = _fetch_optional(conn, "collection_translations", "collections", locale)
+    collections = _fetch_optional(
+        conn, "collection_translations", "collections", locale
+    )
     strings = _fetch_optional(conn, "string_translations", "strings", locale)
     queue = _fetch_locale(conn, "queue", locale)
 
@@ -243,9 +243,7 @@ def _read_manifest(archive: str) -> dict:
         return json.loads(mf.read())
 
 
-def _build_id_map(
-    manifest: dict, books_by_title: dict[str, int]
-) -> dict[int, int]:
+def _build_id_map(manifest: dict, books_by_title: dict[str, int]) -> dict[int, int]:
     """Map source-env book IDs → target-env book IDs by title."""
     id_map: dict[int, int] = {}
     for old_id_str, info in manifest.get("books", {}).items():
@@ -267,7 +265,9 @@ def _extract_file_to_dest(
     default_path: str,
 ) -> str:
     """Extract a file from the tar to its destination dir; return the final path."""
-    if not (arc_key and arc_key in members and new_id in target_book_paths):
+    if not (
+        arc_key and arc_key in members and new_id in target_book_paths and filename
+    ):
         return default_path
     dest_dir = target_book_paths[new_id] / subdir
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -295,8 +295,14 @@ def _import_subtitles(
         vtt_name = Path(old_vtt).name if old_vtt else None
         arc_key = f"vtt/{vtt_name}" if vtt_name else None
         new_vtt_path = _extract_file_to_dest(
-            tar, members, arc_key, new_id, target_book_paths,
-            "subtitles", vtt_name, old_vtt,
+            tar,
+            members,
+            arc_key,
+            new_id,
+            target_book_paths,
+            "subtitles",
+            vtt_name,
+            old_vtt,
         )
         conn.execute(
             _INSERT_SUBTITLE,
@@ -331,8 +337,14 @@ def _import_audio(
         audio_name = Path(old_path).name if old_path else None
         arc_key = f"audio/{audio_name}" if audio_name else None
         new_audio_path = _extract_file_to_dest(
-            tar, members, arc_key, new_id, target_book_paths,
-            "translated", audio_name, old_path,
+            tar,
+            members,
+            arc_key,
+            new_id,
+            target_book_paths,
+            "translated",
+            audio_name,
+            old_path,
         )
         conn.execute(
             _INSERT_AUDIO,
@@ -442,41 +454,42 @@ def import_translations(db_path: str, archive: str) -> dict:
     Returns a summary dict with counts.
     """
     conn = _connect(db_path)
+    try:
+        books_by_title: dict[str, int] = {}
+        for row in conn.execute("SELECT id, title FROM audiobooks").fetchall():
+            books_by_title[row["title"]] = row["id"]
 
-    books_by_title: dict[str, int] = {}
-    for row in conn.execute("SELECT id, title FROM audiobooks").fetchall():
-        books_by_title[row["title"]] = row["id"]
+        manifest = _read_manifest(archive)
+        id_map = _build_id_map(manifest, books_by_title)
 
-    manifest = _read_manifest(archive)
-    id_map = _build_id_map(manifest, books_by_title)
+        if not id_map:
+            print(
+                "WARNING: No matching books found by title. "
+                "Ensure the target database has the same audiobooks.",
+                file=sys.stderr,
+            )
+            return {"matched": 0, "total_books": len(manifest.get("books", {}))}
 
-    if not id_map:
-        print(
-            "WARNING: No matching books found by title. "
-            "Ensure the target database has the same audiobooks.",
-            file=sys.stderr,
-        )
-        return {"matched": 0, "total_books": len(manifest.get("books", {}))}
+        target_book_paths: dict[int, Path] = {}
+        for row in conn.execute("SELECT id, file_path FROM audiobooks").fetchall():
+            target_book_paths[row["id"]] = Path(row["file_path"]).parent
 
-    target_book_paths: dict[int, Path] = {}
-    for row in conn.execute("SELECT id, file_path FROM audiobooks").fetchall():
-        target_book_paths[row["id"]] = Path(row["file_path"]).parent
+        with tarfile.open(archive, "r:gz") as tar:
+            members = {m.name: m for m in tar.getmembers()}
+            imported_subs = _import_subtitles(
+                conn, tar, members, manifest, id_map, target_book_paths
+            )
+            imported_audio = _import_audio(
+                conn, tar, members, manifest, id_map, target_book_paths
+            )
+            imported_meta = _import_metadata(conn, manifest, id_map)
+            imported_collections = _import_collections(conn, manifest)
+            imported_strings = _import_strings(conn, manifest)
+            _mark_queue_completed(conn, manifest, id_map)
 
-    with tarfile.open(archive, "r:gz") as tar:
-        members = {m.name: m for m in tar.getmembers()}
-        imported_subs = _import_subtitles(
-            conn, tar, members, manifest, id_map, target_book_paths
-        )
-        imported_audio = _import_audio(
-            conn, tar, members, manifest, id_map, target_book_paths
-        )
-        imported_meta = _import_metadata(conn, manifest, id_map)
-        imported_collections = _import_collections(conn, manifest)
-        imported_strings = _import_strings(conn, manifest)
-        _mark_queue_completed(conn, manifest, id_map)
-
-    conn.commit()
-    conn.close()
+        conn.commit()
+    finally:
+        conn.close()
 
     summary = {
         "matched": len(id_map),

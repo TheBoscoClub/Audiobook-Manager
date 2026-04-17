@@ -42,6 +42,7 @@ def init_translations_routes(database_path):
 
     # Idempotent migration: older installs lack series_display column.
     # SQLite has no ADD COLUMN IF NOT EXISTS, so we check pragma first.
+    conn = None
     try:
         conn = sqlite3.connect(str(_db_path))
         cols = {
@@ -53,13 +54,16 @@ def init_translations_routes(database_path):
             )
             conn.commit()
             logger.info("Added series_display column to audiobook_translations")
-        conn.close()
     except sqlite3.Error:
         logger.exception(
             "Failed to ensure audiobook_translations.series_display column"
         )
+    finally:
+        if conn is not None:
+            conn.close()
 
     # Migration 018: collection_translations cache table.
+    conn = None
     try:
         conn = sqlite3.connect(str(_db_path))
         conn.execute(
@@ -78,11 +82,14 @@ def init_translations_routes(database_path):
             "ON collection_translations(locale)"
         )
         conn.commit()
-        conn.close()
     except sqlite3.Error:
         logger.exception("Failed to ensure collection_translations table")
+    finally:
+        if conn is not None:
+            conn.close()
 
     # Migration 019: string_translations generic cache table.
+    conn = None
     try:
         conn = sqlite3.connect(str(_db_path))
         conn.execute(
@@ -102,11 +109,14 @@ def init_translations_routes(database_path):
             "ON string_translations(locale)"
         )
         conn.commit()
-        conn.close()
     except sqlite3.Error:
         logger.exception("Failed to ensure string_translations table")
+    finally:
+        if conn is not None:
+            conn.close()
 
     # Migration 020: deepl_quota single-row bookkeeping for quota/glossary.
+    conn = None
     try:
         conn = sqlite3.connect(str(_db_path))
         conn.execute(
@@ -123,9 +133,11 @@ def init_translations_routes(database_path):
         )
         conn.execute("INSERT OR IGNORE INTO deepl_quota (id) VALUES ('default')")
         conn.commit()
-        conn.close()
     except sqlite3.Error:
         logger.exception("Failed to ensure deepl_quota table")
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def _hash_source(text: str) -> str:
@@ -332,9 +344,7 @@ def _translate_title_author_batch(translator, needs_title, locale):
     authors = [b["author"] or "" for b in needs_title]
     translated_titles = translator.translate(titles, locale)
     translated_authors = (
-        translator.translate([a for a in authors if a], locale)
-        if any(authors)
-        else []
+        translator.translate([a for a in authors if a], locale) if any(authors) else []
     )
     author_iter = iter(translated_authors)
     author_map_new = [next(author_iter, a) if a else "" for a in authors]
@@ -344,11 +354,7 @@ def _translate_title_author_batch(translator, needs_title, locale):
 def _translate_unique_series(translator, books, locale):
     """Dedupe + translate series strings. Returns {source: translation}."""
     unique_series = sorted(
-        {
-            b["series"].strip()
-            for b in books
-            if b.get("series") and b["series"].strip()
-        }
+        {b["series"].strip() for b in books if b.get("series") and b["series"].strip()}
     )
     if not unique_series:
         return {}, unique_series
@@ -739,9 +745,7 @@ def _translate_on_demand_titles_authors(translator, books_to_translate, locale):
     authors = [b["author"] or "" for b in books_to_translate]
     translated_titles = translator.translate(titles, locale)
     translated_authors = (
-        translator.translate([a for a in authors if a], locale)
-        if any(authors)
-        else []
+        translator.translate([a for a in authors if a], locale) if any(authors) else []
     )
     author_iter = iter(translated_authors)
     author_map = []
@@ -759,9 +763,7 @@ def _persist_on_demand_translations(
     """Store on-demand translations in DB; return new_translations dict."""
     new_translations = {}
     for i, book in enumerate(books_to_translate):
-        t_title = (
-            translated_titles[i] if i < len(translated_titles) else book["title"]
-        )
+        t_title = translated_titles[i] if i < len(translated_titles) else book["title"]
         t_author = author_map[i] if i < len(author_map) else (book["author"] or "")
 
         pinyin = pinyin_sort_key(t_title) if locale.startswith("zh") else None
@@ -793,9 +795,13 @@ def _validate_on_demand_request(data):
     (either a plain response or a (response, status) tuple).
     """
     if not data or not data.get("locale") or not data.get("audiobook_ids"):
-        return None, None, (
-            jsonify({"error": "locale and audiobook_ids are required"}),
-            400,
+        return (
+            None,
+            None,
+            (
+                jsonify({"error": "locale and audiobook_ids are required"}),
+                400,
+            ),
         )
 
     locale = data["locale"]
@@ -908,29 +914,45 @@ def _validate_batch_request(data):
     book_ids = data.get("audiobook_ids")
 
     if provider != "deepl":
-        return None, None, (
-            jsonify({"error": "Only 'deepl' provider is supported"}),
-            400,
+        return (
+            None,
+            None,
+            (
+                jsonify({"error": "Only 'deepl' provider is supported"}),
+                400,
+            ),
         )
 
     if isinstance(book_ids, list):
         try:
             requested_ids = {int(bid) for bid in book_ids}
         except (ValueError, TypeError):
-            return None, None, (
-                jsonify({"error": "audiobook_ids must contain integers"}),
-                400,
+            return (
+                None,
+                None,
+                (
+                    jsonify({"error": "audiobook_ids must contain integers"}),
+                    400,
+                ),
             )
         if not requested_ids:
-            return None, None, (
-                jsonify({"error": "audiobook_ids must not be empty"}),
-                400,
+            return (
+                None,
+                None,
+                (
+                    jsonify({"error": "audiobook_ids must not be empty"}),
+                    400,
+                ),
             )
         return locale, requested_ids, None
     if book_ids != "all":
-        return None, None, (
-            jsonify({"error": "audiobook_ids must be a list or 'all'"}),
-            400,
+        return (
+            None,
+            None,
+            (
+                jsonify({"error": "audiobook_ids must be a list or 'all'"}),
+                400,
+            ),
         )
     return locale, None, None
 
@@ -989,9 +1011,7 @@ def _persist_batch_translations(
     """Insert/update rows in DB; return translations dict keyed by id string."""
     translations = {}
     for i, book in enumerate(needs_translation):
-        t_title = (
-            translated_titles[i] if i < len(translated_titles) else book["title"]
-        )
+        t_title = translated_titles[i] if i < len(translated_titles) else book["title"]
         t_author = author_map[i] if i < len(author_map) else (book["author"] or "")
         t_series = series_map[i] if i < len(series_map) else ""
         t_desc = desc_map[i]

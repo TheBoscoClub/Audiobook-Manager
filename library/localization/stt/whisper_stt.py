@@ -209,7 +209,7 @@ class WhisperSTT(STTProvider):
     def _poll_job(self, status_url: str, max_wait: int = 600) -> dict:
         """Poll a RunPod job until completion or timeout."""
         start = time.monotonic()
-        poll_interval = 2
+        poll_interval: float = 2.0
 
         while time.monotonic() - start < max_wait:
             resp = requests.get(

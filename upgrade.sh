@@ -148,14 +148,14 @@ DRY_RUN=false
 CHECK_ONLY=false
 CREATE_BACKUP=false
 FORCE=false
-SWITCH_ARCHITECTURE=""       # modular or monolithic
-UPGRADE_SOURCE="project"     # "project" or "github"
-REQUESTED_VERSION=""         # Specific version to install, or empty for latest
-REMOTE_HOST=""               # Remote host for SSH-based deployment
-REMOTE_USER="${USER:-$(whoami)}"  # SSH username for remote deployment (defaults to current user)
-AUTO_YES=false               # Skip confirmation prompts (--yes/-y)
-MAJOR_VERSION=false          # Force venv rebuild + config migration + service enablement
-SKIP_SERVICE_LIFECYCLE=false # Internal: caller (upgrade-helper) manages service start/stop
+SWITCH_ARCHITECTURE=""           # modular or monolithic
+UPGRADE_SOURCE="project"         # "project" or "github"
+REQUESTED_VERSION=""             # Specific version to install, or empty for latest
+REMOTE_HOST=""                   # Remote host for SSH-based deployment
+REMOTE_USER="${USER:-$(whoami)}" # SSH username for remote deployment (defaults to current user)
+AUTO_YES=false                   # Skip confirmation prompts (--yes/-y)
+MAJOR_VERSION=false              # Force venv rebuild + config migration + service enablement
+SKIP_SERVICE_LIFECYCLE=false     # Internal: caller (upgrade-helper) manages service start/stop
 
 # GitHub configuration (loaded from .release-info or defaults)
 GITHUB_REPO="TheBoscoClub/Audiobook-Manager"
@@ -294,8 +294,8 @@ do_remote_upgrade() {
     echo ""
     # shellcheck disable=SC2029  # $remote_tmp, $remote_target, $remote_flags intentionally expand client-side
     ssh "${ssh_opts[@]}" "$ssh_target" \
-        "sudo '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' $remote_flags" ||
-        {
+        "sudo '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' $remote_flags" \
+        || {
             local rc=$?
             echo -e "${RED}Remote upgrade failed (exit code $rc)${NC}"
             # Cleanup on failure
@@ -556,23 +556,23 @@ check_for_updates() {
     local result=$?
 
     case $result in
-    0)
-        if [[ "$FORCE" == "true" ]]; then
-            echo -e "${YELLOW}Versions are identical, but --force specified. Proceeding.${NC}"
+        0)
+            if [[ "$FORCE" == "true" ]]; then
+                echo -e "${YELLOW}Versions are identical, but --force specified. Proceeding.${NC}"
+                return 0
+            fi
+            echo -e "${GREEN}Versions are identical. No upgrade needed.${NC}"
+            return 1
+            ;;
+        1)
+            echo -e "${YELLOW}Warning: Installed version ($inst_ver) is newer than project ($proj_ver)${NC}"
+            echo "This might indicate the installed application was modified directly."
+            return 2
+            ;;
+        2)
+            echo -e "${GREEN}Upgrade available: $inst_ver → $proj_ver${NC}"
             return 0
-        fi
-        echo -e "${GREEN}Versions are identical. No upgrade needed.${NC}"
-        return 1
-        ;;
-    1)
-        echo -e "${YELLOW}Warning: Installed version ($inst_ver) is newer than project ($proj_ver)${NC}"
-        echo "This might indicate the installed application was modified directly."
-        return 2
-        ;;
-    2)
-        echo -e "${GREEN}Upgrade available: $inst_ver → $proj_ver${NC}"
-        return 0
-        ;;
+            ;;
     esac
 }
 
@@ -850,9 +850,9 @@ enable_new_services() {
 
     # Parse Wants= lines from the target file
     local services
-    services=$(grep '^Wants=' /etc/systemd/system/audiobook.target |
-        sed 's/Wants=//' | tr ' ' '\n' |
-        grep -v 'network-online')
+    services=$(grep '^Wants=' /etc/systemd/system/audiobook.target \
+        | sed 's/Wants=//' | tr ' ' '\n' \
+        | grep -v 'network-online')
 
     for svc in $services; do
         sudo systemctl enable "$svc" 2>/dev/null || true
@@ -1317,7 +1317,7 @@ do_upgrade() {
             if [[ -f "$script" ]] && [[ "$(basename "$script")" != "__pycache__" ]]; then
                 local script_name=$(basename "$script")
                 case "$script_name" in
-                install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
+                    install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
                 esac
                 if [[ "$DRY_RUN" == "true" ]]; then
                     echo "  [DRY-RUN] Would update: $script_name"
@@ -1626,14 +1626,14 @@ do_upgrade() {
                     sudo "$sys_python" -m venv "$target/library/venv"
                     sudo chown -R audiobooks:audiobooks "$target/library/venv"
                     sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null ||
-                        sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet flask mutagen
+                        -r "$target/library/requirements.txt" 2>/dev/null \
+                        || sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet flask mutagen
                 else
                     rm -rf "$target/library/venv"
                     "$sys_python" -m venv "$target/library/venv"
                     "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null ||
-                        "$target/library/venv/bin/pip" install --quiet flask mutagen
+                        -r "$target/library/requirements.txt" 2>/dev/null \
+                        || "$target/library/venv/bin/pip" install --quiet flask mutagen
                 fi
                 echo -e "${GREEN}  Venv recreated with system Python${NC}"
             else
@@ -1642,14 +1642,14 @@ do_upgrade() {
                 echo -e "${BLUE}Syncing Python dependencies...${NC}"
                 if [[ -n "$use_sudo" ]]; then
                     sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null &&
-                        echo -e "${GREEN}  Dependencies synced${NC}" ||
-                        echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
+                        -r "$target/library/requirements.txt" 2>/dev/null \
+                        && echo -e "${GREEN}  Dependencies synced${NC}" \
+                        || echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
                 else
                     "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null &&
-                        echo -e "${GREEN}  Dependencies synced${NC}" ||
-                        echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
+                        -r "$target/library/requirements.txt" 2>/dev/null \
+                        && echo -e "${GREEN}  Dependencies synced${NC}" \
+                        || echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
                 fi
             fi
         fi
@@ -1661,13 +1661,13 @@ do_upgrade() {
         if [[ -d "$audible_venv" ]]; then
             echo -e "${BLUE}Syncing audible-cli dependencies...${NC}"
             if [[ -n "$use_sudo" ]]; then
-                sudo -u audiobooks "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2>/dev/null &&
-                    echo -e "${GREEN}  audible-cli synced${NC}" ||
-                    echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
+                sudo -u audiobooks "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2>/dev/null \
+                    && echo -e "${GREEN}  audible-cli synced${NC}" \
+                    || echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
             else
-                "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2>/dev/null &&
-                    echo -e "${GREEN}  audible-cli synced${NC}" ||
-                    echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
+                "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2>/dev/null \
+                    && echo -e "${GREEN}  audible-cli synced${NC}" \
+                    || echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
             fi
         else
             echo -e "${YELLOW}  audible-cli venv not found at $audible_venv — run install.sh to create${NC}"
@@ -1734,16 +1734,16 @@ do_upgrade() {
             recon_bin="${HOME}/.local/bin"
         fi
         PROJECT_DIR="$project" \
-        LIB_DIR="$recon_lib_dir" \
-        STATE_DIR="$recon_state" \
-        LOG_DIR="$recon_log" \
-        CONFIG_DIR="$recon_config" \
-        CONF_FILE="${recon_config}/audiobooks.conf" \
-        USE_SUDO="$use_sudo" \
-        SYSTEMD_DIR="$recon_systemd" \
-        BIN_DIR="$recon_bin" \
-        RECONCILE_MODE="${RECONCILE_MODE:-report}" \
-        DRY_RUN="$DRY_RUN" \
+            LIB_DIR="$recon_lib_dir" \
+            STATE_DIR="$recon_state" \
+            LOG_DIR="$recon_log" \
+            CONFIG_DIR="$recon_config" \
+            CONF_FILE="${recon_config}/audiobooks.conf" \
+            USE_SUDO="$use_sudo" \
+            SYSTEMD_DIR="$recon_systemd" \
+            BIN_DIR="$recon_bin" \
+            RECONCILE_MODE="${RECONCILE_MODE:-report}" \
+            DRY_RUN="$DRY_RUN" \
             bash "${project}/scripts/reconcile-filesystem.sh" || true
     fi
 
@@ -2073,8 +2073,8 @@ verify_installation_permissions() {
         local _cert_dir="${AUDIOBOOKS_CERTS:-/etc/audiobooks/certs}"
         local _var_dir="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
         [[ -f "$_cert_dir/server.key" ]] && sudo chmod 640 "$_cert_dir/server.key"
-        [[ -f "$_var_dir/auth.key" ]]    && sudo chmod 600 "$_var_dir/auth.key"
-        [[ -f "$_var_dir/auth.db" ]]     && sudo chmod 640 "$_var_dir/auth.db"
+        [[ -f "$_var_dir/auth.key" ]] && sudo chmod 600 "$_var_dir/auth.key"
+        [[ -f "$_var_dir/auth.db" ]] && sudo chmod 640 "$_var_dir/auth.db"
         echo -e "${GREEN}OK${NC}"
     fi
 
@@ -2544,83 +2544,83 @@ fi
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --from-project)
-        PROJECT_DIR="$2"
-        shift 2
-        ;;
-    --from-github)
-        UPGRADE_SOURCE="github"
-        shift
-        ;;
-    --version)
-        REQUESTED_VERSION="$2"
-        shift 2
-        ;;
-    --target)
-        TARGET_DIR="$2"
-        shift 2
-        ;;
-    --check)
-        CHECK_ONLY=true
-        shift
-        ;;
-    --backup)
-        # Backup now runs unconditionally on every upgrade; this flag is a no-op
-        # kept for backwards compatibility.
-        CREATE_BACKUP=true
-        shift
-        ;;
-    --switch-to-modular)
-        SWITCH_ARCHITECTURE="modular"
-        shift
-        ;;
-    --switch-to-monolithic)
-        SWITCH_ARCHITECTURE="monolithic"
-        shift
-        ;;
-    --remote)
-        REMOTE_HOST="$2"
-        shift 2
-        ;;
-    --user)
-        REMOTE_USER="$2"
-        shift 2
-        ;;
-    --ssh-key)
-        SSH_KEY="$2"
-        shift 2
-        ;;
-    --yes | -y)
-        AUTO_YES=true
-        shift
-        ;;
-    --force)
-        FORCE=true
-        shift
-        ;;
-    --major-version | --mv)
-        MAJOR_VERSION=true
-        shift
-        ;;
-    --dry-run)
-        DRY_RUN=true
-        shift
-        ;;
-    --skip-service-lifecycle)
-        # Internal flag: upgrade-helper-process manages service start/stop.
-        # Not shown in --help — callers must know this flag explicitly.
-        SKIP_SERVICE_LIFECYCLE=true
-        shift
-        ;;
-    --help | -h)
-        show_usage
-        exit 0
-        ;;
-    *)
-        echo -e "${RED}Unknown option: $1${NC}"
-        echo "Use --help for usage information."
-        exit 1
-        ;;
+        --from-project)
+            PROJECT_DIR="$2"
+            shift 2
+            ;;
+        --from-github)
+            UPGRADE_SOURCE="github"
+            shift
+            ;;
+        --version)
+            REQUESTED_VERSION="$2"
+            shift 2
+            ;;
+        --target)
+            TARGET_DIR="$2"
+            shift 2
+            ;;
+        --check)
+            CHECK_ONLY=true
+            shift
+            ;;
+        --backup)
+            # Backup now runs unconditionally on every upgrade; this flag is a no-op
+            # kept for backwards compatibility.
+            CREATE_BACKUP=true
+            shift
+            ;;
+        --switch-to-modular)
+            SWITCH_ARCHITECTURE="modular"
+            shift
+            ;;
+        --switch-to-monolithic)
+            SWITCH_ARCHITECTURE="monolithic"
+            shift
+            ;;
+        --remote)
+            REMOTE_HOST="$2"
+            shift 2
+            ;;
+        --user)
+            REMOTE_USER="$2"
+            shift 2
+            ;;
+        --ssh-key)
+            SSH_KEY="$2"
+            shift 2
+            ;;
+        --yes | -y)
+            AUTO_YES=true
+            shift
+            ;;
+        --force)
+            FORCE=true
+            shift
+            ;;
+        --major-version | --mv)
+            MAJOR_VERSION=true
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --skip-service-lifecycle)
+            # Internal flag: upgrade-helper-process manages service start/stop.
+            # Not shown in --help — callers must know this flag explicitly.
+            SKIP_SERVICE_LIFECYCLE=true
+            shift
+            ;;
+        --help | -h)
+            show_usage
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown option: $1${NC}"
+            echo "Use --help for usage information."
+            exit 1
+            ;;
     esac
 done
 

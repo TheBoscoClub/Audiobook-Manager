@@ -59,8 +59,9 @@ credentials.json
 secrets/
 authcode.txt
 
-# SSL certificates (user-generated)
-library/certs/
+# SSL certificates (user-generated, dev-only) — see library/certs/README.md
+library/certs/*
+!library/certs/README.md
 
 # Temporary files
 *.tmp
@@ -338,7 +339,6 @@ mypy.ini
 .prettierrc
 .prettierrc.*
 .eslintrc.*
-.editorconfig
 .stylua.toml
 .yamllint
 .yamllint.yml
@@ -403,3 +403,6 @@ quality-issues.txt
 .test-mcp-enabled
 .test-skill.md
 test-*-[0-9][0-9].md
+
+# Local CodeQL database (never commit — contains full code + binary analysis data)
+.codeql-db/

@@ -100,10 +100,10 @@ notify() {
 get_source_type() {
     local dir="$1"
     case "$dir" in
-    *GooglePlay*) echo "google_play" ;;
-    *Chirp*) echo "chirp" ;;
-    *Librivox*) echo "librivox" ;;
-    *) echo "other" ;;
+        *GooglePlay*) echo "google_play" ;;
+        *Chirp*) echo "chirp" ;;
+        *Librivox*) echo "librivox" ;;
+        *) echo "other" ;;
     esac
 }
 

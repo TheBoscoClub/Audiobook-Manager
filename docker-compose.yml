@@ -18,8 +18,8 @@
 
 services:
   audiobooks:
-    # Option 1: Pull from GHCR (recommended)
-    image: ghcr.io/theboscoclub/audiobook-manager:latest
+    # Option 1: Pull from GHCR (recommended) — pinned to release tag for reproducibility
+    image: ghcr.io/theboscoclub/audiobook-manager:8.3.1
     # Option 2: Build locally (uncomment below, comment out image above)
     # build: .
     container_name: audiobooks
@@ -65,6 +65,15 @@ services:
       - AUTH_ENABLED=false
 
     restart: unless-stopped
+
+    # Health check — exercises the API health endpoint so compose/orchestrator
+    # can detect and restart a wedged container. Matches Dockerfile HEALTHCHECK.
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/api/system/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
 
     # Resource limits (optional, adjust as needed)
     deploy:

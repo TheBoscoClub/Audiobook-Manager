@@ -169,13 +169,13 @@ fi
 # Get list of already downloaded ASINs
 true >"$TEMP_DIR/downloaded_asins.txt"
 
-find "$DOWNLOAD_DIR" \( -name "*.aaxc" -o -name "*.aax" \) -type f -size +100k -print0 2>/dev/null |
-    xargs -0 -I {} basename {} |
-    grep -oE '^[0-9A-Z]{10}' >>"$TEMP_DIR/downloaded_asins.txt"
+find "$DOWNLOAD_DIR" \( -name "*.aaxc" -o -name "*.aax" \) -type f -size +100k -print0 2>/dev/null \
+    | xargs -0 -I {} basename {} \
+    | grep -oE '^[0-9A-Z]{10}' >>"$TEMP_DIR/downloaded_asins.txt"
 
-find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" -size +100k -print0 2>/dev/null |
-    xargs -0 -I {} basename {} .opus |
-    grep -oE '^[0-9A-Z]{10}' >>"$TEMP_DIR/downloaded_asins.txt"
+find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" -size +100k -print0 2>/dev/null \
+    | xargs -0 -I {} basename {} .opus \
+    | grep -oE '^[0-9A-Z]{10}' >>"$TEMP_DIR/downloaded_asins.txt"
 
 sort -u "$TEMP_DIR/downloaded_asins.txt" -o "$TEMP_DIR/downloaded_asins.txt"
 

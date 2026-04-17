@@ -153,7 +153,7 @@ start_tunnel() {
         -o ServerAliveInterval=30 -o ServerAliveCountMax=3 \
         -o ExitOnForwardFailure=yes \
         -p "$ssh_port" -N -L "127.0.0.1:${local_port}:localhost:8000" \
-        "root@${ssh_host}" > "$LOG_DIR/tunnel-${label}.log" 2>&1 &
+        "root@${ssh_host}" >"$LOG_DIR/tunnel-${label}.log" 2>&1 &
     TUNNEL_PIDS[$label]=$!
     log "Tunnel $label started (PID $!)"
 }
@@ -206,7 +206,7 @@ create_whisper_script() {
     # Dead-man TTL: if no /v1/audio/transcriptions request in IDLE_SHUTDOWN_SEC,
     # the instance halts itself. Caps wasted GPU spend even if the local daemon
     # forgets to tear down. IDLE_SHUTDOWN_SEC defaults to 1800 (30 min).
-    cat > "/tmp/whisper_server_${ct}.py" << PYEOF
+    cat >"/tmp/whisper_server_${ct}.py" <<PYEOF
 import tempfile, os, time, logging, threading, subprocess
 from flask import Flask, request, jsonify
 from faster_whisper import WhisperModel
@@ -279,7 +279,7 @@ start_worker() {
         AUDIOBOOKS_WHISPER_GPU_PORT=8765 \
         "$VENV_PYTHON" "$BATCH_SCRIPT" \
         --db "$DB_PATH" --library "$LIBRARY_PATH" \
-        > "$LOG_DIR/worker-${label}.log" 2>&1 &
+        >"$LOG_DIR/worker-${label}.log" 2>&1 &
     WORKER_PIDS[$label]=$!
     log "Worker $label started (PID $!)"
 }
@@ -300,7 +300,7 @@ get_subtitle_counts() {
 # ── Main Loop ────────────────────────────────────────────────────────────────
 main() {
     mkdir -p "$LOG_DIR" "$(dirname "$PID_FILE")"
-    echo $$ > "$PID_FILE"
+    echo $$ >"$PID_FILE"
 
     log "═══════════════════════════════════════════════════════════════"
     log "Translation Daemon starting"
@@ -314,7 +314,7 @@ main() {
 
     # Initial setup: start all tunnels and ensure whisper servers
     for instance in "${VASTAI_INSTANCES[@]}"; do
-        IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
+        IFS='|' read -r local_port ssh_port ssh_host label compute_type <<<"$instance"
         start_tunnel "$local_port" "$ssh_port" "$ssh_host" "$label"
     done
 
@@ -324,7 +324,7 @@ main() {
     # Ensure whisper servers are running on all Vast.ai instances
     local -a whisper_pids=()
     for instance in "${VASTAI_INSTANCES[@]}"; do
-        IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
+        IFS='|' read -r local_port ssh_port ssh_host label compute_type <<<"$instance"
         ensure_whisper_server "$ssh_port" "$ssh_host" "$label" "$compute_type" &
         whisper_pids+=($!)
     done
@@ -341,7 +341,7 @@ main() {
     # per tunnel. All N share the same GPU endpoint; atomic UPDATE...RETURNING
     # in next_pending_job() ensures no two workers claim the same book.
     for instance in "${VASTAI_INSTANCES[@]}"; do
-        IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
+        IFS='|' read -r local_port ssh_port ssh_host label compute_type <<<"$instance"
         if check_tunnel_health "$local_port" "$label"; then
             for i in $(seq 1 "$WORKERS_PER_GPU"); do
                 start_worker "127.0.0.1" "$local_port" "${label}-w${i}"
@@ -353,7 +353,7 @@ main() {
 
     # Start workers for RunPod instances — also WORKERS_PER_GPU parallel
     for instance in "${RUNPOD_INSTANCES[@]}"; do
-        IFS='|' read -r url label <<< "$instance"
+        IFS='|' read -r url label <<<"$instance"
         # Health check RunPod
         local health
         health=$(curl -s --connect-timeout 10 --max-time 30 "$url/health" 2>/dev/null)
@@ -406,26 +406,26 @@ main() {
         # Phase 1 (serial, fast): spawn tunnel restarts for dead tunnels.
         # start_tunnel is non-blocking (nohup ssh &), so this is ms-scale.
         for instance in "${VASTAI_INSTANCES[@]}"; do
-            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
+            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<<"$instance"
             local tpid=${TUNNEL_PIDS[$label]:-0}
             if [ "$tpid" -gt 0 ] && ! kill -0 "$tpid" 2>/dev/null; then
                 log "Tunnel $label died — restarting"
                 start_tunnel "$local_port" "$ssh_port" "$ssh_host" "$label"
             fi
         done
-        sleep 3  # single shared settle window for all tunnels
+        sleep 3 # single shared settle window for all tunnels
 
         # Phase 2 (parallel, slow): whisper health-check + model-load wait.
         # This is the old per-instance 15s sleep; now runs concurrently for
         # every unhealthy instance. Pure side-effect on the remote GPU — no
         # parent state mutated here.
         for instance in "${VASTAI_INSTANCES[@]}"; do
-            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
+            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<<"$instance"
             (
                 if ! check_tunnel_health "$local_port" "$label"; then
                     log "Tunnel $label unhealthy — checking whisper server"
                     ensure_whisper_server "$ssh_port" "$ssh_host" "$label" "$compute_type"
-                    sleep 15  # model load time
+                    sleep 15 # model load time
                 fi
             ) &
         done
@@ -433,7 +433,7 @@ main() {
 
         # Phase 3 (serial, fast): restart any of the N per-GPU workers that died.
         for instance in "${VASTAI_INSTANCES[@]}"; do
-            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<< "$instance"
+            IFS='|' read -r local_port ssh_port ssh_host label compute_type <<<"$instance"
             for i in $(seq 1 "$WORKERS_PER_GPU"); do
                 local wlabel="${label}-w${i}"
                 local wpid=${WORKER_PIDS[$wlabel]:-0}
@@ -448,7 +448,7 @@ main() {
 
         # Health-check RunPod workers (N per pod)
         for instance in "${RUNPOD_INSTANCES[@]}"; do
-            IFS='|' read -r url label <<< "$instance"
+            IFS='|' read -r url label <<<"$instance"
             local health_checked=""
             for i in $(seq 1 "$WORKERS_PER_GPU"); do
                 local wlabel="${label}-w${i}"

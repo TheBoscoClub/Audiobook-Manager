@@ -2422,7 +2422,13 @@ def login_webauthn_begin():
             user.auth_credential.decode("utf-8")
         )
     except Exception as e:
-        logger.error("Invalid stored credential for user: %s", e)
+        # Log only the exception class — never the credential bytes or parser message
+        # (parser errors may echo portions of the raw credential blob).
+        logger.error(
+            "Invalid stored credential for user_id=%s error_class=%s",
+            getattr(user, "id", "<unknown>"),
+            type(e).__name__,
+        )
         return jsonify({"error": "Invalid stored credential"}), 500
 
     # Get WebAuthn configuration
@@ -2537,12 +2543,18 @@ def _parse_webauthn_login(user, challenge_b64):
             user.auth_credential.decode("utf-8")
         )
     except Exception as e:
-        logger.warning("Failed to parse WebAuthn credential: %s", e)
+        # Log only the exception class — never the credential bytes or parser message
+        logger.warning(
+            "Failed to parse WebAuthn credential: error_class=%s", type(e).__name__
+        )
         return None, None
     try:
         challenge = base64url_to_bytes(challenge_b64)
     except Exception as e:
-        logger.warning("Failed to parse WebAuthn challenge: %s", e)
+        # Log only the exception class — challenge bytes are opaque and may leak context
+        logger.warning(
+            "Failed to parse WebAuthn challenge: error_class=%s", type(e).__name__
+        )
         return None, None
     return webauthn_cred, challenge
 

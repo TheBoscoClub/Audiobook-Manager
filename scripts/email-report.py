@@ -70,13 +70,15 @@ def build_report_body(report_path: Path) -> str:
         if len(failures) > 20:
             lines.append(f"  ... and {len(failures) - 20} more")
 
-    lines.extend([
-        "",
-        "=" * 50,
-        f"Full JSON report: {report_path}",
-        "",
-        "— Audiobook Manager Translation Pipeline",
-    ])
+    lines.extend(
+        [
+            "",
+            "=" * 50,
+            f"Full JSON report: {report_path}",
+            "",
+            "— Audiobook Manager Translation Pipeline",
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -119,7 +121,9 @@ def main():
         total = data.get("verified", 0)
         coverage = data.get("coverage_pct", 0)
         if fail_count == 0:
-            subject = f"Translation Complete — {total} books verified, {coverage}% coverage"
+            subject = (
+                f"Translation Complete — {total} books verified, {coverage}% coverage"
+            )
         else:
             subject = f"Translation Report — {fail_count} failures, {total} verified"
     else:

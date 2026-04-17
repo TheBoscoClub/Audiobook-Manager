@@ -420,9 +420,7 @@ def _run_provider_chain(
     return all_updates, winning_provider
 
 
-def _apply_podcast_override(
-    book: dict, all_updates: dict, quiet: bool
-) -> None:
+def _apply_podcast_override(book: dict, all_updates: dict, quiet: bool) -> None:
     """Apply publisher-based podcast detection override."""
     podcast_override = _detect_podcast_by_publisher(book, all_updates)
     if podcast_override:
@@ -447,9 +445,7 @@ def _apply_side_tables(
     if "narrator_list" in all_updates:
         _apply_narrators(cursor, book_id, all_updates["narrator_list"])
 
-    summary = all_updates.get("publisher_summary") or book.get(
-        "publisher_summary", ""
-    )
+    summary = all_updates.get("publisher_summary") or book.get("publisher_summary", "")
     if summary:
         _apply_topics_from_summary(cursor, book_id, summary)
 

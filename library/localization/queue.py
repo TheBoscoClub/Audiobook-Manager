@@ -40,6 +40,11 @@ def init_queue(database_path: Path, library_path: Path) -> None:
 
 
 def _get_db() -> sqlite3.Connection:
+    if _db_path is None:
+        raise RuntimeError(
+            "Localization queue is not initialized — call init_queue(database_path, "
+            "library_path) before enqueueing or reading jobs."
+        )
     conn = sqlite3.connect(str(_db_path))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -77,17 +82,22 @@ def _ensure_queue_table() -> None:
             ON translation_queue(last_progress_at)
         """)
         # In-place ALTER for upgraded DBs that pre-date these columns.
-        existing_cols = {row[1] for row in conn.execute(
-            "PRAGMA table_info(translation_queue)").fetchall()}
+        existing_cols = {
+            row[1]
+            for row in conn.execute("PRAGMA table_info(translation_queue)").fetchall()
+        }
         if "last_progress_at" not in existing_cols:
             conn.execute(
-                "ALTER TABLE translation_queue ADD COLUMN last_progress_at TIMESTAMP")
+                "ALTER TABLE translation_queue ADD COLUMN last_progress_at TIMESTAMP"
+            )
             conn.execute(
                 "UPDATE translation_queue SET last_progress_at = "
-                "COALESCE(started_at, created_at)")
+                "COALESCE(started_at, created_at)"
+            )
         if "total_chapters" not in existing_cols:
             conn.execute(
-                "ALTER TABLE translation_queue ADD COLUMN total_chapters INTEGER")
+                "ALTER TABLE translation_queue ADD COLUMN total_chapters INTEGER"
+            )
         conn.commit()
     finally:
         conn.close()

@@ -81,13 +81,19 @@ cmd_status() {
         while IFS='|' read -r state count; do
             case "$state" in
                 completed) echo -e "  ${GREEN}${state}${NC}: ${count}" ;;
-                processing) echo -e "  ${BLUE}${state}${NC}: ${count}"; processing_count="$count" ;;
-                pending)    echo -e "  ${YELLOW}${state}${NC}: ${count}"; pending_count="$count" ;;
-                paused)     echo -e "  ${YELLOW}${state} (frozen)${NC}: ${count}" ;;
-                failed)     echo -e "  ${RED}${state}${NC}: ${count}" ;;
-                *)          echo "  ${state}: ${count}" ;;
+                processing)
+                    echo -e "  ${BLUE}${state}${NC}: ${count}"
+                    processing_count="$count"
+                    ;;
+                pending)
+                    echo -e "  ${YELLOW}${state}${NC}: ${count}"
+                    pending_count="$count"
+                    ;;
+                paused) echo -e "  ${YELLOW}${state} (frozen)${NC}: ${count}" ;;
+                failed) echo -e "  ${RED}${state}${NC}: ${count}" ;;
+                *) echo "  ${state}: ${count}" ;;
             esac
-        done <<< "$states"
+        done <<<"$states"
     fi
 
     # In-progress details: title, step, chapters done, elapsed time
@@ -123,7 +129,7 @@ cmd_status() {
             while IFS=$'\t' read -r bid step chapters total elapsed idle title; do
                 local progress
                 if [[ "${total:-0}" -gt 0 ]]; then
-                    local pct=$(( chapters * 100 / total ))
+                    local pct=$((chapters * 100 / total))
                     progress=$(printf "%d/%d (%d%%)" "$chapters" "$total" "$pct")
                 elif [[ "${chapters:-0}" -gt 0 ]]; then
                     progress=$(printf "%d ch" "$chapters")
@@ -132,23 +138,23 @@ cmd_status() {
                 fi
                 local el_fmt
                 if [[ "$elapsed" -ge 3600 ]]; then
-                    el_fmt=$(printf "%dh%02dm" $((elapsed/3600)) $(((elapsed%3600)/60)))
+                    el_fmt=$(printf "%dh%02dm" $((elapsed / 3600)) $(((elapsed % 3600) / 60)))
                 else
-                    el_fmt=$(printf "%02d:%02d" $((elapsed/60)) $((elapsed%60)))
+                    el_fmt=$(printf "%02d:%02d" $((elapsed / 60)) $((elapsed % 60)))
                 fi
                 local idle_fmt idle_color="${NC}"
                 if [[ "$idle" -ge 3600 ]]; then
-                    idle_fmt=$(printf "%dh%02dm" $((idle/3600)) $(((idle%3600)/60)))
+                    idle_fmt=$(printf "%dh%02dm" $((idle / 3600)) $(((idle % 3600) / 60)))
                     idle_color="${RED}"
                 elif [[ "$idle" -ge 900 ]]; then
-                    idle_fmt=$(printf "%02d:%02d" $((idle/60)) $((idle%60)))
+                    idle_fmt=$(printf "%02d:%02d" $((idle / 60)) $((idle % 60)))
                     idle_color="${YELLOW}"
                 else
-                    idle_fmt=$(printf "%02d:%02d" $((idle/60)) $((idle%60)))
+                    idle_fmt=$(printf "%02d:%02d" $((idle / 60)) $((idle % 60)))
                 fi
                 printf "  %-7s %-7s %-13s %-9s ${idle_color}%-7s${NC} %s\n" \
                     "$step" "#$bid" "$progress" "$el_fmt" "$idle_fmt" "$title"
-            done <<< "$rows"
+            done <<<"$rows"
         fi
 
         # ETA calculation — avg per-book completion time × pending ÷ active workers
@@ -163,15 +169,15 @@ cmd_status() {
         if [[ -n "$avg_sec" && "$avg_sec" -gt 0 && "${pending_count:-0}" -gt 0 ]]; then
             local eta_sec workers avg_min
             workers=${processing_count:-1}
-            eta_sec=$(( pending_count * avg_sec / workers ))
-            avg_min=$(( avg_sec / 60 ))
+            eta_sec=$((pending_count * avg_sec / workers))
+            avg_min=$((avg_sec / 60))
             local eta_fmt
             if [[ "$eta_sec" -ge 86400 ]]; then
-                eta_fmt=$(printf "~%dd %02dh" $((eta_sec/86400)) $(((eta_sec%86400)/3600)))
+                eta_fmt=$(printf "~%dd %02dh" $((eta_sec / 86400)) $(((eta_sec % 86400) / 3600)))
             elif [[ "$eta_sec" -ge 3600 ]]; then
-                eta_fmt=$(printf "~%dh %02dm" $((eta_sec/3600)) $(((eta_sec%3600)/60)))
+                eta_fmt=$(printf "~%dh %02dm" $((eta_sec / 3600)) $(((eta_sec % 3600) / 60)))
             else
-                eta_fmt=$(printf "~%dm" $((eta_sec/60)))
+                eta_fmt=$(printf "~%dm" $((eta_sec / 60)))
             fi
             echo ""
             echo -e "  ${BLUE}ETA${NC}: ${eta_fmt} (${pending_count} pending × ~${avg_min}min/book ÷ ${workers} workers)"
@@ -432,11 +438,17 @@ cmd_status_watch() {
         local key=""
         if read -rsn1 -t "$interval" key 2>/dev/null; then
             case "$key" in
-                +|=) interval=$((interval + step)) ;;
-                -|_) interval=$((interval - step)); [[ "$interval" -lt 1 ]] && interval=1 ;;
-                a|A) if [[ "$aggressive" == "1" ]]; then aggressive=0; else aggressive=1; fi ;;
-                r|R) : ;;
-                q|Q) printf "\n"; exit 0 ;;
+                + | =) interval=$((interval + step)) ;;
+                - | _)
+                    interval=$((interval - step))
+                    [[ "$interval" -lt 1 ]] && interval=1
+                    ;;
+                a | A) if [[ "$aggressive" == "1" ]]; then aggressive=0; else aggressive=1; fi ;;
+                r | R) : ;;
+                q | Q)
+                    printf "\n"
+                    exit 0
+                    ;;
             esac
         fi
     done
@@ -461,13 +473,31 @@ cmd_report() {
     local locale_filter="" since_filter="" fmt="human" show_summary=1
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --locale)     locale_filter="$2"; shift 2 ;;
-            --locale=*)   locale_filter="${1#*=}"; shift ;;
-            --since)      since_filter="$2"; shift 2 ;;
-            --since=*)    since_filter="${1#*=}"; shift ;;
-            --csv)        fmt="csv"; shift ;;
-            --no-summary) show_summary=0; shift ;;
-            -h|--help)
+            --locale)
+                locale_filter="$2"
+                shift 2
+                ;;
+            --locale=*)
+                locale_filter="${1#*=}"
+                shift
+                ;;
+            --since)
+                since_filter="$2"
+                shift 2
+                ;;
+            --since=*)
+                since_filter="${1#*=}"
+                shift
+                ;;
+            --csv)
+                fmt="csv"
+                shift
+                ;;
+            --no-summary)
+                show_summary=0
+                shift
+                ;;
+            -h | --help)
                 cat <<'EOF'
 Usage: audiobook-translations report [options]
 
@@ -496,7 +526,7 @@ EOF
 
     local where="tq.state = 'completed'"
     [[ -n "$locale_filter" ]] && where="${where} AND tq.locale = '$(printf '%s' "$locale_filter" | sed "s/'/''/g")'"
-    [[ -n "$since_filter" ]]  && where="${where} AND tq.finished_at >= '$(printf '%s' "$since_filter" | sed "s/'/''/g")'"
+    [[ -n "$since_filter" ]] && where="${where} AND tq.finished_at >= '$(printf '%s' "$since_filter" | sed "s/'/''/g")'"
 
     # Per-row detail. chapter_subtitles is the canonical per-chapter record;
     # COUNT(DISTINCT) handles multi-provider rows for the same chapter.
@@ -526,14 +556,14 @@ EOF
             q_title=$(printf '"%s"' "${title//\"/\"\"}")
             q_author=$(printf '"%s"' "${author//\"/\"\"}")
             printf '%s,%s,%s,%s,%s,%s\n' "$q_title" "$q_author" "$locale" "$chapters" "${dur:-}" "$finished"
-        done <<< "$rows"
+        done <<<"$rows"
         return 0
     fi
 
     # Human-readable output
     echo -e "${BLUE}Completed Translations Report${NC}  $(date '+%Y-%m-%d %H:%M:%S')"
     [[ -n "$locale_filter" ]] && echo "  Locale filter: $locale_filter"
-    [[ -n "$since_filter" ]]  && echo "  Since:         $since_filter"
+    [[ -n "$since_filter" ]] && echo "  Since:         $since_filter"
     echo "─────────────────────────────────────────────────────────────────────────────"
 
     if [[ -z "$rows" ]]; then
@@ -558,7 +588,7 @@ EOF
         local byline="${title}"
         [[ "$author" != "—" ]] && byline="${title} — ${author}"
         printf "  %-7s %-9s %-9s %s\n" "$locale" "${chapters:-0}" "$dur_label" "$byline"
-    done <<< "$rows"
+    done <<<"$rows"
 
     if [[ "$show_summary" == "1" ]]; then
         local total_dur_label="—"
@@ -575,17 +605,20 @@ case "${1:-}" in
     status)
         shift
         # Parse status flags: --watch [N] and --no-ensure can appear in any order.
-        watch_mode=0; watch_interval=5; ensure_running=1; aggressive=0
+        watch_mode=0
+        watch_interval=5
+        ensure_running=1
+        aggressive=0
         while [[ $# -gt 0 ]]; do
             case "$1" in
-                -w|--watch)
+                -w | --watch)
                     watch_mode=1
                     if [[ -n "${2:-}" && "$2" =~ ^[0-9]+$ ]]; then
                         watch_interval="$2"
                         shift
                     fi
                     ;;
-                -w=*|--watch=*)
+                -w=* | --watch=*)
                     watch_mode=1
                     watch_interval="${1#*=}"
                     ;;
@@ -628,12 +661,12 @@ case "${1:-}" in
         shift
         cmd_report "$@"
         ;;
-    export|import)
+    export | import)
         # Delegate to the Python transfer module
         cd "${AUDIOBOOKS_HOME}/library" || exit 1
         exec "$(audiobooks_python)" -m localization.transfer "$@"
         ;;
-    -h|--help|help|"")
+    -h | --help | help | "")
         usage
         ;;
     *)

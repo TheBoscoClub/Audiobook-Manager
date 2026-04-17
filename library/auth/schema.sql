@@ -194,6 +194,9 @@ CREATE INDEX IF NOT EXISTS idx_pending_recovery_token ON pending_recovery(token_
 CREATE INDEX IF NOT EXISTS idx_pending_recovery_user ON pending_recovery(user_id);
 
 -- Access requests table (pending admin approval)
+-- Column order MUST match AccessRequestRepository._ensure_table() and
+-- AccessRequestRepository._AR_SELECT in library/auth/models.py. Any
+-- new column must be appended at the END both here and in _ensure_table.
 CREATE TABLE IF NOT EXISTS access_requests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
@@ -202,6 +205,12 @@ CREATE TABLE IF NOT EXISTS access_requests (
     reviewed_at TIMESTAMP,
     reviewed_by TEXT,  -- Admin username who reviewed
     deny_reason TEXT,  -- Optional reason for denial
+    claim_token_hash TEXT,  -- Hashed claim token for credential retrieval
+    contact_email TEXT,  -- Optional contact email provided by the user
+    totp_secret TEXT,  -- Base32-encoded TOTP secret (post-approval)
+    totp_uri TEXT,  -- otpauth:// URI
+    backup_codes_json TEXT,  -- JSON array of TOTP backup codes
+    credentials_claimed BOOLEAN DEFAULT FALSE,  -- set once the claim is consumed
     preferred_auth_method TEXT DEFAULT 'totp',  -- totp, passkey, magic_link
     claim_expires_at TIMESTAMP,  -- Expiry for invitation claim tokens
     preferred_locale TEXT DEFAULT 'en',  -- Locale for guest-facing emails

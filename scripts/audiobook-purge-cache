@@ -43,33 +43,33 @@ PURGE_FILES=""
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --files)
-        PURGE_FILES="$2"
-        shift 2
-        ;;
-    --quiet | -q)
-        QUIET=true
-        shift
-        ;;
-    --help | -h)
-        echo "Usage: audiobook-purge-cache [--files URL,...] [--quiet]"
-        echo ""
-        echo "Purges Cloudflare CDN cache for the library domain."
-        echo ""
-        echo "Options:"
-        echo "  --files URL,...   Purge specific URLs (comma-separated)"
-        echo "  --quiet, -q      Suppress output"
-        echo "  --help, -h       Show this help"
-        echo ""
-        echo "Credentials: sourced from ~/.config/api-keys.env"
-        echo "  CF_GLOBAL_API_KEY and CF_AUTH_EMAIL must be set"
-        echo "  CF_ZONE_ID defaults to thebosco.club zone"
-        exit 0
-        ;;
-    *)
-        echo "Unknown option: $1"
-        exit 1
-        ;;
+        --files)
+            PURGE_FILES="$2"
+            shift 2
+            ;;
+        --quiet | -q)
+            QUIET=true
+            shift
+            ;;
+        --help | -h)
+            echo "Usage: audiobook-purge-cache [--files URL,...] [--quiet]"
+            echo ""
+            echo "Purges Cloudflare CDN cache for the library domain."
+            echo ""
+            echo "Options:"
+            echo "  --files URL,...   Purge specific URLs (comma-separated)"
+            echo "  --quiet, -q      Suppress output"
+            echo "  --help, -h       Show this help"
+            echo ""
+            echo "Credentials: sourced from ~/.config/api-keys.env"
+            echo "  CF_GLOBAL_API_KEY and CF_AUTH_EMAIL must be set"
+            echo "  CF_ZONE_ID defaults to thebosco.club zone"
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
     esac
 done
 

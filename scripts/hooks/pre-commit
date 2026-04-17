@@ -46,11 +46,11 @@ fi
 VIOLATIONS=""
 for file in $STAGED_FILES; do
     # Skip files that are supposed to define defaults (config files)
-    if [[ "$file" == "lib/audiobook-config.sh" ]] ||
-        [[ "$file" == "etc/audiobooks.conf.example" ]] ||
-        [[ "$file" == "CLAUDE.md" ]] ||
-        [[ "$file" == "README.md" ]] ||
-        [[ "$file" == "docs/"* ]]; then
+    if [[ "$file" == "lib/audiobook-config.sh" ]] \
+        || [[ "$file" == "etc/audiobooks.conf.example" ]] \
+        || [[ "$file" == "CLAUDE.md" ]] \
+        || [[ "$file" == "README.md" ]] \
+        || [[ "$file" == "docs/"* ]]; then
         continue
     fi
 

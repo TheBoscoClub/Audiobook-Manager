@@ -20,7 +20,7 @@ if [[ -f "$CONF_FILE" ]]; then
     [[ -n "$conf_db" ]] && DB_PATH="$conf_db"
 fi
 
-FLEET_STALE_SEC="${FLEET_STALE_SEC:-1200}"   # 20 min — STT for one chapter is ≤5 min on L40S
+FLEET_STALE_SEC="${FLEET_STALE_SEC:-1200}" # 20 min — STT for one chapter is ≤5 min on L40S
 
 log() { echo "$(date +%H:%M:%S) [fleet-watchdog] $*"; }
 
@@ -42,7 +42,7 @@ recent=$(sqlite3 "$DB_PATH" \
     2>/dev/null)
 
 if [ "${recent:-0}" -gt 0 ]; then
-    exit 0   # fleet is producing; nothing to do
+    exit 0 # fleet is producing; nothing to do
 fi
 
 log "Fleet appears dead: $processing processing rows but 0 chapter_subtitles in ${FLEET_STALE_SEC}s — restarting daemon"

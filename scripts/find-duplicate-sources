@@ -23,29 +23,29 @@ REMOVE=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-    --remove)
-        REMOVE=true
-        DRY_RUN=false
-        shift
-        ;;
-    --dry-run)
-        DRY_RUN=true
-        shift
-        ;;
-    *) shift ;;
+        --remove)
+            REMOVE=true
+            DRY_RUN=false
+            shift
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        *) shift ;;
     esac
 done
 
 # Normalize function (same as build-conversion-queue)
 normalize_title() {
-    echo "$1" |
-        sed -E 's/^[A-Z0-9]{10}_//' |
-        sed -E 's/-AAX_[0-9]+_[0-9]+$//' |
-        tr '_' ' ' |
-        tr -cd '[:alnum:] ' |
-        tr -s ' ' |
-        tr '[:upper:]' '[:lower:]' |
-        sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
+    echo "$1" \
+        | sed -E 's/^[A-Z0-9]{10}_//' \
+        | sed -E 's/-AAX_[0-9]+_[0-9]+$//' \
+        | tr '_' ' ' \
+        | tr -cd '[:alnum:] ' \
+        | tr -s ' ' \
+        | tr '[:upper:]' '[:lower:]' \
+        | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'
 }
 
 echo "Scanning for duplicates in: $SOURCES_DIR"

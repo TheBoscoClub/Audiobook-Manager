@@ -67,10 +67,10 @@ _strip_key() {
     echo "  Removed legacy ${key} line (backup: ${CONF_FILE}.bak002)"
 }
 
-_strip_key "AUDIOBOOKS_COVERS"   '*library/web-v2/covers' '*library/covers'
+_strip_key "AUDIOBOOKS_COVERS" '*library/web-v2/covers' '*library/covers'
 _strip_key "AUDIOBOOKS_DATABASE" '/var/lib/audiobooks/audiobooks.db'
-_strip_key "AUDIOBOOKS_VENV"     '*library/venv'
-_strip_key "AUDIOBOOKS_CERTS"    '*library/certs'
+_strip_key "AUDIOBOOKS_VENV" '*library/venv'
+_strip_key "AUDIOBOOKS_CERTS" '*library/certs'
 
 # Ensure canonical dirs exist for the keys we may have stripped
 if [[ "$DRY_RUN" != "true" ]]; then

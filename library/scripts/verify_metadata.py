@@ -676,23 +676,24 @@ def verify_metadata(
     db_path = _resolve_verify_db_path(db_path)
 
     conn = sqlite3.connect(db_path)
-    conn.row_factory = sqlite3.Row
-    cursor = conn.cursor()
+    try:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
 
-    books = _fetch_books_to_verify(cursor, single_id)
-    if not quiet:
-        print(f"Verifying metadata for {len(books)} audiobooks...")
-        if check_files:
-            print("  (Checking embedded file tags — this may take a while)")
-        print()
+        books = _fetch_books_to_verify(cursor, single_id)
+        if not quiet:
+            print(f"Verifying metadata for {len(books)} audiobooks...")
+            if check_files:
+                print("  (Checking embedded file tags — this may take a while)")
+            print()
 
-    all_issues, checked = _verify_all_books(books, check_files, quiet)
+        all_issues, checked = _verify_all_books(books, check_files, quiet)
 
-    fixes = 0
-    if auto_fix and not dry_run:
-        fixes = apply_fixes(conn, all_issues, quiet=quiet)
-
-    conn.close()
+        fixes = 0
+        if auto_fix and not dry_run:
+            fixes = apply_fixes(conn, all_issues, quiet=quiet)
+    finally:
+        conn.close()
 
     if not quiet:
         categories = _categorize_issues(all_issues)

@@ -97,8 +97,11 @@ if echo "${GPU_NAME}" | grep -qiE 'Radeon.*(RX ?(6[6789]|79|77|78)[0-9]{2}|7900)
     echo ""
     read -r -p "Continue installing anyway? [y/N] " confirm
     case "${confirm}" in
-        [yY]|[yY][eE][sS]) ;;
-        *) echo "Aborting. Consider remote GPU (Vast.ai / RunPod) instead — see docs/MULTI-LANGUAGE-SETUP.md."; exit 1 ;;
+        [yY] | [yY][eE][sS]) ;;
+        *)
+            echo "Aborting. Consider remote GPU (Vast.ai / RunPod) instead — see docs/MULTI-LANGUAGE-SETUP.md."
+            exit 1
+            ;;
     esac
 fi
 

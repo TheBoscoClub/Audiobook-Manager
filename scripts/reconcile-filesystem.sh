@@ -32,9 +32,15 @@ DRY_RUN="${DRY_RUN:-false}"
 _issues=0
 _fixed=0
 
-_log()    { echo "  $*"; }
-_issue()  { echo "  [drift] $*"; _issues=$((_issues + 1)); }
-_fix()    { echo "  [fix]   $*"; _fixed=$((_fixed + 1)); }
+_log() { echo "  $*"; }
+_issue() {
+    echo "  [drift] $*"
+    _issues=$((_issues + 1))
+}
+_fix() {
+    echo "  [fix]   $*"
+    _fixed=$((_fixed + 1))
+}
 
 _should_act() {
     [[ "$RECONCILE_MODE" == "enforce" && "$DRY_RUN" != "true" ]]
@@ -61,7 +67,7 @@ _reconcile_phantoms() {
 _reconcile_dirs() {
     local entry path owner mode
     for entry in "${REQUIRED_DIRS[@]}"; do
-        IFS='|' read -r path owner mode <<< "$entry"
+        IFS='|' read -r path owner mode <<<"$entry"
         if [[ ! -d "$path" ]]; then
             _issue "missing directory: $path"
             if _should_act; then
@@ -82,7 +88,7 @@ _reconcile_dirs() {
 _reconcile_venvs() {
     local entry path purpose
     for entry in "${REQUIRED_VENVS[@]}"; do
-        IFS='|' read -r path purpose <<< "$entry"
+        IFS='|' read -r path purpose <<<"$entry"
         if [[ ! -x "${path}/bin/python" ]]; then
             _issue "missing venv: $path ($purpose)"
         fi
@@ -125,7 +131,7 @@ _reconcile_config() {
 
     local entry key legacy_glob current
     for entry in "${CONFIG_CANONICAL_DEFAULTS[@]}"; do
-        IFS='|' read -r key legacy_glob <<< "$entry"
+        IFS='|' read -r key legacy_glob <<<"$entry"
         current=$(grep -oP "^${key}=\K.*" "$CONF_FILE" 2>/dev/null | tr -d '"' || true)
         [[ -z "$current" ]] && continue
 
@@ -150,7 +156,7 @@ _reconcile_pycache() {
     [[ -d "$LIB_DIR" ]] || return 0
     local count
     count=$(find "$LIB_DIR" -type d -name __pycache__ 2>/dev/null | wc -l)
-    if (( count > 0 )); then
+    if ((count > 0)); then
         _log "found ${count} __pycache__ directories under ${LIB_DIR}"
         if _should_act; then
             # shellcheck disable=SC2086
@@ -169,7 +175,7 @@ _reconcile_report() {
     echo "  Mode:   ${RECONCILE_MODE}$([[ "$DRY_RUN" == "true" ]] && echo " (dry-run)")"
     echo "  Drift:  ${_issues} issue(s)"
     echo "  Fixed:  ${_fixed}"
-    if (( _issues > 0 && _fixed == 0 )); then
+    if ((_issues > 0 && _fixed == 0)); then
         echo
         echo "  Run with RECONCILE_MODE=enforce to fix, or inspect manually."
     fi

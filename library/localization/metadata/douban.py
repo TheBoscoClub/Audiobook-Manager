@@ -58,7 +58,7 @@ class DoubanClient:
         try:
             resp = requests.get(
                 f"{DOUBAN_API_URL}/search",
-                params={"q": query, "count": 1, "apikey": self._api_key},
+                params={"q": query, "count": "1", "apikey": self._api_key},
                 timeout=10,
             )
             resp.raise_for_status()
