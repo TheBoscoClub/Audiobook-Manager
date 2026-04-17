@@ -474,7 +474,7 @@ def _ensure_normalized_narrators(cursor, book_id: int, narrators: list[dict]) ->
                     "(book_id, narrator_id, position) VALUES (?, ?, ?)",
                     (book_id, narrator_id[0], pos),
                 )
-        except (ImportError, sqlite3.DatabaseError):
+        except ImportError, sqlite3.DatabaseError:
             pass  # Normalized tables may not exist yet
 
 

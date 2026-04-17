@@ -468,7 +468,7 @@ class TestNotificationPollerWithGevent:
                         "UPDATE maintenance_notifications SET delivered = 1 WHERE id = ?",
                         (row["id"],),
                     )
-                except Exception:
+                except Exception:  # nosec B110 — test exercises the error-path branch
                     pass  # Error path (lines 155-158)
 
             # Notification should NOT be marked delivered
@@ -490,5 +490,5 @@ class TestNotificationPollerWithGevent:
             conn = sqlite3.connect(str(ws_module._db_path_for_poller))
             conn.row_factory = sqlite3.Row
             conn.execute("SELECT id FROM maintenance_notifications WHERE delivered = 0").fetchall()
-        except Exception:
+        except Exception:  # nosec B110 — test exercises the error-path branch
             pass  # Exercises lines 162-163

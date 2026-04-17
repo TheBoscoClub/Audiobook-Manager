@@ -152,7 +152,7 @@ def determine_literary_era(year_str: str) -> str:
         else:
             return "21st Century - Contemporary (2020+)"
 
-    except (ValueError, TypeError, AttributeError):
+    except ValueError, TypeError, AttributeError:
         return "Unknown Era"
 
 
@@ -276,7 +276,7 @@ def _extract_asin_from_chapters_json(filepath: Path) -> Optional[str]:
         content_metadata = chapters_data.get("content_metadata", {})
         content_reference = content_metadata.get("content_reference", {})
         return content_reference.get("asin")
-    except (json.JSONDecodeError, IOError):
+    except json.JSONDecodeError, IOError:
         return None
 
 
@@ -319,7 +319,7 @@ def _extract_asin_from_voucher(filepath: Path, sources_dir: Path) -> Optional[st
                 )
             if asin:
                 return asin
-        except (json.JSONDecodeError, IOError):
+        except json.JSONDecodeError, IOError:
             continue
     return None
 

@@ -127,7 +127,7 @@ def run_with_progress(cmd, *, line_callback, timeout_secs, operation_name="Opera
 
     try:
         fd = process.stdout.fileno()
-    except (AttributeError, OSError):
+    except AttributeError, OSError:
         fd = None
 
     try:

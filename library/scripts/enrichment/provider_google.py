@@ -50,7 +50,7 @@ def _search_google_books(title: str, author: str) -> dict | None:
             req, timeout=10
         ) as resp:
             data = json.loads(resp.read())
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):
+    except urllib.error.URLError, urllib.error.HTTPError, TimeoutError:
         return None
 
     items = data.get("items", [])

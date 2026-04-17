@@ -298,8 +298,8 @@ def main():
                     try:
                         fcntl.flock(lock_fd, fcntl.LOCK_UN)
                         lock_fd.close()
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("lock release failed (non-fatal): %s", e)
 
         except Exception as e:
             logger.error("Scheduler loop error: %s", e, exc_info=True)

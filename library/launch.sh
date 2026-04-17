@@ -92,14 +92,14 @@ echo "[DEBUG] Serving from project directory (so web/ and data/ are accessible)"
 
 # Start server in background
 echo "[DEBUG] Starting Python HTTP server on port $PORT..."
-python3 -m http.server "$PORT" > /tmp/audiobook-library-server.log 2>&1 &
+python3 -m http.server "$PORT" >/tmp/audiobook-library-server.log 2>&1 &
 SERVER_PID=$!
 
 echo "[DEBUG] Server PID: $SERVER_PID"
 
 # Check if server started successfully
 sleep 1
-if ! kill -0 "$SERVER_PID" 2> /dev/null; then
+if ! kill -0 "$SERVER_PID" 2>/dev/null; then
     echo "❌ Error: Server failed to start"
     echo "Log output:"
     cat /tmp/audiobook-library-server.log
@@ -116,7 +116,7 @@ sleep 1
 URL="http://localhost:$PORT/web/"
 
 # Verify server is responding
-if curl -s "$URL" > /dev/null 2>&1; then
+if curl -s "$URL" >/dev/null 2>&1; then
     echo "[DEBUG] Server is responding to requests"
 else
     echo "⚠️  Warning: Server may not be ready yet"
@@ -126,21 +126,21 @@ fi
 echo "Opening browser to $URL..."
 BROWSER_OPENED=0
 
-if command -v opera &> /dev/null; then
+if command -v opera &>/dev/null; then
     echo "[DEBUG] Found opera, launching..."
-    opera "$URL" &> /dev/null &
+    opera "$URL" &>/dev/null &
     BROWSER_OPENED=1
-elif command -v opera-developer &> /dev/null; then
+elif command -v opera-developer &>/dev/null; then
     echo "[DEBUG] Found opera-developer, launching..."
-    opera-developer "$URL" &> /dev/null &
+    opera-developer "$URL" &>/dev/null &
     BROWSER_OPENED=1
-elif command -v opera-beta &> /dev/null; then
+elif command -v opera-beta &>/dev/null; then
     echo "[DEBUG] Found opera-beta, launching..."
-    opera-beta "$URL" &> /dev/null &
+    opera-beta "$URL" &>/dev/null &
     BROWSER_OPENED=1
 else
     echo "[DEBUG] Opera not found, using default browser..."
-    xdg-open "$URL" &> /dev/null &
+    xdg-open "$URL" &>/dev/null &
     BROWSER_OPENED=1
 fi
 
@@ -162,7 +162,7 @@ echo ""
 cleanup() {
     echo ""
     echo "Shutting down server..."
-    kill $SERVER_PID 2> /dev/null
+    kill $SERVER_PID 2>/dev/null
     exit 0
 }
 

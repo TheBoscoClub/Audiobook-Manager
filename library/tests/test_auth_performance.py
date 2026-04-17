@@ -152,7 +152,7 @@ class TestTokenHashingPerformance:
     def test_hash_token_speed(self):
         """Test token hashing is fast enough."""
         times = []
-        token = "sample_session_token_abc123xyz789"  # noqa: S105 — test fixture, not a real credential
+        token = "sample_session_token_abc123xyz789"  # nosec B105 # noqa: S105 — test fixture, not a real credential
 
         for _ in range(1000):
             start = time.perf_counter()
@@ -170,7 +170,7 @@ class TestTokenHashingPerformance:
 
     def test_hash_token_consistency(self):
         """Verify same token produces same hash."""
-        token = "consistent_token_test"  # noqa: S105 — test fixture, not a real credential
+        token = "consistent_token_test"  # nosec B105 # noqa: S105 — test fixture, not a real credential
         hashes = [hash_token(token) for _ in range(100)]
 
         # All hashes should be identical

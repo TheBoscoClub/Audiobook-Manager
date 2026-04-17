@@ -25,13 +25,13 @@ stop_process() {
 
     if [ -f "$pid_file" ]; then
         local pid=$(cat "$pid_file")
-        if kill -0 "$pid" 2> /dev/null; then
+        if kill -0 "$pid" 2>/dev/null; then
             echo -e "  Stopping $name (PID: $pid)..."
-            kill -TERM "$pid" 2> /dev/null || true
+            kill -TERM "$pid" 2>/dev/null || true
 
             # Wait up to 5 seconds
             for i in {1..5}; do
-                if ! kill -0 "$pid" 2> /dev/null; then
+                if ! kill -0 "$pid" 2>/dev/null; then
                     echo -e "  ${GREEN}✓${NC} $name stopped"
                     break
                 fi
@@ -39,9 +39,9 @@ stop_process() {
             done
 
             # Force kill if still running
-            if kill -0 "$pid" 2> /dev/null; then
+            if kill -0 "$pid" 2>/dev/null; then
                 echo -e "  ${YELLOW}Force killing $name${NC}"
-                kill -KILL "$pid" 2> /dev/null || true
+                kill -KILL "$pid" 2>/dev/null || true
             fi
         else
             echo -e "  $name not running (stale PID file)"
@@ -56,6 +56,6 @@ stop_process "$CADDY_PID_FILE" "Caddy"
 stop_process "$API_PID_FILE" "API server"
 
 # Clean up PID directory if empty
-rmdir "$PID_DIR" 2> /dev/null || true
+rmdir "$PID_DIR" 2>/dev/null || true
 
 echo -e "${GREEN}Development servers stopped${NC}"

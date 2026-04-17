@@ -1549,5 +1549,3 @@ def admin_setup_info(user_id: int):
         setup_data = {}
 
     return jsonify({"setup_data": setup_data})
-
-

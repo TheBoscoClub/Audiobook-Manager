@@ -93,7 +93,7 @@ notify() {
     local title="$1"
     local message="$2"
     local icon="${3:-audio-x-generic}"
-    notify-send -a "Multiformat Converter" -i "$icon" "$title" "$message" 2> /dev/null || true
+    notify-send -a "Multiformat Converter" -i "$icon" "$title" "$message" 2>/dev/null || true
 }
 
 # Determine source type from directory
@@ -126,7 +126,7 @@ process_zip() {
         --output-dir "$OUTPUT_DIR" \
         --import-db \
         --execute \
-        >> "$LOG_DIR/multiformat-converter.log" 2>&1; then
+        >>"$LOG_DIR/multiformat-converter.log" 2>&1; then
 
         log "SUCCESS: $basename converted and imported"
         notify "Audiobook Ready" "$basename" "emblem-ok-symbolic"
@@ -163,7 +163,7 @@ process_mp3_directory() {
     local dirname=$(basename "$mp3_dir")
 
     # Count MP3 files
-    local mp3_count=$(find "$mp3_dir" -maxdepth 1 -name "*.mp3" -o -name "*.MP3" 2> /dev/null | wc -l)
+    local mp3_count=$(find "$mp3_dir" -maxdepth 1 -name "*.mp3" -o -name "*.MP3" 2>/dev/null | wc -l)
 
     if [[ "$mp3_count" -eq 0 ]]; then
         log "SKIP: No MP3 files in $dirname"
@@ -178,7 +178,7 @@ process_mp3_directory() {
         --output-dir "$OUTPUT_DIR" \
         --import-db \
         --execute \
-        >> "$LOG_DIR/multiformat-converter.log" 2>&1; then
+        >>"$LOG_DIR/multiformat-converter.log" 2>&1; then
 
         log "SUCCESS: $dirname converted and imported"
         notify "Audiobook Ready" "$dirname" "emblem-ok-symbolic"
@@ -225,7 +225,7 @@ process_single_mp3() {
         --output-dir "$OUTPUT_DIR" \
         --import-db \
         --execute \
-        >> "$LOG_DIR/multiformat-converter.log" 2>&1; then
+        >>"$LOG_DIR/multiformat-converter.log" 2>&1; then
 
         log "SUCCESS: $basename converted"
         notify "Audiobook Ready" "$basename" "emblem-ok-symbolic"
@@ -350,7 +350,7 @@ main() {
     log ""
 
     # Create lock file
-    echo $$ > "$PROCESSING_LOCK"
+    echo $$ >"$PROCESSING_LOCK"
     trap 'rm -f "$PROCESSING_LOCK"' EXIT
 
     while true; do

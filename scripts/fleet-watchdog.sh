@@ -34,7 +34,7 @@ if ! systemctl is-active --quiet audiobook-translate.service; then
 fi
 
 processing=$(sqlite3 "$DB_PATH" \
-    "SELECT COUNT(*) FROM translation_queue WHERE state='processing';" 2> /dev/null)
+    "SELECT COUNT(*) FROM translation_queue WHERE state='processing';" 2>/dev/null)
 if [ "${processing:-0}" -eq 0 ]; then
     exit 0
 fi
@@ -43,7 +43,7 @@ fi
 recent=$(sqlite3 "$DB_PATH" \
     "SELECT COUNT(*) FROM chapter_subtitles \
      WHERE strftime('%s', created_at) > strftime('%s','now') - $FLEET_STALE_SEC;" \
-    2> /dev/null)
+    2>/dev/null)
 
 if [ "${recent:-0}" -gt 0 ]; then
     exit 0 # fleet is producing; nothing to do
@@ -55,4 +55,4 @@ systemctl restart audiobook-translate.service
 # Reset processing rows so the new daemon re-picks them up cleanly.
 sqlite3 "$DB_PATH" \
     "UPDATE translation_queue SET state='pending', started_at=NULL \
-     WHERE state='processing';" 2> /dev/null
+     WHERE state='processing';" 2>/dev/null

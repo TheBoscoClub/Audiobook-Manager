@@ -307,7 +307,7 @@ def _parse_stream_request(data):
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None, None, None, (jsonify({"error": "invalid parameters"}), 400)
 
     return audiobook_id, locale, chapter_index, None
@@ -430,7 +430,7 @@ def get_segment_bitmap(audiobook_id, chapter_index, locale):
     """
     try:
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -444,7 +444,7 @@ def get_session_state(audiobook_id, locale):
     """Get current streaming session state."""
     try:
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -522,7 +522,7 @@ def handle_seek():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -604,7 +604,7 @@ def segment_complete():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -670,7 +670,7 @@ def chapter_complete():
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()

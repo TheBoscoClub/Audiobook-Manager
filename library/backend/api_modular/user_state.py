@@ -77,11 +77,11 @@ def get_history():
     user = require_current_user()
     try:
         limit = max(1, min(int(request.args.get("limit", 50)), 200))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         limit = 50
     try:
         offset = max(0, int(request.args.get("offset", 0)))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         offset = 0
 
     auth_db = get_auth_db()
@@ -127,11 +127,11 @@ def get_downloads():
     user = require_current_user()
     try:
         limit = max(1, min(int(request.args.get("limit", 50)), 200))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         limit = 50
     try:
         offset = max(0, int(request.args.get("offset", 0)))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         offset = 0
 
     auth_db = get_auth_db()
@@ -266,7 +266,7 @@ def _safe_int_ids(str_ids):
     for aid in str_ids:
         try:
             result.append(int(aid))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
     return result
 

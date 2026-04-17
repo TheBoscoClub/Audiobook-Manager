@@ -10,7 +10,7 @@ LOG_FILE="/tmp/audiobook-scan.log"
 TOTAL_FILES=3985
 
 # Check if scan is running
-if ! pgrep -f "scan_audiobooks.py" > /dev/null; then
+if ! pgrep -f "scan_audiobooks.py" >/dev/null; then
     echo "❌ Scan is not running!"
     echo ""
     if [ -f "$LOG_FILE" ]; then
@@ -41,7 +41,7 @@ if [ -f "$LOG_FILE" ]; then
     # Calculate estimated time remaining (rough estimate)
     if [ "$PROCESSED" -gt 0 ]; then
         # Get time since scan started (use log file creation time)
-        START_TIME=$(stat -c %Y "$LOG_FILE" 2> /dev/null || stat -f %B "$LOG_FILE" 2> /dev/null)
+        START_TIME=$(stat -c %Y "$LOG_FILE" 2>/dev/null || stat -f %B "$LOG_FILE" 2>/dev/null)
         CURRENT_TIME=$(date +%s)
         ELAPSED_SEC=$((CURRENT_TIME - START_TIME))
         ELAPSED_MIN=$((ELAPSED_SEC / 60))
@@ -110,7 +110,7 @@ if [ -f "$LOG_FILE" ]; then
     # Status
     echo "🔄 STATUS"
     echo "─────────────────────────────────────"
-    if pgrep -f "scan_audiobooks.py" > /dev/null; then
+    if pgrep -f "scan_audiobooks.py" >/dev/null; then
         PID=$(pgrep -f "scan_audiobooks.py")
         echo "  ✓ Scan is running (PID: $PID)"
     else

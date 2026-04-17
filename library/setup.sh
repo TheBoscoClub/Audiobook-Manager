@@ -18,20 +18,20 @@ echo ""
 # Check for required tools
 echo "Checking dependencies..."
 
-if ! command -v python3 &> /dev/null; then
+if ! command -v python3 &>/dev/null; then
     echo "Error: Python 3 is not installed"
     exit 1
 fi
 echo "Python 3 found"
 
-if ! command -v ffprobe &> /dev/null; then
+if ! command -v ffprobe &>/dev/null; then
     echo "Error: ffprobe is not installed"
     echo "   Install with: sudo pacman -S ffmpeg"
     exit 1
 fi
 echo "ffprobe found"
 
-if ! command -v ffmpeg &> /dev/null; then
+if ! command -v ffmpeg &>/dev/null; then
     echo "Warning: ffmpeg not found - cover art extraction will fail"
     echo "   Install with: sudo pacman -S ffmpeg"
 else

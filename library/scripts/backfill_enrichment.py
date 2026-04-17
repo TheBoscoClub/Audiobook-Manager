@@ -49,7 +49,7 @@ def _extract_asin_from_voucher_json(voucher_path: Path) -> str | None:
     """
     try:
         data = json.loads(voucher_path.read_text())
-    except (json.JSONDecodeError, OSError):
+    except json.JSONDecodeError, OSError:
         return None
     content_license = data.get("content_license", {})
     direct = content_license.get("asin")

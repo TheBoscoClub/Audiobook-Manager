@@ -54,7 +54,7 @@ create_release_info() {
     local dest="$1"
     local version="$2"
 
-    cat > "${dest}/.release-info" << EOF
+    cat >"${dest}/.release-info" <<EOF
 {
   "github_repo": "${GITHUB_REPO}",
   "github_api": "${GITHUB_API}",
@@ -158,7 +158,7 @@ build_release() {
     # Calculate checksum
     local checksum
     checksum=$(sha256sum "${tarball}" | cut -d' ' -f1)
-    echo "${checksum}  ${release_name}.tar.gz" > "${tarball}.sha256"
+    echo "${checksum}  ${release_name}.tar.gz" >"${tarball}.sha256"
 
     # ---------------------------------------------------------------------
     # Summary
@@ -197,34 +197,34 @@ dry_run() {
         ! -path "*/venv/*" ! -path "*/__pycache__/*" ! -name "*.pyc" \
         ! -path "*/.pytest_cache/*" ! -name "audiobooks.db" \
         ! -path "*/testdata/*" ! -name "*.local.*" \
-        ! -path "*/.coverage" ! -path "*/htmlcov/*" ! -path "*/.mypy_cache/*" |
-        sed "s|${SCRIPT_DIR}/||" | head -50
+        ! -path "*/.coverage" ! -path "*/htmlcov/*" ! -path "*/.mypy_cache/*" \
+        | sed "s|${SCRIPT_DIR}/||" | head -50
     echo "  ..."
 
     echo ""
     echo "=== lib/ ==="
-    find "${SCRIPT_DIR}/lib/" -maxdepth 1 -mindepth 1 2> /dev/null | sed "s|${SCRIPT_DIR}/lib/||" | sort | sed 's/^/  /'
+    find "${SCRIPT_DIR}/lib/" -maxdepth 1 -mindepth 1 2>/dev/null | sed "s|${SCRIPT_DIR}/lib/||" | sort | sed 's/^/  /'
 
     echo ""
     echo "=== scripts/ ==="
-    find "${SCRIPT_DIR}/scripts/" -maxdepth 1 -mindepth 1 2> /dev/null | sed "s|${SCRIPT_DIR}/scripts/||" | sort | sed 's/^/  /'
+    find "${SCRIPT_DIR}/scripts/" -maxdepth 1 -mindepth 1 2>/dev/null | sed "s|${SCRIPT_DIR}/scripts/||" | sort | sed 's/^/  /'
 
     echo ""
     echo "=== systemd/ ==="
-    find "${SCRIPT_DIR}/systemd/" -maxdepth 1 -mindepth 1 2> /dev/null | sed "s|${SCRIPT_DIR}/systemd/||" | sort | sed 's/^/  /'
+    find "${SCRIPT_DIR}/systemd/" -maxdepth 1 -mindepth 1 2>/dev/null | sed "s|${SCRIPT_DIR}/systemd/||" | sort | sed 's/^/  /'
 
     if [[ -d "${SCRIPT_DIR}/converter" ]]; then
         echo ""
         echo "=== converter/ ==="
         find "${SCRIPT_DIR}/converter" -type f ! -name "*.aax" ! -name "*.aaxc" \
-            ! -name "*.mp3" ! -name "*.opus" ! -name "*.m4b" |
-            sed "s|${SCRIPT_DIR}/||" | head -20
+            ! -name "*.mp3" ! -name "*.opus" ! -name "*.m4b" \
+            | sed "s|${SCRIPT_DIR}/||" | head -20
     fi
 
     if [[ -d "${SCRIPT_DIR}/etc" ]]; then
         echo ""
         echo "=== etc/ ==="
-        find "${SCRIPT_DIR}/etc/" -maxdepth 1 -mindepth 1 2> /dev/null | sed "s|${SCRIPT_DIR}/etc/||" | sort | sed 's/^/  /'
+        find "${SCRIPT_DIR}/etc/" -maxdepth 1 -mindepth 1 2>/dev/null | sed "s|${SCRIPT_DIR}/etc/||" | sort | sed 's/^/  /'
     fi
 }
 
@@ -235,7 +235,7 @@ clean() {
 }
 
 show_help() {
-    cat << EOF
+    cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
 Build release tarballs for Audiobook-Manager.

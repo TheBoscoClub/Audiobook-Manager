@@ -540,7 +540,7 @@ class TestTokenHashing:
 
     def test_hash_consistency(self):
         """Test that hash function is consistent."""
-        token = "test_token_value"  # noqa: S105 — test fixture, not a real credential
+        token = "test_token_value"  # nosec B105 # noqa: S105 — test fixture, not a real credential
         hash1 = hash_token(token)
         hash2 = hash_token(token)
         assert hash1 == hash2

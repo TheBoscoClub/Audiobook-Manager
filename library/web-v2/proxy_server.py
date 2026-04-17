@@ -11,6 +11,7 @@ Serves as a unified HTTPS endpoint that:
 
 import http.server
 import json
+import logging
 import os
 import ssl
 import sys
@@ -18,9 +19,11 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import (
+from config import (  # noqa: E402
     AUDIOBOOKS_API_PORT,
     AUDIOBOOKS_BIND_ADDRESS,
     AUDIOBOOKS_CERTS,
@@ -211,7 +214,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         try:
             content_type = self._resolve_cover_content_type(filename)
             self._send_cover_response(cover_path, content_type)
-        except (OSError, BrokenPipeError):
+        except OSError, BrokenPipeError:
             pass
 
     def do_POST(self):
@@ -333,13 +336,13 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                     break
                 if not self._ws_relay_readable(readable, client_sock, backend):
                     return
-        except (BrokenPipeError, ConnectionResetError, OSError):
-            pass
+        except (BrokenPipeError, ConnectionResetError, OSError) as e:
+            logger.debug("backend proxy streaming interrupted (non-fatal): %s", e)
         finally:
             try:
                 backend.close()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("backend close failed (non-fatal): %s", e)
 
     # Headers to forward from client to Flask backend
     _CLIENT_HEADERS = ("Content-Type", "Range", "Accept", "Cookie")

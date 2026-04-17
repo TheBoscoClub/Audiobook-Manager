@@ -32,13 +32,13 @@ class AuditLogRepository:
             conn.commit()
             entry = self.get_by_id(cursor.lastrowid)
 
-        # Push real-time notification to connected admin clients
+        # Push real-time notification to connected admin clients (best-effort)
         try:
             from backend.api_modular.websocket import connection_manager
 
             connection_manager.broadcast({"type": "audit_notify", "action": action})
-        except Exception:
-            pass  # WebSocket broadcast is best-effort
+        except Exception as e:
+            logger.debug("audit websocket broadcast failed (non-fatal): %s", e)
 
         return entry
 

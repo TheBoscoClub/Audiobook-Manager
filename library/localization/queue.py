@@ -320,8 +320,8 @@ def _set_current(audiobook_id: int, locale: str, **fields) -> None:
             )
             conn.commit()
             conn.close()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("step heartbeat update failed (non-fatal): %s", e)
 
 
 def _load_book_state(book_id: int, locale: str):
@@ -469,8 +469,8 @@ def _run_stt_and_translate(
             )
             hb_conn.commit()
             hb_conn.close()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("chapter-count heartbeat update failed (non-fatal): %s", e)
 
     gen_conn = sqlite3.connect(db_path)
     gen_conn.execute("PRAGMA journal_mode=WAL")

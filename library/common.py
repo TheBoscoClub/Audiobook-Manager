@@ -28,7 +28,7 @@ def calculate_sha256(filepath: Path | str, chunk_size: int = DEFAULT_CHUNK_SIZE)
             while chunk := f.read(chunk_size):
                 sha256.update(chunk)
         return sha256.hexdigest()
-    except (IOError, OSError):
+    except IOError, OSError:
         return None
 
 

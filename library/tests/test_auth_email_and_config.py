@@ -274,7 +274,7 @@ class TestInviteMetadataParsing:
                 invite_meta = json.loads(backup_codes_json)
                 if isinstance(invite_meta, dict) and invite_meta.get("invited"):
                     can_download = invite_meta.get("can_download", True)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 pass
         return can_download
 
@@ -568,7 +568,7 @@ class TestSendApprovalEmail:
         try:
             env = _email_env()
             env["SMTP_USER"] = ""
-            env["SMTP_PASS"] = ""
+            env["SMTP_PASS"] = ""  # nosec B105 — deliberately empty to test missing-credential path
             with auth_app.test_request_context(), patch.dict(os.environ, env):
                 from backend.api_modular.auth import _send_approval_email
 
@@ -901,7 +901,7 @@ class TestSendInvitationEmail:
         try:
             env = _email_env()
             env["SMTP_USER"] = ""
-            env["SMTP_PASS"] = ""
+            env["SMTP_PASS"] = ""  # nosec B105 — deliberately empty to test missing-credential path
             with auth_app.test_request_context(), patch.dict(os.environ, env):
                 from backend.api_modular.auth import _send_invitation_email
 
@@ -996,7 +996,7 @@ class TestSendActivationEmail:
         try:
             env = _email_env()
             env["SMTP_USER"] = ""
-            env["SMTP_PASS"] = ""
+            env["SMTP_PASS"] = ""  # nosec B105 — deliberately empty to test missing-credential path
             with auth_app.test_request_context(), patch.dict(os.environ, env):
                 from backend.api_modular.auth import _send_activation_email
 

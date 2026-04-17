@@ -5,15 +5,18 @@ Builds indices for fast querying
 """
 
 import json
+import logging
 import sqlite3
 import sys
 from pathlib import Path
 
+logger = logging.getLogger(__name__)
+
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import COVER_DIR, DATA_DIR, DATABASE_PATH
+from config import COVER_DIR, DATA_DIR, DATABASE_PATH  # noqa: E402
 
-from name_parser import (
+from name_parser import (  # noqa: E402
     clean_name,
     generate_sort_name,
     is_brand_name,
@@ -123,8 +126,8 @@ def _link_entity(cursor, book_id, entity_id, position, junction_table, id_col):
             "VALUES (?, ?, ?)",
             (book_id, entity_id, position),
         )
-    except Exception:
-        pass  # Duplicate junction row
+    except Exception as e:
+        logger.debug("junction row insert (non-fatal duplicate): %s", e)
 
 
 def _insert_entity_junctions(cursor, book_id, raw_name, entity_map, table, id_col):

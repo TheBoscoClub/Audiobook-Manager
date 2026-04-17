@@ -282,10 +282,10 @@ remove_systemd_units() {
         # In dry-run mode, try without sudo first (may have read access)
         # Filter out systemctl's ● marker for failed/inactive units
         # systemctl list-* doesn't need sudo (read-only), run without privilege escalation
-        mapfile -t units < <(systemctl list-units --type=service,timer,path,target,socket --all 'audiobook*' --no-legend 2> /dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
+        mapfile -t units < <(systemctl list-units --type=service,timer,path,target,socket --all 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
         # Also check unit files that might not be loaded
         local unit_files
-        mapfile -t unit_files < <(systemctl list-unit-files 'audiobook*' --no-legend 2> /dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
+        mapfile -t unit_files < <(systemctl list-unit-files 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
         units+=("${unit_files[@]}")
         # Deduplicate
         readarray -t units < <(printf '%s\n' "${units[@]}" | sort -u)
@@ -298,9 +298,9 @@ remove_systemd_units() {
             fi
         done
     else
-        mapfile -t units < <(systemctl --user list-units --type=service,timer,path,target,socket --all 'audiobook*' --no-legend 2> /dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
+        mapfile -t units < <(systemctl --user list-units --type=service,timer,path,target,socket --all 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
         local unit_files
-        mapfile -t unit_files < <(systemctl --user list-unit-files 'audiobook*' --no-legend 2> /dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
+        mapfile -t unit_files < <(systemctl --user list-unit-files 'audiobook*' --no-legend 2>/dev/null | awk '{for(i=1;i<=NF;i++) if($i ~ /^audiobook/) {print $i; break}}')
         units+=("${unit_files[@]}")
         for f in "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}; do
             local unit_name="${f##*/}"
@@ -321,9 +321,9 @@ remove_systemd_units() {
                 log_dry "stop $unit"
             else
                 if [[ "$use_sudo" == "sudo" ]]; then
-                    _sudo systemctl stop "$unit" 2> /dev/null || true
+                    _sudo systemctl stop "$unit" 2>/dev/null || true
                 else
-                    systemctl --user stop "$unit" 2> /dev/null || true
+                    systemctl --user stop "$unit" 2>/dev/null || true
                 fi
             fi
         done
@@ -336,9 +336,9 @@ remove_systemd_units() {
                 log_dry "disable $unit"
             else
                 if [[ "$use_sudo" == "sudo" ]]; then
-                    _sudo systemctl disable "$unit" 2> /dev/null || true
+                    _sudo systemctl disable "$unit" 2>/dev/null || true
                 else
-                    systemctl --user disable "$unit" 2> /dev/null || true
+                    systemctl --user disable "$unit" 2>/dev/null || true
                 fi
             fi
         done
@@ -372,7 +372,7 @@ remove_systemd_units() {
         if [[ "$use_sudo" == "sudo" ]]; then
             _sudo systemctl daemon-reload
         else
-            systemctl --user daemon-reload 2> /dev/null || true
+            systemctl --user daemon-reload 2>/dev/null || true
         fi
         log_info "systemd daemon reloaded"
     else
@@ -447,11 +447,11 @@ remove_app_directory() {
         if [[ -L /usr/local/lib/audiobooks || -d /usr/local/lib/audiobooks ]]; then
             remove_file "/usr/local/lib/audiobooks" "$use_sudo"
             # Remove parent if empty (don't remove /usr/local/lib if it has other contents)
-            if [[ -d /usr/local/lib ]] && [[ -z "$(ls -A /usr/local/lib 2> /dev/null)" ]]; then
+            if [[ -d /usr/local/lib ]] && [[ -z "$(ls -A /usr/local/lib 2>/dev/null)" ]]; then
                 if [[ "$DRY_RUN" == "true" ]]; then
                     log_dry "rmdir /usr/local/lib (empty)"
                 else
-                    _sudo rmdir /usr/local/lib 2> /dev/null || true
+                    _sudo rmdir /usr/local/lib 2>/dev/null || true
                 fi
             fi
         else
@@ -476,7 +476,7 @@ remove_app_directory() {
 
 _cleanup_stage_dir() {
     if [[ -n "$_UNINSTALL_STAGE_DIR" && -d "$_UNINSTALL_STAGE_DIR" ]]; then
-        rm -rf "$_UNINSTALL_STAGE_DIR" 2> /dev/null || true
+        rm -rf "$_UNINSTALL_STAGE_DIR" 2>/dev/null || true
     fi
 }
 
@@ -491,11 +491,11 @@ _stage_copy() {
     fi
 
     if [[ "$use_sudo" == "sudo" ]]; then
-        _sudo cp -a "$src" "$dst" 2> /dev/null || return 1
+        _sudo cp -a "$src" "$dst" 2>/dev/null || return 1
         # Transfer ownership to invoking user so we can manage the staged copy
-        _sudo chown -R "$(id -u):$(id -g)" "$dst" 2> /dev/null || true
+        _sudo chown -R "$(id -u):$(id -g)" "$dst" 2>/dev/null || true
     else
-        cp -a "$src" "$dst" 2> /dev/null || return 1
+        cp -a "$src" "$dst" 2>/dev/null || return 1
     fi
 }
 
@@ -510,9 +510,9 @@ _restore_copy() {
     fi
 
     if [[ "$use_sudo" == "sudo" ]]; then
-        _sudo cp -a "$src" "$dst" 2> /dev/null || return 1
+        _sudo cp -a "$src" "$dst" 2>/dev/null || return 1
     else
-        cp -a "$src" "$dst" 2> /dev/null || return 1
+        cp -a "$src" "$dst" 2>/dev/null || return 1
     fi
 }
 
@@ -543,7 +543,7 @@ stage_preserved_state() {
     fi
 
     # Create staging directory
-    _UNINSTALL_STAGE_DIR=$(mktemp -d -t audiobooks-uninstall-stage.XXXXXX 2> /dev/null) || {
+    _UNINSTALL_STAGE_DIR=$(mktemp -d -t audiobooks-uninstall-stage.XXXXXX 2>/dev/null) || {
         log_warn "Failed to create staging directory — user state cannot be preserved"
         _UNINSTALL_STAGE_DIR=""
         return 1
@@ -598,7 +598,7 @@ stage_preserved_state() {
 
     if [[ $staged -eq 0 ]]; then
         log_info "No user state to preserve"
-        rm -rf "$_UNINSTALL_STAGE_DIR" 2> /dev/null || true
+        rm -rf "$_UNINSTALL_STAGE_DIR" 2>/dev/null || true
         _UNINSTALL_STAGE_DIR=""
     else
         log_info "Staged $staged item(s) to $_UNINSTALL_STAGE_DIR"
@@ -640,9 +640,9 @@ restore_preserved_state() {
         if _restore_copy "$_UNINSTALL_STAGE_DIR/auth.key" "$config_dir/auth.key" "$use_sudo"; then
             # auth.key must be 0600 and owned by the service account
             if [[ "$DRY_RUN" != "true" && "$use_sudo" == "sudo" ]]; then
-                _sudo chmod 600 "$config_dir/auth.key" 2> /dev/null || true
+                _sudo chmod 600 "$config_dir/auth.key" 2>/dev/null || true
             elif [[ "$DRY_RUN" != "true" ]]; then
-                chmod 600 "$config_dir/auth.key" 2> /dev/null || true
+                chmod 600 "$config_dir/auth.key" 2>/dev/null || true
             fi
             log_info "Restored: $config_dir/auth.key"
             ((restored++)) || true
@@ -665,8 +665,8 @@ restore_preserved_state() {
 
     # Re-apply correct ownership on restored state
     if [[ -n "$owner" && "$DRY_RUN" != "true" && "$use_sudo" == "sudo" ]]; then
-        _sudo chown -R "$owner" "$state_dir" 2> /dev/null || true
-        _sudo chown -R "$owner" "$config_dir" 2> /dev/null || true
+        _sudo chown -R "$owner" "$state_dir" 2>/dev/null || true
+        _sudo chown -R "$owner" "$config_dir" 2>/dev/null || true
     fi
 
     log_info "Restored $restored item(s) — reinstall will pick up preserved state"
@@ -823,24 +823,24 @@ handle_data_directories() {
 
     # Show each data directory with size info
     if [[ -d "$library_dir" ]]; then
-        local lib_size=$(du -sh "$library_dir" 2> /dev/null | cut -f1)
-        local lib_count=$(find "$library_dir" -type f \( -name "*.m4b" -o -name "*.mp3" -o -name "*.opus" -o -name "*.flac" \) 2> /dev/null | wc -l)
+        local lib_size=$(du -sh "$library_dir" 2>/dev/null | cut -f1)
+        local lib_count=$(find "$library_dir" -type f \( -name "*.m4b" -o -name "*.mp3" -o -name "*.opus" -o -name "*.flac" \) 2>/dev/null | wc -l)
         echo -e "  ${BOLD}Converted Audiobooks:${NC} $library_dir"
         echo "    Size: ${lib_size:-unknown}  |  Files: ${lib_count} audiobook files"
         echo ""
     fi
 
     if [[ -d "$sources_dir" ]]; then
-        local src_size=$(du -sh "$sources_dir" 2> /dev/null | cut -f1)
-        local src_count=$(find "$sources_dir" -type f \( -name "*.aax" -o -name "*.aaxc" \) 2> /dev/null | wc -l)
+        local src_size=$(du -sh "$sources_dir" 2>/dev/null | cut -f1)
+        local src_count=$(find "$sources_dir" -type f \( -name "*.aax" -o -name "*.aaxc" \) 2>/dev/null | wc -l)
         echo -e "  ${BOLD}Source Files (AAX/AAXC):${NC} $sources_dir"
         echo "    Size: ${src_size:-unknown}  |  Files: ${src_count} source files"
         echo ""
     fi
 
     if [[ -d "$supplements_dir" ]]; then
-        local sup_size=$(du -sh "$supplements_dir" 2> /dev/null | cut -f1)
-        local sup_count=$(find "$supplements_dir" -type f -name "*.pdf" 2> /dev/null | wc -l)
+        local sup_size=$(du -sh "$supplements_dir" 2>/dev/null | cut -f1)
+        local sup_count=$(find "$supplements_dir" -type f -name "*.pdf" 2>/dev/null | wc -l)
         echo -e "  ${BOLD}Supplemental PDFs:${NC} $supplements_dir"
         echo "    Size: ${sup_size:-unknown}  |  Files: ${sup_count} PDF files"
         echo ""
@@ -909,14 +909,14 @@ _remove_if_empty() {
     local dir="$1"
     local use_sudo="$2"
 
-    if [[ -d "$dir" ]] && [[ -z "$(ls -A "$dir" 2> /dev/null)" ]]; then
+    if [[ -d "$dir" ]] && [[ -z "$(ls -A "$dir" 2>/dev/null)" ]]; then
         if [[ "$DRY_RUN" == "true" ]]; then
             log_dry "rmdir $dir (empty)"
         else
             if [[ "$use_sudo" == "sudo" ]]; then
-                _sudo rmdir "$dir" 2> /dev/null || true
+                _sudo rmdir "$dir" 2>/dev/null || true
             else
-                rmdir "$dir" 2> /dev/null || true
+                rmdir "$dir" 2>/dev/null || true
             fi
             log_info "Removed empty directory: $dir"
         fi
@@ -931,13 +931,13 @@ remove_system_user() {
     echo ""
     echo -e "${BOLD}=== System User & Group ===${NC}"
 
-    if ! id audiobooks &> /dev/null; then
+    if ! id audiobooks &>/dev/null; then
         log_info "No audiobooks user found"
         return 0
     fi
 
     # Check for running processes
-    if pgrep -u audiobooks > /dev/null 2>&1; then
+    if pgrep -u audiobooks >/dev/null 2>&1; then
         log_warn "audiobooks user has running processes — skipping user deletion"
         log_warn "Kill remaining processes and run: sudo userdel audiobooks && sudo groupdel audiobooks"
         return 0
@@ -947,23 +947,23 @@ remove_system_user() {
         log_dry "userdel audiobooks"
         log_dry "groupdel audiobooks"
     else
-        _sudo userdel audiobooks 2> /dev/null || true
+        _sudo userdel audiobooks 2>/dev/null || true
         log_remove "system user: audiobooks"
         # Remove other users from the audiobooks group before deleting it
         # (prevents PAM/SSH failures from dangling group references)
-        if getent group audiobooks &> /dev/null; then
+        if getent group audiobooks &>/dev/null; then
             local group_members
             group_members=$(getent group audiobooks | cut -d: -f4)
             if [[ -n "$group_members" ]]; then
                 local -a members_arr=()
-                IFS=',' read -ra members_arr <<< "$group_members"
+                IFS=',' read -ra members_arr <<<"$group_members"
                 for member in "${members_arr[@]}"; do
                     [[ -z "$member" ]] && continue
-                    _sudo gpasswd -d "$member" audiobooks 2> /dev/null || true
+                    _sudo gpasswd -d "$member" audiobooks 2>/dev/null || true
                     log_remove "user '$member' from audiobooks group"
                 done
             fi
-            _sudo groupdel audiobooks 2> /dev/null || true
+            _sudo groupdel audiobooks 2>/dev/null || true
             log_remove "system group: audiobooks"
         fi
     fi
@@ -1033,10 +1033,10 @@ check_shell_rc_files() {
 
     local found=false
     for rc in ~/.bashrc ~/.zshrc ~/.profile ~/.bash_profile ~/.zprofile; do
-        if [[ -f "$rc" ]] && grep -qi 'audiobook' "$rc" 2> /dev/null; then
+        if [[ -f "$rc" ]] && grep -qi 'audiobook' "$rc" 2>/dev/null; then
             found=true
             log_note "$rc contains audiobook references — review manually:"
-            grep -n -i 'audiobook' "$rc" 2> /dev/null | head -5 | while read -r line; do
+            grep -n -i 'audiobook' "$rc" 2>/dev/null | head -5 | while read -r line; do
                 echo "    $line"
             done
         fi
@@ -1061,7 +1061,7 @@ do_system_uninstall() {
 
     # Read config BEFORE deleting it (needed for data directory paths)
     if [[ -f /etc/audiobooks/audiobooks.conf ]]; then
-        source /etc/audiobooks/audiobooks.conf 2> /dev/null || true
+        source /etc/audiobooks/audiobooks.conf 2>/dev/null || true
     fi
     _UNINSTALL_DATA_DIR="${AUDIOBOOKS_DATA:-/srv/audiobooks}"
     _UNINSTALL_LIBRARY_DIR="${AUDIOBOOKS_LIBRARY:-${_UNINSTALL_DATA_DIR}/Library}"
@@ -1107,7 +1107,7 @@ do_user_uninstall() {
     # Read config BEFORE deleting it
     local user_config="$HOME/.config/audiobooks/audiobooks.conf"
     if [[ -f "$user_config" ]]; then
-        source "$user_config" 2> /dev/null || true
+        source "$user_config" 2>/dev/null || true
     fi
     _UNINSTALL_DATA_DIR="${AUDIOBOOKS_DATA:-$HOME/Audiobooks}"
     _UNINSTALL_LIBRARY_DIR="${AUDIOBOOKS_LIBRARY:-${_UNINSTALL_DATA_DIR}/Library}"
@@ -1235,7 +1235,7 @@ fi
 # Validate sudo for system uninstall (skip for dry-run)
 if [[ "$INSTALL_MODE" == "system" || "$INSTALL_MODE" == "both" ]]; then
     if [[ "$DRY_RUN" != "true" && $EUID -ne 0 ]]; then
-        if ! sudo -v 2> /dev/null; then
+        if ! sudo -v 2>/dev/null; then
             echo -e "${RED}Error: System uninstall requires sudo privileges.${NC}"
             exit 1
         fi

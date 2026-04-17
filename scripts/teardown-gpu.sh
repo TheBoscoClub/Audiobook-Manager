@@ -31,7 +31,7 @@ failed=0
 if [ -n "${VAST_API_KEY:-}" ]; then
     log "Checking Vast.ai instances..."
     instances=$(curl -s -H "Authorization: Bearer $VAST_API_KEY" \
-        "https://console.vast.ai/api/v0/instances/?owner=me" 2> /dev/null)
+        "https://console.vast.ai/api/v0/instances/?owner=me" 2>/dev/null)
 
     if [ -z "$instances" ] || echo "$instances" | grep -q '"error"'; then
         log "WARNING: Failed to list Vast.ai instances"
@@ -46,7 +46,7 @@ for inst in (instances if isinstance(instances, list) else []):
     label = inst.get('label', inst.get('machine_id', 'unknown'))
     status = inst.get('actual_status', inst.get('status_msg', ''))
     print(f'{iid}|{label}|{status}')
-" 2> /dev/null)
+" 2>/dev/null)
 
         if [ -z "$ids" ]; then
             log "No active Vast.ai instances found"
@@ -58,8 +58,8 @@ for inst in (instances if isinstance(instances, list) else []):
                     log "Destroying Vast.ai instance $inst_id ($label, $status)..."
                     result=$(curl -s -X DELETE \
                         -H "Authorization: Bearer $VAST_API_KEY" \
-                        "https://console.vast.ai/api/v0/instances/$inst_id/" 2> /dev/null)
-                    if echo "$result" | grep -qi 'success\|true\|ok\|destroyed' 2> /dev/null || [ -z "$result" ]; then
+                        "https://console.vast.ai/api/v0/instances/$inst_id/" 2>/dev/null)
+                    if echo "$result" | grep -qi 'success\|true\|ok\|destroyed' 2>/dev/null || [ -z "$result" ]; then
                         log "  Destroyed: $inst_id"
                         ((destroyed++))
                     else
@@ -67,7 +67,7 @@ for inst in (instances if isinstance(instances, list) else []):
                         ((failed++))
                     fi
                 fi
-            done <<< "$ids"
+            done <<<"$ids"
         fi
     fi
 else
@@ -79,7 +79,7 @@ if [ -n "${RUNPOD_API_KEY:-}" ]; then
     log "Checking RunPod pods..."
     pods=$(curl -s -X POST "https://api.runpod.io/graphql?api_key=$RUNPOD_API_KEY" \
         -H "Content-Type: application/json" \
-        -d '{"query":"query { myself { pods { id name desiredStatus } } }"}' 2> /dev/null)
+        -d '{"query":"query { myself { pods { id name desiredStatus } } }"}' 2>/dev/null)
 
     if [ -z "$pods" ] || echo "$pods" | grep -q '"errors"'; then
         log "WARNING: Failed to list RunPod pods"
@@ -90,7 +90,7 @@ data = json.load(sys.stdin)
 pods = data.get('data', {}).get('myself', {}).get('pods', [])
 for pod in pods:
     print(f'{pod[\"id\"]}|{pod.get(\"name\", \"unknown\")}|{pod.get(\"desiredStatus\", \"\")}')
-" 2> /dev/null)
+" 2>/dev/null)
 
         if [ -z "$pod_ids" ]; then
             log "No active RunPod pods found"
@@ -102,8 +102,8 @@ for pod in pods:
                     log "Terminating RunPod pod $pod_id ($name, $status)..."
                     result=$(curl -s -X POST "https://api.runpod.io/graphql?api_key=$RUNPOD_API_KEY" \
                         -H "Content-Type: application/json" \
-                        -d "{\"query\":\"mutation { podTerminate(input: {podId: \\\"$pod_id\\\"}) }\"}" 2> /dev/null)
-                    if echo "$result" | grep -q '"errors"' 2> /dev/null; then
+                        -d "{\"query\":\"mutation { podTerminate(input: {podId: \\\"$pod_id\\\"}) }\"}" 2>/dev/null)
+                    if echo "$result" | grep -q '"errors"' 2>/dev/null; then
                         log "  WARNING: Terminate may have failed: $result"
                         ((failed++))
                     else
@@ -111,7 +111,7 @@ for pod in pods:
                         ((destroyed++))
                     fi
                 fi
-            done <<< "$pod_ids"
+            done <<<"$pod_ids"
         fi
     fi
 else

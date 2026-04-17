@@ -55,7 +55,7 @@ else
     # Wait for API to be ready
     echo -n "Waiting for API to be ready"
     for i in {1..10}; do
-        if curl -s http://localhost:5001/health > /dev/null 2>&1; then
+        if curl -s http://localhost:5001/health >/dev/null 2>&1; then
             echo -e " ${GREEN}✓${NC}"
             break
         fi
@@ -84,7 +84,7 @@ echo -e "${GREEN}Starting web server on port $PORT...${NC}"
 cd web-v2
 
 # Start HTTP server in background
-python -m http.server $PORT > /dev/null 2>&1 &
+python -m http.server $PORT >/dev/null 2>&1 &
 SERVER_PID=$!
 
 echo -e "${GREEN}✓ Web server started (PID: $SERVER_PID)${NC}"
@@ -109,9 +109,9 @@ echo -e "${BLUE}========================================${NC}"
 sleep 2
 
 # Open in Opera browser
-if command -v opera &> /dev/null; then
+if command -v opera &>/dev/null; then
     opera "http://localhost:$PORT" &
-elif command -v xdg-open &> /dev/null; then
+elif command -v xdg-open &>/dev/null; then
     xdg-open "http://localhost:$PORT" &
 fi
 

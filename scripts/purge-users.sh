@@ -18,7 +18,7 @@ PORT="8443"
 DRY_RUN=false
 
 usage() {
-    cat << EOF
+    cat <<EOF
 Usage: $(basename "$0") --host <ip> --totp-secret <path> [--keep user1,user2,...] [--dry-run]
 
 Options:
@@ -83,7 +83,7 @@ COOKIE_JAR=$(mktemp)
 trap 'rm -f "$COOKIE_JAR"' EXIT
 
 # Convert keep list to array
-IFS=',' read -ra KEEP_USERS <<< "$KEEP_LIST"
+IFS=',' read -ra KEEP_USERS <<<"$KEEP_LIST"
 
 is_kept() {
     local username="$1"
@@ -109,7 +109,7 @@ LOGIN_RESP=$(curl -sk -c "$COOKIE_JAR" -X POST "${BASE_URL}/auth/login" \
     -H 'Content-Type: application/json' \
     -d "{\"username\":\"${ADMIN_USER}\",\"code\":\"${TOTP_CODE}\"}" 2>&1)
 
-if ! echo "$LOGIN_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('success') else 1)" 2> /dev/null; then
+if ! echo "$LOGIN_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('success') else 1)" 2>/dev/null; then
     echo "Login failed: $LOGIN_RESP"
     exit 1
 fi
@@ -149,7 +149,7 @@ done
 echo ""
 echo "Fetching access requests..."
 AR_RESP=$(curl -sk -b "$COOKIE_JAR" "${BASE_URL}/auth/admin/access-requests" 2>&1)
-AR_COUNT=$(echo "$AR_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('requests',[])))" 2> /dev/null || echo "0")
+AR_COUNT=$(echo "$AR_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('requests',[])))" 2>/dev/null || echo "0")
 echo "Found ${AR_COUNT} access requests."
 
 if [[ "$AR_COUNT" -gt 0 ]]; then
@@ -181,7 +181,7 @@ import sys, json
 data = json.load(sys.stdin)
 for u in data['users']:
     print(f\"  {u['username']} (id={u['id']}, admin={u['is_admin']})\")
-print(f\"Total: {data['total']}\")" 2> /dev/null
+print(f\"Total: {data['total']}\")" 2>/dev/null
 fi
 
 echo ""

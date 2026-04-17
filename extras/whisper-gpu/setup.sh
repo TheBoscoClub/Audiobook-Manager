@@ -38,7 +38,7 @@ fi
 
 if [[ "${1:-}" == "--uninstall" ]]; then
     echo "Removing whisper-gpu service…"
-    systemctl disable --now "${SERVICE_NAME}.service" 2> /dev/null || true
+    systemctl disable --now "${SERVICE_NAME}.service" 2>/dev/null || true
     rm -f "${SERVICE_FILE}"
     systemctl daemon-reload
     rm -rf /opt/whisper-gpu
@@ -50,7 +50,7 @@ fi
 # Check prerequisites
 echo "Checking prerequisites…"
 
-if ! python3 -c "import torch; assert torch.cuda.is_available()" 2> /dev/null; then
+if ! python3 -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
     echo -e "${RED}Error: PyTorch with CUDA/ROCm is not installed or no GPU detected.${NC}"
     echo ""
     echo "On CachyOS/Arch:"
@@ -62,7 +62,7 @@ if ! python3 -c "import torch; assert torch.cuda.is_available()" 2> /dev/null; t
     exit 1
 fi
 
-if ! python3 -c "import whisper" 2> /dev/null; then
+if ! python3 -c "import whisper" 2>/dev/null; then
     echo -e "${RED}Error: OpenAI Whisper is not installed.${NC}"
     echo "  sudo pacman -S python-openai-whisper"
     exit 1
@@ -74,7 +74,7 @@ if [[ ! -f "${SERVICE_SRC}" ]]; then
     exit 1
 fi
 
-GPU_NAME=$(python3 -c "import torch; print(torch.cuda.get_device_name(0))" 2> /dev/null)
+GPU_NAME=$(python3 -c "import torch; print(torch.cuda.get_device_name(0))" 2>/dev/null)
 echo -e "${GREEN}GPU detected: ${GPU_NAME}${NC}"
 
 # Warn on consumer AMD Radeon RDNA 2/3 — known-unstable under sustained AI inference.
@@ -117,7 +117,7 @@ cp "${SCRIPT_DIR}/whisper-gpu.service" "${SERVICE_FILE}"
 systemctl daemon-reload
 
 # Ensure audiobooks user can access GPU
-if ! groups audiobooks 2> /dev/null | grep -qE '\b(render|video)\b'; then
+if ! groups audiobooks 2>/dev/null | grep -qE '\b(render|video)\b'; then
     echo "Adding audiobooks user to render and video groups…"
     usermod -aG render,video audiobooks
 fi
@@ -128,7 +128,7 @@ systemctl enable --now "${SERVICE_NAME}.service"
 # Wait for health check
 echo -n "Waiting for service to start"
 for i in $(seq 1 30); do
-    if curl -s http://127.0.0.1:8765/health 2> /dev/null | grep -q '"status"'; then
+    if curl -s http://127.0.0.1:8765/health 2>/dev/null | grep -q '"status"'; then
         echo ""
         echo -e "${GREEN}whisper-gpu service is running.${NC}"
         echo ""

@@ -93,7 +93,7 @@ check_system_dependencies() {
     )
 
     for cmd in "${!deps[@]}"; do
-        if ! command -v "$cmd" &> /dev/null; then
+        if ! command -v "$cmd" &>/dev/null; then
             missing+=("  - $cmd (${deps[$cmd]})")
         fi
     done
@@ -110,7 +110,7 @@ check_system_dependencies() {
     fi
 
     # Verify ffmpeg has opus support
-    if ! ffmpeg -encoders 2> /dev/null | grep -q "libopus"; then
+    if ! ffmpeg -encoders 2>/dev/null | grep -q "libopus"; then
         echo -e "${YELLOW}Warning: ffmpeg may lack libopus encoder — Opus conversion will fail${NC}"
         echo -e "${DIM}Install the opus codec: sudo pacman -S opus libopus (or equivalent)${NC}"
     fi
@@ -323,19 +323,19 @@ check_sudo_access() {
 
     # Method 2: Check sudo -v (validates cached credentials or prompts)
     # Use timeout to prevent hanging
-    if timeout 2 sudo -n true 2> /dev/null; then
+    if timeout 2 sudo -n true 2>/dev/null; then
         # User has passwordless sudo or cached credentials
         return 0
     fi
 
     # Method 3: Check if user is in sudo/wheel group
-    if groups "$username" 2> /dev/null | grep -qE '\b(sudo|wheel|admin)\b'; then
+    if groups "$username" 2>/dev/null | grep -qE '\b(sudo|wheel|admin)\b'; then
         return 0
     fi
 
     # Method 4: Check sudoers file (if readable)
     if [[ -r /etc/sudoers ]]; then
-        if grep -qE "^${username}[[:space:]]" /etc/sudoers 2> /dev/null; then
+        if grep -qE "^${username}[[:space:]]" /etc/sudoers 2>/dev/null; then
             return 0
         fi
     fi
@@ -343,7 +343,7 @@ check_sudo_access() {
     # Method 5: Check sudoers.d directory
     if [[ -d /etc/sudoers.d ]]; then
         for file in /etc/sudoers.d/*; do
-            if [[ -r "$file" ]] && grep -qE "^${username}[[:space:]]" "$file" 2> /dev/null; then
+            if [[ -r "$file" ]] && grep -qE "^${username}[[:space:]]" "$file" 2>/dev/null; then
                 return 0
             fi
         done
@@ -361,7 +361,7 @@ verify_sudo() {
     echo ""
 
     # Try to get sudo credentials (will prompt for password)
-    if sudo -v 2> /dev/null; then
+    if sudo -v 2>/dev/null; then
         echo -e "${GREEN}Sudo authentication successful.${NC}"
         return 0
     else
@@ -398,11 +398,11 @@ detect_storage_tier() {
 
     # Resolve to real path (follow symlinks)
     local real_path
-    real_path=$(realpath -m "$target_path" 2> /dev/null) || real_path="$target_path"
+    real_path=$(realpath -m "$target_path" 2>/dev/null) || real_path="$target_path"
 
     # Find mount point and device
     local mount_info device dev_name
-    mount_info=$(df "$real_path" 2> /dev/null | tail -1) || return 1
+    mount_info=$(df "$real_path" 2>/dev/null | tail -1) || return 1
     device=$(echo "$mount_info" | awk '{print $1}')
 
     # Check for tmpfs (RAM disk) - ideal for staging/temp files
@@ -420,14 +420,14 @@ detect_storage_tier() {
         else
             # Try to resolve through dmsetup
             local slave
-            slave=$(find /sys/block/dm-*/slaves/ -maxdepth 1 -mindepth 1 2> /dev/null | head -1 | xargs -r basename)
+            slave=$(find /sys/block/dm-*/slaves/ -maxdepth 1 -mindepth 1 2>/dev/null | head -1 | xargs -r basename)
             dev_name="${slave:-unknown}"
         fi
     elif [[ "$device" == /dev/md* ]]; then
         # RAID array - check component devices
         local md_name=${device##*/}
         local component
-        component=$(find /sys/block/"$md_name"/slaves/ -maxdepth 1 -mindepth 1 2> /dev/null | head -1 | xargs -r basename)
+        component=$(find /sys/block/"$md_name"/slaves/ -maxdepth 1 -mindepth 1 2>/dev/null | head -1 | xargs -r basename)
         if [[ -n "$component" ]]; then
             dev_name="$component"
         else
@@ -448,7 +448,7 @@ detect_storage_tier() {
 
     # Check rotational flag (0 = SSD/NVMe, 1 = HDD)
     local rotational
-    rotational=$(cat "/sys/block/$dev_name/queue/rotational" 2> /dev/null)
+    rotational=$(cat "/sys/block/$dev_name/queue/rotational" 2>/dev/null)
 
     if [[ "$rotational" == "0" ]]; then
         echo "ssd"
@@ -671,28 +671,28 @@ prompt_delete_data() {
 
     # Check and display each data directory with size
     if [[ -n "$library_dir" ]] && [[ -d "$library_dir" ]]; then
-        local lib_size=$(du -sh "$library_dir" 2> /dev/null | cut -f1)
+        local lib_size=$(du -sh "$library_dir" 2>/dev/null | cut -f1)
         echo -e "  ${BOLD}Converted Audiobooks:${NC} $library_dir"
         echo "    Size: ${lib_size:-unknown}"
-        local lib_count=$(find "$library_dir" -type f \( -name "*.m4b" -o -name "*.mp3" -o -name "*.opus" -o -name "*.flac" \) 2> /dev/null | wc -l)
+        local lib_count=$(find "$library_dir" -type f \( -name "*.m4b" -o -name "*.mp3" -o -name "*.opus" -o -name "*.flac" \) 2>/dev/null | wc -l)
         echo "    Files: ${lib_count} audiobook files"
         echo ""
     fi
 
     if [[ -n "$sources_dir" ]] && [[ -d "$sources_dir" ]]; then
-        local src_size=$(du -sh "$sources_dir" 2> /dev/null | cut -f1)
+        local src_size=$(du -sh "$sources_dir" 2>/dev/null | cut -f1)
         echo -e "  ${BOLD}Source Files (AAX/AAXC):${NC} $sources_dir"
         echo "    Size: ${src_size:-unknown}"
-        local src_count=$(find "$sources_dir" -type f \( -name "*.aax" -o -name "*.aaxc" \) 2> /dev/null | wc -l)
+        local src_count=$(find "$sources_dir" -type f \( -name "*.aax" -o -name "*.aaxc" \) 2>/dev/null | wc -l)
         echo "    Files: ${src_count} source files"
         echo ""
     fi
 
     if [[ -n "$supplements_dir" ]] && [[ -d "$supplements_dir" ]]; then
-        local sup_size=$(du -sh "$supplements_dir" 2> /dev/null | cut -f1)
+        local sup_size=$(du -sh "$supplements_dir" 2>/dev/null | cut -f1)
         echo -e "  ${BOLD}Supplemental PDFs:${NC} $supplements_dir"
         echo "    Size: ${sup_size:-unknown}"
-        local sup_count=$(find "$supplements_dir" -type f -name "*.pdf" 2> /dev/null | wc -l)
+        local sup_count=$(find "$supplements_dir" -type f -name "*.pdf" 2>/dev/null | wc -l)
         echo "    Files: ${sup_count} PDF files"
         echo ""
     fi
@@ -786,8 +786,8 @@ prompt_delete_data() {
     fi
 
     # Confirm if anything is being deleted
-    if [[ "$DELETE_LIBRARY" == "true" ]] || [[ "$DELETE_SOURCES" == "true" ]] ||
-        [[ "$DELETE_SUPPLEMENTS" == "true" ]] || [[ "$DELETE_CONFIG" == "true" ]]; then
+    if [[ "$DELETE_LIBRARY" == "true" ]] || [[ "$DELETE_SOURCES" == "true" ]] \
+        || [[ "$DELETE_SUPPLEMENTS" == "true" ]] || [[ "$DELETE_CONFIG" == "true" ]]; then
         echo ""
         echo -e "${RED}╔═══════════════════════════════════════════════════════════════════╗${NC}"
         echo -e "${RED}║                    CONFIRM DELETION                               ║${NC}"
@@ -847,12 +847,12 @@ prompt_delete_data() {
 
                     # Also delete empty parent data directory if it exists and is empty
                     if [[ -n "$data_dir" ]] && [[ -d "$data_dir" ]]; then
-                        if [[ -z "$(ls -A "$data_dir" 2> /dev/null)" ]]; then
+                        if [[ -z "$(ls -A "$data_dir" 2>/dev/null)" ]]; then
                             echo "Removing empty data directory..."
                             if [[ "$use_sudo" == "sudo" ]]; then
-                                sudo rmdir "$data_dir" 2> /dev/null || true
+                                sudo rmdir "$data_dir" 2>/dev/null || true
                             else
-                                rmdir "$data_dir" 2> /dev/null || true
+                                rmdir "$data_dir" 2>/dev/null || true
                             fi
                         fi
                     fi
@@ -906,7 +906,7 @@ verify_installation_permissions() {
         # symlinks — if left at 644 the reconciler reports "missing wrapper".
         if [[ -d "$APP_DIR/scripts" ]]; then
             while IFS= read -r -d '' _f; do
-                if sudo head -c 2 "$_f" 2> /dev/null | grep -q '^#!'; then
+                if sudo head -c 2 "$_f" 2>/dev/null | grep -q '^#!'; then
                     sudo chmod 755 "$_f"
                 fi
             done < <(sudo find "$APP_DIR/scripts" -maxdepth 2 -type f -print0)
@@ -921,7 +921,7 @@ verify_installation_permissions() {
 
         # Check directory permissions (should be 755)
         echo -n "  Checking directory permissions... "
-        local bad_dirs=$(find "$APP_DIR" -type d -perm 700 2> /dev/null | wc -l)
+        local bad_dirs=$(find "$APP_DIR" -type d -perm 700 2>/dev/null | wc -l)
         if [[ "$bad_dirs" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $bad_dirs directories${NC}"
             sudo find "$APP_DIR" -type d -perm 700 -exec chmod 755 {} \;
@@ -932,7 +932,7 @@ verify_installation_permissions() {
 
         # Check Python file permissions (should be 644, readable)
         echo -n "  Checking .py file permissions... "
-        local bad_py=$(find "$APP_DIR" -name "*.py" \( -perm 600 -o -perm 700 -o -perm 711 \) 2> /dev/null | wc -l)
+        local bad_py=$(find "$APP_DIR" -name "*.py" \( -perm 600 -o -perm 700 -o -perm 711 \) 2>/dev/null | wc -l)
         if [[ "$bad_py" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $bad_py files${NC}"
             sudo find "$APP_DIR" -name "*.py" \( -perm 600 -o -perm 700 -o -perm 711 \) -exec chmod 644 {} \;
@@ -943,7 +943,7 @@ verify_installation_permissions() {
 
         # Check HTML/CSS/JS permissions (should be 644)
         echo -n "  Checking web file permissions... "
-        local bad_web=$(find "$APP_DIR" \( -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 \) 2> /dev/null | wc -l)
+        local bad_web=$(find "$APP_DIR" \( -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 \) 2>/dev/null | wc -l)
         if [[ "$bad_web" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $bad_web files${NC}"
             sudo find "$APP_DIR" \( -name "*.html" -o -name "*.css" -o -name "*.js" \) \( -perm 600 -o -perm 700 \) -exec chmod 644 {} \;
@@ -958,9 +958,9 @@ verify_installation_permissions() {
         local group_issues=0
         for dir in "${critical_dirs[@]}"; do
             if [[ -d "$dir" ]]; then
-                local current_group=$(stat -c "%G" "$dir" 2> /dev/null)
+                local current_group=$(stat -c "%G" "$dir" 2>/dev/null)
                 if [[ "$current_group" != "$SERVICE_GROUP" && "$current_group" != "root" ]]; then
-                    sudo chgrp "$SERVICE_GROUP" "$dir" 2> /dev/null
+                    sudo chgrp "$SERVICE_GROUP" "$dir" 2>/dev/null
                     ((group_issues++)) || true
                 fi
             fi
@@ -976,7 +976,7 @@ verify_installation_permissions() {
         # Must check for ClaudeCodeProjects specifically, not $SCRIPT_DIR,
         # because when run from /opt/audiobooks, $SCRIPT_DIR matches legitimate production links
         echo -n "  Checking for project source dependencies... "
-        local project_links=$(find /usr/local/bin -name "audiobook-*" -type l -exec readlink {} \; 2> /dev/null | grep -c "ClaudeCodeProjects" || true)
+        local project_links=$(find /usr/local/bin -name "audiobook-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "ClaudeCodeProjects" || true)
         if [[ "$project_links" -gt 0 ]]; then
             echo -e "${RED}WARNING: $project_links binaries link to project source!${NC}"
             echo -e "         Production should be independent of source repo."
@@ -991,14 +991,14 @@ verify_installation_permissions() {
 
         # MANDATORY: unconditional full-tree permission normalization (user install).
         echo -n "  Normalizing permissions (entire tree)... "
-        find "$APP_DIR" -type d -exec chmod 755 {} + 2> /dev/null
-        find "$APP_DIR" -type f -exec chmod 644 {} + 2> /dev/null
-        find "$APP_DIR" -type f \( -name "*.sh" -o -name "launch*.sh" \) -exec chmod 755 {} + 2> /dev/null
-        [[ -d "$APP_DIR/library/venv/bin" ]] && find "$APP_DIR/library/venv/bin" -type f -exec chmod 755 {} + 2> /dev/null
+        find "$APP_DIR" -type d -exec chmod 755 {} + 2>/dev/null
+        find "$APP_DIR" -type f -exec chmod 644 {} + 2>/dev/null
+        find "$APP_DIR" -type f \( -name "*.sh" -o -name "launch*.sh" \) -exec chmod 755 {} + 2>/dev/null
+        [[ -d "$APP_DIR/library/venv/bin" ]] && find "$APP_DIR/library/venv/bin" -type f -exec chmod 755 {} + 2>/dev/null
         echo -e "${GREEN}OK${NC}"
 
         echo -n "  Checking directory permissions... "
-        local bad_dirs=$(find "$APP_DIR" -type d -perm 700 2> /dev/null | wc -l)
+        local bad_dirs=$(find "$APP_DIR" -type d -perm 700 2>/dev/null | wc -l)
         if [[ "$bad_dirs" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $bad_dirs directories${NC}"
             find "$APP_DIR" -type d -perm 700 -exec chmod 755 {} \;
@@ -1008,7 +1008,7 @@ verify_installation_permissions() {
         fi
 
         echo -n "  Checking file permissions... "
-        local bad_files=$(find "$APP_DIR" -type f \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) -perm 600 2> /dev/null | wc -l)
+        local bad_files=$(find "$APP_DIR" -type f \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) -perm 600 2>/dev/null | wc -l)
         if [[ "$bad_files" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $bad_files files${NC}"
             find "$APP_DIR" -type f \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" \) -perm 600 -exec chmod 644 {} \;
@@ -1046,24 +1046,24 @@ check_port_available() {
     local port="$1"
 
     # Try lsof first (most reliable)
-    if command -v lsof > /dev/null 2>&1; then
-        if lsof -i ":$port" > /dev/null 2>&1; then
+    if command -v lsof >/dev/null 2>&1; then
+        if lsof -i ":$port" >/dev/null 2>&1; then
             return 1 # Port in use
         fi
         return 0 # Port available
     fi
 
     # Fallback to ss
-    if command -v ss > /dev/null 2>&1; then
-        if ss -tlnH "sport = :$port" 2> /dev/null | grep -q .; then
+    if command -v ss >/dev/null 2>&1; then
+        if ss -tlnH "sport = :$port" 2>/dev/null | grep -q .; then
             return 1 # Port in use
         fi
         return 0 # Port available
     fi
 
     # Fallback to netstat
-    if command -v netstat > /dev/null 2>&1; then
-        if netstat -tlnp 2> /dev/null | grep -q ":$port "; then
+    if command -v netstat >/dev/null 2>&1; then
+        if netstat -tlnp 2>/dev/null | grep -q ":$port "; then
             return 1 # Port in use
         fi
         return 0 # Port available
@@ -1077,13 +1077,13 @@ get_port_user() {
     # Get information about what's using a port
     local port="$1"
 
-    if command -v lsof > /dev/null 2>&1; then
-        lsof -i ":$port" -sTCP:LISTEN 2> /dev/null | awk 'NR==2 {print $1 " (PID " $2 ")"}'
+    if command -v lsof >/dev/null 2>&1; then
+        lsof -i ":$port" -sTCP:LISTEN 2>/dev/null | awk 'NR==2 {print $1 " (PID " $2 ")"}'
         return
     fi
 
-    if command -v ss > /dev/null 2>&1; then
-        ss -tlnp "sport = :$port" 2> /dev/null | awk 'NR==2 {gsub(/.*pid=/,""); gsub(/,.*$/,""); print "PID " $0}'
+    if command -v ss >/dev/null 2>&1; then
+        ss -tlnp "sport = :$port" 2>/dev/null | awk 'NR==2 {gsub(/.*pid=/,""); gsub(/,.*$/,""); print "PID " $0}'
         return
     fi
 
@@ -1290,14 +1290,14 @@ do_system_install() {
 
     # Create audiobooks service account
     echo -e "${BLUE}Setting up service account...${NC}"
-    if ! getent group audiobooks > /dev/null 2>&1; then
+    if ! getent group audiobooks >/dev/null 2>&1; then
         echo "  Creating 'audiobooks' group..."
         sudo groupadd --system audiobooks
     else
         echo "  Group 'audiobooks' already exists"
     fi
 
-    if ! getent passwd audiobooks > /dev/null 2>&1; then
+    if ! getent passwd audiobooks >/dev/null 2>&1; then
         echo "  Creating 'audiobooks' service user..."
         sudo useradd --system --gid audiobooks --shell /usr/sbin/nologin \
             --home-dir /var/lib/audiobooks --comment "Audiobook Library Service" audiobooks
@@ -1306,7 +1306,7 @@ do_system_install() {
     fi
 
     # Add installer to audiobooks group for file access
-    if ! groups "$USER" 2> /dev/null | grep -qw audiobooks; then
+    if ! groups "$USER" 2>/dev/null | grep -qw audiobooks; then
         echo "  Adding $USER to 'audiobooks' group..."
         sudo usermod -aG audiobooks "$USER"
         echo -e "${YELLOW}  NOTE: Log out and back in for group membership to take effect${NC}"
@@ -1374,7 +1374,7 @@ do_system_install() {
     sudo find "${APP_DIR}" -type f -name "*.sh" -exec chmod 755 {} +
 
     # Update version in utilities.html
-    local new_version=$(cat "${SCRIPT_DIR}/VERSION" 2> /dev/null)
+    local new_version=$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null)
     if [[ -n "$new_version" ]] && [[ -f "${APP_DIR}/library/web-v2/utilities.html" ]]; then
         echo -e "${BLUE}Setting version to v${new_version} in utilities.html...${NC}"
         sudo sed -i "s/· v[0-9.]*\"/· v${new_version}\"/" "${APP_DIR}/library/web-v2/utilities.html"
@@ -1393,7 +1393,7 @@ do_system_install() {
     # Create config file if it doesn't exist
     if [[ ! -f "${CONFIG_DIR}/audiobooks.conf" ]]; then
         echo -e "${BLUE}Creating configuration file...${NC}"
-        sudo tee "${CONFIG_DIR}/audiobooks.conf" > /dev/null << EOF
+        sudo tee "${CONFIG_DIR}/audiobooks.conf" >/dev/null <<EOF
 # Audiobook Library Configuration
 # Generated by install.sh on $(date +%Y-%m-%d)
 
@@ -1460,7 +1460,7 @@ EOF
     local cf_token_file="${CONFIG_DIR}/cloudflare-api-token"
     if [[ ! -f "$cf_token_file" ]]; then
         echo "  Creating Cloudflare token placeholder..."
-        sudo tee "$cf_token_file" > /dev/null << 'CFEOF'
+        sudo tee "$cf_token_file" >/dev/null <<'CFEOF'
 # Cloudflare credentials for CDN cache purge
 # Used by audiobook-api service (POST /api/system/purge-cache)
 # Fill in your credentials to enable CDN cache purging from the web UI.
@@ -1493,11 +1493,11 @@ CFEOF
     if [[ -f "$db_file" ]]; then
         local has_enrichment_source
         has_enrichment_source=$(sudo -u audiobooks sqlite3 "$db_file" \
-            "PRAGMA table_info(audiobooks);" 2> /dev/null | grep -c "enrichment_source" || true)
+            "PRAGMA table_info(audiobooks);" 2>/dev/null | grep -c "enrichment_source" || true)
         if [[ "$has_enrichment_source" == "0" ]]; then
             echo -e "${BLUE}Migrating database: adding enrichment_source column...${NC}"
             sudo -u audiobooks sqlite3 "$db_file" \
-                "ALTER TABLE audiobooks ADD COLUMN enrichment_source TEXT;" 2> /dev/null || true
+                "ALTER TABLE audiobooks ADD COLUMN enrichment_source TEXT;" 2>/dev/null || true
             echo "  Added: enrichment_source column to audiobooks table"
         fi
     fi
@@ -1564,11 +1564,11 @@ CFEOF
         sudo cp "${SCRIPT_DIR}/.release-info" "/opt/audiobooks/"
     else
         # Create default release info
-        sudo tee "/opt/audiobooks/.release-info" > /dev/null << EOF
+        sudo tee "/opt/audiobooks/.release-info" >/dev/null <<EOF
 {
   "github_repo": "TheBoscoClub/Audiobook-Manager",
   "github_api": "https://api.github.com/repos/TheBoscoClub/Audiobook-Manager",
-  "version": "$(cat "${SCRIPT_DIR}/VERSION" 2> /dev/null || echo "unknown")",
+  "version": "$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null || echo "unknown")",
   "install_date": "$(date -Iseconds)",
   "install_type": "system"
 }
@@ -1615,7 +1615,7 @@ EOF
             -nodes -keyout "${CERT_DIR}/server.key" -out "${CERT_DIR}/server.crt" \
             -subj "/CN=localhost/O=Audiobooks/C=US" \
             -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
-            2> /dev/null
+            2>/dev/null
         sudo chown audiobooks:audiobooks "${CERT_DIR}/server.key" "${CERT_DIR}/server.crt"
         sudo chmod 640 "${CERT_DIR}/server.key"
         sudo chmod 644 "${CERT_DIR}/server.crt"
@@ -1626,7 +1626,7 @@ EOF
         echo -e "${BLUE}Installing systemd services...${NC}"
 
         # API service
-        sudo tee "${SYSTEMD_DIR}/audiobook-api.service" > /dev/null << EOF
+        sudo tee "${SYSTEMD_DIR}/audiobook-api.service" >/dev/null <<EOF
 [Unit]
 Description=Audiobooks Library API Server
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -1666,12 +1666,12 @@ EOF
             # Without this, cover art extraction and other data writes silently fail.
             if [[ "$data_dir" != "/srv/audiobooks" ]]; then
                 local api_service="${SYSTEMD_DIR}/audiobook-api.service"
-                if sudo grep -q "ReadWritePaths=" "$api_service" 2> /dev/null; then
+                if sudo grep -q "ReadWritePaths=" "$api_service" 2>/dev/null; then
                     sudo sed -i "s|ReadWritePaths=\(.*\)|ReadWritePaths=\1 ${data_dir}|" "$api_service"
                     echo "  Patched: audiobook-api.service ReadWritePaths += ${data_dir}"
                 fi
                 # Also update RequiresMountsFor so systemd waits for the mount
-                if sudo grep -q "RequiresMountsFor=" "$api_service" 2> /dev/null; then
+                if sudo grep -q "RequiresMountsFor=" "$api_service" 2>/dev/null; then
                     sudo sed -i "s|RequiresMountsFor=\(.*\)|RequiresMountsFor=\1 ${data_dir}|" "$api_service"
                     echo "  Patched: audiobook-api.service RequiresMountsFor += ${data_dir}"
                 fi
@@ -1684,7 +1684,7 @@ EOF
             sudo cp "${SCRIPT_DIR}/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
             sudo chmod 644 /etc/tmpfiles.d/audiobooks.conf
             # Create the runtime directories immediately
-            sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2> /dev/null || {
+            sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2>/dev/null || {
                 # Fallback: create manually if systemd-tmpfiles not available
                 sudo mkdir -p /var/lib/audiobooks/.control /var/lib/audiobooks/.run /tmp/audiobook-staging
                 sudo chown audiobooks:audiobooks /var/lib/audiobooks/.control /var/lib/audiobooks/.run /tmp/audiobook-staging
@@ -1695,23 +1695,23 @@ EOF
         fi
 
         # Install Caddy maintenance page (if Caddy is installed)
-        if command -v caddy &> /dev/null; then
+        if command -v caddy &>/dev/null; then
             echo -e "${BLUE}Installing Caddy maintenance page configuration...${NC}"
             sudo mkdir -p /etc/caddy/conf.d
             # Substitute the actual app port into the Caddy config template
             local web_port="${AUDIOBOOKS_WEB_PORT:-8443}"
             sed "s|https://localhost:8443|https://localhost:${web_port}|" \
-                "${SCRIPT_DIR}/caddy/audiobooks.conf" | sudo tee /etc/caddy/conf.d/audiobooks.conf > /dev/null
+                "${SCRIPT_DIR}/caddy/audiobooks.conf" | sudo tee /etc/caddy/conf.d/audiobooks.conf >/dev/null
             sudo cp -f "${SCRIPT_DIR}/caddy/maintenance.html" /etc/caddy/maintenance.html
-            sudo systemctl reload caddy 2> /dev/null || true
+            sudo systemctl reload caddy 2>/dev/null || true
             echo "  Installed: Caddy reverse proxy config and maintenance page (port ${web_port})"
         fi
 
         # Enable the upgrade helper path unit (monitors for privileged operation requests)
         if [[ -f "${SYSTEMD_DIR}/audiobook-upgrade-helper.path" ]]; then
             echo -e "${BLUE}Enabling privileged operations helper...${NC}"
-            sudo systemctl enable audiobook-upgrade-helper.path 2> /dev/null || true
-            sudo systemctl start audiobook-upgrade-helper.path 2> /dev/null || true
+            sudo systemctl enable audiobook-upgrade-helper.path 2>/dev/null || true
+            sudo systemctl start audiobook-upgrade-helper.path 2>/dev/null || true
             echo "  Enabled: audiobook-upgrade-helper.path"
         fi
 
@@ -1726,17 +1726,17 @@ EOF
         echo -e "${BLUE}Enabling services for automatic start at boot...${NC}"
 
         # Enable the target and all individual services
-        sudo systemctl enable audiobook.target 2> /dev/null || true
+        sudo systemctl enable audiobook.target 2>/dev/null || true
         for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer audiobook-translate-check.timer audiobook-fleet-watchdog.timer; do
-            sudo systemctl enable "$svc" 2> /dev/null || true
+            sudo systemctl enable "$svc" 2>/dev/null || true
         done
 
         echo -e "${BLUE}Starting services...${NC}"
         # Start the target (which starts all wanted services)
-        sudo systemctl start audiobook.target 2> /dev/null || {
+        sudo systemctl start audiobook.target 2>/dev/null || {
             # Fallback: start individual services
             for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover; do
-                sudo systemctl start "$svc" 2> /dev/null || true
+                sudo systemctl start "$svc" 2>/dev/null || true
             done
         }
 
@@ -1746,7 +1746,7 @@ EOF
         local all_ok=true
         for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover; do
             local svc_state
-            svc_state=$(systemctl is-active "$svc" 2> /dev/null || echo "inactive")
+            svc_state=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
             if [[ "$svc_state" == "active" ]]; then
                 echo -e "  $svc: ${GREEN}$svc_state${NC}"
             else
@@ -1772,7 +1772,7 @@ EOF
 
     # Create /etc/profile.d script
     echo -e "${BLUE}Creating environment profile...${NC}"
-    sudo tee /etc/profile.d/audiobooks.sh > /dev/null << 'EOF'
+    sudo tee /etc/profile.d/audiobooks.sh >/dev/null <<'EOF'
 # Audiobook Library Environment
 if [[ -f /opt/audiobooks/lib/audiobook-config.sh ]]; then
     source /opt/audiobooks/lib/audiobook-config.sh
@@ -1941,7 +1941,7 @@ do_user_install() {
     [[ -d "${LIB_DIR}/library/venv" ]] && rm -rf "${LIB_DIR}/library/venv"
 
     # Update version in utilities.html
-    local new_version=$(cat "${SCRIPT_DIR}/VERSION" 2> /dev/null)
+    local new_version=$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null)
     if [[ -n "$new_version" ]] && [[ -f "${LIB_DIR}/library/web-v2/utilities.html" ]]; then
         echo -e "${BLUE}Setting version to v${new_version} in utilities.html...${NC}"
         sed -i "s/· v[0-9.]*\"/· v${new_version}\"/" "${LIB_DIR}/library/web-v2/utilities.html"
@@ -1950,7 +1950,7 @@ do_user_install() {
     # Create config file if it doesn't exist
     if [[ ! -f "${CONFIG_DIR}/audiobooks.conf" ]]; then
         echo -e "${BLUE}Creating configuration file...${NC}"
-        cat > "${CONFIG_DIR}/audiobooks.conf" << EOF
+        cat >"${CONFIG_DIR}/audiobooks.conf" <<EOF
 # Audiobook Library Configuration
 # Generated by install.sh on $(date +%Y-%m-%d)
 
@@ -1997,7 +1997,7 @@ EOF
     echo -e "${DIM}API architecture: ${API_ARCHITECTURE} (${api_entry})${NC}"
 
     # API server wrapper
-    cat > "${BIN_DIR}/audiobook-api" << EOF
+    cat >"${BIN_DIR}/audiobook-api" <<EOF
 #!/bin/bash
 # Audiobook Library API Server
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -2006,7 +2006,7 @@ EOF
     chmod 755 "${BIN_DIR}/audiobook-api"
 
     # Web server wrapper
-    cat > "${BIN_DIR}/audiobook-web" << EOF
+    cat >"${BIN_DIR}/audiobook-web" <<EOF
 #!/bin/bash
 # Audiobook Library Web Server (HTTPS)
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -2015,7 +2015,7 @@ EOF
     chmod 755 "${BIN_DIR}/audiobook-web"
 
     # Scanner wrapper
-    cat > "${BIN_DIR}/audiobook-scan" << EOF
+    cat >"${BIN_DIR}/audiobook-scan" <<EOF
 #!/bin/bash
 # Audiobook Library Scanner
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -2024,7 +2024,7 @@ EOF
     chmod 755 "${BIN_DIR}/audiobook-scan"
 
     # Database import wrapper
-    cat > "${BIN_DIR}/audiobook-import" << EOF
+    cat >"${BIN_DIR}/audiobook-import" <<EOF
 #!/bin/bash
 # Audiobook Library Database Import
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -2033,7 +2033,7 @@ EOF
     chmod 755 "${BIN_DIR}/audiobook-import"
 
     # Config viewer
-    cat > "${BIN_DIR}/audiobook-config" << EOF
+    cat >"${BIN_DIR}/audiobook-config" <<EOF
 #!/bin/bash
 # Show audiobook library configuration
 source "${LIB_DIR}/lib/audiobook-config.sh"
@@ -2098,7 +2098,7 @@ EOF
                         ;;
                     embed-cover-art.py)
                         # Python script needs venv wrapper — create bash wrapper instead of raw copy
-                        cat > "${BIN_DIR}/audiobook-embed-cover" << PYEOF
+                        cat >"${BIN_DIR}/audiobook-embed-cover" <<PYEOF
 #!/bin/bash
 # Audiobook Library Cover Art Embedder
 # Wrapper — uses venv Python for mutagen dependency
@@ -2139,11 +2139,11 @@ PYEOF
         cp "${SCRIPT_DIR}/.release-info" "${LIB_DIR}/"
     else
         # Create default release info
-        cat > "${LIB_DIR}/.release-info" << EOF
+        cat >"${LIB_DIR}/.release-info" <<EOF
 {
   "github_repo": "TheBoscoClub/Audiobook-Manager",
   "github_api": "https://api.github.com/repos/TheBoscoClub/Audiobook-Manager",
-  "version": "$(cat "${SCRIPT_DIR}/VERSION" 2> /dev/null || echo "unknown")",
+  "version": "$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null || echo "unknown")",
   "install_date": "$(date -Iseconds)",
   "install_type": "user"
 }
@@ -2152,7 +2152,7 @@ EOF
     chmod 644 "${LIB_DIR}/.release-info"
 
     # Create upgrade wrapper
-    cat > "${BIN_DIR}/audiobook-upgrade" << EOF
+    cat >"${BIN_DIR}/audiobook-upgrade" <<EOF
 #!/bin/bash
 # Audiobook Toolkit Upgrade Script
 # Fetches and applies updates from GitHub releases
@@ -2162,7 +2162,7 @@ EOF
     echo "  Installed: audiobook-upgrade"
 
     # Create migrate wrapper
-    cat > "${BIN_DIR}/audiobook-migrate" << EOF
+    cat >"${BIN_DIR}/audiobook-migrate" <<EOF
 #!/bin/bash
 # Audiobook Toolkit API Migration Script
 # Switch between monolithic and modular API architectures
@@ -2207,7 +2207,7 @@ EOF
             -nodes -keyout "${CERT_DIR}/server.key" -out "${CERT_DIR}/server.crt" \
             -subj "/CN=localhost/O=Audiobooks/C=US" \
             -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
-            2> /dev/null
+            2>/dev/null
         chmod 600 "${CERT_DIR}/server.key"
         chmod 644 "${CERT_DIR}/server.crt"
         echo -e "${GREEN}  Certificate generated:${NC}"
@@ -2219,7 +2219,7 @@ EOF
         echo -e "${BLUE}Installing systemd user services...${NC}"
 
         # API service
-        cat > "${SYSTEMD_DIR}/audiobook-api.service" << EOF
+        cat >"${SYSTEMD_DIR}/audiobook-api.service" <<EOF
 [Unit]
 Description=Audiobooks Library API Server
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -2251,7 +2251,7 @@ WantedBy=default.target
 EOF
 
         # Web service
-        cat > "${SYSTEMD_DIR}/audiobook-web.service" << EOF
+        cat >"${SYSTEMD_DIR}/audiobook-web.service" <<EOF
 [Unit]
 Description=Audiobooks Library Web Server (HTTPS)
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -2276,7 +2276,7 @@ WantedBy=default.target
 EOF
 
         # Target
-        cat > "${SYSTEMD_DIR}/audiobook.target" << EOF
+        cat >"${SYSTEMD_DIR}/audiobook.target" <<EOF
 [Unit]
 Description=Audiobooks Library Services
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -2291,14 +2291,14 @@ EOF
 
         # Enable and start services by default
         echo -e "${BLUE}Enabling and starting user services...${NC}"
-        systemctl --user enable audiobook.target 2> /dev/null || true
-        systemctl --user enable audiobook-api.service audiobook-web.service 2> /dev/null || true
+        systemctl --user enable audiobook.target 2>/dev/null || true
+        systemctl --user enable audiobook-api.service audiobook-web.service 2>/dev/null || true
 
         # Start services
-        systemctl --user start audiobook.target 2> /dev/null || {
+        systemctl --user start audiobook.target 2>/dev/null || {
             # Fallback: start individual services
-            systemctl --user start audiobook-api.service 2> /dev/null || true
-            systemctl --user start audiobook-web.service 2> /dev/null || true
+            systemctl --user start audiobook-api.service 2>/dev/null || true
+            systemctl --user start audiobook-web.service 2>/dev/null || true
         }
 
         echo ""
@@ -2458,7 +2458,7 @@ do_fresh_install() {
                 AUDIOBOOKS_WEB_PORT) saved_AUDIOBOOKS_WEB_PORT="$value" ;;
                 AUDIOBOOKS_HTTP_REDIRECT_PORT) saved_AUDIOBOOKS_HTTP_REDIRECT_PORT="$value" ;;
             esac
-        done < "$config_file"
+        done <"$config_file"
     fi
 
     # Display the install-level hints we captured. The full config (all keys)
@@ -2516,8 +2516,8 @@ do_fresh_install() {
         local src="$1" label="$2"
         [[ -e "$src" ]] || return 1
         local dest="${fresh_backup_dir}/${label}"
-        $use_sudo_fresh cp -a "$src" "$dest" 2> /dev/null || return 1
-        $use_sudo_fresh chmod -R u+rwX "$dest" 2> /dev/null || true
+        $use_sudo_fresh cp -a "$src" "$dest" 2>/dev/null || return 1
+        $use_sudo_fresh chmod -R u+rwX "$dest" 2>/dev/null || true
         echo "  staged: ${label} (from ${src})"
         return 0
     }
@@ -2614,7 +2614,7 @@ do_fresh_install() {
         $use_sudo_fresh mkdir -p "$(dirname "$dest")"
         $use_sudo_fresh rm -rf "$dest"
         $use_sudo_fresh cp -a "$staged" "$dest"
-        [[ -n "$owner" ]] && $use_sudo_fresh chown -R "$owner" "$dest" 2> /dev/null || true
+        [[ -n "$owner" ]] && $use_sudo_fresh chown -R "$owner" "$dest" 2>/dev/null || true
         echo -e "  restored: ${CYAN}${dest}${NC}"
         return 0
     }
@@ -2626,7 +2626,7 @@ do_fresh_install() {
     _restore_if_staged auth.db "${state_src}/auth.db" "$state_owner" && restored_auth_db="true"
     _restore_if_staged auth.key "${conf_src_dir}/auth.key" "$state_owner" && restored_auth_key="true"
     _restore_if_staged covers "${state_src}/covers" "$state_owner" && restored_covers="true"
-    [[ "$restored_auth_key" == "true" ]] && $use_sudo_fresh chmod 600 "${conf_src_dir}/auth.key" 2> /dev/null || true
+    [[ "$restored_auth_key" == "true" ]] && $use_sudo_fresh chmod 600 "${conf_src_dir}/auth.key" 2>/dev/null || true
 
     unset -f _restore_if_staged
 
@@ -2638,7 +2638,7 @@ do_fresh_install() {
     if [[ "$staged_full_conf" == "true" && -f "${fresh_backup_dir}/audiobooks.conf" ]]; then
         local merged_conf
         merged_conf=$(mktemp)
-        cp "$config_file" "$merged_conf.new" 2> /dev/null || $use_sudo_fresh cat "$config_file" > "$merged_conf.new"
+        cp "$config_file" "$merged_conf.new" 2>/dev/null || $use_sudo_fresh cat "$config_file" >"$merged_conf.new"
 
         # For every KEY=... line in the old config, replace or append in the new one.
         while IFS= read -r line; do
@@ -2650,16 +2650,16 @@ do_fresh_install() {
             case "$k" in
                 AUDIOBOOKS_COVERS | AUDIOBOOKS_DATABASE | AUDIOBOOKS_VENV) continue ;;
             esac
-            if grep -q "^${k}=" "$merged_conf.new" 2> /dev/null; then
+            if grep -q "^${k}=" "$merged_conf.new" 2>/dev/null; then
                 sed -i "s|^${k}=.*|${line}|" "$merged_conf.new"
             else
-                echo "$line" >> "$merged_conf.new"
+                echo "$line" >>"$merged_conf.new"
             fi
-        done < "${fresh_backup_dir}/audiobooks.conf"
+        done <"${fresh_backup_dir}/audiobooks.conf"
 
         $use_sudo_fresh cp "$merged_conf.new" "$config_file"
-        [[ -n "$state_owner" ]] && $use_sudo_fresh chown root:audiobooks "$config_file" 2> /dev/null || true
-        $use_sudo_fresh chmod 640 "$config_file" 2> /dev/null || true
+        [[ -n "$state_owner" ]] && $use_sudo_fresh chown root:audiobooks "$config_file" 2>/dev/null || true
+        $use_sudo_fresh chmod 640 "$config_file" 2>/dev/null || true
         rm -f "$merged_conf" "$merged_conf.new"
         restored_full_conf="true"
         echo -e "  merged: ${CYAN}${config_file}${NC} (old keys carried over, drift keys dropped)"

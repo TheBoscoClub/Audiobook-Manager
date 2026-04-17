@@ -8,7 +8,7 @@ echo "=== Protonmail Bridge Setup for Magic Link Emails ==="
 echo ""
 
 # Check if bridge is installed (core binary or symlink at /usr/local/bin)
-if ! command -v protonmail-bridge-core &> /dev/null; then
+if ! command -v protonmail-bridge-core &>/dev/null; then
     echo "ERROR: protonmail-bridge-core not found"
     echo "Install protonmail-bridge-bin (AUR) or protonmail-bridge-core (extra),"
     echo "then ensure /usr/local/bin/protonmail-bridge-core points to the core binary."
@@ -21,7 +21,7 @@ if [[ -f ~/.config/protonmail/bridge-v3/vault.enc ]] || [[ -f ~/.local/share/pro
     echo ""
 
     # Check if service is running
-    if systemctl --user is-active protonmail-bridge &> /dev/null; then
+    if systemctl --user is-active protonmail-bridge &>/dev/null; then
         echo "Bridge service is running."
     else
         echo "Starting bridge service..."

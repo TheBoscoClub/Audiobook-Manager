@@ -360,7 +360,7 @@ class LibrivoxDownloader:
             match = re.match(r"(\d{4})", str(year_str))
             if match:
                 return int(match.group(1))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             pass  # Non-critical: return None for unparsable years
         return None
 

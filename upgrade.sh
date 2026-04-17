@@ -129,7 +129,7 @@ _cleanup_on_exit() {
         else
             echo ""
             echo -e "${YELLOW}Script exited before services were restarted — restarting now...${NC}"
-            start_services "$_SERVICES_USE_SUDO" 2> /dev/null || {
+            start_services "$_SERVICES_USE_SUDO" 2>/dev/null || {
                 echo -e "${RED}CRITICAL: Failed to restart services. Run manually:${NC}"
                 echo -e "${RED}  sudo systemctl start audiobook-api audiobook-proxy${NC}"
             }
@@ -245,7 +245,7 @@ do_remote_upgrade() {
 
     # Test SSH connectivity
     echo -e "${BLUE}Testing SSH connectivity...${NC}"
-    if ! ssh "${ssh_opts[@]}" "$ssh_target" "echo 'SSH OK'" &> /dev/null; then
+    if ! ssh "${ssh_opts[@]}" "$ssh_target" "echo 'SSH OK'" &>/dev/null; then
         echo -e "${RED}Error: Cannot connect to $ssh_target via SSH${NC}"
         echo "  Ensure the remote host is running and accessible"
         echo "  Ensure your SSH key is authorized on the remote host"
@@ -294,13 +294,13 @@ do_remote_upgrade() {
     echo ""
     # shellcheck disable=SC2029  # $remote_tmp, $remote_target, $remote_flags intentionally expand client-side
     ssh "${ssh_opts[@]}" "$ssh_target" \
-        "sudo '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' $remote_flags" ||
-        {
+        "sudo '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' $remote_flags" \
+        || {
             local rc=$?
             echo -e "${RED}Remote upgrade failed (exit code $rc)${NC}"
             # Cleanup on failure
             # shellcheck disable=SC2029  # $remote_tmp intentionally expands client-side
-            ssh "${ssh_opts[@]}" "$ssh_target" "rm -rf '$remote_tmp'" 2> /dev/null || true
+            ssh "${ssh_opts[@]}" "$ssh_target" "rm -rf '$remote_tmp'" 2>/dev/null || true
             return $rc
         }
 
@@ -319,7 +319,7 @@ do_remote_upgrade() {
     local waited=0
     while [[ $waited -lt $max_wait ]]; do
         local resp
-        resp=$(curl -s --connect-timeout 3 "http://${REMOTE_HOST}:${api_port}/api/system/version" 2> /dev/null) && {
+        resp=$(curl -s --connect-timeout 3 "http://${REMOTE_HOST}:${api_port}/api/system/version" 2>/dev/null) && {
             echo -e "${GREEN}  API responding: $resp${NC}"
             break
         }
@@ -443,9 +443,9 @@ detect_architecture() {
     done
 
     if [[ -n "$wrapper" ]]; then
-        if grep -q "api_server.py" "$wrapper" 2> /dev/null; then
+        if grep -q "api_server.py" "$wrapper" 2>/dev/null; then
             echo "modular"
-        elif grep -q "api.py" "$wrapper" 2> /dev/null; then
+        elif grep -q "api.py" "$wrapper" 2>/dev/null; then
             echo "monolithic"
         else
             echo "unknown"
@@ -531,11 +531,11 @@ create_backup() {
 
     # Rolling retention: keep last 5 backups, delete older ones
     local -a backups
-    mapfile -t backups < <(ls -1dt "${target}.backup."* 2> /dev/null)
+    mapfile -t backups < <(ls -1dt "${target}.backup."* 2>/dev/null)
     if ((${#backups[@]} > 5)); then
         for old_backup in "${backups[@]:5}"; do
             echo -e "${BLUE}  Removing old backup: $old_backup${NC}"
-            rm -rf "$old_backup" 2> /dev/null || sudo rm -rf "$old_backup" 2> /dev/null || true
+            rm -rf "$old_backup" 2>/dev/null || sudo rm -rf "$old_backup" 2>/dev/null || true
         done
     fi
 }
@@ -589,7 +589,7 @@ apply_schema_migrations() {
     # Locate the library database from config or default
     local db_path=""
     if [[ -f "/etc/audiobooks/audiobooks.conf" ]]; then
-        db_path=$(grep -oP '^AUDIOBOOKS_DATABASE=\K.*' /etc/audiobooks/audiobooks.conf 2> /dev/null)
+        db_path=$(grep -oP '^AUDIOBOOKS_DATABASE=\K.*' /etc/audiobooks/audiobooks.conf 2>/dev/null)
         # Strip surrounding quotes if present
         db_path="${db_path%\"}"
         db_path="${db_path#\"}"
@@ -605,13 +605,13 @@ apply_schema_migrations() {
     if [[ -f "$migration_sql" ]]; then
         local needs_migration
         needs_migration=$(sqlite3 "$db_path" \
-            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='authors';" 2> /dev/null)
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='authors';" 2>/dev/null)
         if [[ "$needs_migration" == "0" ]]; then
             echo -e "${BLUE}Applying schema migrations...${NC}"
             if [[ -n "$use_sudo" ]]; then
                 cat "$migration_sql" | sudo sqlite3 "$db_path"
             else
-                sqlite3 "$db_path" < "$migration_sql"
+                sqlite3 "$db_path" <"$migration_sql"
             fi
             echo "  Applied: 011_multi_author_narrator.sql"
         fi
@@ -622,7 +622,7 @@ apply_schema_migrations() {
     local venv_python="$target/library/venv/bin/python"
     if [[ -f "$migration_py" ]] && [[ -x "$venv_python" ]]; then
         local author_count
-        author_count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM authors;" 2> /dev/null || echo "0")
+        author_count=$(sqlite3 "$db_path" "SELECT COUNT(*) FROM authors;" 2>/dev/null || echo "0")
         if [[ "$author_count" == "0" ]]; then
             echo -e "${BLUE}Running author/narrator data migration...${NC}"
             if [[ -n "$use_sudo" ]]; then
@@ -765,7 +765,7 @@ apply_data_migrations() {
     # Locate the database
     local db_path=""
     if [[ -f "/etc/audiobooks/audiobooks.conf" ]]; then
-        db_path=$(grep -oP '^AUDIOBOOKS_DATABASE=\K.*' /etc/audiobooks/audiobooks.conf 2> /dev/null)
+        db_path=$(grep -oP '^AUDIOBOOKS_DATABASE=\K.*' /etc/audiobooks/audiobooks.conf 2>/dev/null)
         db_path="${db_path%\"}"
         db_path="${db_path#\"}"
     fi
@@ -790,7 +790,7 @@ apply_data_migrations() {
 
         # Read MIN_VERSION from the script (grep the variable assignment)
         local min_ver
-        min_ver=$(grep -oP '^MIN_VERSION="\K[^"]+' "$migration" 2> /dev/null || true)
+        min_ver=$(grep -oP '^MIN_VERSION="\K[^"]+' "$migration" 2>/dev/null || true)
         if [[ -z "$min_ver" ]]; then
             echo -e "${YELLOW}  Skipping $(basename "$migration"): no MIN_VERSION declared${NC}"
             continue
@@ -850,12 +850,12 @@ enable_new_services() {
 
     # Parse Wants= lines from the target file
     local services
-    services=$(grep '^Wants=' /etc/systemd/system/audiobook.target |
-        sed 's/Wants=//' | tr ' ' '\n' |
-        grep -v 'network-online')
+    services=$(grep '^Wants=' /etc/systemd/system/audiobook.target \
+        | sed 's/Wants=//' | tr ' ' '\n' \
+        | grep -v 'network-online')
 
     for svc in $services; do
-        sudo systemctl enable "$svc" 2> /dev/null || true
+        sudo systemctl enable "$svc" 2>/dev/null || true
         echo "  Enabled: $svc"
     done
 
@@ -880,11 +880,11 @@ audit_and_cleanup() {
     # --- (a) Broken symlinks in /usr/local/bin ---
     echo -e "${BLUE}Checking for broken symlinks in /usr/local/bin...${NC}"
     local broken_links
-    mapfile -t broken_links < <(find /usr/local/bin -name "audiobook*" -xtype l 2> /dev/null)
+    mapfile -t broken_links < <(find /usr/local/bin -name "audiobook*" -xtype l 2>/dev/null)
     if [[ ${#broken_links[@]} -gt 0 ]]; then
         for link in "${broken_links[@]}"; do
             local link_target
-            link_target=$(readlink "$link" 2> /dev/null || echo "unknown")
+            link_target=$(readlink "$link" 2>/dev/null || echo "unknown")
             if [[ "$DRY_RUN" == "true" ]]; then
                 echo -e "  ${YELLOW}[DRY-RUN] Would remove broken symlink: $link -> $link_target${NC}"
             else
@@ -907,7 +907,7 @@ audit_and_cleanup() {
     while IFS= read -r link; do
         [[ -z "$link" ]] && continue
         local link_target
-        link_target=$(readlink "$link" 2> /dev/null || echo "")
+        link_target=$(readlink "$link" 2>/dev/null || echo "")
         # Flag symlinks pointing to /usr/local/lib/audiobooks/ instead of /opt/audiobooks/scripts/
         if [[ "$link_target" == /usr/local/lib/audiobooks/* ]]; then
             local script_name
@@ -930,7 +930,7 @@ audit_and_cleanup() {
                 issues=$((issues + 1))
             fi
         fi
-    done < <(find /usr/local/bin -name "audiobook*" -type l 2> /dev/null)
+    done < <(find /usr/local/bin -name "audiobook*" -type l 2>/dev/null)
     if [[ $legacy_found -eq 0 ]]; then
         echo -e "  ${GREEN}No stale legacy symlinks found${NC}"
     fi
@@ -956,15 +956,15 @@ audit_and_cleanup() {
             else
                 # $use_sudo is "" when running as root, "sudo" when non-root.
                 # Either way, we have (or need and have) the privilege to rm.
-                $use_sudo systemctl disable "$unit_name" 2> /dev/null || true
-                $use_sudo systemctl stop "$unit_name" 2> /dev/null || true
+                $use_sudo systemctl disable "$unit_name" 2>/dev/null || true
+                $use_sudo systemctl stop "$unit_name" 2>/dev/null || true
                 $use_sudo rm -f "$unit_path"
                 echo -e "  ${GREEN}Removed orphaned unit: $unit_name${NC}"
             fi
             orphan_found=$((orphan_found + 1))
             issues=$((issues + 1))
         fi
-    done < <(find /etc/systemd/system -maxdepth 1 -name "audiobook*" -type f 2> /dev/null)
+    done < <(find /etc/systemd/system -maxdepth 1 -name "audiobook*" -type f 2>/dev/null)
     if [[ $orphan_found -eq 0 ]]; then
         echo -e "  ${GREEN}No orphaned systemd units found${NC}"
     fi
@@ -996,7 +996,7 @@ audit_and_cleanup() {
     done
     # Warn about waitress files in venv (venv rebuild handles these)
     local waitress_count
-    waitress_count=$(find "$target/library/venv/" -name "*waitress*" 2> /dev/null | wc -l)
+    waitress_count=$(find "$target/library/venv/" -name "*waitress*" 2>/dev/null | wc -l)
     if [[ "$waitress_count" -gt 0 ]]; then
         echo -e "  ${YELLOW}Found $waitress_count waitress-related file(s) in venv — will be cleaned on next venv rebuild (--major-version)${NC}"
     fi
@@ -1005,7 +1005,7 @@ audit_and_cleanup() {
     echo -e "${BLUE}Checking for stale config references...${NC}"
     local conf_file="/etc/audiobooks/audiobooks.conf"
     if [[ -f "$conf_file" ]]; then
-        if grep -q "AUDIOBOOKS_USE_WAITRESS" "$conf_file" 2> /dev/null; then
+        if grep -q "AUDIOBOOKS_USE_WAITRESS" "$conf_file" 2>/dev/null; then
             if [[ "$DRY_RUN" == "true" ]]; then
                 echo -e "  ${YELLOW}[DRY-RUN] Would remove AUDIOBOOKS_USE_WAITRESS from $conf_file${NC}"
             else
@@ -1096,7 +1096,7 @@ generate_preflight() {
     if [[ "$is_major" == "true" ]] || [[ "$MAJOR_VERSION" == "true" ]]; then
         venv_rebuild_needed="true"
     elif [[ -f "${project}/library/requirements.txt" ]] && [[ -f "${target}/library/requirements.txt" ]]; then
-        if ! diff -q "${project}/library/requirements.txt" "${target}/library/requirements.txt" > /dev/null 2>&1; then
+        if ! diff -q "${project}/library/requirements.txt" "${target}/library/requirements.txt" >/dev/null 2>&1; then
             venv_rebuild_needed="true"
         fi
     fi
@@ -1105,7 +1105,7 @@ generate_preflight() {
     local config_changes="false"
     if [[ -d "${project}/config-migrations" ]]; then
         local migration_count
-        migration_count=$(find "${project}/config-migrations" -name "*.sh" 2> /dev/null | wc -l)
+        migration_count=$(find "${project}/config-migrations" -name "*.sh" 2>/dev/null | wc -l)
         if [[ "$migration_count" -gt 0 ]]; then
             config_changes="true"
         fi
@@ -1134,7 +1134,7 @@ generate_preflight() {
         if [[ -d "${project}/${check_dir}" ]] && [[ -d "${target}/${check_dir}" ]]; then
             local changed
             changed=$(diff -rq --exclude="*.pyc" --exclude="__pycache__" \
-                "${project}/${check_dir}" "${target}/${check_dir}" 2> /dev/null | wc -l || echo "0")
+                "${project}/${check_dir}" "${target}/${check_dir}" 2>/dev/null | wc -l || echo "0")
             files_changed=$((files_changed + changed))
         fi
     done
@@ -1148,7 +1148,7 @@ generate_preflight() {
 
     # Check disk space: estimate 200MB needed for upgrade
     local disk_free_kb
-    disk_free_kb=$(df -k "$target" 2> /dev/null | awk 'NR==2{print $4}' || echo "999999")
+    disk_free_kb=$(df -k "$target" 2>/dev/null | awk 'NR==2{print $4}' || echo "999999")
     if [[ "$disk_free_kb" -lt 204800 ]]; then
         warn_list="${warn_list}\"Low disk space: ${disk_free_kb}KB free at ${target}\","
     fi
@@ -1161,7 +1161,7 @@ generate_preflight() {
     if [[ ! -d "$control_dir" ]]; then
         if [[ ! -w "$var_dir" ]]; then
             sudo mkdir -p "$control_dir"
-            sudo chown audiobooks:audiobooks "$control_dir" 2> /dev/null || true
+            sudo chown audiobooks:audiobooks "$control_dir" 2>/dev/null || true
         else
             mkdir -p "$control_dir"
         fi
@@ -1194,11 +1194,11 @@ generate_preflight() {
         "$config_changes" \
         "$new_services" \
         "$files_changed" \
-        "$warnings" > "$tmp_file"
+        "$warnings" >"$tmp_file"
 
     if [[ ! -w "$control_dir" ]]; then
         sudo mv "$tmp_file" "$preflight_file"
-        sudo chown audiobooks:audiobooks "$preflight_file" 2> /dev/null || true
+        sudo chown audiobooks:audiobooks "$preflight_file" 2>/dev/null || true
         sudo chmod 644 "$preflight_file"
     else
         mv "$tmp_file" "$preflight_file"
@@ -1245,7 +1245,7 @@ validate_preflight() {
 
     # Check timestamp freshness (< 30 minutes)
     local file_mtime
-    file_mtime=$(stat -c %Y "$preflight_file" 2> /dev/null || echo "0")
+    file_mtime=$(stat -c %Y "$preflight_file" 2>/dev/null || echo "0")
     local now
     now=$(date +%s)
     local age_seconds=$((now - file_mtime))
@@ -1266,7 +1266,7 @@ validate_preflight() {
     fi
 
     local recorded_source
-    recorded_source=$(grep -oP '"source":\s*"\K[^"]+' "$preflight_file" 2> /dev/null || echo "")
+    recorded_source=$(grep -oP '"source":\s*"\K[^"]+' "$preflight_file" 2>/dev/null || echo "")
 
     if [[ "$recorded_source" != "$expected_source" ]]; then
         echo -e "${RED}Preflight source mismatch.${NC}"
@@ -1457,18 +1457,18 @@ do_upgrade() {
         # Without this, cover art extraction and other data writes silently fail.
         local conf_data_dir=""
         if [[ -f "/etc/audiobooks/audiobooks.conf" ]]; then
-            conf_data_dir=$(grep -oP '^AUDIOBOOKS_DATA=\K.*' /etc/audiobooks/audiobooks.conf 2> /dev/null)
+            conf_data_dir=$(grep -oP '^AUDIOBOOKS_DATA=\K.*' /etc/audiobooks/audiobooks.conf 2>/dev/null)
         fi
         if [[ -n "$conf_data_dir" && "$conf_data_dir" != "/srv/audiobooks" ]]; then
             local api_svc="/etc/systemd/system/audiobook-api.service"
-            if [[ -f "$api_svc" ]] && sudo grep -q "ReadWritePaths=" "$api_svc" 2> /dev/null; then
+            if [[ -f "$api_svc" ]] && sudo grep -q "ReadWritePaths=" "$api_svc" 2>/dev/null; then
                 if [[ "$DRY_RUN" == "true" ]]; then
                     echo "  [DRY-RUN] Would patch ReadWritePaths += ${conf_data_dir}"
                 else
                     sudo sed -i "s|ReadWritePaths=\(.*\)|ReadWritePaths=\1 ${conf_data_dir}|" "$api_svc"
                     echo "  Patched: audiobook-api.service ReadWritePaths += ${conf_data_dir}"
                     # Also update RequiresMountsFor so systemd waits for the mount
-                    if sudo grep -q "RequiresMountsFor=" "$api_svc" 2> /dev/null; then
+                    if sudo grep -q "RequiresMountsFor=" "$api_svc" 2>/dev/null; then
                         sudo sed -i "s|RequiresMountsFor=\(.*\)|RequiresMountsFor=\1 ${conf_data_dir}|" "$api_svc"
                         echo "  Patched: audiobook-api.service RequiresMountsFor += ${conf_data_dir}"
                     fi
@@ -1495,7 +1495,7 @@ do_upgrade() {
                 sudo cp "${project}/systemd/audiobooks-tmpfiles.conf" /etc/tmpfiles.d/audiobooks.conf
                 sudo chmod 644 /etc/tmpfiles.d/audiobooks.conf
                 # Ensure runtime directories exist
-                sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2> /dev/null || {
+                sudo systemd-tmpfiles --create /etc/tmpfiles.d/audiobooks.conf 2>/dev/null || {
                     # Fallback: create directories manually if tmpfiles fails
                     local var_dir="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
                     local staging="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
@@ -1509,7 +1509,7 @@ do_upgrade() {
         fi
 
         # Sync Caddy files if Caddy is installed
-        if command -v caddy &> /dev/null && [[ -d "${project}/caddy" ]]; then
+        if command -v caddy &>/dev/null && [[ -d "${project}/caddy" ]]; then
             echo -e "${BLUE}Upgrading Caddy maintenance page...${NC}"
             local caddy_changed=false
             for caddy_file in audiobooks.conf maintenance.html; do
@@ -1530,12 +1530,12 @@ do_upgrade() {
                         src_content=$(cat "$src")
                     fi
                     # Compare with installed version
-                    if [[ ! -f "$dst" ]] || [[ "$src_content" != "$(cat "$dst" 2> /dev/null)" ]]; then
+                    if [[ ! -f "$dst" ]] || [[ "$src_content" != "$(cat "$dst" 2>/dev/null)" ]]; then
                         if [[ "$DRY_RUN" == "true" ]]; then
                             echo "  [DRY-RUN] Would update: $caddy_file"
                         else
                             sudo mkdir -p "$(dirname "$dst")"
-                            echo "$src_content" | sudo tee "$dst" > /dev/null
+                            echo "$src_content" | sudo tee "$dst" >/dev/null
                             caddy_changed=true
                             echo "  Updated: $caddy_file"
                         fi
@@ -1543,7 +1543,7 @@ do_upgrade() {
                 fi
             done
             if [[ "$caddy_changed" == "true" ]]; then
-                sudo systemctl reload caddy 2> /dev/null || true
+                sudo systemctl reload caddy 2>/dev/null || true
             fi
         fi
 
@@ -1553,8 +1553,8 @@ do_upgrade() {
 
             # Enable and start the privileged helper path unit if not already running
             if [[ -f "/etc/systemd/system/audiobook-upgrade-helper.path" ]]; then
-                sudo systemctl enable audiobook-upgrade-helper.path 2> /dev/null || true
-                sudo systemctl start audiobook-upgrade-helper.path 2> /dev/null || true
+                sudo systemctl enable audiobook-upgrade-helper.path 2>/dev/null || true
+                sudo systemctl start audiobook-upgrade-helper.path 2>/dev/null || true
             fi
         fi
     fi
@@ -1562,23 +1562,23 @@ do_upgrade() {
     # Update VERSION file
     if [[ "$DRY_RUN" == "false" ]]; then
         if [[ -n "$use_sudo" ]]; then
-            sudo cp "${project}/VERSION" "$target/" 2> /dev/null || true
+            sudo cp "${project}/VERSION" "$target/" 2>/dev/null || true
         else
-            cp "${project}/VERSION" "$target/" 2> /dev/null || true
+            cp "${project}/VERSION" "$target/" 2>/dev/null || true
         fi
 
         # Update reference-system.yml (shipped alongside VERSION so the
         # /api/system/reference-system endpoint has its snapshot after upgrade)
         if [[ -f "${project}/docs/reference-system.yml" ]]; then
             if [[ -n "$use_sudo" ]]; then
-                sudo cp "${project}/docs/reference-system.yml" "$target/" 2> /dev/null || true
+                sudo cp "${project}/docs/reference-system.yml" "$target/" 2>/dev/null || true
             else
-                cp "${project}/docs/reference-system.yml" "$target/" 2> /dev/null || true
+                cp "${project}/docs/reference-system.yml" "$target/" 2>/dev/null || true
             fi
         fi
 
         # Update version in utilities.html
-        local new_version=$(cat "${project}/VERSION" 2> /dev/null)
+        local new_version=$(cat "${project}/VERSION" 2>/dev/null)
         if [[ -n "$new_version" ]] && [[ -f "$target/library/web-v2/utilities.html" ]]; then
             echo -e "${BLUE}Updating version in utilities.html to v${new_version}...${NC}"
             if [[ -n "$use_sudo" ]]; then
@@ -1610,7 +1610,7 @@ do_upgrade() {
             local venv_ok=true
             if [[ ! -d "$target/library/venv" ]]; then
                 venv_ok=false
-            elif ! "$target/library/venv/bin/python" --version &> /dev/null; then
+            elif ! "$target/library/venv/bin/python" --version &>/dev/null; then
                 echo -e "${YELLOW}Venv has broken Python symlinks — recreating${NC}"
                 venv_ok=false
             elif readlink -f "$target/library/venv/bin/python" | grep -q "^/home/"; then
@@ -1626,14 +1626,14 @@ do_upgrade() {
                     sudo "$sys_python" -m venv "$target/library/venv"
                     sudo chown -R audiobooks:audiobooks "$target/library/venv"
                     sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2> /dev/null ||
-                        sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet flask mutagen
+                        -r "$target/library/requirements.txt" 2>/dev/null \
+                        || sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet flask mutagen
                 else
                     rm -rf "$target/library/venv"
                     "$sys_python" -m venv "$target/library/venv"
                     "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2> /dev/null ||
-                        "$target/library/venv/bin/pip" install --quiet flask mutagen
+                        -r "$target/library/requirements.txt" 2>/dev/null \
+                        || "$target/library/venv/bin/pip" install --quiet flask mutagen
                 fi
                 echo -e "${GREEN}  Venv recreated with system Python${NC}"
             else
@@ -1642,14 +1642,14 @@ do_upgrade() {
                 echo -e "${BLUE}Syncing Python dependencies...${NC}"
                 if [[ -n "$use_sudo" ]]; then
                     sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2> /dev/null &&
-                        echo -e "${GREEN}  Dependencies synced${NC}" ||
-                        echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
+                        -r "$target/library/requirements.txt" 2>/dev/null \
+                        && echo -e "${GREEN}  Dependencies synced${NC}" \
+                        || echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
                 else
                     "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2> /dev/null &&
-                        echo -e "${GREEN}  Dependencies synced${NC}" ||
-                        echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
+                        -r "$target/library/requirements.txt" 2>/dev/null \
+                        && echo -e "${GREEN}  Dependencies synced${NC}" \
+                        || echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
                 fi
             fi
         fi
@@ -1661,13 +1661,13 @@ do_upgrade() {
         if [[ -d "$audible_venv" ]]; then
             echo -e "${BLUE}Syncing audible-cli dependencies...${NC}"
             if [[ -n "$use_sudo" ]]; then
-                sudo -u audiobooks "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2> /dev/null &&
-                    echo -e "${GREEN}  audible-cli synced${NC}" ||
-                    echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
+                sudo -u audiobooks "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2>/dev/null \
+                    && echo -e "${GREEN}  audible-cli synced${NC}" \
+                    || echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
             else
-                "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2> /dev/null &&
-                    echo -e "${GREEN}  audible-cli synced${NC}" ||
-                    echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
+                "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2>/dev/null \
+                    && echo -e "${GREEN}  audible-cli synced${NC}" \
+                    || echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
             fi
         else
             echo -e "${YELLOW}  audible-cli venv not found at $audible_venv — run install.sh to create${NC}"
@@ -1783,7 +1783,7 @@ purge_cloudflare_cache() {
         purge_script="${SCRIPT_DIR}/scripts/audiobook-purge-cache"
     elif [[ -x "$(dirname "$SCRIPT_DIR")/scripts/audiobook-purge-cache" ]]; then
         purge_script="$(dirname "$SCRIPT_DIR")/scripts/audiobook-purge-cache"
-    elif command -v audiobook-purge-cache &> /dev/null; then
+    elif command -v audiobook-purge-cache &>/dev/null; then
         purge_script="audiobook-purge-cache"
     fi
 
@@ -1807,7 +1807,7 @@ purge_cloudflare_cache() {
             -H "X-Auth-Email: $CF_AUTH_EMAIL" \
             -H "Content-Type: application/json" \
             --data '{"purge_everything":true}')
-        if echo "$result" | python3 -c "import sys,json;sys.exit(0 if json.load(sys.stdin).get('success') else 1)" 2> /dev/null; then
+        if echo "$result" | python3 -c "import sys,json;sys.exit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
             echo -e "${GREEN}  CDN cache purged${NC}"
         else
             echo -e "${YELLOW}  CDN cache purge failed (non-fatal)${NC}"
@@ -1865,7 +1865,7 @@ backup_auth_db() {
     local backup_base
     backup_base=$(basename "$auth_db")
     local old_backups
-    mapfile -t old_backups < <(find "${backup_dir}" -maxdepth 1 -name "${backup_base}.pre-upgrade-*" -printf '%T@ %p\n' 2> /dev/null | sort -rn | tail -n +4 | cut -d' ' -f2-)
+    mapfile -t old_backups < <(find "${backup_dir}" -maxdepth 1 -name "${backup_base}.pre-upgrade-*" -printf '%T@ %p\n' 2>/dev/null | sort -rn | tail -n +4 | cut -d' ' -f2-)
     if [[ ${#old_backups[@]} -gt 0 ]]; then
         echo "  Cleaning up ${#old_backups[@]} old backup(s)..."
         for old in "${old_backups[@]}"; do
@@ -1903,7 +1903,7 @@ validate_auth_post_upgrade() {
     local max_wait=10
     local waited=0
     while [[ $waited -lt $max_wait ]]; do
-        if curl -s "http://localhost:${api_port}/api/system/version" > /dev/null 2>&1; then
+        if curl -s "http://localhost:${api_port}/api/system/version" >/dev/null 2>&1; then
             break
         fi
         sleep 1
@@ -1917,10 +1917,10 @@ validate_auth_post_upgrade() {
 
     # Query user count via API (if auth enabled)
     local status_resp
-    status_resp=$(curl -s "http://localhost:${api_port}/auth/status" 2> /dev/null)
+    status_resp=$(curl -s "http://localhost:${api_port}/auth/status" 2>/dev/null)
     if [[ -n "$status_resp" ]]; then
         local auth_enabled
-        auth_enabled=$(echo "$status_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('auth_enabled',False))" 2> /dev/null || echo "unknown")
+        auth_enabled=$(echo "$status_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('auth_enabled',False))" 2>/dev/null || echo "unknown")
         echo "  Auth enabled: $auth_enabled"
         echo -e "${GREEN}  Auth database validated — API responding${NC}"
     else
@@ -1944,26 +1944,26 @@ stop_services() {
     fi
 
     # Check if systemd services exist
-    if systemctl list-units --type=service --all 2> /dev/null | grep -q "audiobook-"; then
+    if systemctl list-units --type=service --all 2>/dev/null | grep -q "audiobook-"; then
         # System-level services
         if [[ -n "$use_sudo" ]]; then
-            sudo systemctl stop audiobook.target 2> /dev/null || true
+            sudo systemctl stop audiobook.target 2>/dev/null || true
             for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
-                sudo systemctl stop "$svc" 2> /dev/null || true
+                sudo systemctl stop "$svc" 2>/dev/null || true
             done
         elif [[ $(id -u) -eq 0 ]]; then
             # Already running as root (e.g., via sudo upgrade.sh) — no sudo prefix needed
-            systemctl stop audiobook.target 2> /dev/null || true
+            systemctl stop audiobook.target 2>/dev/null || true
             for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
-                systemctl stop "$svc" 2> /dev/null || true
+                systemctl stop "$svc" 2>/dev/null || true
             done
         fi
         echo -e "${GREEN}  Services stopped${NC}"
-    elif systemctl --user list-units --type=service --all 2> /dev/null | grep -q "audiobook-"; then
+    elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "audiobook-"; then
         # User-level services
-        systemctl --user stop audiobook.target 2> /dev/null || true
+        systemctl --user stop audiobook.target 2>/dev/null || true
         for svc in audiobook-api audiobook-proxy audiobook-redirect; do
-            systemctl --user stop "$svc" 2> /dev/null || true
+            systemctl --user stop "$svc" 2>/dev/null || true
         done
         echo -e "${GREEN}  User services stopped${NC}"
     else
@@ -1988,24 +1988,24 @@ start_services() {
     elif [[ $(id -u) -eq 0 ]]; then
         systemctl daemon-reload
     else
-        systemctl --user daemon-reload 2> /dev/null || true
+        systemctl --user daemon-reload 2>/dev/null || true
     fi
 
     # Check if systemd services exist
-    if systemctl list-units --type=service --all 2> /dev/null | grep -q "audiobook-"; then
+    if systemctl list-units --type=service --all 2>/dev/null | grep -q "audiobook-"; then
         # System-level services
         if [[ -n "$use_sudo" ]]; then
-            sudo systemctl start audiobook.target 2> /dev/null || {
+            sudo systemctl start audiobook.target 2>/dev/null || {
                 # Fallback: start individual services
                 for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
-                    sudo systemctl start "$svc" 2> /dev/null || true
+                    sudo systemctl start "$svc" 2>/dev/null || true
                 done
             }
         elif [[ $(id -u) -eq 0 ]]; then
             # Already running as root — no sudo prefix needed
-            systemctl start audiobook.target 2> /dev/null || {
+            systemctl start audiobook.target 2>/dev/null || {
                 for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
-                    systemctl start "$svc" 2> /dev/null || true
+                    systemctl start "$svc" 2>/dev/null || true
                 done
             }
         fi
@@ -2016,18 +2016,18 @@ start_services() {
         echo -e "${BLUE}Service status:${NC}"
         for svc in audiobook-api audiobook-proxy audiobook-converter audiobook-mover audiobook-downloader.timer; do
             local svc_state
-            svc_state=$(systemctl is-active "$svc" 2> /dev/null || echo "inactive")
+            svc_state=$(systemctl is-active "$svc" 2>/dev/null || echo "inactive")
             if [[ "$svc_state" == "active" ]]; then
                 echo -e "  $svc: ${GREEN}$svc_state${NC}"
             else
                 echo -e "  $svc: ${YELLOW}$svc_state${NC}"
             fi
         done
-    elif systemctl --user list-units --type=service --all 2> /dev/null | grep -q "audiobook-"; then
+    elif systemctl --user list-units --type=service --all 2>/dev/null | grep -q "audiobook-"; then
         # User-level services
-        systemctl --user start audiobook.target 2> /dev/null || {
+        systemctl --user start audiobook.target 2>/dev/null || {
             for svc in audiobook-api audiobook-proxy audiobook-redirect; do
-                systemctl --user start "$svc" 2> /dev/null || true
+                systemctl --user start "$svc" 2>/dev/null || true
             done
         }
         echo -e "${GREEN}  User services started${NC}"
@@ -2063,7 +2063,7 @@ verify_installation_permissions() {
         # reconciler reports 20 "missing wrapper" drift items on every upgrade.
         if [[ -d "$target_dir/scripts" ]]; then
             while IFS= read -r -d '' _f; do
-                if sudo head -c 2 "$_f" 2> /dev/null | grep -q '^#!'; then
+                if sudo head -c 2 "$_f" 2>/dev/null | grep -q '^#!'; then
                     sudo chmod 755 "$_f"
                 fi
             done < <(sudo find "$target_dir/scripts" -maxdepth 2 -type f -print0)
@@ -2083,7 +2083,7 @@ verify_installation_permissions() {
         echo -n "  Checking ownership (audiobooks:audiobooks)... "
         # Check for files not owned by audiobooks user in the entire installation
         local wrong_owner
-        wrong_owner=$(find "$target_dir" \( ! -user audiobooks -o ! -group audiobooks \) 2> /dev/null | wc -l)
+        wrong_owner=$(find "$target_dir" \( ! -user audiobooks -o ! -group audiobooks \) 2>/dev/null | wc -l)
 
         if [[ "$wrong_owner" -gt 0 ]]; then
             echo -e "${YELLOW}fixing $wrong_owner files/dirs${NC}"
@@ -2096,7 +2096,7 @@ verify_installation_permissions() {
 
     # Check directory permissions (should be 755, not 700)
     echo -n "  Checking directory permissions... "
-    local bad_dirs=$(find "$target_dir" -type d -perm 700 2> /dev/null | wc -l)
+    local bad_dirs=$(find "$target_dir" -type d -perm 700 2>/dev/null | wc -l)
     if [[ "$bad_dirs" -gt 0 ]]; then
         echo -e "${YELLOW}fixing $bad_dirs directories${NC}"
         if [[ "$is_system" == "true" ]]; then
@@ -2111,7 +2111,7 @@ verify_installation_permissions() {
 
     # Check file permissions (should be 644 for .py, .html, .css, .js, .sql, .json, .txt)
     echo -n "  Checking file permissions... "
-    local bad_files=$(find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.sql" -o -name "*.json" -o -name "*.txt" \) \( -perm 600 -o -perm 700 -o -perm 711 \) 2> /dev/null | wc -l)
+    local bad_files=$(find "$target_dir" \( -name "*.py" -o -name "*.html" -o -name "*.css" -o -name "*.js" -o -name "*.sql" -o -name "*.json" -o -name "*.txt" \) \( -perm 600 -o -perm 700 -o -perm 711 \) 2>/dev/null | wc -l)
     if [[ "$bad_files" -gt 0 ]]; then
         echo -e "${YELLOW}fixing $bad_files files${NC}"
         if [[ "$is_system" == "true" ]]; then
@@ -2127,7 +2127,7 @@ verify_installation_permissions() {
     # Check shell script permissions (must be 755 — readable and executable by all)
     # Without world-readable, /etc/profile.d scripts can't source shared libs like audiobook-config.sh
     echo -n "  Checking executable permissions (.sh)... "
-    local bad_scripts=$(find "$target_dir" -name "*.sh" \( ! -perm -u+x -o ! -perm -a+r \) 2> /dev/null | wc -l)
+    local bad_scripts=$(find "$target_dir" -name "*.sh" \( ! -perm -u+x -o ! -perm -a+r \) 2>/dev/null | wc -l)
     if [[ "$bad_scripts" -gt 0 ]]; then
         echo -e "${YELLOW}fixing $bad_scripts scripts${NC}"
         if [[ "$is_system" == "true" ]]; then
@@ -2144,7 +2144,7 @@ verify_installation_permissions() {
     # The check must look for ClaudeCodeProjects paths specifically, NOT $SCRIPT_DIR,
     # because when run from /opt/audiobooks, $SCRIPT_DIR matches legitimate production links
     echo -n "  Checking for project source dependencies... "
-    local project_links=$(find /usr/local/bin -name "audiobook-*" -type l -exec readlink {} \; 2> /dev/null | grep -c "ClaudeCodeProjects" || true)
+    local project_links=$(find /usr/local/bin -name "audiobook-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "ClaudeCodeProjects" || true)
     if [[ "$project_links" -gt 0 ]]; then
         echo -e "${RED}WARNING: $project_links binaries link to project source!${NC}"
         issues_found=$((issues_found + 1))
@@ -2182,9 +2182,9 @@ load_release_info() {
     fi
 
     # Parse JSON (jq if available, grep/sed fallback)
-    if command -v jq &> /dev/null; then
-        local repo=$(jq -r '.github_repo // empty' "$info_file" 2> /dev/null)
-        local api=$(jq -r '.github_api // empty' "$info_file" 2> /dev/null)
+    if command -v jq &>/dev/null; then
+        local repo=$(jq -r '.github_repo // empty' "$info_file" 2>/dev/null)
+        local api=$(jq -r '.github_api // empty' "$info_file" 2>/dev/null)
         [[ -n "$repo" ]] && GITHUB_REPO="$repo"
         [[ -n "$api" ]] && GITHUB_API="$api"
     else
@@ -2216,9 +2216,9 @@ get_latest_release() {
         echo -e "${RED}GitHub API returned HTTP $http_code${NC}" >&2
         echo -e "${RED}  URL: $url${NC}" >&2
         # Show API error message if present
-        if command -v jq &> /dev/null; then
+        if command -v jq &>/dev/null; then
             local api_msg
-            api_msg=$(jq -r '.message // empty' "$temp_body" 2> /dev/null)
+            api_msg=$(jq -r '.message // empty' "$temp_body" 2>/dev/null)
             [[ -n "$api_msg" ]] && echo -e "${RED}  API message: $api_msg${NC}" >&2
         fi
         rm -f "$temp_body"
@@ -2226,8 +2226,8 @@ get_latest_release() {
     fi
 
     local version
-    if command -v jq &> /dev/null; then
-        version=$(jq -r '.tag_name // empty' "$temp_body" 2> /dev/null)
+    if command -v jq &>/dev/null; then
+        version=$(jq -r '.tag_name // empty' "$temp_body" 2>/dev/null)
     else
         version=$(grep '"tag_name"' "$temp_body" | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
     fi
@@ -2258,8 +2258,8 @@ get_release_tarball_url() {
         curl -sL --connect-timeout 10 -o "$temp_body" "$url" || continue
 
         local tarball_url
-        if command -v jq &> /dev/null; then
-            tarball_url=$(jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url' "$temp_body" 2> /dev/null | head -1)
+        if command -v jq &>/dev/null; then
+            tarball_url=$(jq -r '.assets[] | select(.name | endswith(".tar.gz")) | .browser_download_url' "$temp_body" 2>/dev/null | head -1)
         else
             # Fallback: construct URL from expected pattern
             tarball_url="https://github.com/${GITHUB_REPO}/releases/download/${tag}/audiobook-manager-${version}.tar.gz"
@@ -2312,13 +2312,13 @@ download_and_extract_release() {
     # Try multiple patterns to handle naming changes without bootstrap problems
     local extract_dir=""
     for pattern in "audiobook-manager-*" "audiobook-*" "Audiobook-Manager-*"; do
-        extract_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "$pattern" 2> /dev/null | head -1)
+        extract_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "$pattern" 2>/dev/null | head -1)
         [[ -n "$extract_dir" ]] && break
     done
 
     # Fallback: find any directory that looks like a versioned release
     if [[ -z "$extract_dir" ]]; then
-        extract_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "*-[0-9]*" ! -name "*.tar.gz" 2> /dev/null | head -1)
+        extract_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "*-[0-9]*" ! -name "*.tar.gz" 2>/dev/null | head -1)
     fi
 
     if [[ -z "$extract_dir" ]] || [[ ! -d "$extract_dir" ]]; then
@@ -2409,7 +2409,7 @@ do_github_upgrade() {
         if [[ ! -d "$control_dir" ]]; then
             if [[ ! -w "$var_dir" ]]; then
                 sudo mkdir -p "$control_dir"
-                sudo chown audiobooks:audiobooks "$control_dir" 2> /dev/null || true
+                sudo chown audiobooks:audiobooks "$control_dir" 2>/dev/null || true
             else
                 mkdir -p "$control_dir"
             fi
@@ -2445,11 +2445,11 @@ do_github_upgrade() {
             "$current_version" \
             "$install_version" \
             "$is_major" \
-            "$is_major" > "$tmp_file"
+            "$is_major" >"$tmp_file"
 
         if [[ ! -w "$control_dir" ]]; then
             sudo mv "$tmp_file" "$preflight_file"
-            sudo chown audiobooks:audiobooks "$preflight_file" 2> /dev/null || true
+            sudo chown audiobooks:audiobooks "$preflight_file" 2>/dev/null || true
             sudo chmod 644 "$preflight_file"
         else
             mv "$tmp_file" "$preflight_file"
@@ -2710,13 +2710,13 @@ echo ""
 # production accidentally. Remote deploys (QA/test VMs) are unaffected —
 # the --remote path exits before reaching this point.
 if [[ "$TARGET_DIR" == "/opt/audiobooks" ]] && [[ -z "$REMOTE_HOST" ]] && [[ "$PROJECT_DIR" != /tmp/audiobook-upgrade-* ]]; then
-    head_tag=$(git -C "$PROJECT_DIR" tag --points-at HEAD 2> /dev/null | grep -E '^v[0-9]' | head -1)
+    head_tag=$(git -C "$PROJECT_DIR" tag --points-at HEAD 2>/dev/null | grep -E '^v[0-9]' | head -1)
     if [[ -z "$head_tag" ]]; then
         echo -e "${RED}${BOLD}PRODUCTION SAFETY GATE${NC}"
         echo -e "${RED}Refusing to deploy to /opt/audiobooks — HEAD is not a tagged release.${NC}"
         echo ""
-        echo -e "  Current HEAD: $(git -C "$PROJECT_DIR" log -1 --format='%h %s' 2> /dev/null)"
-        echo -e "  Latest tag:   $(git -C "$PROJECT_DIR" describe --tags --abbrev=0 2> /dev/null || echo 'none')"
+        echo -e "  Current HEAD: $(git -C "$PROJECT_DIR" log -1 --format='%h %s' 2>/dev/null)"
+        echo -e "  Latest tag:   $(git -C "$PROJECT_DIR" describe --tags --abbrev=0 2>/dev/null || echo 'none')"
         echo ""
         echo -e "${YELLOW}Production only receives tagged releases created via /git-release.${NC}"
         echo -e "${YELLOW}To deploy to a test/QA VM, use: --remote HOST${NC}"

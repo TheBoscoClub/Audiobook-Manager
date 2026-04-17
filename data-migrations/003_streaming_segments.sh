@@ -27,8 +27,8 @@ _dm003_sqlite() {
 
 _dm003_table_exists() {
     local tbl="$1"
-    _dm003_sqlite "SELECT name FROM sqlite_master WHERE type='table' AND name='${tbl}';" 2> /dev/null |
-        grep -q "^${tbl}$"
+    _dm003_sqlite "SELECT name FROM sqlite_master WHERE type='table' AND name='${tbl}';" 2>/dev/null \
+        | grep -q "^${tbl}$"
 }
 
 run_migration() {

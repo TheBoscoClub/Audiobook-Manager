@@ -67,13 +67,13 @@ _reconcile_phantoms() {
 _reconcile_dirs() {
     local entry path owner mode
     for entry in "${REQUIRED_DIRS[@]}"; do
-        IFS='|' read -r path owner mode <<< "$entry"
+        IFS='|' read -r path owner mode <<<"$entry"
         if [[ ! -d "$path" ]]; then
             _issue "missing directory: $path"
             if _should_act; then
                 $USE_SUDO mkdir -p "$path"
-                $USE_SUDO chown "$owner" "$path" 2> /dev/null || true
-                $USE_SUDO chmod "$mode" "$path" 2> /dev/null || true
+                $USE_SUDO chown "$owner" "$path" 2>/dev/null || true
+                $USE_SUDO chmod "$mode" "$path" 2>/dev/null || true
                 _fix "created: $path ($owner $mode)"
             fi
         fi
@@ -88,7 +88,7 @@ _reconcile_dirs() {
 _reconcile_venvs() {
     local entry path purpose
     for entry in "${REQUIRED_VENVS[@]}"; do
-        IFS='|' read -r path purpose <<< "$entry"
+        IFS='|' read -r path purpose <<<"$entry"
         if [[ ! -x "${path}/bin/python" ]]; then
             _issue "missing venv: $path ($purpose)"
         fi
@@ -131,8 +131,8 @@ _reconcile_config() {
 
     local entry key legacy_glob current
     for entry in "${CONFIG_CANONICAL_DEFAULTS[@]}"; do
-        IFS='|' read -r key legacy_glob <<< "$entry"
-        current=$(grep -oP "^${key}=\K.*" "$CONF_FILE" 2> /dev/null | tr -d '"' || true)
+        IFS='|' read -r key legacy_glob <<<"$entry"
+        current=$(grep -oP "^${key}=\K.*" "$CONF_FILE" 2>/dev/null | tr -d '"' || true)
         [[ -z "$current" ]] && continue
 
         # shellcheck disable=SC2254  # glob match on legacy value is intentional
@@ -155,12 +155,12 @@ _reconcile_config() {
 _reconcile_pycache() {
     [[ -d "$LIB_DIR" ]] || return 0
     local count
-    count=$(find "$LIB_DIR" -type d -name __pycache__ 2> /dev/null | wc -l)
+    count=$(find "$LIB_DIR" -type d -name __pycache__ 2>/dev/null | wc -l)
     if ((count > 0)); then
         _log "found ${count} __pycache__ directories under ${LIB_DIR}"
         if _should_act; then
             # shellcheck disable=SC2086
-            find "$LIB_DIR" -type d -name __pycache__ -exec $USE_SUDO rm -rf {} + 2> /dev/null || true
+            find "$LIB_DIR" -type d -name __pycache__ -exec $USE_SUDO rm -rf {} + 2>/dev/null || true
             _fix "cleaned ${count} __pycache__ directories"
         fi
     fi

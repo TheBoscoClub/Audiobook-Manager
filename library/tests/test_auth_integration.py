@@ -209,7 +209,7 @@ def _cleanup_access_request_db(username: str) -> None:
         _run_virsh(write_cmd, wait_seconds=1.0)
         # Step 2: Execute the script
         _run_virsh(cmd_json, wait_seconds=2.0)
-    except Exception:
+    except Exception:  # nosec B110 — VM cleanup helper, best-effort teardown
         pass
 
 
@@ -273,7 +273,7 @@ def admin_session(api_available):
     # Re-login in case session expired during tests
     try:
         admin_login(s)
-    except Exception:
+    except Exception:  # nosec B110 — cleanup path, login may fail and test continues
         pass
     for username in (TOTP_USER, PASSKEY_USER, FIDO2_USER):
         cleanup_user(s, username)
@@ -459,7 +459,7 @@ if not os.environ.get("FIDO2_SOFTWARE", ""):
 
         _fido2_devices = list(CtapHidDevice.list_devices())
         _FIDO2_HARDWARE = len(_fido2_devices) > 0
-    except Exception:
+    except Exception:  # nosec B110 — FIDO2 detection probe; absence of device is expected
         pass
 
 

@@ -272,7 +272,7 @@ def _parse_ids_param(ids_param):
         return []
     try:
         requested_ids = [int(x) for x in ids_param.split(",") if x.strip()]
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return []
     return requested_ids[:60]
 
@@ -680,7 +680,7 @@ def _parse_on_demand_ids(data):
     """Parse + validate audiobook_ids. Returns (ids, error_response_or_None)."""
     try:
         requested_ids = [int(bid) for bid in data["audiobook_ids"]]
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None, (jsonify({"error": "audiobook_ids must contain integers"}), 400)
     return requested_ids, None
 
@@ -874,7 +874,7 @@ def _validate_batch_request(data):
     if isinstance(book_ids, list):
         try:
             requested_ids = {int(bid) for bid in book_ids}
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return (None, None, (jsonify({"error": "audiobook_ids must contain integers"}), 400))
         if not requested_ids:
             return (None, None, (jsonify({"error": "audiobook_ids must not be empty"}), 400))

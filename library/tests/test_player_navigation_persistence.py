@@ -36,7 +36,7 @@ if VM_HOST:
         sock = socket.create_connection((VM_HOST, 5001), timeout=3)
         sock.close()
         _vm_reachable = True
-    except (OSError, ConnectionRefusedError):
+    except OSError, ConnectionRefusedError:
         pass
 
 pytestmark: list[pytest.MarkDecorator] = [
@@ -135,7 +135,7 @@ def browser_context(auth_session):
                     args=["--autoplay-policy=no-user-gesture-required"],  # Allow autoplay
                 )
                 break
-            except Exception:
+            except Exception:  # nosec B112 — try next browser type if this one fails to launch
                 continue
 
         if not browser:

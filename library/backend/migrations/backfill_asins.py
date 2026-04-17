@@ -24,7 +24,7 @@ def extract_asin(chapters_path: Path) -> str | None:
         content_metadata = data.get("content_metadata", {})
         content_reference = content_metadata.get("content_reference", {})
         return content_reference.get("asin")
-    except (json.JSONDecodeError, IOError):
+    except json.JSONDecodeError, IOError:
         return None
 
 

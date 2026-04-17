@@ -27,8 +27,8 @@ _dm002_sqlite() {
 
 _dm002_has_column() {
     local col="$1"
-    _dm002_sqlite "PRAGMA table_info(translation_queue);" 2> /dev/null |
-        awk -F'|' -v c="$col" '$2 == c { found=1 } END { exit !found }'
+    _dm002_sqlite "PRAGMA table_info(translation_queue);" 2>/dev/null \
+        | awk -F'|' -v c="$col" '$2 == c { found=1 } END { exit !found }'
 }
 
 if [[ ! -f "$DB_PATH" ]]; then
@@ -38,7 +38,7 @@ fi
 # Skip cleanly if translation_queue doesn't exist (fresh installs that haven't
 # initialized localization yet).
 if ! _dm002_sqlite "SELECT 1 FROM sqlite_master WHERE type='table' AND name='translation_queue';" \
-    2> /dev/null | grep -q 1; then
+    2>/dev/null | grep -q 1; then
     return 0
 fi
 
@@ -57,13 +57,13 @@ if [[ "$DRY_RUN" == "true" ]]; then
 fi
 
 if $_dm002_need_progress; then
-    _dm002_sqlite "ALTER TABLE translation_queue ADD COLUMN last_progress_at TIMESTAMP;" &&
-        _dm002_sqlite "UPDATE translation_queue SET last_progress_at = COALESCE(started_at, created_at);" &&
-        _dm002_sqlite "CREATE INDEX IF NOT EXISTS idx_tq_last_progress ON translation_queue(last_progress_at);" &&
-        echo "  Added translation_queue.last_progress_at"
+    _dm002_sqlite "ALTER TABLE translation_queue ADD COLUMN last_progress_at TIMESTAMP;" \
+        && _dm002_sqlite "UPDATE translation_queue SET last_progress_at = COALESCE(started_at, created_at);" \
+        && _dm002_sqlite "CREATE INDEX IF NOT EXISTS idx_tq_last_progress ON translation_queue(last_progress_at);" \
+        && echo "  Added translation_queue.last_progress_at"
 fi
 
 if $_dm002_need_total; then
-    _dm002_sqlite "ALTER TABLE translation_queue ADD COLUMN total_chapters INTEGER;" &&
-        echo "  Added translation_queue.total_chapters"
+    _dm002_sqlite "ALTER TABLE translation_queue ADD COLUMN total_chapters INTEGER;" \
+        && echo "  Added translation_queue.total_chapters"
 fi

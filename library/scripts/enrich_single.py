@@ -92,7 +92,7 @@ def _fetch_audible_product(asin: str) -> dict | None:
             except Exception:
                 return None
         return None
-    except (urllib.error.URLError, TimeoutError):
+    except urllib.error.URLError, TimeoutError:
         return None
 
 
@@ -194,7 +194,7 @@ def _query_google_books(
             items = data.get("items", [])
             if items:
                 return items[0].get("volumeInfo", {})
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+    except urllib.error.HTTPError, urllib.error.URLError, TimeoutError:
         pass
     return None
 
@@ -211,7 +211,7 @@ def _query_openlibrary_search(title: str, author: str | None = None) -> dict | N
             data = json.loads(resp.read())
             docs = data.get("docs", [])
             return docs[0] if docs else None
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+    except urllib.error.HTTPError, urllib.error.URLError, TimeoutError:
         return None
 
 

@@ -221,7 +221,7 @@ class TestNoHardcodedPaths:
                     if self._is_allowed_usage(line, lines, line_num, forbidden):
                         continue
                     violations.append((line_num, forbidden, line.strip()[:100]))
-        except Exception:
+        except Exception:  # nosec B110 — lint helper; unreadable file is non-fatal
             pass  # Skip files that can't be read
         return violations
 

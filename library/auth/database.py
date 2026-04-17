@@ -7,17 +7,20 @@ All data is encrypted at rest with AES-256.
 
 from __future__ import annotations
 
+import hashlib
+import logging
 import os
 import secrets
-import hashlib
-from pathlib import Path
 from contextlib import contextmanager
-from typing import Optional, Generator
+from pathlib import Path
+from typing import Generator, Optional
 
 try:
     import sqlcipher3 as sqlcipher
 except ImportError:
     sqlcipher = None
+
+logger = logging.getLogger(__name__)
 
 
 class AuthDatabaseError(Exception):
@@ -235,11 +238,13 @@ class AuthDatabase:
                 )
             """)
 
-            # Migration: add last_audit_seen_id to users if not exists
+            # Migration: add last_audit_seen_id to users if not exists (idempotent)
             try:
                 conn.execute("ALTER TABLE users ADD COLUMN last_audit_seen_id INTEGER DEFAULT 0")
-            except Exception:
-                pass  # Column already exists
+            except Exception as e:
+                logger.debug(
+                    "ALTER TABLE users add last_audit_seen_id: %s (column likely exists)", e
+                )
 
             # Migration: add system_settings table if not exists
             conn.execute("""
