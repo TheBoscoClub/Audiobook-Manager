@@ -199,7 +199,7 @@ All mutating endpoints return the updated user object + audit log entry ID.
 
 ## Branch Strategy
 
-Feature branch `user-management` off `main`. Full build and test on `test-audiobook-cachyos` before merge. Auth system is security-critical — no partial merges.
+Feature branch `user-management` off `main`. Full build and test on `<test-vm-name>` before merge. Auth system is security-critical — no partial merges.
 
 ## Security Considerations
 

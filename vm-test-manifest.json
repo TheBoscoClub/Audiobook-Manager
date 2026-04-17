@@ -15,7 +15,7 @@
     ],
     "reason": "Installs to /etc/systemd/system/, /usr/local/bin/, /usr/local/lib/, /opt/audiobooks/, /etc/profile.d/. Must not contaminate host.",
 
-    "default_vm": "test-audiobook-cachyos",
+    "default_vm": "<test-vm-name>",
 
     "dangerous_operations": [
       "systemd_service_install",
@@ -29,20 +29,22 @@
     "pristine_snapshot": "pristine",
     "post_test_restore": true,
 
+    "_example_note": "Replace <test-vm-name>, <test-vm-ip>, and port values below with your own test VM. The maintainer uses a libvirt CachyOS VM — the values here are illustrative, not required.",
+
     "test_environments": [
       {
-        "name": "test-audiobook-cachyos",
+        "name": "<test-vm-name>",
         "type": "existing",
-        "vm_name": "test-audiobook-cachyos",
+        "vm_name": "<test-vm-name>",
         "snapshot": "pristine",
-        "description": "Dedicated CachyOS VM for audiobook integration/API/UI testing. Restore to pristine snapshot after every test run.",
+        "description": "Dedicated VM for audiobook integration/API/UI testing. Restore to pristine snapshot after every test run. Any modern systemd-based Linux distro will work.",
         "requirements": {
-          "python": "3.14",
+          "python": "3.11+",
           "ffmpeg": true,
           "ffprobe": true,
           "systemd": true
         },
-        "static_ip": "192.168.122.104",
+        "static_ip": "<test-vm-ip>",
         "ports": {
           "api": 5001,
           "web": 8443,
@@ -124,9 +126,10 @@
 
   "qa_vm": {
     "enabled": true,
-    "vm_name": "qa-audiobook-cachyos",
-    "static_ip": "192.168.122.63",
-    "snapshot": "return-to-base-2026-02-23",
+    "_example_note": "QA VM configuration — replace placeholders with your own QA host. Required only if you run a production-mirror QA environment.",
+    "vm_name": "<qa-vm-name>",
+    "static_ip": "<qa-vm-ip>",
+    "snapshot": "<qa-vm-baseline-snapshot>",
     "ports": {
       "native_api": 5001,
       "native_web": 8090,

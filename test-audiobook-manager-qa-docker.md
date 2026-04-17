@@ -1,14 +1,16 @@
 ---
 model: opus
 type: project-specific QA module
-target: qa-audiobook-cachyos (192.168.122.63)
-ssh: ssh -i ~/.ssh/id_ed25519 claude@192.168.122.63
+target: <qa-vm-name> (<qa-vm-ip>) — read from vm-test-manifest.json
+ssh: ssh -i <qa-ssh-key> <qa-ssh-user>@<qa-vm-ip>
 trigger: /test qadocker
 ---
 
 # QA Docker Container Regression Test Module
 
-You are a subagent responsible for running a full regression test of the Audiobook-Manager Docker container on the QA VM (`qa-audiobook-cachyos`). Execute every step below autonomously. Collect results into variables and produce a structured report at the end.
+You are a subagent responsible for running a full regression test of the Audiobook-Manager Docker container on your QA VM. Execute every step below autonomously. Collect results into variables and produce a structured report at the end.
+
+QA connection details are loaded from `vm-test-manifest.json` at runtime — there are no hardcoded IPs or hostnames in this module. Set the `qa_vm` section of that manifest to match your environment before running.
 
 **Session Record**: After completing all steps, append a summary of your work to the session record file at the project root (`SESSION_RECORD_YYYY-MM-DD.md` where YYYY-MM-DD is today's date). Use `flock` for write coordination:
 
@@ -23,50 +25,44 @@ ENTRY
 
 ## Configuration
 
-Load from `vm-test-manifest.json` in the project root (key: `qa_vm`). Fallback values if the file is missing:
+Load from `vm-test-manifest.json` in the project root (`qa_vm` section). The module is parameterized — all VM-specific values come from the manifest at runtime.
 
-| Key | Value |
-|-----|-------|
-| VM name | `qa-audiobook-cachyos` |
-| VM IP | `192.168.122.63` |
-| SSH user | `claude` |
-| SSH key | `~/.ssh/id_ed25519` |
-| SSH password | `REDACTED_VM_PASSWORD` |
-| Docker HTTPS port | `8443` |
-| Docker HTTP redirect port | `8080` |
-| Docker API port (internal) | `5001` |
-| Container name | `audiobooks-docker` |
-| Image prefix | `audiobook-manager` |
-| Docker daemon preset | `disabled` (must start manually) |
-| Docker DB path (QA) | `/var/lib/audiobooks/docker-data/audiobooks.db` |
-| Docker data volume | `/var/lib/audiobooks/docker-data:/app/data` |
-| Library mount | `/srv/audiobooks/Library:/audiobooks:ro` |
-| Supplements mount | `/srv/audiobooks/Supplements:/supplements:ro` |
-| Production DB path (dev host) | `/var/lib/audiobooks/db/audiobooks.db` |
-| Version file (in container) | `/app/VERSION` |
-| Native API port (for consistency) | `5001` |
-| Native web port (for consistency) | `8090` |
-| Snapshot | `return-to-base-2026-02-23` |
-| Expected books | ~801 |
-| Expected authors | ~492 |
-| GitHub repo | `TheBoscoClub/Audiobook-Manager` |
+Keys consumed from `vm-test-manifest.json` → `qa_vm`:
+
+| Key | Purpose |
+|-----|---------|
+| `vm_name` | Your QA VM name |
+| `static_ip` | Reachable address of your QA VM |
+| `snapshot` | Baseline snapshot for QA rollback |
+| `ports.docker_web_https` | Docker HTTPS port (default `8443`) |
+| `ports.docker_web_http` | Docker HTTP→HTTPS redirect port (default `8080`) |
+| `ports.native_api` | Native API port, used for native-vs-docker consistency check (default `5001`) |
+| `docker.container_name` | Name of the Docker container (default `audiobooks-docker`) |
+| `docker.image_prefix` | Image name prefix (default `audiobook-manager`) |
+| `docker.db_path` | DB path inside the Docker data bind mount |
+| `docker.library_mount` | Library bind-mount spec (e.g., `${AUDIOBOOKS_DATA}/Library:/audiobooks:ro`) |
+| `docker.supplements_mount` | Supplements bind-mount spec |
+| `expected.library_count_approx` | Rough expected book count |
+| `expected.author_count_approx` | Rough expected author count |
+
+SSH user/key come from your shell environment (`$USER`, standard key discovery, or an SSH config `Host` entry for the QA VM) — this module never hardcodes credentials.
 
 Define these as shell variables at the start for reuse:
 
 ```bash
-QA_VM="qa-audiobook-cachyos"
-QA_IP="192.168.122.63"
-SSH_KEY="~/.ssh/id_ed25519"
-SSH_USER="claude"
+MANIFEST="vm-test-manifest.json"
+QA_VM=$(jq -r '.qa_vm.vm_name' "$MANIFEST")
+QA_IP=$(jq -r '.qa_vm.static_ip' "$MANIFEST")
+SSH_KEY="${QA_SSH_KEY:-$HOME/.ssh/id_ed25519}"
+SSH_USER="${QA_SSH_USER:-$USER}"
 SSH_CMD="ssh -i $SSH_KEY -o ConnectTimeout=10 -o StrictHostKeyChecking=no $SSH_USER@$QA_IP"
 SCP_CMD="scp -i $SSH_KEY -o StrictHostKeyChecking=no"
-DOCKER_WEB="https://$QA_IP:8443"
-DOCKER_HTTP="http://$QA_IP:8080"
-CONTAINER_NAME="audiobooks-docker"
-IMAGE_PREFIX="audiobook-manager"
-DOCKER_DB_PATH="/var/lib/audiobooks/docker-data/audiobooks.db"
-PROD_DB="/var/lib/audiobooks/db/audiobooks.db"
-NATIVE_API="http://$QA_IP:5001"
+DOCKER_WEB="https://$QA_IP:$(jq -r '.qa_vm.ports.docker_web_https' "$MANIFEST")"
+DOCKER_HTTP="http://$QA_IP:$(jq -r '.qa_vm.ports.docker_web_http' "$MANIFEST")"
+CONTAINER_NAME=$(jq -r '.qa_vm.docker.container_name' "$MANIFEST")
+IMAGE_PREFIX=$(jq -r '.qa_vm.docker.image_prefix' "$MANIFEST")
+DOCKER_DB_PATH=$(jq -r '.qa_vm.docker.db_path' "$MANIFEST")
+NATIVE_API="http://$QA_IP:$(jq -r '.qa_vm.ports.native_api' "$MANIFEST")"
 GITHUB_REPO="TheBoscoClub/Audiobook-Manager"
 ```
 

@@ -75,7 +75,7 @@ class TestExtractAuthorFromPath:
         """Test extracts author from standard Library structure."""
         from scanner.metadata_utils import extract_author_from_path
 
-        path = Path("/hddRaid1/Audiobooks/Library/Stephen King/The Stand/book.opus")
+        path = Path("/srv/Audiobooks/Library/Stephen King/The Stand/book.opus")
         result = extract_author_from_path(path)
 
         assert result == "Stephen King"
@@ -84,7 +84,7 @@ class TestExtractAuthorFromPath:
         """Test returns None when 'Library' not in path."""
         from scanner.metadata_utils import extract_author_from_path
 
-        path = Path("/hddRaid1/Audiobooks/Random/Author/book.opus")
+        path = Path("/srv/Audiobooks/Random/Author/book.opus")
         result = extract_author_from_path(path)
 
         assert result is None
@@ -93,7 +93,7 @@ class TestExtractAuthorFromPath:
         """Test returns None when path ends at Library."""
         from scanner.metadata_utils import extract_author_from_path
 
-        path = Path("/hddRaid1/Library")
+        path = Path("/srv/Library")
         result = extract_author_from_path(path)
 
         assert result is None
@@ -102,7 +102,7 @@ class TestExtractAuthorFromPath:
         """Test skips 'Audiobook' folder and uses next level."""
         from scanner.metadata_utils import extract_author_from_path
 
-        path = Path("/hddRaid1/Library/Audiobook/Stephen King/book.opus")
+        path = Path("/srv/Library/Audiobook/Stephen King/book.opus")
         result = extract_author_from_path(path)
 
         assert result == "Stephen King"
@@ -111,7 +111,7 @@ class TestExtractAuthorFromPath:
         """Test returns None when Audiobook folder has no children."""
         from scanner.metadata_utils import extract_author_from_path
 
-        path = Path("/hddRaid1/Library/Audiobook")
+        path = Path("/srv/Library/Audiobook")
         result = extract_author_from_path(path)
 
         assert result is None

@@ -110,6 +110,21 @@
     color: var(--gold-bright, #FFD700);
 }
 
+/* Reference system YAML block */
+.about-reference-system {
+    font-family: var(--font-mono, 'Consolas', monospace);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    color: var(--cream, #F5DEB3);
+    background: var(--deco-slate, #1e1e1e);
+    border-left: 3px solid var(--gold, #DAA520);
+    padding: 1rem 1.25rem;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+    white-space: pre;
+    tab-size: 2;
+}
+
 /* ============================================
    Responsive
    ============================================ */

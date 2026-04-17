@@ -76,7 +76,13 @@ WHISPER_LANGUAGES = {
 class LocalGPUWhisperSTT(STTProvider):
     """Local GPU Whisper via the host's whisper-gpu service."""
 
-    def __init__(self, host: str = "192.168.122.1", port: int = 8765):
+    def __init__(self, host: str, port: int = 8765):
+        if not host:
+            raise ValueError(
+                "LocalGPUWhisperSTT requires a host — set "
+                "AUDIOBOOKS_WHISPER_GPU_HOST to the reachable address of "
+                "the whisper-gpu service."
+            )
         self._base_url = f"http://{host}:{port}"
 
     @property

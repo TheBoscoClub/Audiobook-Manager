@@ -19,12 +19,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Local-GPU hardware compatibility guidance and cautionary tale**: `README.md` "Optional: Local GPU Transcription" and `docs/MULTI-LANGUAGE-SETUP.md` "Local GPU (Optional)" now carry a hardware compatibility matrix (✅ NVIDIA + CUDA, ✅ enterprise AMD Instinct/ROCm, ⚠️ consumer AMD Radeon RDNA 2/3 + ROCm known-unstable, ❌ integrated/low-VRAM) and the maintainer's first-person cautionary tale — an AMD Radeon 6800 XT + ROCm Whisper inference job crashed the host, wiped UEFI/BIOS configuration, and corrupted the on-disk working tree (recovered only because the project was pushed to GitHub). The maintainer does not have and cannot afford a known-good local AI GPU, so remote GPU (Vast.ai / RunPod) is the only path tested end-to-end
 - **RDNA 2/3 runtime warning in `extras/whisper-gpu/setup.sh`**: the setup script now inspects the detected GPU name via `torch.cuda.get_device_name(0)` and, if it matches consumer Radeon RDNA 2/3 patterns (RX 66xx–69xx, 77xx–79xx, 7900 variants), prints the cautionary tale and requires an explicit `y` confirmation before installing the systemd service. The warning points at `docs/MULTI-LANGUAGE-SETUP.md` for the full context
+- **Hardware Requirements section in `README.md`**: new top-level section with minimum/recommended CPU/RAM/disk/network/OS matrix and an "Optional: local GPU transcription" sub-matrix (NVIDIA, consumer AMD with RDNA 2/3 cautionary tale, enterprise AMD, Apple Silicon, CPU-only). Explicitly frames the maintainer's rig as "one possible configuration" rather than a minimum or recommendation
+- **Hardware Requirements section in `docs/ARCHITECTURE.md`**: mirrors the README matrix at architectural depth, and adds a "The maintainer's rig" paragraph that points to `docs/reference-system.yml` and the in-app About page. Renumbered the document's TOC to accommodate the new section between Prime Directive and Component Architecture
+- **Reference System snapshot (`docs/reference-system.yml`)**: a script-generated, honest snapshot of the exact machine the project is developed and smoke-tested on. Shipped in the repo and copied alongside `VERSION` by `install.sh` and `upgrade.sh` so live installs can serve it without shelling out to detection tools
+- **`scripts/collect-reference-system.sh`**: reproducible generator for `docs/reference-system.yml`. Collects CPU/RAM/storage/GPU/OS via `/proc`, `lscpu`, `lsblk`, `lspci`, and `/etc/os-release`, emits valid YAML, and is idempotent so the file can be regenerated on hardware changes
+- **`GET /api/system/reference-system` endpoint (`library/backend/api_modular/utilities_system.py`)**: serves the installed copy of `docs/reference-system.yml` as `text/plain`, with a 404 fallback if the file is missing (fresh install without the optional snapshot). Enables the in-app About page to fetch and display the snapshot
+- **About page "Reference System" section (`library/web-v2/about.html`, `css/about.css`)**: hidden by default; the page fetches `/api/system/reference-system` on load and reveals the section only on a successful fetch. Raw YAML is rendered in an Art Deco styled `<pre>` block (monospace body, gold left border) framed explicitly as "one possible configuration, not a minimum or recommendation", with a pointer back to the README Hardware Requirements
+- **Containerized Whisper server (`docker/whisper-server/`)**: `Dockerfile` (NVIDIA CUDA 12.2 + cuDNN 8 base, `faster-whisper==1.0.3`, `large-v3` model pre-downloaded into the image so cold starts don't re-pull 5 GB) and `whisper_server.py` (Flask/Gunicorn endpoint used by the streaming-translation pipeline). Pairs with the streaming translation pipeline introduced in v8.3.0 so remote GPU workers can be spun up from an OCI image rather than hand-assembled on each Vast.ai/RunPod instance
+- **Streaming translation design docs as PDFs**: `docs/STREAMING-TRANSLATION.pdf` (English) and `docs/STREAMING-TRANSLATION.zh-Hans.pdf` (Simplified Chinese) — the v8.3.0 streaming pipeline design rendered via pandoc + xelatex for sharing and archival
 
 ### Changed
 
 - **`extras/whisper-gpu/setup.sh` is vendor-neutral**: header comments and prerequisite-install hints now cover both NVIDIA + CUDA and enterprise AMD + ROCm, not ROCm-only. The `torch.cuda.is_available()` check works for both stacks (PyTorch exposes ROCm through the `cuda` API on AMD)
 - **`library/localization/stt/local_gpu_whisper.py` docstring is vendor-neutral**: removed hardcoded "AMD Radeon GPU" assumption — points at `docs/MULTI-LANGUAGE-SETUP.md` for supported hardware
 - **`docs/ARCHITECTURE.md` STT provider table**: `Local GPU` row now cites supported hardware classes and flags consumer Radeon RDNA 2/3 as unsupported, linking to `docs/MULTI-LANGUAGE-SETUP.md#local-gpu-optional`
+- **Test suite fail-fast on missing `VM_HOST` (`library/tests/conftest.py`, `test_backoffice_integration.py`, `test_auth_integration.py`, `test_auth_ui_e2e.py`, `test_player_navigation_persistence.py`)**: `VM_HOST` and `VM_NAME` no longer default to a specific maintainer VM — they default to empty and any test that requires a VM skips cleanly without one. `--vm` CLI help and `deploy_to_vm` docstring now reference the `VM_HOST` env var instead of a specific hostname. `pytest.ini` integration marker description updated to match
+- **`vm-test-manifest.json` is placeholder-driven**: `default_vm`, `test_environments[0]`, and `qa_vm` blocks now carry `<test-vm-name>` / `<test-vm-ip>` / `<qa-vm-name>` / `<qa-vm-ip>` / `<qa-vm-baseline-snapshot>` placeholders with a new `_example_note` key in each block explaining the replacement pattern. `python_version` requirement loosened from `3.14` to `3.11+` to match realistic installer expectations
+- **QA test modules parameterized (`test-audiobook-manager-qa-app.md`, `test-audiobook-manager-qa-docker.md`, `test-audiobook-manager-qa-all.md`)**: VM host, VM name, SSH user/key, snapshot name, Docker container/image/mount paths all read from `vm-test-manifest.json` via `jq` at runtime — no hardcoded maintainer values. SSH credentials sourced from `QA_SSH_KEY` / `QA_SSH_USER` env vars
+
+### Fixed
+
+- **Personal IP/hostname/path scrub across the tree**: removed the maintainer's personal storage paths (e.g. `/hddRaid1/Audiobooks`, `/dasRaid0/...`), libvirt VM IPs (`192.168.122.{63,104,105}`), and VM hostnames (`{test,qa,dev}-audiobook-cachyos`) from tracked files. Live code now uses `${AUDIOBOOKS_DATA}` / `${AUDIOBOOKS_LIBRARY}` / `${AUDIOBOOKS_SOURCES}` indirection (including `install-manifest.json` path entries and the "Library directory readable" health check) and documentation uses placeholders like `<project-dir>`, `<test-vm-ip>`, `<qa-vm-name>`. Historical CHANGELOG entries, audit reports, and superpowers plans were genericized without losing descriptive intent
+- **`upgrade.sh` copies `docs/reference-system.yml` to the install root**: parallel to the existing `VERSION` copy, so `/api/system/reference-system` works after an upgrade without requiring a fresh install or manual file placement
 
 ## [8.3.0.1] - 2026-04-16
 
@@ -183,7 +199,7 @@ identical to the intended 8.2.3.1 release.
   20 "missing wrapper" drift items on every upgrade. The normalizer now
   detects `#!` shebang headers under `$target/scripts` and chmods those files
   to `0755`. Fix applied in `lib/audiobook-config.sh`, `install.sh`, and
-  `upgrade.sh`. Verified on `test-audiobook-cachyos`: drift count dropped
+  `upgrade.sh`. Verified on the test VM: drift count dropped
   from 20 to 0 after re-deploy
 - **markdownlint cleanup**: `CHANGELOG.md`, `README.md`, and
   `docs/MULTI-LANGUAGE-SETUP.md` now pass `markdownlint-cli2` with zero errors.
@@ -1802,7 +1818,7 @@ identical to the intended 8.2.3.1 release.
 - **UI**: Back Office button no longer visible to non-admin users (CSS `display:flex` was overriding `hidden` attribute)
 - **UI**: Header restructured with balanced left/right navigation
 - **Database**: Added `try/finally` to `get_hash_stats` and `get_duplicates` for connection cleanup
-- **Paths**: Eliminated remaining hardcoded `/hddRaid1/Audiobooks` paths in duplicates.py, hashing.py, and scripts
+- **Paths**: Eliminated remaining hardcoded data-storage paths in duplicates.py, hashing.py, and scripts — all now use `AUDIOBOOKS_DATA`
 - **Docker**: docker-compose.yml image name corrected (`audiobook-toolkit` → `audiobook-manager`)
 - **Docker**: Added comprehensive `.dockerignore` entries for dev artifacts
 - **Docs**: Added `/api/system/health` to README API table and ARCHITECTURE health checks
@@ -1833,7 +1849,7 @@ identical to the intended 8.2.3.1 release.
 - **Auth**: First-user registration returned backup codes as formatted string instead of JSON array, causing JavaScript TypeError displayed as "Connection error"
 - **Auth**: Added clipboard copy button for TOTP backup codes on registration page
 - **Proxy**: HTTP error handler now forwards Flask's original response body instead of generic error message
-- **Upgrade**: Removed data directories (`/srv/audiobooks`, `/hddRaid1/Audiobooks`) from installed app detection candidates — only actual app installation paths are checked
+- **Upgrade**: Removed data directories (e.g. `/srv/audiobooks`) from installed app detection candidates — only actual app installation paths are checked
 - **System**: Removed development-specific paths from project discovery endpoint, keeping only `AUDIOBOOKS_PROJECT_DIR` env var and generic fallbacks
 
 ## [6.1.1] - 2026-02-18
@@ -1908,7 +1924,7 @@ identical to the intended 8.2.3.1 release.
 - **Install**: Auth key generated as 64 hex chars (`xxd -p | tr -d '\n'`), matching code validation — was base64 (~44 chars)
 - **Install**: Auth key permissions set to `audiobooks:audiobooks 0600` — was `root:audiobooks 0640`
 - **Install**: Correct pip package name `webauthn` (not `py-webauthn`)
-- **Testing**: Stale VM name `test-vm-cachyos` → `test-audiobook-cachyos` in pytest.ini and integration test docstrings
+- **Testing**: Integration tests now read the VM target from env vars (`VM_HOST`, `VM_NAME`); stale hardcoded VM name removed from `pytest.ini` and docstrings
 - **Deps**: `pillow` 12.1.0 → 12.1.1 (GHSA-cfh3-3jmp-rvhc, OOB write on PSD)
 - **Deps**: `cryptography` floor raised to ≥46.0.5 (GHSA-r6ph-v2qm-q3c2, subgroup attack)
 
@@ -1921,7 +1937,7 @@ identical to the intended 8.2.3.1 release.
 
 ### Changed
 
-- **Testing**: Update test VM from test-vm-cachyos to test-audiobook-cachyos (192.168.122.104)
+- **Testing**: Updated the reference test VM used during integration runs (details live in the tester's local env, not the repo)
 - **Deploy**: Add library/scripts/ and library/common.py to VM deployment sync
 
 ### Fixed
@@ -1948,7 +1964,7 @@ identical to the intended 8.2.3.1 release.
 
 ### Fixed
 
-- **Systemd**: Fix API service boot failures caused by ProtectSystem=strict resolving `/hddRaid1` symlink to unmounted `/hddRaid1/Audiobooks` — use real mount path and explicit After=hddRaid1-Audiobooks.mount ordering
+- **Systemd**: Fix API service boot failures caused by `ProtectSystem=strict` resolving symlinked data paths to an unmounted target — use the real mount path and explicit `After=` mount ordering so the unit waits for the data filesystem
 - **Systemd**: Fix HTTPS proxy permanently failing on boot due to cascade dependency failure from API service
 - **Systemd**: Fix stale symlinks with wrong "audiobooks-" prefix (should be "audiobook-") for shutdown-saver and upgrade-helper units
 - **Systemd**: Update ExecStartPre port checks from lsof to ss (iproute2, always available)
@@ -2055,7 +2071,7 @@ identical to the intended 8.2.3.1 release.
 
 ### Fixed
 
-- **Systemd**: Fixed API service failing at boot with NAMESPACE error on HDD/NAS storage. Added `/hddRaid1/Audiobooks` to `RequiresMountsFor` so systemd waits for the data mount before setting up the security namespace. Previously only waited for `/opt/audiobooks`.
+- **Systemd**: Fixed API service failing at boot with NAMESPACE error on HDD/NAS storage. Added `AUDIOBOOKS_DATA` to `RequiresMountsFor` so systemd waits for the data mount before setting up the security namespace. Previously only waited for `/opt/audiobooks`.
 - **Auth**: Fixed timestamp format mismatch in session cleanup causing incorrect stale session deletion. SQLite uses space separator (`YYYY-MM-DD HH:MM:SS`) while Python's `isoformat()` uses `T` separator, causing string comparison failures.
 
 ### Added
@@ -2076,7 +2092,7 @@ identical to the intended 8.2.3.1 release.
 
 - **API**: Fixed library rescan progress reporting to properly capture scanner output. Scanner uses carriage returns (`\r`) for in-place progress updates, but the API was only reading newline-terminated lines. Now reads character-by-character to capture both `\r` and `\n` delimited output.
 - **Scripts**: Fixed duplicate entries in `source_checksums.idx`. The `generate_source_checksum()` function now checks if a filepath already exists before appending, preventing the same file from being indexed multiple times.
-- **Systemd**: Fixed "Read-only file system" error when rebuilding conversion queue. Added `AUDIOBOOKS_DATA` path (`/hddRaid1/Audiobooks`) to `ReadWritePaths` in `audiobook-api.service` since `ProtectSystem=strict` was blocking write access to the index directory.
+- **Systemd**: Fixed "Read-only file system" error when rebuilding conversion queue. Added `AUDIOBOOKS_DATA` path to `ReadWritePaths` in `audiobook-api.service` since `ProtectSystem=strict` was blocking write access to the index directory.
 
 ## [4.0.1] - 2026-01-17
 
@@ -2748,8 +2764,8 @@ sudo /opt/audiobooks/upgrade.sh
 
 ### Changed
 
-- **utilities_system.py**: Project discovery now searches multiple paths instead of hardcoded
-  `/hddRaid1/ClaudeCodeProjects` - checks `AUDIOBOOKS_PROJECT_DIR` env, `~/ClaudeCodeProjects`,
+- **utilities_system.py**: Project discovery now searches multiple paths instead of a hardcoded
+  maintainer directory — checks `AUDIOBOOKS_PROJECT_DIR` env, `~/ClaudeCodeProjects`,
   `~/projects`, and `/opt/projects`
 
 ### Fixed

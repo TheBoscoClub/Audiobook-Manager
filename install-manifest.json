@@ -304,19 +304,19 @@
       "description": "Management scripts (upgrade, migrate)"
     },
     {
-      "path": "/hddRaid1/Audiobooks",
+      "path": "${AUDIOBOOKS_DATA}",
       "required": true,
       "min_permissions": "755",
-      "description": "Audiobook data storage (HDD RAID for bulk storage)"
+      "description": "Audiobook data root (configurable via AUDIOBOOKS_DATA)"
     },
     {
-      "path": "/hddRaid1/Audiobooks/Library",
+      "path": "${AUDIOBOOKS_LIBRARY}",
       "required": true,
       "min_permissions": "755",
       "description": "Converted audiobooks (Opus)"
     },
     {
-      "path": "/hddRaid1/Audiobooks/Sources",
+      "path": "${AUDIOBOOKS_SOURCES}",
       "required": true,
       "min_permissions": "755",
       "description": "Source audiobooks (AAXC)"
@@ -386,7 +386,7 @@
     },
     {
       "name": "Library directory readable",
-      "command": "test -d /hddRaid1/Audiobooks/Library && ls /hddRaid1/Audiobooks/Library >/dev/null",
+      "command": "test -d \"${AUDIOBOOKS_LIBRARY}\" && ls \"${AUDIOBOOKS_LIBRARY}\" >/dev/null",
       "timeout": 5
     }
   ]

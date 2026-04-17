@@ -112,7 +112,7 @@ class TestMultiSessionMigration:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py::TestMultiSessionMigration -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py::TestMultiSessionMigration -v`
 Expected: FAIL — `system_settings` table doesn't exist, `multi_session` column doesn't exist
 
 - [ ] **Step 3: Create migration file**
@@ -189,7 +189,7 @@ In `library/auth/database.py`:
 
 - [ ] **Step 6: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py::TestMultiSessionMigration -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py::TestMultiSessionMigration -v`
 Expected: All 4 tests PASS
 
 - [ ] **Step 7: Commit**
@@ -314,7 +314,7 @@ class TestSystemSettingsRepository:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py::TestUserMultiSessionField library/tests/test_multi_session.py::TestSystemSettingsRepository -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py::TestUserMultiSessionField library/tests/test_multi_session.py::TestSystemSettingsRepository -v`
 Expected: FAIL — `multi_session` attribute not on User, `SystemSettingsRepository` doesn't exist
 
 - [ ] **Step 3: Add multi_session field to User class**
@@ -430,12 +430,12 @@ class SystemSettingsRepository:
 
 - [ ] **Step 5: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py::TestUserMultiSessionField library/tests/test_multi_session.py::TestSystemSettingsRepository -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py::TestUserMultiSessionField library/tests/test_multi_session.py::TestSystemSettingsRepository -v`
 Expected: All 9 tests PASS
 
 - [ ] **Step 6: Run full existing test suite to verify no regressions**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_auth.py -v --tb=short`
+Run: `cd <project-dir> && python -m pytest library/tests/test_auth.py -v --tb=short`
 Expected: All tests PASS (the extra column is handled gracefully by `from_row`)
 
 - [ ] **Step 7: Commit**
@@ -536,7 +536,7 @@ class TestSessionAllowMulti:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py::TestSessionAllowMulti -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py::TestSessionAllowMulti -v`
 Expected: FAIL — `create_for_user()` doesn't accept `allow_multi` parameter
 
 - [ ] **Step 3: Add allow_multi parameter to Session.create_for_user()**
@@ -574,12 +574,12 @@ In `library/auth/models.py`, modify `Session.create_for_user()` (line ~371):
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py::TestSessionAllowMulti -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py::TestSessionAllowMulti -v`
 Expected: All 5 tests PASS
 
 - [ ] **Step 5: Run full auth tests to confirm no regression**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_auth.py -v --tb=short`
+Run: `cd <project-dir> && python -m pytest library/tests/test_auth.py -v --tb=short`
 Expected: All tests PASS (default `allow_multi=False` preserves existing behavior)
 
 - [ ] **Step 6: Commit**
@@ -664,7 +664,7 @@ class TestUserAllowsMultiSession:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py::TestUserAllowsMultiSession -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py::TestUserAllowsMultiSession -v`
 Expected: FAIL — `_user_allows_multi_session` doesn't exist
 
 - [ ] **Step 3: Add _user_allows_multi_session() to auth.py**
@@ -696,7 +696,7 @@ def _user_allows_multi_session(user, db=None) -> bool:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py::TestUserAllowsMultiSession -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py::TestUserAllowsMultiSession -v`
 Expected: All 4 tests PASS
 
 - [ ] **Step 5: Update all 5 call sites**
@@ -833,7 +833,7 @@ With:
 
 - [ ] **Step 6: Run full auth tests**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_auth.py library/tests/test_auth_api.py library/tests/test_multi_session.py -v --tb=short`
+Run: `cd <project-dir> && python -m pytest library/tests/test_auth.py library/tests/test_auth_api.py library/tests/test_multi_session.py -v --tb=short`
 Expected: All tests PASS
 
 - [ ] **Step 7: Commit**
@@ -929,7 +929,7 @@ class TestAdminSettingsAPI:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py::TestAdminSettingsAPI -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py::TestAdminSettingsAPI -v`
 Expected: FAIL — endpoints don't exist (404)
 
 - [ ] **Step 3: Add admin settings endpoints to auth.py**
@@ -972,7 +972,7 @@ def update_admin_settings():
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py::TestAdminSettingsAPI -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py::TestAdminSettingsAPI -v`
 Expected: All 3 tests PASS
 
 - [ ] **Step 5: Commit**
@@ -1032,7 +1032,7 @@ class TestUserDictMultiSession:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py::TestUserDictMultiSession -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py::TestUserDictMultiSession -v`
 Expected: FAIL — `multi_session` not in dict
 
 - [ ] **Step 3: Update _user_dict() and _apply_role_changes()**
@@ -1085,12 +1085,12 @@ After `set_download_permission()` (around line 270):
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py::TestUserDictMultiSession -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py::TestUserDictMultiSession -v`
 Expected: All 2 tests PASS
 
 - [ ] **Step 5: Run broader tests to confirm no regression**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py library/tests/test_auth.py -v --tb=short`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py library/tests/test_auth.py -v --tb=short`
 Expected: All tests PASS
 
 - [ ] **Step 6: Commit**
@@ -1314,17 +1314,17 @@ class TestMultiSessionIntegration:
 
 - [ ] **Step 2: Run all multi-session tests**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_multi_session.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_multi_session.py -v`
 Expected: All tests PASS (migration + model + session + resolution + API + integration)
 
 - [ ] **Step 3: Run the full test suite**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/ -v --tb=short -x`
+Run: `cd <project-dir> && python -m pytest library/tests/ -v --tb=short -x`
 Expected: All existing tests continue to pass with zero regressions
 
 - [ ] **Step 4: Run linters**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && ruff check library/auth/models.py library/backend/api_modular/auth.py library/tests/test_multi_session.py && ruff format --check library/auth/models.py library/backend/api_modular/auth.py library/tests/test_multi_session.py`
+Run: `cd <project-dir> && ruff check library/auth/models.py library/backend/api_modular/auth.py library/tests/test_multi_session.py && ruff format --check library/auth/models.py library/backend/api_modular/auth.py library/tests/test_multi_session.py`
 Expected: No errors
 
 - [ ] **Step 5: Commit test file**

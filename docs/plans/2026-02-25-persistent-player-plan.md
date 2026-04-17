@@ -58,7 +58,7 @@ class TestAudibleSyncRemoval:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && venv/bin/pytest library/tests/test_audible_sync_cleanup.py -v`
+Run: `cd <project-dir> && venv/bin/pytest library/tests/test_audible_sync_cleanup.py -v`
 Expected: FAIL — all 3 tests fail because Audible code is still present.
 
 **Step 3: Remove dead Audible code from library.js**

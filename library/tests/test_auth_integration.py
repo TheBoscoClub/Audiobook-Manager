@@ -5,10 +5,12 @@ Tests the complete auth flow for each auth method against the VM API:
   Admin login → Register user → Admin approve → Claim credentials
   → Login → Verify session
 
-Runs against: http://192.168.122.104:5001
+Runs against a remote test VM. Set VM_HOST (and optionally VM_API_PORT) in the
+environment to target your VM.
 
 Required:
-  - test-audiobook-cachyos running with audiobook API
+  - VM_HOST set to the test VM's reachable address
+  - Audiobook API running on VM_HOST:VM_API_PORT
   - testadmin account (TOTP, admin)
   - SKIP_VM_DEPLOY=1 to skip auto-deploy (optional)
 
@@ -41,9 +43,9 @@ from tests.helpers.software_authenticator import SoftwareAuthenticator  # noqa: 
 # Configuration
 # ---------------------------------------------------------------------------
 
-VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
+VM_HOST = os.environ.get("VM_HOST", "")
 VM_API_PORT = int(os.environ.get("VM_API_PORT", "5001"))
-API_BASE = f"http://{VM_HOST}:{VM_API_PORT}"
+API_BASE = f"http://{VM_HOST}:{VM_API_PORT}" if VM_HOST else ""
 
 # testadmin TOTP secret (reset via audiobook-user totp-reset on VM)
 ADMIN_USERNAME = "testadmin"
@@ -51,15 +53,12 @@ ADMIN_TOTP_SECRET = os.environ.get(
     "ADMIN_TOTP_SECRET", "4GOGK6NR7D6E75X3KMTWXE4FM5BIEARP"
 )
 
-# WebAuthn origin must match the VM's WEBAUTHN_ORIGIN config.
-# test-audiobook-cachyos uses testlib.thebosco.club:8090 (derived from FQDN + WEB_PORT).
-# Set WEBAUTHN_ORIGIN env var to override for other VMs or dev environments.
-_default_origin = (
-    "https://testlib.thebosco.club:8090"
-    if os.environ.get("VM_TESTS")
-    else "https://localhost:9090"
+# WebAuthn origin must match the VM's WEBAUTHN_ORIGIN config
+# (typically https://<FQDN>:<WEB_PORT>). Set WEBAUTHN_ORIGIN explicitly for
+# any run against a remote VM; falls back to localhost for dev-box runs.
+WEBAUTHN_ORIGIN = os.environ.get(
+    "WEBAUTHN_ORIGIN", "https://localhost:9090"
 )
-WEBAUTHN_ORIGIN = os.environ.get("WEBAUTHN_ORIGIN", _default_origin)
 
 # Test user names
 TOTP_USER = "totptest1"
@@ -145,7 +144,7 @@ def cleanup_pending_request(session: requests.Session, username: str) -> None:
             _cleanup_access_request_db(username)
 
 
-VM_NAME = os.environ.get("VM_NAME", "test-audiobook-cachyos")
+VM_NAME = os.environ.get("VM_NAME", "")
 
 
 def _cleanup_access_request_db(username: str) -> None:

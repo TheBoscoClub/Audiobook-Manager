@@ -5,7 +5,7 @@ Supplements test_auth_ui.py (static structure checks) with real browser
 rendering and interaction verification via Playwright.
 
 Requires:
-    - test-audiobook-cachyos VM running with app deployed
+    - A test VM running the app, reachable via VM_HOST (or set AUDIOBOOKS_WEB_URL directly)
     - Playwright installed (pip install playwright && playwright install chromium)
     - Brave/Chromium browser available
 
@@ -29,8 +29,10 @@ except ImportError:
 if not PLAYWRIGHT_AVAILABLE:
     pytest.skip("Playwright not available", allow_module_level=True)
 
-VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
-WEB_BASE_URL = os.environ.get("AUDIOBOOKS_WEB_URL", f"https://{VM_HOST}:8443")
+VM_HOST = os.environ.get("VM_HOST", "")
+WEB_BASE_URL = os.environ.get(
+    "AUDIOBOOKS_WEB_URL", f"https://{VM_HOST}:8443" if VM_HOST else ""
+)
 IGNORE_HTTPS_ERRORS = True
 
 

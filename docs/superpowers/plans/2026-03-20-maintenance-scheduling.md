@@ -85,7 +85,7 @@ Keep all other entries. Apply same changes to `library/requirements-docker.txt`.
 - [ ] **Step 2: Install new dependencies**
 
 ```bash
-cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager
+cd <project-dir>
 source venv/bin/activate
 pip install gunicorn gevent gevent-websocket flask-sock croniter
 pip install -r library/requirements.txt
@@ -267,7 +267,7 @@ def test_api_modular_no_run_server():
 - [ ] **Step 7: Run tests**
 
 ```bash
-cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager
+cd <project-dir>
 python -m pytest library/tests/test_gunicorn_migration.py -v
 ```
 
@@ -276,7 +276,7 @@ Expected: All PASS.
 - [ ] **Step 8: Manual smoke test**
 
 ```bash
-cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager/library/backend
+cd <project-dir>/library/backend
 FLASK_DEBUG=1 python api_server.py &
 sleep 2
 curl -s http://localhost:5001/api/stats | python3 -m json.tool | head -5
@@ -3995,13 +3995,13 @@ guide. Update README and changelog."
 - [ ] **Step 1: Deploy to test VM**
 
 ```bash
-./upgrade.sh --from-project . --remote 192.168.122.104 --yes
+./upgrade.sh --from-project . --remote <test-vm-ip> --yes
 ```
 
 - [ ] **Step 2: Verify systemd services**
 
 ```bash
-ssh -i ~/.ssh/id_ed25519 claude@192.168.122.104 \
+ssh -i ~/.ssh/id_ed25519 claude@<test-vm-ip> \
     "systemctl status audiobook-api audiobook-scheduler"
 ```
 

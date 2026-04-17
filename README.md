@@ -165,6 +165,52 @@ OPUS offers superior audio quality at lower bitrates compared to MP3, making it 
 Pull requests welcome if you need this functionality.
 </details>
 
+## Hardware Requirements
+
+This project is built to run on **ordinary, affordable hardware** — not an AI workstation. The maintainer develops and tests it on a single consumer desktop; there is no "blessed" datacenter rig. If your box can comfortably stream audio and run a small Python web service, it can run this. Heavy lifting (Whisper transcription, XTTS voice cloning) is offloaded to cloud GPU providers, not your box.
+
+### Minimum — browse and play your library
+
+This is enough to scan a library, convert AAX/AAXC files, and serve the web UI over HTTPS to a handful of devices.
+
+| Component | Minimum |
+|-----------|---------|
+| **CPU** | 4 cores, x86_64 or arm64 |
+| **RAM** | 8 GB |
+| **Disk** | 50 GB for the app, database, and OS **plus** whatever your library needs (audiobooks are large — plan for 500 MB–3 GB per book) |
+| **Network** | Any residential-grade link; outbound HTTPS for cover art and metadata providers |
+| **OS** | Any modern Linux with systemd (Arch, Debian 13, Fedora 43, Ubuntu 24.04, CachyOS, etc.), or any OS with Docker (macOS, Windows via Docker Desktop, NAS platforms) |
+| **GPU** | **None required** for the core app |
+
+### Recommended — smooth multi-user, smooth conversion
+
+| Component | Recommended |
+|-----------|-------------|
+| **CPU** | 8+ cores |
+| **RAM** | 16 GB |
+| **Disk** | SSD for the app and database; HDD/RAID is fine for the library itself |
+| **Network** | Wired gigabit if you want several clients streaming simultaneously |
+
+### Optional — local GPU transcription (advanced)
+
+The translation/subtitles pipeline needs a GPU for Whisper inference, but **you do not need a local one**. The maintainer-tested path is remote GPU via Vast.ai or RunPod — rent a GPU by the minute, run the job, tear it down. That keeps the upfront cost to near zero.
+
+If you want to run Whisper locally instead, only proceed with **known-good** hardware:
+
+| Hardware class | Supported? |
+|----------------|-----------|
+| NVIDIA RTX 30xx/40xx/50xx, A-series, L-series, H100, A100, L40S + CUDA | ✅ Yes |
+| Enterprise AMD Instinct (MI-series, CDNA) + ROCm | ✅ Yes |
+| Consumer AMD Radeon (RDNA 2 / RDNA 3) + ROCm | ⚠️ **Not recommended** — known-unstable under sustained Whisper inference. See the cautionary tale in [`docs/MULTI-LANGUAGE-SETUP.md`](docs/MULTI-LANGUAGE-SETUP.md) |
+| Integrated GPUs, low-VRAM cards (< 8 GB) | ❌ No |
+| Apple Silicon (M-series) | ❌ Not wired up — Whisper CPU path is removed; use remote GPU |
+
+The maintainer develops on consumer AMD Radeon (RDNA 2) which is flagged unstable above, so the project itself is exercised end-to-end only against the remote-GPU path. That's the recommended path.
+
+### The maintainer's rig
+
+One known configuration the project is smoke-tested against is published at `docs/reference-system.yml` and rendered in-app under **About → Reference System**. It's a snapshot of a single machine the maintainer happened to have, not a recommendation. Your setup will almost certainly differ, and that's fine.
+
 ## Components
 
 ### 1. Converter (`converter/`)
@@ -597,10 +643,10 @@ sudo ./setup.sh
 
 The setup script checks prerequisites, installs a systemd service (`whisper-gpu.service`), and starts the transcription server on port 8765. The application auto-detects the service at startup — no configuration changes needed if both run on the same host.
 
-**For VM-based installations**, add to `/etc/audiobooks/audiobooks.conf`:
+**For VM-based or remote-host installations** (app on one machine, whisper-gpu service on another), add to `/etc/audiobooks/audiobooks.conf`:
 
 ```bash
-AUDIOBOOKS_WHISPER_GPU_HOST=192.168.122.1   # Host IP on libvirt network
+AUDIOBOOKS_WHISPER_GPU_HOST=<your-whisper-host>   # hostname/IP reachable from the app
 AUDIOBOOKS_WHISPER_GPU_PORT=8765
 ```
 
@@ -1694,7 +1740,7 @@ RequiresMountsFor=/opt/audiobooks /path/to/your/audiobooks
 | Storage Type | Example Path | Notes |
 |--------------|--------------|-------|
 | Secondary HDD | `/mnt/data/Audiobooks` | Add to RequiresMountsFor |
-| BTRFS subvolume | `/hddRaid1/Audiobooks` | Add to RequiresMountsFor |
+| BTRFS subvolume | `/srv/audiobooks` | Add to RequiresMountsFor |
 | NFS mount | `/mnt/nas/audiobooks` | Also add `After=remote-fs.target` |
 | CIFS/SMB mount | `/mnt/share/audiobooks` | Also add `After=remote-fs.target` |
 

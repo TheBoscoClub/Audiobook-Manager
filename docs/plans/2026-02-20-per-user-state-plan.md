@@ -185,7 +185,7 @@ class TestMigration004:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_per_user_schema.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_per_user_schema.py -v`
 Expected: FAIL — migration file and tables don't exist yet
 
 **Step 3: Create migration file and update schema**
@@ -234,7 +234,7 @@ Update `library/auth/schema.sql`: Add the 3 new tables + indexes after `user_pos
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_per_user_schema.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_per_user_schema.py -v`
 Expected: All PASS
 
 **Step 5: Commit**
@@ -495,7 +495,7 @@ class TestUserPreferencesModel:
 
 **Step 2: Run tests to verify they fail**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_per_user_models.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_per_user_models.py -v`
 Expected: FAIL — models don't exist yet
 
 **Step 3: Implement the models**
@@ -518,7 +518,7 @@ Follow existing patterns from `UserPosition`/`PositionRepository`:
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_per_user_models.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_per_user_models.py -v`
 Expected: All PASS
 
 **Step 5: Commit**
@@ -609,7 +609,7 @@ class TestNoAudibleImports:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_position_sync_cleanup.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_position_sync_cleanup.py -v`
 Expected: FAIL — sync endpoints still exist
 
 **Step 3: Clean up position_sync.py**
@@ -634,11 +634,11 @@ The file should shrink from ~815 lines to ~200 lines.
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_position_sync_cleanup.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_position_sync_cleanup.py -v`
 Expected: All PASS
 
 Then run the full suite to verify nothing else broke:
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/ -x --timeout=30`
+Run: `cd <project-dir> && python -m pytest library/tests/ -x --timeout=30`
 Expected: PASS (some old sync-related tests may need to be removed/updated)
 
 **Step 5: Commit**
@@ -757,7 +757,7 @@ class TestNewBooksAPI:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_user_state_api.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_user_state_api.py -v`
 Expected: FAIL — endpoints don't exist
 
 **Step 3: Implement the user_state blueprint**
@@ -787,7 +787,7 @@ Modify `position_sync.py` `update_position()`: After saving position, create/upd
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_user_state_api.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_user_state_api.py -v`
 Expected: All PASS
 
 **Step 5: Commit**
@@ -864,7 +864,7 @@ class TestAdminActivityStats:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_admin_activity_api.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_admin_activity_api.py -v`
 Expected: FAIL
 
 **Step 3: Implement admin activity blueprint**
@@ -881,7 +881,7 @@ Register in `__init__.py`.
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_admin_activity_api.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_admin_activity_api.py -v`
 Expected: All PASS
 
 **Step 5: Commit**
@@ -949,7 +949,7 @@ class TestDownloadCompletionAPI:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_download_tracking.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_download_tracking.py -v`
 Expected: Some PASS (endpoint created in Task 4), some may need adjustment
 
 **Step 3: Implement frontend download flow**
@@ -998,7 +998,7 @@ async function downloadAudiobook(bookId, filename) {
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_download_tracking.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_download_tracking.py -v`
 Expected: All PASS
 
 **Step 5: Commit**
@@ -1067,7 +1067,7 @@ class TestProgressBarCSS:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_my_library_ui.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_my_library_ui.py -v`
 Expected: FAIL
 
 **Step 3: Implement My Library tab**
@@ -1094,7 +1094,7 @@ JS changes in `library.js`:
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_my_library_ui.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_my_library_ui.py -v`
 Expected: All PASS
 
 **Step 5: Commit**
@@ -1195,7 +1195,7 @@ class TestMarqueeJS:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_marquee.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_marquee.py -v`
 Expected: FAIL
 
 **Step 3: Implement marquee**
@@ -1223,7 +1223,7 @@ Expected: FAIL
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_marquee.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_marquee.py -v`
 Expected: All PASS
 
 **Step 5: Commit**
@@ -1309,7 +1309,7 @@ class TestAboutLinkInHelp:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_about_page.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_about_page.py -v`
 Expected: FAIL
 
 **Step 3: Create about page**
@@ -1331,7 +1331,7 @@ Expected: FAIL
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_about_page.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_about_page.py -v`
 Expected: All PASS
 
 **Step 5: Commit**
@@ -1386,7 +1386,7 @@ class TestAuditSectionHTML:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_admin_audit_ui.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_admin_audit_ui.py -v`
 Expected: FAIL
 
 **Step 3: Implement audit UI**
@@ -1409,7 +1409,7 @@ CSS: Art Deco table styling, filter bar, stats cards.
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_admin_audit_ui.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_admin_audit_ui.py -v`
 Expected: All PASS
 
 **Step 5: Commit**
@@ -1479,7 +1479,7 @@ class TestTutorialNewSteps:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_help_updates.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_help_updates.py -v`
 Expected: FAIL
 
 **Step 3: Update help and tutorial**
@@ -1498,7 +1498,7 @@ Expected: FAIL
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_help_updates.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_help_updates.py -v`
 Expected: All PASS
 
 **Step 5: Commit**
@@ -1552,7 +1552,7 @@ class TestPositionSyncDocs:
 
 **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_docs_position_sync.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_docs_position_sync.py -v`
 Expected: FAIL — current docs still describe Audible sync
 
 **Step 3: Rewrite documentation**
@@ -1576,7 +1576,7 @@ Expected: FAIL — current docs still describe Audible sync
 
 **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_docs_position_sync.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_docs_position_sync.py -v`
 Expected: All PASS
 
 **Step 5: Commit**
@@ -1663,17 +1663,17 @@ class TestAuthDisabledFallback:
 
 **Step 2: Run integration tests**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_per_user_integration.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_per_user_integration.py -v`
 Expected: All PASS (requires `authed_client_2` and `client_no_auth` fixtures)
 
 **Step 3: Run the FULL test suite**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/ --timeout=30 -v`
+Run: `cd <project-dir> && python -m pytest library/tests/ --timeout=30 -v`
 Expected: All PASS, no regressions
 
 **Step 4: Run linters and formatters**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && ruff check library/ && ruff format library/`
+Run: `cd <project-dir> && ruff check library/ && ruff format library/`
 Expected: Clean
 
 **Step 5: Commit**
@@ -1690,14 +1690,14 @@ git commit -m "test: add multi-user integration and auth-disabled fallback tests
 **Step 1: Deploy to test VM**
 
 ```bash
-./deploy-vm.sh --host 192.168.122.104 --full --restart
+./deploy-vm.sh --host <test-vm-ip> --full --restart
 ```
 
 **Step 2: Verify API health**
 
 ```bash
-curl -s http://192.168.122.104:5001/api/system/health | python -m json.tool
-curl -s http://192.168.122.104:5001/api/system/version
+curl -s http://<test-vm-ip>:5001/api/system/health | python -m json.tool
+curl -s http://<test-vm-ip>:5001/api/system/version
 ```
 
 **Step 3: Test per-user features via API**
@@ -1705,22 +1705,22 @@ curl -s http://192.168.122.104:5001/api/system/version
 ```bash
 # Login as claudecode
 TOTP=$(python3 -c "import pyotp; print(pyotp.TOTP(open('.claude/secrets/totp-secret').read().strip()).now())")
-curl -c /tmp/cookies.txt -X POST http://192.168.122.104:5001/auth/login \
+curl -c /tmp/cookies.txt -X POST http://<test-vm-ip>:5001/auth/login \
   -H "Content-Type: application/json" \
   -d "{\"username\":\"claudecode\",\"code\":\"$TOTP\"}"
 
 # Test new endpoints
-curl -b /tmp/cookies.txt http://192.168.122.104:5001/api/user/history
-curl -b /tmp/cookies.txt http://192.168.122.104:5001/api/user/downloads
-curl -b /tmp/cookies.txt http://192.168.122.104:5001/api/user/library
-curl -b /tmp/cookies.txt http://192.168.122.104:5001/api/user/new-books
-curl -b /tmp/cookies.txt http://192.168.122.104:5001/api/admin/activity
-curl -b /tmp/cookies.txt http://192.168.122.104:5001/api/admin/activity/stats
+curl -b /tmp/cookies.txt http://<test-vm-ip>:5001/api/user/history
+curl -b /tmp/cookies.txt http://<test-vm-ip>:5001/api/user/downloads
+curl -b /tmp/cookies.txt http://<test-vm-ip>:5001/api/user/library
+curl -b /tmp/cookies.txt http://<test-vm-ip>:5001/api/user/new-books
+curl -b /tmp/cookies.txt http://<test-vm-ip>:5001/api/admin/activity
+curl -b /tmp/cookies.txt http://<test-vm-ip>:5001/api/admin/activity/stats
 ```
 
 **Step 4: Visual verification with Playwright**
 
-- Load <https://192.168.122.104:8443/> in Playwright
+- Load <https://<test-vm-ip>:8443/> in Playwright
 - Verify My Library tab appears (when logged in)
 - Verify Browse All tab still works
 - Verify new books marquee (if applicable)
@@ -1732,9 +1732,9 @@ curl -b /tmp/cookies.txt http://192.168.122.104:5001/api/admin/activity/stats
 
 ```bash
 # These should all return 404
-curl -o /dev/null -s -w "%{http_code}" -X POST http://192.168.122.104:5001/api/position/sync/1
-curl -o /dev/null -s -w "%{http_code}" -X POST http://192.168.122.104:5001/api/position/sync-all
-curl -o /dev/null -s -w "%{http_code}" http://192.168.122.104:5001/api/position/syncable
+curl -o /dev/null -s -w "%{http_code}" -X POST http://<test-vm-ip>:5001/api/position/sync/1
+curl -o /dev/null -s -w "%{http_code}" -X POST http://<test-vm-ip>:5001/api/position/sync-all
+curl -o /dev/null -s -w "%{http_code}" http://<test-vm-ip>:5001/api/position/syncable
 ```
 
 Expected: All return `404`

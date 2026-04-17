@@ -6,7 +6,7 @@
 
 ## Overview
 
-Add project-specific test modules that provide `qaapp`, `qadocker`, and `qaall` shortcuts to `/test` for complete autonomous testing of the QA VM (qa-audiobook-cachyos at 192.168.122.63).
+Add project-specific test modules that provide `qaapp`, `qadocker`, and `qaall` shortcuts to `/test` for complete autonomous testing of the QA VM (<qa-vm-name> at <qa-vm-ip>).
 
 ## QA Philosophy
 
@@ -72,13 +72,13 @@ Discovery mechanism: `ls test-*-qa-{app,docker,all}.md` in `$PROJECT_DIR`. Fail 
    - If QA < target: auto-upgrade (see upgrade section)
 
 2. UPGRADE (if needed)
-   - For GitHub release: git checkout tag, ./upgrade.sh --from-project . --remote 192.168.122.63 --yes
-   - For staged release: already on correct commit, ./upgrade.sh --from-project . --remote 192.168.122.63 --yes
+   - For GitHub release: git checkout tag, ./upgrade.sh --from-project . --remote <qa-vm-ip> --yes
+   - For staged release: already on correct commit, ./upgrade.sh --from-project . --remote <qa-vm-ip> --yes
    - Verify: ssh qa-vm 'cat /opt/audiobooks/VERSION' matches target
 
 2b. DATABASE SYNC (production → QA)
    - Copy production database to QA VM native app:
-     scp /var/lib/audiobooks/db/audiobooks.db claude@192.168.122.63:/tmp/
+     scp /var/lib/audiobooks/db/audiobooks.db claude@<qa-vm-ip>:/tmp/
      ssh qa-vm 'sudo cp /tmp/audiobooks.db /var/lib/audiobooks/db/audiobooks.db'
      ssh qa-vm 'sudo chown audiobooks:audiobooks /var/lib/audiobooks/db/audiobooks.db'
    - Schema compatibility check:
@@ -89,8 +89,8 @@ Discovery mechanism: `ls test-*-qa-{app,docker,all}.md` in `$PROJECT_DIR`. Fail 
 
 3. HEALTH CHECK
    - All systemd services running (audiobook.target + 5 services)
-   - API responds: curl http://192.168.122.63:5001/api/system/version
-   - Web UI loads: curl -k https://192.168.122.63:8090/
+   - API responds: curl http://<qa-vm-ip>:5001/api/system/version
+   - Web UI loads: curl -k https://<qa-vm-ip>:8090/
    - Database accessible and not corrupt: PRAGMA integrity_check
    - Library count matches expected (~801 books)
 
@@ -130,7 +130,7 @@ Discovery mechanism: `ls test-*-qa-{app,docker,all}.md` in `$PROJECT_DIR`. Fail 
 
 2b. DATABASE SYNC (production → QA Docker)
    - Copy production database to QA VM Docker data path:
-     scp /var/lib/audiobooks/db/audiobooks.db claude@192.168.122.63:/tmp/
+     scp /var/lib/audiobooks/db/audiobooks.db claude@<qa-vm-ip>:/tmp/
      ssh qa-vm 'sudo cp /tmp/audiobooks.db /var/lib/audiobooks/docker-data/audiobooks.db'
    - Schema compatibility check (same logic as native):
      Compare schema version between production DB and Docker app version
@@ -139,7 +139,7 @@ Discovery mechanism: `ls test-*-qa-{app,docker,all}.md` in `$PROJECT_DIR`. Fail 
 
 3. HEALTH CHECK
    - Container running: docker ps shows audiobooks-docker
-   - Web responds: curl -k https://192.168.122.63:8443/
+   - Web responds: curl -k https://<qa-vm-ip>:8443/
    - API responds (internal to container, mapped port)
    - Database accessible within container
 
@@ -183,8 +183,8 @@ Add a `qa_vm` section alongside existing `vm_testing`:
 {
   "qa_vm": {
     "enabled": true,
-    "vm_name": "qa-audiobook-cachyos",
-    "static_ip": "192.168.122.63",
+    "vm_name": "<qa-vm-name>",
+    "static_ip": "<qa-vm-ip>",
     "snapshot": "return-to-base-2026-02-23",
     "ports": {
       "native_api": 5001,
@@ -204,8 +204,8 @@ Add a `qa_vm` section alongside existing `vm_testing`:
       "author_count_approx": 492
     },
     "upgrade": {
-      "native_command": "./upgrade.sh --from-project . --remote 192.168.122.63 --yes",
-      "docker_save_pattern": "docker save audiobook-manager:{version} | ssh -i ~/.ssh/id_ed25519 claude@192.168.122.63 'sudo docker load'"
+      "native_command": "./upgrade.sh --from-project . --remote <qa-vm-ip> --yes",
+      "docker_save_pattern": "docker save audiobook-manager:{version} | ssh -i ~/.ssh/id_ed25519 claude@<qa-vm-ip> 'sudo docker load'"
     }
   }
 }

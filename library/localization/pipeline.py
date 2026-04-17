@@ -58,8 +58,11 @@ def _remote_stt_candidates() -> list[STTProvider]:
 
     Vast.ai is first (dedicated instance, reliable throughput). RunPod
     is next (serverless, scales to zero — but frequently resource-constrained).
-    Local GPU last: uses the host's AMD Radeon with ROCm but risks system
-    instability under heavy Whisper loads.
+    Local GPU last: uses the host's optional whisper-gpu service when
+    configured. Only install the local service if your GPU is known-good
+    for sustained AI inference — see docs/MULTI-LANGUAGE-SETUP.md for
+    supported hardware and the cautionary tale about consumer AMD Radeon
+    RDNA 2/3 + ROCm instability.
     """
     providers: list[STTProvider] = []
     if VASTAI_WHISPER_HOST:

@@ -47,14 +47,14 @@ Copying production data *into* a test/QA environment is fine — once data is on
 
 | Environment | Databases | Audiobook Library | Configuration |
 |-------------|-----------|-------------------|---------------|
-| **Production** (host) | `/var/lib/audiobooks/db/*.db` | `/hddRaid1/Audiobooks/Library/` (full) | `/etc/audiobooks/` |
+| **Production** (host) | `/var/lib/audiobooks/db/*.db` | `${AUDIOBOOKS_LIBRARY}` (full) | `/etc/audiobooks/` |
 | **Test VM** | Own DBs on VM disk (fresh or copied) | Own library on VM disk (<275GB) | Own config on VM disk |
 | **QA VM** | Own DBs on VM disk (fresh or copied) | Own library on VM disk (<275GB) | Own config on VM disk |
 | **Docker test** | Ephemeral in-container DB | Sample data via volume or none | Container env vars only |
 
 ### Prohibited actions
 
-- **NEVER** mount `/hddRaid1/Audiobooks/` into a test/QA VM via NFS, CIFS, virtiofs, or virtio-9p
+- **NEVER** mount the host's `${AUDIOBOOKS_DATA}` tree into a test/QA VM via NFS, CIFS, virtiofs, or virtio-9p
 - **NEVER** mount production database paths into a VM or Docker container as a live filesystem
 - **NEVER** configure Docker `-v` to bind-mount host production paths at runtime
 - **NEVER** give test/QA environments write access to production storage through any mechanism

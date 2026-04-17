@@ -1,8 +1,8 @@
 ---
 model: opus
 type: project-specific QA orchestrator
-target: qa-audiobook-cachyos (192.168.122.63)
-ssh: ssh -i ~/.ssh/id_ed25519 claude@192.168.122.63
+target: <qa-vm-name> (<qa-vm-ip>) — read from vm-test-manifest.json
+ssh: ssh -i <qa-ssh-key> <qa-ssh-user>@<qa-vm-ip>
 trigger: /test qaall
 ---
 
@@ -83,9 +83,11 @@ the consistency check using native API/DB data directly.
 After both modules complete, perform additional cross-validation:
 
 ```bash
-SSH_KEY="$HOME/.ssh/id_ed25519"
-SSH_CMD="ssh -i $SSH_KEY claude@192.168.122.63"
-QA_IP="192.168.122.63"
+MANIFEST="vm-test-manifest.json"
+QA_IP=$(jq -r '.qa_vm.static_ip' "$MANIFEST")
+SSH_KEY="${QA_SSH_KEY:-$HOME/.ssh/id_ed25519}"
+SSH_USER="${QA_SSH_USER:-$USER}"
+SSH_CMD="ssh -i $SSH_KEY $SSH_USER@$QA_IP"
 ```
 
 #### 3a. Version Agreement

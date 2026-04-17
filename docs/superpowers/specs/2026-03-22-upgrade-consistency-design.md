@@ -464,7 +464,7 @@ All are `audiobook-*` (singular). Any code referencing `audiobooks-*` (plural) i
 - Test staleness detection (mock timestamps)
 - Test force bypass of preflight gate
 
-### Integration tests (test-audiobook-cachyos VM)
+### Integration tests (<test-vm-name> VM)
 
 - Full upgrade from project: verify files sync, venv intact, services restart, version bumps
 - Major version upgrade: verify venv rebuild, config migration, new service enablement

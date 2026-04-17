@@ -126,6 +126,13 @@
             </div>
         </section>
 
+        <!-- Reference System -->
+        <section id="reference-system" class="help-section" style="display: none;">
+            <h2><span class="section-icon">&#128187;</span> <span data-i18n="about.referenceSystemHeading">Reference System</span></h2>
+            <p data-i18n="about.referenceSystemIntro">These are the exact specifications of the machine The Library is developed and smoke-tested on. It is <strong>one possible configuration, not a minimum or recommendation</strong>. See the Hardware Requirements in the README for realistic minimum and recommended specs.</p>
+            <pre id="reference-system-body" class="about-reference-system"><span data-i18n="about.loading">loading...</span></pre>
+        </section>
+
         <!-- Links -->
         <section id="links" class="help-section">
             <h2><span class="section-icon">&#128279;</span> <span data-i18n="about.linksHeading">Links</span></h2>
@@ -166,6 +173,26 @@
                 .then(function (r) { return r.json(); })
                 .then(function (data) { setVersion(data.version || 'Unknown'); })
                 .catch(function () { setVersion('Unknown'); });
+        })();
+
+        // Reference System: fetch the maintainer's rig snapshot (raw YAML, plain
+        // text). If the endpoint returns 404 (older install, no snapshot shipped)
+        // or any error, the section stays hidden.
+        (function () {
+            fetch('/api/system/reference-system', { headers: { 'Accept': 'text/plain' } })
+                .then(function (r) {
+                    if (!r.ok) { throw new Error('HTTP ' + r.status); }
+                    return r.text();
+                })
+                .then(function (yaml) {
+                    if (!yaml || yaml.trim().length === 0) { return; }
+                    var body = document.getElementById('reference-system-body');
+                    var section = document.getElementById('reference-system');
+                    if (!body || !section) { return; }
+                    body.textContent = yaml;
+                    section.style.display = '';
+                })
+                .catch(function () { /* keep section hidden */ });
         })();
 
         // Generic string translation for section headings + prose.

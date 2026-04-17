@@ -25,8 +25,8 @@ Add this JSON block after the existing `ssh_config` section (before the closing 
 
   "qa_vm": {
     "enabled": true,
-    "vm_name": "qa-audiobook-cachyos",
-    "static_ip": "192.168.122.63",
+    "vm_name": "<qa-vm-name>",
+    "static_ip": "<qa-vm-ip>",
     "snapshot": "return-to-base-2026-02-23",
     "ports": {
       "native_api": 5001,
@@ -59,8 +59,8 @@ Add this JSON block after the existing `ssh_config` section (before the closing 
       "author_count_approx": 492
     },
     "upgrade": {
-      "native_command": "./upgrade.sh --from-project . --remote 192.168.122.63 --yes",
-      "docker_save_pattern": "docker save audiobook-manager:{version} | ssh -i ~/.ssh/id_ed25519 claude@192.168.122.63 'sudo docker load'"
+      "native_command": "./upgrade.sh --from-project . --remote <qa-vm-ip> --yes",
+      "docker_save_pattern": "docker save audiobook-manager:{version} | ssh -i ~/.ssh/id_ed25519 claude@<qa-vm-ip> 'sudo docker load'"
     }
   }
 ```
@@ -95,8 +95,8 @@ The module structure:
 # QA Native App Test Module
 
 > **Model**: `opus` | **Type**: Project-specific QA module
-> **Target VM**: qa-audiobook-cachyos (192.168.122.63)
-> **SSH**: ssh -i ~/.ssh/id_ed25519 claude@192.168.122.63
+> **Target VM**: <qa-vm-name> (<qa-vm-ip>)
+> **SSH**: ssh -i ~/.ssh/id_ed25519 claude@<qa-vm-ip>
 
 ## Purpose
 
@@ -147,9 +147,9 @@ The actual file content will contain complete bash commands, SSH invocations, ve
 - QA native DB: `/var/lib/audiobooks/db/audiobooks.db` (on QA VM)
 - Schema version: `SELECT MAX(version) FROM schema_version` (current: 7)
 - Services: `audiobook.target` (umbrella for 5 services)
-- API: `http://192.168.122.63:5001/api/system/version`
-- Web: `https://192.168.122.63:8090/`
-- Upgrade: `./upgrade.sh --from-project . --remote 192.168.122.63 --yes`
+- API: `http://<qa-vm-ip>:5001/api/system/version`
+- Web: `https://<qa-vm-ip>:8090/`
+- Upgrade: `./upgrade.sh --from-project . --remote <qa-vm-ip> --yes`
 
 **Step 2: Validate file exists and is readable**
 
@@ -179,8 +179,8 @@ Same pattern as Task 2, but targeting the Docker container. Key differences:
 - Version from: `sudo docker inspect audiobooks-docker --format={{.Config.Image}}`
 - Upgrade: `docker save` + `ssh pipe` + `docker load` + stop/rm/run new container
 - DB sync target: `/var/lib/audiobooks/docker-data/audiobooks.db`
-- Web: `https://192.168.122.63:8443/` (HTTPS)
-- HTTP redirect: `http://192.168.122.63:8080/` → 8443
+- Web: `https://<qa-vm-ip>:8443/` (HTTPS)
+- HTTP redirect: `http://<qa-vm-ip>:8080/` → 8443
 - Container restart: `sudo docker restart audiobooks-docker`
 - Docker run command:
 
@@ -230,7 +230,7 @@ This module coordinates sequential execution of both QA modules:
 # QA All Test Module (Orchestrator)
 
 > **Model**: `opus` | **Type**: Project-specific QA orchestrator
-> **Target VM**: qa-audiobook-cachyos (192.168.122.63)
+> **Target VM**: <qa-vm-name> (<qa-vm-ip>)
 
 ## Purpose
 
@@ -278,7 +278,7 @@ git commit -m "feat: add QA orchestrator module for /test qaall"
 
 **Files:**
 
-- Modify: `/hddRaid1/ClaudeCodeProjects/claude-test-skill/commands/test.md`
+- Modify: `<test-skill-dir>/commands/test.md`
 
 This is the critical integration point. Changes needed in 5 locations:
 
@@ -388,13 +388,13 @@ Runs native first, then Docker, then cross-validates results.
 
 **Step 7: Validate test.md is still coherent**
 
-Run: `grep -c 'qaapp\|qadocker\|qaall' /hddRaid1/ClaudeCodeProjects/claude-test-skill/commands/test.md`
+Run: `grep -c 'qaapp\|qadocker\|qaall' <test-skill-dir>/commands/test.md`
 Expected: At least 10 matches (shortcuts appear in multiple locations)
 
 **Step 8: Commit**
 
 ```bash
-cd /hddRaid1/ClaudeCodeProjects/claude-test-skill
+cd <test-skill-dir>
 git add commands/test.md
 git commit -m "feat: add qaapp/qadocker/qaall shortcuts for project-specific QA testing"
 ```
@@ -405,7 +405,7 @@ git commit -m "feat: add qaapp/qadocker/qaall shortcuts for project-specific QA 
 
 **Files:**
 
-- Modify: `/hddRaid1/ClaudeCodeProjects/claude-test-skill/.claude/rules/design.md`
+- Modify: `<test-skill-dir>/.claude/rules/design.md`
 
 **Step 1: Update project-specific modules section**
 
@@ -422,7 +422,7 @@ First project using this: Audiobook-Manager.
 **Step 2: Commit**
 
 ```bash
-cd /hddRaid1/ClaudeCodeProjects/claude-test-skill
+cd <test-skill-dir>
 git add .claude/rules/design.md
 git commit -m "docs: update project-specific test module status"
 ```
@@ -461,7 +461,7 @@ Expected: Shows QA VM config, ends with `OK`
 **Step 3: Verify dispatcher recognizes shortcuts**
 
 ```bash
-grep -c 'qaapp\|qadocker\|qaall' /hddRaid1/ClaudeCodeProjects/claude-test-skill/commands/test.md
+grep -c 'qaapp\|qadocker\|qaall' <test-skill-dir>/commands/test.md
 ```
 
 Expected: 10+ matches

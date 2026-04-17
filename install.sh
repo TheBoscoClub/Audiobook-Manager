@@ -1355,6 +1355,13 @@ do_system_install() {
         echo "  Installed: ${APP_DIR}/VERSION ($(cat "${SCRIPT_DIR}/VERSION"))"
     fi
 
+    # Install reference-system snapshot for the About page
+    if [[ -f "${SCRIPT_DIR}/docs/reference-system.yml" ]]; then
+        sudo cp "${SCRIPT_DIR}/docs/reference-system.yml" "${APP_DIR}/"
+        sudo chmod 644 "${APP_DIR}/reference-system.yml"
+        echo "  Installed: ${APP_DIR}/reference-system.yml"
+    fi
+
     # Remove copied project venv — it contains dev-machine symlinks
     # The venv will be recreated below with system Python
     [[ -d "${APP_DIR}/library/venv" ]] && sudo rm -rf "${APP_DIR}/library/venv"
@@ -1921,6 +1928,13 @@ do_user_install() {
         cp "${SCRIPT_DIR}/VERSION" "${LIB_DIR}/"
         chmod 644 "${LIB_DIR}/VERSION"
         echo "  Installed: ${LIB_DIR}/VERSION ($(cat "${SCRIPT_DIR}/VERSION"))"
+    fi
+
+    # Install reference-system snapshot for the About page
+    if [[ -f "${SCRIPT_DIR}/docs/reference-system.yml" ]]; then
+        cp "${SCRIPT_DIR}/docs/reference-system.yml" "${LIB_DIR}/"
+        chmod 644 "${LIB_DIR}/reference-system.yml"
+        echo "  Installed: ${LIB_DIR}/reference-system.yml"
     fi
 
     # Remove copied project venv — it contains dev-machine symlinks

@@ -29,8 +29,10 @@ RUNPOD_XTTS_ENDPOINT = os.environ.get("AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT", "")
 VASTAI_WHISPER_HOST = os.environ.get("AUDIOBOOKS_VASTAI_WHISPER_HOST", "")
 VASTAI_WHISPER_PORT = int(os.environ.get("AUDIOBOOKS_VASTAI_WHISPER_PORT", "8000"))
 
-# Local GPU Whisper service (host-side ROCm, called over libvirt network)
-WHISPER_GPU_HOST = os.environ.get("AUDIOBOOKS_WHISPER_GPU_HOST", "192.168.122.1")
+# Local GPU Whisper service — host and port of the optional whisper-gpu
+# systemd service (see extras/whisper-gpu/). Unset by default; installers
+# who set up the service configure the reachable host/port themselves.
+WHISPER_GPU_HOST = os.environ.get("AUDIOBOOKS_WHISPER_GPU_HOST", "")
 WHISPER_GPU_PORT = int(os.environ.get("AUDIOBOOKS_WHISPER_GPU_PORT", "8765"))
 
 # Douban Books API (access restricted since 2019)

@@ -1,14 +1,16 @@
 ---
 model: opus
 type: project-specific QA module
-target: qa-audiobook-cachyos (192.168.122.63)
-ssh: ssh -i ~/.ssh/id_ed25519 claude@192.168.122.63
+target: <qa-vm-name> (<qa-vm-ip>) — read from vm-test-manifest.json
+ssh: ssh -i <qa-ssh-key> <qa-ssh-user>@<qa-vm-ip>
 trigger: /test qaapp
 ---
 
 # QA Native App Regression Test Module
 
-You are a subagent responsible for running a full regression test of the Audiobook-Manager native application on the QA VM (`qa-audiobook-cachyos`). Execute every step below autonomously. Collect results into variables and produce a structured report at the end.
+You are a subagent responsible for running a full regression test of the Audiobook-Manager native application on your QA VM. Execute every step below autonomously. Collect results into variables and produce a structured report at the end.
+
+QA connection details are loaded from `vm-test-manifest.json` at runtime — there are no hardcoded IPs or hostnames in this module. Set the `qa_vm` section of that manifest to match your environment before running.
 
 **Session Record**: After completing all steps, append a summary of your work to the session record file at the project root (`SESSION_RECORD_YYYY-MM-DD.md` where YYYY-MM-DD is today's date). Use `flock` for write coordination:
 
@@ -23,45 +25,41 @@ ENTRY
 
 ## Configuration
 
-Load from `vm-test-manifest.json` in the project root. Fallback values if the file is missing:
+Load from `vm-test-manifest.json` in the project root (`qa_vm` section). The module is parameterized — nothing below assumes a specific VM, IP, or snapshot. All VM-specific values come from the manifest at runtime.
 
-| Key | Value |
-|-----|-------|
-| VM name | `qa-audiobook-cachyos` |
-| VM IP | `192.168.122.63` |
-| SSH user | `claude` |
-| SSH key | `~/.ssh/id_ed25519` |
-| SSH password | `REDACTED_VM_PASSWORD` |
-| Native API port | `5001` |
-| Native web port | `8090` |
-| App path | `/opt/audiobooks` |
-| DB path (QA) | `/var/lib/audiobooks/db/audiobooks.db` |
-| DB path (production) | `/var/lib/audiobooks/db/audiobooks.db` (on dev host / localhost) |
-| Version file | `/opt/audiobooks/VERSION` |
-| Service target | `audiobook.target` |
-| Services | `audiobook-api`, `audiobook-converter`, `audiobook-mover`, `audiobook-downloader` |
-| Snapshot | `return-to-base-2026-02-23` |
-| Expected books | ~801 |
-| Expected authors | ~492 |
-| GitHub repo | `TheBoscoClub/Audiobook-Manager` |
-| TOTP secret | `.claude/secrets/totp-secret` (relative to project root) |
-| Auth username | `claudecode` |
+Keys consumed from `vm-test-manifest.json` → `qa_vm`:
 
-Define these as shell variables at the start for reuse:
+| Key | Purpose |
+|-----|---------|
+| `vm_name` | Your QA VM name (any libvirt/hypervisor) |
+| `static_ip` | Reachable address of your QA VM |
+| `snapshot` | Baseline snapshot to revert to if QA hoses itself |
+| `ports.native_api` | Native API port (default `5001`) |
+| `ports.native_web` | Native web port (default `8090`) |
+| `native.app_path` | Installed app root (default `/opt/audiobooks`) |
+| `native.db_path` | SQLite DB path on QA host |
+| `native.version_file` | VERSION file path |
+| `native.service_target` | Systemd unit the app runs under (default `audiobook.target`) |
+| `expected.library_count_approx` | Rough expected book count (for health check) |
+| `expected.author_count_approx` | Rough expected author count (for health check) |
+
+SSH user/key come from your shell environment (`$USER`, standard key discovery, or an SSH config `Host` entry for the QA VM) — this module never hardcodes credentials.
+
+Define these as shell variables at the start for reuse. Replace the placeholder reads below with actual `jq` extracts from `vm-test-manifest.json`:
 
 ```bash
-QA_VM="qa-audiobook-cachyos"
-QA_IP="192.168.122.63"
-SSH_KEY="~/.ssh/id_ed25519"
-SSH_USER="claude"
+MANIFEST="vm-test-manifest.json"
+QA_VM=$(jq -r '.qa_vm.vm_name' "$MANIFEST")
+QA_IP=$(jq -r '.qa_vm.static_ip' "$MANIFEST")
+SSH_KEY="${QA_SSH_KEY:-$HOME/.ssh/id_ed25519}"
+SSH_USER="${QA_SSH_USER:-$USER}"
 SSH_CMD="ssh -i $SSH_KEY -o ConnectTimeout=10 -o StrictHostKeyChecking=no $SSH_USER@$QA_IP"
 SCP_CMD="scp -i $SSH_KEY -o StrictHostKeyChecking=no"
-API_BASE="http://$QA_IP:5001"
-WEB_BASE="https://$QA_IP:8090"
-APP_PATH="/opt/audiobooks"
-DB_PATH="/var/lib/audiobooks/db/audiobooks.db"
-PROD_DB="/var/lib/audiobooks/db/audiobooks.db"
-SERVICE_TARGET="audiobook.target"
+API_BASE="http://$QA_IP:$(jq -r '.qa_vm.ports.native_api' "$MANIFEST")"
+WEB_BASE="https://$QA_IP:$(jq -r '.qa_vm.ports.native_web' "$MANIFEST")"
+APP_PATH=$(jq -r '.qa_vm.native.app_path' "$MANIFEST")
+DB_PATH=$(jq -r '.qa_vm.native.db_path' "$MANIFEST")
+SERVICE_TARGET=$(jq -r '.qa_vm.native.service_target' "$MANIFEST")
 GITHUB_REPO="TheBoscoClub/Audiobook-Manager"
 ```
 

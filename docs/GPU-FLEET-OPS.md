@@ -66,7 +66,7 @@ SSH_KEY="/home/bosco/.claude/ssh/id_ed25519"
 ### Site-local config
 
 - Canonical path: `/etc/audiobooks/scripts/translation-env.sh`
-- Template: `/hddRaid1/ClaudeCodeProjects/Audiobook-Manager/etc/translation-env.sh.example`
+- Template: `etc/translation-env.sh.example` (in the project working tree)
 - Never overwritten by `upgrade.sh`
 
 ---

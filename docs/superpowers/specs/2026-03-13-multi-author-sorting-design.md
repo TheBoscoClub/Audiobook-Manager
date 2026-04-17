@@ -253,7 +253,7 @@ Detects whether new tables exist. If not, runs Phases 1 and 2 automatically. Pha
 - Sort name generation: verify "Last, First" output for various name formats
 - Migration script: run against dev database copy, verify junction table population and deduplication
 
-### Integration Tests (test-audiobook-cachyos VM)
+### Integration Tests (<test-vm-name> VM)
 
 - Schema migration: fresh install and upgrade-from-pre-migration both work
 - API flat endpoint: `authors`/`narrators` arrays present
@@ -276,7 +276,7 @@ Seed test library with files containing structured multi-artist tags. Verify Tie
 
 ### Parallel Testing
 
-Clone qa-audiobook-cachyos for parallel test streams against a production-sized dataset (801 books, 492 authors). Validates data-dependent parsing on real metadata while test-audiobook-cachyos handles fresh-install and schema-migration scenarios.
+Clone <qa-vm-name> for parallel test streams against a production-sized dataset (801 books, 492 authors). Validates data-dependent parsing on real metadata while <test-vm-name> handles fresh-install and schema-migration scenarios.
 
 ## Future Work
 

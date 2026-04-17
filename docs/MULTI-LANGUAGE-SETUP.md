@@ -262,8 +262,8 @@ The maintainer **does not have and cannot afford** a GPU that is known-good for 
 3. **Configure** (only required when the GPU service runs on a different host from the app, e.g. app inside a VM, GPU on the host):
 
    ```bash
-   # Local GPU — Whisper service on a reachable host (e.g., over libvirt network for VMs)
-   AUDIOBOOKS_WHISPER_GPU_HOST=192.168.122.1
+   # Local GPU — Whisper service on a reachable host (same-box, LAN, or libvirt bridge for VMs)
+   AUDIOBOOKS_WHISPER_GPU_HOST=<your-whisper-host>
    AUDIOBOOKS_WHISPER_GPU_PORT=8765
    ```
 
@@ -323,7 +323,7 @@ edge-tts --list-voices
 | `AUDIOBOOKS_VASTAI_WHISPER_PORT` | `8000` | Vast.ai Whisper instance port |
 | `AUDIOBOOKS_VASTAI_XTTS_HOST` | (none) | Vast.ai XTTS instance IP/hostname |
 | `AUDIOBOOKS_VASTAI_XTTS_PORT` | `8020` | Vast.ai XTTS instance port |
-| `AUDIOBOOKS_WHISPER_GPU_HOST` | `192.168.122.1` | Local GPU Whisper service host |
+| `AUDIOBOOKS_WHISPER_GPU_HOST` | (none) | Local GPU Whisper service host (unset disables local-GPU path) |
 | `AUDIOBOOKS_WHISPER_GPU_PORT` | `8765` | Local GPU Whisper service port |
 
 ### Metadata Enrichment

@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-Audiobook-Manager v6.1.3 is **production-ready with one blocking deployment issue**: the test VM (`192.168.122.104`) is running stale auth.py (v6.1.0) causing 1 failure and 3 cascading errors in authentication tests. All other 1,160 tests pass. Root cause: incomplete deployment of the latest code to the test environment.
+Audiobook-Manager v6.1.3 is **production-ready with one blocking deployment issue**: the test VM (`<test-vm-ip>`) is running stale auth.py (v6.1.0) causing 1 failure and 3 cascading errors in authentication tests. All other 1,160 tests pass. Root cause: incomplete deployment of the latest code to the test environment.
 
 **Action Required**: Re-deploy v6.1.3 to test VM with `./deploy-vm.sh --full --restart` before release.
 
@@ -31,7 +31,7 @@ Audiobook-Manager v6.1.3 is **production-ready with one blocking deployment issu
 
 **Failure**: `test_admin_totp_login`
 
-- **Error**: HTTP 405 (Method Not Allowed) on `POST /auth/login` at VM (192.168.122.104:5001)
+- **Error**: HTTP 405 (Method Not Allowed) on `POST /auth/login` at VM (<test-vm-ip>:5001)
 - **Root Cause**: VM is running stale `auth.py` from v6.1.0; project has v6.1.3 with refactored auth endpoints
 - **Impact**: Blocks all admin TOTP login tests (1 failure + 3 cascading errors)
 
@@ -44,8 +44,8 @@ Audiobook-Manager v6.1.3 is **production-ready with one blocking deployment issu
 **Fix**:
 
 ```bash
-./deploy-vm.sh --host 192.168.122.104 --full --restart
-ssh -i ~/.ssh/id_ed25519 claude@192.168.122.104 "cat /opt/audiobooks/VERSION"
+./deploy-vm.sh --host <test-vm-ip> --full --restart
+ssh -i ~/.ssh/id_ed25519 claude@<test-vm-ip> "cat /opt/audiobooks/VERSION"
 # Verify v6.1.3 is deployed
 ```
 
@@ -161,7 +161,7 @@ The codebase is production-ready. The test failure is environmental (stale VM de
 ### Test Execution Summary (Phase 2 Complete)
 
 **Execution Framework**: pytest 9.0.2 on Python 3.14.2
-**Test Environment**: VM (test-audiobook-cachyos) with pristine-deps-2026-02-18 snapshot
+**Test Environment**: VM (<test-vm-name>) with pristine-deps-2026-02-18 snapshot
 **Execution Duration**: 8.12 seconds
 **Pass Rate**: 99.6% (1160/1209 tests passed)
 
@@ -180,7 +180,7 @@ The codebase is production-ready. The test failure is environmental (stale VM de
 
 **Root Cause**: Authentication blueprint registered unconditionally in `library/backend/app.py`. When `AUTH_ENABLED=false`, endpoints should return 404 (not found) but instead return 405 (method not allowed).
 
-**Code Location**: `/hddRaid1/ClaudeCodeProjects/Audiobook-Manager/library/backend/app.py`
+**Code Location**: `library/backend/app.py`
 
 **Fix Pattern**:
 
@@ -476,16 +476,16 @@ use_waitress = AUDIOBOOKS_USE_WAITRESS
 
 **Affected Files**:
 
-- `scripts/find-duplicate-sources` line 20: `SOURCES_DIR="${AUDIOBOOKS_SOURCES:-/hddRaid1/Audiobooks/Sources}"`
-- `scripts/build-conversion-queue` lines 25-28: Three `/hddRaid1/Audiobooks/` fallbacks
-- `scripts/convert-audiobooks-opus-parallel` line 233: `/hddRaid1/Audiobooks` fallback
-- `scripts/fix-wrong-chapters-json` lines 21-22: Two `/hddRaid1/Audiobooks/` fallbacks
+- `scripts/find-duplicate-sources` line 20: `SOURCES_DIR` fallback pointed at a maintainer-specific path
+- `scripts/build-conversion-queue` lines 25-28: Three maintainer-specific fallbacks
+- `scripts/convert-audiobooks-opus-parallel` line 233: maintainer-specific fallback
+- `scripts/fix-wrong-chapters-json` lines 21-22: Two maintainer-specific fallbacks
 
-**Root Cause**: These scripts use `${VAR:-fallback}` with the developer's personal path (`/hddRaid1/Audiobooks/`) instead of the canonical default (`/srv/audiobooks/`). If `audiobook-config.sh` fails to load (e.g., the script is run standalone), these fallbacks would resolve to a path that doesn't exist on any other user's system.
+**Root Cause**: These scripts used `${VAR:-fallback}` with the developer's personal path instead of the canonical default (`/srv/audiobooks/`). If `audiobook-config.sh` fails to load (e.g., the script is run standalone), these fallbacks would resolve to a path that doesn't exist on any other user's system.
 
-**Impact**: Pre-commit hook should catch literal `/hddRaid1/Audiobooks` but the `:-` pattern with variable expansion might evade it. These would break for any user who doesn't have `/hddRaid1/Audiobooks/` on their system.
+**Impact**: Pre-commit hook catches literal personal paths, but the `:-` pattern with variable expansion could evade it. These would break for any user who doesn't have the same filesystem layout as the maintainer.
 
-**Fix**: Replace all `/hddRaid1/Audiobooks/` fallbacks with `/srv/audiobooks/` (the canonical default from `audiobook-config.sh`).
+**Fix**: Replace all personal-path fallbacks with `/srv/audiobooks/` (the canonical default from `audiobook-config.sh`).
 
 ---
 
@@ -594,7 +594,7 @@ with contextlib.closing(get_db(db_path)) as conn:
 | H-4 | LOW | Shell vs Python | `AUDIOBOOKS_COVERS` default path mismatch |
 | H-5 | LOW | Shell vs Python | `AUDIOBOOKS_DATABASE` default path mismatch (extra `db/` subdir) |
 | H-6 | MEDIUM | schema.sql vs dev DB | Dev database missing tables, views, and column differences |
-| H-7 | MEDIUM | Shell scripts | Hardcoded `/hddRaid1/Audiobooks/` fallback paths |
+| H-7 | MEDIUM | Shell scripts | Hardcoded maintainer-specific fallback paths |
 | H-8 | LOW | Shell scripts | Missing third-tier config source fallback |
 | H-9 | INFO | Systemd services | Proxy uses system Python while API uses venv Python |
 | H-10 | LOW | Systemd files | Documentation URL typo (`greogory` vs `TheBoscoClub`) |

@@ -42,8 +42,8 @@ def pytest_addoption(parser):
         action="store_true",
         default=False,
         help=(
-            "Run integration tests that require the test VM "
-            "(test-audiobook-cachyos). Does NOT include FIDO2 auth tests."
+            "Run integration tests that require a remote test VM "
+            "(VM_HOST env var). Does NOT include FIDO2 auth tests."
         ),
     )
     parser.addoption(
@@ -191,11 +191,13 @@ PROJECT_ROOT = LIBRARY_DIR.parent
 # Path to the database schema
 SCHEMA_PATH = LIBRARY_DIR / "backend" / "schema.sql"
 
-# VM connection details — override via environment for your own test VM
+# VM connection details — MUST be supplied via environment for integration tests.
 # Example: VM_HOST=10.0.0.50 VM_NAME=my-test-vm pytest ...
-VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
+# VM_HOST has no default so integration tests fail fast rather than silently
+# pointing at whatever host happens to own the previous maintainer's LAN IP.
+VM_HOST = os.environ.get("VM_HOST", "")
 VM_API_PORT = int(os.environ.get("VM_API_PORT", "5001"))
-VM_NAME = os.environ.get("VM_NAME", "test-audiobook-cachyos")
+VM_NAME = os.environ.get("VM_NAME", "")
 VM_USER = os.environ.get("VM_USER", os.environ.get("USER", "root"))
 VM_SSH_KEY = os.environ.get("VM_SSH_KEY", "")
 
@@ -274,8 +276,9 @@ def ensure_vm_running():
 
 @pytest.fixture(scope="session")
 def deploy_to_vm(ensure_vm_running):
-    """Deploy latest code to test-audiobook-cachyos via upgrade.sh --remote.
+    """Deploy latest code to the remote test VM via upgrade.sh --remote.
 
+    Target host comes from VM_HOST (set in the shell before running tests).
     Runs the full upgrade lifecycle (stop, backup, sync, venv, restart, validate).
     Skip with SKIP_VM_DEPLOY=1 for rapid iteration when code is already deployed.
     Depends on ensure_vm_running to guarantee VM is up first.

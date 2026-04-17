@@ -756,6 +756,54 @@ def get_install_info() -> FlaskResponse:
     return jsonify(response)
 
 
+def _reference_system_path() -> Path | None:
+    """Resolve the first reference-system.yml that exists.
+
+    Tries installed location first (`<app_root>/reference-system.yml`,
+    shipped by install.sh next to VERSION), then falls back to the
+    in-repo dev path (`<repo_root>/docs/reference-system.yml`).
+    """
+    if not _project_root:
+        return None
+    app_root = Path(_project_root).parent
+    for candidate in (
+        app_root / "reference-system.yml",
+        app_root / "docs" / "reference-system.yml",
+    ):
+        if candidate.exists():
+            return candidate
+    return None
+
+
+@utilities_system_bp.route("/api/system/reference-system", methods=["GET"])
+def get_reference_system() -> FlaskResponse:
+    """Return the maintainer's reference-system snapshot as raw YAML.
+
+    No auth required — the content is a published snapshot of the single
+    machine the project is developed and smoke-tested on, already committed
+    to the repo. Served as text/plain; the About page parses it client-side.
+    """
+    from flask import Response
+
+    path = _reference_system_path()
+    if path is None:
+        return Response(
+            "# reference-system snapshot not shipped with this install\n",
+            status=404,
+            mimetype="text/plain; charset=utf-8",
+        )
+    try:
+        body = path.read_text(encoding="utf-8")
+    except OSError as e:
+        logger.warning("Failed to read reference-system.yml: %s", e)
+        return Response(
+            "# reference-system snapshot could not be read\n",
+            status=500,
+            mimetype="text/plain; charset=utf-8",
+        )
+    return Response(body, mimetype="text/plain; charset=utf-8")
+
+
 @utilities_system_bp.route("/api/system/health", methods=["GET"])
 def get_health() -> FlaskResponse:
     """Health check endpoint for monitoring and orchestration.

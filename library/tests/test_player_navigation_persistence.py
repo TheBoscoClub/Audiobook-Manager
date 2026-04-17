@@ -27,14 +27,17 @@ import pytest
 import requests as req_lib
 
 # Check VM reachability before running — skip entire module if unreachable
-VM_HOST = os.environ.get("VM_HOST", "192.168.122.104")
+# VM_HOST must be set in the environment; no default so the module skips cleanly
+# when run on a dev box with no test VM configured.
+VM_HOST = os.environ.get("VM_HOST", "")
 _vm_reachable = False
-try:
-    sock = socket.create_connection((VM_HOST, 5001), timeout=3)
-    sock.close()
-    _vm_reachable = True
-except (OSError, ConnectionRefusedError):
-    pass
+if VM_HOST:
+    try:
+        sock = socket.create_connection((VM_HOST, 5001), timeout=3)
+        sock.close()
+        _vm_reachable = True
+    except (OSError, ConnectionRefusedError):
+        pass
 
 pytestmark: list[pytest.MarkDecorator] = [
     pytest.mark.integration,

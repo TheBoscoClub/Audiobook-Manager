@@ -688,10 +688,10 @@ function renderChecksumDuplicates(checksumType) {
       const pathParts = file.path.split("/");
       let authorFolder = "";
       if (checksumType === "sources") {
-        // Sources: /hddRaid1/Audiobooks/Sources/filename.aaxc
+        // Sources path ends with the filename (e.g. ".../Sources/filename.aaxc")
         authorFolder = pathParts[pathParts.length - 1]; // Just filename for sources
       } else {
-        // Library: /hddRaid1/Audiobooks/Library/Author/Book/file.opus
+        // Library path ends with ".../Library/Author/Book/file.opus"
         if (pathParts.length >= 3) {
           authorFolder = pathParts[pathParts.length - 3]; // Author folder
         }

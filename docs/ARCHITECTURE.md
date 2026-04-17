@@ -5,24 +5,25 @@ This document describes the system architecture, installation workflows, storage
 ## Table of Contents
 
 1. [System Overview](#system-overview)
-2. [Component Architecture](#component-architecture)
-3. [Authentication Module Architecture](#authentication-module-architecture)
-4. [Scanner Module Architecture](#scanner-module-architecture)
-5. [API Module Architecture](#api-module-architecture)
-6. [Localization & Translation Pipeline](#localization--translation-pipeline)
-7. [Multi-Author/Narrator Normalization](#multi-authornarrator-normalization-v70)
-8. [Position Tracking Architecture](#position-tracking-architecture)
-9. [Systemd Services Reference](#systemd-services-reference)
-10. [Scripts Reference](#scripts-reference)
-11. [Installation Workflow](#installation-workflow)
-12. [Upgrade Workflow](#upgrade-workflow)
-13. [Migration Workflow](#migration-workflow)
-14. [Storage Layout](#storage-layout)
-15. [Storage Recommendations](#storage-recommendations)
-16. [Filesystem Recommendations](#filesystem-recommendations)
-17. [Kernel Compatibility](#kernel-compatibility)
-18. [Quick Reference](#quick-reference)
-19. [Appendix: Storage Decision Tree](#appendix-storage-decision-tree)
+2. [Hardware Requirements](#hardware-requirements)
+3. [Component Architecture](#component-architecture)
+4. [Authentication Module Architecture](#authentication-module-architecture)
+5. [Scanner Module Architecture](#scanner-module-architecture)
+6. [API Module Architecture](#api-module-architecture)
+7. [Localization & Translation Pipeline](#localization--translation-pipeline)
+8. [Multi-Author/Narrator Normalization](#multi-authornarrator-normalization-v70)
+9. [Position Tracking Architecture](#position-tracking-architecture)
+10. [Systemd Services Reference](#systemd-services-reference)
+11. [Scripts Reference](#scripts-reference)
+12. [Installation Workflow](#installation-workflow)
+13. [Upgrade Workflow](#upgrade-workflow)
+14. [Migration Workflow](#migration-workflow)
+15. [Storage Layout](#storage-layout)
+16. [Storage Recommendations](#storage-recommendations)
+17. [Filesystem Recommendations](#filesystem-recommendations)
+18. [Kernel Compatibility](#kernel-compatibility)
+19. [Quick Reference](#quick-reference)
+20. [Appendix: Storage Decision Tree](#appendix-storage-decision-tree)
 
 ---
 
@@ -111,6 +112,40 @@ reads. The refactoring was driven by four principles:
 | **Parameter objects** | Functions with 5+ related parameters | Grouping filter/sort/pagination args into structured inputs |
 
 **Enforcement.** `radon cc library/ -n C` is run during every `/test` audit (Phase 7). Any function scoring C or above blocks the audit until refactored. This is not a guideline — it is enforced by the audit's governing law.
+
+---
+
+## Hardware Requirements
+
+Audiobook-Manager is designed to run well on modest hardware. The only hard requirements are Python 3.11+, FFmpeg, and enough disk for your library. Everything else in the matrix below is guidance based on what different deployment sizes tend to need in practice — there is no "certified" hardware list, and no component of the application requires a GPU.
+
+| Component | Minimum | Recommended | Notes |
+|-----------|---------|-------------|-------|
+| **CPU** | 4 cores, x86_64 or ARM64 | 8+ cores | Conversion (`ffmpeg`) is the only CPU-heavy path. Streaming/browsing idle. |
+| **RAM** | 8 GB | 16 GB+ | SQLite cache, multiple concurrent streams, and conversion scratch all want RAM headroom. |
+| **System disk** | 50 GB SSD | 100 GB+ NVMe | Holds OS, app, venv, DBs, logs. Any modern SSD is fine. |
+| **Library disk** | Sized to library | SSD for small libraries, HDD RAID for large ones | See [Storage Recommendations](#storage-recommendations) for filesystem-specific guidance. |
+| **Network** | 100 Mbps LAN | 1 Gbps LAN | Only matters if you stream to multiple clients simultaneously. |
+| **OS** | Any modern Linux with systemd, or Docker on any host | — | Primary target: systemd Linux (Arch, Debian, Fedora, Ubuntu, CachyOS, etc.). Docker container available for non-systemd hosts. |
+| **GPU** | None required | None required | The application itself never uses a GPU. See "Optional local GPU transcription" below. |
+
+### Optional: local GPU transcription
+
+Chinese translation (and any future language localization) transcribes source audio with Whisper. The default path uses remote GPU providers (Vast.ai, RunPod) — this is what the maintainer uses in production and what the application is tested against. A local `whisper-gpu` systemd service is available for installers who prefer to keep transcription on-prem.
+
+| Local-GPU hardware | Support status |
+|-------------------|----------------|
+| **NVIDIA** (Turing / Ampere / Ada / Hopper) | First-class. CUDA is what PyTorch and Whisper are primarily developed against. |
+| **Consumer AMD Radeon** (RDNA 2: RX 6000 series, RDNA 3: RX 7000 series) | **Not recommended.** Consumer RDNA 2/3 with ROCm has produced catastrophic host-level failures during long transcription runs on the maintainer's own rig (see `docs/reference-system.yml`). Use remote GPU instead. |
+| **AMD data-center / CDNA** (MI100, MI200, MI300) | Untested by the maintainer. Expected to be stable — this is what AMD actually validates ROCm against. |
+| **Apple Silicon** (M1/M2/M3/M4) | Works via MPS / `whisper.cpp`. No systemd service shipped. |
+| **CPU-only** | Works but slow. Not recommended for libraries over a few dozen hours. |
+
+When no local GPU is available, The Library transcribes via the remote provider path — no configuration is required and nothing in the default install assumes a GPU.
+
+### The maintainer's rig
+
+The machine used to develop, test, and smoke-test releases is snapshotted in [`docs/reference-system.yml`](reference-system.yml) and exposed in-app via `Settings → About → Reference System`. It is published as a reference point so installers can compare their own hardware against a known-working configuration — **not** as a recommended or minimum spec.
 
 ---
 
@@ -2013,7 +2048,7 @@ Architecture Comparison:
     /srv/audiobooks/Supplements # PDFs
 
   HDD RAID0 (8TB):
-    /hddRaid1/Audiobooks/          # AUDIOBOOKS_DATA
+    /srv/audiobooks/            # AUDIOBOOKS_DATA
       ├── Library/              # Streaming source
       └── Sources/              # Original files
 ```

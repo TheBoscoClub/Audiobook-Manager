@@ -40,7 +40,7 @@
 #   ./upgrade.sh --from-project /path/to/Audiobook-Manager --target /opt/audiobooks
 #
 #   # Deploy to remote VM (full lifecycle: stop, backup, sync, venv, restart):
-#   ./upgrade.sh --from-project . --remote 192.168.122.104 --yes
+#   ./upgrade.sh --from-project . --remote <vm-host> --yes
 #
 #   # Non-interactive local upgrade:
 #   ./upgrade.sh --from-project . --target /opt/audiobooks --yes
@@ -98,7 +98,7 @@ show_usage() {
     echo "  ./upgrade.sh --from-project . --target /opt/audiobooks --yes"
     echo ""
     echo -e "  ${BLUE}# Deploy to a remote VM (full lifecycle: stop, sync, venv, restart):${NC}"
-    echo "  ./upgrade.sh --from-project . --remote 192.168.122.104 --yes"
+    echo "  ./upgrade.sh --from-project . --remote <vm-host> --yes"
     echo ""
     echo -e "  ${BLUE}# Upgrade from the latest GitHub release:${NC}"
     echo "  ./upgrade.sh --from-github --target /opt/audiobooks"
@@ -1565,6 +1565,16 @@ do_upgrade() {
             sudo cp "${project}/VERSION" "$target/" 2>/dev/null || true
         else
             cp "${project}/VERSION" "$target/" 2>/dev/null || true
+        fi
+
+        # Update reference-system.yml (shipped alongside VERSION so the
+        # /api/system/reference-system endpoint has its snapshot after upgrade)
+        if [[ -f "${project}/docs/reference-system.yml" ]]; then
+            if [[ -n "$use_sudo" ]]; then
+                sudo cp "${project}/docs/reference-system.yml" "$target/" 2>/dev/null || true
+            else
+                cp "${project}/docs/reference-system.yml" "$target/" 2>/dev/null || true
+            fi
         fi
 
         # Update version in utilities.html

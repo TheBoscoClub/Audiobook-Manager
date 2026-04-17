@@ -244,7 +244,7 @@ class TestAuditLogRepository:
 - [ ] **Step 2: Run tests to verify they fail**
 
 ```bash
-cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager
+cd <project-dir>
 python -m pytest library/tests/test_audit_log.py -v
 ```
 
@@ -1508,7 +1508,7 @@ Remove the user-related cards from the System tab section. The System tab keeps 
 - [ ] **Step 6: Test manually on dev server**
 
 ```bash
-cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager/library
+cd <project-dir>/library
 python -m backend.api_server  # or however dev server starts
 ```
 
@@ -1851,10 +1851,10 @@ git commit -m "docs: update README, architecture, and auth runbook for user mana
 
 **Files:** None (testing only)
 
-- [ ] **Step 1: Deploy to test-audiobook-cachyos**
+- [ ] **Step 1: Deploy to <test-vm-name>**
 
 ```bash
-./upgrade.sh --from-project . --remote 192.168.122.104 --yes
+./upgrade.sh --from-project . --remote <test-vm-ip> --yes
 ```
 
 - [ ] **Step 2: Verify schema migration**

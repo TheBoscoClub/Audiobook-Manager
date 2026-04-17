@@ -4,7 +4,7 @@
 
 **All paths in scripts, services, and code MUST use configuration variables.**
 
-- **NEVER** write literal paths like `/run/audiobooks`, `/var/lib/audiobooks`, `/hddRaid1/Audiobooks`
+- **NEVER** write literal paths like `/run/audiobooks`, `/var/lib/audiobooks`, `/srv/audiobooks`
 - **ALWAYS** use variables: `$AUDIOBOOKS_RUN_DIR`, `$AUDIOBOOKS_VAR_DIR`, `$AUDIOBOOKS_DATA`, etc.
 - If a needed path variable doesn't exist, **ADD IT** to `lib/audiobook-config.sh` first
 
@@ -38,7 +38,7 @@ A pre-commit hook blocks commits containing hardcoded paths. If rejected:
 
 | Location | Purpose |
 |----------|---------|
-| `/hddRaid1/ClaudeCodeProjects/Audiobook-Manager/` | Git repository, source code, development |
+| `<your-projects-dir>/Audiobook-Manager/` | Git repository, source code, development |
 | `./library/testdata/` | Synthetic test data (NOT production) |
 | `./library/backend/audiobooks-dev.db` | Development database (64KB, 5 test records) |
 | `./config.env` | Development configuration (ports 9090/6001) |
@@ -49,15 +49,15 @@ A pre-commit hook blocks commits containing hardcoded paths. If rejected:
 |----------|---------|
 | `/opt/audiobooks/` | System application code |
 | `/opt/audiobooks/scripts/` | Installed scripts (symlinked from `/usr/local/bin/`) |
-| `/hddRaid1/Audiobooks/` | Production data (Library, Sources, logs) |
+| `${AUDIOBOOKS_DATA}` (default `/srv/audiobooks/`) | Production data (Library, Sources, logs) |
 | `/usr/local/lib/audiobooks/` | Shared configuration library |
 | `/etc/audiobooks/` | System configuration |
-| `/etc/systemd/system/audiobooks*.service` | Systemd services |
+| `/etc/systemd/system/audiobook*.service` | Systemd services |
 
 ### NO CROSS-REFERENCES ALLOWED
 
-- Project code must NEVER reference `/hddRaid1/Audiobooks/` or `/opt/audiobooks/`
-- Application must NEVER reference `/hddRaid1/ClaudeCodeProjects/`
+- Project code must NEVER reference `${AUDIOBOOKS_DATA}` or `/opt/audiobooks/`
+- Application must NEVER reference the project working tree
 - Symlinks must point to APPLICATION, not PROJECT
 - System scripts in `/usr/local/bin/` -> `/opt/audiobooks/scripts/`
 
@@ -77,7 +77,7 @@ A pre-commit hook blocks commits containing hardcoded paths. If rejected:
 ./upgrade.sh --from-project . --target /opt/audiobooks --dry-run
 
 # Deploy to remote VM (full lifecycle: stop, backup, sync, venv, restart)
-./upgrade.sh --from-project . --remote 192.168.122.104 --yes
+./upgrade.sh --from-project . --remote <vm-host> --yes
 
 # Check for available updates
 ./upgrade.sh --check --target /opt/audiobooks

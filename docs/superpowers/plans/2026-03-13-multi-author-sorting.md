@@ -183,7 +183,7 @@ class TestParseNames:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_name_parser.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_name_parser.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'library.backend.name_parser'`
 
 - [ ] **Step 3: Implement name_parser.py**
@@ -378,12 +378,12 @@ def _parse_comma_separated(text: str) -> list[str]:
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_name_parser.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_name_parser.py -v`
 Expected: All tests PASS
 
 - [ ] **Step 5: Run linters**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && ruff check library/backend/name_parser.py library/tests/test_name_parser.py && ruff format --check library/backend/name_parser.py library/tests/test_name_parser.py`
+Run: `cd <project-dir> && ruff check library/backend/name_parser.py library/tests/test_name_parser.py && ruff format --check library/backend/name_parser.py library/tests/test_name_parser.py`
 Expected: No issues
 
 - [ ] **Step 6: Commit**
@@ -396,7 +396,7 @@ git commit -m "feat: add multi-name parser with delimiter splitting and sort key
 - [ ] **Step 7: BTRFS snapshot**
 
 ```bash
-sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager /hddRaid1/ClaudeCodeProjects/Audiobook-Manager-snap-task1-name-parser
+sudo btrfs subvolume snapshot -r <project-dir> <project-dir>-snap-task1-name-parser
 ```
 
 ---
@@ -488,7 +488,7 @@ def test_foreign_keys_enabled(self):
 
 - [ ] **Step 5: Run the test**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_schema.py -v -k test_foreign_keys`
+Run: `cd <project-dir> && python -m pytest library/tests/test_schema.py -v -k test_foreign_keys`
 Expected: PASS
 
 - [ ] **Step 6: Commit**
@@ -501,7 +501,7 @@ git commit -m "feat: add normalized author/narrator schema with foreign key enfo
 - [ ] **Step 7: BTRFS snapshot**
 
 ```bash
-sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager /hddRaid1/ClaudeCodeProjects/Audiobook-Manager-snap-task2-schema
+sudo btrfs subvolume snapshot -r <project-dir> <project-dir>-snap-task2-schema
 ```
 
 ---
@@ -661,7 +661,7 @@ class TestMigration:
 
 - [ ] **Step 2: Run tests to verify they fail**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_migration_authors.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_migration_authors.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'library.backend.migrations.migrate_to_normalized_authors'`
 
 - [ ] **Step 3: Implement migration script**
@@ -810,12 +810,12 @@ if __name__ == "__main__":
 
 - [ ] **Step 4: Run tests to verify they pass**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_migration_authors.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_migration_authors.py -v`
 Expected: All tests PASS
 
 - [ ] **Step 5: Run linters**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && ruff check library/backend/migrations/migrate_to_normalized_authors.py library/tests/test_migration_authors.py && ruff format --check library/backend/migrations/migrate_to_normalized_authors.py library/tests/test_migration_authors.py`
+Run: `cd <project-dir> && ruff check library/backend/migrations/migrate_to_normalized_authors.py library/tests/test_migration_authors.py && ruff format --check library/backend/migrations/migrate_to_normalized_authors.py library/tests/test_migration_authors.py`
 
 - [ ] **Step 6: Commit**
 
@@ -827,7 +827,7 @@ git commit -m "feat: add data migration script for normalized author/narrator ta
 - [ ] **Step 7: BTRFS snapshot**
 
 ```bash
-sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager /hddRaid1/ClaudeCodeProjects/Audiobook-Manager-snap-task3-migration
+sudo btrfs subvolume snapshot -r <project-dir> <project-dir>-snap-task3-migration
 ```
 
 ---
@@ -1198,7 +1198,7 @@ git commit -m "feat: add grouped audiobook endpoint for author/narrator sort vie
 - [ ] **Step 8: BTRFS snapshot**
 
 ```bash
-sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager /hddRaid1/ClaudeCodeProjects/Audiobook-Manager-snap-task5-grouped-api
+sudo btrfs subvolume snapshot -r <project-dir> <project-dir>-snap-task5-grouped-api
 ```
 
 ---
@@ -1248,7 +1248,7 @@ Add styles for:
 
 - [ ] **Step 4: Test manually in dev mode**
 
-Run dev server: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m library.backend.api_modular`
+Run dev server: `cd <project-dir> && python -m library.backend.api_modular`
 Open browser to dev port, sort by author, verify:
 
 - Groups render with headers
@@ -1267,7 +1267,7 @@ git commit -m "feat: add grouped author/narrator view with collapsible sections 
 - [ ] **Step 6: BTRFS snapshot**
 
 ```bash
-sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager /hddRaid1/ClaudeCodeProjects/Audiobook-Manager-snap-task6-frontend
+sudo btrfs subvolume snapshot -r <project-dir> <project-dir>-snap-task6-frontend
 ```
 
 ---
@@ -1342,27 +1342,27 @@ git commit -m "feat: integrate author/narrator migration into upgrade.sh"
 - [ ] **Step 4: BTRFS snapshot**
 
 ```bash
-sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager /hddRaid1/ClaudeCodeProjects/Audiobook-Manager-snap-task8-upgrade
+sudo btrfs subvolume snapshot -r <project-dir> <project-dir>-snap-task8-upgrade
 ```
 
 ---
 
 ## Chunk 6: VM Integration Testing
 
-### Task 9: Full Integration Test on test-audiobook-cachyos
+### Task 9: Full Integration Test on <test-vm-name>
 
 **Files:** No new files — uses existing test infrastructure
 
 - [ ] **Step 1: Revert test VM to pristine snapshot**
 
 ```bash
-sudo virsh snapshot-revert test-audiobook-cachyos pristine-275g-2026-03-01
+sudo virsh snapshot-revert <test-vm-name> pristine-275g-2026-03-01
 ```
 
 - [ ] **Step 2: Deploy sort_fix branch to test VM**
 
 ```bash
-./upgrade.sh --from-project . --remote 192.168.122.104 --yes
+./upgrade.sh --from-project . --remote <test-vm-ip> --yes
 ```
 
 (The VM auto-detects pristine state and runs `install.sh --system` first)
@@ -1379,14 +1379,14 @@ sqlite3 /var/lib/audiobooks/db/audiobooks.db "SELECT COUNT(*) FROM book_authors"
 - [ ] **Step 4: Test grouped API endpoint**
 
 ```bash
-curl -s http://192.168.122.104:5001/api/audiobooks/grouped?by=author | python3 -m json.tool | head -50
-curl -s http://192.168.122.104:5001/api/audiobooks/grouped?by=narrator | python3 -m json.tool | head -50
+curl -s http://<test-vm-ip>:5001/api/audiobooks/grouped?by=author | python3 -m json.tool | head -50
+curl -s http://<test-vm-ip>:5001/api/audiobooks/grouped?by=narrator | python3 -m json.tool | head -50
 ```
 
 - [ ] **Step 5: Test flat API still works with arrays**
 
 ```bash
-curl -s "http://192.168.122.104:5001/api/audiobooks?per_page=1" | python3 -m json.tool
+curl -s "http://<test-vm-ip>:5001/api/audiobooks?per_page=1" | python3 -m json.tool
 ```
 
 Verify `authors` and `narrators` arrays present.
@@ -1404,7 +1404,7 @@ Run Playwright tests against the test VM for:
 - [ ] **Step 7: BTRFS snapshot**
 
 ```bash
-sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager /hddRaid1/ClaudeCodeProjects/Audiobook-Manager-snap-task9-integration
+sudo btrfs subvolume snapshot -r <project-dir> <project-dir>-snap-task9-integration
 ```
 
 ---
@@ -1413,10 +1413,10 @@ sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager 
 
 **Files:** No new files
 
-- [ ] **Step 1: Clone qa-audiobook-cachyos for parallel testing**
+- [ ] **Step 1: Clone <qa-vm-name> for parallel testing**
 
 ```bash
-sudo virt-clone --original qa-audiobook-cachyos --name sort-fix-validation --auto-clone
+sudo virt-clone --original <qa-vm-name> --name sort-fix-validation --auto-clone
 sudo virsh start sort-fix-validation
 ```
 
@@ -1459,7 +1459,7 @@ sudo virsh undefine sort-fix-validation --remove-all-storage
 - [ ] **Step 7: Final BTRFS snapshot**
 
 ```bash
-sudo btrfs subvolume snapshot -r /hddRaid1/ClaudeCodeProjects/Audiobook-Manager /hddRaid1/ClaudeCodeProjects/Audiobook-Manager-snap-complete
+sudo btrfs subvolume snapshot -r <project-dir> <project-dir>-snap-complete
 ```
 
 ---

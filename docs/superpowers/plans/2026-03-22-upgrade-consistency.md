@@ -88,7 +88,7 @@ def test_no_hardcoded_paths():
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_helper_service_names.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_helper_service_names.py -v`
 Expected: FAIL — plural service names found throughout the file
 
 - [ ] **Step 3: Fix service names — global replace**
@@ -119,7 +119,7 @@ Use `replace_all` with Edit tool for each distinct string.
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager && python -m pytest library/tests/test_helper_service_names.py -v`
+Run: `cd <project-dir> && python -m pytest library/tests/test_helper_service_names.py -v`
 Expected: PASS
 
 - [ ] **Step 5: Run ruff and shellcheck**
@@ -607,7 +607,7 @@ EOF
 
 - [ ] **Step 1: Create caddy directory**
 
-Run: `mkdir -p /hddRaid1/ClaudeCodeProjects/Audiobook-Manager/caddy`
+Run: `mkdir -p <project-dir>/caddy`
 
 - [ ] **Step 2: Create audiobooks.conf**
 
@@ -1369,7 +1369,7 @@ EOF
 - [ ] **Step 1: Run all unit tests on dev machine**
 
 ```bash
-cd /hddRaid1/ClaudeCodeProjects/Audiobook-Manager
+cd <project-dir>
 python -m pytest library/tests/test_helper_service_names.py \
     library/tests/test_upgrade_skip_lifecycle.py \
     library/tests/test_upgrade_preflight.py \
@@ -1397,7 +1397,7 @@ ruff check library/ && shellcheck upgrade.sh scripts/upgrade-helper-process inst
 - [ ] **Step 4: Deploy to test VM and run integration tests**
 
 ```bash
-./upgrade.sh --from-project . --remote 192.168.122.104 --yes
+./upgrade.sh --from-project . --remote <test-vm-ip> --yes
 ```
 
 Then on the VM:

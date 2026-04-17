@@ -34,7 +34,7 @@ rewrites them.
 
 ### The April 2026 dev VM incident
 
-On 2026-04-07 19:20, the dev VM (`dev-audiobook-cachyos`) was populated from
+On 2026-04-07 19:20, a dev VM was populated from
 a fresh scan+import. All 1,844 rows landed in a one-second window.
 
 On 2026-04-08, commits `ccb863e` and `c10b335` added **Phase 0 podcast
