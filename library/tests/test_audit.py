@@ -330,7 +330,7 @@ class TestNotifyAdmins:
                 def __init__(self, db):
                     pass
 
-                def list_all(self_inner):
+                def list_all(self):  # pylint: disable=unused-argument
                     return [mock_admin]
 
             models_mod.UserRepository = FakeUserRepo

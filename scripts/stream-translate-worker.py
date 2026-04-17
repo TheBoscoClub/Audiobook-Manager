@@ -212,6 +212,7 @@ def process_segment(
             headers={"Content-Type": "application/json"},
             method="POST",
         )
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         urllib.request.urlopen(req, timeout=30)  # nosec B310 -- callback URL constructed from trusted worker env (CALLBACK_URL), not user-controlled scheme
 
         logger.info(

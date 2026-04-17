@@ -329,6 +329,10 @@ class TestSelfServiceResetPasskeyThenClaimThenLogin:
         reset_data = resp.get_json()
         setup = reset_data.get("setup_data", {})
 
+        # Initialized so pylint can prove totp_secret is bound at the call
+        # site below. pytest.fail() raises so the else branch never falls
+        # through, but pylint can't see NoReturn here.
+        totp_secret = ""
         if "claim_token" in setup:
             # Passkey reset → claim flow
             reset_token = setup["claim_token"]

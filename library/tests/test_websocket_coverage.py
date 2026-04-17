@@ -15,8 +15,16 @@ invoke the loop function directly (captured from gevent.spawn call) to
 exercise the real code paths without needing a running gevent hub.
 """
 
+# Pylint cannot narrow `poll_fn: Optional[Callable]` to `Callable` through
+# `assert poll_fn is not None` when the Optional originated from a nonlocal
+# closure assignment in _capture_poll_loop. The assert IS present at every
+# call site below, so the runtime is safe. File-level disable here instead
+# of seven per-line suppressions.
+# pylint: disable=not-callable
+
 import json
 import sqlite3
+from typing import Any, Callable, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -52,7 +60,7 @@ def _create_notification_db(db_path, rows=None):
     conn.close()
 
 
-def _capture_poll_loop(db_path):
+def _capture_poll_loop(db_path) -> Tuple[Optional[Callable[[], Any]], MagicMock]:
     """Call init_notification_poller with a mock gevent and return the _poll_loop function.
 
     Returns the callable that gevent.spawn would have received.
@@ -64,7 +72,7 @@ def _capture_poll_loop(db_path):
     # Make gevent.sleep raise StopIteration to break out of the while True loop
     mock_gevent.sleep.side_effect = StopIteration("break poll loop")
 
-    captured_fn = None
+    captured_fn: Optional[Callable[[], Any]] = None
 
     def capture_spawn(fn):
         nonlocal captured_fn

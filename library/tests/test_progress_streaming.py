@@ -289,6 +289,8 @@ Download complete: 4 succeeded, 1 failed
 
         downloaded = 0
         failed = 0
+        final_success = -1
+        final_failed = -1
 
         for line in output.strip().split("\n"):
             if success_pattern.search(line):

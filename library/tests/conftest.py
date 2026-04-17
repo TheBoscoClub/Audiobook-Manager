@@ -617,7 +617,7 @@ def auth_app(auth_temp_dir):
     try:
         close = getattr(auth_db, "close", None)
         if callable(close):
-            close()
+            close()  # pylint: disable=not-callable
     except Exception:  # nosec B110 — fixture teardown, swallow any DB-close error
         pass
 

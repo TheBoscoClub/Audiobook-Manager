@@ -128,8 +128,11 @@ class TestLocalhostOnly:
             def dummy_view():
                 return "ok"
 
+            # When REMOTE_ADDR is non-localhost, the decorator short-circuits
+            # the view and returns (flask.Response, int). Pylint sees only the
+            # inner function's str return, hence the no-member suppression.
             response, status = dummy_view()
-            data = response.get_json()
+            data = response.get_json()  # pylint: disable=no-member
             assert data["error"] == "Access denied"
             assert status == 404
 

@@ -1,0 +1,28 @@
+// markdownlint-cli2 configuration.
+//
+// markdownlint-cli2 reads this file directly; it does NOT honor
+// `.markdownlintignore`. The `ignores` array below is the authoritative
+// exclude list for recursive invocations (e.g. `markdownlint-cli2 "**/*.md"`).
+//
+// Rule configuration is loaded from `.markdownlint.json` via `config`.
+{
+  "config": ".markdownlint.json",
+  "globs": ["**/*.md"],
+  "ignores": [
+    "node_modules/**",
+    ".venv/**",
+    "venv/**",
+    "library/venv/**",
+    "library/venv64/**",
+    ".git/**",
+    ".snapshots/**",
+    ".btrbk-snapshots/**",
+    "**/SESSION_RECORD_*.md",
+    "**/.claude-checkpoint*.md",
+    "**/.claude-recovery-plan.md",
+    "**/.claude-task-state.md",
+    "sandbox-*/**",
+    "library/.pytest_cache/**",
+    ".playwright-mcp/**"
+  ]
+}

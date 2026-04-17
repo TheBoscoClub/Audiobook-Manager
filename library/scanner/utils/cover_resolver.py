@@ -174,7 +174,8 @@ def _try_google_books(
                 # Request larger image by tweaking the zoom parameter
                 img_url = img_url.replace("zoom=1", "zoom=2")
                 _rate_limit()
-                img_resp = requests.get(img_url, timeout=timeout)
+                # nosemgrep: python.lang.security.audit.insecure-transport.requests.request-with-http.request-with-http
+                img_resp = requests.get(img_url, timeout=timeout)  # URL upgraded to https above
                 if img_resp.status_code == 200 and len(img_resp.content) > 1000:
                     return _save_image(img_resp.content, output_dir, img_url)
     except requests.RequestException:

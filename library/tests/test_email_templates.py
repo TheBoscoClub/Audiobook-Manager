@@ -108,7 +108,7 @@ def test_chinese_copy_contains_chinese_characters() -> None:
 def test_username_is_html_escaped_in_html_body() -> None:
     """A username with HTML must never render as live markup."""
     payload = "<script>alert('xss')</script>"
-    variables = dict(_TEMPLATE_VARS["magic_link"], username=payload)
+    variables = {**_TEMPLATE_VARS["magic_link"], "username": payload}
 
     _subject, text, html_body = email_templates.render_email("magic_link", "en", **variables)
 
@@ -125,7 +125,7 @@ def test_username_is_html_escaped_in_html_body() -> None:
 def test_reply_text_is_html_escaped() -> None:
     """Reply bodies often contain user prose — must also be escaped."""
     payload = "<img src=x onerror=alert(1)>"
-    variables = dict(_TEMPLATE_VARS["reply"], reply_text=payload)
+    variables = {**_TEMPLATE_VARS["reply"], "reply_text": payload}
 
     _subject, _text, html_body = email_templates.render_email("reply", "en", **variables)
     assert "<img src=x" not in html_body
