@@ -12,12 +12,7 @@ from .models import AuditLog
 logger = logging.getLogger(__name__)
 
 # Actions that trigger admin notifications
-CRITICAL_ACTIONS = {
-    "change_username",
-    "switch_auth_method",
-    "reset_credentials",
-    "delete_account",
-}
+CRITICAL_ACTIONS = {"change_username", "switch_auth_method", "reset_credentials", "delete_account"}
 
 
 class AuditLogRepository:

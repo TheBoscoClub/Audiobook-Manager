@@ -25,9 +25,7 @@ class TestSecurityHeadersForIframe:
         assert "frame-ancestors 'self'" in content, (
             "CSP frame-ancestors must be 'self' (not 'none')"
         )
-        assert "frame-ancestors 'none'" not in content, (
-            "CSP frame-ancestors must not be 'none'"
-        )
+        assert "frame-ancestors 'none'" not in content, "CSP frame-ancestors must not be 'none'"
 
     def test_csp_frame_src_self(self):
         content = CORE_PY.read_text()

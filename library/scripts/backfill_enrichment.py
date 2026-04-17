@@ -27,9 +27,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-    datefmt="%H:%M:%S",
+    level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S"
 )
 logger = logging.getLogger(__name__)
 
@@ -43,9 +41,75 @@ def _normalize(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def phase1_asin_recovery(
-    db_path: Path, sources_dir: Path, dry_run: bool = False
+def _extract_asin_from_voucher_json(voucher_path: Path) -> str | None:
+    """Pull the ASIN out of the voucher JSON's content_license block.
+
+    The voucher JSON has two possible locations depending on the Audible
+    API version that generated it, so we probe both.
+    """
+    try:
+        data = json.loads(voucher_path.read_text())
+    except json.JSONDecodeError, OSError:
+        return None
+    content_license = data.get("content_license", {})
+    direct = content_license.get("asin")
+    if direct:
+        return direct
+    return content_license.get("content_metadata", {}).get("content_reference", {}).get("asin")
+
+
+def _voucher_asin_and_title(voucher_path: Path) -> tuple[str | None, str]:
+    """Return (asin, normalized_title) for a voucher file.
+
+    ASIN is resolved from the JSON first, falling back to the filename.
+    The title is extracted from the filename segment after the ASIN
+    prefix, with `-AAX…` suffixes stripped.
+    """
+    m = _ASIN_RE.match(voucher_path.stem)
+    filename_asin = m.group(1).upper() if m else None
+    json_asin = _extract_asin_from_voucher_json(voucher_path)
+    asin = json_asin or filename_asin
+
+    title_part = voucher_path.stem
+    if m:
+        title_part = title_part[len(m.group(0)) :]
+    title_part = re.sub(r"-AAX.*$", "", title_part)
+    return asin, _normalize(title_part.replace("_", " "))
+
+
+def _match_book_ids_by_title(title_map: dict[str, list[int]], title_normalized: str) -> list[int]:
+    """Find book IDs whose normalized title matches exactly or fuzzily."""
+    book_ids = title_map.get(title_normalized, [])
+    if book_ids:
+        return book_ids
+    for key, ids in title_map.items():
+        if title_normalized in key or key in title_normalized:
+            return ids
+    return []
+
+
+def _apply_asin_recovery(
+    cursor: sqlite3.Cursor,
+    book_ids: list[int],
+    asin: str,
+    dry_run: bool,
 ) -> int:
+    """Write the recovered ASIN to each matched book and return the
+    count of rows that would be (or were) affected."""
+    applied = 0
+    for book_id in book_ids:
+        if dry_run:
+            logger.info("  [DRY RUN] Would set ASIN=%s for book ID %d", asin, book_id)
+        else:
+            cursor.execute(
+                "UPDATE audiobooks SET asin = ? WHERE id = ? AND (asin IS NULL OR asin = '')",
+                (asin, book_id),
+            )
+        applied += 1
+    return applied
+
+
+def phase1_asin_recovery(db_path: Path, sources_dir: Path, dry_run: bool = False) -> int:
     """Recover ASINs from voucher files and source filenames."""
     if not sources_dir.is_dir():
         logger.warning("Sources directory not found: %s", sources_dir)
@@ -56,9 +120,7 @@ def phase1_asin_recovery(
     cursor = conn.cursor()
 
     # Get books missing ASINs
-    cursor.execute(
-        "SELECT id, title, author FROM audiobooks WHERE asin IS NULL OR asin = ''"
-    )
+    cursor.execute("SELECT id, title, author FROM audiobooks WHERE asin IS NULL OR asin = ''")
     missing = cursor.fetchall()
     if not missing:
         logger.info("Phase 1: All books already have ASINs")
@@ -67,60 +129,18 @@ def phase1_asin_recovery(
 
     logger.info("Phase 1: %d books missing ASINs, scanning Sources...", len(missing))
 
-    # Build a normalized title → book_id map
     title_map: dict[str, list[int]] = {}
     for book in missing:
         key = _normalize(book["title"])
         title_map.setdefault(key, []).append(book["id"])
 
-    # Scan voucher files
     recovered = 0
     for voucher_path in sources_dir.glob("*.voucher"):
-        # Extract ASIN from filename
-        m = _ASIN_RE.match(voucher_path.stem)
-        filename_asin = m.group(1).upper() if m else None
-
-        # Extract ASIN from voucher JSON
-        json_asin = None
-        try:
-            data = json.loads(voucher_path.read_text())
-            json_asin = data.get("content_license", {}).get("asin") or data.get(
-                "content_license", {}
-            ).get("content_metadata", {}).get("content_reference", {}).get("asin")
-        except (json.JSONDecodeError, OSError):
-            pass
-
-        asin = json_asin or filename_asin
+        asin, title_normalized = _voucher_asin_and_title(voucher_path)
         if not asin:
             continue
-
-        # Extract title from filename: {ASIN}_{Title}-{format}.voucher
-        title_part = voucher_path.stem
-        if m:
-            title_part = title_part[len(m.group(0)) :]
-        title_part = re.sub(r"-AAX.*$", "", title_part)
-        title_normalized = _normalize(title_part.replace("_", " "))
-
-        # Match against books
-        book_ids = title_map.get(title_normalized, [])
-        if not book_ids:
-            # Fuzzy: try substring match
-            for key, ids in title_map.items():
-                if title_normalized in key or key in title_normalized:
-                    book_ids = ids
-                    break
-
-        for book_id in book_ids:
-            if dry_run:
-                logger.info(
-                    "  [DRY RUN] Would set ASIN=%s for book ID %d", asin, book_id
-                )
-            else:
-                cursor.execute(
-                    "UPDATE audiobooks SET asin = ? WHERE id = ? AND (asin IS NULL OR asin = '')",
-                    (asin, book_id),
-                )
-            recovered += 1
+        book_ids = _match_book_ids_by_title(title_map, title_normalized)
+        recovered += _apply_asin_recovery(cursor, book_ids, asin, dry_run)
 
     if not dry_run:
         conn.commit()
@@ -157,9 +177,7 @@ def phase2_enrichment(
             " AND (narrator = 'Unknown Narrator' OR narrator IS NULL OR narrator = '')"
         )
     else:
-        query = (
-            "SELECT id, title, asin FROM audiobooks WHERE audible_enriched_at IS NULL"
-        )
+        query = "SELECT id, title, asin FROM audiobooks WHERE audible_enriched_at IS NULL"
     if limit:
         query += f" LIMIT {int(limit)}"
     cursor.execute(query)
@@ -184,10 +202,7 @@ def phase2_enrichment(
             continue
 
         result = enrich_book(
-            book_id=book["id"],
-            db_path=db_path,
-            quiet=True,
-            sources_dir=sources_dir,
+            book_id=book["id"], db_path=db_path, quiet=True, sources_dir=sources_dir
         )
 
         if result["errors"]:
@@ -237,14 +252,11 @@ def phase0_podcast_detection(db_path: Path, dry_run: bool = False) -> int:
         if any(pub in combined for pub in _PODCAST_PUBLISHERS):
             if dry_run:
                 logger.info(
-                    "  [DRY RUN] Would reclassify as Podcast: %s (ID %d)",
-                    book["title"],
-                    book["id"],
+                    "  [DRY RUN] Would reclassify as Podcast: %s (ID %d)", book["title"], book["id"]
                 )
             else:
                 cursor.execute(
-                    "UPDATE audiobooks SET content_type = 'Podcast' WHERE id = ?",
-                    (book["id"],),
+                    "UPDATE audiobooks SET content_type = 'Podcast' WHERE id = ?", (book["id"],)
                 )
             reclassified += 1
 
@@ -261,21 +273,11 @@ def phase0_podcast_detection(db_path: Path, dry_run: bool = False) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Backfill audiobook enrichment")
-    parser.add_argument(
-        "--db", type=Path, required=True, help="Path to SQLite database"
-    )
-    parser.add_argument(
-        "--sources", type=Path, default=None, help="Path to Sources directory"
-    )
-    parser.add_argument(
-        "--asin-only", action="store_true", help="Phase 1 only (ASIN recovery)"
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Show what would be done"
-    )
-    parser.add_argument(
-        "--limit", type=int, default=None, help="Limit Phase 2 to N books"
-    )
+    parser.add_argument("--db", type=Path, required=True, help="Path to SQLite database")
+    parser.add_argument("--sources", type=Path, default=None, help="Path to Sources directory")
+    parser.add_argument("--asin-only", action="store_true", help="Phase 1 only (ASIN recovery)")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would be done")
+    parser.add_argument("--limit", type=int, default=None, help="Limit Phase 2 to N books")
     parser.add_argument(
         "--narrator-backfill",
         action="store_true",

@@ -54,9 +54,7 @@ def test_user(temp_db):
 @pytest.fixture
 def second_user(temp_db):
     """Create a second test user."""
-    user = User(
-        username="seconduser", auth_type=AuthType.TOTP, auth_credential=b"secret2"
-    )
+    user = User(username="seconduser", auth_type=AuthType.TOTP, auth_credential=b"secret2")
     user.save(temp_db)
     return user
 
@@ -66,10 +64,7 @@ class TestNotificationTypes:
 
     def test_info_notification(self, temp_db, test_user):
         """Test INFO notification type."""
-        notif = Notification(
-            message="Welcome to the library!",
-            type=NotificationType.INFO,
-        )
+        notif = Notification(message="Welcome to the library!", type=NotificationType.INFO)
         notif.save(temp_db)
 
         assert notif.type == NotificationType.INFO
@@ -81,8 +76,7 @@ class TestNotificationTypes:
     def test_maintenance_notification(self, temp_db, test_user):
         """Test MAINTENANCE notification type."""
         notif = Notification(
-            message="Scheduled maintenance Saturday at 2am",
-            type=NotificationType.MAINTENANCE,
+            message="Scheduled maintenance Saturday at 2am", type=NotificationType.MAINTENANCE
         )
         notif.save(temp_db)
 
@@ -94,8 +88,7 @@ class TestNotificationTypes:
     def test_outage_notification(self, temp_db, test_user):
         """Test OUTAGE notification type."""
         notif = Notification(
-            message="System currently experiencing issues",
-            type=NotificationType.OUTAGE,
+            message="System currently experiencing issues", type=NotificationType.OUTAGE
         )
         notif.save(temp_db)
 
@@ -130,15 +123,11 @@ class TestNotificationPriority:
 
     def test_priority_ordering(self, temp_db, test_user):
         """Test notifications are ordered by priority (higher first)."""
-        Notification(
-            message="Low priority", type=NotificationType.INFO, priority=0
-        ).save(temp_db)
-        Notification(
-            message="High priority", type=NotificationType.INFO, priority=10
-        ).save(temp_db)
-        Notification(
-            message="Medium priority", type=NotificationType.INFO, priority=5
-        ).save(temp_db)
+        Notification(message="Low priority", type=NotificationType.INFO, priority=0).save(temp_db)
+        Notification(message="High priority", type=NotificationType.INFO, priority=10).save(temp_db)
+        Notification(message="Medium priority", type=NotificationType.INFO, priority=5).save(
+            temp_db
+        )
 
         repo = NotificationRepository(temp_db)
         active = repo.get_active_for_user(test_user.id)
@@ -267,9 +256,7 @@ class TestNotificationDismissal:
 
     def test_dismiss_notification(self, temp_db, test_user):
         """Test dismissing a notification."""
-        notif = Notification(
-            message="Dismissable", type=NotificationType.INFO, dismissable=True
-        )
+        notif = Notification(message="Dismissable", type=NotificationType.INFO, dismissable=True)
         notif.save(temp_db)
 
         repo = NotificationRepository(temp_db)
@@ -320,9 +307,7 @@ class TestNotificationCRUD:
     def test_create_notification(self, temp_db):
         """Test creating a notification."""
         notif = Notification(
-            message="New notification",
-            type=NotificationType.INFO,
-            created_by="admin",
+            message="New notification", type=NotificationType.INFO, created_by="admin"
         )
         notif.save(temp_db)
 

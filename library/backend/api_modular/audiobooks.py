@@ -10,15 +10,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from flask import (
-    Blueprint,
-    Response,
-    current_app,
-    jsonify,
-    request,
-    send_file,
-    send_from_directory,
-)
+from flask import Blueprint, Response, current_app, jsonify, request, send_file, send_from_directory
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -39,12 +31,10 @@ audiobooks_bp = Blueprint("audiobooks", __name__)
 # Exclude: Lecture, Podcast, Newspaper / Magazine, Show, Radio/TV Program, Episode
 # content_type IS NULL handles legacy entries before the field was added
 # This constant is safe for SQL - hardcoded, not user input
-AUDIOBOOK_FILTER = (
-    "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
-)
+AUDIOBOOK_FILTER = "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
 
 
-def init_audiobooks_routes(db_path, project_root, database_path):
+def init_audiobooks_routes(db_path, project_root, database_path):  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
     """Initialize audiobooks routes (no-op, kept for API compatibility).
 
     Database path is now resolved at request time via current_app.config.
@@ -184,12 +174,7 @@ _NULLABLE_SORTS = {
 # Name-based sorts: use COLLATE NOCASE for case-insensitive ordering
 # (handles "Le Carre" vs "le Carre", "Del Toro" vs "del Toro")
 # and add secondary sort by title for deterministic order within same name
-_NAME_SORTS = {
-    "author_last_name",
-    "author_first_name",
-    "narrator_last_name",
-    "narrator_first_name",
-}
+_NAME_SORTS = {"author_last_name", "author_first_name", "narrator_last_name", "narrator_first_name"}
 
 
 def _parse_query_params(req) -> dict:
@@ -264,11 +249,7 @@ def _resolve_collection(collection: str | None) -> dict | None:
 # Table-driven filter specs: (param_key, sql_clause, param_transform)
 # param_transform: None means use value as-is, callable transforms the value
 _FILTER_SPECS: list[tuple[str, str, object]] = [
-    (
-        "search",
-        "id IN (SELECT rowid FROM audiobooks_fts WHERE audiobooks_fts MATCH ?)",
-        None,
-    ),
+    ("search", "id IN (SELECT rowid FROM audiobooks_fts WHERE audiobooks_fts MATCH ?)", None),
     (
         "author",
         """id IN (
@@ -450,10 +431,7 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
             f" WHERE ba.book_id IN ({placeholders})"
             " ORDER BY ba.position"
         )
-        cursor.execute(
-            query,
-            book_ids,
-        )
+        cursor.execute(query, book_ids)
         for r in cursor.fetchall():
             authors_map.setdefault(r["book_id"], []).append(
                 {
@@ -477,10 +455,7 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
             f" WHERE bn.book_id IN ({placeholders})"
             " ORDER BY bn.position"
         )
-        cursor.execute(
-            query,
-            book_ids,
-        )
+        cursor.execute(query, book_ids)
         for r in cursor.fetchall():
             narrators_map.setdefault(r["book_id"], []).append(
                 {
@@ -543,6 +518,43 @@ def _detect_editions(cursor, audiobooks: list[dict]) -> None:
         book["edition_count"] = _count_edition(book["title"], related)
 
 
+def _build_pinyin_sort_join(qp, sort_sql, sort_order):
+    """Return (join_sql, join_params, order_by_sql) for optional pinyin-aware sort.
+
+    For zh-* requests sorting by title, LEFT JOIN audiobook_translations and
+    order by pinyin_sort with English fallback. Other sort fields stay untouched.
+    """
+    locale = qp.get("locale", "") or ""
+    use_pinyin_sort = locale.startswith("zh") and qp["sort_field"] == "title"
+    join_sql = ""
+    join_params: list = []
+    order_by_sql = f"{sort_sql} {sort_order}"
+    if use_pinyin_sort:
+        join_sql = (
+            " LEFT JOIN audiobook_translations _zhT"
+            " ON _zhT.audiobook_id = audiobooks.id AND _zhT.locale = ?"
+        )
+        join_params = [locale]
+        order_by_sql = (
+            f"COALESCE(NULLIF(_zhT.pinyin_sort, ''), audiobooks.title) COLLATE NOCASE {sort_order}"
+        )
+    return join_sql, join_params, order_by_sql
+
+
+def _enrich_books_with_metadata(cursor, audiobooks, book_ids):
+    """Attach batched metadata (genres/eras/topics/supplements/authors/narrators) to books."""
+    metadata = _batch_load_metadata(cursor, book_ids)
+    for book in audiobooks:
+        bid = book["id"]
+        book["genres"] = metadata["genres"].get(bid, [])
+        book["eras"] = metadata["eras"].get(bid, [])
+        book["topics"] = metadata["topics"].get(bid, [])
+        book["supplement_count"] = metadata["supplements"].get(bid, 0)
+        book["authors"] = metadata["authors"].get(bid, [])
+        book["narrators"] = metadata["narrators"].get(bid, [])
+    _detect_editions(cursor, audiobooks)
+
+
 @audiobooks_bp.route("/api/audiobooks", methods=["GET"])
 @guest_allowed
 def get_audiobooks() -> Response:
@@ -569,25 +581,7 @@ def get_audiobooks() -> Response:
     if where_clauses:
         where_sql = "WHERE " + " AND ".join(where_clauses)
 
-    # Locale-aware title sort: for zh-* requests sorting by title, LEFT JOIN
-    # audiobook_translations and order by pinyin_sort with English fallback.
-    # Only the plain "title" sort is rewritten; other sorts (author, date,
-    # duration, etc.) are independent of localized title and stay untouched.
-    locale = qp.get("locale", "") or ""
-    use_pinyin_sort = locale.startswith("zh") and qp["sort_field"] == "title"
-    join_sql = ""
-    join_params: list = []
-    order_by_sql = f"{sort_sql} {sort_order}"
-    if use_pinyin_sort:
-        join_sql = (
-            " LEFT JOIN audiobook_translations _zhT"
-            " ON _zhT.audiobook_id = audiobooks.id AND _zhT.locale = ?"
-        )
-        join_params = [locale]
-        order_by_sql = (
-            f"COALESCE(NULLIF(_zhT.pinyin_sort, ''), audiobooks.title)"
-            f" COLLATE NOCASE {sort_order}"
-        )
+    join_sql, join_params, order_by_sql = _build_pinyin_sort_join(qp, sort_sql, sort_order)
 
     conn = _get_audiobooks_db()
     cursor = conn.cursor()
@@ -636,21 +630,7 @@ def get_audiobooks() -> Response:
         book_ids.append(book["id"])
 
     if book_ids:
-        # Load all related metadata in batch queries
-        metadata = _batch_load_metadata(cursor, book_ids)
-
-        # Assign batch results to each book
-        for book in audiobooks:
-            bid = book["id"]
-            book["genres"] = metadata["genres"].get(bid, [])
-            book["eras"] = metadata["eras"].get(bid, [])
-            book["topics"] = metadata["topics"].get(bid, [])
-            book["supplement_count"] = metadata["supplements"].get(bid, 0)
-            book["authors"] = metadata["authors"].get(bid, [])
-            book["narrators"] = metadata["narrators"].get(bid, [])
-
-        # Detect edition counts
-        _detect_editions(cursor, audiobooks)
+        _enrich_books_with_metadata(cursor, audiobooks, book_ids)
 
     conn.close()
 
@@ -696,10 +676,7 @@ def get_filters() -> Response:
         " ORDER BY a.sort_name COLLATE NOCASE"
     )
     cursor.execute(query)
-    authors = [
-        {"name": row["name"], "sort_name": row["sort_name"]}
-        for row in cursor.fetchall()
-    ]
+    authors = [{"name": row["name"], "sort_name": row["sort_name"]} for row in cursor.fetchall()]
 
     # Get unique narrators from normalized table
     query = (
@@ -864,17 +841,7 @@ def _remux_to_webm(source: Path, webm_path: Path, audiobook_id: int) -> str | No
     tmp_path = webm_path.with_suffix(".webm.tmp")
     try:
         result = subprocess.run(  # nosec B603
-            [
-                "ffmpeg",
-                "-y",
-                "-i",
-                str(source),
-                "-c:a",
-                "copy",
-                "-f",
-                "webm",
-                str(tmp_path),
-            ],
+            ["ffmpeg", "-y", "-i", str(source), "-c:a", "copy", "-f", "webm", str(tmp_path)],
             capture_output=True,
             timeout=300,
         )
@@ -896,17 +863,13 @@ def _serve_webm(file_path: Path, audiobook_id: int) -> FlaskResponse:
     """Serve an Opus file remuxed to WebM container for Safari/iOS."""
     webm_path = AUDIOBOOKS_WEBM_CACHE / f"{audiobook_id}.webm"
 
-    cache_stale = (
-        not webm_path.exists() or webm_path.stat().st_mtime < file_path.stat().st_mtime
-    )
+    cache_stale = not webm_path.exists() or webm_path.stat().st_mtime < file_path.stat().st_mtime
     if cache_stale:
         error = _remux_to_webm(file_path, webm_path, audiobook_id)
         if error:
             return jsonify({"error": error}), 500
 
-    return send_file(
-        webm_path, mimetype="audio/webm", as_attachment=False, conditional=True
-    )
+    return send_file(webm_path, mimetype="audio/webm", as_attachment=False, conditional=True)
 
 
 @audiobooks_bp.route("/api/stream/<int:audiobook_id>")
@@ -922,9 +885,7 @@ def stream_audiobook(audiobook_id: int) -> FlaskResponse:
     conn = _get_audiobooks_db()
     cursor = conn.cursor()
 
-    cursor.execute(
-        "SELECT file_path, format FROM audiobooks WHERE id = ?", (audiobook_id,)
-    )
+    cursor.execute("SELECT file_path, format FROM audiobooks WHERE id = ?", (audiobook_id,))
     row = cursor.fetchone()
     conn.close()
 
@@ -943,20 +904,10 @@ def stream_audiobook(audiobook_id: int) -> FlaskResponse:
         return _serve_webm(file_path, audiobook_id)
 
     # Default: serve the original file
-    mime_types = {
-        "opus": "audio/ogg",
-        "m4b": "audio/mp4",
-        "m4a": "audio/mp4",
-        "mp3": "audio/mpeg",
-    }
+    mime_types = {"opus": "audio/ogg", "m4b": "audio/mp4", "m4a": "audio/mp4", "mp3": "audio/mpeg"}
     mimetype = mime_types.get(file_format, "application/octet-stream")
 
-    return send_file(
-        file_path,
-        mimetype=mimetype,
-        as_attachment=False,
-        conditional=True,
-    )
+    return send_file(file_path, mimetype=mimetype, as_attachment=False, conditional=True)
 
 
 @audiobooks_bp.route("/api/download/<int:audiobook_id>")
@@ -971,8 +922,7 @@ def download_audiobook(audiobook_id: int) -> FlaskResponse:
     cursor = conn.cursor()
 
     cursor.execute(
-        "SELECT title, author, file_path, format FROM audiobooks WHERE id = ?",
-        (audiobook_id,),
+        "SELECT title, author, file_path, format FROM audiobooks WHERE id = ?", (audiobook_id,)
     )
     row = cursor.fetchone()
     conn.close()
@@ -1002,20 +952,10 @@ def download_audiobook(audiobook_id: int) -> FlaskResponse:
         download_name = f"{sanitize(title)}.{file_format}"
 
     # Map file formats to MIME types
-    mime_types = {
-        "opus": "audio/ogg",
-        "m4b": "audio/mp4",
-        "m4a": "audio/mp4",
-        "mp3": "audio/mpeg",
-    }
+    mime_types = {"opus": "audio/ogg", "m4b": "audio/mp4", "m4a": "audio/mp4", "mp3": "audio/mpeg"}
     mimetype = mime_types.get(file_format, "application/octet-stream")
 
-    return send_file(
-        file_path,
-        mimetype=mimetype,
-        as_attachment=True,
-        download_name=download_name,
-    )
+    return send_file(file_path, mimetype=mimetype, as_attachment=True, download_name=download_name)
 
 
 @audiobooks_bp.route("/health")

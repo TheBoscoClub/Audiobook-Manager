@@ -184,9 +184,7 @@ class TestFieldContract:
     def test_literary_era_key_exists_and_is_string(self, sample_metadata):
         """enrich_metadata must produce 'literary_era' as a string."""
         enriched = enrich_metadata(sample_metadata.copy())
-        assert "literary_era" in enriched, (
-            "Missing 'literary_era' key in enriched metadata"
-        )
+        assert "literary_era" in enriched, "Missing 'literary_era' key in enriched metadata"
         assert isinstance(enriched["literary_era"], str), (
             f"'literary_era' must be a string, got {type(enriched['literary_era']).__name__}"
         )
@@ -336,12 +334,8 @@ class TestEndToEndChain:
         assert enriched_a["genres"] == enriched_b["genres"]
 
         # The genres table should have only one row for this genre
-        cursor.execute(
-            "SELECT COUNT(*) FROM genres WHERE name = ?", (enriched_a["genres"][0],)
-        )
-        assert cursor.fetchone()[0] == 1, (
-            "Shared genre should have exactly one row in genres table"
-        )
+        cursor.execute("SELECT COUNT(*) FROM genres WHERE name = ?", (enriched_a["genres"][0],))
+        assert cursor.fetchone()[0] == 1, "Shared genre should have exactly one row in genres table"
 
         # Both junction table entries should reference the same genre_id
         cursor.execute("SELECT DISTINCT genre_id FROM audiobook_genres")
@@ -505,24 +499,19 @@ class TestEdgeCases:
 
         cursor = test_db.cursor()
         cursor.execute(
-            "SELECT COUNT(*) FROM audiobook_genres WHERE audiobook_id = ?",
-            (audiobook_id,),
+            "SELECT COUNT(*) FROM audiobook_genres WHERE audiobook_id = ?", (audiobook_id,)
         )
-        assert cursor.fetchone()[0] == 0, (
-            "Empty genre should produce zero genre junction rows"
-        )
+        assert cursor.fetchone()[0] == 0, "Empty genre should produce zero genre junction rows"
 
         # Empty year still produces an "Unknown Era" entry
         cursor.execute(
-            "SELECT COUNT(*) FROM audiobook_eras WHERE audiobook_id = ?",
-            (audiobook_id,),
+            "SELECT COUNT(*) FROM audiobook_eras WHERE audiobook_id = ?", (audiobook_id,)
         )
         assert cursor.fetchone()[0] == 1
 
         # Empty description produces "general" topic
         cursor.execute(
-            "SELECT COUNT(*) FROM audiobook_topics WHERE audiobook_id = ?",
-            (audiobook_id,),
+            "SELECT COUNT(*) FROM audiobook_topics WHERE audiobook_id = ?", (audiobook_id,)
         )
         assert cursor.fetchone()[0] == 1
 

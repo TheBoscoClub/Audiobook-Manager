@@ -29,22 +29,14 @@ _LAST_NAME_PREFIXES = {"le", "de", "la", "van", "von", "der", "den", "del", "da"
 def _parse_last_first_format(full_name):
     """Handle 'Last, First' format. Returns (first, last) or None."""
     parts = full_name.split(",")
-    if (
-        len(parts) == 2
-        and len(parts[0].split()) == 1
-        and len(parts[1].strip().split()) == 1
-    ):
+    if len(parts) == 2 and len(parts[0].split()) == 1 and len(parts[1].strip().split()) == 1:
         return (parts[1].strip(), parts[0].strip())
     return None
 
 
 def _clean_name_input(full_name):
     """Clean and normalize a full name string. Returns cleaned name or None."""
-    if not full_name or full_name.lower() in [
-        "unknown author",
-        "unknown narrator",
-        "audiobook",
-    ]:
+    if not full_name or full_name.lower() in ["unknown author", "unknown narrator", "audiobook"]:
         return None
 
     # Remove role suffixes like "(editor)", "(translator)"
@@ -212,7 +204,7 @@ def get_file_acquired_date(file_path):
         if path.exists():
             mtime = path.stat().st_mtime
             return datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
-    except (OSError, ValueError):
+    except OSError, ValueError:
         pass  # Non-critical: return None if file stat fails
     return None
 
@@ -336,13 +328,7 @@ def populate_sort_fields(dry_run=True):
     print(f"Processing {len(audiobooks)} audiobooks...")
     print()
 
-    totals = {
-        "author_names": 0,
-        "narrator_names": 0,
-        "series_seq": 0,
-        "edition": 0,
-        "acquired": 0,
-    }
+    totals = {"author_names": 0, "narrator_names": 0, "series_seq": 0, "edition": 0, "acquired": 0}
     sample_updates = []
 
     for book in audiobooks:
@@ -358,9 +344,7 @@ def populate_sort_fields(dry_run=True):
             _apply_book_update(cursor, book["id"], book_updates)
 
         if len(sample_updates) < 10:
-            sample_updates.append(
-                {"title": book["title"][:50], "updates": book_updates}
-            )
+            sample_updates.append({"title": book["title"][:50], "updates": book_updates})
 
     if not dry_run:
         conn.commit()
@@ -372,9 +356,7 @@ def populate_sort_fields(dry_run=True):
 def main():
     parser = ArgumentParser(description="Populate sort fields for audiobooks database")
     parser.add_argument(
-        "--execute",
-        action="store_true",
-        help="Actually apply changes (default is dry run)",
+        "--execute", action="store_true", help="Actually apply changes (default is dry run)"
     )
     args = parser.parse_args()
     populate_sort_fields(dry_run=not args.execute)

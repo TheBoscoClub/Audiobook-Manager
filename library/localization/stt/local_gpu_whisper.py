@@ -100,18 +100,14 @@ class LocalGPUWhisperSTT(STTProvider):
         try:
             resp = requests.get(f"{self._base_url}/health", timeout=3)
             return resp.ok and resp.json().get("status") == "ok"
-        except (requests.ConnectionError, requests.Timeout):
+        except requests.ConnectionError, requests.Timeout:
             return False
 
     def transcribe(self, audio_path: Path, language: str = "en") -> Transcript:
         if not audio_path.exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
 
-        logger.info(
-            "Transcribing %s via local GPU Whisper (lang=%s)",
-            audio_path.name,
-            language,
-        )
+        logger.info("Transcribing %s via local GPU Whisper (lang=%s)", audio_path.name, language)
 
         with open(audio_path, "rb") as f:
             resp = requests.post(

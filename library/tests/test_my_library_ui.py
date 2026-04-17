@@ -73,9 +73,7 @@ class TestProgressBarCSS:
 
     @pytest.fixture
     def components_css(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "css", "components.css"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "css", "components.css")
         with open(path) as f:
             return f.read()
 
@@ -94,9 +92,7 @@ class TestTabBarCSS:
 
     @pytest.fixture
     def layout_css(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "css", "layout.css"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "css", "layout.css")
         with open(path) as f:
             return f.read()
 
@@ -135,9 +131,7 @@ class TestMyLibraryJS:
 
     @pytest.fixture
     def library_js(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "js", "library.js"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "js", "library.js")
         with open(path) as f:
             return f.read()
 

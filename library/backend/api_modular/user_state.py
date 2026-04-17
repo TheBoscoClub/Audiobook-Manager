@@ -23,7 +23,7 @@ from datetime import datetime
 
 from flask import Blueprint, jsonify, request
 
-from .auth import get_auth_db, get_current_user, login_required
+from .auth import get_auth_db, login_required, require_current_user
 
 # Import auth models for per-user state
 from auth import (
@@ -51,9 +51,7 @@ def init_user_state_routes(database_path: str) -> None:
 def _get_library_db() -> sqlite3.Connection:
     """Get library database connection."""
     if _db_path is None:
-        raise RuntimeError(
-            "User state routes not initialized. Call init_user_state_routes first."
-        )
+        raise RuntimeError("User state routes not initialized. Call init_user_state_routes first.")
     conn = sqlite3.connect(_db_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -76,19 +74,19 @@ def get_history():
         limit:  Number of records (default 50, max 200)
         offset: Pagination offset (default 0)
     """
-    user = get_current_user()
+    user = require_current_user()
     try:
         limit = max(1, min(int(request.args.get("limit", 50)), 200))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         limit = 50
     try:
         offset = max(0, int(request.args.get("offset", 0)))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         offset = 0
 
     auth_db = get_auth_db()
     repo = ListeningHistoryRepository(auth_db)
-    items = repo.get_for_user(user.id, limit=limit, offset=offset)
+    items = repo.get_for_user(user.ensured_id, limit=limit, offset=offset)
 
     return jsonify(
         {
@@ -126,19 +124,19 @@ def get_downloads():
         limit:  Number of records (default 50, max 200)
         offset: Pagination offset (default 0)
     """
-    user = get_current_user()
+    user = require_current_user()
     try:
         limit = max(1, min(int(request.args.get("limit", 50)), 200))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         limit = 50
     try:
         offset = max(0, int(request.args.get("offset", 0)))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         offset = 0
 
     auth_db = get_auth_db()
     repo = DownloadRepository(auth_db)
-    items = repo.get_for_user(user.id, limit=limit, offset=offset)
+    items = repo.get_for_user(user.ensured_id, limit=limit, offset=offset)
 
     return jsonify(
         {
@@ -146,9 +144,7 @@ def get_downloads():
                 {
                     "id": d.id,
                     "audiobook_id": d.audiobook_id,
-                    "downloaded_at": (
-                        d.downloaded_at.isoformat() if d.downloaded_at else None
-                    ),
+                    "downloaded_at": (d.downloaded_at.isoformat() if d.downloaded_at else None),
                     "file_format": d.file_format,
                 }
                 for d in items
@@ -174,8 +170,8 @@ def record_download_complete(audiobook_id: int):
     JSON body (optional):
         file_format: Format of the downloaded file (e.g., "opus", "mp3")
     """
-    user = get_current_user()
-    if user is None or user.id is None:
+    user = require_current_user()
+    if user.id is None:
         return jsonify({"error": "User not found"}), 401
 
     # Verify the audiobook exists and get title for denormalized storage
@@ -196,20 +192,11 @@ def record_download_complete(audiobook_id: int):
 
     auth_db = get_auth_db()
     download = UserDownload(
-        user_id=user.id,
-        audiobook_id=str(audiobook_id),
-        title=book_title,
-        file_format=file_format,
+        user_id=user.id, audiobook_id=str(audiobook_id), title=book_title, file_format=file_format
     )
     download.save(auth_db)
 
-    return jsonify(
-        {
-            "success": True,
-            "download_id": download.id,
-            "audiobook_id": audiobook_id,
-        }
-    )
+    return jsonify({"success": True, "download_id": download.id, "audiobook_id": audiobook_id})
 
 
 # ============================================================
@@ -231,12 +218,7 @@ def _collect_user_book_ids(auth_db, user_id):
     positions = position_repo.get_all_for_user(user_id)
     position_ids = {str(p.audiobook_id) for p in positions}
 
-    return (
-        history_ids | download_ids | position_ids,
-        history_ids,
-        download_ids,
-        position_ids,
-    )
+    return (history_ids | download_ids | position_ids, history_ids, download_ids, position_ids)
 
 
 def _apply_hidden_filter(all_ids, hidden_ids, show_hidden):
@@ -284,7 +266,7 @@ def _safe_int_ids(str_ids):
     for aid in str_ids:
         try:
             result.append(int(aid))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
     return result
 
@@ -333,18 +315,16 @@ def get_user_library():
 
     Cross-references auth DB data with library DB for metadata.
     """
-    user = get_current_user()
+    user = require_current_user()
     auth_db = get_auth_db()
 
     # Hidden books filtering
     hidden_repo = HiddenBookRepository(auth_db)
-    hidden_ids = hidden_repo.get_hidden_ids(user.id)
+    hidden_ids = hidden_repo.get_hidden_ids(user.ensured_id)
     show_hidden = request.args.get("hidden", "").lower() == "true"
 
     # Collect all book IDs from user activity
-    all_ids, history_ids, download_ids, position_ids = _collect_user_book_ids(
-        auth_db, user.id
-    )
+    all_ids, history_ids, download_ids, position_ids = _collect_user_book_ids(auth_db, user.id)
     all_ids, hidden_count = _apply_hidden_filter(all_ids, hidden_ids, show_hidden)
 
     if not all_ids:
@@ -362,12 +342,7 @@ def get_user_library():
         return jsonify({"books": [], "total": 0})
 
     books = _fetch_library_metadata(
-        int_ids,
-        history_ids,
-        download_ids,
-        position_ids,
-        listened_map,
-        downloaded_map,
+        int_ids, history_ids, download_ids, position_ids, listened_map, downloaded_map
     )
 
     return jsonify({"books": books, "total": len(books), "hidden_count": hidden_count})
@@ -382,7 +357,7 @@ def get_user_library():
 @login_required
 def hide_books():
     """Hide one or more books from the user's My Library view."""
-    user = get_current_user()
+    user = require_current_user()
     auth_db = get_auth_db()
 
     data = request.get_json(silent=True)
@@ -394,7 +369,7 @@ def hide_books():
         return jsonify({"error": "audiobook_ids must be a list of integers"}), 400
 
     repo = HiddenBookRepository(auth_db)
-    count = repo.hide(user.id, ids)
+    count = repo.hide(user.ensured_id, ids)
     return jsonify({"success": True, "hidden_count": count})
 
 
@@ -407,7 +382,7 @@ def hide_books():
 @login_required
 def unhide_books():
     """Unhide one or more books, restoring them to My Library view."""
-    user = get_current_user()
+    user = require_current_user()
     auth_db = get_auth_db()
 
     data = request.get_json(silent=True)
@@ -419,7 +394,7 @@ def unhide_books():
         return jsonify({"error": "audiobook_ids must be a list of integers"}), 400
 
     repo = HiddenBookRepository(auth_db)
-    count = repo.unhide(user.id, ids)
+    count = repo.unhide(user.ensured_id, ids)
     return jsonify({"success": True, "unhidden_count": count})
 
 
@@ -436,11 +411,11 @@ def get_new_books():
 
     If new_books_seen_at is NULL (first visit), returns ALL books.
     """
-    user = get_current_user()
+    user = require_current_user()
     auth_db = get_auth_db()
 
     prefs_repo = PreferencesRepository(auth_db)
-    prefs = prefs_repo.get_or_create(user.id)
+    prefs = prefs_repo.get_or_create(user.ensured_id)
 
     conn = _get_library_db()
     try:
@@ -480,9 +455,7 @@ def get_new_books():
                 "books": books,
                 "total": len(books),
                 "new_books_seen_at": (
-                    prefs.new_books_seen_at.isoformat()
-                    if prefs.new_books_seen_at
-                    else None
+                    prefs.new_books_seen_at.isoformat() if prefs.new_books_seen_at else None
                 ),
             }
         )
@@ -501,19 +474,14 @@ def dismiss_new_books():
     """
     Mark all current books as "seen" by setting new_books_seen_at to now.
     """
-    user = get_current_user()
+    user = require_current_user()
     auth_db = get_auth_db()
 
     prefs_repo = PreferencesRepository(auth_db)
-    prefs = prefs_repo.get_or_create(user.id)
+    prefs = prefs_repo.get_or_create(user.ensured_id)
 
     now = datetime.now()
     prefs.new_books_seen_at = now
     prefs.save(auth_db)
 
-    return jsonify(
-        {
-            "success": True,
-            "new_books_seen_at": now.isoformat(),
-        }
-    )
+    return jsonify({"success": True, "new_books_seen_at": now.isoformat()})

@@ -39,14 +39,9 @@ def _create_test_db(db_path: Path) -> Path:
 def _create_db_with_supplements(db_path: Path, rows: list[tuple]) -> Path:
     """Create a DB with a supplements table populated with (id, file_path) rows."""
     conn = sqlite3.connect(str(db_path))
-    conn.execute(
-        "CREATE TABLE supplements (id INTEGER PRIMARY KEY, file_path TEXT NOT NULL)"
-    )
+    conn.execute("CREATE TABLE supplements (id INTEGER PRIMARY KEY, file_path TEXT NOT NULL)")
     for row_id, file_path in rows:
-        conn.execute(
-            "INSERT INTO supplements (id, file_path) VALUES (?, ?)",
-            (row_id, file_path),
-        )
+        conn.execute("INSERT INTO supplements (id, file_path) VALUES (?, ?)", (row_id, file_path))
     conn.commit()
     conn.close()
     return db_path
@@ -403,10 +398,7 @@ class TestOrphanedSupplementsExecute:
         """execute finds no orphans when all supplement files exist on disk."""
         real_file = tmp_path / "supplement1.pdf"
         real_file.write_text("content")
-        db = _create_db_with_supplements(
-            tmp_path / "test.db",
-            [(1, str(real_file))],
-        )
+        db = _create_db_with_supplements(tmp_path / "test.db", [(1, str(real_file))])
         mock_resolve.return_value = db
         task = OrphanedSupplementsTask()
         result = task.execute({})
@@ -482,8 +474,7 @@ class TestOrphanedSupplementsExecute:
         real_file = tmp_path / "exists.pdf"
         real_file.write_text("content")
         db = _create_db_with_supplements(
-            tmp_path / "test.db",
-            [(1, str(real_file)), (2, "/missing.pdf")],
+            tmp_path / "test.db", [(1, str(real_file)), (2, "/missing.pdf")]
         )
         mock_resolve.return_value = db
         cb = MagicMock()
@@ -496,10 +487,7 @@ class TestOrphanedSupplementsExecute:
     @patch("backend.api_modular.maintenance_tasks.cleanup._resolve_db_path")
     def test_execute_without_callback(self, mock_resolve, tmp_path):
         """execute works fine without a progress_callback."""
-        db = _create_db_with_supplements(
-            tmp_path / "test.db",
-            [(1, "/missing.pdf")],
-        )
+        db = _create_db_with_supplements(tmp_path / "test.db", [(1, "/missing.pdf")])
         mock_resolve.return_value = db
         task = OrphanedSupplementsTask()
         result = task.execute({})
@@ -553,10 +541,7 @@ class TestStagingCleanupExecute:
         task = StagingCleanupTask()
         with patch.dict(os.environ, {"AUDIOBOOKS_STAGING": str(nonexistent)}):
             # Force ImportError on config import so it falls through to env var
-            with patch.dict(
-                "sys.modules",
-                {"config": None},
-            ):
+            with patch.dict("sys.modules", {"config": None}):
                 result = task.execute({})
         assert result.success is True
         assert "does not exist" in result.message

@@ -24,16 +24,7 @@ from functools import wraps
 from pathlib import Path
 from typing import Optional, Callable, Any
 
-from flask import (
-    Blueprint,
-    Response,
-    jsonify,
-    make_response,
-    redirect,
-    request,
-    g,
-    current_app,
-)
+from flask import Blueprint, Response, jsonify, make_response, redirect, request, g, current_app
 
 # Add parent paths for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -128,9 +119,7 @@ def _validate_username_strict(username: str) -> tuple[dict, int] | None:
     if len(username) > 24:
         return {"error": "Username must be at most 24 characters"}, 400
     if not _re.match(r"^[a-zA-Z0-9-]+$", username):
-        return {
-            "error": "Username must contain only letters, numbers, and hyphens"
-        }, 400
+        return {"error": "Username must contain only letters, numbers, and hyphens"}, 400
     return None
 
 
@@ -144,11 +133,7 @@ def _validate_email_format(email: str) -> tuple[dict, int] | None:
     return None
 
 
-def _validate_webauthn_reg_input(
-    token: str,
-    data: dict,
-    auth_type: str,
-) -> tuple[dict, int] | None:
+def _validate_webauthn_reg_input(token: str, data: dict, auth_type: str) -> tuple[dict, int] | None:
     """Validate inputs for WebAuthn registration completion."""
     if not token:
         return {"error": "Token, credential, and challenge are required"}, 400
@@ -181,12 +166,7 @@ def _resolve_claim_error(
     status: str, message: str, code: int = 400
 ) -> tuple[None, None, None, tuple]:
     """Build a standard claim-token error return tuple."""
-    return (
-        None,
-        None,
-        None,
-        (jsonify({"valid": False, "status": status, "error": message}), code),
-    )
+    return (None, None, None, (jsonify({"valid": False, "status": status, "error": message}), code))
 
 
 def _extract_recovery_fields(data: dict) -> tuple[str | None, str | None, bool]:
@@ -207,7 +187,7 @@ def _parse_invite_meta(backup_codes_json: str | None) -> bool:
         meta = _json.loads(backup_codes_json)
         if isinstance(meta, dict) and meta.get("invited"):
             return meta.get("can_download", True)
-    except (_json.JSONDecodeError, TypeError):
+    except _json.JSONDecodeError, TypeError:
         pass
     return True
 
@@ -280,15 +260,11 @@ def _setup_passkey_data(db, username: str) -> dict:
     return {
         "claim_token": formatted_token,
         "claim_url": claim_url,
-        "expires_at": (
-            pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
-        ),
+        "expires_at": (pending_reg.expires_at.isoformat() if pending_reg.expires_at else None),
     }
 
 
-def _switch_auth_method(
-    user, db, auth_method: str, data: dict
-) -> tuple[dict, tuple | None]:
+def _switch_auth_method(user, db, auth_method: str, data: dict) -> tuple[dict, tuple | None]:
     """Execute auth method switch for a user.
 
     Returns (setup_data, error_response_or_none).
@@ -307,10 +283,7 @@ def _switch_auth_method(
         user_email = user.recovery_email or ""
         effective_email = email or user_email
         if not effective_email:
-            return {}, (
-                jsonify({"error": "Email is required for magic_link auth method"}),
-                400,
-            )
+            return {}, (jsonify({"error": "Email is required for magic_link auth method"}), 400)
         user.auth_type = AuthType.MAGIC_LINK
         user.auth_credential = b""
         if email:
@@ -327,14 +300,7 @@ def _switch_auth_method(
 
 
 def _apply_claim_credentials_reset(
-    existing_user,
-    db,
-    obj,
-    auth_method,
-    username,
-    recovery_email,
-    recovery_phone,
-    recovery_enabled,
+    existing_user, db, obj, auth_method, username, recovery_email, recovery_phone, recovery_enabled
 ):
     """Handle credential reset for an existing user during claim flow.
 
@@ -414,13 +380,7 @@ def _apply_claim_credentials_reset(
 
 
 def _apply_claim_new_user_totp(
-    db,
-    username,
-    can_download,
-    recovery_email,
-    recovery_phone,
-    recovery_enabled,
-    access_req_id,
+    db, username, can_download, recovery_email, recovery_phone, recovery_enabled, access_req_id
 ):
     """Create a new TOTP user during claim flow. Returns Flask JSON response."""
     totp_secret, totp_base32, totp_uri = setup_totp(username)
@@ -437,7 +397,7 @@ def _apply_claim_new_user_totp(
     )
     new_user.save(db)
 
-    backup_codes = BackupCodeRepository(db).create_codes_for_user(new_user.id)
+    backup_codes = BackupCodeRepository(db).create_codes_for_user(new_user.ensured_id)
     AccessRequestRepository(db).mark_credentials_claimed(access_req_id)
 
     response_data = {
@@ -469,12 +429,7 @@ def _apply_claim_new_user_totp(
 
 
 def _apply_claim_new_user_magic_link(
-    db,
-    username,
-    can_download,
-    recovery_email,
-    recovery_phone,
-    access_req_id,
+    db, username, can_download, recovery_email, recovery_phone, access_req_id
 ):
     """Create a new magic_link user during claim flow. Returns Flask JSON response."""
     new_user = User(
@@ -489,7 +444,7 @@ def _apply_claim_new_user_magic_link(
     )
     new_user.save(db)
 
-    backup_codes = BackupCodeRepository(db).create_codes_for_user(new_user.id)
+    backup_codes = BackupCodeRepository(db).create_codes_for_user(new_user.ensured_id)
     AccessRequestRepository(db).mark_credentials_claimed(access_req_id)
 
     return jsonify(
@@ -529,9 +484,7 @@ def _verify_webauthn_credential(data, origin, rp_id):
         logger.warning("Invalid challenge format: %s", e)
         return None, None, (jsonify({"error": "Invalid challenge format"}), 400)
 
-    credential_json = (
-        json.dumps(credential) if isinstance(credential, dict) else credential
-    )
+    credential_json = json.dumps(credential) if isinstance(credential, dict) else credential
 
     webauthn_cred = webauthn_verify_registration(
         credential_json=credential_json,
@@ -546,11 +499,7 @@ def _verify_webauthn_credential(data, origin, rp_id):
     return webauthn_cred, challenge, None
 
 
-def init_auth_routes(
-    auth_db_path: Path,
-    auth_key_path: Path,
-    is_dev: bool = False,
-) -> None:
+def init_auth_routes(auth_db_path: Path, auth_key_path: Path, is_dev: bool = False) -> None:
     """
     Initialize auth routes with dependencies.
 
@@ -561,11 +510,7 @@ def init_auth_routes(
     """
     global _auth_db, _session_cookie_secure
 
-    _auth_db = AuthDatabase(
-        db_path=str(auth_db_path),
-        key_path=str(auth_key_path),
-        is_dev=is_dev,
-    )
+    _auth_db = AuthDatabase(db_path=str(auth_db_path), key_path=str(auth_key_path), is_dev=is_dev)
     _auth_db.initialize()
 
     # In dev mode, allow non-secure cookies for localhost
@@ -574,17 +519,13 @@ def init_auth_routes(
 
     # Log WebAuthn configuration at startup
     rp_id, rp_name, origin = get_webauthn_config()
-    logger.info(
-        "WebAuthn config: rp_id=%s, origin=%s, rp_name=%s", rp_id, origin, rp_name
-    )
+    logger.info("WebAuthn config: rp_id=%s, origin=%s, rp_name=%s", rp_id, origin, rp_name)
 
 
 def get_auth_db() -> AuthDatabase:
     """Get the auth database instance."""
     if _auth_db is None:
-        raise RuntimeError(
-            "Auth routes not initialized. Call init_auth_routes() first."
-        )
+        raise RuntimeError("Auth routes not initialized. Call init_auth_routes() first.")
     return _auth_db
 
 
@@ -646,6 +587,55 @@ def get_current_session() -> Optional[Session]:
     return g._current_session
 
 
+def require_current_user() -> User:
+    """Return the current authenticated user or raise assertion error.
+
+    ONLY call this inside route handlers decorated with ``@login_required``
+    or ``@admin_required`` — those decorators guarantee the user is not None
+    before the handler body runs. The assert is a mypy type-narrowing aid
+    with no runtime behavior change in decorated routes.
+
+    Raises:
+        AssertionError: if called outside a protected route (bug — use
+        ``get_current_user()`` and handle None explicitly instead).
+    """
+    user = get_current_user()
+    assert user is not None, "require_current_user() called without @login_required/@admin_required"
+    return user
+
+
+def require_current_user_id() -> int:
+    """Return the current authenticated user's ID (narrowed to ``int``).
+
+    A persisted User always has a non-None ``id``; since ``@login_required``
+    guarantees the session resolves to a persisted user, the id is likewise
+    guaranteed non-None inside a decorated route body. This helper makes that
+    invariant visible to mypy so callers can pass the id to repository
+    functions typed ``int``.
+
+    Raises:
+        AssertionError: if called outside a protected route, or if the
+        resolved User somehow has ``id is None`` (would indicate a
+        data-integrity bug in session / user persistence).
+    """
+    user = require_current_user()
+    assert user.id is not None, "persisted User must have non-None id"
+    return user.id
+
+
+def require_current_session() -> Session:
+    """Return the current authenticated session or raise assertion error.
+
+    ONLY call this inside route handlers decorated with ``@login_required``
+    or ``@admin_required``. See :func:`require_current_user` for rationale.
+    """
+    session = get_current_session()
+    assert session is not None, (
+        "require_current_session() called without @login_required/@admin_required"
+    )
+    return session
+
+
 def login_required(f: Callable) -> Callable:
     """
     Decorator to require authentication for a route.
@@ -701,10 +691,7 @@ def localhost_only(f: Callable) -> Callable:
                 remote_addr = forwarded.split(",")[0].strip()
 
             if remote_addr not in ("127.0.0.1", "::1", "localhost"):
-                return (
-                    jsonify({"error": "Access denied"}),
-                    404,
-                )  # Return 404 to hide existence
+                return (jsonify({"error": "Access denied"}), 404)  # Return 404 to hide existence
         return f(*args, **kwargs)
 
     return decorated
@@ -843,9 +830,7 @@ SESSION_DURATION_DEFAULT = None  # Session cookie (cleared on browser close)
 SESSION_DURATION_REMEMBER = 10 * 365 * 24 * 60 * 60  # ~10 years (until sign-out)
 
 
-def set_session_cookie(
-    response: Response, token: str, remember_me: bool = False
-) -> Response:
+def set_session_cookie(response: Response, token: str, remember_me: bool = False) -> Response:
     """Set the session cookie on a response."""
     max_age = SESSION_DURATION_REMEMBER if remember_me else SESSION_DURATION_DEFAULT
     response.set_cookie(
@@ -920,9 +905,9 @@ def login():
 
     # Create session (invalidates any existing session)
     allow_multi = _user_allows_multi_session(user, db)
-    session, token = Session.create_for_user(
+    _, token = Session.create_for_user(
         db,
-        user.id,
+        user.ensured_id,
         user_agent=request.headers.get("User-Agent"),
         ip_address=request.remote_addr,
         remember_me=remember_me,
@@ -1038,13 +1023,13 @@ def get_current_user_info():
     Returns:
         200: {"user": {...}, "session": {...}}
     """
-    user = get_current_user()
-    session = get_current_session()
+    user = require_current_user()
+    session = require_current_session()
 
     # Get active notifications
     db = get_auth_db()
     notif_repo = NotificationRepository(db)
-    notifications = notif_repo.get_active_for_user(user.id)
+    notifications = notif_repo.get_active_for_user(user.ensured_id)
 
     return jsonify(
         {
@@ -1059,12 +1044,8 @@ def get_current_user_info():
                 "last_login": user.last_login.isoformat() if user.last_login else None,
             },
             "session": {
-                "created_at": (
-                    session.created_at.isoformat() if session.created_at else None
-                ),
-                "last_seen": (
-                    session.last_seen.isoformat() if session.last_seen else None
-                ),
+                "created_at": (session.created_at.isoformat() if session.created_at else None),
+                "last_seen": (session.last_seen.isoformat() if session.last_seen else None),
             },
             "notifications": [
                 {
@@ -1095,7 +1076,7 @@ def update_current_user():
         400: {"error": "..."}
         409: {"error": "Username already taken"}
     """
-    user = get_current_user()
+    user = require_current_user()
     data = request.get_json() or {}
     db = get_auth_db()
     user_repo = UserRepository(db)
@@ -1105,7 +1086,7 @@ def update_current_user():
         err = _validate_username(new_username)
         if err:
             return jsonify(err[0]), err[1]
-        if not user_repo.update_username(user.id, new_username):
+        if not user_repo.update_username(user.ensured_id, new_username):
             return jsonify({"error": "Username already taken"}), 409
 
     if "email" in data:
@@ -1116,17 +1097,12 @@ def update_current_user():
                 return jsonify(err[0]), err[1]
         else:
             new_email = None
-        user_repo.update_email(user.id, new_email)
+        user_repo.update_email(user.ensured_id, new_email)
 
-    updated_user = user_repo.get_by_id(user.id)
+    updated_user = user_repo.get_by_id(user.ensured_id)
     _audit_profile_changes(db, user, data, new_username)
 
-    return jsonify(
-        {
-            "success": True,
-            "user": _user_dict(updated_user, include_auth_type=True),
-        }
-    )
+    return jsonify({"success": True, "user": _user_dict(updated_user, include_auth_type=True)})
 
 
 def _audit_profile_changes(db, user, data, new_username):
@@ -1167,7 +1143,7 @@ def update_auth_method():
         200: {"success": true, "auth_type": "..."}
         400: {"error": "..."}
     """
-    user = get_current_user()
+    user = require_current_user()
     data = request.get_json() or {}
 
     auth_method = data.get("auth_method", "").strip()
@@ -1201,9 +1177,7 @@ def _update_auth_to_magic_link(user, db):
     """Switch user to magic_link auth. Requires email already set."""
     if not user.recovery_email:
         return (
-            jsonify(
-                {"error": "Email address required. Add an email in your profile first."}
-            ),
+            jsonify({"error": "Email address required. Add an email in your profile first."}),
             400,
         )
     with db.connection() as conn:
@@ -1225,12 +1199,7 @@ def _update_auth_totp_phase(user, data, db, phase):
         )
         _pending_totp_secrets[user.id] = secret
         return jsonify(
-            {
-                "success": True,
-                "phase": "setup",
-                "totp_secret": secret,
-                "totp_uri": totp_uri,
-            }
+            {"success": True, "phase": "setup", "totp_secret": secret, "totp_uri": totp_uri}
         )
 
     if phase == "confirm":
@@ -1279,7 +1248,7 @@ def begin_webauthn_switch():
     """
     from webauthn.helpers import bytes_to_base64url
 
-    user = get_current_user()
+    user = require_current_user()
     data = request.get_json() or {}
     auth_type = data.get("auth_type", "passkey").strip().lower()
 
@@ -1290,14 +1259,11 @@ def begin_webauthn_switch():
     authenticator_type = "platform" if auth_type == "passkey" else "cross-platform"
 
     options_json, challenge = webauthn_registration_options(
-        username=user.username,
-        rp_id=rp_id,
-        rp_name=rp_name,
-        authenticator_type=authenticator_type,
+        username=user.username, rp_id=rp_id, rp_name=rp_name, authenticator_type=authenticator_type
     )
 
     challenge_b64 = bytes_to_base64url(challenge)
-    _pending_webauthn_challenges[user.id] = challenge_b64
+    _pending_webauthn_challenges[user.ensured_id] = challenge_b64
 
     return jsonify({"options": options_json, "challenge": challenge_b64})
 
@@ -1319,7 +1285,7 @@ def complete_webauthn_switch():
     """
     from webauthn.helpers import base64url_to_bytes
 
-    user = get_current_user()
+    user = require_current_user()
     data = request.get_json() or {}
 
     credential_data = data.get("credential")
@@ -1333,7 +1299,7 @@ def complete_webauthn_switch():
         return jsonify({"error": "Invalid auth type"}), 400
 
     # Verify challenge matches
-    pending_challenge = _pending_webauthn_challenges.get(user.id)
+    pending_challenge = _pending_webauthn_challenges.get(user.ensured_id)
     if not pending_challenge or pending_challenge != challenge_b64:
         return jsonify({"error": "Invalid or expired challenge. Start over."}), 400
 
@@ -1342,9 +1308,7 @@ def complete_webauthn_switch():
 
     # Convert credential to JSON string if it's a dict
     credential_json = (
-        json.dumps(credential_data)
-        if isinstance(credential_data, dict)
-        else credential_data
+        json.dumps(credential_data) if isinstance(credential_data, dict) else credential_data
     )
 
     webauthn_cred = webauthn_verify_registration(
@@ -1355,7 +1319,7 @@ def complete_webauthn_switch():
     )
 
     if webauthn_cred is None:
-        _pending_webauthn_challenges.pop(user.id, None)
+        _pending_webauthn_challenges.pop(user.ensured_id, None)
         return jsonify({"error": "WebAuthn verification failed"}), 400
 
     # Store credential and switch auth type
@@ -1383,7 +1347,7 @@ def complete_webauthn_switch():
             ),
         )
 
-    _pending_webauthn_challenges.pop(user.id, None)
+    _pending_webauthn_challenges.pop(user.ensured_id, None)
 
     return jsonify({"success": True, "auth_type": auth_type})
 
@@ -1399,11 +1363,7 @@ def check_auth():
     user = get_current_user()
     if user:
         return jsonify(
-            {
-                "authenticated": True,
-                "username": user.username,
-                "is_admin": user.is_admin,
-            }
+            {"authenticated": True, "username": user.username, "is_admin": user.is_admin}
         )
     return jsonify({"authenticated": False})
 
@@ -1468,9 +1428,7 @@ def _check_duplicate_request(request_repo, username):
     if not request_repo.has_any_request(username):
         return None
     if request_repo.has_pending_request(username):
-        return jsonify(
-            {"error": "Access request already pending for this username"}
-        ), 400
+        return jsonify({"error": "Access request already pending for this username"}), 400
     return jsonify({"error": "Username already has a previous access request"}), 400
 
 
@@ -1486,7 +1444,7 @@ def _bootstrap_first_user(db, username):
     )
     new_user.save(db)
 
-    codes = BackupCodeRepository(db).create_codes_for_user(new_user.id)
+    codes = BackupCodeRepository(db).create_codes_for_user(new_user.ensured_id)
     qr_png = generate_qr_code(base32_to_secret(totp_base32), username)
     qr_base64 = base64.b64encode(qr_png).decode("ascii")
 
@@ -1550,9 +1508,7 @@ def _resolve_claim_token(username, claim_token):
     claim_token_hash = hash_token(clean_token)
 
     # Path 1: Check access_requests (new user registration)
-    access_req = request_repo.get_pending_by_username_and_token(
-        username, claim_token_hash
-    )
+    access_req = request_repo.get_pending_by_username_and_token(username, claim_token_hash)
     if access_req:
         return _resolve_access_request(access_req, user_repo, username)
 
@@ -1563,21 +1519,14 @@ def _resolve_claim_token(username, claim_token):
 def _resolve_access_request(access_req, user_repo, username):
     """Validate an access request claim token. Returns resolve tuple."""
     if access_req.status == AccessRequestStatus.PENDING:
-        return _resolve_claim_error(
-            "pending", "Your request is still pending admin review"
-        )
+        return _resolve_claim_error("pending", "Your request is still pending admin review")
     if access_req.status == AccessRequestStatus.DENIED:
-        return _resolve_claim_error(
-            "denied", access_req.deny_reason or "Your request was denied"
-        )
+        return _resolve_claim_error("denied", access_req.deny_reason or "Your request was denied")
     if access_req.credentials_claimed or user_repo.username_exists(username):
-        return _resolve_claim_error(
-            "already_claimed", "Credentials have already been claimed."
-        )
+        return _resolve_claim_error("already_claimed", "Credentials have already been claimed.")
     if access_req.is_claim_expired():
         return _resolve_claim_error(
-            "expired",
-            "This invitation has expired. Please ask the admin to send a new one.",
+            "expired", "This invitation has expired. Please ask the admin to send a new one."
         )
     return "new_user", access_req, None, None
 
@@ -1592,17 +1541,13 @@ def _resolve_pending_registration(db, user_repo, clean_token, username):
             None,
             None,
             None,
-            (
-                jsonify({"valid": False, "error": "Invalid username or claim token"}),
-                404,
-            ),
+            (jsonify({"valid": False, "error": "Invalid username or claim token"}), 404),
         )
 
     if pending_reg.is_expired():
         pending_reg.consume(db)
         return _resolve_claim_error(
-            "expired",
-            "This reset token has expired. Please ask the admin for a new one.",
+            "expired", "This reset token has expired. Please ask the admin for a new one."
         )
 
     existing_user = user_repo.get_by_username(username)
@@ -1614,9 +1559,7 @@ def _resolve_pending_registration(db, user_repo, clean_token, username):
             (jsonify({"valid": False, "error": "User account not found"}), 404),
         )
     if existing_user.auth_credential != b"pending":
-        return _resolve_claim_error(
-            "already_claimed", "Credentials have already been set up."
-        )
+        return _resolve_claim_error("already_claimed", "Credentials have already been set up.")
 
     return "credential_reset", pending_reg, existing_user, None
 
@@ -1656,13 +1599,11 @@ def validate_claim_token():
     if not username or not claim_token:
         return jsonify({"error": "Username and claim_token are required"}), 400
 
-    mode, obj, existing_user, error = _resolve_claim_token(username, claim_token)
+    mode, _, _, error = _resolve_claim_token(username, claim_token)
     if error:
         return error
 
-    return jsonify(
-        {"valid": True, "status": "approved", "mode": mode, "username": username}
-    )
+    return jsonify({"valid": True, "status": "approved", "mode": mode, "username": username})
 
 
 @auth_bp.route("/register/claim", methods=["POST"])
@@ -1730,22 +1671,11 @@ def claim_credentials():
 
     if auth_method == "magic_link":
         return _apply_claim_new_user_magic_link(
-            db,
-            username,
-            can_download,
-            recovery_email,
-            recovery_phone,
-            obj.id,
+            db, username, can_download, recovery_email, recovery_phone, obj.id
         )
 
     return _apply_claim_new_user_totp(
-        db,
-        username,
-        can_download,
-        recovery_email,
-        recovery_phone,
-        recovery_enabled,
-        obj.id,
+        db, username, can_download, recovery_email, recovery_phone, recovery_enabled, obj.id
     )
 
 
@@ -1758,14 +1688,10 @@ def _validate_claim_input(data: dict) -> tuple | None:
     if not username or not claim_token:
         return jsonify({"error": "Username and claim_token are required"}), 400
     if auth_method not in ("totp", "magic_link"):
-        return jsonify(
-            {"error": "Invalid auth_method. Use 'totp' or 'magic_link'"}
-        ), 400
+        return jsonify({"error": "Invalid auth_method. Use 'totp' or 'magic_link'"}), 400
     recovery_email = (data.get("recovery_email") or "").strip() or None
     if auth_method == "magic_link" and not recovery_email:
-        return jsonify(
-            {"error": "Email address is required for magic link authentication"}
-        ), 400
+        return jsonify({"error": "Email address is required for magic link authentication"}), 400
     return None
 
 
@@ -1806,7 +1732,7 @@ def claim_webauthn_begin():
     if auth_type not in ("passkey", "fido2"):
         return jsonify({"error": "Invalid auth type. Use 'passkey' or 'fido2'."}), 400
 
-    mode, obj, existing_user, error = _resolve_claim_token(username, claim_token)
+    _, _, _, error = _resolve_claim_token(username, claim_token)
     if error:
         return error
 
@@ -1818,18 +1744,10 @@ def claim_webauthn_begin():
 
     # Generate registration options
     options_json, challenge = webauthn_registration_options(
-        username=username,
-        rp_id=rp_id,
-        rp_name=rp_name,
-        authenticator_type=authenticator_type,
+        username=username, rp_id=rp_id, rp_name=rp_name, authenticator_type=authenticator_type
     )
 
-    return jsonify(
-        {
-            "options": options_json,
-            "challenge": bytes_to_base64url(challenge),
-        }
-    )
+    return jsonify({"options": options_json, "challenge": bytes_to_base64url(challenge)})
 
 
 @auth_bp.route("/register/claim/webauthn/complete", methods=["POST"])
@@ -1939,9 +1857,7 @@ def _claim_webauthn_reset(
     recovery_enabled,
 ):
     """Handle WebAuthn credential reset for existing user. Returns (data, token)."""
-    existing_user.auth_type = (
-        AuthType.PASSKEY if auth_type == "passkey" else AuthType.FIDO2
-    )
+    existing_user.auth_type = AuthType.PASSKEY if auth_type == "passkey" else AuthType.FIDO2
     existing_user.auth_credential = webauthn_cred.to_json().encode("utf-8")
     if recovery_email:
         existing_user.recovery_email = recovery_email
@@ -1953,7 +1869,7 @@ def _claim_webauthn_reset(
 
     backup_codes = BackupCodeRepository(db).create_codes_for_user(existing_user.id)
     allow_multi = _user_allows_multi_session(existing_user, db)
-    session, token = Session.create_for_user(
+    _, token = Session.create_for_user(
         db,
         existing_user.id,
         user_agent=request.headers.get("User-Agent"),
@@ -1973,14 +1889,7 @@ def _claim_webauthn_reset(
 
 
 def _claim_webauthn_new_user(
-    db,
-    obj,
-    webauthn_cred,
-    auth_type,
-    username,
-    recovery_email,
-    recovery_phone,
-    recovery_enabled,
+    db, obj, webauthn_cred, auth_type, username, recovery_email, recovery_phone, recovery_enabled
 ):
     """Create new user via WebAuthn claim flow. Returns (data, token)."""
     can_download = _parse_invite_meta(obj.backup_codes_json)
@@ -1997,13 +1906,13 @@ def _claim_webauthn_new_user(
     )
     new_user.save(db)
 
-    backup_codes = BackupCodeRepository(db).create_codes_for_user(new_user.id)
+    backup_codes = BackupCodeRepository(db).create_codes_for_user(new_user.ensured_id)
     AccessRequestRepository(db).mark_credentials_claimed(obj.id)
 
     allow_multi = _user_allows_multi_session(new_user, db)
-    session, token = Session.create_for_user(
+    _, token = Session.create_for_user(
         db,
-        new_user.id,
+        new_user.ensured_id,
         user_agent=request.headers.get("User-Agent"),
         ip_address=request.remote_addr,
         allow_multi=allow_multi,
@@ -2049,10 +1958,7 @@ def check_request_status():
     # Check if user already exists (approved)
     if user_repo.username_exists(username):
         return jsonify(
-            {
-                "status": "approved",
-                "message": "Your access has been approved. You can now log in.",
-            }
+            {"status": "approved", "message": "Your access has been approved. You can now log in."}
         )
 
     # Check access request
@@ -2062,10 +1968,7 @@ def check_request_status():
 
     if access_request.status == AccessRequestStatus.PENDING:
         return jsonify(
-            {
-                "status": "pending",
-                "message": "Your request is awaiting administrator review.",
-            }
+            {"status": "pending", "message": "Your request is awaiting administrator review."}
         )
     elif access_request.status == AccessRequestStatus.DENIED:
         return jsonify(
@@ -2075,12 +1978,7 @@ def check_request_status():
             }
         )
     else:
-        return jsonify(
-            {
-                "status": access_request.status.value,
-                "message": "Unknown status.",
-            }
-        )
+        return jsonify({"status": access_request.status.value, "message": "Unknown status."})
 
 
 @auth_bp.route("/register/verify", methods=["POST"])
@@ -2144,7 +2042,7 @@ def verify_registration():
         recovery_enabled=recovery_enabled,
     )
     user.save(db)
-    backup_codes = BackupCodeRepository(db).create_codes_for_user(user.id)
+    backup_codes = BackupCodeRepository(db).create_codes_for_user(user.ensured_id)
     reg.consume(db)
 
     response_data = {
@@ -2272,10 +2170,7 @@ def register_webauthn_begin():
 
     # Generate registration options
     options_json, challenge = webauthn_registration_options(
-        username=reg.username,
-        rp_id=rp_id,
-        rp_name=rp_name,
-        authenticator_type=authenticator_type,
+        username=reg.username, rp_id=rp_id, rp_name=rp_name, authenticator_type=authenticator_type
     )
 
     return jsonify(
@@ -2347,7 +2242,7 @@ def register_webauthn_complete():
         recovery_enabled=recovery_enabled,
     )
     user.save(db)
-    backup_codes = BackupCodeRepository(db).create_codes_for_user(user.id)
+    backup_codes = BackupCodeRepository(db).create_codes_for_user(user.ensured_id)
     reg.consume(db)
 
     return jsonify(
@@ -2418,9 +2313,7 @@ def login_webauthn_begin():
 
     # Parse stored credential
     try:
-        webauthn_cred = WebAuthnCredential.from_json(
-            user.auth_credential.decode("utf-8")
-        )
+        webauthn_cred = WebAuthnCredential.from_json(user.auth_credential.decode("utf-8"))
     except Exception as e:
         # Log only the exception class — never the credential bytes or parser message
         # (parser errors may echo portions of the raw credential blob).
@@ -2437,18 +2330,13 @@ def login_webauthn_begin():
 
     # Generate authentication options
     options_json, challenge = webauthn_authentication_options(
-        user_id=user.id,
+        user_id=user.ensured_id,
         credential_id=webauthn_cred.credential_id,
         rp_id=rp_id,
         username=username,
     )
 
-    return jsonify(
-        {
-            "options": options_json,
-            "challenge": bytes_to_base64url(challenge),
-        }
-    )
+    return jsonify({"options": options_json, "challenge": bytes_to_base64url(challenge)})
 
 
 @auth_bp.route("/login/webauthn/complete", methods=["POST"])
@@ -2476,9 +2364,7 @@ def login_webauthn_complete():
     challenge_b64 = data.get("challenge", "").strip()
 
     if not username or not credential or not challenge_b64:
-        return jsonify(
-            {"error": "Username, credential, and challenge are required"}
-        ), 400
+        return jsonify({"error": "Username, credential, and challenge are required"}), 400
 
     db = get_auth_db()
     user = UserRepository(db).get_by_username(username)
@@ -2490,9 +2376,7 @@ def login_webauthn_complete():
         return jsonify({"error": "Invalid credentials"}), 401
 
     rp_id, _, origin = get_webauthn_config()
-    credential_json = (
-        json.dumps(credential) if isinstance(credential, dict) else credential
-    )
+    credential_json = json.dumps(credential) if isinstance(credential, dict) else credential
 
     new_sign_count = webauthn_verify_authentication(
         credential_json=credential_json,
@@ -2511,9 +2395,9 @@ def login_webauthn_complete():
 
     remember_me = data.get("remember_me", True)
     allow_multi = _user_allows_multi_session(user, db)
-    session, token = Session.create_for_user(
+    _, token = Session.create_for_user(
         db,
-        user.id,
+        user.ensured_id,
         user_agent=request.headers.get("User-Agent"),
         ip_address=request.remote_addr,
         remember_me=remember_me,
@@ -2540,23 +2424,17 @@ def _parse_webauthn_login(user, challenge_b64):
     from webauthn.helpers import base64url_to_bytes
 
     try:
-        webauthn_cred = WebAuthnCredential.from_json(
-            user.auth_credential.decode("utf-8")
-        )
+        webauthn_cred = WebAuthnCredential.from_json(user.auth_credential.decode("utf-8"))
     except Exception as e:
         # Log only the exception class — never the credential bytes or parser message
         # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure  # Reason: Log message contains only the phrase "Failed to parse WebAuthn credential" (not an actual credential value) plus exception class name; no secret material in format string or arguments
-        logger.warning(
-            "Failed to parse WebAuthn credential: error_class=%s", type(e).__name__
-        )
+        logger.warning("Failed to parse WebAuthn credential: error_class=%s", type(e).__name__)
         return None, None
     try:
         challenge = base64url_to_bytes(challenge_b64)
     except Exception as e:
         # Log only the exception class — challenge bytes are opaque and may leak context
-        logger.warning(
-            "Failed to parse WebAuthn challenge: error_class=%s", type(e).__name__
-        )
+        logger.warning("Failed to parse WebAuthn challenge: error_class=%s", type(e).__name__)
         return None, None
     return webauthn_cred, challenge
 
@@ -2648,11 +2526,11 @@ def recover_with_backup_code():
         return jsonify({"error": "Invalid username or backup code"}), 401
 
     # Verify and consume backup code
-    if not backup_repo.verify_and_consume(user.id, backup_code):
+    if not backup_repo.verify_and_consume(user.ensured_id, backup_code):
         return jsonify({"error": "Invalid username or backup code"}), 401
 
     # Check remaining codes before we replace them
-    remaining = backup_repo.get_remaining_count(user.id)
+    remaining = backup_repo.get_remaining_count(user.ensured_id)
 
     # Generate new TOTP secret
     secret, base32_secret, uri = setup_totp(user.username)
@@ -2663,11 +2541,11 @@ def recover_with_backup_code():
     user.save(db)
 
     # Generate new backup codes (replaces old unused codes)
-    new_backup_codes = backup_repo.create_codes_for_user(user.id)
+    new_backup_codes = backup_repo.create_codes_for_user(user.ensured_id)
 
     # Invalidate any existing sessions (force re-login with new TOTP)
     session_repo = SessionRepository(db)
-    session_repo.invalidate_user_sessions(user.id)
+    session_repo.invalidate_user_sessions(user.ensured_id)
 
     return jsonify(
         {
@@ -2678,8 +2556,7 @@ def recover_with_backup_code():
             "backup_codes": new_backup_codes,
             "remaining_old_codes": remaining,
             "message": (
-                "Account recovered. Set up your new authenticator and"
-                " save your new backup codes."
+                "Account recovered. Set up your new authenticator and save your new backup codes."
             ),
             "warning": (
                 "Your old backup codes have been invalidated. Save these"
@@ -2705,11 +2582,11 @@ def get_remaining_backup_codes():
     Returns:
         200: {"remaining": N}
     """
-    user = get_current_user()
+    user = require_current_user()
     db = get_auth_db()
     backup_repo = BackupCodeRepository(db)
 
-    return jsonify({"remaining": backup_repo.get_remaining_count(user.id)})
+    return jsonify({"remaining": backup_repo.get_remaining_count(user.ensured_id)})
 
 
 @auth_bp.route("/recover/regenerate-codes", methods=["POST"])
@@ -2728,20 +2605,18 @@ def regenerate_backup_codes():
             "warning": "..."
         }
     """
-    user = get_current_user()
+    user = require_current_user()
     db = get_auth_db()
     backup_repo = BackupCodeRepository(db)
 
     # Generate new codes (this deletes old unused codes)
-    new_codes = backup_repo.create_codes_for_user(user.id)
+    new_codes = backup_repo.create_codes_for_user(user.ensured_id)
 
     return jsonify(
         {
             "success": True,
             "backup_codes": new_codes,
-            "message": (
-                "New backup codes generated. Your old codes are no longer valid."
-            ),
+            "message": ("New backup codes generated. Your old codes are no longer valid."),
             "warning": (
                 "Save these codes in a safe place! They are your recovery option "
                 "if you lose your authenticator."
@@ -2773,7 +2648,7 @@ def update_recovery_contact():
     if not data:
         return jsonify({"error": "Request body required"}), 400
 
-    user = get_current_user()
+    user = require_current_user()
     db = get_auth_db()
 
     # Update recovery fields
@@ -2796,8 +2671,7 @@ def update_recovery_contact():
             "message": (
                 "Recovery contact updated. You can now use magic link recovery."
                 if user.recovery_enabled
-                else "Recovery contact removed. Backup codes are now your"
-                " only recovery option."
+                else "Recovery contact removed. Backup codes are now your only recovery option."
             ),
         }
     )
@@ -2858,20 +2732,17 @@ def magic_link_login():
 
     # Create recovery token (reuse PendingRecovery infrastructure)
     recovery_repo = PendingRecoveryRepository(db)
-    recovery_repo.delete_for_user(user.id)
+    recovery_repo.delete_for_user(user.ensured_id)
 
     remember_me = data.get("remember_me", True)
 
-    recovery, raw_token = PendingRecovery.create(db, user.id, expiry_minutes=15)
+    _, raw_token = PendingRecovery.create(db, user.ensured_id, expiry_minutes=15)
 
     r_flag = "1" if remember_me else "0"
     magic_link_url = f"/verify.html?token={raw_token}&r={r_flag}"
 
     _send_magic_link_email(
-        to_email=email,
-        username=user.username,
-        magic_link=magic_link_url,
-        expires_minutes=15,
+        to_email=email, username=user.username, magic_link=magic_link_url, expires_minutes=15
     )
 
     return jsonify({"success": True, "message": generic_message})
@@ -2926,9 +2797,9 @@ def request_magic_link():
 
     # Create recovery token
     recovery_repo = PendingRecoveryRepository(db)
-    recovery_repo.delete_for_user(user.id)  # Remove any existing tokens
+    recovery_repo.delete_for_user(user.ensured_id)  # Remove any existing tokens
 
-    recovery, raw_token = PendingRecovery.create(db, user.id, expiry_minutes=15)
+    _, raw_token = PendingRecovery.create(db, user.ensured_id, expiry_minutes=15)
 
     # Send email with magic link
     magic_link_url = f"/verify.html?token={raw_token}"
@@ -3011,9 +2882,9 @@ def verify_magic_link():
 
     remember_me = data.get("remember_me", True)
     allow_multi = _user_allows_multi_session(user, db)
-    session, raw_token = Session.create_for_user(
+    _, raw_token = Session.create_for_user(
         db,
-        user.id,
+        user.ensured_id,
         user_agent,
         ip_address,
         remember_me=remember_me,
@@ -3061,11 +2932,7 @@ def _get_email_config() -> tuple:
 
 
 def _send_magic_link_email(
-    to_email: str,
-    username: str,
-    magic_link: str,
-    expires_minutes: int,
-    locale: str = "en",
+    to_email: str, username: str, magic_link: str, expires_minutes: int, locale: str = "en"
 ) -> bool:
     """
     Send a magic link email for login recovery.
@@ -3084,11 +2951,7 @@ def _send_magic_link_email(
     full_link = f"{base_url}{magic_link}"
 
     subject, text_content, html_content = render_email(
-        "magic_link",
-        locale,
-        username=username,
-        link=full_link,
-        expires_minutes=expires_minutes,
+        "magic_link", locale, username=username, link=full_link, expires_minutes=expires_minutes
     )
 
     try:
@@ -3157,10 +3020,7 @@ def _send_approval_email(to_email: str, username: str, locale: str = "en") -> bo
 
 
 def _send_denial_email(
-    to_email: str,
-    username: str,
-    reason: Optional[str] = None,
-    locale: str = "en",
+    to_email: str, username: str, reason: Optional[str] = None, locale: str = "en"
 ) -> bool:
     """
     Send an email notifying the user their access request was denied.
@@ -3214,7 +3074,7 @@ def dismiss_notification(notification_id: int):
         200: {"success": true}
         400: {"error": "..."}
     """
-    user = get_current_user()
+    user = require_current_user()
     assert user is not None  # guaranteed by @login_required
     assert user.id is not None  # persisted user always has id
     db = get_auth_db()
@@ -3253,11 +3113,7 @@ def auth_health():
         logger.error("Auth database health check failed: %s", e)
         return (
             jsonify(
-                {
-                    "status": "error",
-                    "auth_db": False,
-                    "error": "Auth database health check failed",
-                }
+                {"status": "error", "auth_db": False, "error": "Auth database health check failed"}
             ),
             500,
         )
@@ -3292,11 +3148,7 @@ def auth_status():
         }
 
     return jsonify(
-        {
-            "auth_enabled": auth_enabled,
-            "user": user_dict,
-            "guest": auth_enabled and user is None,
-        }
+        {"auth_enabled": auth_enabled, "user": user_dict, "guest": auth_enabled and user is None}
     )
 
 
@@ -3322,7 +3174,7 @@ def send_contact_message():
         200: {"success": true, "message_id": int}
         400: {"error": "..."}
     """
-    user = get_current_user()
+    user = require_current_user()
     data = request.get_json()
 
     if not data:
@@ -3349,7 +3201,7 @@ def send_contact_message():
 
     # Create the message
     inbox_msg = InboxMessage(
-        from_user_id=user.id,
+        from_user_id=user.ensured_id,
         message=message,
         reply_via=ReplyMethod(reply_via),
         reply_email=reply_email,
@@ -3487,7 +3339,7 @@ def create_notification():
         return jsonify({"error": "Personal notifications require target_user_id"}), 400
 
     db = get_auth_db()
-    user = get_current_user()
+    user = require_current_user()
 
     # Parse optional datetime fields
     starts_at = None
@@ -3620,13 +3472,9 @@ def get_inbox_message(message_id: int):
                 "reply_via": message.reply_via.value,
                 "reply_email": message.reply_email,
                 "status": message.status.value,
-                "created_at": (
-                    message.created_at.isoformat() if message.created_at else None
-                ),
+                "created_at": (message.created_at.isoformat() if message.created_at else None),
                 "read_at": message.read_at.isoformat() if message.read_at else None,
-                "replied_at": (
-                    message.replied_at.isoformat() if message.replied_at else None
-                ),
+                "replied_at": (message.replied_at.isoformat() if message.replied_at else None),
             }
         }
     )
@@ -3676,7 +3524,7 @@ def reply_to_message(message_id: int):
             return jsonify({"error": "Failed to send email reply"}), 500
     else:
         # Create in-app notification
-        admin_user = get_current_user()
+        admin_user = require_current_user()
         assert admin_user is not None  # guaranteed by @admin_required
         notification = Notification(
             message=f"Reply from {admin_user.username}: {reply_text}",
@@ -3694,9 +3542,7 @@ def reply_to_message(message_id: int):
     return jsonify({"success": True, "reply_method": reply_method})
 
 
-def _send_reply_email(
-    to_email: str, username: str, reply_text: str, locale: str = "en"
-) -> bool:
+def _send_reply_email(to_email: str, username: str, reply_text: str, locale: str = "en") -> bool:
     """Send email reply to user."""
     from backend.api_modular.email_templates import render_email
 
@@ -3786,10 +3632,7 @@ def list_access_requests():
         requests = [r for r in all_requests if r.status.value == status_filter]
 
     return jsonify(
-        {
-            "requests": [r.to_dict() for r in requests],
-            "pending_count": request_repo.count_pending(),
-        }
+        {"requests": [r.to_dict() for r in requests], "pending_count": request_repo.count_pending()}
     )
 
 
@@ -3827,7 +3670,7 @@ def approve_access_request(request_id: int):
         return jsonify({"error": "Username already taken"}), 400
 
     # Get admin username for audit
-    admin_user = get_current_user()
+    admin_user = require_current_user()
     admin_username = admin_user.username if admin_user else "system"
 
     # Mark request as approved (user creation deferred to claim time)
@@ -3888,7 +3731,7 @@ def deny_access_request(request_id: int):
         return jsonify({"error": f"Request already {access_req.status.value}"}), 400
 
     # Get admin username for audit
-    admin_user = get_current_user()
+    admin_user = require_current_user()
     admin_username = admin_user.username if admin_user else "system"
 
     # Mark request as denied
@@ -3898,9 +3741,7 @@ def deny_access_request(request_id: int):
     email_sent = False
     if access_req.contact_email:
         email_sent = _send_denial_email(
-            to_email=access_req.contact_email,
-            username=access_req.username,
-            reason=reason,
+            to_email=access_req.contact_email, username=access_req.username, reason=reason
         )
 
     return jsonify(
@@ -3960,7 +3801,7 @@ def create_user():
         db, username, email, auth_method, is_admin, can_download
     )
 
-    admin_user = get_current_user()
+    admin_user = require_current_user()
     AuditLogRepository(db).log(
         actor_id=admin_user.id,
         target_id=new_user.id,
@@ -3974,9 +3815,7 @@ def create_user():
         },
     )
 
-    return jsonify(
-        {"success": True, "user_id": new_user.id, "setup_data": setup_data}
-    ), 201
+    return jsonify({"success": True, "user_id": new_user.id, "setup_data": setup_data}), 201
 
 
 def _create_user_by_method(db, username, email, auth_method, is_admin, can_download):
@@ -4152,9 +3991,9 @@ def _invite_claim_flow(db, username, email, can_download):
 
     existing = request_repo.get_by_username(username)
     if existing:
-        request_repo.delete(existing.id)
+        request_repo.delete(existing.ensured_id)
 
-    admin_user = get_current_user()
+    admin_user = require_current_user()
     admin_username = admin_user.username if admin_user else "system"
 
     raw_claim_token, _ = generate_verification_token()
@@ -4162,11 +4001,9 @@ def _invite_claim_flow(db, username, email, can_download):
     claim_token_hash = hash_token(truncated_token)
 
     claim_expires_at = datetime.now() + timedelta(hours=INVITATION_EXPIRY_HOURS)
-    access_request = request_repo.create(
-        username, claim_token_hash, email, claim_expires_at
-    )
-    request_repo.store_invite_metadata(access_request.id, can_download)
-    request_repo.approve(access_request.id, admin_username)
+    access_request = request_repo.create(username, claim_token_hash, email, claim_expires_at)
+    request_repo.store_invite_metadata(access_request.ensured_id, can_download)
+    request_repo.approve(access_request.ensured_id, admin_username)
 
     email_sent = _send_invitation_email(
         to_email=email, username=username, claim_token=formatted_token
@@ -4195,7 +4032,7 @@ def _invite_claim_flow(db, username, email, can_download):
     )
 
 
-def _invite_magic_link_user(db, user_repo, username, email, can_download):
+def _invite_magic_link_user(db, user_repo, username, email, can_download):  # pylint: disable=unused-argument  # user_repo reserved for future lookup/update path; currently saves directly via User.save(db)
     """
     Create a magic_link user account directly and send activation email.
 
@@ -4214,17 +4051,13 @@ def _invite_magic_link_user(db, user_repo, username, email, can_download):
     user.save(db)
 
     # Generate activation token (48h expiry for invitations)
-    recovery, raw_token = PendingRecovery.create(
-        db,
-        user.id,
-        expiry_minutes=60 * INVITATION_EXPIRY_HOURS,
+    _, raw_token = PendingRecovery.create(
+        db, user.ensured_id, expiry_minutes=60 * INVITATION_EXPIRY_HOURS
     )
 
     # Send activation email
     email_sent = _send_activation_email(
-        to_email=email,
-        username=username,
-        activation_token=raw_token,
+        to_email=email, username=username, activation_token=raw_token
     )
 
     return jsonify(
@@ -4301,10 +4134,7 @@ def _send_invitation_email(
 
 
 def _send_activation_email(
-    to_email: str,
-    username: str,
-    activation_token: str,
-    locale: str = "en",
+    to_email: str, username: str, activation_token: str, locale: str = "en"
 ) -> bool:
     """
     Send an activation email for magic link invitations.
@@ -4374,7 +4204,7 @@ def toggle_user_admin(user_id: int):
         return jsonify({"error": "User not found"}), 404
 
     # Prevent self-demotion
-    current_user = get_current_user()
+    current_user = require_current_user()
     assert current_user is not None  # guaranteed by @admin_required
     if current_user.id == user_id and target_user.is_admin:
         return jsonify({"error": "Cannot demote yourself"}), 400
@@ -4401,11 +4231,7 @@ def toggle_user_admin(user_id: int):
     )
 
     return jsonify(
-        {
-            "success": True,
-            "username": target_user.username,
-            "is_admin": new_admin_status,
-        }
+        {"success": True, "username": target_user.username, "is_admin": new_admin_status}
     )
 
 
@@ -4433,7 +4259,7 @@ def toggle_user_download(user_id: int):
     # Audit log
     from auth.audit import AuditLogRepository
 
-    current_user = get_current_user()
+    current_user = require_current_user()
     audit_repo = AuditLogRepository(db)
     audit_repo.log(
         actor_id=current_user.id if current_user else None,
@@ -4448,18 +4274,12 @@ def toggle_user_download(user_id: int):
     )
 
     return jsonify(
-        {
-            "success": True,
-            "username": target_user.username,
-            "can_download": new_download_status,
-        }
+        {"success": True, "username": target_user.username, "can_download": new_download_status}
     )
 
 
 def _apply_user_profile_updates(
-    user_repo: "UserRepository",
-    user_id: int,
-    data: dict,
+    user_repo: "UserRepository", user_id: int, data: dict
 ) -> tuple[dict, int] | None:
     """Apply username and/or email updates with validation. Returns error or None."""
     new_username = data.get("username")
@@ -4537,7 +4357,7 @@ def delete_user(user_id: int):
         return jsonify({"error": "User not found"}), 404
 
     # Prevent self-deletion
-    current_user = get_current_user()
+    current_user = require_current_user()
     if current_user and current_user.id == user_id:
         return jsonify({"error": "Cannot delete yourself"}), 400
 
@@ -4568,12 +4388,7 @@ def delete_user(user_id: int):
     )
     notify_admins("delete_account", details, db)
 
-    return jsonify(
-        {
-            "success": True,
-            "message": f"User '{target_user.username}' deleted.",
-        }
-    )
+    return jsonify({"success": True, "message": f"User '{target_user.username}' deleted."})
 
 
 # ============================================================
@@ -4610,7 +4425,7 @@ def admin_change_username(user_id: int):
     if not user_repo.update_username(user_id, new_username):
         return jsonify({"error": "Username already taken"}), 409
 
-    admin_user = get_current_user()
+    admin_user = require_current_user()
     assert admin_user is not None
     details = {
         "old": old_username,
@@ -4619,10 +4434,7 @@ def admin_change_username(user_id: int):
         "target_username": new_username,
     }
     AuditLogRepository(db).log(
-        actor_id=admin_user.id,
-        target_id=user_id,
-        action="change_username",
-        details=details,
+        actor_id=admin_user.id, target_id=user_id, action="change_username", details=details
     )
     notify_admins("change_username", details, db)
 
@@ -4665,7 +4477,7 @@ def admin_change_email(user_id: int):
     user_repo.update_email(user_id, email_val)
 
     # Audit log
-    admin_user = get_current_user()
+    admin_user = require_current_user()
     assert admin_user is not None  # guaranteed by @admin_required
     audit_repo = AuditLogRepository(db)
     audit_repo.log(
@@ -4697,9 +4509,7 @@ def admin_change_email(user_id: int):
 
 
 def _apply_role_changes(
-    user_repo: "UserRepository",
-    user_id: int,
-    data: dict,
+    user_repo: "UserRepository", user_id: int, data: dict
 ) -> tuple[dict, int] | None:
     """Apply is_admin/can_download changes with last-admin guard. Returns error or None."""
     if "is_admin" in data:
@@ -4729,14 +4539,8 @@ def admin_change_roles(user_id: int):
 
     data = request.get_json() or {}
 
-    if (
-        "is_admin" not in data
-        and "can_download" not in data
-        and "multi_session" not in data
-    ):
-        return jsonify(
-            {"error": "Provide is_admin, can_download, and/or multi_session"}
-        ), 400
+    if "is_admin" not in data and "can_download" not in data and "multi_session" not in data:
+        return jsonify({"error": "Provide is_admin, can_download, and/or multi_session"}), 400
 
     db = get_auth_db()
     user_repo = UserRepository(db)
@@ -4745,16 +4549,13 @@ def admin_change_roles(user_id: int):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    old_roles = {
-        "is_admin": target_user.is_admin,
-        "can_download": target_user.can_download,
-    }
+    old_roles = {"is_admin": target_user.is_admin, "can_download": target_user.can_download}
 
     err = _apply_role_changes(user_repo, user_id, data)
     if err:
         return jsonify(err[0]), err[1]
 
-    admin_user = get_current_user()
+    admin_user = require_current_user()
     assert admin_user is not None
     updated = user_repo.get_by_id(user_id)
     assert updated is not None
@@ -4835,7 +4636,7 @@ def admin_change_auth_method(user_id: int):
     if err:
         return err
 
-    admin_user = get_current_user()
+    admin_user = require_current_user()
     assert admin_user is not None
     details = {
         "old": old_method,
@@ -4844,10 +4645,7 @@ def admin_change_auth_method(user_id: int):
         "target_username": target_user.username,
     }
     AuditLogRepository(db).log(
-        actor_id=admin_user.id,
-        target_id=user_id,
-        action="switch_auth_method",
-        details=details,
+        actor_id=admin_user.id, target_id=user_id, action="switch_auth_method", details=details
     )
     notify_admins("switch_auth_method", details, db)
 
@@ -4874,7 +4672,7 @@ def admin_reset_credentials(user_id: int):
     if not target_user:
         return jsonify({"error": "User not found"}), 404
 
-    admin_user = get_current_user()
+    admin_user = require_current_user()
     assert admin_user is not None  # guaranteed by @admin_required
     setup_data: dict[str, str | None] = {}
 
@@ -4905,9 +4703,7 @@ def admin_reset_credentials(user_id: int):
         setup_data = {
             "claim_token": formatted_token,
             "claim_url": claim_url,
-            "expires_at": (
-                pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
-            ),
+            "expires_at": (pending_reg.expires_at.isoformat() if pending_reg.expires_at else ""),
         }
 
     elif target_user.auth_type == AuthType.MAGIC_LINK:
@@ -4921,10 +4717,7 @@ def admin_reset_credentials(user_id: int):
     }
     audit_repo = AuditLogRepository(db)
     audit_repo.log(
-        actor_id=admin_user.id,
-        target_id=user_id,
-        action="reset_credentials",
-        details=details,
+        actor_id=admin_user.id, target_id=user_id, action="reset_credentials", details=details
     )
     notify_admins("reset_credentials", details, db)
 
@@ -4949,7 +4742,7 @@ def admin_delete_user_v2(user_id: int):
         return jsonify({"error": "User not found"}), 404
 
     # Prevent self-deletion
-    admin_user = get_current_user()
+    admin_user = require_current_user()
     assert admin_user is not None  # guaranteed by @admin_required
     if admin_user.id == user_id:
         return jsonify({"error": "Cannot delete yourself"}), 400
@@ -4966,10 +4759,7 @@ def admin_delete_user_v2(user_id: int):
     }
     audit_repo = AuditLogRepository(db)
     audit_repo.log(
-        actor_id=admin_user.id,
-        target_id=user_id,
-        action="delete_account",
-        details=details,
+        actor_id=admin_user.id, target_id=user_id, action="delete_account", details=details
     )
     notify_admins("delete_account", details, db)
 
@@ -4980,9 +4770,7 @@ def admin_delete_user_v2(user_id: int):
     request_repo = AccessRequestRepository(db)
     request_repo.delete_for_username(target_user.username)
 
-    return jsonify(
-        {"success": True, "message": f"User '{target_user.username}' deleted."}
-    )
+    return jsonify({"success": True, "message": f"User '{target_user.username}' deleted."})
 
 
 @auth_bp.route("/admin/audit-log", methods=["GET"])
@@ -5004,15 +4792,9 @@ def admin_audit_log():
     audit_repo = AuditLogRepository(db)
 
     entries = audit_repo.list(
-        limit=limit,
-        offset=offset,
-        action_filter=action_filter,
-        user_filter=user_filter,
+        limit=limit, offset=offset, action_filter=action_filter, user_filter=user_filter
     )
-    total = audit_repo.count(
-        action_filter=action_filter,
-        user_filter=user_filter,
-    )
+    total = audit_repo.count(action_filter=action_filter, user_filter=user_filter)
 
     return jsonify(
         {
@@ -5023,11 +4805,7 @@ def admin_audit_log():
                     "actor_id": e.actor_id,
                     "target_id": e.target_id,
                     "action": e.action,
-                    "details": (
-                        json.loads(e.details)
-                        if isinstance(e.details, str)
-                        else e.details
-                    ),
+                    "details": (json.loads(e.details) if isinstance(e.details, str) else e.details),
                 }
                 for e in entries
             ],
@@ -5051,8 +4829,7 @@ def _passkey_setup_data(db: AuthDatabase, username: str) -> dict[str, str | None
     """Build passkey/FIDO2 setup data from pending registrations."""
     with db.connection() as conn:
         cursor = conn.execute(
-            "SELECT * FROM pending_registrations WHERE username = ? "
-            "ORDER BY id DESC LIMIT 1",
+            "SELECT * FROM pending_registrations WHERE username = ? ORDER BY id DESC LIMIT 1",
             (username,),
         )
         row = cursor.fetchone()
@@ -5063,9 +4840,7 @@ def _passkey_setup_data(db: AuthDatabase, username: str) -> dict[str, str | None
         pending = PR.from_row(row)
         return {
             "claim_token": "pending",
-            "expires_at": pending.expires_at.isoformat()
-            if pending.expires_at
-            else None,
+            "expires_at": pending.expires_at.isoformat() if pending.expires_at else None,
         }
 
 
@@ -5112,7 +4887,7 @@ def account_get():
 
     Returns 200 with profile fields.
     """
-    user = get_current_user()
+    user = require_current_user()
     return jsonify(
         {
             "id": user.id,
@@ -5145,11 +4920,11 @@ def account_change_username():
     if err:
         return jsonify(err[0]), err[1]
 
-    user = get_current_user()
+    user = require_current_user()
     db = get_auth_db()
     old_username = user.username
 
-    if not UserRepository(db).update_username(user.id, new_username):
+    if not UserRepository(db).update_username(user.ensured_id, new_username):
         return jsonify({"error": "Username already taken"}), 409
 
     details = {
@@ -5159,10 +4934,7 @@ def account_change_username():
         "target_username": new_username,
     }
     AuditLogRepository(db).log(
-        actor_id=user.id,
-        target_id=user.id,
-        action="change_username",
-        details=details,
+        actor_id=user.id, target_id=user.id, action="change_username", details=details
     )
     notify_admins("change_username", details, db)
 
@@ -5191,13 +4963,13 @@ def account_change_email():
         if not re.match(email_pattern, new_email):
             return jsonify({"error": "Invalid email format"}), 400
 
-    user = get_current_user()
+    user = require_current_user()
     db = get_auth_db()
     user_repo = UserRepository(db)
 
     old_email = user.recovery_email
     email_val = new_email if new_email else None
-    user_repo.update_email(user.id, email_val)
+    user_repo.update_email(user.ensured_id, email_val)
 
     # Audit log (no notify_admins for self-service email change per spec)
     audit_repo = AuditLogRepository(db)
@@ -5235,7 +5007,7 @@ def account_switch_auth_method():
             {"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}
         ), 400
 
-    user = get_current_user()
+    user = require_current_user()
     db = get_auth_db()
     old_method = user.auth_type.value
 
@@ -5250,10 +5022,7 @@ def account_switch_auth_method():
         "target_username": user.username,
     }
     AuditLogRepository(db).log(
-        actor_id=user.id,
-        target_id=user.id,
-        action="switch_auth_method",
-        details=details,
+        actor_id=user.id, target_id=user.id, action="switch_auth_method", details=details
     )
     notify_admins("switch_auth_method", details, db)
 
@@ -5274,21 +5043,19 @@ def account_reset_credentials():
     from auth.audit import AuditLogRepository, notify_admins
     from auth.models import PendingRegistration
 
-    user = get_current_user()
+    user = require_current_user()
     db = get_auth_db()
     user_repo = UserRepository(db)
 
     # Re-fetch to get current state
-    current_user = user_repo.get_by_id(user.id)
+    current_user = user_repo.get_by_id(user.ensured_id)
     if not current_user:
         return jsonify({"error": "User not found"}), 404
 
-    setup_data = {}
+    setup_data: dict[str, Any] = {}
 
     if current_user.auth_type == AuthType.TOTP:
-        secret_bytes, base32_secret, provisioning_uri = setup_totp(
-            current_user.username
-        )
+        secret_bytes, base32_secret, provisioning_uri = setup_totp(current_user.username)
         current_user.auth_credential = secret_bytes
         current_user.save(db)
         qr_png = generate_qr_code(secret_bytes, current_user.username)
@@ -5314,9 +5081,7 @@ def account_reset_credentials():
         setup_data = {
             "claim_token": formatted_token,
             "claim_url": claim_url,
-            "expires_at": (
-                pending_reg.expires_at.isoformat() if pending_reg.expires_at else None
-            ),
+            "expires_at": (pending_reg.expires_at.isoformat() if pending_reg.expires_at else ""),
         }
 
     elif current_user.auth_type == AuthType.MAGIC_LINK:
@@ -5352,12 +5117,12 @@ def account_delete():
     """
     from auth.audit import AuditLogRepository, notify_admins
 
-    user = get_current_user()
+    user = require_current_user()
     db = get_auth_db()
     user_repo = UserRepository(db)
 
     # Last-admin guard
-    if user_repo.is_last_admin(user.id):
+    if user_repo.is_last_admin(user.ensured_id):
         return jsonify({"error": "Cannot delete last admin"}), 409
 
     # Audit BEFORE deletion (username is lost after delete)
@@ -5367,16 +5132,11 @@ def account_delete():
         "target_username": user.username,
     }
     audit_repo = AuditLogRepository(db)
-    audit_repo.log(
-        actor_id=user.id,
-        target_id=user.id,
-        action="delete_account",
-        details=details,
-    )
+    audit_repo.log(actor_id=user.id, target_id=user.id, action="delete_account", details=details)
     notify_admins("delete_account", details, db)
 
     # Delete user
-    user_repo.delete(user.id)
+    user_repo.delete(user.ensured_id)
 
     # Clear session cookie so browser logs out
     resp = make_response(jsonify({"success": True, "message": "Account deleted"}))

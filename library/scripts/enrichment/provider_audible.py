@@ -51,11 +51,7 @@ def _rate_limit() -> None:
 def _fetch_audible_product(asin: str) -> dict | None:
     """Query Audible API for full product data. Retries once on 429."""
     _rate_limit()
-    url = (
-        f"{AUDIBLE_API}/{asin}"
-        f"?response_groups={ALL_RESPONSE_GROUPS}"
-        f"&marketplace={MARKETPLACE}"
-    )
+    url = f"{AUDIBLE_API}/{asin}?response_groups={ALL_RESPONSE_GROUPS}&marketplace={MARKETPLACE}"
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
@@ -79,7 +75,7 @@ def _fetch_audible_product(asin: str) -> dict | None:
             except Exception:
                 return None
         return None
-    except (urllib.error.URLError, TimeoutError):
+    except urllib.error.URLError, TimeoutError:
         return None
 
 
@@ -139,15 +135,11 @@ def _extract_rating(product: dict) -> dict:
     """Extract overall, performance, and story ratings plus counts."""
     rating = product.get("rating", {})
     return {
-        "rating_overall": rating.get("overall_distribution", {}).get(
-            "display_average_rating"
-        ),
+        "rating_overall": rating.get("overall_distribution", {}).get("display_average_rating"),
         "rating_performance": rating.get("performance_distribution", {}).get(
             "display_average_rating"
         ),
-        "rating_story": rating.get("story_distribution", {}).get(
-            "display_average_rating"
-        ),
+        "rating_story": rating.get("story_distribution", {}).get("display_average_rating"),
         "num_ratings": rating.get("num_reviews"),
         "num_reviews": rating.get("overall_distribution", {}).get("num_ratings"),
     }
@@ -230,9 +222,7 @@ def _apply_author_asins_from_product(result: dict, product: dict) -> None:
     if not authors:
         return
     author_asins = [
-        {"name": a.get("name", ""), "asin": a.get("asin", "")}
-        for a in authors
-        if a.get("asin")
+        {"name": a.get("name", ""), "asin": a.get("asin", "")} for a in authors if a.get("asin")
     ]
     if author_asins:
         result["author_asins"] = author_asins
@@ -248,9 +238,7 @@ def _apply_narrators_from_product(result: dict, product: dict) -> None:
         return
     result["narrator"] = ", ".join(narrator_names)
     result["narrator_list"] = [
-        {"name": n.get("name", ""), "asin": n.get("asin", "")}
-        for n in narrators
-        if n.get("name")
+        {"name": n.get("name", ""), "asin": n.get("asin", "")} for n in narrators if n.get("name")
     ]
 
 

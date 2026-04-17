@@ -37,11 +37,7 @@ class MetadataLookup:
         self._deepl = deepl_translator
 
     def lookup(
-        self,
-        title: str,
-        author: str,
-        target_locale: str,
-        isbn: str = "",
+        self, title: str, author: str, target_locale: str, isbn: str = ""
     ) -> BookMetadata | None:
         """Look up localized metadata for a book.
 
@@ -66,15 +62,9 @@ class MetadataLookup:
         # Fall back to DeepL machine translation
         if self._deepl:
             try:
-                translated = self._deepl.translate(
-                    [title, author],
-                    target_locale=target_locale,
-                )
+                translated = self._deepl.translate([title, author], target_locale=target_locale)
                 return BookMetadata(
-                    title=translated[0],
-                    author_display=translated[1],
-                    translator="",
-                    source="deepl",
+                    title=translated[0], author_display=translated[1], translator="", source="deepl"
                 )
             except Exception:
                 logger.warning("DeepL translation failed for '%s'", title)

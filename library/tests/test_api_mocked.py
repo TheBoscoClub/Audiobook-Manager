@@ -176,9 +176,7 @@ class TestSupplementDownloadWithMocks:
             # Will be 404 if supplement ID doesn't exist in DB
             assert response.status_code in (200, 404)
             if response.status_code == 200:
-                assert mock_send.called, (
-                    "send_file should be called when supplement exists"
-                )
+                assert mock_send.called, "send_file should be called when supplement exists"
 
     def test_download_supplement_file_missing(self, app_client):
         """Test downloading supplement when file is missing from disk."""
@@ -240,11 +238,7 @@ class TestBulkOperationsWithMocks:
             response = app_client.post(
                 "/api/audiobooks/bulk-update",
                 data=json.dumps(
-                    {
-                        "ids": [1, 2],
-                        "field": "narrator",
-                        "value": "Test Narrator Update",
-                    }
+                    {"ids": [1, 2], "field": "narrator", "value": "Test Narrator Update"}
                 ),
                 content_type="application/json",
             )
@@ -259,9 +253,7 @@ class TestBulkOperationsWithMocks:
             mock_gdb.return_value = self._mock_get_db()
             response = app_client.post(
                 "/api/audiobooks/bulk-update",
-                data=json.dumps(
-                    {"ids": [1], "field": "publisher", "value": "Test Publisher"}
-                ),
+                data=json.dumps({"ids": [1], "field": "publisher", "value": "Test Publisher"}),
                 content_type="application/json",
             )
         assert response.status_code == 200
@@ -331,9 +323,7 @@ class TestUtilityEndpointsWithMocks:
         mock_result.stdout = "Scanning...\nTotal audiobook files: 500\nDone."
         mock_result.stderr = ""
 
-        with patch(
-            "backend.api_modular.utilities_db.subprocess.run", return_value=mock_result
-        ):
+        with patch("backend.api_modular.utilities_db.subprocess.run", return_value=mock_result):
             response = app_client.post("/api/utilities/rescan")
             # 200 if scanner exists and succeeds, 500 if scanner not found
             assert response.status_code in (200, 500)
@@ -345,9 +335,7 @@ class TestUtilityEndpointsWithMocks:
         mock_result.stdout = ""
         mock_result.stderr = "Script failed"
 
-        with patch(
-            "backend.api_modular.utilities_db.subprocess.run", return_value=mock_result
-        ):
+        with patch("backend.api_modular.utilities_db.subprocess.run", return_value=mock_result):
             response = app_client.post("/api/utilities/rescan")
             # Should return success with returncode info or 500
             assert response.status_code in (200, 500)
@@ -368,9 +356,7 @@ class TestUtilityEndpointsWithMocks:
         mock_result.stdout = "Importing...\nImported 500 audiobooks\nDone."
         mock_result.stderr = ""
 
-        with patch(
-            "backend.api_modular.utilities_db.subprocess.run", return_value=mock_result
-        ):
+        with patch("backend.api_modular.utilities_db.subprocess.run", return_value=mock_result):
             response = app_client.post("/api/utilities/reimport")
             assert response.status_code in (200, 500)
 
@@ -381,9 +367,7 @@ class TestUtilityEndpointsWithMocks:
         mock_result.stdout = ""
         mock_result.stderr = "Import failed"
 
-        with patch(
-            "backend.api_modular.utilities_db.subprocess.run", return_value=mock_result
-        ):
+        with patch("backend.api_modular.utilities_db.subprocess.run", return_value=mock_result):
             response = app_client.post("/api/utilities/reimport")
             # Should return with failure info
             assert response.status_code in (200, 500)
@@ -395,9 +379,7 @@ class TestUtilityEndpointsWithMocks:
         mock_result.stdout = "Hashing...\nProcessed 100 files\nDone."
         mock_result.stderr = ""
 
-        with patch(
-            "backend.api_modular.utilities_db.subprocess.run", return_value=mock_result
-        ):
+        with patch("backend.api_modular.utilities_db.subprocess.run", return_value=mock_result):
             response = app_client.post("/api/utilities/generate-hashes")
             assert response.status_code in (200, 500)
 
@@ -408,9 +390,7 @@ class TestUtilityEndpointsWithMocks:
         mock_result.stdout = ""
         mock_result.stderr = "Hash generation failed"
 
-        with patch(
-            "backend.api_modular.utilities_db.subprocess.run", return_value=mock_result
-        ):
+        with patch("backend.api_modular.utilities_db.subprocess.run", return_value=mock_result):
             response = app_client.post("/api/utilities/generate-hashes")
             # Should return with failure info
             assert response.status_code in (200, 500)
@@ -503,9 +483,7 @@ class TestCoverServingWithMocks:
             # Will likely 404 as file doesn't exist
             assert response.status_code in (200, 404, 500)
             if response.status_code == 200:
-                assert mock_send.called, (
-                    "send_from_directory should be called for cover serving"
-                )
+                assert mock_send.called, "send_from_directory should be called for cover serving"
 
 
 class TestExportEndpoints:
@@ -536,9 +514,7 @@ class TestDeleteDuplicatesEndpoint:
     def test_delete_duplicates_missing_ids(self, app_client):
         """Test delete duplicates with missing audiobook_ids."""
         response = app_client.post(
-            "/api/duplicates/delete",
-            data=json.dumps({}),
-            content_type="application/json",
+            "/api/duplicates/delete", data=json.dumps({}), content_type="application/json"
         )
         assert response.status_code == 400
 
@@ -697,9 +673,7 @@ class TestExceptionPaths:
                 patch("backend.api_modular.audiobooks.Path") as MockPath,
                 patch("backend.api_modular.audiobooks.send_file") as mock_send,
                 patch("backend.api_modular.audiobooks.subprocess") as mock_subprocess,
-                patch(
-                    "backend.api_modular.audiobooks.AUDIOBOOKS_WEBM_CACHE"
-                ) as mock_cache,
+                patch("backend.api_modular.audiobooks.AUDIOBOOKS_WEBM_CACHE") as mock_cache,
             ):
                 # Mock the source file
                 mock_path_instance = MagicMock()
@@ -728,14 +702,11 @@ class TestExceptionPaths:
                     assert mock_subprocess.run.called, (
                         "ffmpeg subprocess should be called for webm remux"
                     )
-                    assert mock_send.called, (
-                        "send_file should be called after successful remux"
-                    )
+                    assert mock_send.called, "send_file should be called after successful remux"
         finally:
             conn = sqlite3.connect(db_path)
             conn.execute(
-                "DELETE FROM audiobooks WHERE sha256_hash = ?",
-                ("webm_test_hash_unique_123",),
+                "DELETE FROM audiobooks WHERE sha256_hash = ?", ("webm_test_hash_unique_123",)
             )
             conn.commit()
             conn.close()
@@ -783,14 +754,11 @@ class TestExceptionPaths:
                 response = app_client.get(f"/api/stream/{book_id}?format=webm")
                 assert response.status_code in (200, 500)
                 if response.status_code == 200:
-                    assert mock_send.called, (
-                        "send_file should be called for non-opus file"
-                    )
+                    assert mock_send.called, "send_file should be called for non-opus file"
         finally:
             conn = sqlite3.connect(db_path)
             conn.execute(
-                "DELETE FROM audiobooks WHERE sha256_hash = ?",
-                ("webm_test_mp3_hash_unique_456",),
+                "DELETE FROM audiobooks WHERE sha256_hash = ?", ("webm_test_mp3_hash_unique_456",)
             )
             conn.commit()
             conn.close()
@@ -837,9 +805,7 @@ class TestBulkOperationsEdgeCases:
             # Test narrator (allowed)
             response = app_client.post(
                 "/api/audiobooks/bulk-update",
-                data=json.dumps(
-                    {"ids": [1], "field": "narrator", "value": "Test Narrator"}
-                ),
+                data=json.dumps({"ids": [1], "field": "narrator", "value": "Test Narrator"}),
                 content_type="application/json",
             )
             assert response.status_code == 200
@@ -847,9 +813,7 @@ class TestBulkOperationsEdgeCases:
             # Test publisher (allowed)
             response = app_client.post(
                 "/api/audiobooks/bulk-update",
-                data=json.dumps(
-                    {"ids": [1], "field": "publisher", "value": "Test Publisher"}
-                ),
+                data=json.dumps({"ids": [1], "field": "publisher", "value": "Test Publisher"}),
                 content_type="application/json",
             )
             assert response.status_code == 200
@@ -894,9 +858,7 @@ class TestDuplicatesByHashWithRealData:
         assert len(keepers) == 1
         assert len(duplicates) == 1
 
-    def test_duplicates_by_hash_wasted_space_calculation(
-        self, app_client, db_with_hash_duplicates
-    ):
+    def test_duplicates_by_hash_wasted_space_calculation(self, app_client, db_with_hash_duplicates):
         """Test that wasted space is calculated correctly."""
         response = app_client.get("/api/duplicates")
         data = json.loads(response.data)
@@ -932,16 +894,12 @@ class TestDuplicatesByTitleWithRealData:
                 found_group = group
                 break
 
-        assert found_group is not None, (
-            f"Test duplicate group for '{test_title}' not found"
-        )
+        assert found_group is not None, f"Test duplicate group for '{test_title}' not found"
         assert found_group["count"] == 2
         assert len(found_group["files"]) == 2
         assert found_group["author"] == "Real Author Name"
 
-    def test_duplicates_by_title_keeper_selection(
-        self, app_client, db_with_title_duplicates
-    ):
+    def test_duplicates_by_title_keeper_selection(self, app_client, db_with_title_duplicates):
         """Test that keeper is selected correctly (prefers opus format)."""
         response = app_client.get("/api/duplicates/by-title")
         data = json.loads(response.data)
@@ -955,9 +913,7 @@ class TestDuplicatesByTitleWithRealData:
                 assert keepers[0]["format"] == "opus"
                 break
 
-    def test_duplicates_by_title_potential_savings(
-        self, app_client, db_with_title_duplicates
-    ):
+    def test_duplicates_by_title_potential_savings(self, app_client, db_with_title_duplicates):
         """Test that potential savings are calculated."""
         response = app_client.get("/api/duplicates/by-title")
         data = json.loads(response.data)
@@ -974,9 +930,7 @@ class TestDuplicatesByTitleWithRealData:
 class TestDeleteDuplicatesWithRealData:
     """Test delete duplicates endpoint with actual duplicate data."""
 
-    def test_delete_duplicates_title_mode_with_data(
-        self, app_client, db_with_title_duplicates
-    ):
+    def test_delete_duplicates_title_mode_with_data(self, app_client, db_with_title_duplicates):
         """Test delete duplicates in title mode with actual duplicates."""
         ids = db_with_title_duplicates["ids"]
 
@@ -999,9 +953,7 @@ class TestDeleteDuplicatesWithRealData:
             assert "blocked_count" in result
             assert "deleted_count" in result
 
-    def test_delete_duplicates_hash_mode_with_data(
-        self, app_client, db_with_hash_duplicates
-    ):
+    def test_delete_duplicates_hash_mode_with_data(self, app_client, db_with_hash_duplicates):
         """Test delete duplicates in hash mode with actual duplicates."""
         ids = db_with_hash_duplicates["ids"]
 
@@ -1021,9 +973,7 @@ class TestDeleteDuplicatesWithRealData:
             result = json.loads(response.data)
             assert result.get("success") is True
 
-    def test_delete_duplicates_with_file_exists(
-        self, app_client, db_with_hash_duplicates
-    ):
+    def test_delete_duplicates_with_file_exists(self, app_client, db_with_hash_duplicates):
         """Test delete duplicates when files exist on disk (mocked)."""
         ids = db_with_hash_duplicates["ids"]
 
@@ -1048,9 +998,7 @@ class TestDeleteDuplicatesWithRealData:
 class TestVerifyDeletionWithDuplicates:
     """Test verify deletion with actual duplicate data."""
 
-    def test_verify_deletion_with_hash_duplicates(
-        self, app_client, db_with_hash_duplicates
-    ):
+    def test_verify_deletion_with_hash_duplicates(self, app_client, db_with_hash_duplicates):
         """Test verify deletion correctly identifies safe/unsafe with duplicates."""
         ids = db_with_hash_duplicates["ids"]
 
@@ -1066,9 +1014,7 @@ class TestVerifyDeletionWithDuplicates:
         assert "safe_ids" in result
         assert "unsafe_ids" in result
 
-    def test_verify_deletion_with_title_duplicates(
-        self, app_client, db_with_title_duplicates
-    ):
+    def test_verify_deletion_with_title_duplicates(self, app_client, db_with_title_duplicates):
         """Test verify deletion with title mode duplicates."""
         ids = db_with_title_duplicates["ids"]
 
@@ -1105,9 +1051,7 @@ class TestDuplicateDeletionFileOperations:
             )
             assert response.status_code == 200
 
-    def test_delete_with_file_unlink_exception(
-        self, app_client, db_with_hash_duplicates
-    ):
+    def test_delete_with_file_unlink_exception(self, app_client, db_with_hash_duplicates):
         """Test handling of file deletion errors."""
         ids = db_with_hash_duplicates["ids"]
         duplicate_id = ids[1]

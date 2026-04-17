@@ -330,9 +330,7 @@ class TestInitNotificationPoller:
             with patch.dict("sys.modules", {"gevent": None}):
                 # Need to make import fail
                 original_import = (
-                    __builtins__.__import__
-                    if hasattr(__builtins__, "__import__")
-                    else __import__
+                    __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
                 )
 
                 def fake_import(name, *args, **kwargs):
@@ -416,8 +414,7 @@ class TestNotificationPollerWithGevent:
                 payload["type"] = "maintenance_" + row["notification_type"]
                 ws_module.connection_manager.broadcast(payload)
                 conn.execute(
-                    "UPDATE maintenance_notifications SET delivered = 1 WHERE id = ?",
-                    (row["id"],),
+                    "UPDATE maintenance_notifications SET delivered = 1 WHERE id = ?", (row["id"],)
                 )
             conn.commit()
 
@@ -468,8 +465,7 @@ class TestNotificationPollerWithGevent:
                     payload["type"] = "maintenance_" + row["notification_type"]
                     ws_module.connection_manager.broadcast(payload)
                     conn.execute(
-                        "UPDATE maintenance_notifications SET delivered = 1 "
-                        "WHERE id = ?",
+                        "UPDATE maintenance_notifications SET delivered = 1 WHERE id = ?",
                         (row["id"],),
                     )
                 except Exception:
@@ -493,8 +489,6 @@ class TestNotificationPollerWithGevent:
         try:
             conn = sqlite3.connect(str(ws_module._db_path_for_poller))
             conn.row_factory = sqlite3.Row
-            conn.execute(
-                "SELECT id FROM maintenance_notifications WHERE delivered = 0"
-            ).fetchall()
+            conn.execute("SELECT id FROM maintenance_notifications WHERE delivered = 0").fetchall()
         except Exception:
             pass  # Exercises lines 162-163

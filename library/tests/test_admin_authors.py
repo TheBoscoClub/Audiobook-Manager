@@ -158,10 +158,7 @@ class TestRenameAuthor:
 
     def test_rename_author_name_only(self, client):
         """Rename with only name provided."""
-        resp = client.put(
-            "/api/admin/authors/2",
-            json={"name": "Peter Francis Straub"},
-        )
+        resp = client.put("/api/admin/authors/2", json={"name": "Peter Francis Straub"})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["name"] == "Peter Francis Straub"
@@ -170,10 +167,7 @@ class TestRenameAuthor:
 
     def test_rename_author_regenerates_flat_column(self, client, db_conn):
         """Rename updates the flat author column on affected books."""
-        client.put(
-            "/api/admin/authors/1",
-            json={"name": "S. King", "sort_name": "King, S."},
-        )
+        client.put("/api/admin/authors/1", json={"name": "S. King", "sort_name": "King, S."})
         # Book 1 has authors [1, 2] -> "S. King, Peter Straub"
         row = db_conn.execute("SELECT author FROM audiobooks WHERE id = 1").fetchone()
         assert row["author"] == "S. King, Peter Straub"
@@ -184,10 +178,7 @@ class TestRenameAuthor:
 
     def test_rename_author_not_found(self, client):
         """Returns 404 for nonexistent author."""
-        resp = client.put(
-            "/api/admin/authors/999",
-            json={"name": "Nobody"},
-        )
+        resp = client.put("/api/admin/authors/999", json={"name": "Nobody"})
         assert resp.status_code == 404
 
     def test_rename_author_no_fields(self, client):
@@ -207,15 +198,10 @@ class TestMergeAuthors:
     def test_merge_authors_basic(self, client, db_conn):
         """Merge typo duplicate (Steven King -> Stephen King)."""
         # First link the typo author to a book so we have something to reassign
-        db_conn.execute(
-            "INSERT INTO book_authors (book_id, author_id, position) VALUES (3, 3, 1)"
-        )
+        db_conn.execute("INSERT INTO book_authors (book_id, author_id, position) VALUES (3, 3, 1)")
         db_conn.commit()
 
-        resp = client.post(
-            "/api/admin/authors/merge",
-            json={"source_ids": [3], "target_id": 1},
-        )
+        resp = client.post("/api/admin/authors/merge", json={"source_ids": [3], "target_id": 1})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["author"]["id"] == 1
@@ -230,15 +216,10 @@ class TestMergeAuthors:
         """Merge where target is already linked to the same book."""
         # Link author 3 (Steven King) to book 2 which already has
         # author 1 (Stephen King)
-        db_conn.execute(
-            "INSERT INTO book_authors (book_id, author_id, position) VALUES (2, 3, 1)"
-        )
+        db_conn.execute("INSERT INTO book_authors (book_id, author_id, position) VALUES (2, 3, 1)")
         db_conn.commit()
 
-        resp = client.post(
-            "/api/admin/authors/merge",
-            json={"source_ids": [3], "target_id": 1},
-        )
+        resp = client.post("/api/admin/authors/merge", json={"source_ids": [3], "target_id": 1})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["books_reassigned"] == 1
@@ -248,24 +229,17 @@ class TestMergeAuthors:
         assert row is None
 
         # Book 2 should only have author 1, not a duplicate
-        links = db_conn.execute(
-            "SELECT author_id FROM book_authors WHERE book_id = 2"
-        ).fetchall()
+        links = db_conn.execute("SELECT author_id FROM book_authors WHERE book_id = 2").fetchall()
         author_ids = [row["author_id"] for row in links]
         assert author_ids == [1]
 
     def test_merge_regenerates_flat_column(self, client, db_conn):
         """Merge updates flat author column on affected books."""
         # Link author 3 to book 3 (currently only has author 2)
-        db_conn.execute(
-            "INSERT INTO book_authors (book_id, author_id, position) VALUES (3, 3, 1)"
-        )
+        db_conn.execute("INSERT INTO book_authors (book_id, author_id, position) VALUES (3, 3, 1)")
         db_conn.commit()
 
-        client.post(
-            "/api/admin/authors/merge",
-            json={"source_ids": [3], "target_id": 1},
-        )
+        client.post("/api/admin/authors/merge", json={"source_ids": [3], "target_id": 1})
 
         # Book 3 should now show "Peter Straub, Stephen King" (positions 0, 1)
         row = db_conn.execute("SELECT author FROM audiobooks WHERE id = 3").fetchone()
@@ -274,26 +248,17 @@ class TestMergeAuthors:
 
     def test_merge_target_not_found(self, client):
         """Returns 404 for nonexistent target."""
-        resp = client.post(
-            "/api/admin/authors/merge",
-            json={"source_ids": [3], "target_id": 999},
-        )
+        resp = client.post("/api/admin/authors/merge", json={"source_ids": [3], "target_id": 999})
         assert resp.status_code == 404
 
     def test_merge_source_not_found(self, client):
         """Returns 404 for nonexistent source."""
-        resp = client.post(
-            "/api/admin/authors/merge",
-            json={"source_ids": [999], "target_id": 1},
-        )
+        resp = client.post("/api/admin/authors/merge", json={"source_ids": [999], "target_id": 1})
         assert resp.status_code == 404
 
     def test_merge_target_in_sources(self, client):
         """Returns 400 if target_id is in source_ids."""
-        resp = client.post(
-            "/api/admin/authors/merge",
-            json={"source_ids": [1, 2], "target_id": 1},
-        )
+        resp = client.post("/api/admin/authors/merge", json={"source_ids": [1, 2], "target_id": 1})
         assert resp.status_code == 400
 
 
@@ -308,8 +273,7 @@ class TestReassignBookAuthors:
     def test_reassign_book_authors(self, client, db_conn):
         """Replace book's author list entirely."""
         resp = client.put(
-            "/api/admin/books/3/authors",
-            json={"author_ids": [1, 2], "positions": [0, 1]},
+            "/api/admin/books/3/authors", json={"author_ids": [1, 2], "positions": [0, 1]}
         )
         assert resp.status_code == 200
         data = resp.get_json()
@@ -319,34 +283,28 @@ class TestReassignBookAuthors:
 
     def test_reassign_regenerates_flat_column(self, client, db_conn):
         """Reassign updates flat author column."""
-        client.put(
-            "/api/admin/books/3/authors",
-            json={"author_ids": [1], "positions": [0]},
-        )
+        client.put("/api/admin/books/3/authors", json={"author_ids": [1], "positions": [0]})
         row = db_conn.execute("SELECT author FROM audiobooks WHERE id = 3").fetchone()
         assert row["author"] == "Stephen King"
 
     def test_reassign_book_not_found(self, client):
         """Returns 404 for nonexistent book."""
         resp = client.put(
-            "/api/admin/books/999/authors",
-            json={"author_ids": [1], "positions": [0]},
+            "/api/admin/books/999/authors", json={"author_ids": [1], "positions": [0]}
         )
         assert resp.status_code == 404
 
     def test_reassign_author_not_found(self, client):
         """Returns 404 for nonexistent author in list."""
         resp = client.put(
-            "/api/admin/books/1/authors",
-            json={"author_ids": [999], "positions": [0]},
+            "/api/admin/books/1/authors", json={"author_ids": [999], "positions": [0]}
         )
         assert resp.status_code == 404
 
     def test_reassign_mismatched_lengths(self, client):
         """Returns 400 if positions and author_ids have different lengths."""
         resp = client.put(
-            "/api/admin/books/1/authors",
-            json={"author_ids": [1, 2], "positions": [0]},
+            "/api/admin/books/1/authors", json={"author_ids": [1, 2], "positions": [0]}
         )
         assert resp.status_code == 400
 
@@ -372,19 +330,13 @@ class TestRenameNarrator:
 
     def test_rename_narrator_regenerates_flat_column(self, client, db_conn):
         """Rename updates flat narrator column on affected books."""
-        client.put(
-            "/api/admin/narrators/1",
-            json={"name": "F. Muller"},
-        )
+        client.put("/api/admin/narrators/1", json={"name": "F. Muller"})
         row = db_conn.execute("SELECT narrator FROM audiobooks WHERE id = 1").fetchone()
         assert row["narrator"] == "F. Muller"
 
     def test_rename_narrator_not_found(self, client):
         """Returns 404 for nonexistent narrator."""
-        resp = client.put(
-            "/api/admin/narrators/999",
-            json={"name": "Nobody"},
-        )
+        resp = client.put("/api/admin/narrators/999", json={"name": "Nobody"})
         assert resp.status_code == 404
 
 
@@ -400,15 +352,11 @@ class TestMergeNarrators:
         """Merge typo duplicate narrator."""
         # Link narrator 3 (Frank Mueller) to book 2
         db_conn.execute(
-            "INSERT INTO book_narrators (book_id, narrator_id, position)"
-            " VALUES (2, 3, 1)"
+            "INSERT INTO book_narrators (book_id, narrator_id, position) VALUES (2, 3, 1)"
         )
         db_conn.commit()
 
-        resp = client.post(
-            "/api/admin/narrators/merge",
-            json={"source_ids": [3], "target_id": 1},
-        )
+        resp = client.post("/api/admin/narrators/merge", json={"source_ids": [3], "target_id": 1})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["narrator"]["id"] == 1
@@ -421,25 +369,18 @@ class TestMergeNarrators:
     def test_merge_narrator_regenerates_flat(self, client, db_conn):
         """Merge updates flat narrator column."""
         db_conn.execute(
-            "INSERT INTO book_narrators (book_id, narrator_id, position)"
-            " VALUES (3, 3, 1)"
+            "INSERT INTO book_narrators (book_id, narrator_id, position) VALUES (3, 3, 1)"
         )
         db_conn.commit()
 
-        client.post(
-            "/api/admin/narrators/merge",
-            json={"source_ids": [3], "target_id": 1},
-        )
+        client.post("/api/admin/narrators/merge", json={"source_ids": [3], "target_id": 1})
 
         row = db_conn.execute("SELECT narrator FROM audiobooks WHERE id = 3").fetchone()
         assert "Frank Muller" in row["narrator"]
 
     def test_merge_narrator_not_found(self, client):
         """Returns 404 for nonexistent target narrator."""
-        resp = client.post(
-            "/api/admin/narrators/merge",
-            json={"source_ids": [3], "target_id": 999},
-        )
+        resp = client.post("/api/admin/narrators/merge", json={"source_ids": [3], "target_id": 999})
         assert resp.status_code == 404
 
 
@@ -454,8 +395,7 @@ class TestReassignBookNarrators:
     def test_reassign_book_narrators(self, client, db_conn):
         """Replace book's narrator list entirely."""
         resp = client.put(
-            "/api/admin/books/1/narrators",
-            json={"narrator_ids": [1, 2], "positions": [0, 1]},
+            "/api/admin/books/1/narrators", json={"narrator_ids": [1, 2], "positions": [0, 1]}
         )
         assert resp.status_code == 200
         data = resp.get_json()
@@ -466,8 +406,7 @@ class TestReassignBookNarrators:
     def test_reassign_narrators_regenerates_flat(self, client, db_conn):
         """Reassign updates flat narrator column."""
         client.put(
-            "/api/admin/books/2/narrators",
-            json={"narrator_ids": [1, 2], "positions": [0, 1]},
+            "/api/admin/books/2/narrators", json={"narrator_ids": [1, 2], "positions": [0, 1]}
         )
         row = db_conn.execute("SELECT narrator FROM audiobooks WHERE id = 2").fetchone()
         assert row["narrator"] == "Frank Muller, Steven Weber"
@@ -475,15 +414,13 @@ class TestReassignBookNarrators:
     def test_reassign_narrator_not_found(self, client):
         """Returns 404 for nonexistent narrator in list."""
         resp = client.put(
-            "/api/admin/books/1/narrators",
-            json={"narrator_ids": [999], "positions": [0]},
+            "/api/admin/books/1/narrators", json={"narrator_ids": [999], "positions": [0]}
         )
         assert resp.status_code == 404
 
     def test_reassign_book_not_found_narrators(self, client):
         """Returns 404 for nonexistent book."""
         resp = client.put(
-            "/api/admin/books/999/narrators",
-            json={"narrator_ids": [1], "positions": [0]},
+            "/api/admin/books/999/narrators", json={"narrator_ids": [1], "positions": [0]}
         )
         assert resp.status_code == 404

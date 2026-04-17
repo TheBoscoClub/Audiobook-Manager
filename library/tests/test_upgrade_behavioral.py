@@ -213,11 +213,7 @@ class TestCheckMode:
         """When target version < project version, an upgrade should be available."""
         target = target_with_version("0.0.1")
         result = run_upgrade(
-            "--from-project",
-            str(PROJECT_ROOT),
-            "--target",
-            str(target),
-            "--check",
+            "--from-project", str(PROJECT_ROOT), "--target", str(target), "--check"
         )
         # Script may fail on preflight write (no /var/lib/audiobooks/.control),
         # but the version comparison output should still appear.
@@ -231,26 +227,18 @@ class TestCheckMode:
         current_ver = VERSION_FILE.read_text().strip()
         target = target_with_version(current_ver)
         result = run_upgrade(
-            "--from-project",
-            str(PROJECT_ROOT),
-            "--target",
-            str(target),
-            "--check",
+            "--from-project", str(PROJECT_ROOT), "--target", str(target), "--check"
         )
         combined = result.stdout + result.stderr
-        assert (
-            "identical" in combined.lower() or "no upgrade needed" in combined.lower()
-        ), f"Identical versions should report no upgrade needed. Output:\n{combined}"
+        assert "identical" in combined.lower() or "no upgrade needed" in combined.lower(), (
+            f"Identical versions should report no upgrade needed. Output:\n{combined}"
+        )
 
     def test_check_detects_downgrade(self, target_with_version):
         """When target version > project version, a warning about downgrade is shown."""
         target = target_with_version("999.0.0")
         result = run_upgrade(
-            "--from-project",
-            str(PROJECT_ROOT),
-            "--target",
-            str(target),
-            "--check",
+            "--from-project", str(PROJECT_ROOT), "--target", str(target), "--check"
         )
         combined = result.stdout + result.stderr
         assert "newer" in combined.lower() or "warning" in combined.lower(), (
@@ -261,11 +249,7 @@ class TestCheckMode:
         """--check must print both source and target versions."""
         target = target_with_version("1.0.0")
         result = run_upgrade(
-            "--from-project",
-            str(PROJECT_ROOT),
-            "--target",
-            str(target),
-            "--check",
+            "--from-project", str(PROJECT_ROOT), "--target", str(target), "--check"
         )
         combined = result.stdout + result.stderr
         assert "1.0.0" in combined
@@ -306,9 +290,7 @@ class TestPreflightValidation:
         combined = result.stdout + result.stderr
         # Should fail because no preflight report exists
         assert (
-            result.returncode != 0
-            or "preflight" in combined.lower()
-            or "force" in combined.lower()
+            result.returncode != 0 or "preflight" in combined.lower() or "force" in combined.lower()
         ), f"Expected preflight error. Output:\n{combined}"
 
     def test_force_bypasses_preflight(self, mock_install, tmp_path):
@@ -342,25 +324,13 @@ class TestInvalidProject:
         """A --from-project pointing to an empty dir should fail."""
         empty = tmp_path / "empty"
         empty.mkdir()
-        result = run_upgrade(
-            "--from-project",
-            str(empty),
-            "--target",
-            str(tmp_path),
-            "--dry-run",
-        )
+        result = run_upgrade("--from-project", str(empty), "--target", str(tmp_path), "--dry-run")
         assert result.returncode != 0, "Should reject a project dir without install.sh"
 
     def test_invalid_project_shows_error_message(self, tmp_path):
         empty = tmp_path / "empty"
         empty.mkdir()
-        result = run_upgrade(
-            "--from-project",
-            str(empty),
-            "--target",
-            str(tmp_path),
-            "--dry-run",
-        )
+        result = run_upgrade("--from-project", str(empty), "--target", str(tmp_path), "--dry-run")
         combined = result.stdout + result.stderr
         assert "invalid" in combined.lower() or "error" in combined.lower(), (
             f"Should print an error about invalid project. Output:\n{combined}"
@@ -397,10 +367,7 @@ class TestScriptSyntax:
     def test_bash_syntax_check(self):
         """bash -n should parse upgrade.sh without syntax errors."""
         result = subprocess.run(
-            ["bash", "-n", str(UPGRADE_SH)],
-            capture_output=True,
-            text=True,
-            timeout=TIMEOUT,
+            ["bash", "-n", str(UPGRADE_SH)], capture_output=True, text=True, timeout=TIMEOUT
         )
         assert result.returncode == 0, f"Syntax error: {result.stderr}"
 
@@ -438,10 +405,7 @@ class TestVersionComparison:
             echo $?
         """)
         result = subprocess.run(
-            ["bash", "-c", script],
-            capture_output=True,
-            text=True,
-            timeout=TIMEOUT,
+            ["bash", "-c", script], capture_output=True, text=True, timeout=TIMEOUT
         )
         return int(result.stdout.strip())
 
@@ -488,10 +452,7 @@ class TestGetVersion:
             get_version "{target_dir}"
         """)
         result = subprocess.run(
-            ["bash", "-c", script],
-            capture_output=True,
-            text=True,
-            timeout=TIMEOUT,
+            ["bash", "-c", script], capture_output=True, text=True, timeout=TIMEOUT
         )
         return result.stdout.strip()
 

@@ -48,8 +48,7 @@ _ROLE_SUFFIX_RE = re.compile(
 
 # Regex to detect "Name (role)" pattern
 _ROLE_PAREN_RE = re.compile(
-    r"\s*\((" + "|".join(re.escape(r) for r in sorted(ROLE_SUFFIXES)) + r")\w*\)\s*$",
-    re.IGNORECASE,
+    r"\s*\((" + "|".join(re.escape(r) for r in sorted(ROLE_SUFFIXES)) + r")\w*\)\s*$", re.IGNORECASE
 )
 
 
@@ -105,19 +104,7 @@ CREDENTIAL_SUFFIXES = frozenset(
 )
 
 # Generational/honorific suffixes to strip from names
-GENERATIONAL_SUFFIXES = frozenset(
-    {
-        "jr",
-        "jr.",
-        "sr",
-        "sr.",
-        "ii",
-        "iii",
-        "iv",
-        "esq",
-        "esq.",
-    }
-)
+GENERATIONAL_SUFFIXES = frozenset({"jr", "jr.", "sr", "sr.", "ii", "iii", "iv", "esq", "esq."})
 
 # Regex to strip trailing credential suffixes (one or more, comma or space separated)
 _CREDENTIAL_RE = re.compile(
@@ -132,9 +119,7 @@ _CREDENTIAL_RE = re.compile(
 # Generational suffix at end of name: "Robert S. Mueller III"
 _GENERATIONAL_RE = re.compile(
     r"[,\s]+(?:"
-    + "|".join(
-        re.escape(g) for g in sorted(GENERATIONAL_SUFFIXES, key=len, reverse=True)
-    )
+    + "|".join(re.escape(g) for g in sorted(GENERATIONAL_SUFFIXES, key=len, reverse=True))
     + r")\s*$",
     re.IGNORECASE,
 )
@@ -265,20 +250,11 @@ BRAND_KEYWORDS = frozenset(
 )
 
 # Exact brand names that don't contain a keyword but aren't person names.
-BRAND_NAMES = frozenset(
-    {
-        "aaptiv",
-        "cracked.com",
-        "movewith",
-        "wondery",
-    }
-)
+BRAND_NAMES = frozenset({"aaptiv", "cracked.com", "movewith", "wondery"})
 
 # Patterns that indicate an organization, not a person
 ORG_PATTERNS = [
-    re.compile(
-        r"\b(department of|office of|council|commission|bureau)\b", re.IGNORECASE
-    ),
+    re.compile(r"\b(department of|office of|council|commission|bureau)\b", re.IGNORECASE),
     re.compile(r"\bU\.?S\.?\s+(Department|Office|Government)\b", re.IGNORECASE),
     re.compile(r"\bSpecial Counsel", re.IGNORECASE),
 ]
@@ -341,14 +317,7 @@ LAST_NAME_PREFIXES = frozenset(
 )
 
 # Names to treat as empty/unknown
-EMPTY_NAMES = frozenset(
-    {
-        "unknown author",
-        "unknown narrator",
-        "audiobook",
-        "",
-    }
-)
+EMPTY_NAMES = frozenset({"unknown author", "unknown narrator", "audiobook", ""})
 
 
 def is_group_name(name: str) -> bool:

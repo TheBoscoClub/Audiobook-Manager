@@ -25,12 +25,7 @@ from auth.audit import (
 
 class TestCriticalActions:
     def test_expected_actions_present(self):
-        expected = {
-            "change_username",
-            "switch_auth_method",
-            "reset_credentials",
-            "delete_account",
-        }
+        expected = {"change_username", "switch_auth_method", "reset_credentials", "delete_account"}
         assert CRITICAL_ACTIONS == expected
 
     def test_is_a_set(self):
@@ -108,21 +103,13 @@ class TestFormatNotification:
 
     def test_subject_prefix(self):
         subject, _ = _format_notification(
-            "reset_credentials",
-            {
-                "actor_username": "x",
-                "target_username": "x",
-            },
+            "reset_credentials", {"actor_username": "x", "target_username": "x"}
         )
         assert subject.startswith("[Audiobook Library]")
 
     def test_body_contains_review_instruction(self):
         _, body = _format_notification(
-            "reset_credentials",
-            {
-                "actor_username": "x",
-                "target_username": "x",
-            },
+            "reset_credentials", {"actor_username": "x", "target_username": "x"}
         )
         assert "Audit Log" in body
 
@@ -133,12 +120,7 @@ class TestFormatNotification:
 
     def test_target_defaults_to_actor(self):
         """If target_username missing, defaults to actor_username."""
-        subject, _ = _format_notification(
-            "reset_credentials",
-            {
-                "actor_username": "self_user",
-            },
-        )
+        subject, _ = _format_notification("reset_credentials", {"actor_username": "self_user"})
         assert "self_user" in subject
 
 
@@ -244,9 +226,7 @@ class TestNotifyAdmins:
 
         with patch("auth.models.UserRepository", mock_user_repo.__class__):
             # Patch where it's imported: inside notify_admins via from .models import UserRepository
-            with patch(
-                "auth.audit.UserRepository", mock_user_repo.__class__, create=True
-            ):
+            with patch("auth.audit.UserRepository", mock_user_repo.__class__, create=True):
                 # Simpler: patch the function's local import directly
                 pass
 
@@ -265,9 +245,7 @@ class TestNotifyAdmins:
         models_mod.UserRepository = FakeUserRepo
         try:
             notify_admins(
-                "delete_account",
-                {"actor_username": "admin1", "username": "charlie"},
-                mock_db,
+                "delete_account", {"actor_username": "admin1", "username": "charlie"}, mock_db
             )
         finally:
             models_mod.UserRepository = original_ur
@@ -382,9 +360,7 @@ class TestAuditLogWebsocketBroadcast:
         ws_mod.connection_manager = mock_cm
         try:
             entry = repo.log(
-                actor_id=auth_app.test_user_id,
-                target_id=None,
-                action="test.broadcast",
+                actor_id=auth_app.test_user_id, target_id=None, action="test.broadcast"
             )
         finally:
             ws_mod.connection_manager = original_cm
@@ -407,9 +383,7 @@ class TestAuditLogWebsocketBroadcast:
         ws_mod.connection_manager = mock_cm
         try:
             entry = repo.log(
-                actor_id=auth_app.test_user_id,
-                target_id=None,
-                action="test.broadcast_fail",
+                actor_id=auth_app.test_user_id, target_id=None, action="test.broadcast_fail"
             )
         finally:
             ws_mod.connection_manager = original_cm

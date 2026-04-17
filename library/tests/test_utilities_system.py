@@ -48,9 +48,7 @@ class TestEnsureControlDir:
 
         # Patch mkdir at the class level to simulate PermissionError.
         # CI often runs as root, bypassing real permission checks.
-        with patch.object(
-            pathlib.Path, "mkdir", side_effect=PermissionError("Permission denied")
-        ):
+        with patch.object(pathlib.Path, "mkdir", side_effect=PermissionError("Permission denied")):
             # Should not raise, just silently fail
             module._ensure_control_dir()
 
@@ -177,9 +175,7 @@ class TestWaitForCompletion:
         from backend.api_modular import utilities_system as module
 
         status_file = temp_dir / "status.json"
-        status_file.write_text(
-            json.dumps({"running": False, "success": True, "message": "Done"})
-        )
+        status_file.write_text(json.dumps({"running": False, "success": True, "message": "Done"}))
         module.HELPER_STATUS_FILE = status_file
 
         status = module._wait_for_completion(timeout=1.0, poll_interval=0.1)
@@ -445,10 +441,7 @@ class TestStartUpgrade:
         mock_write.return_value = True
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/system/upgrade",
-                json={"source": "github", "force": True},
-            )
+            response = client.post("/api/system/upgrade", json={"source": "github", "force": True})
 
         assert response.status_code == 200
         data = response.get_json()
@@ -505,11 +498,7 @@ class TestStartUpgrade:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/system/upgrade",
-                json={
-                    "source": "project",
-                    "project_path": str(temp_dir),
-                    "force": True,
-                },
+                json={"source": "project", "project_path": str(temp_dir), "force": True},
             )
 
         assert response.status_code == 200
@@ -610,17 +599,13 @@ class TestListProjects:
         monkeypatch.delenv("AUDIOBOOKS_PROJECT_DIR", raising=False)
 
         with flask_app.test_client() as client:
-            response = client.get(
-                "/api/system/projects?base_path=/nonexistent/fake/path"
-            )
+            response = client.get("/api/system/projects?base_path=/nonexistent/fake/path")
 
         assert response.status_code == 200
         data = response.get_json()
         assert isinstance(data["projects"], list)
 
-    def test_base_path_accepts_any_path_for_admin(
-        self, flask_app, temp_dir, monkeypatch
-    ):
+    def test_base_path_accepts_any_path_for_admin(self, flask_app, temp_dir, monkeypatch):
         """Test that admin users can scan any directory via base_path."""
         import tempfile
 
@@ -806,9 +791,7 @@ class TestWaitForCompletionTimeout:
             elif poll_count == 2:
                 # Then write valid completed status
                 status_file.write_text(
-                    json.dumps(
-                        {"running": False, "success": True, "message": "Recovered"}
-                    )
+                    json.dumps({"running": False, "success": True, "message": "Recovered"})
                 )
 
         status_file.write_text("")
@@ -831,10 +814,7 @@ class TestCheckUpgrade:
         mock_write.return_value = True
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/system/upgrade/check",
-                json={"source": "github"},
-            )
+            response = client.post("/api/system/upgrade/check", json={"source": "github"})
 
         assert response.status_code == 200
         data = response.get_json()
@@ -847,10 +827,7 @@ class TestCheckUpgrade:
         mock_read.return_value = {"running": True}
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/system/upgrade/check",
-                json={"source": "github"},
-            )
+            response = client.post("/api/system/upgrade/check", json={"source": "github"})
 
         assert response.status_code == 400
         assert "already in progress" in response.get_json()["error"]
@@ -861,19 +838,14 @@ class TestCheckUpgrade:
         mock_read.return_value = {"running": False}
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/system/upgrade/check",
-                json={"source": "project"},
-            )
+            response = client.post("/api/system/upgrade/check", json={"source": "project"})
 
         assert response.status_code == 400
         assert "project_path required" in response.get_json()["error"]
 
     @patch("backend.api_modular.utilities_system._write_request")
     @patch("backend.api_modular.utilities_system._read_status")
-    def test_check_upgrade_validates_project_path(
-        self, mock_read, mock_write, flask_app
-    ):
+    def test_check_upgrade_validates_project_path(self, mock_read, mock_write, flask_app):
         """Test validates that project path exists for check."""
         mock_read.return_value = {"running": False}
 
@@ -888,9 +860,7 @@ class TestCheckUpgrade:
 
     @patch("backend.api_modular.utilities_system._write_request")
     @patch("backend.api_modular.utilities_system._read_status")
-    def test_check_upgrade_from_project(
-        self, mock_read, mock_write, flask_app, temp_dir
-    ):
+    def test_check_upgrade_from_project(self, mock_read, mock_write, flask_app, temp_dir):
         """Test upgrade check from valid project directory."""
         mock_read.return_value = {"running": False}
         mock_write.return_value = True

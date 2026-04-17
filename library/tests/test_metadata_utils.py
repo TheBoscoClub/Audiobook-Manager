@@ -184,10 +184,7 @@ class TestRunFfprobe:
         """Test returns parsed JSON on success."""
         from scanner.metadata_utils import run_ffprobe
 
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout='{"format": {"duration": "3600"}}',
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout='{"format": {"duration": "3600"}}')
 
         result = run_ffprobe(Path("/test/book.opus"))
 
@@ -198,10 +195,7 @@ class TestRunFfprobe:
         """Test returns None when ffprobe exits with error."""
         from scanner.metadata_utils import run_ffprobe
 
-        mock_run.return_value = MagicMock(
-            returncode=1,
-            stderr="File not found",
-        )
+        mock_run.return_value = MagicMock(returncode=1, stderr="File not found")
 
         result = run_ffprobe(Path("/test/missing.opus"))
 
@@ -223,10 +217,7 @@ class TestRunFfprobe:
         """Test returns None when ffprobe returns invalid JSON."""
         from scanner.metadata_utils import run_ffprobe
 
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="not valid json{",
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout="not valid json{")
 
         result = run_ffprobe(Path("/test/book.opus"))
 
@@ -266,7 +257,7 @@ class TestGetFileMetadata:
                     "artist": "Test Author",
                     "narrator": "Test Narrator",
                 },
-            },
+            }
         }
         mock_hash.return_value = "abc123"
 
@@ -362,9 +353,7 @@ class TestExtractCoverArt:
         cover_dir.mkdir()
 
         # Pre-create the cover file
-        file_hash = hashlib.md5(
-            str(test_file).encode(), usedforsecurity=False
-        ).hexdigest()
+        file_hash = hashlib.md5(str(test_file).encode(), usedforsecurity=False).hexdigest()
         existing_cover = cover_dir / f"{file_hash}.jpg"
         existing_cover.touch()
 
@@ -383,11 +372,7 @@ class TestEnrichMetadata:
         """Test adds genre categorization fields."""
         from scanner.metadata_utils import enrich_metadata
 
-        metadata = {
-            "genre": "Science Fiction",
-            "year": "2020",
-            "description": "A sci-fi story",
-        }
+        metadata = {"genre": "Science Fiction", "year": "2020", "description": "A sci-fi story"}
 
         result = enrich_metadata(metadata)
 
@@ -404,10 +389,7 @@ class TestEnrichMetadata:
         result = enrich_metadata(metadata)
 
         assert "literary_era" in result
-        assert (
-            "Contemporary" in result["literary_era"]
-            or "Modern" in result["literary_era"]
-        )
+        assert "Contemporary" in result["literary_era"] or "Modern" in result["literary_era"]
 
     def test_adds_topics(self):
         """Test adds topics from description."""

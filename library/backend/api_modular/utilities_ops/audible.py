@@ -22,15 +22,13 @@ utilities_ops_audible_bp = Blueprint("utilities_ops_audible", __name__)
 _audiobooks_home = os.environ.get("AUDIOBOOKS_HOME", "/opt/audiobooks")
 
 # Module-level state set by init_audible_routes
-_project_root = None
+_project_root: Path = Path()
 
 # Compiled regex patterns for download progress parsing
 _item_pattern = re.compile(r"\[(\d+)/(\d+)\]\s*Downloading:\s*(.+)")
 _success_pattern = re.compile(r"[✓✔]\s*Downloaded.*:\s*(.+)")
 _fail_pattern = re.compile(r"[✗✘]\s*Failed.*:\s*(.+)")
-_complete_pattern = re.compile(
-    r"Download complete:\s*(\d+)\s*succeeded.*(\d+)\s*failed"
-)
+_complete_pattern = re.compile(r"Download complete:\s*(\d+)\s*succeeded.*(\d+)\s*failed")
 
 # Compiled regex patterns for genre/narrator sync
 _processing_pattern = re.compile(r"\[(\d+)/(\d+)\].*Processing")
@@ -75,14 +73,11 @@ def _parse_download_line(line, state, tracker, operation_id):
                 state["last_progress"] = progress
         return
 
-    if _success_pattern.search(line):
+    success_match = _success_pattern.search(line)
+    if success_match:
         state["downloaded"] += 1
-        title = _success_pattern.search(line).group(1).strip()[:40]
-        tracker.update_progress(
-            operation_id,
-            state["last_progress"],
-            f"✓ Downloaded: {title}",
-        )
+        title = success_match.group(1).strip()[:40]
+        tracker.update_progress(operation_id, state["last_progress"], f"✓ Downloaded: {title}")
         return
 
     if _fail_pattern.search(line):
@@ -98,13 +93,7 @@ def _parse_download_line(line, state, tracker, operation_id):
 def _download_work(tracker, operation_id):
     """Worker for the download audiobooks operation."""
     script_path = _resolve_download_script()
-    state = {
-        "downloaded": 0,
-        "failed": 0,
-        "current": 0,
-        "total": 0,
-        "last_progress": 2,
-    }
+    state = {"downloaded": 0, "failed": 0, "current": 0, "total": 0, "last_progress": 2}
 
     def on_line(line):
         _parse_download_line(line, state, tracker, operation_id)
@@ -148,11 +137,7 @@ def _parse_sync_line(line, state, tracker, operation_id, label):
     match = _loading_pattern.search(line)
     if match:
         state["total"] = int(match.group(1))
-        tracker.update_progress(
-            operation_id,
-            10,
-            f"Found {state['total']} audiobooks to process",
-        )
+        tracker.update_progress(operation_id, 10, f"Found {state['total']} audiobooks to process")
         return
 
     match = _processing_pattern.search(line)
@@ -163,9 +148,7 @@ def _parse_sync_line(line, state, tracker, operation_id, label):
             progress = 10 + int((state["processed"] / total) * 80)
             if progress > state["last_progress"]:
                 tracker.update_progress(
-                    operation_id,
-                    progress,
-                    f"Processing {label}: {state['processed']}/{total}",
+                    operation_id, progress, f"Processing {label}: {state['processed']}/{total}"
                 )
                 state["last_progress"] = progress
         return
@@ -175,9 +158,7 @@ def _parse_sync_line(line, state, tracker, operation_id, label):
         state["updated"] = int(match.group(1))
 
 
-def _run_sync_operation(
-    tracker, operation_id, script_name, label, singular_label, dry_run
-):
+def _run_sync_operation(tracker, operation_id, script_name, label, singular_label, dry_run):
     """Run a genre or narrator sync operation.
 
     Args:
@@ -200,27 +181,18 @@ def _run_sync_operation(
         cmd.append("--execute")
 
     result = run_with_progress(
-        cmd,
-        line_callback=on_line,
-        timeout_secs=600,
-        operation_name=f"{singular_label} sync",
+        cmd, line_callback=on_line, timeout_secs=600, operation_name=f"{singular_label} sync"
     )
     handle_result(
         tracker,
         operation_id,
         result,
-        {
-            f"{label}_updated": state["updated"],
-            "dry_run": dry_run,
-            "output": result["output"],
-        },
+        {f"{label}_updated": state["updated"], "dry_run": dry_run, "output": result["output"]},
         f"{singular_label} sync failed",
     )
 
 
-@utilities_ops_audible_bp.route(
-    "/api/utilities/download-audiobooks-async", methods=["POST"]
-)
+@utilities_ops_audible_bp.route("/api/utilities/download-audiobooks-async", methods=["POST"])
 @admin_if_enabled
 def download_audiobooks_async() -> FlaskResponse:
     """Download new audiobooks from Audible with progress tracking."""
@@ -241,9 +213,7 @@ def sync_genres_async() -> FlaskResponse:
     dry_run = data.get("dry_run", True)
 
     def work(tracker, operation_id):
-        _run_sync_operation(
-            tracker, operation_id, "populate_genres.py", "genres", "Genre", dry_run
-        )
+        _run_sync_operation(tracker, operation_id, "populate_genres.py", "genres", "Genre", dry_run)
 
     return run_async_operation(
         "sync_genres",

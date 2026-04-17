@@ -31,24 +31,19 @@ def main():
     with open(OUTPUT_TXT, "w", encoding="utf-8") as f:
         f.write("PRIORITY: ACTUAL AUDIOBOOKS NEEDING RE-DOWNLOAD\n")
         f.write("=" * 80 + "\n\n")
-        f.write(
-            f"Total: {len(priority_books)} audiobook files"
-            " (excludes cover image files)\n\n"
-        )
+        f.write(f"Total: {len(priority_books)} audiobook files (excludes cover image files)\n\n")
         f.write("INSTRUCTIONS:\n")
         f.write("1. Log in to your Audible account at audible.com\n")
         f.write("2. Go to your Library\n")
         f.write("3. Search for each title below\n")
         f.write("4. Download the audiobook file\n")
         f.write("5. Run the scanner again to update your library\n\n")
-        f.write(
-            "NOTE: This list excludes .cover files (images) which are non-critical.\n"
-        )
+        f.write("NOTE: This list excludes .cover files (images) which are non-critical.\n")
         f.write("      The full list including covers is in missing_audiobooks.txt\n\n")
         f.write("=" * 80 + "\n\n")
 
         # Group by directory for organization
-        by_directory = {}
+        by_directory: dict[str, list[dict]] = {}
         for book in priority_books:
             dir_name = book["directory"]
             if dir_name not in by_directory:

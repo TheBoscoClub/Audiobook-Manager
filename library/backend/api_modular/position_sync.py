@@ -64,9 +64,7 @@ def get_db():
     import sqlite3
 
     if _db_path is None:
-        raise RuntimeError(
-            "Position routes not initialized. Call init_position_routes first."
-        )
+        raise RuntimeError("Position routes not initialized. Call init_position_routes first.")
     conn = sqlite3.connect(_db_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
@@ -109,9 +107,7 @@ def _save_user_position(user_id: int, audiobook_id: int, position_ms: int) -> bo
 
     try:
         auth_db = get_auth_db()
-        pos = UserPosition(
-            user_id=user_id, audiobook_id=audiobook_id, position_ms=position_ms
-        )
+        pos = UserPosition(user_id=user_id, audiobook_id=audiobook_id, position_ms=position_ms)
         pos.save(auth_db)
         return True
     except RuntimeError:
@@ -145,9 +141,7 @@ def _update_listening_history(
             session.ended_at = now
             session.position_end_ms = position_ms
             if session.position_start_ms is not None:
-                session.duration_listened_ms = max(
-                    0, position_ms - session.position_start_ms
-                )
+                session.duration_listened_ms = max(0, position_ms - session.position_start_ms)
             session.save(auth_db)
         else:
             # Create new listening session
@@ -173,11 +167,7 @@ def _update_listening_history(
 @auth_if_enabled
 def position_status():
     """Check position tracking status."""
-    return jsonify(
-        {
-            "per_user": _is_auth_enabled(),
-        }
-    )
+    return jsonify({"per_user": _is_auth_enabled()})
 
 
 @position_bp.route("/<int:audiobook_id>", methods=["GET"])
@@ -212,9 +202,7 @@ def get_position(audiobook_id: int):
         if _is_auth_enabled():
             user = get_current_user()
             local_pos = (
-                _get_user_position(user.id, audiobook_id)
-                if user and user.id is not None
-                else 0
+                _get_user_position(user.id, audiobook_id) if user and user.id is not None else 0
             )
         else:
             local_pos = row["playback_position_ms"] or 0
@@ -279,9 +267,7 @@ def update_position(audiobook_id: int):
                 if not _save_user_position(user.id, audiobook_id, position_ms):
                     return jsonify({"error": "Failed to save position"}), 500
                 # Create/update listening history entry
-                _update_listening_history(
-                    user.id, audiobook_id, position_ms, title=book_title
-                )
+                _update_listening_history(user.id, audiobook_id, position_ms, title=book_title)
             else:
                 return jsonify({"error": "User not found"}), 401
         else:

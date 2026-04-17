@@ -88,9 +88,7 @@ class ConnectionManager:
         now = time.time()
         with self._lock:
             return [
-                sid
-                for sid, conn in self._connections.items()
-                if now - conn["last_seen"] > timeout
+                sid for sid, conn in self._connections.items() if now - conn["last_seen"] > timeout
             ]
 
     def broadcast(self, message):
@@ -111,8 +109,7 @@ class ConnectionManager:
         """Return connection data for admin dashboard."""
         with self._lock:
             users = [
-                {"username": c["username"], "state": c["state"]}
-                for c in self._connections.values()
+                {"username": c["username"], "state": c["state"]} for c in self._connections.values()
             ]
         return {"count": len(users), "users": users}
 
@@ -158,14 +155,11 @@ def init_notification_poller(db_path):
                         payload["type"] = "maintenance_" + row["notification_type"]
                         connection_manager.broadcast(payload)
                         conn.execute(
-                            "UPDATE maintenance_notifications "
-                            "SET delivered = 1 WHERE id = ?",
+                            "UPDATE maintenance_notifications SET delivered = 1 WHERE id = ?",
                             (row["id"],),
                         )
                     except Exception as e:
-                        logger.error(
-                            "Failed to deliver notification %d: %s", row["id"], e
-                        )
+                        logger.error("Failed to deliver notification %d: %s", row["id"], e)
 
                 conn.commit()
                 conn.close()

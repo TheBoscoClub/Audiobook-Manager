@@ -26,9 +26,7 @@ def test_connection_error_raises_after_retries(tmp_path: Path):
 
     remote = VastaiWhisperSTT(host="10.0.0.1")
     with patch.object(
-        VastaiWhisperSTT,
-        "transcribe",
-        side_effect=requests.exceptions.ConnectionError("refused"),
+        VastaiWhisperSTT, "transcribe", side_effect=requests.exceptions.ConnectionError("refused")
     ):
         with pytest.raises(requests.exceptions.ConnectionError, match="refused"):
             _transcribe_with_fallback(remote, audio, "en")
@@ -40,9 +38,7 @@ def test_timeout_raises_after_retries(tmp_path: Path):
 
     remote = VastaiWhisperSTT(host="10.0.0.1")
     with patch.object(
-        VastaiWhisperSTT,
-        "transcribe",
-        side_effect=requests.exceptions.Timeout("slow"),
+        VastaiWhisperSTT, "transcribe", side_effect=requests.exceptions.Timeout("slow")
     ):
         with pytest.raises(requests.exceptions.Timeout, match="slow"):
             _transcribe_with_fallback(remote, audio, "en")
@@ -53,11 +49,7 @@ def test_oserror_raises_after_retries(tmp_path: Path):
     audio.write_bytes(b"\x00")
 
     remote = VastaiWhisperSTT(host="10.0.0.1")
-    with patch.object(
-        VastaiWhisperSTT,
-        "transcribe",
-        side_effect=OSError("network unreachable"),
-    ):
+    with patch.object(VastaiWhisperSTT, "transcribe", side_effect=OSError("network unreachable")):
         with pytest.raises(OSError, match="network unreachable"):
             _transcribe_with_fallback(remote, audio, "en")
 
@@ -68,9 +60,7 @@ def test_remote_success_returns_transcript(tmp_path: Path):
 
     remote = VastaiWhisperSTT(host="10.0.0.1")
     with patch.object(
-        VastaiWhisperSTT,
-        "transcribe",
-        return_value=_fake_transcript("vastai-whisper"),
+        VastaiWhisperSTT, "transcribe", return_value=_fake_transcript("vastai-whisper")
     ) as remote_mock:
         result = _transcribe_with_fallback(remote, audio, "en")
 
@@ -84,11 +74,7 @@ def test_non_network_error_propagates_immediately(tmp_path: Path):
     audio.write_bytes(b"\x00")
 
     remote = VastaiWhisperSTT(host="10.0.0.1")
-    with patch.object(
-        VastaiWhisperSTT,
-        "transcribe",
-        side_effect=ValueError("bad audio format"),
-    ):
+    with patch.object(VastaiWhisperSTT, "transcribe", side_effect=ValueError("bad audio format")):
         with pytest.raises(ValueError, match="bad audio format"):
             _transcribe_with_fallback(remote, audio, "en")
 

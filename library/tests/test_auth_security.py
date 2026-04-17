@@ -57,10 +57,7 @@ def test_user(temp_db):
 def admin_user(temp_db):
     """Create an admin user."""
     user = User(
-        username="secadmin",
-        auth_type=AuthType.TOTP,
-        auth_credential=b"adminsecret",
-        is_admin=True,
+        username="secadmin", auth_type=AuthType.TOTP, auth_credential=b"adminsecret", is_admin=True
     )
     user.save(temp_db)
     return user
@@ -93,9 +90,7 @@ class TestSessionTokenManipulation:
         ]
 
         for modified in modified_tokens:
-            assert repo.get_by_token(modified) is None, (
-                f"Modified token accepted: {modified}"
-            )
+            assert repo.get_by_token(modified) is None, f"Modified token accepted: {modified}"
 
     def test_reject_forged_token_hash(self, temp_db, test_user):
         """Test that forged token hashes are rejected."""
@@ -116,9 +111,7 @@ class TestSessionTokenManipulation:
 
         for forged in forged_tokens:
             if forged != real_token:  # Only test if actually different
-                assert repo.get_by_token(forged) is None, (
-                    f"Forged token accepted: {repr(forged)}"
-                )
+                assert repo.get_by_token(forged) is None, f"Forged token accepted: {repr(forged)}"
 
 
 class TestSQLInjection:
@@ -147,9 +140,7 @@ class TestSQLInjection:
 
             # Database should still be intact
             original = repo.get_by_username("sectest")
-            assert original is not None, (
-                f"Database corrupted after injection attempt: {payload}"
-            )
+            assert original is not None, f"Database corrupted after injection attempt: {payload}"
 
     def test_token_sql_injection(self, temp_db, test_user):
         """Test SQL injection in token field is prevented."""
@@ -204,12 +195,8 @@ class TestTokenReuseAfterLogout:
         # Manually set last_seen to old timestamp to simulate staleness
         with temp_db.connection() as conn:
             # Use SQLite-compatible format to match DEFAULT CURRENT_TIMESTAMP
-            old_time = (datetime.now() - timedelta(hours=2)).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
-            conn.execute(
-                "UPDATE sessions SET last_seen = ? WHERE id = ?", (old_time, session.id)
-            )
+            old_time = (datetime.now() - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
+            conn.execute("UPDATE sessions SET last_seen = ? WHERE id = ?", (old_time, session.id))
 
         # Cleanup stale sessions (30 min threshold)
         repo.cleanup_stale(grace_minutes=30)
@@ -234,9 +221,7 @@ class TestPrivilegeEscalation:
 
         # Verify admin flag is stored correctly
         with temp_db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT is_admin FROM users WHERE username = ?", ("sectest",)
-            )
+            cursor = conn.execute("SELECT is_admin FROM users WHERE username = ?", ("sectest",))
             row = cursor.fetchone()
             assert row[0] == 0  # Not admin in DB
 
@@ -290,20 +275,12 @@ class TestInputValidation:
         UserRepository(temp_db)
 
         # Too short (less than 3 chars per schema)
-        short_user = User(
-            username="ab",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
-        )
+        short_user = User(username="ab", auth_type=AuthType.TOTP, auth_credential=b"secret")
         with pytest.raises(Exception):
             short_user.save(temp_db)
 
         # Too long (more than 24 chars per schema)
-        long_user = User(
-            username="a" * 25,
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
-        )
+        long_user = User(username="a" * 25, auth_type=AuthType.TOTP, auth_credential=b"secret")
         with pytest.raises(Exception):
             long_user.save(temp_db)
 
@@ -330,11 +307,7 @@ class TestDatabaseEncryption:
         db_path = temp_db.db_path
 
         # Create some data
-        user = User(
-            username="encrypted",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"supersecret",
-        )
+        user = User(username="encrypted", auth_type=AuthType.TOTP, auth_credential=b"supersecret")
         user.save(temp_db)
 
         # Read raw database file
@@ -343,9 +316,7 @@ class TestDatabaseEncryption:
 
         # Sensitive data should not appear in plaintext
         assert b"encrypted" not in raw_content, "Username found in plaintext in DB file"
-        assert b"supersecret" not in raw_content, (
-            "Credential found in plaintext in DB file"
-        )
+        assert b"supersecret" not in raw_content, "Credential found in plaintext in DB file"
 
     def test_wrong_key_fails(self):
         """Test that database cannot be opened with wrong key."""
@@ -357,11 +328,7 @@ class TestDatabaseEncryption:
             # Create database with correct key
             db = AuthDatabase(db_path=db_path, key_path=key_path, is_dev=True)
             db.initialize()
-            User(
-                username="testuser",
-                auth_type=AuthType.TOTP,
-                auth_credential=b"secret",
-            ).save(db)
+            User(username="testuser", auth_type=AuthType.TOTP, auth_credential=b"secret").save(db)
 
             # Create wrong key file
             with open(wrong_key_path, "w") as f:
@@ -369,9 +336,7 @@ class TestDatabaseEncryption:
 
             # Try to open with wrong key - should fail
             with pytest.raises(Exception):
-                wrong_db = AuthDatabase(
-                    db_path=db_path, key_path=wrong_key_path, is_dev=True
-                )
+                wrong_db = AuthDatabase(db_path=db_path, key_path=wrong_key_path, is_dev=True)
                 UserRepository(wrong_db).list_all()
 
 
@@ -418,11 +383,7 @@ class TestBoundaryConditions:
 
         # Empty username lookup should return None safely
         assert repo.get_by_username("") is None
-        assert (
-            repo.get_by_username(None) is None
-            if hasattr(repo, "get_by_username")
-            else True
-        )
+        assert repo.get_by_username(None) is None if hasattr(repo, "get_by_username") else True
 
     def test_very_long_token(self, temp_db, test_user):
         """Test handling of extremely long tokens."""

@@ -33,9 +33,7 @@ class TestChangeOwnUsername:
 
     def test_change_username_duplicate_rejected(self, user_client, admin_client):
         # admin user is "testadmin_fix"
-        resp = user_client.put(
-            "/auth/account/username", json={"username": "testadmin_fix"}
-        )
+        resp = user_client.put("/auth/account/username", json={"username": "testadmin_fix"})
         assert resp.status_code == 409
 
     def test_unauthenticated_gets_401(self, anon_client):
@@ -59,22 +57,16 @@ class TestChangeOwnEmail:
 
 class TestSwitchOwnAuth:
     def test_initiate_switch_to_totp(self, magic_link_user_client):
-        resp = magic_link_user_client.put(
-            "/auth/account/auth-method", json={"auth_method": "totp"}
-        )
+        resp = magic_link_user_client.put("/auth/account/auth-method", json={"auth_method": "totp"})
         assert resp.status_code == 200
         assert "setup_data" in resp.get_json()
 
     def test_invalid_method_rejected(self, user_client):
-        resp = user_client.put(
-            "/auth/account/auth-method", json={"auth_method": "invalid"}
-        )
+        resp = user_client.put("/auth/account/auth-method", json={"auth_method": "invalid"})
         assert resp.status_code == 400
 
     def test_unauthenticated_gets_401(self, anon_client):
-        resp = anon_client.put(
-            "/auth/account/auth-method", json={"auth_method": "totp"}
-        )
+        resp = anon_client.put("/auth/account/auth-method", json={"auth_method": "totp"})
         assert resp.status_code == 401
 
 

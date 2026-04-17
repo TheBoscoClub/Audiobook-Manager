@@ -38,8 +38,7 @@ def _login_user(client, app, username):
     auth_db = app.auth_db
     with auth_db.connection() as conn:
         row = conn.execute(
-            "SELECT auth_credential FROM users WHERE username = ?",
-            (username,),
+            "SELECT auth_credential FROM users WHERE username = ?", (username,)
         ).fetchone()
         secret = row[0]
 
@@ -107,17 +106,11 @@ class TestMultiUserConcurrency:
     def test_independent_positions(self, authed_client, authed_client_2):
         """Two users save different positions for the same book."""
         # User 1 saves position at 60s
-        r1 = authed_client.put(
-            "/api/position/1",
-            json={"position_ms": 60000},
-        )
+        r1 = authed_client.put("/api/position/1", json={"position_ms": 60000})
         assert r1.status_code == 200
 
         # User 2 saves position at 120s
-        r2 = authed_client_2.put(
-            "/api/position/1",
-            json={"position_ms": 120000},
-        )
+        r2 = authed_client_2.put("/api/position/1", json={"position_ms": 120000})
         assert r2.status_code == 200
 
         # User 1 reads back — should still be at 60s, NOT 120s
@@ -145,10 +138,7 @@ class TestMultiUserConcurrency:
     def test_independent_downloads(self, authed_client, authed_client_2):
         """Each user has their own download records."""
         # User 1 records a download for book 2
-        r1 = authed_client.post(
-            "/api/user/downloads/2/complete",
-            json={"file_format": "opus"},
-        )
+        r1 = authed_client.post("/api/user/downloads/2/complete", json={"file_format": "opus"})
         assert r1.status_code == 200
 
         # User 2 should NOT see user 1's download
@@ -172,22 +162,14 @@ class TestMultiUserConcurrency:
         assert "books" in r1.get_json()
         assert "books" in r2.get_json()
 
-    def test_position_update_creates_history_per_user(
-        self, authed_client, authed_client_2
-    ):
+    def test_position_update_creates_history_per_user(self, authed_client, authed_client_2):
         """Position updates create listening history entries per user."""
         # User 1 updates position for book 3 (must be >= 5000ms to pass guard)
-        r1 = authed_client.put(
-            "/api/position/3",
-            json={"position_ms": 60000},
-        )
+        r1 = authed_client.put("/api/position/3", json={"position_ms": 60000})
         assert r1.status_code == 200
 
         # User 2 updates position for book 3 at different point
-        r2 = authed_client_2.put(
-            "/api/position/3",
-            json={"position_ms": 120000},
-        )
+        r2 = authed_client_2.put("/api/position/3", json={"position_ms": 120000})
         assert r2.status_code == 200
 
         # User 1's history should have book 3 at 15000
@@ -250,10 +232,9 @@ class TestAuthDisabledFallback:
         ]
         for endpoint in endpoints:
             response = client_no_auth.get(endpoint)
-            assert response.status_code in (
-                404,
-                405,
-            ), f"{endpoint} returned {response.status_code}, expected 404 or 405"
+            assert response.status_code in (404, 405), (
+                f"{endpoint} returned {response.status_code}, expected 404 or 405"
+            )
 
     def test_global_position_read_without_auth(self, client_no_auth):
         """Position read falls back to global when auth disabled."""
@@ -265,10 +246,7 @@ class TestAuthDisabledFallback:
 
     def test_global_position_update_without_auth(self, client_no_auth):
         """Position update works globally when auth disabled."""
-        response = client_no_auth.put(
-            "/api/position/1",
-            json={"position_ms": 5000},
-        )
+        response = client_no_auth.put("/api/position/1", json={"position_ms": 5000})
         assert response.status_code == 200
         data = response.get_json()
         assert data["success"] is True

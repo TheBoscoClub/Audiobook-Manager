@@ -150,9 +150,7 @@ class TestTryAudible:
     def test_fallback_to_alternate_cdn(self, mock_rl, mock_get, tmp_path):
         """If primary CDN fails, tries alternate CDN."""
         primary_fail = _mock_response(status=404, content=b"", content_type="text/html")
-        alternate_ok = _mock_response(
-            status=200, content=VALID_IMAGE, content_type="image/jpeg"
-        )
+        alternate_ok = _mock_response(status=200, content=VALID_IMAGE, content_type="image/jpeg")
         mock_get.side_effect = [primary_fail, alternate_ok]
         result = _try_audible("B00ASIN123", tmp_path, 15)
         assert result is not None
@@ -163,9 +161,7 @@ class TestTryAudible:
     @patch("scanner.utils.cover_resolver.requests.get")
     @patch("scanner.utils.cover_resolver._rate_limit")
     def test_both_cdns_fail(self, mock_rl, mock_get, tmp_path):
-        mock_get.return_value = _mock_response(
-            status=404, content=b"", content_type="text/html"
-        )
+        mock_get.return_value = _mock_response(status=404, content=b"", content_type="text/html")
         result = _try_audible("B00ASIN123", tmp_path, 15)
         assert result is None
         assert mock_get.call_count == 2
@@ -231,9 +227,7 @@ class TestTryOpenLibrary:
         mock_client = MagicMock()
         mock_ol_cls.return_value = mock_client
         mock_client.search.return_value = [{"cover_i": 12345}]
-        mock_client.get_cover_url.return_value = (
-            "https://covers.openlibrary.org/b/id/12345-L.jpg"
-        )
+        mock_client.get_cover_url.return_value = "https://covers.openlibrary.org/b/id/12345-L.jpg"
         mock_get.return_value = _mock_response(
             status=200, content=VALID_IMAGE, content_type="image/jpeg"
         )
@@ -257,9 +251,7 @@ class TestTryOpenLibrary:
     def test_no_cover_id_in_results(self, mock_ol_cls, mock_rl, mock_get, tmp_path):
         mock_client = MagicMock()
         mock_ol_cls.return_value = mock_client
-        mock_client.search.return_value = [
-            {"title": "Something", "author_name": ["Author"]}
-        ]
+        mock_client.search.return_value = [{"title": "Something", "author_name": ["Author"]}]
         result = _try_openlibrary("Something", "Author", tmp_path, 15)
         assert result is None
 
@@ -270,9 +262,7 @@ class TestTryOpenLibrary:
         mock_client = MagicMock()
         mock_ol_cls.return_value = mock_client
         mock_client.search.return_value = [{"cover_i": 99999}]
-        mock_client.get_cover_url.return_value = (
-            "https://covers.openlibrary.org/b/id/99999-L.jpg"
-        )
+        mock_client.get_cover_url.return_value = "https://covers.openlibrary.org/b/id/99999-L.jpg"
         mock_get.return_value = _mock_response(
             status=200, content=TINY_IMAGE, content_type="image/jpeg"
         )
@@ -296,12 +286,8 @@ class TestTryOpenLibrary:
         mock_client = MagicMock()
         mock_ol_cls.return_value = mock_client
         mock_client.search.return_value = [{"cover_i": 12345}]
-        mock_client.get_cover_url.return_value = (
-            "https://covers.openlibrary.org/b/id/12345-L.jpg"
-        )
-        mock_get.return_value = _mock_response(
-            status=500, content=b"", content_type="text/html"
-        )
+        mock_client.get_cover_url.return_value = "https://covers.openlibrary.org/b/id/12345-L.jpg"
+        mock_get.return_value = _mock_response(status=500, content=b"", content_type="text/html")
         result = _try_openlibrary("Title", "Author", tmp_path, 15)
         assert result is None
 
@@ -314,13 +300,8 @@ class TestTryOpenLibrary:
         """First result has no cover_i, second does."""
         mock_client = MagicMock()
         mock_ol_cls.return_value = mock_client
-        mock_client.search.return_value = [
-            {"title": "No Cover"},
-            {"cover_i": 55555},
-        ]
-        mock_client.get_cover_url.return_value = (
-            "https://covers.openlibrary.org/b/id/55555-L.jpg"
-        )
+        mock_client.search.return_value = [{"title": "No Cover"}, {"cover_i": 55555}]
+        mock_client.get_cover_url.return_value = "https://covers.openlibrary.org/b/id/55555-L.jpg"
         mock_get.return_value = _mock_response(
             status=200, content=VALID_IMAGE, content_type="image/jpeg"
         )
@@ -334,9 +315,7 @@ class TestTryOpenLibrary:
         mock_client = MagicMock()
         mock_ol_cls.return_value = mock_client
         mock_client.search.return_value = [{"cover_i": 11111}]
-        mock_client.get_cover_url.return_value = (
-            "https://covers.openlibrary.org/b/id/11111-L.jpg"
-        )
+        mock_client.get_cover_url.return_value = "https://covers.openlibrary.org/b/id/11111-L.jpg"
         mock_get.return_value = _mock_response(
             status=200, content=VALID_IMAGE, content_type="image/jpeg"
         )
@@ -365,17 +344,13 @@ class TestTryGoogleBooks:
                 "items": [
                     {
                         "volumeInfo": {
-                            "imageLinks": {
-                                "thumbnail": "http://books.google.com/img?zoom=1&id=abc"
-                            }
+                            "imageLinks": {"thumbnail": "http://books.google.com/img?zoom=1&id=abc"}
                         }
                     }
                 ]
             },
         )
-        img_resp = _mock_response(
-            status=200, content=VALID_IMAGE, content_type="image/jpeg"
-        )
+        img_resp = _mock_response(status=200, content=VALID_IMAGE, content_type="image/jpeg")
         mock_get.side_effect = [search_resp, img_resp]
         result = _try_google_books("The Hobbit", "Tolkien", tmp_path, 15)
         assert result is not None
@@ -403,9 +378,7 @@ class TestTryGoogleBooks:
                 ]
             },
         )
-        img_resp = _mock_response(
-            status=200, content=VALID_IMAGE, content_type="image/jpeg"
-        )
+        img_resp = _mock_response(status=200, content=VALID_IMAGE, content_type="image/jpeg")
         mock_get.side_effect = [search_resp, img_resp]
         result = _try_google_books("Title", None, tmp_path, 15)
         assert result is not None
@@ -414,10 +387,7 @@ class TestTryGoogleBooks:
     @patch("scanner.utils.cover_resolver._rate_limit")
     def test_no_items_in_response(self, mock_rl, mock_get, tmp_path):
         search_resp = _mock_response(
-            status=200,
-            content=b"",
-            content_type="application/json",
-            json_data={"totalItems": 0},
+            status=200, content=b"", content_type="application/json", json_data={"totalItems": 0}
         )
         mock_get.return_value = search_resp
         result = _try_google_books("Nonexistent", None, tmp_path, 15)
@@ -427,10 +397,7 @@ class TestTryGoogleBooks:
     @patch("scanner.utils.cover_resolver._rate_limit")
     def test_empty_items_list(self, mock_rl, mock_get, tmp_path):
         search_resp = _mock_response(
-            status=200,
-            content=b"",
-            content_type="application/json",
-            json_data={"items": []},
+            status=200, content=b"", content_type="application/json", json_data={"items": []}
         )
         mock_get.return_value = search_resp
         result = _try_google_books("Nonexistent", None, tmp_path, 15)
@@ -452,9 +419,7 @@ class TestTryGoogleBooks:
     @patch("scanner.utils.cover_resolver.requests.get")
     @patch("scanner.utils.cover_resolver._rate_limit")
     def test_search_api_error(self, mock_rl, mock_get, tmp_path):
-        mock_get.return_value = _mock_response(
-            status=503, content=b"", content_type="text/html"
-        )
+        mock_get.return_value = _mock_response(status=503, content=b"", content_type="text/html")
         result = _try_google_books("Title", "Author", tmp_path, 15)
         assert result is None
 
@@ -476,17 +441,13 @@ class TestTryGoogleBooks:
                 "items": [
                     {
                         "volumeInfo": {
-                            "imageLinks": {
-                                "thumbnail": "https://books.google.com/img?id=abc"
-                            }
+                            "imageLinks": {"thumbnail": "https://books.google.com/img?id=abc"}
                         }
                     }
                 ]
             },
         )
-        img_resp = _mock_response(
-            status=200, content=TINY_IMAGE, content_type="image/jpeg"
-        )
+        img_resp = _mock_response(status=200, content=TINY_IMAGE, content_type="image/jpeg")
         mock_get.side_effect = [search_resp, img_resp]
         result = _try_google_books("Title", "Author", tmp_path, 15)
         assert result is None
@@ -495,10 +456,7 @@ class TestTryGoogleBooks:
     @patch("scanner.utils.cover_resolver._rate_limit")
     def test_query_includes_author_when_provided(self, mock_rl, mock_get, tmp_path):
         search_resp = _mock_response(
-            status=200,
-            content=b"",
-            content_type="application/json",
-            json_data={"totalItems": 0},
+            status=200, content=b"", content_type="application/json", json_data={"totalItems": 0}
         )
         mock_get.return_value = search_resp
         _try_google_books("Dune", "Frank Herbert", tmp_path, 15)
@@ -509,10 +467,7 @@ class TestTryGoogleBooks:
     @patch("scanner.utils.cover_resolver._rate_limit")
     def test_query_without_author(self, mock_rl, mock_get, tmp_path):
         search_resp = _mock_response(
-            status=200,
-            content=b"",
-            content_type="application/json",
-            json_data={"totalItems": 0},
+            status=200, content=b"", content_type="application/json", json_data={"totalItems": 0}
         )
         mock_get.return_value = search_resp
         _try_google_books("Dune", None, tmp_path, 15)
@@ -532,9 +487,7 @@ class TestTryGoogleBooks:
 
     @patch("scanner.utils.cover_resolver.requests.get")
     @patch("scanner.utils.cover_resolver._rate_limit")
-    def test_skips_items_without_imagelinks_finds_later_one(
-        self, mock_rl, mock_get, tmp_path
-    ):
+    def test_skips_items_without_imagelinks_finds_later_one(self, mock_rl, mock_get, tmp_path):
         search_resp = _mock_response(
             status=200,
             content=b"",
@@ -552,9 +505,7 @@ class TestTryGoogleBooks:
                 ]
             },
         )
-        img_resp = _mock_response(
-            status=200, content=VALID_IMAGE, content_type="image/jpeg"
-        )
+        img_resp = _mock_response(status=200, content=VALID_IMAGE, content_type="image/jpeg")
         mock_get.side_effect = [search_resp, img_resp]
         result = _try_google_books("Title", None, tmp_path, 15)
         assert result is not None
@@ -598,9 +549,7 @@ class TestResolveCover:
     @patch("scanner.utils.cover_resolver._try_google_books")
     @patch("scanner.utils.cover_resolver._try_openlibrary")
     @patch("scanner.utils.cover_resolver._try_audible")
-    def test_audible_fails_openlibrary_succeeds(
-        self, mock_aud, mock_ol, mock_gb, tmp_path
-    ):
+    def test_audible_fails_openlibrary_succeeds(self, mock_aud, mock_ol, mock_gb, tmp_path):
         mock_aud.return_value = None
         mock_ol.return_value = "ol_cover.jpg"
         result = resolve_cover("Title", asin="B00ASIN", output_dir=tmp_path)
@@ -610,9 +559,7 @@ class TestResolveCover:
     @patch("scanner.utils.cover_resolver._try_google_books")
     @patch("scanner.utils.cover_resolver._try_openlibrary")
     @patch("scanner.utils.cover_resolver._try_audible")
-    def test_audible_and_ol_fail_google_succeeds(
-        self, mock_aud, mock_ol, mock_gb, tmp_path
-    ):
+    def test_audible_and_ol_fail_google_succeeds(self, mock_aud, mock_ol, mock_gb, tmp_path):
         mock_aud.return_value = None
         mock_ol.return_value = None
         mock_gb.return_value = "gb_cover.jpg"
@@ -654,9 +601,7 @@ class TestResolveCover:
     @patch("scanner.utils.cover_resolver._try_audible")
     def test_title_author_asin(self, mock_aud, mock_ol, mock_gb, tmp_path):
         mock_aud.return_value = "audible.jpg"
-        result = resolve_cover(
-            "The Hobbit", author="Tolkien", asin="B00ASIN", output_dir=tmp_path
-        )
+        result = resolve_cover("The Hobbit", author="Tolkien", asin="B00ASIN", output_dir=tmp_path)
         assert result == "audible.jpg"
 
     @patch("scanner.utils.cover_resolver._try_google_books")
@@ -730,9 +675,7 @@ class TestEdgeCases:
     @patch("scanner.utils.cover_resolver._try_google_books")
     @patch("scanner.utils.cover_resolver._try_openlibrary")
     @patch("scanner.utils.cover_resolver._try_audible")
-    def test_empty_asin_not_treated_as_truthy(
-        self, mock_aud, mock_ol, mock_gb, tmp_path
-    ):
+    def test_empty_asin_not_treated_as_truthy(self, mock_aud, mock_ol, mock_gb, tmp_path):
         """Empty string ASIN should not trigger Audible lookup."""
         mock_ol.return_value = None
         mock_gb.return_value = None
@@ -759,9 +702,7 @@ class TestEdgeCases:
                 ]
             },
         )
-        img_resp = _mock_response(
-            status=200, content=VALID_IMAGE, content_type="image/jpeg"
-        )
+        img_resp = _mock_response(status=200, content=VALID_IMAGE, content_type="image/jpeg")
         mock_get.side_effect = [search_resp, img_resp]
         _try_google_books("Title", None, tmp_path, 15)
         img_url = mock_get.call_args_list[1][0][0]
@@ -788,9 +729,7 @@ class TestEdgeCases:
                 ]
             },
         )
-        img_resp = _mock_response(
-            status=200, content=VALID_IMAGE, content_type="image/jpeg"
-        )
+        img_resp = _mock_response(status=200, content=VALID_IMAGE, content_type="image/jpeg")
         mock_get.side_effect = [search_resp, img_resp]
         _try_google_books("Title", None, tmp_path, 15)
         img_url = mock_get.call_args_list[1][0][0]
@@ -800,16 +739,12 @@ class TestEdgeCases:
     @patch("scanner.utils.cover_resolver.requests.get")
     @patch("scanner.utils.cover_resolver._rate_limit")
     @patch("scanner.utils.cover_resolver.OpenLibraryClient")
-    def test_openlibrary_cover_i_as_integer(
-        self, mock_ol_cls, mock_rl, mock_get, tmp_path
-    ):
+    def test_openlibrary_cover_i_as_integer(self, mock_ol_cls, mock_rl, mock_get, tmp_path):
         """cover_i can be an integer — should be handled directly."""
         mock_client = MagicMock()
         mock_ol_cls.return_value = mock_client
         mock_client.search.return_value = [{"cover_i": 42}]
-        mock_client.get_cover_url.return_value = (
-            "https://covers.openlibrary.org/b/id/42-L.jpg"
-        )
+        mock_client.get_cover_url.return_value = "https://covers.openlibrary.org/b/id/42-L.jpg"
         mock_get.return_value = _mock_response(
             status=200, content=VALID_IMAGE, content_type="image/jpeg"
         )

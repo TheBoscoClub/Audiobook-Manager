@@ -192,16 +192,7 @@ def create_v4_database(db_path, key_path):
                            recovery_email, recovery_phone, recovery_enabled)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
-        (
-            "testuser1",
-            "totp",
-            b"\x00\x01\x02",
-            True,
-            False,
-            "test@example.com",
-            None,
-            True,
-        ),
+        ("testuser1", "totp", b"\x00\x01\x02", True, False, "test@example.com", None, True),
     )
     conn.execute(
         """
@@ -343,9 +334,7 @@ class TestUpgradeSafety:
         db.initialize()
 
         with db.connection() as conn:
-            version = conn.execute(
-                "SELECT MAX(version) FROM schema_version"
-            ).fetchone()[0]
+            version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
             assert version == 10
 
     def test_magic_link_auth_type_works_after_migration(self, v4_db_path, key_path):
@@ -391,9 +380,7 @@ class TestUpgradeSafety:
         assert len(users) == 2
 
         with db2.connection() as conn:
-            version = conn.execute(
-                "SELECT MAX(version) FROM schema_version"
-            ).fetchone()[0]
+            version = conn.execute("SELECT MAX(version) FROM schema_version").fetchone()[0]
             assert version == 10
 
     def test_persistent_sessions_after_migration(self, v4_db_path, key_path):

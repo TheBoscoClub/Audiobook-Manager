@@ -49,9 +49,7 @@ API_BASE = f"http://{VM_HOST}:{VM_API_PORT}" if VM_HOST else ""
 
 # testadmin TOTP secret (reset via audiobook-user totp-reset on VM)
 ADMIN_USERNAME = "testadmin"
-ADMIN_TOTP_SECRET = os.environ.get(
-    "ADMIN_TOTP_SECRET", "4GOGK6NR7D6E75X3KMTWXE4FM5BIEARP"
-)
+ADMIN_TOTP_SECRET = os.environ.get("ADMIN_TOTP_SECRET", "4GOGK6NR7D6E75X3KMTWXE4FM5BIEARP")
 
 # WebAuthn origin must match the VM's WEBAUTHN_ORIGIN config
 # (typically https://<FQDN>:<WEB_PORT>). Set WEBAUTHN_ORIGIN explicitly for
@@ -86,21 +84,14 @@ def _fix_secure_cookie(session: requests.Session, response: requests.Response) -
     """
     token = response.cookies.get("audiobooks_session")
     if token:
-        session.cookies.set(
-            "audiobooks_session",
-            token,
-            domain=VM_HOST,
-            path="/",
-        )
+        session.cookies.set("audiobooks_session", token, domain=VM_HOST, path="/")
 
 
 def admin_login(session: requests.Session) -> dict:
     """Log in as testadmin and return the response JSON."""
     code = pyotp.TOTP(ADMIN_TOTP_SECRET).now()
     resp = session.post(
-        api("/auth/login"),
-        json={"username": ADMIN_USERNAME, "code": code},
-        timeout=TIMEOUT,
+        api("/auth/login"), json={"username": ADMIN_USERNAME, "code": code}, timeout=TIMEOUT
     )
     resp.raise_for_status()
     data = resp.json()
@@ -188,15 +179,7 @@ def _cleanup_access_request_db(username: str) -> None:
         """Run a virsh qemu-agent-command, wait for completion, return exit code."""
         try:
             result = subprocess.run(
-                [
-                    "sudo",
-                    "virsh",
-                    "qemu-agent-command",
-                    VM_NAME,
-                    cmd,
-                    "--timeout",
-                    "15",
-                ],
+                ["sudo", "virsh", "qemu-agent-command", VM_NAME, cmd, "--timeout", "15"],
                 capture_output=True,
                 text=True,
                 timeout=20,
@@ -208,19 +191,9 @@ def _cleanup_access_request_db(username: str) -> None:
             if pid is None:
                 return None
             time.sleep(wait_seconds)
-            status_json = json.dumps(
-                {"execute": "guest-exec-status", "arguments": {"pid": pid}}
-            )
+            status_json = json.dumps({"execute": "guest-exec-status", "arguments": {"pid": pid}})
             sr = subprocess.run(
-                [
-                    "sudo",
-                    "virsh",
-                    "qemu-agent-command",
-                    VM_NAME,
-                    status_json,
-                    "--timeout",
-                    "10",
-                ],
+                ["sudo", "virsh", "qemu-agent-command", VM_NAME, status_json, "--timeout", "10"],
                 capture_output=True,
                 text=True,
                 timeout=15,
@@ -246,11 +219,7 @@ def register_and_approve(admin_session: requests.Session, username: str) -> str:
     Returns the claim_token (formatted, with dashes).
     """
     # Register
-    resp = requests.post(
-        api("/auth/register/start"),
-        json={"username": username},
-        timeout=TIMEOUT,
-    )
+    resp = requests.post(api("/auth/register/start"), json={"username": username}, timeout=TIMEOUT)
     resp.raise_for_status()
     data = resp.json()
     assert data["success"] is True, f"Registration failed: {data}"
@@ -366,9 +335,7 @@ class TestTOTPUserLifecycle:
         code = pyotp.TOTP(totp_secret).now()
         user_session = requests.Session()
         resp = user_session.post(
-            api("/auth/login"),
-            json={"username": TOTP_USER, "code": code},
-            timeout=TIMEOUT,
+            api("/auth/login"), json={"username": TOTP_USER, "code": code}, timeout=TIMEOUT
         )
         assert resp.status_code == 200, f"Login failed: {resp.text}"
         _fix_secure_cookie(user_session, resp)
@@ -405,11 +372,7 @@ class TestPasskeyUserLifecycle:
         # Step 2: Begin WebAuthn claim
         resp = requests.post(
             api("/auth/register/claim/webauthn/begin"),
-            json={
-                "username": PASSKEY_USER,
-                "claim_token": claim_token,
-                "auth_type": "passkey",
-            },
+            json={"username": PASSKEY_USER, "claim_token": claim_token, "auth_type": "passkey"},
             timeout=TIMEOUT,
         )
         assert resp.status_code == 200, f"Claim begin failed: {resp.text}"
@@ -444,9 +407,7 @@ class TestPasskeyUserLifecycle:
 
         # Step 5: Login — begin authentication
         resp = requests.post(
-            api("/auth/login/webauthn/begin"),
-            json={"username": PASSKEY_USER},
-            timeout=TIMEOUT,
+            api("/auth/login/webauthn/begin"), json={"username": PASSKEY_USER}, timeout=TIMEOUT
         )
         assert resp.status_code == 200, f"Login begin failed: {resp.text}"
         login_begin = resp.json()
@@ -526,11 +487,7 @@ class TestFIDO2UserLifecycle:
         # Step 2: Begin WebAuthn claim
         resp = requests.post(
             api("/auth/register/claim/webauthn/begin"),
-            json={
-                "username": FIDO2_USER,
-                "claim_token": claim_token,
-                "auth_type": "fido2",
-            },
+            json={"username": FIDO2_USER, "claim_token": claim_token, "auth_type": "fido2"},
             timeout=TIMEOUT,
         )
         assert resp.status_code == 200, f"Claim begin failed: {resp.text}"
@@ -560,9 +517,7 @@ class TestFIDO2UserLifecycle:
 
         # Step 5: Login begin
         resp = requests.post(
-            api("/auth/login/webauthn/begin"),
-            json={"username": FIDO2_USER},
-            timeout=TIMEOUT,
+            api("/auth/login/webauthn/begin"), json={"username": FIDO2_USER}, timeout=TIMEOUT
         )
         assert resp.status_code == 200, f"Login begin failed: {resp.text}"
         login_begin = resp.json()
@@ -601,11 +556,7 @@ class TestFIDO2UserLifecycle:
 
     def _run_hardware_fido2(self, admin_session):
         """FIDO2 lifecycle using hardware YubiKey."""
-        from fido2.client import (
-            DefaultClientDataCollector,
-            Fido2Client,
-            UserInteraction,
-        )
+        from fido2.client import DefaultClientDataCollector, Fido2Client, UserInteraction
         from fido2.hid import CtapHidDevice
 
         class CliInteraction(UserInteraction):
@@ -623,11 +574,7 @@ class TestFIDO2UserLifecycle:
 
         device = next(CtapHidDevice.list_devices())
         collector = DefaultClientDataCollector(WEBAUTHN_ORIGIN)
-        client = Fido2Client(
-            device,
-            collector,
-            user_interaction=CliInteraction(),
-        )
+        client = Fido2Client(device, collector, user_interaction=CliInteraction())
 
         # Step 1: Register and approve
         claim_token = register_and_approve(admin_session, FIDO2_USER)
@@ -635,11 +582,7 @@ class TestFIDO2UserLifecycle:
         # Step 2: Begin WebAuthn claim
         resp = requests.post(
             api("/auth/register/claim/webauthn/begin"),
-            json={
-                "username": FIDO2_USER,
-                "claim_token": claim_token,
-                "auth_type": "fido2",
-            },
+            json={"username": FIDO2_USER, "claim_token": claim_token, "auth_type": "fido2"},
             timeout=TIMEOUT,
         )
         assert resp.status_code == 200, f"Claim begin failed: {resp.text}"
@@ -680,9 +623,7 @@ class TestFIDO2UserLifecycle:
 
         # Step 5: Login begin
         resp = requests.post(
-            api("/auth/login/webauthn/begin"),
-            json={"username": FIDO2_USER},
-            timeout=TIMEOUT,
+            api("/auth/login/webauthn/begin"), json={"username": FIDO2_USER}, timeout=TIMEOUT
         )
         assert resp.status_code == 200, f"Login begin failed: {resp.text}"
         login_begin = resp.json()
@@ -756,10 +697,7 @@ def _parse_creation_options(options: dict):
         PublicKeyCredentialType,
     )
 
-    rp = PublicKeyCredentialRpEntity(
-        id=options["rp"]["id"],
-        name=options["rp"]["name"],
-    )
+    rp = PublicKeyCredentialRpEntity(id=options["rp"]["id"], name=options["rp"]["name"])
 
     user_data = options["user"]
     user = PublicKeyCredentialUserEntity(
@@ -771,10 +709,7 @@ def _parse_creation_options(options: dict):
     pub_key_params = []
     for p in options.get("pubKeyCredParams", []):
         pub_key_params.append(
-            PublicKeyCredentialParameters(
-                type=PublicKeyCredentialType.PUBLIC_KEY,
-                alg=p["alg"],
-            )
+            PublicKeyCredentialParameters(type=PublicKeyCredentialType.PUBLIC_KEY, alg=p["alg"])
         )
 
     challenge = _b64url_decode_hw(options["challenge"])
@@ -803,8 +738,7 @@ def _parse_request_options(options: dict):
     for ac in options.get("allowCredentials", []):
         allow_credentials.append(
             PublicKeyCredentialDescriptor(
-                type=PublicKeyCredentialType.PUBLIC_KEY,
-                id=_b64url_decode_hw(ac["id"]),
+                type=PublicKeyCredentialType.PUBLIC_KEY, id=_b64url_decode_hw(ac["id"])
             )
         )
 

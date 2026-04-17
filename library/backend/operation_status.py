@@ -50,9 +50,7 @@ class OperationStatus:
             "progress": self.progress,
             "message": self.message,
             "started_at": self.started_at.isoformat() if self.started_at else None,
-            "completed_at": (
-                self.completed_at.isoformat() if self.completed_at else None
-            ),
+            "completed_at": (self.completed_at.isoformat() if self.completed_at else None),
             "elapsed_seconds": self._elapsed_seconds(),
             "result": self.result,
             "error": self.error,
@@ -138,9 +136,7 @@ class OperationTracker:
             op.message = message
             return True
 
-    def complete_operation(
-        self, operation_id: str, result: Optional[dict] = None
-    ) -> bool:
+    def complete_operation(self, operation_id: str, result: Optional[dict] = None) -> bool:
         """Mark operation as completed successfully."""
         with self._op_lock:
             if operation_id not in self._operations:
@@ -220,11 +216,7 @@ class OperationTracker:
             (op.completed_at, op_id)
             for op_id, op in self._operations.items()
             if op.state
-            in (
-                OperationState.COMPLETED,
-                OperationState.FAILED,
-                OperationState.CANCELLED,
-            )
+            in (OperationState.COMPLETED, OperationState.FAILED, OperationState.CANCELLED)
             and op.completed_at is not None
         ]
 

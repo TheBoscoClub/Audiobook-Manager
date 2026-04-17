@@ -69,9 +69,7 @@ class DeepLTranslator:
         if not api_key:
             raise ValueError("DeepL API key is required")
         self._api_key = api_key
-        self._base_url = (
-            DEEPL_FREE_API_URL if api_key.endswith(":fx") else DEEPL_API_URL
-        )
+        self._base_url = DEEPL_FREE_API_URL if api_key.endswith(":fx") else DEEPL_API_URL
         self._db_path = Path(db_path) if db_path else None
         self._tracker = tracker
         self._glossary_id = glossary_id
@@ -80,9 +78,7 @@ class DeepLTranslator:
 
         if self._tracker is None and self._db_path is not None:
             self._tracker = QuotaTracker(
-                db_path=self._db_path,
-                api_key=api_key,
-                base_url=self._base_url,
+                db_path=self._db_path, api_key=api_key, base_url=self._base_url
             )
 
     # -- TM helpers ------------------------------------------------------
@@ -160,9 +156,7 @@ class DeepLTranslator:
             from .glossary import GlossaryError, GlossaryManager
 
             mgr = GlossaryManager(
-                api_key=self._api_key,
-                base_url=self._base_url,
-                tracker=self._tracker,
+                api_key=self._api_key, base_url=self._base_url, tracker=self._tracker
             )
             self._glossary_id = mgr.ensure()
         except (GlossaryError, Exception) as exc:  # noqa: BLE001
@@ -172,9 +166,7 @@ class DeepLTranslator:
 
     # -- public API ------------------------------------------------------
 
-    def _build_output_with_hits(
-        self, size: int, hits: dict[int, str]
-    ) -> list[str | None]:
+    def _build_output_with_hits(self, size: int, hits: dict[int, str]) -> list[str | None]:
         """Build the output array with cache hits pre-filled."""
         output: list[str | None] = [None] * size
         for idx, val in hits.items():
@@ -182,10 +174,7 @@ class DeepLTranslator:
         return output
 
     def _build_payload(
-        self,
-        miss_texts: list[str],
-        target_locale: str,
-        source_lang: str,
+        self, miss_texts: list[str], target_locale: str, source_lang: str
     ) -> dict[str, Any]:
         """Build the DeepL translate API payload."""
         target_lang = LOCALE_TO_DEEPL.get(target_locale, target_locale.upper())
@@ -245,9 +234,7 @@ class DeepLTranslator:
         self._fill_misses_with_source(output, misses)
 
     def _fallback_passthrough(
-        self,
-        output: list[str | None],
-        misses: list[tuple[int, str]],
+        self, output: list[str | None], misses: list[tuple[int, str]]
     ) -> list[str]:
         """Fill misses with source text (pass-through English)."""
         for idx, text in misses:
@@ -266,12 +253,7 @@ class DeepLTranslator:
             self._tracker.check_before_translate(char_count)
         return char_count
 
-    def translate(
-        self,
-        texts: list[str],
-        target_locale: str,
-        source_lang: str = "EN",
-    ) -> list[str]:
+    def translate(self, texts: list[str], target_locale: str, source_lang: str = "EN") -> list[str]:
         """Translate a batch of texts to the target locale."""
         if not texts:
             return []
@@ -296,12 +278,7 @@ class DeepLTranslator:
         )
         return self._finalize_output(output)
 
-    def translate_one(
-        self,
-        text: str,
-        target_locale: str,
-        source_lang: str = "EN",
-    ) -> str:
+    def translate_one(self, text: str, target_locale: str, source_lang: str = "EN") -> str:
         """Translate a single string."""
         results = self.translate([text], target_locale, source_lang)
         return results[0] if results else text

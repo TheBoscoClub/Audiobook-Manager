@@ -38,14 +38,23 @@ class VastaiWhisperSTT(STTProvider):
         """Transcribe audio via Vast.ai faster-whisper server."""
         if not audio_path.exists():
             raise FileNotFoundError(f"Audio file not found: {audio_path}")
-
         if not self.supports_language(language):
             raise ValueError(f"Language '{language}' not supported by Whisper")
 
-        logger.info(
-            "Transcribing %s via Vast.ai Whisper (lang=%s)", audio_path.name, language
+        logger.info("Transcribing %s via Vast.ai Whisper (lang=%s)", audio_path.name, language)
+        result = self._call_transcribe_api(audio_path, language)
+
+        words = _parse_word_timestamps(result)
+        duration_ms = _extract_duration_ms(result, words)
+        return Transcript(
+            words=words,
+            language=result.get("language", language),
+            provider="vastai-whisper-large-v3",
+            duration_ms=duration_ms,
         )
 
+    def _call_transcribe_api(self, audio_path: Path, language: str) -> dict:
+        """POST the audio file to the Whisper server and return its JSON."""
         with open(audio_path, "rb") as f:
             resp = requests.post(
                 f"{self._base_url}/v1/audio/transcriptions",
@@ -54,36 +63,44 @@ class VastaiWhisperSTT(STTProvider):
                 timeout=(30, 300),  # (connect, read) — fail fast on dead tunnels
             )
         resp.raise_for_status()
-        result = resp.json()
+        return resp.json()
 
-        # Two response shapes supported:
-        #   (a) Top-level "words" array — faster-whisper / Vast.ai instances
-        #   (b) Nested "segments[].words[]" — whisper.cpp server verbose_json
-        words = []
-        raw_words = result.get("words") or []
-        if not raw_words:
-            for seg in result.get("segments", []):
-                raw_words.extend(seg.get("words", []))
 
-        for w in raw_words:
-            text = (w.get("word") or w.get("text") or "").strip()
-            if not text:
-                continue
-            words.append(
-                WordTimestamp(
-                    word=text,
-                    start_ms=int(float(w.get("start", 0)) * 1000),
-                    end_ms=int(float(w.get("end", 0)) * 1000),
-                )
+def _extract_raw_words(result: dict) -> list[dict]:
+    """Return flat list of word dicts, handling both top-level and nested shapes.
+
+    faster-whisper / Vast.ai instances return top-level "words"; whisper.cpp
+    servers return nested "segments[].words[]".
+    """
+    raw_words = result.get("words") or []
+    if raw_words:
+        return raw_words
+    nested: list[dict] = []
+    for seg in result.get("segments", []):
+        nested.extend(seg.get("words", []))
+    return nested
+
+
+def _parse_word_timestamps(result: dict) -> list[WordTimestamp]:
+    """Convert raw word dicts into WordTimestamp objects, dropping empties."""
+    words: list[WordTimestamp] = []
+    for w in _extract_raw_words(result):
+        text = (w.get("word") or w.get("text") or "").strip()
+        if not text:
+            continue
+        words.append(
+            WordTimestamp(
+                word=text,
+                start_ms=int(float(w.get("start", 0)) * 1000),
+                end_ms=int(float(w.get("end", 0)) * 1000),
             )
-
-        duration_ms = int(float(result.get("duration", 0)) * 1000)
-        if not duration_ms and words:
-            duration_ms = words[-1].end_ms
-
-        return Transcript(
-            words=words,
-            language=result.get("language", language),
-            provider="vastai-whisper-large-v3",
-            duration_ms=duration_ms,
         )
+    return words
+
+
+def _extract_duration_ms(result: dict, words: list[WordTimestamp]) -> int:
+    """Derive duration_ms, falling back to the last word's end_ms."""
+    duration_ms = int(float(result.get("duration", 0)) * 1000)
+    if not duration_ms and words:
+        duration_ms = words[-1].end_ms
+    return duration_ms

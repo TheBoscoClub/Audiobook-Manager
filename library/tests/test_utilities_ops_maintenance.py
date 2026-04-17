@@ -68,10 +68,7 @@ class TestCleanupIndexesAsync:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/utilities/cleanup-indexes-async",
-                json={"dry_run": True},
-            )
+            response = client.post("/api/utilities/cleanup-indexes-async", json={"dry_run": True})
 
         assert response.status_code == 200
         data = response.get_json()
@@ -87,10 +84,7 @@ class TestCleanupIndexesAsync:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/utilities/cleanup-indexes-async",
-                json={"dry_run": False},
-            )
+            response = client.post("/api/utilities/cleanup-indexes-async", json={"dry_run": False})
 
         assert response.status_code == 200
         data = response.get_json()
@@ -138,8 +132,7 @@ class TestPopulateSortFieldsAsync:
 
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/utilities/populate-sort-fields-async",
-                json={"dry_run": True},
+                "/api/utilities/populate-sort-fields-async", json={"dry_run": True}
             )
 
         assert response.status_code == 200
@@ -157,8 +150,7 @@ class TestPopulateSortFieldsAsync:
 
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/utilities/populate-sort-fields-async",
-                json={"dry_run": False},
+                "/api/utilities/populate-sort-fields-async", json={"dry_run": False}
             )
 
         assert response.status_code == 200
@@ -206,8 +198,7 @@ class TestFindSourceDuplicatesAsync:
 
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/utilities/find-source-duplicates-async",
-                json={"dry_run": True},
+                "/api/utilities/find-source-duplicates-async", json={"dry_run": True}
             )
 
         assert response.status_code == 200
@@ -225,8 +216,7 @@ class TestFindSourceDuplicatesAsync:
 
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/utilities/find-source-duplicates-async",
-                json={"dry_run": False},
+                "/api/utilities/find-source-duplicates-async", json={"dry_run": False}
             )
 
         assert response.status_code == 200
@@ -241,9 +231,7 @@ class TestFindSourceDuplicatesAsync:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/utilities/find-source-duplicates-async", json={}
-            )
+            response = client.post("/api/utilities/find-source-duplicates-async", json={})
 
         assert response.status_code == 409
         data = response.get_json()
@@ -258,9 +246,7 @@ class TestFindSourceDuplicatesAsync:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/utilities/find-source-duplicates-async", json={}
-            )
+            response = client.post("/api/utilities/find-source-duplicates-async", json={})
 
         assert response.status_code == 200
         data = response.get_json()

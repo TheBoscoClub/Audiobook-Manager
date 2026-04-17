@@ -11,9 +11,7 @@ from .vtt_generator import VTTCue
 
 
 def align_translations(
-    transcript: Transcript,
-    translated_sentences: list[str],
-    max_pause_ms: int = 800,
+    transcript: Transcript, translated_sentences: list[str], max_pause_ms: int = 800
 ) -> tuple[list[VTTCue], list[VTTCue]]:
     """Create aligned source and translated VTT cues from a transcript.
 
@@ -43,8 +41,6 @@ def align_translations(
         source_text = " ".join(w.word for w in words)
 
         source_cues.append(VTTCue(start_ms=start_ms, end_ms=end_ms, text=source_text))
-        translated_cues.append(
-            VTTCue(start_ms=start_ms, end_ms=end_ms, text=translated_text)
-        )
+        translated_cues.append(VTTCue(start_ms=start_ms, end_ms=end_ms, text=translated_text))
 
     return source_cues, translated_cues

@@ -28,21 +28,9 @@ if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
-    from library.auth import (
-        AuthDatabase,
-        AuthType,
-        User,
-        UserRepository,
-        SessionRepository,
-    )
+    from library.auth import AuthDatabase, AuthType, User, UserRepository, SessionRepository
 except ModuleNotFoundError:
-    from auth import (
-        AuthDatabase,
-        AuthType,
-        User,
-        UserRepository,
-        SessionRepository,
-    )
+    from auth import AuthDatabase, AuthType, User, UserRepository, SessionRepository
 
 
 def get_db(args) -> AuthDatabase:
@@ -71,9 +59,7 @@ def secret_to_base32(secret: bytes) -> str:
     return base64.b32encode(secret).decode("ascii").rstrip("=")
 
 
-def generate_totp_uri(
-    username: str, secret: bytes, issuer: str = "AudiobookLibrary"
-) -> str:
+def generate_totp_uri(username: str, secret: bytes, issuer: str = "AudiobookLibrary") -> str:
     """Generate otpauth:// URI for QR codes."""
     secret_b32 = secret_to_base32(secret)
     return f"otpauth://totp/{issuer}:{username}?secret={secret_b32}&issuer={issuer}"
@@ -93,17 +79,12 @@ def cmd_list(args) -> int:
             return 0
 
         print(
-            f"{'ID':<5} {'Username':<18} {'Auth':<8} "
-            f"{'Download':<10} {'Admin':<7} {'Last Login'}"
+            f"{'ID':<5} {'Username':<18} {'Auth':<8} {'Download':<10} {'Admin':<7} {'Last Login'}"
         )
         print("-" * 80)
 
         for user in users:
-            last_login = (
-                user.last_login.strftime("%Y-%m-%d %H:%M")
-                if user.last_login
-                else "Never"
-            )
+            last_login = user.last_login.strftime("%Y-%m-%d %H:%M") if user.last_login else "Never"
             print(
                 f"{user.id:<5} {user.username:<18} {user.auth_type.value:<8} "
                 f"{'Yes' if user.can_download else 'No':<10} "
@@ -173,10 +154,7 @@ def cmd_add(args) -> int:
             print(f"Secret (base32): {secret_to_base32(credential)}")
             print(f"OTPAuth URI: {uri}")
             print()
-            print(
-                "Scan this QR code or enter the secret manually in your"
-                " authenticator app."
-            )
+            print("Scan this QR code or enter the secret manually in your authenticator app.")
             print("(Use 'qrencode' or an online QR generator with the URI above)")
 
         return 0
@@ -378,8 +356,7 @@ def cmd_totp_reset(args) -> int:
 
         if user.auth_type != AuthType.TOTP:
             print(
-                f"Error: User '{args.username}' does not use TOTP authentication",
-                file=sys.stderr,
+                f"Error: User '{args.username}' does not use TOTP authentication", file=sys.stderr
             )
             return 1
 
@@ -409,9 +386,7 @@ def cmd_totp_reset(args) -> int:
         print(f"OTPAuth URI: {uri}")
         print()
         print("The user's previous authenticator will no longer work.")
-        print(
-            "Share this new secret with the user to set up their authenticator again."
-        )
+        print("Share this new secret with the user to set up their authenticator again.")
 
         return 0
 
@@ -448,8 +423,7 @@ def cmd_init(args) -> int:
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        prog="audiobook-user",
-        description="Manage authenticated users for the audiobook library",
+        prog="audiobook-user", description="Manage authenticated users for the audiobook library"
     )
 
     # Global options
@@ -457,19 +431,13 @@ def main():
         "--database",
         "-d",
         default=os.environ.get("AUTH_DATABASE", "/var/lib/audiobooks/auth.db"),
-        help=(
-            "Path to auth database"
-            " (default: $AUTH_DATABASE or /var/lib/audiobooks/auth.db)"
-        ),
+        help=("Path to auth database (default: $AUTH_DATABASE or /var/lib/audiobooks/auth.db)"),
     )
     parser.add_argument(
         "--key-file",
         "-k",
         default=os.environ.get("AUTH_KEY_FILE", "/etc/audiobooks/auth.key"),
-        help=(
-            "Path to encryption key"
-            " (default: $AUTH_KEY_FILE or /etc/audiobooks/auth.key)"
-        ),
+        help=("Path to encryption key (default: $AUTH_KEY_FILE or /etc/audiobooks/auth.key)"),
     )
     parser.add_argument(
         "--dev", action="store_true", help="Development mode (relaxed key permissions)"
@@ -491,9 +459,7 @@ def main():
         "--totp", action="store_true", default=True, help="Use TOTP auth (default)"
     )
     auth_group.add_argument("--passkey", action="store_true", help="Use Passkey auth")
-    auth_group.add_argument(
-        "--fido2", action="store_true", help="Use FIDO2 hardware key auth"
-    )
+    auth_group.add_argument("--fido2", action="store_true", help="Use FIDO2 hardware key auth")
     add_parser.add_argument(
         "--download",
         action=argparse.BooleanOptionalAction,
@@ -508,9 +474,7 @@ def main():
     delete_parser.add_argument(
         "--force", action="store_true", help="Force delete (even for admin users)"
     )
-    delete_parser.add_argument(
-        "-y", "--yes", action="store_true", help="Skip confirmation"
-    )
+    delete_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
 
     # grant command
     grant_parser = subparsers.add_parser("grant", help="Grant download permission")
@@ -531,9 +495,7 @@ def main():
     # totp-reset command
     totp_parser = subparsers.add_parser("totp-reset", help="Reset TOTP secret")
     totp_parser.add_argument("username", help="Username")
-    totp_parser.add_argument(
-        "-y", "--yes", action="store_true", help="Skip confirmation"
-    )
+    totp_parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation")
 
     args = parser.parse_args()
 

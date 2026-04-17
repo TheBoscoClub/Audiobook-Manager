@@ -7,8 +7,7 @@ CADDY_DIR = Path(__file__).resolve().parents[2] / "caddy"
 
 # Skip entire module when running on deployed installation (no caddy/ in app tree)
 pytestmark = pytest.mark.skipif(
-    not CADDY_DIR.is_dir(),
-    reason="caddy/ directory not present (deployed installation)",
+    not CADDY_DIR.is_dir(), reason="caddy/ directory not present (deployed installation)"
 )
 
 
@@ -32,9 +31,7 @@ def test_maintenance_html_has_health_polling():
 def test_maintenance_html_no_innerhtml():
     """Maintenance page must not use innerHTML."""
     content = (CADDY_DIR / "maintenance.html").read_text()
-    assert "innerHTML" not in content, (
-        "Must not use innerHTML — use textContent or static HTML"
-    )
+    assert "innerHTML" not in content, "Must not use innerHTML — use textContent or static HTML"
 
 
 def test_maintenance_html_has_noscript_fallback():

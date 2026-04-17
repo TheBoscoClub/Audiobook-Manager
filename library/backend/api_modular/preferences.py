@@ -14,7 +14,7 @@ Endpoints:
 
 from flask import Blueprint, jsonify, request
 
-from .auth import get_auth_db, get_current_user, login_required
+from .auth import get_auth_db, login_required, require_current_user
 
 from auth import UserSettingsRepository
 
@@ -29,10 +29,10 @@ def init_preferences_routes() -> None:
 @login_required
 def get_preferences():
     """Get all preferences for the current user (defaults merged)."""
-    user = get_current_user()
+    user = require_current_user()
     auth_db = get_auth_db()
     repo = UserSettingsRepository(auth_db)
-    settings = repo.get_all(user.id)
+    settings = repo.get_all(user.ensured_id)
     return jsonify(settings)
 
 
@@ -48,7 +48,7 @@ def update_preferences():
     Unknown keys are silently ignored.
     Returns the full updated preferences object.
     """
-    user = get_current_user()
+    user = require_current_user()
     data = request.get_json(silent=True)
     if not data or not isinstance(data, dict):
         return jsonify({"error": "JSON object required"}), 400
@@ -65,8 +65,8 @@ def update_preferences():
     if not valid_updates:
         return jsonify({"error": "No valid preference keys provided"}), 400
 
-    repo.set_many(user.id, valid_updates)
-    settings = repo.get_all(user.id)
+    repo.set_many(user.ensured_id, valid_updates)
+    settings = repo.get_all(user.ensured_id)
     return jsonify(settings)
 
 
@@ -77,30 +77,24 @@ def reset_preference(key: str):
     if key not in UserSettingsRepository.VALID_KEYS:
         return jsonify({"error": f"Unknown preference key: {key}"}), 400
 
-    user = get_current_user()
-    if user is None or user.id is None:
+    user = require_current_user()
+    if user.id is None:
         return jsonify({"error": "User not found"}), 401
     auth_db = get_auth_db()
     repo = UserSettingsRepository(auth_db)
     repo.delete(user.id, key)
 
-    return jsonify(
-        {
-            "success": True,
-            "key": key,
-            "value": UserSettingsRepository.DEFAULTS[key],
-        }
-    )
+    return jsonify({"success": True, "key": key, "value": UserSettingsRepository.DEFAULTS[key]})
 
 
 @preferences_bp.route("/reset", methods=["POST"])
 @login_required
 def reset_all_preferences():
     """Reset all preferences to defaults."""
-    user = get_current_user()
+    user = require_current_user()
     auth_db = get_auth_db()
     repo = UserSettingsRepository(auth_db)
-    count = repo.delete_all(user.id)
+    count = repo.delete_all(user.ensured_id)
 
     return jsonify(
         {

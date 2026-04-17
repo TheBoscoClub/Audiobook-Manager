@@ -32,16 +32,7 @@ PAGE_SIZE = 500
 
 # Known podcast/show publishers
 PODCAST_PUBLISHERS = frozenset(
-    {
-        "wondery",
-        "movewith",
-        "aaptiv",
-        "higher ground",
-        "panoply",
-        "gimlet",
-        "stitcher",
-        "parcast",
-    }
+    {"wondery", "movewith", "aaptiv", "higher ground", "panoply", "gimlet", "stitcher", "parcast"}
 )
 
 # Title patterns strongly indicating podcast/show episodes
@@ -83,10 +74,7 @@ def fetch_audible_library() -> list[dict]:
             timeout=60,
         )
         if result.returncode != 0:
-            print(
-                f"Error querying Audible API (page {page}): {result.stderr}",
-                file=sys.stderr,
-            )
+            print(f"Error querying Audible API (page {page}): {result.stderr}", file=sys.stderr)
             break
 
         data = json.loads(result.stdout)
@@ -109,13 +97,7 @@ def fetch_catalog_content_type(asin: str) -> dict | None:
 
     Used for items not in the library list (e.g., individual podcast episodes).
     """
-    cmd = [
-        "audible",
-        "api",
-        f"1.0/catalog/products/{asin}",
-        "-p",
-        "response_groups=product_attrs",
-    ]
+    cmd = ["audible", "api", f"1.0/catalog/products/{asin}", "-p", "response_groups=product_attrs"]
     try:
         result = subprocess.run(
             cmd,
@@ -159,9 +141,7 @@ def _print_api_distribution(audible_by_asin: dict[str, dict]) -> None:
     print()
 
 
-def _match_library_pass(
-    all_books: list, audible_by_asin: dict
-) -> tuple[list, int, int, list]:
+def _match_library_pass(all_books: list, audible_by_asin: dict) -> tuple[list, int, int, list]:
     """Pass 1: Match books against library list.
 
     Returns (updates, already_correct, no_asin, unmatched).
@@ -203,9 +183,7 @@ def _match_library_pass(
     return updates, already_correct, no_asin, unmatched
 
 
-def _print_pass1_report(
-    updates: list, already_correct: int, no_asin: int, unmatched: list
-) -> None:
+def _print_pass1_report(updates: list, already_correct: int, no_asin: int, unmatched: list) -> None:
     """Print Pass 1 results."""
     print("=" * 70)
     print("PASS 1 — Library list")
@@ -224,10 +202,7 @@ def _print_pass1_report(
         print(f"  → {ct}: {count}")
     print("\nSample updates:")
     for u in updates[:10]:
-        print(
-            f"  {u['title'][:55]:55s}  {u['old_ct']} → {u['new_ct']}"
-            f" ({u['delivery_type']})"
-        )
+        print(f"  {u['title'][:55]:55s}  {u['old_ct']} → {u['new_ct']} ({u['delivery_type']})")
     if len(updates) > 10:
         print(f"  ... and {len(updates) - 10} more")
 
@@ -361,8 +336,7 @@ def _apply_updates(cursor, conn, all_updates: list, dry_run: bool) -> None:
         print(f"\nApplying {len(all_updates)} updates...")
         for u in all_updates:
             cursor.execute(
-                "UPDATE audiobooks SET content_type = ? WHERE id = ?",
-                (u["new_ct"], u["id"]),
+                "UPDATE audiobooks SET content_type = ? WHERE id = ?", (u["new_ct"], u["id"])
             )
         conn.commit()
         print("Done.")
@@ -396,19 +370,14 @@ def populate_content_types(dry_run: bool = True) -> None:
     print(f"Database audiobooks: {len(all_books)}\n")
 
     # Pass 1: Match against library list
-    updates, already_correct, no_asin, unmatched = _match_library_pass(
-        all_books,
-        audible_by_asin,
-    )
+    updates, already_correct, no_asin, unmatched = _match_library_pass(all_books, audible_by_asin)
     _print_pass1_report(updates, already_correct, no_asin, unmatched)
 
     # Pass 2: Catalog lookup for unmatched ASINs
     catalog_updates: list[tuple[str, int]] = []
     catalog_failed = 0
     if unmatched:
-        catalog_updates, additional_correct, catalog_failed = _catalog_lookup_pass(
-            unmatched,
-        )
+        catalog_updates, additional_correct, catalog_failed = _catalog_lookup_pass(unmatched)
         already_correct += additional_correct
 
     # Pass 3: Heuristic detection
@@ -431,9 +400,7 @@ def populate_content_types(dry_run: bool = True) -> None:
 def main():
     parser = ArgumentParser(description="Populate content_type from Audible API")
     parser.add_argument(
-        "--execute",
-        action="store_true",
-        help="Actually apply changes (default is dry run)",
+        "--execute", action="store_true", help="Actually apply changes (default is dry run)"
     )
     args = parser.parse_args()
     populate_content_types(dry_run=not args.execute)

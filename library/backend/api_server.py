@@ -28,18 +28,10 @@ def _create_configured_app():
         print("Please run: python3 backend/import_to_db.py")
         sys.exit(1)
 
-    auth_enabled = os.environ.get("AUTH_ENABLED", "false").lower() in (
-        "true",
-        "1",
-        "yes",
-    )
+    auth_enabled = os.environ.get("AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
     auth_db_path = os.environ.get("AUTH_DATABASE") if auth_enabled else None
     auth_key_path = os.environ.get("AUTH_KEY_FILE") if auth_enabled else None
-    auth_dev_mode = os.environ.get("AUDIOBOOKS_DEV_MODE", "false").lower() in (
-        "true",
-        "1",
-        "yes",
-    )
+    auth_dev_mode = os.environ.get("AUDIOBOOKS_DEV_MODE", "false").lower() in ("true", "1", "yes")
 
     return create_app(
         database_path=DATABASE_PATH,

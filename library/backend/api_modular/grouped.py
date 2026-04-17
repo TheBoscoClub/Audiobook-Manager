@@ -19,16 +19,14 @@ from .core import FlaskResponse, get_db
 # Exclude: Lecture, Podcast, Newspaper / Magazine, Show, Radio/TV Program, Episode
 # content_type IS NULL handles legacy entries before the field was added
 # This constant is safe for SQL - hardcoded, not user input
-AUDIOBOOK_FILTER = (
-    "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
-)
+AUDIOBOOK_FILTER = "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
 
 VALID_GROUP_BY = {"author", "narrator"}
 
 grouped_bp = Blueprint("grouped", __name__)
 
 
-def init_grouped_routes(db_path: Path) -> None:
+def init_grouped_routes(db_path: Path) -> None:  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
     """Initialize grouped routes (no-op, kept for API compatibility).
 
     Database path is now resolved at request time via current_app.config.
@@ -92,11 +90,7 @@ def get_grouped_audiobooks() -> FlaskResponse:
             groups, all_book_ids = _group_by_narrator(conn, locale, use_pinyin)
 
         return jsonify(
-            {
-                "groups": groups,
-                "total_groups": len(groups),
-                "total_books": len(all_book_ids),
-            }
+            {"groups": groups, "total_groups": len(groups), "total_books": len(all_book_ids)}
         )
     finally:
         conn.close()
@@ -134,9 +128,7 @@ def _row_to_book(row: sqlite3.Row) -> dict:
 
 
 def _group_by_author(
-    conn: sqlite3.Connection,
-    locale: str = "",
-    use_pinyin: bool = False,
+    conn: sqlite3.Connection, locale: str = "", use_pinyin: bool = False
 ) -> tuple[list[dict], set[int]]:
     """Group audiobooks by author via junction tables.
 
@@ -155,8 +147,7 @@ def _group_by_author(
     if use_pinyin:
         title_sort_expr = "COALESCE(NULLIF(at.pinyin_sort, ''), a.title) COLLATE NOCASE"
         join_clause = (
-            " LEFT JOIN audiobook_translations at"
-            " ON at.audiobook_id = a.id AND at.locale = ?"
+            " LEFT JOIN audiobook_translations at ON at.audiobook_id = a.id AND at.locale = ?"
         )
         sort_params: list = [locale]
     else:
@@ -192,11 +183,7 @@ def _group_by_author(
 
         if gid not in group_map:
             group = {
-                "key": {
-                    "id": gid,
-                    "name": row["group_name"],
-                    "sort_name": row["group_sort_name"],
-                },
+                "key": {"id": gid, "name": row["group_name"], "sort_name": row["group_sort_name"]},
                 "books": [],
             }
             group_map[gid] = group
@@ -238,9 +225,7 @@ def _group_by_author(
 
 
 def _group_by_narrator(
-    conn: sqlite3.Connection,
-    locale: str = "",
-    use_pinyin: bool = False,
+    conn: sqlite3.Connection, locale: str = "", use_pinyin: bool = False
 ) -> tuple[list[dict], set[int]]:
     """Group audiobooks by narrator via junction tables.
 
@@ -252,8 +237,7 @@ def _group_by_narrator(
     if use_pinyin:
         title_sort_expr = "COALESCE(NULLIF(at.pinyin_sort, ''), a.title) COLLATE NOCASE"
         join_clause = (
-            " LEFT JOIN audiobook_translations at"
-            " ON at.audiobook_id = a.id AND at.locale = ?"
+            " LEFT JOIN audiobook_translations at ON at.audiobook_id = a.id AND at.locale = ?"
         )
         sort_params: list = [locale]
     else:
@@ -289,11 +273,7 @@ def _group_by_narrator(
 
         if gid not in group_map:
             group = {
-                "key": {
-                    "id": gid,
-                    "name": row["group_name"],
-                    "sort_name": row["group_sort_name"],
-                },
+                "key": {"id": gid, "name": row["group_name"], "sort_name": row["group_sort_name"]},
                 "books": [],
             }
             group_map[gid] = group
@@ -322,11 +302,7 @@ def _group_by_narrator(
 
         groups.append(
             {
-                "key": {
-                    "id": None,
-                    "name": "Unknown Narrator",
-                    "sort_name": "\uffff",
-                },
+                "key": {"id": None, "name": "Unknown Narrator", "sort_name": "\uffff"},
                 "books": orphan_books,
             }
         )

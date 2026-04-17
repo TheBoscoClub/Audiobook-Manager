@@ -54,9 +54,7 @@ def list_windows():
     """List all maintenance windows."""
     conn = _get_db()
     try:
-        rows = conn.execute(
-            "SELECT * FROM maintenance_windows ORDER BY created_at DESC"
-        ).fetchall()
+        rows = conn.execute("SELECT * FROM maintenance_windows ORDER BY created_at DESC").fetchall()
         return jsonify([dict(r) for r in rows])
     finally:
         conn.close()
@@ -75,7 +73,7 @@ def _compute_next_run_at(schedule_type, scheduled_at, cron_expression):
 
             cron = croniter(cron_expression, datetime.now(timezone.utc))
             return cron.get_next(datetime).isoformat() + "Z", None
-        except (ValueError, KeyError):
+        except ValueError, KeyError:
             return None, (jsonify({"error": "Invalid cron expression"}), 400)
     return None, None
 
@@ -88,12 +86,7 @@ def _validate_task_type(task_type):
         if not registry.get(task_type):
             available = [t["name"] for t in registry.list_all()]
             return (
-                jsonify(
-                    {
-                        "error": f"Unknown task_type '{task_type}'",
-                        "available": available,
-                    }
-                ),
+                jsonify({"error": f"Unknown task_type '{task_type}'", "available": available}),
                 400,
             )
     except ImportError:
@@ -127,9 +120,7 @@ def create_window():
     scheduled_at = data.get("scheduled_at")
 
     # Compute next_run_at
-    next_run_at, err = _compute_next_run_at(
-        schedule_type, scheduled_at, cron_expression
-    )
+    next_run_at, err = _compute_next_run_at(schedule_type, scheduled_at, cron_expression)
     if err:
         return err
 
@@ -220,9 +211,7 @@ def update_window(wid):
 
     conn = _get_db()
     try:
-        existing = conn.execute(
-            "SELECT * FROM maintenance_windows WHERE id = ?", (wid,)
-        ).fetchone()
+        existing = conn.execute("SELECT * FROM maintenance_windows WHERE id = ?", (wid,)).fetchone()
         if not existing:
             return jsonify({"error": "Window not found"}), 404
 
@@ -239,9 +228,7 @@ def update_window(wid):
             values,
         )
         conn.commit()
-        row = conn.execute(
-            "SELECT * FROM maintenance_windows WHERE id = ?", (wid,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM maintenance_windows WHERE id = ?", (wid,)).fetchone()
         return jsonify(dict(row))
     finally:
         conn.close()
@@ -258,10 +245,7 @@ def delete_window(wid):
         ).fetchone()[0]
 
         if has_history:
-            conn.execute(
-                "UPDATE maintenance_windows SET status = 'cancelled' WHERE id = ?",
-                (wid,),
-            )
+            conn.execute("UPDATE maintenance_windows SET status = 'cancelled' WHERE id = ?", (wid,))
         else:
             conn.execute("DELETE FROM maintenance_windows WHERE id = ?", (wid,))
         conn.commit()
@@ -312,12 +296,7 @@ def create_message():
         try:
             from .websocket import connection_manager
 
-            connection_manager.broadcast(
-                {
-                    "type": "maintenance_announce",
-                    "messages": [result],
-                }
-            )
+            connection_manager.broadcast({"type": "maintenance_announce", "messages": [result]})
         except Exception as e:
             logger.warning("WebSocket broadcast failed: %s", e)
 
@@ -345,12 +324,7 @@ def dismiss_message(mid):
         try:
             from .websocket import connection_manager
 
-            connection_manager.broadcast(
-                {
-                    "type": "maintenance_dismiss",
-                    "message_id": mid,
-                }
-            )
+            connection_manager.broadcast({"type": "maintenance_dismiss", "message_id": mid})
         except Exception as e:
             logger.warning("WebSocket broadcast failed: %s", e)
 
@@ -389,10 +363,7 @@ def get_announcements():
                ORDER BY next_run_at ASC""").fetchall()
 
         return jsonify(
-            {
-                "messages": [dict(r) for r in messages],
-                "windows": [dict(r) for r in windows],
-            }
+            {"messages": [dict(r) for r in messages], "windows": [dict(r) for r in windows]}
         )
     finally:
         conn.close()

@@ -19,17 +19,9 @@ def test_proxy_detects_websocket_upgrade_headers():
             return self._d.get(key.lower(), default)
 
     assert (
-        is_websocket_upgrade(
-            FakeHeaders({"Upgrade": "websocket", "Connection": "Upgrade"})
-        )
-        is True
+        is_websocket_upgrade(FakeHeaders({"Upgrade": "websocket", "Connection": "Upgrade"})) is True
     )
 
-    assert (
-        is_websocket_upgrade(FakeHeaders({"Content-Type": "application/json"})) is False
-    )
+    assert is_websocket_upgrade(FakeHeaders({"Content-Type": "application/json"})) is False
 
-    assert (
-        is_websocket_upgrade(FakeHeaders({"Upgrade": "h2c", "Connection": "Upgrade"}))
-        is False
-    )
+    assert is_websocket_upgrade(FakeHeaders({"Upgrade": "h2c", "Connection": "Upgrade"})) is False

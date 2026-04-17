@@ -32,17 +32,14 @@ class TestEnrichmentSourceColumn:
             "INSERT INTO audiobooks (title, file_path) VALUES (?, ?)",
             ("Test Book", "/test/book.opus"),
         )
-        cursor = db.execute(
-            "SELECT enrichment_source FROM audiobooks WHERE title = 'Test Book'"
-        )
+        cursor = db.execute("SELECT enrichment_source FROM audiobooks WHERE title = 'Test Book'")
         assert cursor.fetchone()[0] is None
 
     def test_accepts_provider_names(self, db):
         """enrichment_source accepts known provider name strings."""
         for source in ("local", "audible", "google_books", "openlibrary"):
             db.execute(
-                "INSERT INTO audiobooks (title, file_path, enrichment_source) "
-                "VALUES (?, ?, ?)",
+                "INSERT INTO audiobooks (title, file_path, enrichment_source) VALUES (?, ?, ?)",
                 (f"Book {source}", f"/test/{source}.opus", source),
             )
         cursor = db.execute("SELECT enrichment_source FROM audiobooks ORDER BY id")

@@ -44,21 +44,8 @@ CONTENT_TYPES = {
 # Keys are internal category names; values map subcategories to match keywords.
 GENRE_TAXONOMY = {
     "fiction": {
-        "mystery & thriller": [
-            "mystery",
-            "thriller",
-            "crime",
-            "detective",
-            "noir",
-            "suspense",
-        ],
-        "science fiction": [
-            "science fiction",
-            "sci-fi",
-            "scifi",
-            "cyberpunk",
-            "space opera",
-        ],
+        "mystery & thriller": ["mystery", "thriller", "crime", "detective", "noir", "suspense"],
+        "science fiction": ["science fiction", "sci-fi", "scifi", "cyberpunk", "space opera"],
         "fantasy": ["fantasy", "epic fantasy", "urban fantasy", "magical realism"],
         "literary fiction": ["literary", "contemporary", "historical fiction"],
         "horror": ["horror", "supernatural", "gothic"],
@@ -165,7 +152,7 @@ def determine_literary_era(year_str: str) -> str:
         else:
             return "21st Century - Contemporary (2020+)"
 
-    except (ValueError, TypeError, AttributeError):
+    except ValueError, TypeError, AttributeError:
         return "Unknown Era"
 
 
@@ -233,14 +220,7 @@ def extract_narrator_from_tags(tags: dict, author: str | None = None) -> str:
 
     Tries multiple common tag fields, avoiding author if same value.
     """
-    narrator_fields = [
-        "narrator",
-        "composer",
-        "performer",
-        "read_by",
-        "narrated_by",
-        "reader",
-    ]
+    narrator_fields = ["narrator", "composer", "performer", "read_by", "narrated_by", "reader"]
 
     for field in narrator_fields:
         if field in tags and tags[field]:
@@ -296,7 +276,7 @@ def _extract_asin_from_chapters_json(filepath: Path) -> Optional[str]:
         content_metadata = chapters_data.get("content_metadata", {})
         content_reference = content_metadata.get("content_reference", {})
         return content_reference.get("asin")
-    except (json.JSONDecodeError, IOError):
+    except json.JSONDecodeError, IOError:
         return None
 
 
@@ -339,7 +319,7 @@ def _extract_asin_from_voucher(filepath: Path, sources_dir: Path) -> Optional[st
                 )
             if asin:
                 return asin
-        except (json.JSONDecodeError, IOError):
+        except json.JSONDecodeError, IOError:
             continue
     return None
 
@@ -435,9 +415,7 @@ def _parse_publication_date(raw_date: str) -> tuple[int | None, str | None]:
     return published_year, published_date
 
 
-def _compute_hash(
-    filepath: Path, calculate_hash: bool
-) -> tuple[str | None, str | None]:
+def _compute_hash(filepath: Path, calculate_hash: bool) -> tuple[str | None, str | None]:
     """Calculate SHA-256 hash if requested. Returns (hash, verified_at)."""
     if not calculate_hash:
         return None, None
@@ -467,9 +445,7 @@ def _build_metadata_dict(
     published_year, published_date = _parse_publication_date(raw_date)
 
     metadata = {
-        "title": tags_normalized.get(
-            "title", tags_normalized.get("album", filepath.stem)
-        ),
+        "title": tags_normalized.get("title", tags_normalized.get("album", filepath.stem)),
         "author": author,
         "narrator": narrator,
         "publisher": tags_normalized.get(
@@ -480,13 +456,9 @@ def _build_metadata_dict(
         "published_year": published_year,
         "published_date": published_date,
         "acquired_date": datetime.now().strftime("%Y-%m-%d"),
-        "description": tags_normalized.get(
-            "comment", tags_normalized.get("description", "")
-        ),
+        "description": tags_normalized.get("comment", tags_normalized.get("description", "")),
         "duration_hours": round(duration_hours, 2),
-        "duration_formatted": (
-            f"{int(duration_hours)}h {int((duration_hours % 1) * 60)}m"
-        ),
+        "duration_formatted": (f"{int(duration_hours)}h {int((duration_hours % 1) * 60)}m"),
         "file_size_mb": round(filepath.stat().st_size / (1024 * 1024), 2),
         "file_path": str(filepath),
         "series": tags_normalized.get("series", ""),
@@ -543,21 +515,9 @@ def _cover_path_for_file(filepath: Path, output_dir: Path) -> Path:
     return output_dir / f"{file_hash}.jpg"
 
 
-def _extract_embedded_cover(
-    filepath: Path, cover_path: Path, timeout: int
-) -> str | None:
+def _extract_embedded_cover(filepath: Path, cover_path: Path, timeout: int) -> str | None:
     """Try extracting embedded cover art via ffmpeg. Returns filename or None."""
-    cmd = [
-        "ffmpeg",
-        "-v",
-        "quiet",
-        "-i",
-        str(filepath),
-        "-an",
-        "-vcodec",
-        "copy",
-        str(cover_path),
-    ]
+    cmd = ["ffmpeg", "-v", "quiet", "-i", str(filepath), "-an", "-vcodec", "copy", str(cover_path)]
     result = subprocess.run(cmd, capture_output=True, timeout=timeout)
     if result.returncode == 0 and cover_path.exists():
         return cover_path.name
@@ -579,16 +539,11 @@ def _copy_standalone_cover(filepath: Path, cover_path: Path) -> str | None:
         shutil.copy2(standalone, cover_path)
         return cover_path.name
     except OSError as copy_err:
-        print(
-            f"Warning: found cover {standalone} but copy failed: {copy_err}",
-            file=sys.stderr,
-        )
+        print(f"Warning: found cover {standalone} but copy failed: {copy_err}", file=sys.stderr)
         return None
 
 
-def _resolve_external_cover(
-    metadata: Optional[dict], output_dir: Path, timeout: int
-) -> str | None:
+def _resolve_external_cover(metadata: Optional[dict], output_dir: Path, timeout: int) -> str | None:
     """Try external API resolver (Audible/OpenLibrary/Google Books)."""
     if not metadata or not metadata.get("title"):
         return None
@@ -613,10 +568,7 @@ def _resolve_external_cover(
 
 
 def extract_cover_art(
-    filepath: Path,
-    output_dir: Path,
-    timeout: int = 30,
-    metadata: Optional[dict] = None,
+    filepath: Path, output_dir: Path, timeout: int = 30, metadata: Optional[dict] = None
 ) -> str | None:
     """
     Extract cover art from audiobook file.

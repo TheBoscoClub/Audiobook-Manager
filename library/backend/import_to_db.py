@@ -56,8 +56,7 @@ def _cleanup_orphaned_covers(cursor):
         return
 
     cursor.execute(
-        "SELECT cover_path FROM audiobooks "
-        "WHERE cover_path IS NOT NULL AND cover_path != ''"
+        "SELECT cover_path FROM audiobooks WHERE cover_path IS NOT NULL AND cover_path != ''"
     )
     referenced = {row[0] for row in cursor.fetchall()}
 
@@ -169,9 +168,7 @@ def _populate_names_and_junctions(cursor):
         narrator_last, narrator_first = _extract_name_columns(narrator_raw, parse_names)
 
         # Build junction rows for ALL authors and narrators
-        _insert_entity_junctions(
-            cursor, book_id, author_raw, authors_map, "authors", "author_id"
-        )
+        _insert_entity_junctions(cursor, book_id, author_raw, authors_map, "authors", "author_id")
         _insert_entity_junctions(
             cursor, book_id, narrator_raw, narrators_map, "narrators", "narrator_id"
         )
@@ -183,9 +180,7 @@ def _populate_names_and_junctions(cursor):
         )
 
     print(f"✓ Populated name columns for {len(rows)} audiobooks")
-    print(
-        f"✓ Created {len(authors_map)} unique authors, {len(narrators_map)} unique narrators"
-    )
+    print(f"✓ Created {len(authors_map)} unique authors, {len(narrators_map)} unique narrators")
 
     # Stats
     cursor.execute("SELECT COUNT(*) FROM book_authors")
@@ -312,7 +307,7 @@ def _preserve_enrichment(cursor):
 
 def _preserve_categories(cursor):
     """Preserve Audible categories keyed by file_path."""
-    preserved = {}
+    preserved: dict[str, list[dict]] = {}
     cursor.execute("""
         SELECT a.file_path, ac.category_path, ac.category_name,
                ac.root_category, ac.depth, ac.audible_category_id
@@ -338,7 +333,7 @@ def _preserve_categories(cursor):
 
 def _preserve_reviews(cursor):
     """Preserve editorial reviews keyed by file_path."""
-    preserved = {}
+    preserved: dict[str, list[dict]] = {}
     cursor.execute("""
         SELECT a.file_path, er.review_text, er.source
         FROM audiobooks a
@@ -392,15 +387,12 @@ def _restore_reviews(cursor, audiobook_id, revs):
     """Restore editorial reviews for a single audiobook."""
     for rev in revs:
         cursor.execute(
-            "INSERT INTO editorial_reviews "
-            "(audiobook_id, review_text, source) VALUES (?, ?, ?)",
+            "INSERT INTO editorial_reviews (audiobook_id, review_text, source) VALUES (?, ?, ?)",
             (audiobook_id, rev["review_text"], rev["source"]),
         )
 
 
-def _insert_taxonomy_items(
-    cursor, audiobook_id, items, entity_map, table, junction_table
-):
+def _insert_taxonomy_items(cursor, audiobook_id, items, entity_map, table, junction_table):
     """Insert genre/era/topic items and junction rows.
 
     Args:
@@ -468,9 +460,9 @@ def import_audiobooks(conn):
     print("\nImporting audiobooks...")
 
     # Track unique values
-    genres_map = {}
-    eras_map = {}
-    topics_map = {}
+    genres_map: dict[str, int] = {}
+    eras_map: dict[str, int] = {}
+    topics_map: dict[str, int] = {}
 
     for idx, book in enumerate(audiobooks, 1):
         if idx % 100 == 0:
@@ -528,9 +520,7 @@ def import_audiobooks(conn):
             )
 
         # Restore Audible categories and editorial reviews
-        _restore_categories(
-            cursor, audiobook_id, preserved_categories.get(file_path, [])
-        )
+        _restore_categories(cursor, audiobook_id, preserved_categories.get(file_path, []))
         _restore_reviews(cursor, audiobook_id, preserved_reviews.get(file_path, []))
 
         # Handle genres, eras, topics
@@ -539,20 +529,10 @@ def import_audiobooks(conn):
             cursor, audiobook_id, genre_list, genres_map, "genres", "audiobook_genres"
         )
         _insert_taxonomy_items(
-            cursor,
-            audiobook_id,
-            book.get("eras", []),
-            eras_map,
-            "eras",
-            "audiobook_eras",
+            cursor, audiobook_id, book.get("eras", []), eras_map, "eras", "audiobook_eras"
         )
         _insert_taxonomy_items(
-            cursor,
-            audiobook_id,
-            book.get("topics", []),
-            topics_map,
-            "topics",
-            "audiobook_topics",
+            cursor, audiobook_id, book.get("topics", []), topics_map, "topics", "audiobook_topics"
         )
 
     conn.commit()
@@ -617,22 +597,16 @@ def _print_database_stats(cursor, genres_map):
     cursor.execute("SELECT SUM(duration_hours) FROM audiobooks")
     total_hours = cursor.fetchone()[0] or 0
 
-    cursor.execute(
-        "SELECT COUNT(DISTINCT author) FROM audiobooks WHERE author IS NOT NULL"
-    )
+    cursor.execute("SELECT COUNT(DISTINCT author) FROM audiobooks WHERE author IS NOT NULL")
     unique_authors = cursor.fetchone()[0]
 
-    cursor.execute(
-        "SELECT COUNT(DISTINCT narrator) FROM audiobooks WHERE narrator IS NOT NULL"
-    )
+    cursor.execute("SELECT COUNT(DISTINCT narrator) FROM audiobooks WHERE narrator IS NOT NULL")
     unique_narrators = cursor.fetchone()[0]
 
     cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE sha256_hash IS NOT NULL")
     hashed_count = cursor.fetchone()[0]
 
-    cursor.execute(
-        "SELECT COUNT(*) FROM audiobooks WHERE asin IS NOT NULL AND asin <> ''"
-    )
+    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE asin IS NOT NULL AND asin <> ''")
     asin_count = cursor.fetchone()[0]
 
     print("\n=== Database Statistics ===")
@@ -669,9 +643,7 @@ def validate_json_source(json_path: Path) -> bool:
             sys.exit(1)
 
     # Safety check 2: Test audiobook titles
-    test_titles = [
-        b.get("title", "") for b in audiobooks if "Test Audiobook" in b.get("title", "")
-    ]
+    test_titles = [b.get("title", "") for b in audiobooks if "Test Audiobook" in b.get("title", "")]
     if test_titles:
         print("\n⚠️  WARNING: JSON file contains test audiobook titles!")
         print(f"   Found: {test_titles[:5]}")

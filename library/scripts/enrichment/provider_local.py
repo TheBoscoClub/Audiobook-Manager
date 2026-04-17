@@ -15,18 +15,9 @@ from scanner.metadata_utils import extract_asin
 
 # Title-based series parsing patterns (from populate_series_from_audible.py)
 TITLE_SERIES_PATTERNS = [
-    re.compile(
-        r"^.+?:\s+(.+?),?\s+(?:Book|#)\s*(\d+(?:\.\d+)?)\s*(?:\(|$)",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"\((.+?)\s+(?:Book|#)\s*(\d+(?:\.\d+)?)\)",
-        re.IGNORECASE,
-    ),
-    re.compile(
-        r"^.+?:\s+(?:An?\s+)?(.{2,}?)\s+Novel\s*(?:\(|$)",
-        re.IGNORECASE,
-    ),
+    re.compile(r"^.+?:\s+(.+?),?\s+(?:Book|#)\s*(\d+(?:\.\d+)?)\s*(?:\(|$)", re.IGNORECASE),
+    re.compile(r"\((.+?)\s+(?:Book|#)\s*(\d+(?:\.\d+)?)\)", re.IGNORECASE),
+    re.compile(r"^.+?:\s+(?:An?\s+)?(.{2,}?)\s+Novel\s*(?:\(|$)", re.IGNORECASE),
 ]
 
 

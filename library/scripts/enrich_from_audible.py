@@ -76,11 +76,7 @@ def fetch_audible_product(asin: str) -> dict | None:
 
     Returns the product dict or None on failure.
     """
-    url = (
-        f"{AUDIBLE_API}/{asin}"
-        f"?response_groups={ALL_RESPONSE_GROUPS}"
-        f"&marketplace={MARKETPLACE}"
-    )
+    url = f"{AUDIBLE_API}/{asin}?response_groups={ALL_RESPONSE_GROUPS}&marketplace={MARKETPLACE}"
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
 
     try:
@@ -201,15 +197,11 @@ def extract_rating(product: dict) -> dict:
     """Extract rating data from product."""
     rating = product.get("rating", {})
     return {
-        "rating_overall": rating.get("overall_distribution", {}).get(
-            "display_average_rating"
-        ),
+        "rating_overall": rating.get("overall_distribution", {}).get("display_average_rating"),
         "rating_performance": rating.get("performance_distribution", {}).get(
             "display_average_rating"
         ),
-        "rating_story": rating.get("story_distribution", {}).get(
-            "display_average_rating"
-        ),
+        "rating_story": rating.get("story_distribution", {}).get("display_average_rating"),
         "num_ratings": rating.get("num_reviews"),
         "num_reviews": rating.get("overall_distribution", {}).get("num_ratings"),
     }
@@ -225,20 +217,10 @@ def extract_contributors(product: dict) -> tuple[list[dict], list[dict]]:
     narrators = []
 
     for contributor in product.get("authors", []):
-        authors.append(
-            {
-                "name": contributor.get("name", ""),
-                "asin": contributor.get("asin"),
-            }
-        )
+        authors.append({"name": contributor.get("name", ""), "asin": contributor.get("asin")})
 
     for contributor in product.get("narrators", []):
-        narrators.append(
-            {
-                "name": contributor.get("name", ""),
-                "asin": contributor.get("asin"),
-            }
-        )
+        narrators.append({"name": contributor.get("name", ""), "asin": contributor.get("asin")})
 
     return (authors, narrators)
 
@@ -273,14 +255,10 @@ def _fetch_candidates(db_path: Path, force: bool, single_id: int | None) -> list
     cursor = conn.cursor()
 
     if single_id is not None:
-        cursor.execute(
-            "SELECT id, asin, title, series FROM audiobooks WHERE id = ?",
-            (single_id,),
-        )
+        cursor.execute("SELECT id, asin, title, series FROM audiobooks WHERE id = ?", (single_id,))
     elif force:
         cursor.execute(
-            "SELECT id, asin, title, series FROM audiobooks "
-            "WHERE asin IS NOT NULL AND asin != ''"
+            "SELECT id, asin, title, series FROM audiobooks WHERE asin IS NOT NULL AND asin != ''"
         )
     else:
         cursor.execute(
@@ -330,9 +308,7 @@ def _query_audible_api(books: list, delay: float) -> tuple[dict, dict, int]:
 def _extract_product_fields(product: dict) -> dict:
     """Extract flat fields from an Audible product for DB update."""
     release_date = (
-        product.get("release_date")
-        or product.get("publication_datetime", "")[:10]
-        or None
+        product.get("release_date") or product.get("publication_datetime", "")[:10] or None
     )
     return {
         "subtitle": product.get("subtitle"),
@@ -407,10 +383,7 @@ def _log_dry_run(
 
 def _upsert_categories(cursor, book_id: int, categories: list[dict]) -> None:
     """Replace categories for a book."""
-    cursor.execute(
-        "DELETE FROM audible_categories WHERE audiobook_id = ?",
-        (book_id,),
-    )
+    cursor.execute("DELETE FROM audible_categories WHERE audiobook_id = ?", (book_id,))
     for cat in categories:
         cursor.execute(
             "INSERT INTO audible_categories "
@@ -430,14 +403,10 @@ def _upsert_categories(cursor, book_id: int, categories: list[dict]) -> None:
 
 def _upsert_reviews(cursor, book_id: int, reviews: list[dict]) -> None:
     """Replace editorial reviews for a book."""
-    cursor.execute(
-        "DELETE FROM editorial_reviews WHERE audiobook_id = ?",
-        (book_id,),
-    )
+    cursor.execute("DELETE FROM editorial_reviews WHERE audiobook_id = ?", (book_id,))
     for review in reviews:
         cursor.execute(
-            "INSERT INTO editorial_reviews "
-            "(audiobook_id, review_text, source) VALUES (?, ?, ?)",
+            "INSERT INTO editorial_reviews (audiobook_id, review_text, source) VALUES (?, ?, ?)",
             (book_id, review["review_text"], review["source"]),
         )
 
@@ -452,8 +421,7 @@ def _update_author_if_missing(cursor, book_id: int, authors: list[dict]) -> None
     author_names = [a["name"] for a in authors if a.get("name")]
     if author_names:
         cursor.execute(
-            "UPDATE audiobooks SET author = ? WHERE id = ?",
-            (", ".join(author_names), book_id),
+            "UPDATE audiobooks SET author = ? WHERE id = ?", (", ".join(author_names), book_id)
         )
 
 
@@ -464,8 +432,7 @@ def _update_author_asins(cursor, authors: list[dict]) -> None:
         author_name = author_info.get("name")
         if author_asin and author_name:
             cursor.execute(
-                "UPDATE authors SET asin = ? WHERE name = ? "
-                "AND (asin IS NULL OR asin = '')",
+                "UPDATE authors SET asin = ? WHERE name = ? AND (asin IS NULL OR asin = '')",
                 (author_asin, author_name),
             )
 
@@ -480,8 +447,7 @@ def _update_narrator_if_missing(cursor, book_id: int, narrators: list[dict]) -> 
     narrator_names = [n["name"] for n in narrators if n.get("name")]
     if narrator_names:
         cursor.execute(
-            "UPDATE audiobooks SET narrator = ? WHERE id = ?",
-            (", ".join(narrator_names), book_id),
+            "UPDATE audiobooks SET narrator = ? WHERE id = ?", (", ".join(narrator_names), book_id)
         )
 
 
@@ -500,8 +466,7 @@ def _ensure_normalized_narrators(cursor, book_id: int, narrators: list[dict]) ->
                 (narrator_name, sort_name),
             )
             narrator_id = cursor.execute(
-                "SELECT id FROM narrators WHERE name = ?",
-                (narrator_name,),
+                "SELECT id FROM narrators WHERE name = ?", (narrator_name,)
             ).fetchone()
             if narrator_id:
                 cursor.execute(
@@ -509,7 +474,7 @@ def _ensure_normalized_narrators(cursor, book_id: int, narrators: list[dict]) ->
                     "(book_id, narrator_id, position) VALUES (?, ?, ?)",
                     (book_id, narrator_id[0], pos),
                 )
-        except (ImportError, sqlite3.DatabaseError):
+        except ImportError, sqlite3.DatabaseError:
             pass  # Normalized tables may not exist yet
 
 
@@ -520,9 +485,7 @@ def _has_existing_series(cursor, book_id: int) -> bool:
     return bool(existing and existing[0] and existing[0] != "")
 
 
-def _execute_book_update(
-    cursor, book_id: int, updates: list, params: list, now: str
-) -> bool:
+def _execute_book_update(cursor, book_id: int, updates: list, params: list, now: str) -> bool:
     """Execute the main audiobooks table update.
 
     Returns True on success, False on DB error.
@@ -546,12 +509,7 @@ def _execute_book_update(
 
 
 def _enrich_single_book(
-    cursor,
-    book_id: int,
-    product: dict,
-    series_counter: dict,
-    now: str,
-    dry_run: bool,
+    cursor, book_id: int, product: dict, series_counter: dict, now: str, dry_run: bool
 ) -> bool:
     """Enrich a single book from Audible product data.
 
@@ -586,12 +544,7 @@ def _enrich_single_book(
 
 
 def _upsert_related_data(
-    cursor,
-    book_id: int,
-    categories: list,
-    reviews: list,
-    authors: list,
-    narrators: list,
+    cursor, book_id: int, categories: list, reviews: list, authors: list, narrators: list
 ) -> None:
     """Upsert categories, reviews, authors, and narrators."""
     if categories:
@@ -661,14 +614,7 @@ def enrich_from_audible(
     enriched = 0
 
     for book_id, product in products.items():
-        success = _enrich_single_book(
-            cursor,
-            book_id,
-            product,
-            series_counter,
-            now,
-            dry_run,
-        )
+        success = _enrich_single_book(cursor, book_id, product, series_counter, now, dry_run)
         if success:
             enriched += 1
         else:
@@ -693,9 +639,7 @@ def main():
         description="Enrich audiobook metadata from Audible API (all fields)"
     )
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would be updated without writing to DB",
+        "--dry-run", action="store_true", help="Show what would be updated without writing to DB"
     )
     parser.add_argument(
         "--delay",
@@ -704,31 +648,17 @@ def main():
         help=f"Seconds between API calls (default: {DEFAULT_DELAY})",
     )
     parser.add_argument(
-        "--db",
-        type=str,
-        default=None,
-        help="Path to SQLite database (default: from config)",
+        "--db", type=str, default=None, help="Path to SQLite database (default: from config)"
     )
     parser.add_argument(
-        "--force",
-        action="store_true",
-        help="Re-enrich all books (not just unenriched ones)",
+        "--force", action="store_true", help="Re-enrich all books (not just unenriched ones)"
     )
-    parser.add_argument(
-        "--id",
-        type=int,
-        default=None,
-        help="Enrich a single book by database ID",
-    )
+    parser.add_argument("--id", type=int, default=None, help="Enrich a single book by database ID")
     args = parser.parse_args()
 
     db = Path(args.db) if args.db else None
     enrich_from_audible(
-        dry_run=args.dry_run,
-        delay=args.delay,
-        db_path=db,
-        force=args.force,
-        single_id=args.id,
+        dry_run=args.dry_run, delay=args.delay, db_path=db, force=args.force, single_id=args.id
     )
 
 

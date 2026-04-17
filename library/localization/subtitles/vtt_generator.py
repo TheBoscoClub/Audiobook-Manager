@@ -37,9 +37,7 @@ def generate_vtt(cues: list[VTTCue], output_path: Path) -> Path:
     lines = ["WEBVTT", ""]
     for i, cue in enumerate(cues, 1):
         lines.append(str(i))
-        lines.append(
-            f"{_format_timestamp(cue.start_ms)} --> {_format_timestamp(cue.end_ms)}"
-        )
+        lines.append(f"{_format_timestamp(cue.start_ms)} --> {_format_timestamp(cue.end_ms)}")
         lines.append(cue.text)
         lines.append("")
 
@@ -48,9 +46,7 @@ def generate_vtt(cues: list[VTTCue], output_path: Path) -> Path:
 
 
 def generate_dual_vtt(
-    source_cues: list[VTTCue],
-    translated_cues: list[VTTCue],
-    output_path: Path,
+    source_cues: list[VTTCue], translated_cues: list[VTTCue], output_path: Path
 ) -> Path:
     """Write a dual-language VTT file with both source and translated text.
 
@@ -66,9 +62,7 @@ def generate_dual_vtt(
     lines = ["WEBVTT", ""]
     for i, (src, tr) in enumerate(zip(source_cues, translated_cues), 1):
         lines.append(str(i))
-        lines.append(
-            f"{_format_timestamp(src.start_ms)} --> {_format_timestamp(src.end_ms)}"
-        )
+        lines.append(f"{_format_timestamp(src.start_ms)} --> {_format_timestamp(src.end_ms)}")
         lines.append(src.text)
         lines.append(tr.text)
         lines.append("")

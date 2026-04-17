@@ -10,12 +10,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 from enum import Enum
 
-from .database import (
-    AuthDatabase,
-    hash_token,
-    generate_session_token,
-    generate_verification_token,
-)
+from .database import AuthDatabase, hash_token, generate_session_token, generate_verification_token
 
 
 class AuthType(Enum):
@@ -137,6 +132,18 @@ class User:
 
         return cls(**fields)
 
+    @property
+    def ensured_id(self) -> int:
+        """Return self.id narrowed to int. Panics if user was never saved.
+
+        Use this at call sites where the User has been persisted and the
+        Optional[int] type needs to be narrowed to int for type checking.
+        Authentication decorators guarantee the current user is persisted,
+        and .save() always sets .id after insert.
+        """
+        assert self.id is not None, "User.ensured_id accessed before .save()"
+        return self.id
+
     def save(self, db: AuthDatabase) -> "User":
         """Save user to database (insert or update)."""
         if self.multi_session not in _VALID_MULTI_SESSION:
@@ -168,9 +175,7 @@ class User:
                 )
                 self.id = cursor.lastrowid
                 # Fetch the created_at timestamp
-                cursor = conn.execute(
-                    "SELECT created_at FROM users WHERE id = ?", (self.id,)
-                )
+                cursor = conn.execute("SELECT created_at FROM users WHERE id = ?", (self.id,))
                 self.created_at = datetime.fromisoformat(cursor.fetchone()[0])
             else:
                 conn.execute(
@@ -244,9 +249,7 @@ class UserRepository:
         """Get user by username (case-sensitive)."""
         with self.db.connection() as conn:
             # nosemgrep: sqlalchemy-execute-raw-query
-            cursor = conn.execute(
-                self._USER_SELECT + " WHERE username = ?", (username,)
-            )
+            cursor = conn.execute(self._USER_SELECT + " WHERE username = ?", (username,))
             row = cursor.fetchone()
             return User.from_row(row) if row else None
 
@@ -264,9 +267,7 @@ class UserRepository:
                 cursor = conn.execute(self._USER_SELECT + " ORDER BY username")
             else:
                 # nosemgrep: sqlalchemy-execute-raw-query
-                cursor = conn.execute(
-                    self._USER_SELECT + " WHERE is_admin = 0 ORDER BY username"
-                )
+                cursor = conn.execute(self._USER_SELECT + " WHERE is_admin = 0 ORDER BY username")
             return [User.from_row(row) for row in cursor.fetchall()]
 
     def count(self) -> int:
@@ -278,17 +279,13 @@ class UserRepository:
     def set_admin(self, user_id: int, is_admin: bool) -> bool:
         """Set admin status for a user."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "UPDATE users SET is_admin = ? WHERE id = ?", (is_admin, user_id)
-            )
+            cursor = conn.execute("UPDATE users SET is_admin = ? WHERE id = ?", (is_admin, user_id))
             return cursor.rowcount > 0
 
     def count_admins(self) -> int:
         """Count the number of admin users."""
         with self.db.connection() as conn:
-            return conn.execute(
-                "SELECT COUNT(*) FROM users WHERE is_admin = 1"
-            ).fetchone()[0]
+            return conn.execute("SELECT COUNT(*) FROM users WHERE is_admin = 1").fetchone()[0]
 
     def is_last_admin(self, user_id: int) -> bool:
         """Check if this user is the only admin."""
@@ -301,8 +298,7 @@ class UserRepository:
         """Set download permission for a user."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "UPDATE users SET can_download = ? WHERE id = ?",
-                (can_download, user_id),
+                "UPDATE users SET can_download = ? WHERE id = ?", (can_download, user_id)
             )
             return cursor.rowcount > 0
 
@@ -363,9 +359,7 @@ class UserRepository:
         """Get user by recovery email address."""
         with self.db.connection() as conn:
             # nosemgrep: sqlalchemy-execute-raw-query
-            cursor = conn.execute(
-                self._USER_SELECT + " WHERE recovery_email = ?", (email,)
-            )
+            cursor = conn.execute(self._USER_SELECT + " WHERE recovery_email = ?", (email,))
             row = cursor.fetchone()
             return User.from_row(row) if row else None
 
@@ -508,18 +502,14 @@ class SessionRepository:
         """Get session by raw token."""
         token_hash = hash_token(raw_token)
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM sessions WHERE token_hash = ?", (token_hash,)
-            )
+            cursor = conn.execute("SELECT * FROM sessions WHERE token_hash = ?", (token_hash,))
             row = cursor.fetchone()
             return Session.from_row(row) if row else None
 
     def get_by_user_id(self, user_id: int) -> Optional[Session]:
         """Get active session for user (if any)."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM sessions WHERE user_id = ?", (user_id,)
-            )
+            cursor = conn.execute("SELECT * FROM sessions WHERE user_id = ?", (user_id,))
             row = cursor.fetchone()
             return Session.from_row(row) if row else None
 
@@ -541,8 +531,7 @@ class SessionRepository:
         threshold_str = threshold.strftime("%Y-%m-%d %H:%M:%S")
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM sessions WHERE is_persistent = 0 AND last_seen < ?",
-                (threshold_str,),
+                "DELETE FROM sessions WHERE is_persistent = 0 AND last_seen < ?", (threshold_str,)
             )
             return cursor.rowcount
 
@@ -584,12 +573,7 @@ class UserPosition:
                     position_ms = excluded.position_ms,
                     updated_at = excluded.updated_at
                 """,
-                (
-                    self.user_id,
-                    self.audiobook_id,
-                    self.position_ms,
-                    self.updated_at.isoformat(),
-                ),
+                (self.user_id, self.audiobook_id, self.position_ms, self.updated_at.isoformat()),
             )
         return self
 
@@ -614,8 +598,7 @@ class PositionRepository:
         """Get all positions for a user."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT * FROM user_positions WHERE user_id = ?"
-                " ORDER BY updated_at DESC",
+                "SELECT * FROM user_positions WHERE user_id = ? ORDER BY updated_at DESC",
                 (user_id,),
             )
             return [UserPosition.from_row(row) for row in cursor.fetchall()]
@@ -623,9 +606,7 @@ class PositionRepository:
     def delete_for_user(self, user_id: int) -> int:
         """Delete all positions for a user."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM user_positions WHERE user_id = ?", (user_id,)
-            )
+            cursor = conn.execute("DELETE FROM user_positions WHERE user_id = ?", (user_id,))
             return cursor.rowcount
 
 
@@ -725,11 +706,7 @@ class ListeningHistoryRepository:
         self.db = db
 
     def get_for_user(
-        self,
-        user_id: int,
-        limit: int = 50,
-        offset: int = 0,
-        min_duration_ms: Optional[int] = None,
+        self, user_id: int, limit: int = 50, offset: int = 0, min_duration_ms: Optional[int] = None
     ) -> List[UserListeningHistory]:
         """Get listening history for a user, ordered by most recent first."""
         cols = UserListeningHistory._COLUMNS
@@ -743,10 +720,7 @@ class ListeningHistoryRepository:
                     " ORDER BY started_at DESC"
                     " LIMIT ? OFFSET ?"
                 )
-                cursor = conn.execute(
-                    query,
-                    (user_id, min_duration_ms, limit, offset),
-                )
+                cursor = conn.execute(query, (user_id, min_duration_ms, limit, offset))
             else:
                 query = (
                     f"SELECT {cols} FROM user_listening_history"  # nosec B608
@@ -754,10 +728,7 @@ class ListeningHistoryRepository:
                     " ORDER BY started_at DESC"
                     " LIMIT ? OFFSET ?"
                 )
-                cursor = conn.execute(
-                    query,
-                    (user_id, limit, offset),
-                )
+                cursor = conn.execute(query, (user_id, limit, offset))
             return [UserListeningHistory.from_row(row) for row in cursor.fetchall()]
 
     def get_user_book_ids(self, user_id: int) -> List[str]:
@@ -772,9 +743,7 @@ class ListeningHistoryRepository:
             )
             return [row[0] for row in cursor.fetchall()]
 
-    def get_open_session(
-        self, user_id: int, audiobook_id: str
-    ) -> Optional[UserListeningHistory]:
+    def get_open_session(self, user_id: int, audiobook_id: str) -> Optional[UserListeningHistory]:
         """Get the current open (not yet ended) listening session, if any."""
         cols = UserListeningHistory._COLUMNS
         with self.db.connection() as conn:
@@ -849,9 +818,7 @@ class DownloadRepository:
     def __init__(self, db: AuthDatabase):
         self.db = db
 
-    def get_for_user(
-        self, user_id: int, limit: int = 50, offset: int = 0
-    ) -> List[UserDownload]:
+    def get_for_user(self, user_id: int, limit: int = 50, offset: int = 0) -> List[UserDownload]:
         """Get download history for a user, ordered by most recent first."""
         cols = UserDownload._COLUMNS
         with self.db.connection() as conn:
@@ -931,11 +898,7 @@ class UserPreferences:
                 """,
                 (
                     self.user_id,
-                    (
-                        self.new_books_seen_at.isoformat()
-                        if self.new_books_seen_at
-                        else None
-                    ),
+                    (self.new_books_seen_at.isoformat() if self.new_books_seen_at else None),
                     self.created_at.isoformat() if self.created_at else None,
                     self.updated_at.isoformat(),
                 ),
@@ -952,10 +915,7 @@ class PreferencesRepository:
     def get_or_create(self, user_id: int) -> UserPreferences:
         """Get preferences for a user, creating default if none exist."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM user_preferences WHERE user_id = ?",
-                (user_id,),
-            )
+            cursor = conn.execute("SELECT * FROM user_preferences WHERE user_id = ?", (user_id,))
             row = cursor.fetchone()
             if row:
                 return UserPreferences.from_row(row)
@@ -969,10 +929,7 @@ class PreferencesRepository:
                 (user_id,),
             )
             # Fetch back to get defaults (created_at, updated_at)
-            cursor = conn.execute(
-                "SELECT * FROM user_preferences WHERE user_id = ?",
-                (user_id,),
-            )
+            cursor = conn.execute("SELECT * FROM user_preferences WHERE user_id = ?", (user_id,))
             row = cursor.fetchone()
             return UserPreferences.from_row(row)
 
@@ -987,8 +944,7 @@ class HiddenBookRepository:
         """Get set of audiobook IDs hidden by this user."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT audiobook_id FROM user_hidden_books WHERE user_id = ?",
-                (user_id,),
+                "SELECT audiobook_id FROM user_hidden_books WHERE user_id = ?", (user_id,)
             )
             return {str(row[0]) for row in cursor.fetchall()}
 
@@ -1167,9 +1123,7 @@ class NotificationRepository:
     def list_all(self) -> List[Notification]:
         """List all notifications (admin)."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT * FROM notifications ORDER BY created_at DESC"
-            )
+            cursor = conn.execute("SELECT * FROM notifications ORDER BY created_at DESC")
             return [Notification.from_row(row) for row in cursor.fetchall()]
 
 
@@ -1213,23 +1167,14 @@ class InboxMessage:
                     INSERT INTO inbox (from_user_id, message, reply_via, reply_email)
                     VALUES (?, ?, ?, ?)
                     """,
-                    (
-                        self.from_user_id,
-                        self.message,
-                        self.reply_via.value,
-                        self.reply_email,
-                    ),
+                    (self.from_user_id, self.message, self.reply_via.value, self.reply_email),
                 )
                 self.id = cursor.lastrowid
-                cursor = conn.execute(
-                    "SELECT created_at FROM inbox WHERE id = ?", (self.id,)
-                )
+                cursor = conn.execute("SELECT created_at FROM inbox WHERE id = ?", (self.id,))
                 self.created_at = datetime.fromisoformat(cursor.fetchone()[0])
 
                 # Log contact (audit trail without content)
-                conn.execute(
-                    "INSERT INTO contact_log (user_id) VALUES (?)", (self.from_user_id,)
-                )
+                conn.execute("INSERT INTO contact_log (user_id) VALUES (?)", (self.from_user_id,))
             else:
                 conn.execute(
                     """
@@ -1289,8 +1234,7 @@ class InboxRepository:
                 cursor = conn.execute("SELECT * FROM inbox ORDER BY created_at DESC")
             else:
                 cursor = conn.execute(
-                    "SELECT * FROM inbox WHERE status != 'archived'"
-                    " ORDER BY created_at DESC"
+                    "SELECT * FROM inbox WHERE status != 'archived' ORDER BY created_at DESC"
                 )
             return [InboxMessage.from_row(row) for row in cursor.fetchall()]
 
@@ -1304,8 +1248,7 @@ class InboxRepository:
         """Get all messages from a specific user."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT * FROM inbox WHERE from_user_id = ? ORDER BY created_at DESC",
-                (user_id,),
+                "SELECT * FROM inbox WHERE from_user_id = ? ORDER BY created_at DESC", (user_id,)
             )
             return [InboxMessage.from_row(row) for row in cursor.fetchall()]
 
@@ -1361,9 +1304,7 @@ class PendingRegistration:
             )
             reg_id = cursor.lastrowid
 
-            cursor = conn.execute(
-                "SELECT * FROM pending_registrations WHERE id = ?", (reg_id,)
-            )
+            cursor = conn.execute("SELECT * FROM pending_registrations WHERE id = ?", (reg_id,))
             reg = cls.from_row(cursor.fetchone())
 
         return reg, raw_token
@@ -1394,8 +1335,7 @@ class PendingRegistrationRepository:
         token_hash = hash_token(raw_token)
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT * FROM pending_registrations WHERE token_hash = ?",
-                (token_hash,),
+                "SELECT * FROM pending_registrations WHERE token_hash = ?", (token_hash,)
             )
             row = cursor.fetchone()
             return PendingRegistration.from_row(row) if row else None
@@ -1404,9 +1344,7 @@ class PendingRegistrationRepository:
         """Remove expired pending registrations."""
         now = datetime.now().isoformat()
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM pending_registrations WHERE expires_at < ?", (now,)
-            )
+            cursor = conn.execute("DELETE FROM pending_registrations WHERE expires_at < ?", (now,))
             return cursor.rowcount
 
     def delete_for_username(self, username: str) -> int:
@@ -1467,9 +1405,7 @@ class PendingRecovery:
             )
             recovery_id = cursor.lastrowid
 
-            cursor = conn.execute(
-                "SELECT * FROM pending_recovery WHERE id = ?", (recovery_id,)
-            )
+            cursor = conn.execute("SELECT * FROM pending_recovery WHERE id = ?", (recovery_id,))
             recovery = cls.from_row(cursor.fetchone())
 
         return recovery, raw_token
@@ -1517,17 +1453,13 @@ class PendingRecoveryRepository:
         """Remove expired pending recoveries."""
         now = datetime.now().isoformat()
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM pending_recovery WHERE expires_at < ?", (now,)
-            )
+            cursor = conn.execute("DELETE FROM pending_recovery WHERE expires_at < ?", (now,))
             return cursor.rowcount
 
     def delete_for_user(self, user_id: int) -> int:
         """Delete all pending recoveries for a user."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM pending_recovery WHERE user_id = ?", (user_id,)
-            )
+            cursor = conn.execute("DELETE FROM pending_recovery WHERE user_id = ?", (user_id,))
             return cursor.rowcount
 
 
@@ -1571,6 +1503,12 @@ class AccessRequest:
     # Locale for guest-facing emails
     preferred_locale: str = "en"
 
+    @property
+    def ensured_id(self) -> int:
+        """Return self.id narrowed to int. Panics if record was never saved."""
+        assert self.id is not None, "AccessRequest.ensured_id accessed before save"
+        return self.id
+
     @staticmethod
     def _parse_claim_expires(val) -> Optional[datetime]:
         """Parse claim_expires_at from various stored types."""
@@ -1587,9 +1525,7 @@ class AccessRequest:
             "id": row[0],
             "username": row[1],
             "requested_at": datetime.fromisoformat(row[2]) if row[2] else None,
-            "status": (
-                AccessRequestStatus(row[3]) if row[3] else AccessRequestStatus.PENDING
-            ),
+            "status": (AccessRequestStatus(row[3]) if row[3] else AccessRequestStatus.PENDING),
             "reviewed_at": datetime.fromisoformat(row[4]) if row[4] else None,
             "reviewed_by": row[5],
             "deny_reason": row[6],
@@ -1630,9 +1566,7 @@ class AccessRequest:
         return {
             "id": self.id,
             "username": self.username,
-            "requested_at": (
-                self.requested_at.isoformat() if self.requested_at else None
-            ),
+            "requested_at": (self.requested_at.isoformat() if self.requested_at else None),
             "status": self.status.value,
             "reviewed_at": self.reviewed_at.isoformat() if self.reviewed_at else None,
             "reviewed_by": self.reviewed_by,
@@ -1670,6 +1604,27 @@ class AccessRequestRepository:
         self.db = db
         self._ensure_table()
 
+    # Columns added after the original table schema. Each entry is
+    # (column_name, SQL fragment appended to `ALTER TABLE ... ADD COLUMN`).
+    _MIGRATION_COLUMNS: tuple[tuple[str, str], ...] = (
+        ("claim_token_hash", "claim_token_hash TEXT"),
+        ("contact_email", "contact_email TEXT"),
+        ("totp_secret", "totp_secret TEXT"),
+        ("totp_uri", "totp_uri TEXT"),
+        ("backup_codes_json", "backup_codes_json TEXT"),
+        ("credentials_claimed", "credentials_claimed BOOLEAN DEFAULT FALSE"),
+        ("claim_expires_at", "claim_expires_at TIMESTAMP"),
+        ("preferred_auth_method", "preferred_auth_method TEXT DEFAULT 'totp'"),
+        ("preferred_locale", "preferred_locale TEXT DEFAULT 'en'"),
+    )
+
+    _INDEX_STATEMENTS: tuple[str, ...] = (
+        "CREATE INDEX IF NOT EXISTS idx_access_requests_status ON access_requests(status)",
+        "CREATE INDEX IF NOT EXISTS idx_access_requests_username ON access_requests(username)",
+        "CREATE INDEX IF NOT EXISTS idx_access_requests_claim_token"
+        " ON access_requests(claim_token_hash)",
+    )
+
     def _ensure_table(self):
         """Create table if it doesn't exist, and migrate if needed."""
         with self.db.connection() as conn:
@@ -1698,57 +1653,18 @@ class AccessRequestRepository:
 
             # Migrate existing table if needed (add new columns)
             # - MUST run before index creation
+            # - column_sql comes from the class-level _MIGRATION_COLUMNS tuple,
+            #   which is a hardcoded constant — no untrusted input.
             cursor = conn.execute("PRAGMA table_info(access_requests)")
-            columns = {row[1] for row in cursor.fetchall()}
-            if "claim_token_hash" not in columns:
-                conn.execute(
-                    "ALTER TABLE access_requests ADD COLUMN claim_token_hash TEXT"
-                )
-            if "contact_email" not in columns:
-                conn.execute(
-                    "ALTER TABLE access_requests ADD COLUMN contact_email TEXT"
-                )
-            if "totp_secret" not in columns:
-                conn.execute("ALTER TABLE access_requests ADD COLUMN totp_secret TEXT")
-            if "totp_uri" not in columns:
-                conn.execute("ALTER TABLE access_requests ADD COLUMN totp_uri TEXT")
-            if "backup_codes_json" not in columns:
-                conn.execute(
-                    "ALTER TABLE access_requests ADD COLUMN backup_codes_json TEXT"
-                )
-            if "credentials_claimed" not in columns:
-                conn.execute(
-                    "ALTER TABLE access_requests ADD COLUMN"
-                    " credentials_claimed BOOLEAN DEFAULT FALSE"
-                )
-            if "claim_expires_at" not in columns:
-                conn.execute(
-                    "ALTER TABLE access_requests ADD COLUMN claim_expires_at TIMESTAMP"
-                )
-            if "preferred_auth_method" not in columns:
-                conn.execute(
-                    "ALTER TABLE access_requests ADD COLUMN"
-                    " preferred_auth_method TEXT DEFAULT 'totp'"
-                )
-            if "preferred_locale" not in columns:
-                conn.execute(
-                    "ALTER TABLE access_requests ADD COLUMN"
-                    " preferred_locale TEXT DEFAULT 'en'"
-                )
+            existing = {row[1] for row in cursor.fetchall()}
+            for column_name, column_sql in self._MIGRATION_COLUMNS:
+                if column_name not in existing:
+                    # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                    conn.execute(f"ALTER TABLE access_requests ADD COLUMN {column_sql}")  # nosec B608
 
             # Create indexes AFTER columns exist
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_access_requests_status"
-                " ON access_requests(status)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_access_requests_username"
-                " ON access_requests(username)"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_access_requests_claim_token"
-                " ON access_requests(claim_token_hash)"
-            )
+            for index_sql in self._INDEX_STATEMENTS:
+                conn.execute(index_sql)
 
     def create(
         self,
@@ -1772,20 +1688,14 @@ class AccessRequestRepository:
             )
             request_id = cursor.lastrowid
             # nosemgrep: sqlalchemy-execute-raw-query
-            cursor = conn.execute(
-                self._AR_SELECT + " WHERE id = ?",
-                (request_id,),
-            )
+            cursor = conn.execute(self._AR_SELECT + " WHERE id = ?", (request_id,))
             return AccessRequest.from_row(cursor.fetchone())
 
     def get_by_id(self, request_id: int) -> Optional[AccessRequest]:
         """Get access request by ID."""
         with self.db.connection() as conn:
             # nosemgrep: sqlalchemy-execute-raw-query
-            cursor = conn.execute(
-                self._AR_SELECT + " WHERE id = ?",
-                (request_id,),
-            )
+            cursor = conn.execute(self._AR_SELECT + " WHERE id = ?", (request_id,))
             row = cursor.fetchone()
             return AccessRequest.from_row(row) if row else None
 
@@ -1793,10 +1703,7 @@ class AccessRequestRepository:
         """Get access request by username."""
         with self.db.connection() as conn:
             # nosemgrep: sqlalchemy-execute-raw-query
-            cursor = conn.execute(
-                self._AR_SELECT + " WHERE username = ?",
-                (username,),
-            )
+            cursor = conn.execute(self._AR_SELECT + " WHERE username = ?", (username,))
             row = cursor.fetchone()
             return AccessRequest.from_row(row) if row else None
 
@@ -1805,8 +1712,7 @@ class AccessRequestRepository:
         with self.db.connection() as conn:
             # nosemgrep: sqlalchemy-execute-raw-query
             cursor = conn.execute(
-                self._AR_SELECT + " WHERE status = 'pending'"
-                " ORDER BY requested_at ASC LIMIT ?",
+                self._AR_SELECT + " WHERE status = 'pending' ORDER BY requested_at ASC LIMIT ?",
                 (limit,),
             )
             return [AccessRequest.from_row(row) for row in cursor.fetchall()]
@@ -1815,10 +1721,7 @@ class AccessRequestRepository:
         """List all access requests (any status)."""
         with self.db.connection() as conn:
             # nosemgrep: sqlalchemy-execute-raw-query
-            cursor = conn.execute(
-                self._AR_SELECT + " ORDER BY requested_at DESC LIMIT ?",
-                (limit,),
-            )
+            cursor = conn.execute(self._AR_SELECT + " ORDER BY requested_at DESC LIMIT ?", (limit,))
             return [AccessRequest.from_row(row) for row in cursor.fetchall()]
 
     def approve(self, request_id: int, admin_username: str) -> bool:
@@ -1834,9 +1737,7 @@ class AccessRequestRepository:
             )
             return cursor.rowcount > 0
 
-    def deny(
-        self, request_id: int, admin_username: str, reason: Optional[str] = None
-    ) -> bool:
+    def deny(self, request_id: int, admin_username: str, reason: Optional[str] = None) -> bool:
         """Deny an access request."""
         with self.db.connection() as conn:
             cursor = conn.execute(
@@ -1852,25 +1753,20 @@ class AccessRequestRepository:
     def delete(self, request_id: int) -> bool:
         """Delete an access request."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM access_requests WHERE id = ?", (request_id,)
-            )
+            cursor = conn.execute("DELETE FROM access_requests WHERE id = ?", (request_id,))
             return cursor.rowcount > 0
 
     def delete_for_username(self, username: str) -> int:
         """Delete all access requests for a username."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM access_requests WHERE username = ?", (username,)
-            )
+            cursor = conn.execute("DELETE FROM access_requests WHERE username = ?", (username,))
             return cursor.rowcount
 
     def has_pending_request(self, username: str) -> bool:
         """Check if username has a pending request."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT 1 FROM access_requests"
-                " WHERE username = ? AND status = 'pending'",
+                "SELECT 1 FROM access_requests WHERE username = ? AND status = 'pending'",
                 (username,),
             )
             return cursor.fetchone() is not None
@@ -1878,17 +1774,13 @@ class AccessRequestRepository:
     def has_any_request(self, username: str) -> bool:
         """Check if username has any request (pending, approved, or denied)."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT 1 FROM access_requests WHERE username = ?", (username,)
-            )
+            cursor = conn.execute("SELECT 1 FROM access_requests WHERE username = ?", (username,))
             return cursor.fetchone() is not None
 
     def count_pending(self) -> int:
         """Count pending access requests."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT COUNT(*) FROM access_requests WHERE status = 'pending'"
-            )
+            cursor = conn.execute("SELECT COUNT(*) FROM access_requests WHERE status = 'pending'")
             return cursor.fetchone()[0]
 
     def get_by_claim_token(self, claim_token_hash: str) -> Optional[AccessRequest]:
@@ -1896,8 +1788,7 @@ class AccessRequestRepository:
         with self.db.connection() as conn:
             # nosemgrep: sqlalchemy-execute-raw-query
             cursor = conn.execute(
-                self._AR_SELECT + " WHERE claim_token_hash = ?",
-                (claim_token_hash,),
+                self._AR_SELECT + " WHERE claim_token_hash = ?", (claim_token_hash,)
             )
             row = cursor.fetchone()
             return AccessRequest.from_row(row) if row else None
@@ -2020,8 +1911,7 @@ class UserSettingsRepository:
         self._validate_key(key)
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT setting_value FROM user_settings"
-                " WHERE user_id = ? AND setting_key = ?",
+                "SELECT setting_value FROM user_settings WHERE user_id = ? AND setting_key = ?",
                 (user_id, key),
             )
             row = cursor.fetchone()
@@ -2032,9 +1922,7 @@ class UserSettingsRepository:
         result = dict(self.DEFAULTS)
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT setting_key, setting_value FROM user_settings"
-                " WHERE user_id = ?",
-                (user_id,),
+                "SELECT setting_key, setting_value FROM user_settings WHERE user_id = ?", (user_id,)
             )
             for row in cursor.fetchall():
                 key, value = row[0], row[1]
@@ -2078,17 +1966,13 @@ class UserSettingsRepository:
         self._validate_key(key)
         with self.db.connection() as conn:
             conn.execute(
-                "DELETE FROM user_settings WHERE user_id = ? AND setting_key = ?",
-                (user_id, key),
+                "DELETE FROM user_settings WHERE user_id = ? AND setting_key = ?", (user_id, key)
             )
 
     def delete_all(self, user_id: int) -> int:
         """Delete all settings for a user. Returns count deleted."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM user_settings WHERE user_id = ?",
-                (user_id,),
-            )
+            cursor = conn.execute("DELETE FROM user_settings WHERE user_id = ?", (user_id,))
             return cursor.rowcount
 
 
@@ -2128,8 +2012,7 @@ class SystemSettingsRepository:
         """Get a system setting value by key."""
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT setting_value FROM system_settings WHERE setting_key = ?",
-                (key,),
+                "SELECT setting_value FROM system_settings WHERE setting_key = ?", (key,)
             )
             row = cursor.fetchone()
             return row[0] if row else default
@@ -2147,7 +2030,5 @@ class SystemSettingsRepository:
     def get_all(self) -> dict[str, str]:
         """Get all system settings as a dict."""
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT setting_key, setting_value FROM system_settings"
-            )
+            cursor = conn.execute("SELECT setting_key, setting_value FROM system_settings")
             return {row[0]: row[1] for row in cursor.fetchall()}

@@ -131,9 +131,7 @@ class TestIsWebsocketUpgrade:
         assert proxy_server.is_websocket_upgrade(headers) is True
 
     def test_case_insensitive(self):
-        headers = _make_headers(
-            {"Upgrade": "WebSocket", "Connection": "keep-alive, Upgrade"}
-        )
+        headers = _make_headers({"Upgrade": "WebSocket", "Connection": "keep-alive, Upgrade"})
         assert proxy_server.is_websocket_upgrade(headers) is True
 
     def test_missing_upgrade_header(self):
@@ -174,9 +172,7 @@ class TestEndHeadersCacheControl:
         handler = _make_handler(path=path)
         # Replace end_headers' parent call to avoid writing to wfile
         with patch.object(http.server.SimpleHTTPRequestHandler, "end_headers"):
-            handler.end_headers = proxy_server.ReverseProxyHandler.end_headers.__get__(
-                handler
-            )
+            handler.end_headers = proxy_server.ReverseProxyHandler.end_headers.__get__(handler)
             handler.end_headers()
         for k, v in handler._sent_headers:
             if k == "Cache-Control":
@@ -289,18 +285,14 @@ class TestDoGet:
 
     def test_api_path_proxied(self):
         handler = _make_handler(path="/api/books")
-        with patch.object(
-            proxy_server.ReverseProxyHandler, "proxy_to_api"
-        ) as mock_proxy:
+        with patch.object(proxy_server.ReverseProxyHandler, "proxy_to_api") as mock_proxy:
             handler.do_GET()
             mock_proxy.assert_called_once_with("GET")
 
     def test_websocket_upgrade_tunneled(self):
         headers = _make_headers({"Upgrade": "websocket", "Connection": "Upgrade"})
         handler = _make_handler(path="/api/ws/position", headers=headers)
-        with patch.object(
-            proxy_server.ReverseProxyHandler, "_tunnel_websocket"
-        ) as mock_tunnel:
+        with patch.object(proxy_server.ReverseProxyHandler, "_tunnel_websocket") as mock_tunnel:
             handler.do_GET()
             mock_tunnel.assert_called_once()
 
@@ -314,9 +306,7 @@ class TestHttpMethods:
     @pytest.mark.parametrize("method_name", ["do_POST", "do_PUT", "do_DELETE"])
     def test_proxy_path_forwards(self, method_name):
         handler = _make_handler(path="/api/books/1")
-        with patch.object(
-            proxy_server.ReverseProxyHandler, "proxy_to_api"
-        ) as mock_proxy:
+        with patch.object(proxy_server.ReverseProxyHandler, "proxy_to_api") as mock_proxy:
             getattr(handler, method_name)()
             expected_method = method_name.replace("do_", "")
             mock_proxy.assert_called_once_with(expected_method)
@@ -332,18 +322,14 @@ class TestHttpMethods:
 
     def test_auth_path_proxied_post(self):
         handler = _make_handler(path="/auth/login")
-        with patch.object(
-            proxy_server.ReverseProxyHandler, "proxy_to_api"
-        ) as mock_proxy:
+        with patch.object(proxy_server.ReverseProxyHandler, "proxy_to_api") as mock_proxy:
             handler.do_POST()
             mock_proxy.assert_called_once_with("POST")
 
     def test_covers_path_served_directly(self):
         """Covers are served directly from COVER_DIR, not proxied to API."""
         handler = _make_handler(path="/covers/abc.jpg")
-        with patch.object(
-            proxy_server.ReverseProxyHandler, "_serve_cover"
-        ) as mock_serve:
+        with patch.object(proxy_server.ReverseProxyHandler, "_serve_cover") as mock_serve:
             handler.do_GET()
             mock_serve.assert_called_once_with("abc.jpg")
 
@@ -358,9 +344,7 @@ class TestDoOptions:
         handler = _make_handler(path="/api/books")
         # end_headers needs to work but not write to socket
         with patch.object(http.server.SimpleHTTPRequestHandler, "end_headers"):
-            handler.end_headers = proxy_server.ReverseProxyHandler.end_headers.__get__(
-                handler
-            )
+            handler.end_headers = proxy_server.ReverseProxyHandler.end_headers.__get__(handler)
             handler.do_OPTIONS()
 
         assert handler._response_code == 204
@@ -390,8 +374,7 @@ class TestTunnelWebsocket:
 
     def test_non_101_response_closes_backend(self):
         handler = _make_handler(
-            path="/api/ws",
-            headers=_make_headers({"Upgrade": "websocket", "Connection": "Upgrade"}),
+            path="/api/ws", headers=_make_headers({"Upgrade": "websocket", "Connection": "Upgrade"})
         )
         handler.command = "GET"
 
@@ -409,8 +392,7 @@ class TestTunnelWebsocket:
 
     def test_successful_upgrade_relays_data(self):
         handler = _make_handler(
-            path="/api/ws",
-            headers=_make_headers({"Upgrade": "websocket", "Connection": "Upgrade"}),
+            path="/api/ws", headers=_make_headers({"Upgrade": "websocket", "Connection": "Upgrade"})
         )
         handler.command = "GET"
 
@@ -434,15 +416,14 @@ class TestTunnelWebsocket:
 
     def test_broken_pipe_handled_gracefully(self):
         handler = _make_handler(
-            path="/api/ws",
-            headers=_make_headers({"Upgrade": "websocket", "Connection": "Upgrade"}),
+            path="/api/ws", headers=_make_headers({"Upgrade": "websocket", "Connection": "Upgrade"})
         )
         handler.command = "GET"
 
         mock_backend = MagicMock()
         # First recv for upgrade response, subsequent for relay
         mock_backend.recv.side_effect = [
-            b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n\r\n",
+            b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n\r\n"
         ]
 
         mock_client = MagicMock()
@@ -523,9 +504,7 @@ class TestProxyToApi:
         headers = _make_headers(
             {"Content-Length": str(len(body)), "Content-Type": "application/json"}
         )
-        handler = _make_handler(
-            path="/api/books", method="POST", headers=headers, body=body
-        )
+        handler = _make_handler(path="/api/books", method="POST", headers=headers, body=body)
         handler.end_headers = MagicMock()
 
         mock_response = MagicMock()
@@ -718,9 +697,7 @@ class TestReuseHTTPServer:
         with patch.object(http.server.ThreadingHTTPServer, "server_bind"):
             server.server_bind()
 
-        mock_socket.setsockopt.assert_called_once_with(
-            socket.SOL_SOCKET, socket.SO_REUSEADDR, 1
-        )
+        mock_socket.setsockopt.assert_called_once_with(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 
 # ============================================================

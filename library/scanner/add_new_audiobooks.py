@@ -26,16 +26,24 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import AUDIOBOOK_DIR, COVER_DIR, DATABASE_PATH
 
 # Import shared utilities from scanner package
-from scanner.metadata_utils import (
-    extract_cover_art,
-    get_file_metadata,
-)
+from scanner.metadata_utils import extract_cover_art, get_file_metadata
 from scanner.utils.constants import SUPPORTED_FORMATS, is_cover_art_file
 from scanner.utils.db_helpers import (
-    ALLOWED_LOOKUP_TABLES,  # noqa: F401 — re-exported for backward compatibility
-    get_or_create_lookup_id,  # noqa: F401 — re-exported for backward compatibility
+    ALLOWED_LOOKUP_TABLES,
+    get_or_create_lookup_id,
     insert_audiobook,
 )
+
+# Public API — includes re-exports for backward compatibility with older call sites.
+__all__ = [
+    "ALLOWED_LOOKUP_TABLES",
+    "SUPPORTED_FORMATS",
+    "add_new_audiobooks",
+    "find_new_audiobooks",
+    "get_existing_paths",
+    "get_or_create_lookup_id",
+    "insert_audiobook",
+]
 
 # Auto-enrichment and verification (imported lazily)
 _enrich_module = None
@@ -135,12 +143,7 @@ def _run_post_insert_hooks(audiobook_id: int, db_path: Path) -> None:
 
 
 def _insert_one_audiobook(
-    filepath: Path,
-    conn,
-    library_dir: Path,
-    cover_dir: Path,
-    db_path: Path,
-    calculate_hashes: bool,
+    filepath: Path, conn, library_dir: Path, cover_dir: Path, db_path: Path, calculate_hashes: bool
 ) -> tuple[str, dict | None]:
     """Insert a single audiobook. Returns (status, book_info) where status is
     'added', 'skipped', or 'error'."""
@@ -174,9 +177,7 @@ def _insert_one_audiobook(
         return "error", None
 
 
-def _report_progress(
-    progress_callback: ProgressCallback, pct: int, total: int, msg: str
-) -> None:
+def _report_progress(progress_callback: ProgressCallback, pct: int, total: int, msg: str) -> None:
     """Send progress update if callback is provided."""
     if progress_callback:
         progress_callback(pct, total, msg)
@@ -202,9 +203,7 @@ def add_new_audiobooks(
     Returns:
         dict with results: {added: int, skipped: int, errors: int, new_files: list}
     """
-    _report_progress(
-        progress_callback, 0, 100, "Querying database for existing files..."
-    )
+    _report_progress(progress_callback, 0, 100, "Querying database for existing files...")
     existing_paths = get_existing_paths(db_path)
     print(f"Found {len(existing_paths)} existing audiobooks in database")
 
@@ -229,10 +228,7 @@ def add_new_audiobooks(
         for idx, filepath in enumerate(new_files, 1):
             pct = 5 + int((idx / total) * 90)
             _report_progress(
-                progress_callback,
-                pct,
-                100,
-                f"Processing {idx}/{total}: {filepath.name}",
+                progress_callback, pct, 100, f"Processing {idx}/{total}: {filepath.name}"
             )
             print(f"[{idx:3d}/{total}] Adding: {filepath.name}")
 
@@ -248,9 +244,7 @@ def add_new_audiobooks(
             else:
                 errors_count += 1
 
-        _report_progress(
-            progress_callback, 100, 100, f"Complete: Added {added_count} audiobooks"
-        )
+        _report_progress(progress_callback, 100, 100, f"Complete: Added {added_count} audiobooks")
     finally:
         conn.close()
 
@@ -275,9 +269,7 @@ def main():
         help="Skip SHA-256 hash calculation (faster but no integrity verification)",
     )
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would be added without actually adding",
+        "--dry-run", action="store_true", help="Show what would be added without actually adding"
     )
     args = parser.parse_args()
 

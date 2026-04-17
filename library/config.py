@@ -126,20 +126,14 @@ def get_config(key: str, default: Optional[str] = None) -> Optional[str]:
 
 # Auto-detect AUDIOBOOKS_HOME if not set
 _detected_home = str(_project_root) if _project_root else None
-AUDIOBOOKS_HOME = Path(
-    get_config("AUDIOBOOKS_HOME", _detected_home or "/opt/audiobooks")
-)
+AUDIOBOOKS_HOME = Path(get_config("AUDIOBOOKS_HOME", _detected_home or "/opt/audiobooks"))
 
 # Core data directory
 AUDIOBOOKS_DATA = Path(get_config("AUDIOBOOKS_DATA", "/srv/audiobooks"))
 
 # Data subdirectories
-AUDIOBOOKS_LIBRARY = Path(
-    get_config("AUDIOBOOKS_LIBRARY", str(AUDIOBOOKS_DATA / "Library"))
-)
-AUDIOBOOKS_SOURCES = Path(
-    get_config("AUDIOBOOKS_SOURCES", str(AUDIOBOOKS_DATA / "Sources"))
-)
+AUDIOBOOKS_LIBRARY = Path(get_config("AUDIOBOOKS_LIBRARY", str(AUDIOBOOKS_DATA / "Library")))
+AUDIOBOOKS_SOURCES = Path(get_config("AUDIOBOOKS_SOURCES", str(AUDIOBOOKS_DATA / "Sources")))
 AUDIOBOOKS_SUPPLEMENTS = Path(
     get_config("AUDIOBOOKS_SUPPLEMENTS", str(AUDIOBOOKS_DATA / "Supplements"))
 )
@@ -148,24 +142,15 @@ AUDIOBOOKS_SUPPLEMENTS = Path(
 # Database should be in a data directory, NOT in the code directory
 # AUDIOBOOKS_VAR_DIR is the persistent state directory (default: /var/lib/audiobooks)
 _var_dir = get_config("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
-AUDIOBOOKS_DATABASE = Path(
-    get_config(
-        "AUDIOBOOKS_DATABASE",
-        f"{_var_dir}/db/audiobooks.db",
-    )
-)
+AUDIOBOOKS_DATABASE = Path(get_config("AUDIOBOOKS_DATABASE", f"{_var_dir}/db/audiobooks.db"))
 AUDIOBOOKS_COVERS = Path(get_config("AUDIOBOOKS_COVERS", f"{_var_dir}/covers"))
-AUDIOBOOKS_CERTS = Path(
-    get_config("AUDIOBOOKS_CERTS", str(AUDIOBOOKS_HOME / "library" / "certs"))
-)
+AUDIOBOOKS_CERTS = Path(get_config("AUDIOBOOKS_CERTS", str(AUDIOBOOKS_HOME / "library" / "certs")))
 AUDIOBOOKS_LOGS = Path(get_config("AUDIOBOOKS_LOGS", str(AUDIOBOOKS_DATA / "logs")))
 AUDIOBOOKS_WEBM_CACHE = Path(
     get_config("AUDIOBOOKS_WEBM_CACHE", str(AUDIOBOOKS_DATA / ".webm-cache"))
 )
 AUDIOBOOKS_STAGING = Path(get_config("AUDIOBOOKS_STAGING", "/tmp/audiobook-staging"))  # nosec B108 - default only; production overrides via audiobooks.conf; dir created 0700 by service user
-AUDIOBOOKS_VENV = Path(
-    get_config("AUDIOBOOKS_VENV", str(AUDIOBOOKS_HOME / "library" / "venv"))
-)
+AUDIOBOOKS_VENV = Path(get_config("AUDIOBOOKS_VENV", str(AUDIOBOOKS_HOME / "library" / "venv")))
 AUDIOBOOKS_CONVERTER = Path(
     get_config("AUDIOBOOKS_CONVERTER", str(AUDIOBOOKS_HOME / "converter" / "AAXtoMP3"))
 )
@@ -176,10 +161,7 @@ AUDIOBOOKS_WEB_PORT = int(
     get_config("AUDIOBOOKS_WEB_PORT", "8443")
 )  # Changed from 8090 to 8443 (HTTPS)
 AUDIOBOOKS_HTTP_REDIRECT_PORT = int(
-    os.environ.get(
-        "HTTP_REDIRECT_PORT",
-        str(get_config("AUDIOBOOKS_HTTP_REDIRECT_PORT", "8080")),
-    )
+    os.environ.get("HTTP_REDIRECT_PORT", str(get_config("AUDIOBOOKS_HTTP_REDIRECT_PORT", "8080")))
 )  # Default 8080 (matches audiobook-config.sh and .env.example)
 # Also checks Docker legacy env var HTTP_REDIRECT_PORT
 AUDIOBOOKS_BIND_ADDRESS = get_config("AUDIOBOOKS_BIND_ADDRESS", "0.0.0.0")  # nosec B104 - intentional; Flask API is fronted by Caddy/HTTPS proxy, not exposed directly
@@ -189,14 +171,9 @@ AUDIOBOOKS_HTTPS_ENABLED = get_config("AUDIOBOOKS_HTTPS_ENABLED", "true").lower(
     "yes",
 )
 _http_redirect_enabled_raw = os.environ.get(
-    "HTTP_REDIRECT_ENABLED",
-    get_config("AUDIOBOOKS_HTTP_REDIRECT_ENABLED", "true"),
+    "HTTP_REDIRECT_ENABLED", get_config("AUDIOBOOKS_HTTP_REDIRECT_ENABLED", "true")
 )
-AUDIOBOOKS_HTTP_REDIRECT_ENABLED = _http_redirect_enabled_raw.lower() in (
-    "true",
-    "1",
-    "yes",
-)
+AUDIOBOOKS_HTTP_REDIRECT_ENABLED = _http_redirect_enabled_raw.lower() in ("true", "1", "yes")
 # AUDIOBOOKS_USE_WAITRESS removed in v7.2 — migrated to Gunicorn+geventwebsocket
 
 # =============================================================================
@@ -212,9 +189,7 @@ DATABASE_PATH = Path(os.environ.get("DATABASE_PATH", str(AUDIOBOOKS_DATABASE)))
 COVER_DIR = Path(os.environ.get("COVER_DIR", str(AUDIOBOOKS_COVERS)))
 # DATA_DIR: uses get_config() to read from config files, not just env vars
 DATA_DIR = Path(
-    get_config(
-        "DATA_DIR", str(PROJECT_DIR / "library" / "data" if PROJECT_DIR else ".")
-    )
+    get_config("DATA_DIR", str(PROJECT_DIR / "library" / "data" if PROJECT_DIR else "."))
 )
 SOURCES_DIR = AUDIOBOOKS_SOURCES
 SUPPLEMENTS_DIR = Path(os.environ.get("SUPPLEMENTS_DIR", str(AUDIOBOOKS_SUPPLEMENTS)))
@@ -222,9 +197,7 @@ OPUS_DIR = AUDIOBOOK_DIR  # Points to same as AUDIOBOOK_DIR
 CONVERTED_DIR = AUDIOBOOK_DIR  # Points to same as AUDIOBOOK_DIR
 WEB_PORT = int(os.environ.get("WEB_PORT", str(AUDIOBOOKS_WEB_PORT)))
 API_PORT = int(os.environ.get("API_PORT", str(AUDIOBOOKS_API_PORT)))
-HTTP_REDIRECT_PORT = int(
-    os.environ.get("HTTP_REDIRECT_PORT", str(AUDIOBOOKS_HTTP_REDIRECT_PORT))
-)
+HTTP_REDIRECT_PORT = int(os.environ.get("HTTP_REDIRECT_PORT", str(AUDIOBOOKS_HTTP_REDIRECT_PORT)))
 HTTP_REDIRECT_ENABLED = os.environ.get(
     "HTTP_REDIRECT_ENABLED", str(AUDIOBOOKS_HTTP_REDIRECT_ENABLED).lower()
 ).lower() in ("true", "1", "yes")
@@ -261,10 +234,7 @@ def print_config() -> None:
 
 def check_dirs() -> bool:
     """Verify required directories exist. Returns True if all exist."""
-    required = [
-        AUDIOBOOKS_LIBRARY,
-        AUDIOBOOKS_DATABASE.parent,
-    ]
+    required = [AUDIOBOOKS_LIBRARY, AUDIOBOOKS_DATABASE.parent]
     missing = []
     for d in required:
         if not d.exists():

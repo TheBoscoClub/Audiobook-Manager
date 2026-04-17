@@ -170,8 +170,7 @@ def _process_authors(conn, book_id, clean_authors, seen_authors, stats, dry_run)
         if entity_id is None:
             continue
         conn.execute(
-            "INSERT OR IGNORE INTO book_authors"
-            " (book_id, author_id, position) VALUES (?, ?, ?)",
+            "INSERT OR IGNORE INTO book_authors (book_id, author_id, position) VALUES (?, ?, ?)",
             (book_id, entity_id, pos),
         )
         stats["author_links"] += 1
@@ -187,9 +186,7 @@ def _process_narrators(conn, book_id, narrator_names, seen_narrators, stats, dry
             stats["brand_excluded"] += 1
             continue
 
-        entity_id = _upsert_entity(
-            conn, name, seen_narrators, stats, "narrators", dry_run
-        )
+        entity_id = _upsert_entity(conn, name, seen_narrators, stats, "narrators", dry_run)
         if entity_id is None:
             continue
         conn.execute(
@@ -248,25 +245,17 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
         narrator_names = _prepare_names(narrator_names)
 
         # Filter authors, redirect groups to narrators
-        clean_authors, narrator_names = _filter_authors(
-            author_names, narrator_names, stats
-        )
+        clean_authors, narrator_names = _filter_authors(author_names, narrator_names, stats)
 
         # Insert authors and narrators with junction links
         _process_authors(conn, book_id, clean_authors, seen_authors, stats, dry_run)
-        _process_narrators(
-            conn, book_id, narrator_names, seen_narrators, stats, dry_run
-        )
+        _process_narrators(conn, book_id, narrator_names, seen_narrators, stats, dry_run)
 
     if not dry_run:
         conn.commit()
 
-    stats["authors_created"] = conn.execute("SELECT COUNT(*) FROM authors").fetchone()[
-        0
-    ]
-    stats["narrators_created"] = conn.execute(
-        "SELECT COUNT(*) FROM narrators"
-    ).fetchone()[0]
+    stats["authors_created"] = conn.execute("SELECT COUNT(*) FROM authors").fetchone()[0]
+    stats["narrators_created"] = conn.execute("SELECT COUNT(*) FROM narrators").fetchone()[0]
 
     conn.close()
 
@@ -289,9 +278,7 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    parser = argparse.ArgumentParser(
-        description="Migrate to normalized authors/narrators"
-    )
+    parser = argparse.ArgumentParser(description="Migrate to normalized authors/narrators")
     parser.add_argument("--db-path", type=str, help="Path to database")
     parser.add_argument("--dry-run", action="store_true", help="Don't write changes")
     args = parser.parse_args()

@@ -87,22 +87,16 @@ class TestGenerateQrCodeImportError:
         with patch.dict(sys.modules, {"qrcode": None}):
             # Force reimport to trigger ImportError
             # Use a mock that raises ImportError
-            with patch(
-                "builtins.__import__", side_effect=ImportError("qrcode not found")
-            ):
+            with patch("builtins.__import__", side_effect=ImportError("qrcode not found")):
                 # The function does `import qrcode` inside the try block
                 # We need to make that specific import fail
                 original_import = (
-                    __builtins__.__import__
-                    if hasattr(__builtins__, "__import__")
-                    else __import__
+                    __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
                 )
 
                 def selective_import(name, *args, **kwargs):
                     if name == "qrcode":
-                        raise ImportError(
-                            "qrcode[pil] package required for QR code generation"
-                        )
+                        raise ImportError("qrcode[pil] package required for QR code generation")
                     return original_import(name, *args, **kwargs)
 
                 with patch("builtins.__import__", side_effect=selective_import):
@@ -161,10 +155,7 @@ class TestVerifyCodeEdgeCases:
     def test_wrong_code_returns_false(self):
         """Verify that an incorrect 6-digit code fails."""
         secret = generate_secret()
-        assert (
-            verify_code(secret, "000000") is False
-            or verify_code(secret, "000000") is True
-        )
+        assert verify_code(secret, "000000") is False or verify_code(secret, "000000") is True
         # More deterministic: use a code we know is wrong
         code = get_current_code(secret)
         wrong = str((int(code) + 1) % 1000000).zfill(6)

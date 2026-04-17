@@ -32,9 +32,7 @@ class TestTutorialJS:
     def test_class_defined(self):
         """tutorial.js must define a LibraryTutorial class."""
         content = (JS_DIR / "tutorial.js").read_text()
-        assert "class LibraryTutorial" in content, (
-            "tutorial.js should define class LibraryTutorial"
-        )
+        assert "class LibraryTutorial" in content, "tutorial.js should define class LibraryTutorial"
 
     def test_has_start_method(self):
         """LibraryTutorial must have a start() method."""
@@ -55,9 +53,7 @@ class TestTutorialJS:
         """Tutorial must define at least 10 steps."""
         content = (JS_DIR / "tutorial.js").read_text()
         target_count = content.count("target:")
-        assert target_count >= 10, (
-            f"Tutorial should have at least 10 steps, found {target_count}"
-        )
+        assert target_count >= 10, f"Tutorial should have at least 10 steps, found {target_count}"
 
     def test_auto_start_on_url_param(self):
         """Tutorial must check for ?tutorial=1 URL parameter."""
@@ -96,23 +92,17 @@ class TestTutorialCSS:
     def test_overlay_class(self):
         """.tutorial-overlay must be defined."""
         content = (CSS_DIR / "tutorial.css").read_text()
-        assert ".tutorial-overlay" in content, (
-            "tutorial.css should define .tutorial-overlay"
-        )
+        assert ".tutorial-overlay" in content, "tutorial.css should define .tutorial-overlay"
 
     def test_tooltip_class(self):
         """.tutorial-tooltip must be defined."""
         content = (CSS_DIR / "tutorial.css").read_text()
-        assert ".tutorial-tooltip" in content, (
-            "tutorial.css should define .tutorial-tooltip"
-        )
+        assert ".tutorial-tooltip" in content, "tutorial.css should define .tutorial-tooltip"
 
     def test_highlight_class(self):
         """.tutorial-highlight must be defined."""
         content = (CSS_DIR / "tutorial.css").read_text()
-        assert ".tutorial-highlight" in content, (
-            "tutorial.css should define .tutorial-highlight"
-        )
+        assert ".tutorial-highlight" in content, "tutorial.css should define .tutorial-highlight"
 
     def test_z_index_ordering(self):
         """Overlay z-index 9998, tooltip z-index 9999 (tooltip above overlay)."""

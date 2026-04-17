@@ -131,8 +131,7 @@ def _ensure_hash_columns(conn):
         cursor.execute("ALTER TABLE audiobooks ADD COLUMN sha256_hash TEXT")
         cursor.execute("ALTER TABLE audiobooks ADD COLUMN hash_verified_at TIMESTAMP")
         cursor.execute(
-            "CREATE INDEX IF NOT EXISTS idx_audiobooks_sha256"
-            " ON audiobooks(sha256_hash)"
+            "CREATE INDEX IF NOT EXISTS idx_audiobooks_sha256 ON audiobooks(sha256_hash)"
         )
         conn.commit()
         print("\u2713 Column added")
@@ -163,9 +162,7 @@ def _print_hash_header(total_files, total_size, label="SHA-256 Hash Generation")
     print(f"Total size: {format_size(total_size * 1024 * 1024)}")
 
 
-def _print_hash_completion(
-    processed, processed_size, elapsed, errors, extra_lines=None
-):
+def _print_hash_completion(processed, processed_size, elapsed, errors, extra_lines=None):
     """Print the hash generation completion banner."""
     print(f"\n{'=' * 60}")
     print("COMPLETE")
@@ -218,9 +215,7 @@ def _process_sequential(pending, total_files, total_size, conn):
     return processed, processed_size, errors, time.time() - start_time
 
 
-def generate_hashes(
-    force: bool = False, limit: int | None = None, parallel: int | None = None
-):
+def generate_hashes(force: bool = False, limit: int | None = None, parallel: int | None = None):
     """Main hash generation function"""
     if not DB_PATH.exists():
         print(f"Error: Database not found at {DB_PATH}")
@@ -305,9 +300,7 @@ def _process_parallel_results(futures, total_files, total_size, cursor, conn):
     return processed, processed_size, errors, time.time() - start_time
 
 
-def generate_hashes_parallel(
-    pending: list, total_files: int, total_size: float, workers: int
-):
+def generate_hashes_parallel(pending: list, total_files: int, total_size: float, workers: int):
     """Generate hashes using parallel processing"""
     _print_hash_header(total_files, total_size, "SHA-256 Hash Generation (PARALLEL)")
     print(f"Workers: {workers}")
@@ -318,9 +311,7 @@ def generate_hashes_parallel(
 
     try:
         with ProcessPoolExecutor(max_workers=workers) as executor:
-            futures = {
-                executor.submit(hash_file_worker, task): task for task in pending
-            }
+            futures = {executor.submit(hash_file_worker, task): task for task in pending}
             processed, processed_size, errors, elapsed = _process_parallel_results(
                 futures, total_files, total_size, cursor, conn
             )
@@ -335,11 +326,7 @@ def generate_hashes_parallel(
     conn.commit()
 
     _print_hash_completion(
-        processed,
-        processed_size,
-        elapsed,
-        errors,
-        extra_lines=[f"Workers used: {workers}"],
+        processed, processed_size, elapsed, errors, extra_lines=[f"Workers used: {workers}"]
     )
     show_stats(conn)
     conn.close()
@@ -377,10 +364,7 @@ def show_stats(conn: sqlite3.Connection):
             total_wasted += wasted
 
             print(f"\nHash: {hash_val[:16]}...")
-            print(
-                f"  Count: {count} files |"
-                f" Wasted space: {format_size(wasted * 1024 * 1024)}"
-            )
+            print(f"  Count: {count} files | Wasted space: {format_size(wasted * 1024 * 1024)}")
 
             # Show each file - use parameterized query
             id_list = [int(i) for i in ids.split(",")]
@@ -390,10 +374,7 @@ def show_stats(conn: sqlite3.Connection):
                 " FROM audiobooks"
                 f" WHERE id IN ({placeholders})"
             )
-            cursor.execute(
-                query,
-                id_list,
-            )
+            cursor.execute(query, id_list)
             for row in cursor.fetchall():
                 print(f"  - [{row[0]}] {row[1][:50]}")
                 print(f"    {row[2]}")
@@ -481,14 +462,9 @@ def main():
     cpu_count = multiprocessing.cpu_count()
     parser = ArgumentParser(description="Generate SHA-256 hashes for audiobook library")
     parser.add_argument(
-        "--force",
-        "-f",
-        action="store_true",
-        help="Recalculate all hashes, even existing ones",
+        "--force", "-f", action="store_true", help="Recalculate all hashes, even existing ones"
     )
-    parser.add_argument(
-        "--limit", "-l", type=int, help="Limit number of files to process"
-    )
+    parser.add_argument("--limit", "-l", type=int, help="Limit number of files to process")
     parser.add_argument(
         "--parallel",
         "-p",
@@ -498,9 +474,7 @@ def main():
         metavar="N",
         help=f"Use parallel processing with N workers (default: {cpu_count} CPUs)",
     )
-    parser.add_argument(
-        "--stats", "-s", action="store_true", help="Show statistics only"
-    )
+    parser.add_argument("--stats", "-s", action="store_true", help="Show statistics only")
     parser.add_argument(
         "--duplicates", "-d", action="store_true", help="Show duplicates report only"
     )

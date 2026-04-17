@@ -53,9 +53,7 @@ def _admin_login(auth_app):
     """Return a test client logged in as the seed admin user."""
     client = auth_app.test_client()
     auth = TOTPAuthenticator(auth_app.admin_secret)
-    client.post(
-        "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-    )
+    client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
     return client
 
 
@@ -63,9 +61,7 @@ def _user_login(auth_app):
     """Return a test client logged in as the seed regular user."""
     client = auth_app.test_client()
     auth = TOTPAuthenticator(auth_app.test_user_secret)
-    client.post(
-        "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-    )
+    client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
     return client
 
 
@@ -181,10 +177,7 @@ class TestUpdateAuthMethod:
         assert "Email" in r.get_json()["error"] or "email" in r.get_json()["error"]
 
     def test_totp_setup_phase(self, user_client):
-        r = user_client.put(
-            "/auth/me/auth-method",
-            json={"auth_method": "totp", "phase": "setup"},
-        )
+        r = user_client.put("/auth/me/auth-method", json={"auth_method": "totp", "phase": "setup"})
         assert r.status_code == 200
         data = r.get_json()
         assert data["phase"] == "setup"
@@ -192,13 +185,9 @@ class TestUpdateAuthMethod:
 
     def test_totp_confirm_phase_missing_code(self, user_client):
         # Setup first
-        user_client.put(
-            "/auth/me/auth-method",
-            json={"auth_method": "totp", "phase": "setup"},
-        )
+        user_client.put("/auth/me/auth-method", json={"auth_method": "totp", "phase": "setup"})
         r = user_client.put(
-            "/auth/me/auth-method",
-            json={"auth_method": "totp", "phase": "confirm", "code": ""},
+            "/auth/me/auth-method", json={"auth_method": "totp", "phase": "confirm", "code": ""}
         )
         assert r.status_code == 400
 
@@ -237,8 +226,7 @@ class TestClaimValidation:
 
     def test_validate_missing_username(self, anon_client):
         r = anon_client.post(
-            "/auth/register/claim/validate",
-            json={"claim_token": "XXXX-XXXX-XXXX-XXXX"},
+            "/auth/register/claim/validate", json={"claim_token": "XXXX-XXXX-XXXX-XXXX"}
         )
         assert r.status_code == 400
 
@@ -260,22 +248,14 @@ class TestClaimCredentials:
     def test_claim_invalid_auth_method(self, anon_client):
         r = anon_client.post(
             "/auth/register/claim",
-            json={
-                "username": "test",
-                "claim_token": "XXXX",
-                "auth_method": "invalid",
-            },
+            json={"username": "test", "claim_token": "XXXX", "auth_method": "invalid"},
         )
         assert r.status_code == 400
 
     def test_claim_magic_link_requires_email(self, anon_client):
         r = anon_client.post(
             "/auth/register/claim",
-            json={
-                "username": "test",
-                "claim_token": "XXXX",
-                "auth_method": "magic_link",
-            },
+            json={"username": "test", "claim_token": "XXXX", "auth_method": "magic_link"},
         )
         assert r.status_code == 400
 
@@ -297,9 +277,7 @@ class TestRegistrationStatus:
         assert r.status_code == 400
 
     def test_status_unknown_user(self, anon_client):
-        r = anon_client.post(
-            "/auth/register/status", json={"username": "never_existed_xyz"}
-        )
+        r = anon_client.post("/auth/register/status", json={"username": "never_existed_xyz"})
         assert r.status_code == 404
 
     def test_status_existing_user(self, anon_client):
@@ -357,10 +335,7 @@ class TestAdminAccessRequests:
         assert r.status_code == 404
 
     def test_deny_nonexistent(self, admin_client):
-        r = admin_client.post(
-            "/auth/admin/access-requests/99999/deny",
-            json={},
-        )
+        r = admin_client.post("/auth/admin/access-requests/99999/deny", json={})
         assert r.status_code == 404
 
     def test_approve_with_email(self, auth_app, admin_client):
@@ -395,8 +370,7 @@ class TestAdminAccessRequests:
 
         with patch("backend.api_modular.auth._send_denial_email", return_value=True):
             r = admin_client.post(
-                f"/auth/admin/access-requests/{request_id}/deny",
-                json={"reason": "Test denial"},
+                f"/auth/admin/access-requests/{request_id}/deny", json={"reason": "Test denial"}
             )
             assert r.status_code == 200
             data = r.get_json()
@@ -405,9 +379,7 @@ class TestAdminAccessRequests:
     def test_approve_already_approved(self, auth_app, admin_client):
         """Cannot approve an already-approved request."""
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/register/start", json={"username": "double_approve_test"}
-        )
+        r = client.post("/auth/register/start", json={"username": "double_approve_test"})
         request_id = r.get_json()["request_id"]
         admin_client.post(f"/auth/admin/access-requests/{request_id}/approve")
         r = admin_client.post(f"/auth/admin/access-requests/{request_id}/approve")
@@ -471,43 +443,37 @@ class TestAdminCreateUser:
 
     def test_create_invalid_auth_method(self, admin_client):
         r = admin_client.post(
-            "/auth/admin/users/create",
-            json={"username": "bad-auth", "auth_method": "sms"},
+            "/auth/admin/users/create", json={"username": "bad-auth", "auth_method": "sms"}
         )
         assert r.status_code == 400
 
     def test_create_username_too_short(self, admin_client):
         r = admin_client.post(
-            "/auth/admin/users/create",
-            json={"username": "ab", "auth_method": "totp"},
+            "/auth/admin/users/create", json={"username": "ab", "auth_method": "totp"}
         )
         assert r.status_code == 400
 
     def test_create_username_too_long(self, admin_client):
         r = admin_client.post(
-            "/auth/admin/users/create",
-            json={"username": "a" * 25, "auth_method": "totp"},
+            "/auth/admin/users/create", json={"username": "a" * 25, "auth_method": "totp"}
         )
         assert r.status_code == 400
 
     def test_create_invalid_username_chars(self, admin_client):
         r = admin_client.post(
-            "/auth/admin/users/create",
-            json={"username": "bad user!", "auth_method": "totp"},
+            "/auth/admin/users/create", json={"username": "bad user!", "auth_method": "totp"}
         )
         assert r.status_code == 400
 
     def test_create_duplicate(self, admin_client):
         r = admin_client.post(
-            "/auth/admin/users/create",
-            json={"username": "adminuser", "auth_method": "totp"},
+            "/auth/admin/users/create", json={"username": "adminuser", "auth_method": "totp"}
         )
         assert r.status_code == 409
 
     def test_requires_admin(self, user_client):
         r = user_client.post(
-            "/auth/admin/users/create",
-            json={"username": "nope", "auth_method": "totp"},
+            "/auth/admin/users/create", json={"username": "nope", "auth_method": "totp"}
         )
         assert r.status_code == 403
 
@@ -524,11 +490,7 @@ class TestAdminInviteUser:
     def test_invite_totp(self, mock_email, admin_client):
         r = admin_client.post(
             "/auth/admin/users/invite",
-            json={
-                "username": "invited-totp",
-                "email": "inv@example.com",
-                "auth_method": "totp",
-            },
+            json={"username": "invited-totp", "email": "inv@example.com", "auth_method": "totp"},
         )
         assert r.status_code == 200
         data = r.get_json()
@@ -548,48 +510,37 @@ class TestAdminInviteUser:
         assert r.status_code == 200
 
     def test_invite_missing_email(self, admin_client):
-        r = admin_client.post(
-            "/auth/admin/users/invite",
-            json={"username": "inv-no-email"},
-        )
+        r = admin_client.post("/auth/admin/users/invite", json={"username": "inv-no-email"})
         assert r.status_code == 400
 
     def test_invite_invalid_email(self, admin_client):
         r = admin_client.post(
-            "/auth/admin/users/invite",
-            json={"username": "inv-bad-email", "email": "notanemail"},
+            "/auth/admin/users/invite", json={"username": "inv-bad-email", "email": "notanemail"}
         )
         assert r.status_code == 400
 
     def test_invite_invalid_auth_method(self, admin_client):
         r = admin_client.post(
             "/auth/admin/users/invite",
-            json={
-                "username": "inv-bad-auth",
-                "email": "x@x.com",
-                "auth_method": "sms",
-            },
+            json={"username": "inv-bad-auth", "email": "x@x.com", "auth_method": "sms"},
         )
         assert r.status_code == 400
 
     def test_invite_username_too_short(self, admin_client):
         r = admin_client.post(
-            "/auth/admin/users/invite",
-            json={"username": "ab", "email": "x@x.com"},
+            "/auth/admin/users/invite", json={"username": "ab", "email": "x@x.com"}
         )
         assert r.status_code == 400
 
     def test_invite_duplicate_username(self, admin_client):
         r = admin_client.post(
-            "/auth/admin/users/invite",
-            json={"username": "adminuser", "email": "x@x.com"},
+            "/auth/admin/users/invite", json={"username": "adminuser", "email": "x@x.com"}
         )
         assert r.status_code == 409
 
     def test_invite_requires_admin(self, user_client):
         r = user_client.post(
-            "/auth/admin/users/invite",
-            json={"username": "nope", "email": "x@x.com"},
+            "/auth/admin/users/invite", json={"username": "nope", "email": "x@x.com"}
         )
         assert r.status_code == 403
 
@@ -621,29 +572,19 @@ class TestAdminToggleAndDelete:
 
     def test_update_user_username(self, admin_client, auth_db, test_user):
         r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}",
-            json={"username": "updated_name_ext"},
+            f"/auth/admin/users/{test_user.id}", json={"username": "updated_name_ext"}
         )
         assert r.status_code == 200
         assert r.get_json()["user"]["username"] == "updated_name_ext"
         # Restore
-        admin_client.put(
-            f"/auth/admin/users/{test_user.id}",
-            json={"username": "regularuser_fix"},
-        )
+        admin_client.put(f"/auth/admin/users/{test_user.id}", json={"username": "regularuser_fix"})
 
     def test_update_user_email(self, admin_client, test_user):
-        r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}",
-            json={"email": "new@test.com"},
-        )
+        r = admin_client.put(f"/auth/admin/users/{test_user.id}", json={"email": "new@test.com"})
         assert r.status_code == 200
 
     def test_update_user_invalid_email(self, admin_client, test_user):
-        r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}",
-            json={"email": "invalid"},
-        )
+        r = admin_client.put(f"/auth/admin/users/{test_user.id}", json={"email": "invalid"})
         assert r.status_code == 400
 
     def test_update_user_nonexistent(self, admin_client):
@@ -682,55 +623,41 @@ class TestAdminGranularManagement:
 
     def test_change_username(self, admin_client, auth_db, test_user):
         r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}/username",
-            json={"username": "granular_renamed"},
+            f"/auth/admin/users/{test_user.id}/username", json={"username": "granular_renamed"}
         )
         assert r.status_code == 200
         assert r.get_json()["user"]["username"] == "granular_renamed"
         # Restore
         admin_client.put(
-            f"/auth/admin/users/{test_user.id}/username",
-            json={"username": "regularuser_fix"},
+            f"/auth/admin/users/{test_user.id}/username", json={"username": "regularuser_fix"}
         )
 
     def test_change_username_too_short(self, admin_client, test_user):
-        r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}/username",
-            json={"username": "ab"},
-        )
+        r = admin_client.put(f"/auth/admin/users/{test_user.id}/username", json={"username": "ab"})
         assert r.status_code == 400
 
     def test_change_username_duplicate(self, admin_client, test_user):
         r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}/username",
-            json={"username": "adminuser"},
+            f"/auth/admin/users/{test_user.id}/username", json={"username": "adminuser"}
         )
         assert r.status_code == 409
 
     def test_change_username_nonexistent(self, admin_client):
-        r = admin_client.put(
-            "/auth/admin/users/99999/username", json={"username": "nope"}
-        )
+        r = admin_client.put("/auth/admin/users/99999/username", json={"username": "nope"})
         assert r.status_code == 404
 
     def test_change_email(self, admin_client, test_user):
         r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}/email",
-            json={"email": "admin_set@test.com"},
+            f"/auth/admin/users/{test_user.id}/email", json={"email": "admin_set@test.com"}
         )
         assert r.status_code == 200
 
     def test_change_email_clear(self, admin_client, test_user):
-        r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}/email", json={"email": ""}
-        )
+        r = admin_client.put(f"/auth/admin/users/{test_user.id}/email", json={"email": ""})
         assert r.status_code == 200
 
     def test_change_email_invalid(self, admin_client, test_user):
-        r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}/email",
-            json={"email": "not-valid"},
-        )
+        r = admin_client.put(f"/auth/admin/users/{test_user.id}/email", json={"email": "not-valid"})
         assert r.status_code == 400
 
     def test_change_email_nonexistent(self, admin_client):
@@ -739,16 +666,12 @@ class TestAdminGranularManagement:
 
     def test_change_roles(self, admin_client, test_user):
         r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}/roles",
-            json={"can_download": False},
+            f"/auth/admin/users/{test_user.id}/roles", json={"can_download": False}
         )
         assert r.status_code == 200
         assert r.get_json()["user"]["can_download"] is False
         # Restore
-        admin_client.put(
-            f"/auth/admin/users/{test_user.id}/roles",
-            json={"can_download": True},
-        )
+        admin_client.put(f"/auth/admin/users/{test_user.id}/roles", json={"can_download": True})
 
     def test_change_roles_missing_fields(self, admin_client, test_user):
         r = admin_client.put(f"/auth/admin/users/{test_user.id}/roles", json={})
@@ -760,8 +683,7 @@ class TestAdminGranularManagement:
 
     def test_change_auth_method_totp(self, admin_client, test_user):
         r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}/auth-method",
-            json={"auth_method": "totp"},
+            f"/auth/admin/users/{test_user.id}/auth-method", json={"auth_method": "totp"}
         )
         assert r.status_code == 200
         assert "setup_data" in r.get_json()
@@ -769,28 +691,21 @@ class TestAdminGranularManagement:
     def test_change_auth_method_magic_link_no_email(self, admin_client, auth_db):
         """Magic link requires email."""
         user = User(
-            username="no_email_auth_switch",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
+            username="no_email_auth_switch", auth_type=AuthType.TOTP, auth_credential=b"secret"
         ).save(auth_db)
         r = admin_client.put(
-            f"/auth/admin/users/{user.id}/auth-method",
-            json={"auth_method": "magic_link"},
+            f"/auth/admin/users/{user.id}/auth-method", json={"auth_method": "magic_link"}
         )
         assert r.status_code == 400
 
     def test_change_auth_method_invalid(self, admin_client, test_user):
         r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}/auth-method",
-            json={"auth_method": "sms"},
+            f"/auth/admin/users/{test_user.id}/auth-method", json={"auth_method": "sms"}
         )
         assert r.status_code == 400
 
     def test_change_auth_method_nonexistent(self, admin_client):
-        r = admin_client.put(
-            "/auth/admin/users/99999/auth-method",
-            json={"auth_method": "totp"},
-        )
+        r = admin_client.put("/auth/admin/users/99999/auth-method", json={"auth_method": "totp"})
         assert r.status_code == 404
 
     def test_reset_credentials_totp(self, admin_client, test_user):
@@ -804,9 +719,7 @@ class TestAdminGranularManagement:
 
     def test_delete_user_v2(self, admin_client, auth_db):
         user = User(
-            username="delete_v2_test",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
+            username="delete_v2_test", auth_type=AuthType.TOTP, auth_credential=b"secret"
         ).save(auth_db)
         r = admin_client.delete(f"/auth/admin/users/{user.id}/delete")
         assert r.status_code == 200
@@ -837,9 +750,7 @@ class TestAdminAuditLog:
         assert "total" in data
 
     def test_audit_log_with_filters(self, admin_client):
-        r = admin_client.get(
-            "/auth/admin/audit-log?limit=5&offset=0&action=create_user"
-        )
+        r = admin_client.get("/auth/admin/audit-log?limit=5&offset=0&action=create_user")
         assert r.status_code == 200
 
     def test_audit_log_requires_admin(self, user_client):
@@ -892,16 +803,13 @@ class TestContactEndpoint:
 
     @patch("backend.api_modular.auth._send_admin_alert", return_value=False)
     def test_contact_invalid_reply_via(self, mock_alert, user_client):
-        r = user_client.post(
-            "/auth/contact", json={"message": "hi", "reply_via": "sms"}
-        )
+        r = user_client.post("/auth/contact", json={"message": "hi", "reply_via": "sms"})
         assert r.status_code == 400
 
     @patch("backend.api_modular.auth._send_admin_alert", return_value=False)
     def test_contact_email_reply_no_email(self, mock_alert, user_client):
         r = user_client.post(
-            "/auth/contact",
-            json={"message": "hi", "reply_via": "email", "reply_email": ""},
+            "/auth/contact", json={"message": "hi", "reply_via": "email", "reply_email": ""}
         )
         assert r.status_code == 400
 
@@ -940,17 +848,12 @@ class TestAdminInbox:
             reply_via=ReplyMethod.IN_APP,
         )
         msg.save(auth_db)
-        r = admin_client.post(
-            f"/auth/admin/inbox/{msg.id}/reply",
-            content_type="application/json",
-        )
+        r = admin_client.post(f"/auth/admin/inbox/{msg.id}/reply", content_type="application/json")
         assert r.status_code == 400
 
     def test_inbox_reply_empty(self, admin_client, auth_db, test_user):
         msg = InboxMessage(
-            from_user_id=test_user.id,
-            message="Test for empty reply",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Test for empty reply", reply_via=ReplyMethod.IN_APP
         )
         msg.save(auth_db)
         r = admin_client.post(f"/auth/admin/inbox/{msg.id}/reply", json={"reply": ""})
@@ -958,14 +861,11 @@ class TestAdminInbox:
 
     def test_inbox_reply_in_app(self, admin_client, auth_db, test_user):
         msg = InboxMessage(
-            from_user_id=test_user.id,
-            message="Test for in-app reply",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Test for in-app reply", reply_via=ReplyMethod.IN_APP
         )
         msg.save(auth_db)
         r = admin_client.post(
-            f"/auth/admin/inbox/{msg.id}/reply",
-            json={"reply": "Thanks for the message"},
+            f"/auth/admin/inbox/{msg.id}/reply", json={"reply": "Thanks for the message"}
         )
         assert r.status_code == 200
         assert r.get_json()["reply_method"] == "in-app"
@@ -983,8 +883,7 @@ class TestAdminInbox:
             mock_smtp.return_value.__enter__ = MagicMock(return_value=mock_server)
             mock_smtp.return_value.__exit__ = MagicMock(return_value=False)
             r = admin_client.post(
-                f"/auth/admin/inbox/{msg.id}/reply",
-                json={"reply": "Email reply test"},
+                f"/auth/admin/inbox/{msg.id}/reply", json={"reply": "Email reply test"}
             )
             assert r.status_code == 200
             assert r.get_json()["reply_method"] == "email"
@@ -995,9 +894,7 @@ class TestAdminInbox:
 
     def test_inbox_archive(self, admin_client, auth_db, test_user):
         msg = InboxMessage(
-            from_user_id=test_user.id,
-            message="To be archived",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="To be archived", reply_via=ReplyMethod.IN_APP
         )
         msg.save(auth_db)
         r = admin_client.post(f"/auth/admin/inbox/{msg.id}/archive")
@@ -1027,29 +924,25 @@ class TestAdminNotificationsExtended:
 
     def test_create_notification_invalid_type(self, admin_client):
         r = admin_client.post(
-            "/auth/admin/notifications",
-            json={"message": "Test", "type": "invalid"},
+            "/auth/admin/notifications", json={"message": "Test", "type": "invalid"}
         )
         assert r.status_code == 400
 
     def test_create_notification_personal_without_target(self, admin_client):
         r = admin_client.post(
-            "/auth/admin/notifications",
-            json={"message": "Personal", "type": "personal"},
+            "/auth/admin/notifications", json={"message": "Personal", "type": "personal"}
         )
         assert r.status_code == 400
 
     def test_create_notification_invalid_date(self, admin_client):
         r = admin_client.post(
-            "/auth/admin/notifications",
-            json={"message": "Test", "starts_at": "not-a-date"},
+            "/auth/admin/notifications", json={"message": "Test", "starts_at": "not-a-date"}
         )
         assert r.status_code == 400
 
     def test_create_notification_invalid_expires(self, admin_client):
         r = admin_client.post(
-            "/auth/admin/notifications",
-            json={"message": "Test", "expires_at": "not-a-date"},
+            "/auth/admin/notifications", json={"message": "Test", "expires_at": "not-a-date"}
         )
         assert r.status_code == 400
 
@@ -1076,10 +969,7 @@ class TestMagicLinkLogin:
 
     def test_magic_link_login_unknown_user(self, anon_client):
         """Should always return success to prevent enumeration."""
-        r = anon_client.post(
-            "/auth/magic-link/login",
-            json={"identifier": "doesnt_exist_xyz"},
-        )
+        r = anon_client.post("/auth/magic-link/login", json={"identifier": "doesnt_exist_xyz"})
         assert r.status_code == 200
         assert r.get_json()["success"] is True
 
@@ -1096,9 +986,7 @@ class TestMagicLinkLogin:
             mock_server = MagicMock()
             mock_smtp.return_value.__enter__ = MagicMock(return_value=mock_server)
             mock_smtp.return_value.__exit__ = MagicMock(return_value=False)
-            r = anon_client.post(
-                "/auth/magic-link/login", json={"identifier": "ml_login_test"}
-            )
+            r = anon_client.post("/auth/magic-link/login", json={"identifier": "ml_login_test"})
             assert r.status_code == 200
 
 
@@ -1163,15 +1051,11 @@ class TestAccountEndpoints:
         """Switching to magic_link without email should fail."""
         # Clear email first
         user_client.put("/auth/account/email", json={"email": ""})
-        r = user_client.put(
-            "/auth/account/auth-method", json={"auth_method": "magic_link"}
-        )
+        r = user_client.put("/auth/account/auth-method", json={"auth_method": "magic_link"})
         assert r.status_code == 400
 
     def test_account_switch_passkey(self, user_client):
-        r = user_client.put(
-            "/auth/account/auth-method", json={"auth_method": "passkey"}
-        )
+        r = user_client.put("/auth/account/auth-method", json={"auth_method": "passkey"})
         assert r.status_code == 200
         data = r.get_json()
         assert "claim_token" in data["setup_data"]
@@ -1215,11 +1099,7 @@ class TestLoginRememberMe:
         auth = TOTPAuthenticator(auth_app.test_user_secret)
         r = client.post(
             "/auth/login",
-            json={
-                "username": "testuser1",
-                "code": auth.current_code(),
-                "remember_me": True,
-            },
+            json={"username": "testuser1", "code": auth.current_code(), "remember_me": True},
         )
         assert r.status_code == 200
         data = r.get_json()
@@ -1230,11 +1110,7 @@ class TestLoginRememberMe:
         auth = TOTPAuthenticator(auth_app.test_user_secret)
         r = client.post(
             "/auth/login",
-            json={
-                "username": "testuser1",
-                "code": auth.current_code(),
-                "remember_me": False,
-            },
+            json={"username": "testuser1", "code": auth.current_code(), "remember_me": False},
         )
         assert r.status_code == 200
         data = r.get_json()
@@ -1256,9 +1132,7 @@ class TestAuthTypeLookup:
 
     def test_auth_type_nonexistent_user(self, anon_client):
         """Should return totp to prevent enumeration."""
-        r = anon_client.post(
-            "/auth/login/auth-type", json={"username": "no_such_user_xyz"}
-        )
+        r = anon_client.post("/auth/login/auth-type", json={"username": "no_such_user_xyz"})
         assert r.status_code == 200
         assert r.get_json()["auth_type"] == "totp"
 
@@ -1318,8 +1192,7 @@ class TestRegistrationVerify:
 
     def test_verify_invalid_auth_type(self, anon_client):
         r = anon_client.post(
-            "/auth/register/verify",
-            json={"token": "valid", "auth_type": "magic_link"},
+            "/auth/register/verify", json={"token": "valid", "auth_type": "magic_link"}
         )
         assert r.status_code == 400
 
@@ -1333,27 +1206,17 @@ class TestClaimWebAuthn:
     """Tests for WebAuthn claim flow validation."""
 
     def test_claim_webauthn_begin_no_body(self, anon_client):
-        r = anon_client.post(
-            "/auth/register/claim/webauthn/begin",
-            content_type="application/json",
-        )
+        r = anon_client.post("/auth/register/claim/webauthn/begin", content_type="application/json")
         assert r.status_code == 400
 
     def test_claim_webauthn_begin_missing_fields(self, anon_client):
-        r = anon_client.post(
-            "/auth/register/claim/webauthn/begin",
-            json={"username": "test"},
-        )
+        r = anon_client.post("/auth/register/claim/webauthn/begin", json={"username": "test"})
         assert r.status_code == 400
 
     def test_claim_webauthn_begin_invalid_auth_type(self, anon_client):
         r = anon_client.post(
             "/auth/register/claim/webauthn/begin",
-            json={
-                "username": "test",
-                "claim_token": "XXXX",
-                "auth_type": "invalid",
-            },
+            json={"username": "test", "claim_token": "XXXX", "auth_type": "invalid"},
         )
         assert r.status_code == 400
 
@@ -1370,8 +1233,7 @@ class TestClaimWebAuthn:
 
     def test_claim_webauthn_complete_no_body(self, anon_client):
         r = anon_client.post(
-            "/auth/register/claim/webauthn/complete",
-            content_type="application/json",
+            "/auth/register/claim/webauthn/complete", content_type="application/json"
         )
         assert r.status_code == 400
 
@@ -1392,10 +1254,7 @@ class TestWebAuthnRegistration:
     """Tests for /auth/register/webauthn/* endpoints."""
 
     def test_register_webauthn_begin_no_body(self, anon_client):
-        r = anon_client.post(
-            "/auth/register/webauthn/begin",
-            content_type="application/json",
-        )
+        r = anon_client.post("/auth/register/webauthn/begin", content_type="application/json")
         assert r.status_code == 400
 
     def test_register_webauthn_begin_missing_token(self, anon_client):
@@ -1404,30 +1263,22 @@ class TestWebAuthnRegistration:
 
     def test_register_webauthn_begin_invalid_auth_type(self, anon_client):
         r = anon_client.post(
-            "/auth/register/webauthn/begin",
-            json={"token": "something", "auth_type": "invalid"},
+            "/auth/register/webauthn/begin", json={"token": "something", "auth_type": "invalid"}
         )
         assert r.status_code == 400
 
     def test_register_webauthn_begin_invalid_token(self, anon_client):
         r = anon_client.post(
-            "/auth/register/webauthn/begin",
-            json={"token": "bogus_token", "auth_type": "passkey"},
+            "/auth/register/webauthn/begin", json={"token": "bogus_token", "auth_type": "passkey"}
         )
         assert r.status_code == 400
 
     def test_register_webauthn_complete_no_body(self, anon_client):
-        r = anon_client.post(
-            "/auth/register/webauthn/complete",
-            content_type="application/json",
-        )
+        r = anon_client.post("/auth/register/webauthn/complete", content_type="application/json")
         assert r.status_code == 400
 
     def test_register_webauthn_complete_missing_fields(self, anon_client):
-        r = anon_client.post(
-            "/auth/register/webauthn/complete",
-            json={"token": "something"},
-        )
+        r = anon_client.post("/auth/register/webauthn/complete", json={"token": "something"})
         assert r.status_code == 400
 
     def test_register_webauthn_complete_invalid_auth_type(self, anon_client):
@@ -1452,10 +1303,7 @@ class TestWebAuthnLogin:
     """Tests for /auth/login/webauthn/* endpoints."""
 
     def test_login_webauthn_begin_no_body(self, anon_client):
-        r = anon_client.post(
-            "/auth/login/webauthn/begin",
-            content_type="application/json",
-        )
+        r = anon_client.post("/auth/login/webauthn/begin", content_type="application/json")
         assert r.status_code == 400
 
     def test_login_webauthn_begin_missing_username(self, anon_client):
@@ -1463,23 +1311,16 @@ class TestWebAuthnLogin:
         assert r.status_code == 400
 
     def test_login_webauthn_begin_nonexistent_user(self, anon_client):
-        r = anon_client.post(
-            "/auth/login/webauthn/begin", json={"username": "no_such_user"}
-        )
+        r = anon_client.post("/auth/login/webauthn/begin", json={"username": "no_such_user"})
         assert r.status_code == 401
 
     def test_login_webauthn_begin_totp_user(self, anon_client):
         """TOTP user cannot use WebAuthn login."""
-        r = anon_client.post(
-            "/auth/login/webauthn/begin", json={"username": "testuser1"}
-        )
+        r = anon_client.post("/auth/login/webauthn/begin", json={"username": "testuser1"})
         assert r.status_code == 400
 
     def test_login_webauthn_complete_no_body(self, anon_client):
-        r = anon_client.post(
-            "/auth/login/webauthn/complete",
-            content_type="application/json",
-        )
+        r = anon_client.post("/auth/login/webauthn/complete", content_type="application/json")
         assert r.status_code == 400
 
     def test_login_webauthn_complete_missing_fields(self, anon_client):
@@ -1489,11 +1330,7 @@ class TestWebAuthnLogin:
     def test_login_webauthn_complete_nonexistent_user(self, anon_client):
         r = anon_client.post(
             "/auth/login/webauthn/complete",
-            json={
-                "username": "no_such_user",
-                "credential": {"id": "x"},
-                "challenge": "chal",
-            },
+            json={"username": "no_such_user", "credential": {"id": "x"}, "challenge": "chal"},
         )
         assert r.status_code == 401
 
@@ -1501,11 +1338,7 @@ class TestWebAuthnLogin:
         """TOTP user attempting WebAuthn login should fail."""
         r = anon_client.post(
             "/auth/login/webauthn/complete",
-            json={
-                "username": "testuser1",
-                "credential": {"id": "x"},
-                "challenge": "chal",
-            },
+            json={"username": "testuser1", "credential": {"id": "x"}, "challenge": "chal"},
         )
         assert r.status_code == 401
 
@@ -1543,10 +1376,7 @@ class TestLastAdminGuard:
         # If there's only one admin, try to demote them
         if len(admins) == 1:
             admin_id = admins[0].id
-            r = admin_client.put(
-                f"/auth/admin/users/{admin_id}/roles",
-                json={"is_admin": False},
-            )
+            r = admin_client.put(f"/auth/admin/users/{admin_id}/roles", json={"is_admin": False})
             assert r.status_code == 409
 
     def test_delete_last_admin_guard(self, admin_client, auth_db):
@@ -1586,14 +1416,9 @@ class TestMagicLinkVerifyExtended:
             recovery_enabled=True,
         ).save(auth_db)
         # Create recovery token
-        recovery, raw_token = PendingRecovery.create(
-            auth_db, user.id, expiry_minutes=15
-        )
+        recovery, raw_token = PendingRecovery.create(auth_db, user.id, expiry_minutes=15)
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/magic-link/verify",
-            json={"token": raw_token, "activate": True},
-        )
+        r = client.post("/auth/magic-link/verify", json={"token": raw_token, "activate": True})
         assert r.status_code == 200
         data = r.get_json()
         assert data["activation"] is True
@@ -1601,19 +1426,14 @@ class TestMagicLinkVerifyExtended:
     def test_verify_expired_token(self, auth_app, auth_db):
         """Expired token should fail."""
         user = User(
-            username="expired_ml_ext",
-            auth_type=AuthType.MAGIC_LINK,
-            auth_credential=b"",
+            username="expired_ml_ext", auth_type=AuthType.MAGIC_LINK, auth_credential=b""
         ).save(auth_db)
-        recovery, raw_token = PendingRecovery.create(
-            auth_db, user.id, expiry_minutes=15
-        )
+        recovery, raw_token = PendingRecovery.create(auth_db, user.id, expiry_minutes=15)
         # Force expiry by setting expires_at to the past
         past = (datetime.now() - timedelta(hours=2)).isoformat()
         with auth_db.connection() as conn:
             conn.execute(
-                "UPDATE pending_recovery SET expires_at = ? WHERE user_id = ?",
-                (past, user.id),
+                "UPDATE pending_recovery SET expires_at = ? WHERE user_id = ?", (past, user.id)
             )
             conn.commit()
         client = auth_app.test_client()

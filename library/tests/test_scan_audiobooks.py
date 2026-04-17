@@ -264,18 +264,8 @@ class TestPrintScanStatistics:
         from scanner.scan_audiobooks import print_scan_statistics
 
         audiobooks = [
-            {
-                "author": "A",
-                "genre_subcategory": "G",
-                "publisher": "P",
-                "duration_hours": 24.0,
-            },
-            {
-                "author": "B",
-                "genre_subcategory": "G",
-                "publisher": "P",
-                "duration_hours": 24.0,
-            },
+            {"author": "A", "genre_subcategory": "G", "publisher": "P", "duration_hours": 24.0},
+            {"author": "B", "genre_subcategory": "G", "publisher": "P", "duration_hours": 24.0},
         ]
 
         print_scan_statistics(audiobooks)
@@ -354,9 +344,7 @@ class TestScanAudiobooks:
 
     @patch("scanner.scan_audiobooks.find_audiobook_files")
     @patch("scanner.scan_audiobooks.get_file_metadata")
-    def test_scan_skips_failed_metadata(
-        self, mock_metadata, mock_find, temp_dir, monkeypatch
-    ):
+    def test_scan_skips_failed_metadata(self, mock_metadata, mock_find, temp_dir, monkeypatch):
         """Test scan skips files with failed metadata extraction."""
         from scanner import scan_audiobooks as module
 
@@ -367,25 +355,15 @@ class TestScanAudiobooks:
         monkeypatch.setattr(module, "COVER_DIR", cover_dir)
         monkeypatch.setattr(module, "AUDIOBOOK_DIR", temp_dir)
 
-        mock_find.return_value = [
-            temp_dir / "good.opus",
-            temp_dir / "bad.opus",
-        ]
+        mock_find.return_value = [temp_dir / "good.opus", temp_dir / "bad.opus"]
         # First returns metadata, second returns None
-        mock_metadata.side_effect = [
-            {"title": "Good", "author": "A", "duration_hours": 5.0},
-            None,
-        ]
+        mock_metadata.side_effect = [{"title": "Good", "author": "A", "duration_hours": 5.0}, None]
 
         # Need to mock enrich_metadata and extract_cover_art too
         with patch("scanner.scan_audiobooks.extract_cover_art", return_value=None):
             with patch(
                 "scanner.scan_audiobooks.enrich_metadata",
-                side_effect=lambda x: {
-                    **x,
-                    "genre_subcategory": "g",
-                    "publisher": "p",
-                },
+                side_effect=lambda x: {**x, "genre_subcategory": "g", "publisher": "p"},
             ):
                 module.scan_audiobooks()
 

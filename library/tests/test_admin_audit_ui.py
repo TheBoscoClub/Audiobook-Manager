@@ -57,9 +57,7 @@ class TestAuditSectionJS:
 
     @pytest.fixture()
     def utilities_js(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "js", "utilities.js"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "js", "utilities.js")
         with open(path) as f:
             return f.read()
 
@@ -104,9 +102,7 @@ class TestAuditSectionCSS:
 
     @pytest.fixture()
     def utilities_css(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "css", "utilities.css"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "css", "utilities.css")
         with open(path) as f:
             return f.read()
 

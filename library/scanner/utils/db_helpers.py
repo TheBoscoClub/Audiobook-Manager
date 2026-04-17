@@ -12,11 +12,7 @@ from typing import Optional
 
 # Add parent directory to path for metadata_utils import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from scanner.metadata_utils import (
-    categorize_genre,
-    determine_literary_era,
-    extract_topics,
-)
+from scanner.metadata_utils import categorize_genre, determine_literary_era, extract_topics
 
 # Whitelist of allowed lookup tables for SQL queries - prevents SQL injection
 ALLOWED_LOOKUP_TABLES = frozenset({"genres", "eras", "topics"})
@@ -35,9 +31,7 @@ def get_or_create_lookup_id(cursor: sqlite3.Cursor, table: str, name: str) -> in
     """
     # SQL injection prevention: validate table name against whitelist
     if table not in ALLOWED_LOOKUP_TABLES:
-        raise ValueError(
-            f"Invalid table name: {table}. Must be one of: {ALLOWED_LOOKUP_TABLES}"
-        )
+        raise ValueError(f"Invalid table name: {table}. Must be one of: {ALLOWED_LOOKUP_TABLES}")
 
     cursor.execute(f"SELECT id FROM {table} WHERE name = ?", (name,))  # nosec B608 - table validated above  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     row = cursor.fetchone()
@@ -104,8 +98,7 @@ def insert_audiobook(
     era = determine_literary_era(metadata.get("year", ""))
     era_id = get_or_create_lookup_id(cursor, "eras", era)
     cursor.execute(
-        "INSERT INTO audiobook_eras (audiobook_id, era_id) VALUES (?, ?)",
-        (audiobook_id, era_id),
+        "INSERT INTO audiobook_eras (audiobook_id, era_id) VALUES (?, ?)", (audiobook_id, era_id)
     )
 
     # Insert topics

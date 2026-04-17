@@ -141,11 +141,7 @@ class TestAdminCreateUser:
         entry = entries[0]
         assert entry.action == "create_user"
         assert entry.target_id == user_id
-        details = (
-            json.loads(entry.details)
-            if isinstance(entry.details, str)
-            else entry.details
-        )
+        details = json.loads(entry.details) if isinstance(entry.details, str) else entry.details
         assert details["auth_method"] == "totp"
         assert details["target_username"] == "auditeduser"
 
@@ -166,12 +162,7 @@ class TestAdminCreateUser:
         """Username under 3 characters returns 400."""
         resp = admin_client.post(
             "/auth/admin/users/create",
-            json={
-                "username": "ab",
-                "auth_method": "totp",
-                "is_admin": False,
-                "can_download": True,
-            },
+            json={"username": "ab", "auth_method": "totp", "is_admin": False, "can_download": True},
         )
         assert resp.status_code == 400
         assert "3" in resp.get_json()["error"]
@@ -284,8 +275,7 @@ class TestAdminChangeUsername:
     def test_change_username_success(self, admin_client):
         uid, _ = _create_target_user(admin_client, "chname1")
         resp = admin_client.put(
-            f"/auth/admin/users/{uid}/username",
-            json={"username": "renamed-user1"},
+            f"/auth/admin/users/{uid}/username", json={"username": "renamed-user1"}
         )
         assert resp.status_code == 200
         data = resp.get_json()
@@ -296,8 +286,7 @@ class TestAdminChangeUsername:
         uid1, _ = _create_target_user(admin_client, "chname2a")
         _create_target_user(admin_client, "chname2b")
         resp = admin_client.put(
-            f"/auth/admin/users/{uid1}/username",
-            json={"username": "target-chname2b"},
+            f"/auth/admin/users/{uid1}/username", json={"username": "target-chname2b"}
         )
         assert resp.status_code == 409
         assert "taken" in resp.get_json()["error"].lower()
@@ -308,27 +297,18 @@ class TestAdminChangeUsername:
         assert resp.status_code == 400
 
     def test_change_username_nonexistent_user(self, admin_client):
-        resp = admin_client.put(
-            "/auth/admin/users/99999/username",
-            json={"username": "ghost"},
-        )
+        resp = admin_client.put("/auth/admin/users/99999/username", json={"username": "ghost"})
         assert resp.status_code == 404
 
     def test_change_username_requires_admin(self, user_client):
-        resp = user_client.put(
-            "/auth/admin/users/1/username",
-            json={"username": "noperm"},
-        )
+        resp = user_client.put("/auth/admin/users/1/username", json={"username": "noperm"})
         assert resp.status_code == 403
 
     def test_change_username_audit_log(self, admin_client, auth_db):
         from auth.audit import AuditLogRepository
 
         uid, _ = _create_target_user(admin_client, "chname-audit")
-        admin_client.put(
-            f"/auth/admin/users/{uid}/username",
-            json={"username": "renamed-audit"},
-        )
+        admin_client.put(f"/auth/admin/users/{uid}/username", json={"username": "renamed-audit"})
         audit_repo = AuditLogRepository(auth_db)
         entries = audit_repo.list(action_filter="change_username", user_filter=uid)
         assert len(entries) >= 1
@@ -352,8 +332,7 @@ class TestAdminChangeEmail:
     def test_change_email_success(self, admin_client):
         uid, _ = _create_target_user(admin_client, "chemail1")
         resp = admin_client.put(
-            f"/auth/admin/users/{uid}/email",
-            json={"email": "newemail@example.com"},
+            f"/auth/admin/users/{uid}/email", json={"email": "newemail@example.com"}
         )
         assert resp.status_code == 200
         data = resp.get_json()
@@ -368,27 +347,18 @@ class TestAdminChangeEmail:
         assert data["user"]["email"] is None
 
     def test_change_email_nonexistent_user(self, admin_client):
-        resp = admin_client.put(
-            "/auth/admin/users/99999/email",
-            json={"email": "x@x.com"},
-        )
+        resp = admin_client.put("/auth/admin/users/99999/email", json={"email": "x@x.com"})
         assert resp.status_code == 404
 
     def test_change_email_requires_admin(self, user_client):
-        resp = user_client.put(
-            "/auth/admin/users/1/email",
-            json={"email": "x@x.com"},
-        )
+        resp = user_client.put("/auth/admin/users/1/email", json={"email": "x@x.com"})
         assert resp.status_code == 403
 
     def test_change_email_audit_log(self, admin_client, auth_db):
         from auth.audit import AuditLogRepository
 
         uid, _ = _create_target_user(admin_client, "chemail-audit")
-        admin_client.put(
-            f"/auth/admin/users/{uid}/email",
-            json={"email": "audited@example.com"},
-        )
+        admin_client.put(f"/auth/admin/users/{uid}/email", json={"email": "audited@example.com"})
         audit_repo = AuditLogRepository(auth_db)
         entries = audit_repo.list(action_filter="change_email", user_filter=uid)
         assert len(entries) >= 1
@@ -410,27 +380,20 @@ class TestAdminChangeRoles:
 
     def test_set_admin_true(self, admin_client):
         uid, _ = _create_target_user(admin_client, "roles1")
-        resp = admin_client.put(
-            f"/auth/admin/users/{uid}/roles",
-            json={"is_admin": True},
-        )
+        resp = admin_client.put(f"/auth/admin/users/{uid}/roles", json={"is_admin": True})
         assert resp.status_code == 200
         assert resp.get_json()["user"]["is_admin"] is True
 
     def test_set_download_false(self, admin_client):
         uid, _ = _create_target_user(admin_client, "roles2")
-        resp = admin_client.put(
-            f"/auth/admin/users/{uid}/roles",
-            json={"can_download": False},
-        )
+        resp = admin_client.put(f"/auth/admin/users/{uid}/roles", json={"can_download": False})
         assert resp.status_code == 200
         assert resp.get_json()["user"]["can_download"] is False
 
     def test_set_both_roles(self, admin_client):
         uid, _ = _create_target_user(admin_client, "roles3")
         resp = admin_client.put(
-            f"/auth/admin/users/{uid}/roles",
-            json={"is_admin": True, "can_download": False},
+            f"/auth/admin/users/{uid}/roles", json={"is_admin": True, "can_download": False}
         )
         assert resp.status_code == 200
         user = resp.get_json()["user"]
@@ -454,8 +417,7 @@ class TestAdminChangeRoles:
             admin_user = user_repo.get_by_username("testadmin_fix")
             assert user_repo.is_last_admin(admin_user.id)
             resp = admin_client.put(
-                f"/auth/admin/users/{admin_user.id}/roles",
-                json={"is_admin": False},
+                f"/auth/admin/users/{admin_user.id}/roles", json={"is_admin": False}
             )
             assert resp.status_code == 409
             assert "last admin" in resp.get_json()["error"].lower()
@@ -470,17 +432,11 @@ class TestAdminChangeRoles:
         assert resp.status_code == 400
 
     def test_change_roles_requires_admin(self, user_client):
-        resp = user_client.put(
-            "/auth/admin/users/1/roles",
-            json={"is_admin": True},
-        )
+        resp = user_client.put("/auth/admin/users/1/roles", json={"is_admin": True})
         assert resp.status_code == 403
 
     def test_change_roles_nonexistent_user(self, admin_client):
-        resp = admin_client.put(
-            "/auth/admin/users/99999/roles",
-            json={"is_admin": True},
-        )
+        resp = admin_client.put("/auth/admin/users/99999/roles", json={"is_admin": True})
         assert resp.status_code == 404
 
     def test_change_roles_audit_log(self, admin_client, auth_db):
@@ -488,8 +444,7 @@ class TestAdminChangeRoles:
 
         uid, _ = _create_target_user(admin_client, "roles-audit")
         admin_client.put(
-            f"/auth/admin/users/{uid}/roles",
-            json={"is_admin": True, "can_download": False},
+            f"/auth/admin/users/{uid}/roles", json={"is_admin": True, "can_download": False}
         )
         audit_repo = AuditLogRepository(auth_db)
         entries = audit_repo.list(action_filter="toggle_roles", user_filter=uid)
@@ -513,8 +468,7 @@ class TestAdminChangeAuthMethod:
     def test_switch_to_totp(self, admin_client):
         uid, _ = _create_target_user(admin_client, "authm1", auth_method="passkey")
         resp = admin_client.put(
-            f"/auth/admin/users/{uid}/auth-method",
-            json={"auth_method": "totp"},
+            f"/auth/admin/users/{uid}/auth-method", json={"auth_method": "totp"}
         )
         assert resp.status_code == 200
         data = resp.get_json()
@@ -526,8 +480,7 @@ class TestAdminChangeAuthMethod:
     def test_switch_to_magic_link_requires_email(self, admin_client):
         uid, _ = _create_target_user(admin_client, "authm2")
         resp = admin_client.put(
-            f"/auth/admin/users/{uid}/auth-method",
-            json={"auth_method": "magic_link"},
+            f"/auth/admin/users/{uid}/auth-method", json={"auth_method": "magic_link"}
         )
         # Should fail: no email on user and none in body
         assert resp.status_code == 400
@@ -544,20 +497,16 @@ class TestAdminChangeAuthMethod:
         assert data["success"] is True
 
     def test_switch_to_magic_link_with_existing_email(self, admin_client):
-        uid, _ = _create_target_user(
-            admin_client, "authm4", email="existing@example.com"
-        )
+        uid, _ = _create_target_user(admin_client, "authm4", email="existing@example.com")
         resp = admin_client.put(
-            f"/auth/admin/users/{uid}/auth-method",
-            json={"auth_method": "magic_link"},
+            f"/auth/admin/users/{uid}/auth-method", json={"auth_method": "magic_link"}
         )
         assert resp.status_code == 200
 
     def test_switch_to_passkey(self, admin_client):
         uid, _ = _create_target_user(admin_client, "authm5")
         resp = admin_client.put(
-            f"/auth/admin/users/{uid}/auth-method",
-            json={"auth_method": "passkey"},
+            f"/auth/admin/users/{uid}/auth-method", json={"auth_method": "passkey"}
         )
         assert resp.status_code == 200
         data = resp.get_json()
@@ -567,34 +516,22 @@ class TestAdminChangeAuthMethod:
 
     def test_invalid_auth_method(self, admin_client):
         uid, _ = _create_target_user(admin_client, "authm6")
-        resp = admin_client.put(
-            f"/auth/admin/users/{uid}/auth-method",
-            json={"auth_method": "sms"},
-        )
+        resp = admin_client.put(f"/auth/admin/users/{uid}/auth-method", json={"auth_method": "sms"})
         assert resp.status_code == 400
 
     def test_switch_auth_requires_admin(self, user_client):
-        resp = user_client.put(
-            "/auth/admin/users/1/auth-method",
-            json={"auth_method": "totp"},
-        )
+        resp = user_client.put("/auth/admin/users/1/auth-method", json={"auth_method": "totp"})
         assert resp.status_code == 403
 
     def test_switch_auth_nonexistent_user(self, admin_client):
-        resp = admin_client.put(
-            "/auth/admin/users/99999/auth-method",
-            json={"auth_method": "totp"},
-        )
+        resp = admin_client.put("/auth/admin/users/99999/auth-method", json={"auth_method": "totp"})
         assert resp.status_code == 404
 
     def test_switch_auth_audit_log(self, admin_client, auth_db):
         from auth.audit import AuditLogRepository
 
         uid, _ = _create_target_user(admin_client, "authm-audit")
-        admin_client.put(
-            f"/auth/admin/users/{uid}/auth-method",
-            json={"auth_method": "passkey"},
-        )
+        admin_client.put(f"/auth/admin/users/{uid}/auth-method", json={"auth_method": "passkey"})
         audit_repo = AuditLogRepository(auth_db)
         entries = audit_repo.list(action_filter="switch_auth_method", user_filter=uid)
         assert len(entries) >= 1
@@ -637,10 +574,7 @@ class TestAdminResetCredentials:
 
     def test_reset_magic_link_noop(self, admin_client):
         uid, _ = _create_target_user(
-            admin_client,
-            "reset3",
-            auth_method="magic_link",
-            email="ml-reset@example.com",
+            admin_client, "reset3", auth_method="magic_link", email="ml-reset@example.com"
         )
         resp = admin_client.post(f"/auth/admin/users/{uid}/reset-credentials")
         assert resp.status_code == 200
@@ -728,11 +662,7 @@ class TestAdminDeleteUser:
         audit_repo = AuditLogRepository(auth_db)
         # target_id is SET NULL on cascade, so search by action and check details
         entries = audit_repo.list(action_filter="delete_account")
-        found = [
-            e
-            for e in entries
-            if _audit_details(e).get("username") == "target-del-audit"
-        ]
+        found = [e for e in entries if _audit_details(e).get("username") == "target-del-audit"]
         assert len(found) >= 1
 
 

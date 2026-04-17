@@ -74,11 +74,7 @@ def _import_helper(tmp_path, audiobooks, *, cover_dir=None):
     schema_path = LIBRARY_DIR / "backend" / "schema.sql"
     json_path = _write_json(tmp_path / "audiobooks.json", audiobooks)
 
-    patches = {
-        "DB_PATH": db_path,
-        "SCHEMA_PATH": schema_path,
-        "JSON_PATH": json_path,
-    }
+    patches = {"DB_PATH": db_path, "SCHEMA_PATH": schema_path, "JSON_PATH": json_path}
     if cover_dir is not None:
         patches["COVER_DIR"] = cover_dir
 
@@ -209,8 +205,7 @@ class TestPopulateNamesAndJunctions:
     def test_author_name_split(self, tmp_path):
         """Author last/first name columns populated correctly."""
         conn, cur = _import_helper(
-            tmp_path,
-            [_make_book(author="Stephen King", file_path="/lib/a.opus")],
+            tmp_path, [_make_book(author="Stephen King", file_path="/lib/a.opus")]
         )
         cur.execute("SELECT author_last_name, author_first_name FROM audiobooks")
         row = cur.fetchone()
@@ -221,8 +216,7 @@ class TestPopulateNamesAndJunctions:
     def test_narrator_name_split(self, tmp_path):
         """Narrator last/first name columns populated correctly."""
         conn, cur = _import_helper(
-            tmp_path,
-            [_make_book(narrator="Morgan Freeman", file_path="/lib/a.opus")],
+            tmp_path, [_make_book(narrator="Morgan Freeman", file_path="/lib/a.opus")]
         )
         cur.execute("SELECT narrator_last_name, narrator_first_name FROM audiobooks")
         row = cur.fetchone()
@@ -234,13 +228,7 @@ class TestPopulateNamesAndJunctions:
         """Junction rows created for authors and narrators."""
         conn, cur = _import_helper(
             tmp_path,
-            [
-                _make_book(
-                    author="Stephen King",
-                    narrator="Will Patton",
-                    file_path="/lib/a.opus",
-                )
-            ],
+            [_make_book(author="Stephen King", narrator="Will Patton", file_path="/lib/a.opus")],
         )
         cur.execute("SELECT COUNT(*) FROM book_authors")
         assert cur.fetchone()[0] >= 1
@@ -251,13 +239,7 @@ class TestPopulateNamesAndJunctions:
     def test_multiple_authors_junction(self, tmp_path):
         """Multiple authors produce multiple junction rows."""
         conn, cur = _import_helper(
-            tmp_path,
-            [
-                _make_book(
-                    author="Neil Gaiman, Terry Pratchett",
-                    file_path="/lib/a.opus",
-                )
-            ],
+            tmp_path, [_make_book(author="Neil Gaiman, Terry Pratchett", file_path="/lib/a.opus")]
         )
         cur.execute("SELECT COUNT(*) FROM book_authors")
         count = cur.fetchone()[0]
@@ -273,9 +255,7 @@ class TestPopulateNamesAndJunctions:
             tmp_path,
             [
                 _make_book(author="Stephen King", file_path="/lib/a.opus"),
-                _make_book(
-                    title="Book 2", author="Stephen King", file_path="/lib/b.opus"
-                ),
+                _make_book(title="Book 2", author="Stephen King", file_path="/lib/b.opus"),
             ],
         )
         cur.execute("SELECT COUNT(*) FROM authors")
@@ -288,8 +268,7 @@ class TestPopulateNamesAndJunctions:
     def test_empty_author_no_junction(self, tmp_path):
         """Blank/null author produces no junction row."""
         conn, cur = _import_helper(
-            tmp_path,
-            [_make_book(author="", narrator="", file_path="/lib/a.opus")],
+            tmp_path, [_make_book(author="", narrator="", file_path="/lib/a.opus")]
         )
         cur.execute("SELECT COUNT(*) FROM book_authors")
         assert cur.fetchone()[0] == 0
@@ -300,8 +279,7 @@ class TestPopulateNamesAndJunctions:
     def test_single_name_author(self, tmp_path):
         """Author with single name (no comma in sort_name) — line 111-112."""
         conn, cur = _import_helper(
-            tmp_path,
-            [_make_book(author="Voltaire", file_path="/lib/a.opus")],
+            tmp_path, [_make_book(author="Voltaire", file_path="/lib/a.opus")]
         )
         cur.execute("SELECT author_last_name, author_first_name FROM audiobooks")
         row = cur.fetchone()
@@ -311,10 +289,7 @@ class TestPopulateNamesAndJunctions:
 
     def test_whitespace_only_author_skipped(self, tmp_path):
         """Line 104: whitespace-only author treated as empty."""
-        conn, cur = _import_helper(
-            tmp_path,
-            [_make_book(author="   ", file_path="/lib/a.opus")],
-        )
+        conn, cur = _import_helper(tmp_path, [_make_book(author="   ", file_path="/lib/a.opus")])
         cur.execute("SELECT COUNT(*) FROM book_authors")
         assert cur.fetchone()[0] == 0
         conn.close()
@@ -340,10 +315,7 @@ class TestEnrichmentPreservation:
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         with patch.multiple(
-            import_to_db,
-            DB_PATH=db_path,
-            SCHEMA_PATH=schema_path,
-            JSON_PATH=json_path,
+            import_to_db, DB_PATH=db_path, SCHEMA_PATH=schema_path, JSON_PATH=json_path
         ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
@@ -396,19 +368,13 @@ class TestContentTypePreservation:
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         with patch.multiple(
-            import_to_db,
-            DB_PATH=db_path,
-            SCHEMA_PATH=schema_path,
-            JSON_PATH=json_path,
+            import_to_db, DB_PATH=db_path, SCHEMA_PATH=schema_path, JSON_PATH=json_path
         ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
             # Set content_type WITHOUT setting audible_enriched_at
-            conn.execute(
-                "UPDATE audiobooks SET content_type='Podcast' WHERE file_path=?",
-                (fp,),
-            )
+            conn.execute("UPDATE audiobooks SET content_type='Podcast' WHERE file_path=?", (fp,))
             conn.commit()
 
             # Re-import
@@ -431,10 +397,7 @@ class TestContentTypePreservation:
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         with patch.multiple(
-            import_to_db,
-            DB_PATH=db_path,
-            SCHEMA_PATH=schema_path,
-            JSON_PATH=json_path,
+            import_to_db, DB_PATH=db_path, SCHEMA_PATH=schema_path, JSON_PATH=json_path
         ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
@@ -471,10 +434,7 @@ class TestCategoryPreservation:
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         with patch.multiple(
-            import_to_db,
-            DB_PATH=db_path,
-            SCHEMA_PATH=schema_path,
-            JSON_PATH=json_path,
+            import_to_db, DB_PATH=db_path, SCHEMA_PATH=schema_path, JSON_PATH=json_path
         ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
@@ -538,10 +498,7 @@ class TestEditorialReviewPreservation:
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         with patch.multiple(
-            import_to_db,
-            DB_PATH=db_path,
-            SCHEMA_PATH=schema_path,
-            JSON_PATH=json_path,
+            import_to_db, DB_PATH=db_path, SCHEMA_PATH=schema_path, JSON_PATH=json_path
         ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
@@ -584,10 +541,7 @@ class TestEditorialReviewPreservation:
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         with patch.multiple(
-            import_to_db,
-            DB_PATH=db_path,
-            SCHEMA_PATH=schema_path,
-            JSON_PATH=json_path,
+            import_to_db, DB_PATH=db_path, SCHEMA_PATH=schema_path, JSON_PATH=json_path
         ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
@@ -636,10 +590,7 @@ class TestGenrePreservation:
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         with patch.multiple(
-            import_to_db,
-            DB_PATH=db_path,
-            SCHEMA_PATH=schema_path,
-            JSON_PATH=json_path,
+            import_to_db, DB_PATH=db_path, SCHEMA_PATH=schema_path, JSON_PATH=json_path
         ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
@@ -651,8 +602,7 @@ class TestGenrePreservation:
             cur.execute("INSERT INTO genres (name) VALUES ('Thriller')")
             gid = cur.lastrowid
             cur.execute(
-                "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
-                (aid, gid),
+                "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)", (aid, gid)
             )
             conn.commit()
 
@@ -686,10 +636,7 @@ class TestValidateJsonSource:
         """Returns True for production-like data (>= 20 books, no test titles)."""
         from backend import import_to_db
 
-        books = [
-            _make_book(title=f"Real Book {i}", file_path=f"/lib/{i}.opus")
-            for i in range(25)
-        ]
+        books = [_make_book(title=f"Real Book {i}", file_path=f"/lib/{i}.opus") for i in range(25)]
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         assert import_to_db.validate_json_source(json_path) is True
@@ -698,9 +645,7 @@ class TestValidateJsonSource:
         """Line 567-568: < 20 books without SKIP_IMPORT_VALIDATION exits."""
         from backend import import_to_db
 
-        books = [
-            _make_book(title=f"Book {i}", file_path=f"/lib/{i}.opus") for i in range(5)
-        ]
+        books = [_make_book(title=f"Book {i}", file_path=f"/lib/{i}.opus") for i in range(5)]
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         # Ensure env var is NOT set
@@ -717,9 +662,7 @@ class TestValidateJsonSource:
 
         monkeypatch.setenv("SKIP_IMPORT_VALIDATION", "1")
 
-        books = [
-            _make_book(title=f"Book {i}", file_path=f"/lib/{i}.opus") for i in range(5)
-        ]
+        books = [_make_book(title=f"Book {i}", file_path=f"/lib/{i}.opus") for i in range(5)]
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         assert import_to_db.validate_json_source(json_path) is True
@@ -728,13 +671,8 @@ class TestValidateJsonSource:
         """Lines 574-584: 'Test Audiobook' in titles triggers exit."""
         from backend import import_to_db
 
-        books = [
-            _make_book(title=f"Real Book {i}", file_path=f"/lib/{i}.opus")
-            for i in range(25)
-        ]
-        books.append(
-            _make_book(title="Test Audiobook Sample", file_path="/lib/test.opus")
-        )
+        books = [_make_book(title=f"Real Book {i}", file_path=f"/lib/{i}.opus") for i in range(25)]
+        books.append(_make_book(title="Test Audiobook Sample", file_path="/lib/test.opus"))
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         env = os.environ.copy()
@@ -750,13 +688,8 @@ class TestValidateJsonSource:
 
         monkeypatch.setenv("SKIP_IMPORT_VALIDATION", "1")
 
-        books = [
-            _make_book(title=f"Real Book {i}", file_path=f"/lib/{i}.opus")
-            for i in range(25)
-        ]
-        books.append(
-            _make_book(title="Test Audiobook Sample", file_path="/lib/test.opus")
-        )
+        books = [_make_book(title=f"Real Book {i}", file_path=f"/lib/{i}.opus") for i in range(25)]
+        books.append(_make_book(title="Test Audiobook Sample", file_path="/lib/test.opus"))
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         assert import_to_db.validate_json_source(json_path) is True
@@ -805,10 +738,7 @@ class TestMainExtended:
         monkeypatch.setenv("SKIP_IMPORT_VALIDATION", "1")
 
         with patch.multiple(
-            import_to_db,
-            DB_PATH=db_path,
-            SCHEMA_PATH=schema_path,
-            JSON_PATH=json_path,
+            import_to_db, DB_PATH=db_path, SCHEMA_PATH=schema_path, JSON_PATH=json_path
         ):
             import_to_db.main()
 
@@ -841,19 +771,13 @@ class TestNarratorPreservation:
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         with patch.multiple(
-            import_to_db,
-            DB_PATH=db_path,
-            SCHEMA_PATH=schema_path,
-            JSON_PATH=json_path,
+            import_to_db, DB_PATH=db_path, SCHEMA_PATH=schema_path, JSON_PATH=json_path
         ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
 
             # Manually set narrator (simulating Audible export)
-            conn.execute(
-                "UPDATE audiobooks SET narrator='Jim Dale' WHERE file_path=?",
-                (fp,),
-            )
+            conn.execute("UPDATE audiobooks SET narrator='Jim Dale' WHERE file_path=?", (fp,))
             conn.commit()
 
             # Re-import
@@ -875,10 +799,7 @@ class TestEdgeCasesExtended:
 
     def test_missing_metadata_fields(self, tmp_path):
         """Import succeeds when many optional fields are absent."""
-        minimal_book = {
-            "title": "Minimal",
-            "file_path": "/lib/minimal.opus",
-        }
+        minimal_book = {"title": "Minimal", "file_path": "/lib/minimal.opus"}
         conn, cur = _import_helper(tmp_path, [minimal_book])
         cur.execute("SELECT title FROM audiobooks")
         assert cur.fetchone()[0] == "Minimal"
@@ -887,8 +808,7 @@ class TestEdgeCasesExtended:
     def test_asin_stored(self, tmp_path):
         """ASIN field imported correctly."""
         conn, cur = _import_helper(
-            tmp_path,
-            [_make_book(file_path="/lib/a.opus", asin="B012345678")],
+            tmp_path, [_make_book(file_path="/lib/a.opus", asin="B012345678")]
         )
         cur.execute("SELECT asin FROM audiobooks")
         assert cur.fetchone()[0] == "B012345678"
@@ -907,9 +827,7 @@ class TestEdgeCasesExtended:
                 )
             ],
         )
-        cur.execute(
-            "SELECT published_year, published_date, acquired_date FROM audiobooks"
-        )
+        cur.execute("SELECT published_year, published_date, acquired_date FROM audiobooks")
         row = cur.fetchone()
         assert row[0] == 2024
         assert row[1] == "2024-06-15"
@@ -961,10 +879,7 @@ class TestEdgeCasesExtended:
         json_path = _write_json(tmp_path / "audiobooks.json", books)
 
         with patch.multiple(
-            import_to_db,
-            DB_PATH=db_path,
-            SCHEMA_PATH=schema_path,
-            JSON_PATH=json_path,
+            import_to_db, DB_PATH=db_path, SCHEMA_PATH=schema_path, JSON_PATH=json_path
         ):
             conn = import_to_db.create_database()
             import_to_db.import_audiobooks(conn)
@@ -981,10 +896,7 @@ class TestEdgeCasesExtended:
             import_to_db.import_audiobooks(conn)
 
         cur = conn.cursor()
-        cur.execute(
-            "SELECT language, subtitle FROM audiobooks WHERE file_path=?",
-            (fp,),
-        )
+        cur.execute("SELECT language, subtitle FROM audiobooks WHERE file_path=?", (fp,))
         row = cur.fetchone()
         assert row[0] == "English"
         assert row[1] is None  # subtitle was never set
@@ -993,8 +905,7 @@ class TestEdgeCasesExtended:
     def test_cover_path_stored(self, tmp_path):
         """Cover path from JSON is stored in the database."""
         conn, cur = _import_helper(
-            tmp_path,
-            [_make_book(file_path="/lib/a.opus", cover_path="abc123.jpg")],
+            tmp_path, [_make_book(file_path="/lib/a.opus", cover_path="abc123.jpg")]
         )
         cur.execute("SELECT cover_path FROM audiobooks")
         assert cur.fetchone()[0] == "abc123.jpg"

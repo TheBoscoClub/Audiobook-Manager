@@ -27,10 +27,7 @@ def create_test_db(db_path):
     """)
     # Create new normalized tables from migration SQL
     migration_sql = (
-        Path(__file__).parent.parent
-        / "backend"
-        / "migrations"
-        / "011_multi_author_narrator.sql"
+        Path(__file__).parent.parent / "backend" / "migrations" / "011_multi_author_narrator.sql"
     ).read_text()
     conn.executescript(migration_sql)
     return conn
@@ -48,8 +45,7 @@ class TestMigration:
 
     def _insert_book(self, title, author, narrator="Test Narrator"):
         self.conn.execute(
-            "INSERT INTO audiobooks (title, author, narrator, file_path)"
-            " VALUES (?, ?, ?, ?)",
+            "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, ?, ?)",
             (title, author, narrator, f"/fake/{title}.opus"),
         )
         self.conn.commit()
@@ -81,9 +77,7 @@ class TestMigration:
         assert "Stephen King" in names
         assert "Peter Straub" in names
 
-        links = self.conn.execute(
-            "SELECT * FROM book_authors ORDER BY position"
-        ).fetchall()
+        links = self.conn.execute("SELECT * FROM book_authors ORDER BY position").fetchall()
         assert len(links) == 2
 
     def test_deduplication(self):
@@ -105,17 +99,14 @@ class TestMigration:
 
         migrate(self.db_path)
 
-        narrators = self.conn.execute(
-            "SELECT name, sort_name FROM narrators"
-        ).fetchall()
+        narrators = self.conn.execute("SELECT name, sort_name FROM narrators").fetchall()
         assert len(narrators) == 1
         assert narrators[0][0] == "Steven Weber"
         assert narrators[0][1] == "Weber, Steven"
 
     def test_null_author_no_junction_row(self):
         self.conn.execute(
-            "INSERT INTO audiobooks (title, author, narrator, file_path)"
-            " VALUES (?, NULL, ?, ?)",
+            "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, NULL, ?, ?)",
             ("Orphan Book", "Some Narrator", "/fake/orphan.opus"),
         )
         self.conn.commit()

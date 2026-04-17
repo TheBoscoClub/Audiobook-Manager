@@ -112,9 +112,7 @@ def get_file_metadata(filepath: Path) -> Optional[dict]:
     return {
         "title": tags_normalized.get("title", tags_normalized.get("album", "")),
         "author": extract_author_from_tags(tags_normalized),
-        "narrator": tags_normalized.get(
-            "narrator", tags_normalized.get("composer", "")
-        ),
+        "narrator": tags_normalized.get("narrator", tags_normalized.get("composer", "")),
         "duration_sec": float(format_data.get("duration", 0)),
         "tags": tags_normalized,
     }
@@ -149,11 +147,7 @@ class TestFileToDbConsistency:
             filepath = Path(book["file_path"])
             if not filepath.exists():
                 missing_files.append(
-                    {
-                        "id": book["id"],
-                        "title": book["title"],
-                        "path": book["file_path"],
-                    }
+                    {"id": book["id"], "title": book["title"], "path": book["file_path"]}
                 )
 
         if missing_files:
@@ -201,11 +195,7 @@ class TestFileToDbConsistency:
 
             if not self._titles_match(db_title, file_title):
                 mismatches.append(
-                    {
-                        "id": book["id"],
-                        "db_title": book["title"],
-                        "file_title": file_meta["title"],
-                    }
+                    {"id": book["id"], "db_title": book["title"], "file_title": file_meta["title"]}
                 )
 
         if mismatches:
@@ -244,10 +234,7 @@ class TestFileToDbConsistency:
         if mismatches:
             msg = f"{len(mismatches)} author mismatches found:\n"
             for m in mismatches[:5]:
-                msg += (
-                    f"  ID {m['id']}: DB='{m['db_author']}'"
-                    f" vs File='{m['file_author']}'\n"
-                )
+                msg += f"  ID {m['id']}: DB='{m['db_author']}' vs File='{m['file_author']}'\n"
             pytest.fail(msg)
 
 
@@ -280,10 +267,7 @@ class TestFtsIndexConsistency:
     def _fts_search(cursor, search_term: str) -> list[int]:
         """Search FTS index and return matching rowids."""
         try:
-            cursor.execute(
-                "SELECT rowid FROM audiobooks_fts WHERE title MATCH ?",
-                (search_term,),
-            )
+            cursor.execute("SELECT rowid FROM audiobooks_fts WHERE title MATCH ?", (search_term,))
             return [r[0] for r in cursor.fetchall()]
         except sqlite3.OperationalError:
             return []
@@ -300,16 +284,12 @@ class TestFtsIndexConsistency:
 
             result_ids = self._fts_search(cursor, search_term)
             if book["id"] not in result_ids:
-                not_found.append(
-                    {"id": book["id"], "title": book["title"], "search": search_term}
-                )
+                not_found.append({"id": book["id"], "title": book["title"], "search": search_term})
 
         if not_found:
             msg = f"{len(not_found)} titles not found in FTS:\n"
             for n in not_found[:5]:
-                msg += (
-                    f"  ID {n['id']}: '{n['title'][:40]}' (searched: '{n['search']}')\n"
-                )
+                msg += f"  ID {n['id']}: '{n['title'][:40]}' (searched: '{n['search']}')\n"
             pytest.fail(msg)
 
     def test_fts_author_searchable(self, prod_db, sample_audiobooks):
@@ -330,18 +310,12 @@ class TestFtsIndexConsistency:
             if len(search_term) < 3:
                 continue
 
-            cursor.execute(
-                "SELECT rowid FROM audiobooks_fts WHERE author MATCH ?", (search_term,)
-            )
+            cursor.execute("SELECT rowid FROM audiobooks_fts WHERE author MATCH ?", (search_term,))
             results = cursor.fetchall()
 
             if book["id"] not in [r[0] for r in results]:
                 not_found.append(
-                    {
-                        "id": book["id"],
-                        "author": book["author"],
-                        "search": search_term,
-                    }
+                    {"id": book["id"], "author": book["author"], "search": search_term}
                 )
 
         if not_found:
@@ -369,10 +343,7 @@ class TestAsinConsistency:
         if mismatches:
             msg = f"{len(mismatches)} ASIN/source_asin mismatches:\n"
             for m in mismatches[:5]:
-                msg += (
-                    f"  ID {m['id']}: asin={m['asin']},"
-                    f" source_asin={m['source_asin']}\n"
-                )
+                msg += f"  ID {m['id']}: asin={m['asin']}, source_asin={m['source_asin']}\n"
             pytest.fail(msg)
 
     def test_asin_format_valid(self, prod_db):
@@ -401,9 +372,7 @@ class TestAsinConsistency:
                 msg += f"  ID {i['id']}: '{i['asin']}' ({i['title'][:30]})\n"
             pytest.fail(msg)
 
-    @pytest.mark.skipif(
-        not PROD_SOURCES_DIR.exists(), reason="Sources dir not available"
-    )
+    @pytest.mark.skipif(not PROD_SOURCES_DIR.exists(), reason="Sources dir not available")
     def test_source_files_have_matching_db_asin(self):
         """Verify source file ASINs match database records."""
         mismatches = []
@@ -423,9 +392,7 @@ class TestAsinConsistency:
             title_from_file = source_file.name.split("_", 1)[1].rsplit("-AAX", 1)[0]
             title_from_file.replace("_", " ")
 
-            cursor.execute(
-                "SELECT id, title, asin FROM audiobooks WHERE asin = ?", (asin,)
-            )
+            cursor.execute("SELECT id, title, asin FROM audiobooks WHERE asin = ?", (asin,))
             result = cursor.fetchone()
 
             if result and result["asin"] != asin:
@@ -442,10 +409,7 @@ class TestAsinConsistency:
         if mismatches:
             msg = f"{len(mismatches)} source/DB ASIN mismatches:\n"
             for m in mismatches[:5]:
-                msg += (
-                    f"  {m['source_file'][:40]}: source={m['source_asin']},"
-                    f" db={m['db_asin']}\n"
-                )
+                msg += f"  {m['source_file'][:40]}: source={m['source_asin']}, db={m['db_asin']}\n"
             pytest.fail(msg)
 
 
@@ -520,9 +484,7 @@ class TestHashConsistency:
 
         # Only test files that have hashes and exist
         files_to_check = [
-            b
-            for b in sample_audiobooks
-            if b["sha256_hash"] and Path(b["file_path"]).exists()
+            b for b in sample_audiobooks if b["sha256_hash"] and Path(b["file_path"]).exists()
         ][:10]  # Limit to 10 for performance
 
         for book in files_to_check:
@@ -614,9 +576,7 @@ class TestDataIntegrity:
 class TestSourceToConvertedConsistency:
     """Test consistency between source and converted files."""
 
-    @pytest.mark.skipif(
-        not PROD_SOURCES_DIR.exists(), reason="Sources dir not available"
-    )
+    @pytest.mark.skipif(not PROD_SOURCES_DIR.exists(), reason="Sources dir not available")
     def test_source_title_matches_converted(self):
         """Verify source file titles match converted file titles."""
         mismatches = []
@@ -657,17 +617,11 @@ class TestSourceToConvertedConsistency:
             if db_norm and source_norm:
                 db_words = set(db_norm.split())
                 source_words = set(source_norm.split())
-                overlap = len(db_words & source_words) / max(
-                    len(db_words), len(source_words), 1
-                )
+                overlap = len(db_words & source_words) / max(len(db_words), len(source_words), 1)
 
                 if overlap < 0.5:
                     mismatches.append(
-                        {
-                            "id": row["id"],
-                            "db_title": db_title,
-                            "source_title": source_title,
-                        }
+                        {"id": row["id"], "db_title": db_title, "source_title": source_title}
                     )
 
         conn.close()
@@ -797,9 +751,7 @@ class TestMetadataExtractionFunctions:
 
         # Standard structure: Library/Author/Book/file.opus
         # Uses configured library path for test
-        test_path = (
-            PROD_LIBRARY_DIR / "Stephen King" / "The Shining" / "The Shining.opus"
-        )
+        test_path = PROD_LIBRARY_DIR / "Stephen King" / "The Shining" / "The Shining.opus"
         assert extract_author_from_path(test_path) == "Stephen King"
 
         # Without Library in path
@@ -816,9 +768,7 @@ class TestMetadataExtractionFunctions:
                 continue
 
             # Skip hash calculation for speed
-            metadata = get_file_metadata(
-                filepath, filepath.parent, calculate_hash=False
-            )
+            metadata = get_file_metadata(filepath, filepath.parent, calculate_hash=False)
             if metadata is None:
                 continue
 
@@ -849,9 +799,7 @@ class TestMetadataExtractionFunctions:
         # Fiction genres
         mystery = categorize_genre("Mystery & Thriller")
         assert mystery["main"] == "fiction"
-        assert (
-            "mystery" in mystery["sub"].lower() or "thriller" in mystery["sub"].lower()
-        )
+        assert "mystery" in mystery["sub"].lower() or "thriller" in mystery["sub"].lower()
 
         scifi = categorize_genre("Science Fiction")
         assert scifi["main"] == "fiction"
@@ -1015,9 +963,7 @@ class TestAsinPopulationFunctions:
         extract_asin_and_title = self._extract_asin_and_title
 
         # Standard format
-        asin1, title1 = extract_asin_and_title(
-            "0062868071_The_Book_Title-AAX_44_128.aaxc"
-        )
+        asin1, title1 = extract_asin_and_title("0062868071_The_Book_Title-AAX_44_128.aaxc")
         assert asin1 == "0062868071"
         assert "Book Title" in title1
 
@@ -1087,14 +1033,7 @@ class TestProductionAPIEndpoints:
         audiobook = json.loads(response.data)
 
         # Verify metadata fields
-        expected_fields = [
-            "title",
-            "author",
-            "narrator",
-            "duration_hours",
-            "file_path",
-            "format",
-        ]
+        expected_fields = ["title", "author", "narrator", "duration_hours", "file_path", "format"]
         for field in expected_fields:
             assert field in audiobook, f"API response missing '{field}'"
 

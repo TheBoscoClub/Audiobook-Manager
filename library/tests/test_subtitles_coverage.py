@@ -187,11 +187,7 @@ class TestGetChapterSubtitle:
 
 class TestGenerateSubtitles:
     def test_no_body_400(self, app_client, subtitles_db):
-        resp = app_client.post(
-            "/api/subtitles/generate",
-            data="",
-            content_type="application/json",
-        )
+        resp = app_client.post("/api/subtitles/generate", data="", content_type="application/json")
         assert resp.status_code == 400
 
     def test_missing_audiobook_id_400(self, app_client, subtitles_db):
@@ -200,37 +196,29 @@ class TestGenerateSubtitles:
 
     def test_book_not_found_404(self, app_client, subtitles_db):
         resp = app_client.post(
-            "/api/subtitles/generate",
-            json={"audiobook_id": 9999, "locale": "zh-Hans"},
+            "/api/subtitles/generate", json={"audiobook_id": 9999, "locale": "zh-Hans"}
         )
         assert resp.status_code == 404
 
     def test_audio_file_missing_404(self, app_client, subtitles_db):
         # Book 21 points at /nonexistent/sub21.opus.
         resp = app_client.post(
-            "/api/subtitles/generate",
-            json={"audiobook_id": 21, "locale": "zh-Hans"},
+            "/api/subtitles/generate", json={"audiobook_id": 21, "locale": "zh-Hans"}
         )
         assert resp.status_code == 404
         assert "disk" in resp.get_json()["error"].lower()
 
-    def test_happy_path_starts_generation(
-        self, app_client, subtitles_db, tmp_path: Path
-    ):
+    def test_happy_path_starts_generation(self, app_client, subtitles_db, tmp_path: Path):
         audio = tmp_path / "audio.opus"
         audio.write_bytes(b"fake")
         conn = sqlite3.connect(str(subtitles_db))
-        conn.execute(
-            "UPDATE audiobooks SET file_path = ? WHERE id = 20",
-            (str(audio),),
-        )
+        conn.execute("UPDATE audiobooks SET file_path = ? WHERE id = 20", (str(audio),))
         conn.commit()
         conn.close()
 
         with patch.object(sub, "_start_generation") as mock_start:
             resp = app_client.post(
-                "/api/subtitles/generate",
-                json={"audiobook_id": 20, "locale": "zh-Hans"},
+                "/api/subtitles/generate", json={"audiobook_id": 20, "locale": "zh-Hans"}
             )
             assert resp.status_code == 200
             body = resp.get_json()
@@ -264,34 +252,27 @@ class TestSubtitleJobStatus:
 
 class TestUserRequestSubtitles:
     def test_missing_audiobook_id_400(self, app_client, subtitles_db):
-        resp = app_client.post(
-            "/api/user/subtitles/request", json={"locale": "zh-Hans"}
-        )
+        resp = app_client.post("/api/user/subtitles/request", json={"locale": "zh-Hans"})
         assert resp.status_code == 400
 
     def test_book_not_found_404(self, app_client, subtitles_db):
         with patch.object(sub, "_start_generation"):
             resp = app_client.post(
-                "/api/user/subtitles/request",
-                json={"audiobook_id": 9999, "locale": "zh-Hans"},
+                "/api/user/subtitles/request", json={"audiobook_id": 9999, "locale": "zh-Hans"}
             )
             assert resp.status_code == 404
 
     def test_audio_missing_404(self, app_client, subtitles_db):
         with patch.object(sub, "_start_generation"):
             resp = app_client.post(
-                "/api/user/subtitles/request",
-                json={"audiobook_id": 21, "locale": "zh-Hans"},
+                "/api/user/subtitles/request", json={"audiobook_id": 21, "locale": "zh-Hans"}
             )
             assert resp.status_code == 404
 
-    def test_existing_running_job_returns_already_running(
-        self, app_client, subtitles_db
-    ):
+    def test_existing_running_job_returns_already_running(self, app_client, subtitles_db):
         sub._set_status(20, "zh-Hans", state="running", phase="transcribing")
         resp = app_client.post(
-            "/api/user/subtitles/request",
-            json={"audiobook_id": 20, "locale": "zh-Hans"},
+            "/api/user/subtitles/request", json={"audiobook_id": 20, "locale": "zh-Hans"}
         )
         assert resp.status_code == 200
         body = resp.get_json()
@@ -299,36 +280,158 @@ class TestUserRequestSubtitles:
         # Existing status fields are merged into the response.
         assert body["phase"] == "transcribing"
 
-    def test_happy_path_starts_generation(
-        self, app_client, subtitles_db, tmp_path: Path
-    ):
+    def test_happy_path_starts_generation(self, app_client, subtitles_db, tmp_path: Path):
         audio = tmp_path / "audio.opus"
         audio.write_bytes(b"fake")
         conn = sqlite3.connect(str(subtitles_db))
-        conn.execute(
-            "UPDATE audiobooks SET file_path = ? WHERE id = 20",
-            (str(audio),),
-        )
+        conn.execute("UPDATE audiobooks SET file_path = ? WHERE id = 20", (str(audio),))
         conn.commit()
         conn.close()
 
         with patch.object(sub, "_start_generation") as mock_start:
             resp = app_client.post(
-                "/api/user/subtitles/request",
-                json={"audiobook_id": 20, "locale": "zh-Hans"},
+                "/api/user/subtitles/request", json={"audiobook_id": 20, "locale": "zh-Hans"}
             )
             assert resp.status_code == 200
             body = resp.get_json()
             assert body["status"] == "started"
             mock_start.assert_called_once()
 
-    def test_non_json_body_still_returns_400_on_missing_id(
-        self, app_client, subtitles_db
-    ):
+    def test_non_json_body_still_returns_400_on_missing_id(self, app_client, subtitles_db):
         # silent=True → get_json returns None → falls through to "or {}".
         resp = app_client.post(
-            "/api/user/subtitles/request",
-            data="xxxx",
-            content_type="text/plain",
+            "/api/user/subtitles/request", data="xxxx", content_type="text/plain"
         )
         assert resp.status_code == 400
+
+
+# ── _start_generation closure coverage ──
+
+
+class _FakeSTT:
+    def __init__(self, name="fake-stt"):
+        self.name = name
+
+
+@pytest.fixture
+def threading_capture_sub(monkeypatch):
+    """Capture subtitles.threading.Thread targets so we can drive them synchronously."""
+    captured: list = []
+
+    class _FakeThread:
+        def __init__(self, *args, target=None, **kwargs):
+            self._target = target
+            captured.append(target)
+
+        def start(self):
+            pass
+
+    monkeypatch.setattr(sub.threading, "Thread", _FakeThread)
+    return captured
+
+
+def _install_fake_pipeline(monkeypatch, stt, chapters_result=None, raise_on_pipeline=None):
+    """Stub library.localization.pipeline and selection modules.
+
+    Parents are needed so `from library.localization.pipeline import ...`
+    resolves within the closure.
+    """
+    import sys
+    import types
+
+    def _gen_subs(**kwargs):
+        if raise_on_pipeline:
+            raise raise_on_pipeline
+        on_progress = kwargs.get("on_progress")
+        on_complete = kwargs.get("on_chapter_complete")
+        if on_progress:
+            on_progress(0, 1, "Chapter 1")
+        if on_complete:
+            from pathlib import Path as _P
+
+            on_complete(0, _P("/tmp/en-0.vtt"), _P("/tmp/zh-0.vtt"))  # nosec B108 -- test fixture
+        return chapters_result or [(0, "/tmp/en-0.vtt", "/tmp/zh-0.vtt")]  # nosec B108 -- test fixture
+
+    pipeline = types.SimpleNamespace(
+        generate_book_subtitles=_gen_subs,
+        get_stt_provider=lambda *a, **kw: stt,
+    )
+    selection = types.SimpleNamespace(WorkloadHint=types.SimpleNamespace(LONG_FORM="LF"))
+    # Register fake modules so the in-closure imports resolve.
+    monkeypatch.setitem(sys.modules, "localization", types.ModuleType("localization"))
+    monkeypatch.setitem(sys.modules, "localization.pipeline", pipeline)
+    monkeypatch.setitem(sys.modules, "localization.selection", selection)
+    monkeypatch.setitem(sys.modules, "library", types.ModuleType("library"))
+    monkeypatch.setitem(
+        sys.modules,
+        "library.localization",
+        types.ModuleType("library.localization"),
+    )
+    monkeypatch.setitem(sys.modules, "library.localization.pipeline", pipeline)
+    monkeypatch.setitem(sys.modules, "library.localization.selection", selection)
+
+
+class TestStartGenerationClosure:
+    def setup_method(self):
+        from backend.api_modular.subtitles import _job_status, _user_requests
+
+        _job_status.clear()
+        _user_requests.clear()
+
+    def _seed_book(self, subtitles_db, book_id):
+        """Insert a minimal audiobooks row so FK constraints pass.
+
+        Uses a per-id unique file_path since the column has a UNIQUE
+        constraint shared across tests.
+        """
+        conn = sqlite3.connect(str(subtitles_db))
+        conn.execute("DELETE FROM chapter_subtitles WHERE audiobook_id = ?", (book_id,))
+        conn.execute("DELETE FROM audiobooks WHERE id = ?", (book_id,))
+        conn.execute(
+            "INSERT INTO audiobooks "
+            "(id, title, author, file_path, format, duration_hours, content_type) "
+            "VALUES (?, 'T', 'A', ?, 'opus', 5.0, 'Product')",
+            (book_id, f"/tmp/subclosure_{book_id}.opus"),  # nosec B108 -- DB fixture only
+        )
+        conn.commit()
+        conn.close()
+
+    def test_closure_happy_path(
+        self, app_client, subtitles_db, threading_capture_sub, monkeypatch, tmp_path
+    ):
+        self._seed_book(subtitles_db, 1)
+        _install_fake_pipeline(monkeypatch, _FakeSTT())
+        audio = tmp_path / "book.opus"
+        audio.write_bytes(b"x")
+
+        sub._start_generation(book_id=1, locale="zh-Hans", audio_path=audio, provider_name="")
+        # Drive the captured thread target
+        assert len(threading_capture_sub) == 1
+        threading_capture_sub[0]()
+
+        from backend.api_modular.subtitles import _get_status
+
+        status = _get_status(1, "zh-Hans")
+        assert status["state"] == "completed"
+        assert status["phase"] == "done"
+
+    def test_closure_exception_sets_failed(
+        self, app_client, subtitles_db, threading_capture_sub, monkeypatch, tmp_path
+    ):
+        self._seed_book(subtitles_db, 2)
+        _install_fake_pipeline(
+            monkeypatch,
+            _FakeSTT(),
+            raise_on_pipeline=RuntimeError("gpu dead"),
+        )
+        audio = tmp_path / "book.opus"
+        audio.write_bytes(b"x")
+
+        sub._start_generation(book_id=2, locale="zh-Hans", audio_path=audio, provider_name="")
+        threading_capture_sub[0]()
+
+        from backend.api_modular.subtitles import _get_status
+
+        status = _get_status(2, "zh-Hans")
+        assert status["state"] == "failed"
+        assert "gpu dead" in status.get("error", "")

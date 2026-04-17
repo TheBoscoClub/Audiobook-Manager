@@ -18,11 +18,7 @@ from auth.totp import generate_secret
 def _create_test_user(db, username="testuser"):
     """Helper to create a test user via User.save()."""
     secret = generate_secret()
-    user = User(
-        username=username,
-        auth_type=AuthType.TOTP,
-        auth_credential=secret,
-    )
+    user = User(username=username, auth_type=AuthType.TOTP, auth_credential=secret)
     user.save(db)
     return user
 
@@ -79,12 +75,7 @@ class TestUserSettingsRepository:
         repo = UserSettingsRepository(db)
 
         count = repo.set_many(
-            user.id,
-            {
-                "font_size": "18",
-                "contrast": "high",
-                "reduce_animations": "true",
-            },
+            user.id, {"font_size": "18", "contrast": "high", "reduce_animations": "true"}
         )
         assert count == 3
 
@@ -99,12 +90,7 @@ class TestUserSettingsRepository:
         repo = UserSettingsRepository(db)
 
         count = repo.set_many(
-            user.id,
-            {
-                "font_size": "18",
-                "invalid_key": "value",
-                "another_bad": "key",
-            },
+            user.id, {"font_size": "18", "invalid_key": "value", "another_bad": "key"}
         )
         assert count == 1
 
@@ -184,9 +170,7 @@ class TestPreferencesAPI:
         # Create auth DB
         auth_db_path = tmp_path / "auth.db"
         auth_key_path = tmp_path / "auth.key"
-        auth_db = AuthDatabase(
-            db_path=str(auth_db_path), key_path=str(auth_key_path), is_dev=True
-        )
+        auth_db = AuthDatabase(db_path=str(auth_db_path), key_path=str(auth_key_path), is_dev=True)
         auth_db.initialize()
 
         # Create test user
@@ -209,10 +193,7 @@ class TestPreferencesAPI:
         from auth.models import Session
 
         _session, raw_token = Session.create_for_user(
-            db=auth_db,
-            user_id=user.id,
-            user_agent="pytest",
-            ip_address="127.0.0.1",
+            db=auth_db, user_id=user.id, user_agent="pytest", ip_address="127.0.0.1"
         )
 
         client = app.test_client()
@@ -245,11 +226,7 @@ class TestPreferencesAPI:
 
     def test_patch_invalid_body(self, client):
         """PATCH with non-JSON body returns 400."""
-        resp = client.patch(
-            "/api/user/preferences",
-            data="not json",
-            content_type="text/plain",
-        )
+        resp = client.patch("/api/user/preferences", data="not json", content_type="text/plain")
         assert resp.status_code == 400
 
     def test_patch_no_valid_keys(self, client):
@@ -315,9 +292,7 @@ class TestPreferencesAPI:
 
         auth_db_path = tmp_path / "auth2.db"
         auth_key_path = tmp_path / "auth2.key"
-        auth_db = AuthDatabase(
-            db_path=str(auth_db_path), key_path=str(auth_key_path), is_dev=True
-        )
+        auth_db = AuthDatabase(db_path=str(auth_db_path), key_path=str(auth_key_path), is_dev=True)
         auth_db.initialize()
 
         from backend.api_modular import create_app

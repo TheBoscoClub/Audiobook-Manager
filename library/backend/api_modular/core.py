@@ -70,7 +70,5 @@ def add_security_headers(response: Response) -> Response:
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     # HSTS only when serving over HTTPS
     if os.environ.get("AUDIOBOOKS_HTTPS_ENABLED", "true").lower() == "true":
-        response.headers["Strict-Transport-Security"] = (
-            "max-age=31536000; includeSubDomains"
-        )
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response

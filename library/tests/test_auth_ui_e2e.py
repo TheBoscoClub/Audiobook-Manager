@@ -30,9 +30,7 @@ if not PLAYWRIGHT_AVAILABLE:
     pytest.skip("Playwright not available", allow_module_level=True)
 
 VM_HOST = os.environ.get("VM_HOST", "")
-WEB_BASE_URL = os.environ.get(
-    "AUDIOBOOKS_WEB_URL", f"https://{VM_HOST}:8443" if VM_HOST else ""
-)
+WEB_BASE_URL = os.environ.get("AUDIOBOOKS_WEB_URL", f"https://{VM_HOST}:8443" if VM_HOST else "")
 IGNORE_HTTPS_ERRORS = True
 
 
@@ -243,17 +241,11 @@ class TestHelpTooltipInteraction:
 class TestResponsiveLayout:
     """Verify auth pages render correctly at different viewport widths."""
 
-    @pytest.mark.parametrize(
-        "width,label",
-        [(375, "mobile"), (768, "tablet"), (1280, "desktop")],
-    )
-    def test_login_page_renders_at_breakpoint(
-        self, browser, web_available, width, label
-    ):
+    @pytest.mark.parametrize("width,label", [(375, "mobile"), (768, "tablet"), (1280, "desktop")])
+    def test_login_page_renders_at_breakpoint(self, browser, web_available, width, label):
         """Login page renders without overflow at {label} width."""
         context = browser.new_context(
-            viewport={"width": width, "height": 800},
-            ignore_https_errors=IGNORE_HTTPS_ERRORS,
+            viewport={"width": width, "height": 800}, ignore_https_errors=IGNORE_HTTPS_ERRORS
         )
         pg = context.new_page()
         pg.goto(f"{WEB_BASE_URL}/login.html")
@@ -266,25 +258,17 @@ class TestResponsiveLayout:
         )
 
         # Verify the main form container is visible
-        form_visible = pg.locator(
-            ".auth-container, .login-form, form"
-        ).first.is_visible()
+        form_visible = pg.locator(".auth-container, .login-form, form").first.is_visible()
         assert form_visible, f"Login form not visible at {label} width"
 
         pg.close()
         context.close()
 
-    @pytest.mark.parametrize(
-        "width,label",
-        [(375, "mobile"), (768, "tablet"), (1280, "desktop")],
-    )
-    def test_register_page_renders_at_breakpoint(
-        self, browser, web_available, width, label
-    ):
+    @pytest.mark.parametrize("width,label", [(375, "mobile"), (768, "tablet"), (1280, "desktop")])
+    def test_register_page_renders_at_breakpoint(self, browser, web_available, width, label):
         """Register page renders without overflow at {label} width."""
         context = browser.new_context(
-            viewport={"width": width, "height": 800},
-            ignore_https_errors=IGNORE_HTTPS_ERRORS,
+            viewport={"width": width, "height": 800}, ignore_https_errors=IGNORE_HTTPS_ERRORS
         )
         pg = context.new_page()
         pg.goto(f"{WEB_BASE_URL}/register.html")
@@ -292,8 +276,7 @@ class TestResponsiveLayout:
 
         body_width = pg.evaluate("document.body.scrollWidth")
         assert body_width <= width + 20, (
-            f"Register page overflows at {label} ({width}px): "
-            f"body is {body_width}px wide"
+            f"Register page overflows at {label} ({width}px): body is {body_width}px wide"
         )
 
         pg.close()
@@ -353,7 +336,5 @@ class TestVerifyPageRendering:
         content = page.content()
         # Should show manual entry form or error state (not stuck on "verifying")
         assert (
-            "manual" in content.lower()
-            or "error" in content.lower()
-            or "token" in content.lower()
+            "manual" in content.lower() or "error" in content.lower() or "token" in content.lower()
         ), "Verify page without token should show manual entry or error"

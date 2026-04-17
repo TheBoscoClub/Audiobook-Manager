@@ -53,14 +53,7 @@ DURATION_TOLERANCE_PCT = 0.05
 DURATION_TOLERANCE_MIN = 2.0
 
 VALID_CONTENT_TYPES = frozenset(
-    {
-        "Product",
-        "Performance",
-        "Speech",
-        "Podcast",
-        "Lecture",
-        "Radio/TV Program",
-    }
+    {"Product", "Performance", "Speech", "Podcast", "Lecture", "Radio/TV Program"}
 )
 
 
@@ -114,21 +107,13 @@ def get_embedded_tags(file_path: str) -> dict | None:
 
         # Normalize tag keys to lowercase
         return {k.lower(): v for k, v in tags.items()} if tags else {}
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
+    except subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError:
         return None
 
 
 def compute_duration_hours(file_path: str) -> float | None:
     """Get actual audio duration in hours from ffprobe."""
-    cmd = [
-        "ffprobe",
-        "-v",
-        "quiet",
-        "-print_format",
-        "json",
-        "-show_format",
-        str(file_path),
-    ]
+    cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", str(file_path)]
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
@@ -137,12 +122,7 @@ def compute_duration_hours(file_path: str) -> float | None:
         duration = data.get("format", {}).get("duration")
         if duration:
             return float(duration) / 3600.0
-    except (
-        subprocess.TimeoutExpired,
-        json.JSONDecodeError,
-        FileNotFoundError,
-        ValueError,
-    ):
+    except subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError, ValueError:
         pass
     return None
 
@@ -178,10 +158,7 @@ class MetadataIssue:
         self.confidence = confidence
 
     def __repr__(self):
-        return (
-            f"[{self.severity.upper()}] Book {self.book_id} | {self.field}: "
-            f"{self.message}"
-        )
+        return f"[{self.severity.upper()}] Book {self.book_id} | {self.field}: {self.message}"
 
     def to_dict(self) -> dict:
         return {
@@ -274,9 +251,7 @@ def _check_author(book_id: int, book: dict, embedded_tags: dict) -> list[Metadat
     ]
 
 
-def _check_narrator(
-    book_id: int, book: dict, embedded_tags: dict
-) -> list[MetadataIssue]:
+def _check_narrator(book_id: int, book: dict, embedded_tags: dict) -> list[MetadataIssue]:
     """Check narrator consistency between file and DB."""
     if not book.get("narrator"):
         return []
@@ -312,10 +287,7 @@ def _check_duration(
 
     audible_hours = book["runtime_length_min"] / 60.0
     diff = abs(file_duration_hours - audible_hours)
-    tolerance = max(
-        audible_hours * DURATION_TOLERANCE_PCT,
-        DURATION_TOLERANCE_MIN / 60.0,
-    )
+    tolerance = max(audible_hours * DURATION_TOLERANCE_PCT, DURATION_TOLERANCE_MIN / 60.0)
     if diff <= tolerance:
         return []
 
@@ -426,9 +398,7 @@ def _check_series(book_id: int, book: dict, embedded_tags: dict) -> list[Metadat
     ]
 
 
-def _check_publisher(
-    book_id: int, book: dict, embedded_tags: dict
-) -> list[MetadataIssue]:
+def _check_publisher(book_id: int, book: dict, embedded_tags: dict) -> list[MetadataIssue]:
     """Check publisher consistency between file and DB."""
     if not book.get("publisher"):
         return []
@@ -473,9 +443,7 @@ def _check_content_type(book_id: int, book: dict) -> list[MetadataIssue]:
 
 
 def verify_book(
-    book: dict,
-    embedded_tags: dict | None,
-    file_duration_hours: float | None,
+    book: dict, embedded_tags: dict | None, file_duration_hours: float | None
 ) -> list[MetadataIssue]:
     """Verify metadata for a single audiobook.
 
@@ -504,11 +472,7 @@ def verify_book(
     return issues
 
 
-def apply_fixes(
-    conn: sqlite3.Connection,
-    issues: list[MetadataIssue],
-    quiet: bool = False,
-) -> int:
+def apply_fixes(conn: sqlite3.Connection, issues: list[MetadataIssue], quiet: bool = False) -> int:
     """Apply recommended fixes for issues with high confidence.
 
     Only applies fixes where:
@@ -558,22 +522,14 @@ def _categorize_issues(all_issues: list[MetadataIssue]) -> dict[str, list]:
     """Categorize issues by severity."""
     return {
         "errors": [i for i in all_issues if i.severity == MetadataIssue.SEVERITY_ERROR],
-        "conflicts": [
-            i for i in all_issues if i.severity == MetadataIssue.SEVERITY_CONFLICT
-        ],
-        "warnings": [
-            i for i in all_issues if i.severity == MetadataIssue.SEVERITY_WARNING
-        ],
+        "conflicts": [i for i in all_issues if i.severity == MetadataIssue.SEVERITY_CONFLICT],
+        "warnings": [i for i in all_issues if i.severity == MetadataIssue.SEVERITY_WARNING],
         "infos": [i for i in all_issues if i.severity == MetadataIssue.SEVERITY_INFO],
     }
 
 
 def _print_verification_summary(
-    checked: int,
-    categories: dict[str, list],
-    fixes: int,
-    dry_run: bool,
-    auto_fix: bool,
+    checked: int, categories: dict[str, list], fixes: int, dry_run: bool, auto_fix: bool
 ) -> None:
     """Print the verification results summary."""
     print(f"\n{'=' * 60}")
@@ -703,35 +659,24 @@ def verify_metadata(
 
 
 def verify_single_book(
-    book_id: int,
-    db_path: Path | None = None,
-    auto_fix: bool = False,
-    quiet: bool = False,
+    book_id: int, db_path: Path | None = None, auto_fix: bool = False, quiet: bool = False
 ) -> dict:
     """Convenience function for verifying a single book.
 
     Designed to be called inline after enrichment in the import pipeline.
     """
     return verify_metadata(
-        db_path=db_path,
-        auto_fix=auto_fix,
-        single_id=book_id,
-        check_files=True,
-        quiet=quiet,
+        db_path=db_path, auto_fix=auto_fix, single_id=book_id, check_files=True, quiet=quiet
     )
 
 
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(
-        description="Verify and cross-reference audiobook metadata"
-    )
+    parser = argparse.ArgumentParser(description="Verify and cross-reference audiobook metadata")
     parser.add_argument("--db", type=str, default=None, help="Path to SQLite database")
     parser.add_argument("--dry-run", action="store_true", help="Show issues only")
-    parser.add_argument(
-        "--fix", action="store_true", help="Auto-fix high-confidence issues"
-    )
+    parser.add_argument("--fix", action="store_true", help="Auto-fix high-confidence issues")
     parser.add_argument("--id", type=int, default=None, help="Verify single book by ID")
     parser.add_argument(
         "--no-file-check",
@@ -739,11 +684,7 @@ def main():
         help="Skip ffprobe file checks (faster, DB-only verification)",
     )
     parser.add_argument("--quiet", action="store_true", help="Minimal output")
-    parser.add_argument(
-        "--json",
-        action="store_true",
-        help="Output results as JSON",
-    )
+    parser.add_argument("--json", action="store_true", help="Output results as JSON")
     args = parser.parse_args()
 
     db = Path(args.db) if args.db else None

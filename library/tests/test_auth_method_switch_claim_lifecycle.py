@@ -48,10 +48,7 @@ def _make_totp_user(auth_db, username):
 def _make_session_cookie(auth_db, user_id):
     """Create a session and return the raw token."""
     _, raw_token = Session.create_for_user(
-        db=auth_db,
-        user_id=user_id,
-        user_agent="pytest",
-        ip_address="127.0.0.1",
+        db=auth_db, user_id=user_id, user_agent="pytest", ip_address="127.0.0.1"
     )
     return raw_token
 
@@ -67,8 +64,7 @@ def _authed_client(auth_app, auth_db, user):
 def _validate_claim(client, username, claim_token):
     """Validate a claim token."""
     return client.post(
-        "/auth/register/claim/validate",
-        json={"username": username, "claim_token": claim_token},
+        "/auth/register/claim/validate", json={"username": username, "claim_token": claim_token}
     )
 
 
@@ -76,11 +72,7 @@ def _claim_totp(client, username, claim_token):
     """Claim TOTP credentials."""
     return client.post(
         "/auth/register/claim",
-        json={
-            "username": username,
-            "claim_token": claim_token,
-            "auth_method": "totp",
-        },
+        json={"username": username, "claim_token": claim_token, "auth_method": "totp"},
     )
 
 
@@ -100,10 +92,7 @@ def _claim_magic_link(client, username, claim_token, email):
 def _login_totp(client, username, totp_secret):
     """Generate a TOTP code and login."""
     code = pyotp.TOTP(totp_secret).now()
-    return client.post(
-        "/auth/login",
-        json={"username": username, "code": code},
-    )
+    return client.post("/auth/login", json={"username": username, "code": code})
 
 
 # ──────────────────────────────────────────────────────────────────────
@@ -123,8 +112,7 @@ class TestAdminSwitchToPasskeyThenClaimThenLogin:
 
         # Admin switches auth method to passkey
         resp = admin_client.put(
-            f"/auth/admin/users/{user.id}/auth-method",
-            json={"auth_method": "passkey"},
+            f"/auth/admin/users/{user.id}/auth-method", json={"auth_method": "passkey"}
         )
         assert resp.status_code == 200, f"Switch failed: {resp.get_json()}"
         switch_data = resp.get_json()
@@ -145,9 +133,7 @@ class TestAdminSwitchToPasskeyThenClaimThenLogin:
         assert resp.status_code == 200, f"Login failed: {resp.get_json()}"
         assert resp.get_json()["success"] is True
 
-    def test_switch_to_passkey_then_claim_magic_link(
-        self, admin_client, auth_app, auth_db
-    ):
+    def test_switch_to_passkey_then_claim_magic_link(self, admin_client, auth_app, auth_db):
         """
         Switch to passkey, but claim magic_link credentials instead.
         The claim endpoint should accept any auth_method, not just passkey.
@@ -155,16 +141,13 @@ class TestAdminSwitchToPasskeyThenClaimThenLogin:
         user, _ = _make_totp_user(auth_db, "switch-claim-ml")
 
         resp = admin_client.put(
-            f"/auth/admin/users/{user.id}/auth-method",
-            json={"auth_method": "passkey"},
+            f"/auth/admin/users/{user.id}/auth-method", json={"auth_method": "passkey"}
         )
         assert resp.status_code == 200
         claim_token = resp.get_json()["setup_data"]["claim_token"]
 
         client = auth_app.test_client()
-        resp = _claim_magic_link(
-            client, user.username, claim_token, "switch-ml@example.com"
-        )
+        resp = _claim_magic_link(client, user.username, claim_token, "switch-ml@example.com")
         assert resp.status_code == 200, f"Claim ML failed: {resp.get_json()}"
         data = resp.get_json()
         assert data["success"] is True
@@ -193,10 +176,7 @@ class TestSelfServiceSwitchToPasskeyThenClaimThenLogin:
         authed = _authed_client(auth_app, auth_db, user)
 
         # Self-service switch to passkey
-        resp = authed.put(
-            "/auth/account/auth-method",
-            json={"auth_method": "passkey"},
-        )
+        resp = authed.put("/auth/account/auth-method", json={"auth_method": "passkey"})
         assert resp.status_code == 200, f"Self-switch failed: {resp.get_json()}"
         claim_token = resp.get_json()["setup_data"]["claim_token"]
 
@@ -328,10 +308,7 @@ class TestSelfServiceResetPasskeyThenClaimThenLogin:
         authed = _authed_client(auth_app, auth_db, user)
 
         # Switch to passkey
-        resp = authed.put(
-            "/auth/account/auth-method",
-            json={"auth_method": "passkey"},
-        )
+        resp = authed.put("/auth/account/auth-method", json={"auth_method": "passkey"})
         assert resp.status_code == 200
         first_token = resp.get_json()["setup_data"]["claim_token"]
 
@@ -387,8 +364,7 @@ class TestDoubleSwitchRoundTrip:
 
         # Switch to passkey
         resp = admin_client.put(
-            f"/auth/admin/users/{user.id}/auth-method",
-            json={"auth_method": "passkey"},
+            f"/auth/admin/users/{user.id}/auth-method", json={"auth_method": "passkey"}
         )
         assert resp.status_code == 200
         claim_token = resp.get_json()["setup_data"]["claim_token"]
@@ -401,8 +377,7 @@ class TestDoubleSwitchRoundTrip:
 
         # Switch back to TOTP via admin (direct TOTP setup, no claim needed)
         resp = admin_client.put(
-            f"/auth/admin/users/{user.id}/auth-method",
-            json={"auth_method": "totp"},
+            f"/auth/admin/users/{user.id}/auth-method", json={"auth_method": "totp"}
         )
         assert resp.status_code == 200
         final_secret = resp.get_json()["setup_data"]["secret"]

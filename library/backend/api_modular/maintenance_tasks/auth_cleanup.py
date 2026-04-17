@@ -120,9 +120,7 @@ class AuthCleanupTask(MaintenanceTask):
                 progress_callback(1.0, "Complete")
 
             db.close()
-            return ExecutionResult(
-                success=True, message=_build_summary(results), data=results
-            )
+            return ExecutionResult(success=True, message=_build_summary(results), data=results)
 
         except Exception as e:
             db.close()

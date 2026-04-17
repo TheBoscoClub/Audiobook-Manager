@@ -21,9 +21,7 @@ def app_with_db(tmp_path):
     conn.close()
 
     app = create_app(
-        database_path=db_path,
-        project_dir=tmp_path,
-        supplements_dir=tmp_path / "supplements",
+        database_path=db_path, project_dir=tmp_path, supplements_dir=tmp_path / "supplements"
     )
     app.config["TESTING"] = True
     return app
@@ -77,10 +75,7 @@ class TestMaintenanceWindows:
             },
         )
         wid = resp.get_json()["id"]
-        resp = client.put(
-            f"/api/admin/maintenance/windows/{wid}",
-            json={"name": "Updated Name"},
-        )
+        resp = client.put(f"/api/admin/maintenance/windows/{wid}", json={"name": "Updated Name"})
         assert resp.status_code == 200
         assert resp.get_json()["name"] == "Updated Name"
 
@@ -102,18 +97,14 @@ class TestMaintenanceWindows:
 class TestMaintenanceMessages:
     def test_create_message(self, client):
         resp = client.post(
-            "/api/admin/maintenance/messages",
-            json={"message": "Planned downtime tonight"},
+            "/api/admin/maintenance/messages", json={"message": "Planned downtime tonight"}
         )
         assert resp.status_code == 201
         data = resp.get_json()
         assert data["message"] == "Planned downtime tonight"
 
     def test_dismiss_message(self, client):
-        resp = client.post(
-            "/api/admin/maintenance/messages",
-            json={"message": "Test"},
-        )
+        resp = client.post("/api/admin/maintenance/messages", json={"message": "Test"})
         mid = resp.get_json()["id"]
         resp = client.delete(f"/api/admin/maintenance/messages/{mid}")
         assert resp.status_code == 200
@@ -121,10 +112,7 @@ class TestMaintenanceMessages:
 
 class TestPublicAnnouncements:
     def test_announcements_returns_active(self, client):
-        client.post(
-            "/api/admin/maintenance/messages",
-            json={"message": "Server restarting"},
-        )
+        client.post("/api/admin/maintenance/messages", json={"message": "Server restarting"})
         resp = client.get("/api/maintenance/announcements")
         assert resp.status_code == 200
         data = resp.get_json()

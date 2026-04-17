@@ -147,11 +147,7 @@ class TestNoHardcodedPaths:
 
     # Paths that should be configured, not hardcoded
     # Note: /etc/audiobooks is NOT forbidden - proper FHS system config location
-    FORBIDDEN_PATHS = [
-        "/var/lib/audiobooks",
-        "/opt/audiobooks",
-        "/srv/audiobooks",
-    ]
+    FORBIDDEN_PATHS = ["/var/lib/audiobooks", "/opt/audiobooks", "/srv/audiobooks"]
 
     # Files/patterns that are allowed to have these paths (e.g., config defaults)
     ALLOWED_FILES = [
@@ -197,9 +193,7 @@ class TestNoHardcodedPaths:
             return False
         return forbidden in line.split(":-")[1].split("}")[0]
 
-    def _is_allowed_usage(
-        self, line: str, lines: list[str], line_num: int, forbidden: str
-    ) -> bool:
+    def _is_allowed_usage(self, line: str, lines: list[str], line_num: int, forbidden: str) -> bool:
         """Check if a forbidden path usage is in an allowed context."""
         if self._is_config_fallback(line, lines, line_num):
             return True
@@ -209,9 +203,7 @@ class TestNoHardcodedPaths:
             return True
         return False
 
-    def _scan_file_for_hardcoded_paths(
-        self, filepath: Path
-    ) -> list[tuple[int, str, str]]:
+    def _scan_file_for_hardcoded_paths(self, filepath: Path) -> list[tuple[int, str, str]]:
         """Scan a file for hardcoded paths.
 
         Returns list of (line_number, path_found, line_content).
@@ -339,8 +331,7 @@ class TestNoHardcodedPaths:
 
         assert not violations, (
             f"Found {len(violations)} hardcoded path(s) in shell scripts. "
-            f"Use config variables from audiobook-config.sh instead:\n"
-            + "\n".join(violations)
+            f"Use config variables from audiobook-config.sh instead:\n" + "\n".join(violations)
         )
 
     def test_systemd_files_no_hardcoded_paths(self):
@@ -368,9 +359,7 @@ class TestNoHardcodedPaths:
             content = service_file.read_text()
             # Basic validation - should have [Unit] and [Service] sections
             assert "[Unit]" in content, f"{service_file.name} missing [Unit] section"
-            assert "[Service]" in content, (
-                f"{service_file.name} missing [Service] section"
-            )
+            assert "[Service]" in content, f"{service_file.name} missing [Service] section"
 
 
 class TestConfigVariablesUsed:
@@ -391,9 +380,7 @@ class TestConfigVariablesUsed:
             return
 
         content = module_path.read_text()
-        assert "from config import" in content, (
-            "maintenance.py should import from config module"
-        )
+        assert "from config import" in content, "maintenance.py should import from config module"
         assert "AUDIOBOOKS_DATABASE" in content, (
             "maintenance.py should use AUDIOBOOKS_DATABASE config variable"
         )

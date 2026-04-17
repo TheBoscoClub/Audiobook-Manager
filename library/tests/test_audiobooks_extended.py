@@ -168,10 +168,7 @@ def audiobooks_app(tmp_path_factory):
     _insert_test_data(test_db)
 
     app = create_app(
-        database_path=test_db,
-        project_dir=tmpdir,
-        supplements_dir=supplements_dir,
-        api_port=5098,
+        database_path=test_db, project_dir=tmpdir, supplements_dir=supplements_dir, api_port=5098
     )
     app.config["TESTING"] = True
 
@@ -392,9 +389,7 @@ class TestGetAudiobooksBatchFetch:
         """Lines 463-464: edition_count == 1 when no edition markers."""
         resp = client.get("/api/audiobooks")
         data = resp.get_json()
-        orphan = next(
-            (b for b in data["audiobooks"] if b["title"] == "Orphan Book"), None
-        )
+        orphan = next((b for b in data["audiobooks"] if b["title"] == "Orphan Book"), None)
         if orphan:
             assert orphan["edition_count"] == 1
 
@@ -539,10 +534,7 @@ class TestStreamAudiobook:
             mock_conn = MagicMock()
             mock_cursor = MagicMock()
             mock_conn.cursor.return_value = mock_cursor
-            mock_cursor.fetchone.return_value = {
-                "file_path": str(opus_file),
-                "format": "opus",
-            }
+            mock_cursor.fetchone.return_value = {"file_path": str(opus_file), "format": "opus"}
             mock_db.return_value = mock_conn
 
             mock_result = MagicMock()
@@ -551,8 +543,7 @@ class TestStreamAudiobook:
 
             with patch("subprocess.run", return_value=mock_result):
                 with patch(
-                    "backend.api_modular.audiobooks.AUDIOBOOKS_WEBM_CACHE",
-                    tmp_path / "webm-cache",
+                    "backend.api_modular.audiobooks.AUDIOBOOKS_WEBM_CACHE", tmp_path / "webm-cache"
                 ):
                     resp = client.get("/api/stream/100?format=webm")
                     assert resp.status_code == 500
@@ -570,19 +561,14 @@ class TestStreamAudiobook:
             mock_conn = MagicMock()
             mock_cursor = MagicMock()
             mock_conn.cursor.return_value = mock_cursor
-            mock_cursor.fetchone.return_value = {
-                "file_path": str(opus_file),
-                "format": "opus",
-            }
+            mock_cursor.fetchone.return_value = {"file_path": str(opus_file), "format": "opus"}
             mock_db.return_value = mock_conn
 
             with patch(
-                "subprocess.run",
-                side_effect=subprocess.TimeoutExpired(cmd="ffmpeg", timeout=300),
+                "subprocess.run", side_effect=subprocess.TimeoutExpired(cmd="ffmpeg", timeout=300)
             ):
                 with patch(
-                    "backend.api_modular.audiobooks.AUDIOBOOKS_WEBM_CACHE",
-                    tmp_path / "webm-cache",
+                    "backend.api_modular.audiobooks.AUDIOBOOKS_WEBM_CACHE", tmp_path / "webm-cache"
                 ):
                     resp = client.get("/api/stream/100?format=webm")
                     assert resp.status_code == 500
@@ -598,19 +584,12 @@ class TestStreamAudiobook:
             mock_conn = MagicMock()
             mock_cursor = MagicMock()
             mock_conn.cursor.return_value = mock_cursor
-            mock_cursor.fetchone.return_value = {
-                "file_path": str(opus_file),
-                "format": "opus",
-            }
+            mock_cursor.fetchone.return_value = {"file_path": str(opus_file), "format": "opus"}
             mock_db.return_value = mock_conn
 
-            with patch(
-                "subprocess.run",
-                side_effect=OSError("No space left on device"),
-            ):
+            with patch("subprocess.run", side_effect=OSError("No space left on device")):
                 with patch(
-                    "backend.api_modular.audiobooks.AUDIOBOOKS_WEBM_CACHE",
-                    tmp_path / "webm-cache",
+                    "backend.api_modular.audiobooks.AUDIOBOOKS_WEBM_CACHE", tmp_path / "webm-cache"
                 ):
                     resp = client.get("/api/stream/100?format=webm")
                     assert resp.status_code == 500
@@ -626,10 +605,7 @@ class TestStreamAudiobook:
             mock_conn = MagicMock()
             mock_cursor = MagicMock()
             mock_conn.cursor.return_value = mock_cursor
-            mock_cursor.fetchone.return_value = {
-                "file_path": str(m4b_file),
-                "format": "m4b",
-            }
+            mock_cursor.fetchone.return_value = {"file_path": str(m4b_file), "format": "m4b"}
             mock_db.return_value = mock_conn
 
             resp = client.get("/api/stream/102")
@@ -753,10 +729,7 @@ class TestHealthEndpoint:
         empty_dir.mkdir()
 
         app = create_app(
-            database_path=db_path,
-            project_dir=empty_dir,
-            supplements_dir=tmp_path,
-            api_port=5096,
+            database_path=db_path, project_dir=empty_dir, supplements_dir=tmp_path, api_port=5096
         )
         app.config["TESTING"] = True
 

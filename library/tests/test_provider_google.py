@@ -10,10 +10,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts.enrichment.provider_google import (
-    GoogleBooksProvider,
-    _extract_series_from_volume,
-)
+from scripts.enrichment.provider_google import GoogleBooksProvider, _extract_series_from_volume
 
 
 class TestGoogleBooksProviderCanEnrich:
@@ -49,9 +46,7 @@ class TestGoogleBooksProviderEnrich:
 
     @patch("scripts.enrichment.provider_google._search_google_books")
     def test_extracts_series_from_subtitle(self, mock_search):
-        mock_search.return_value = {
-            "subtitle": "The Dark Tower, Book 3",
-        }
+        mock_search.return_value = {"subtitle": "The Dark Tower, Book 3"}
         provider = GoogleBooksProvider()
         result = provider.enrich({"title": "The Waste Lands"})
         assert result["series"] == "The Dark Tower"
@@ -59,9 +54,7 @@ class TestGoogleBooksProviderEnrich:
 
     @patch("scripts.enrichment.provider_google._search_google_books")
     def test_skips_series_when_already_set(self, mock_search):
-        mock_search.return_value = {
-            "subtitle": "The Dark Tower, Book 3",
-        }
+        mock_search.return_value = {"subtitle": "The Dark Tower, Book 3"}
         provider = GoogleBooksProvider()
         result = provider.enrich({"title": "Some Book", "series": "Existing"})
         assert "series" not in result

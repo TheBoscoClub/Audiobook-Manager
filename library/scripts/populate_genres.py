@@ -63,31 +63,20 @@ def _build_audible_lookups(audible_library: list) -> tuple[dict, dict]:
         if title:
             norm_title = normalize_title(title)
             if norm_title:
-                audible_by_title[norm_title] = {
-                    "title": title,
-                    "genres": genre_list,
-                    "asin": asin,
-                }
+                audible_by_title[norm_title] = {"title": title, "genres": genre_list, "asin": asin}
 
-    print(
-        f"Built lookup with {len(audible_by_asin)} ASINs,"
-        f" {len(audible_by_title)} titles"
-    )
+    print(f"Built lookup with {len(audible_by_asin)} ASINs, {len(audible_by_title)} titles")
     return audible_by_asin, audible_by_title
 
 
-def _match_by_asin(
-    book_asin: str, audible_by_asin: dict
-) -> tuple[dict | None, str | None]:
+def _match_by_asin(book_asin: str, audible_by_asin: dict) -> tuple[dict | None, str | None]:
     """Try ASIN match. Returns (match, method) or (None, None)."""
     if book_asin and book_asin in audible_by_asin:
         return audible_by_asin[book_asin], "ASIN"
     return None, None
 
 
-def _match_by_title(
-    book_title: str, audible_by_title: dict
-) -> tuple[dict | None, str | None]:
+def _match_by_title(book_title: str, audible_by_title: dict) -> tuple[dict | None, str | None]:
     """Try exact or fuzzy title match. Returns (match, method) or (None, None)."""
     norm_title = normalize_title(book_title)
     if norm_title in audible_by_title:
@@ -195,8 +184,7 @@ def _apply_genre_updates(cursor, conn, matches: list, all_genres: set) -> None:
         for genre in m["genres"]:
             if genre in genre_id_map and genre not in seen_genres:
                 cursor.execute(
-                    "INSERT INTO audiobook_genres"
-                    " (audiobook_id, genre_id) VALUES (?, ?)",
+                    "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
                     (m["id"], genre_id_map[genre]),
                 )
                 association_count += 1
@@ -239,11 +227,7 @@ def populate_genres(dry_run=True):
     all_books = cursor.fetchall()
     print(f"Found {len(all_books)} audiobooks in database")
 
-    matches, no_match, all_genres = _match_books(
-        all_books,
-        audible_by_asin,
-        audible_by_title,
-    )
+    matches, no_match, all_genres = _match_books(all_books, audible_by_asin, audible_by_title)
 
     _print_match_report(matches, no_match, all_genres)
 
@@ -264,9 +248,7 @@ def populate_genres(dry_run=True):
 def main():
     parser = ArgumentParser(description="Populate genres from Audible library export")
     parser.add_argument(
-        "--execute",
-        action="store_true",
-        help="Actually apply changes (default is dry run)",
+        "--execute", action="store_true", help="Actually apply changes (default is dry run)"
     )
     args = parser.parse_args()
     populate_genres(dry_run=not args.execute)

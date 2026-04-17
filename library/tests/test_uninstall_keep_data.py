@@ -121,9 +121,7 @@ def test_delete_data_wipes_state_dir(fake_home: Path) -> None:
     # --delete-data should NOT preserve any of the staged items
     should_be_gone = ("db", "db_wal", "auth_db", "auth_key", "cover", "conf")
     survivors = [k for k in should_be_gone if paths[k].exists()]
-    assert not survivors, (
-        f"--delete-data should have wiped these, but they survived: {survivors}"
-    )
+    assert not survivors, f"--delete-data should have wiped these, but they survived: {survivors}"
 
 
 def test_keep_data_restores_even_when_some_items_missing(fake_home: Path) -> None:

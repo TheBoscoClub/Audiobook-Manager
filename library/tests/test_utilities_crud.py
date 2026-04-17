@@ -28,10 +28,7 @@ class TestUpdateAudiobook:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/9001",
-                json={"narrator": "New Narrator"},
-            )
+            response = client.put("/api/audiobooks/9001", json={"narrator": "New Narrator"})
 
         assert response.status_code == 200
         data = response.get_json()
@@ -51,11 +48,7 @@ class TestUpdateAudiobook:
         with flask_app.test_client() as client:
             response = client.put(
                 "/api/audiobooks/9002",
-                json={
-                    "title": "New Title",
-                    "series": "New Series",
-                    "published_year": 2024,
-                },
+                json={"title": "New Title", "series": "New Series", "published_year": 2024},
             )
 
         assert response.status_code == 200
@@ -73,10 +66,7 @@ class TestUpdateAudiobook:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/999999",
-                json={"title": "Does Not Matter"},
-            )
+            response = client.put("/api/audiobooks/999999", json={"title": "Does Not Matter"})
 
         assert response.status_code == 404
         data = response.get_json()
@@ -99,8 +89,7 @@ class TestUpdateAudiobook:
         """Test update with only invalid fields returns 400."""
         with flask_app.test_client() as client:
             response = client.put(
-                "/api/audiobooks/1",
-                json={"invalid_field": "value", "another_bad": 123},
+                "/api/audiobooks/1", json={"invalid_field": "value", "another_bad": 123}
             )
 
         assert response.status_code == 400
@@ -118,10 +107,7 @@ class TestUpdateAudiobook:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/1",
-                json={"title": "New Title"},
-            )
+            response = client.put("/api/audiobooks/1", json={"title": "New Title"})
 
         assert response.status_code == 500
         data = response.get_json()
@@ -218,11 +204,7 @@ class TestBulkUpdateAudiobooks:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/audiobooks/bulk-update",
-                json={
-                    "ids": [9010, 9011],
-                    "field": "narrator",
-                    "value": "Bulk Narrator",
-                },
+                json={"ids": [9010, 9011], "field": "narrator", "value": "Bulk Narrator"},
             )
 
         assert response.status_code == 200
@@ -243,11 +225,7 @@ class TestBulkUpdateAudiobooks:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/audiobooks/bulk-update",
-                json={
-                    "ids": [9012, 9013],
-                    "field": "series",
-                    "value": "New Series",
-                },
+                json={"ids": [9012, 9013], "field": "series", "value": "New Series"},
             )
 
         assert response.status_code == 200
@@ -267,11 +245,7 @@ class TestBulkUpdateAudiobooks:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/audiobooks/bulk-update",
-                json={
-                    "ids": [9014],
-                    "field": "publisher",
-                    "value": "New Publisher",
-                },
+                json={"ids": [9014], "field": "publisher", "value": "New Publisher"},
             )
 
         assert response.status_code == 200
@@ -291,11 +265,7 @@ class TestBulkUpdateAudiobooks:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/audiobooks/bulk-update",
-                json={
-                    "ids": [9015],
-                    "field": "published_year",
-                    "value": 2025,
-                },
+                json={"ids": [9015], "field": "published_year", "value": 2025},
             )
 
         assert response.status_code == 200
@@ -328,11 +298,7 @@ class TestBulkUpdateAudiobooks:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/audiobooks/bulk-update",
-                json={
-                    "ids": [1, 2],
-                    "field": "narrator",
-                    "value": "Test",
-                },
+                json={"ids": [1, 2], "field": "narrator", "value": "Test"},
             )
 
         assert response.status_code == 500
@@ -355,10 +321,7 @@ class TestBulkDeleteAudiobooks:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/audiobooks/bulk-delete",
-                json={"ids": [9020, 9021]},
-            )
+            response = client.post("/api/audiobooks/bulk-delete", json={"ids": [9020, 9021]})
 
         assert response.status_code == 200
         data = response.get_json()
@@ -368,9 +331,7 @@ class TestBulkDeleteAudiobooks:
     @patch("backend.api_modular.utilities_crud.get_db")
     @patch("pathlib.Path.exists")
     @patch("pathlib.Path.unlink")
-    def test_bulk_delete_with_file_deletion(
-        self, mock_unlink, mock_exists, mock_get_db, flask_app
-    ):
+    def test_bulk_delete_with_file_deletion(self, mock_unlink, mock_exists, mock_get_db, flask_app):
         """Test bulk delete with file deletion enabled."""
         mock_exists.return_value = True
         mock_conn = MagicMock()
@@ -385,8 +346,7 @@ class TestBulkDeleteAudiobooks:
 
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/audiobooks/bulk-delete",
-                json={"ids": [9022], "delete_files": True},
+                "/api/audiobooks/bulk-delete", json={"ids": [9022], "delete_files": True}
             )
 
         assert response.status_code == 200
@@ -404,11 +364,7 @@ class TestBulkDeleteAudiobooks:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         # Must return dict-like objects (sqlite3.Row behavior)
-        mock_row = {
-            "id": 9023,
-            "file_path": "/nonexistent/path.opus",
-            "cover_path": None,
-        }
+        mock_row = {"id": 9023, "file_path": "/nonexistent/path.opus", "cover_path": None}
         mock_cursor.fetchall.return_value = [mock_row]
         mock_cursor.rowcount = 1
         mock_conn.cursor.return_value = mock_cursor
@@ -417,8 +373,7 @@ class TestBulkDeleteAudiobooks:
 
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/audiobooks/bulk-delete",
-                json={"ids": [9023], "delete_files": True},
+                "/api/audiobooks/bulk-delete", json={"ids": [9023], "delete_files": True}
             )
 
         assert response.status_code == 200
@@ -438,10 +393,7 @@ class TestBulkDeleteAudiobooks:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/audiobooks/bulk-delete",
-                json={"ids": [9024]},
-            )
+            response = client.post("/api/audiobooks/bulk-delete", json={"ids": [9024]})
 
         assert response.status_code == 200
 
@@ -455,10 +407,7 @@ class TestBulkDeleteAudiobooks:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/audiobooks/bulk-delete",
-                json={"ids": [1, 2]},
-            )
+            response = client.post("/api/audiobooks/bulk-delete", json={"ids": [1, 2]})
 
         assert response.status_code == 500
         data = response.get_json()
@@ -617,8 +566,7 @@ class TestSetAudiobookGenres:
 
         with flask_app.test_client() as client:
             response = client.put(
-                "/api/audiobooks/1/genres",
-                json={"genres": ["Fiction", "Mystery"]},
+                "/api/audiobooks/1/genres", json={"genres": ["Fiction", "Mystery"]}
             )
 
         assert response.status_code == 200
@@ -636,10 +584,7 @@ class TestSetAudiobookGenres:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/999999/genres",
-                json={"genres": ["Fiction"]},
-            )
+            response = client.put("/api/audiobooks/999999/genres", json={"genres": ["Fiction"]})
 
         assert response.status_code == 404
         data = response.get_json()
@@ -649,10 +594,7 @@ class TestSetAudiobookGenres:
     def test_set_genres_missing_field(self, flask_app):
         """Test returns 400 when genres field is missing."""
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/1/genres",
-                json={"wrong_field": "value"},
-            )
+            response = client.put("/api/audiobooks/1/genres", json={"wrong_field": "value"})
 
         assert response.status_code == 400
         data = response.get_json()
@@ -662,10 +604,7 @@ class TestSetAudiobookGenres:
     def test_set_genres_not_a_list(self, flask_app):
         """Test returns 400 when genres is not a list."""
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/1/genres",
-                json={"genres": "not-a-list"},
-            )
+            response = client.put("/api/audiobooks/1/genres", json={"genres": "not-a-list"})
 
         assert response.status_code == 400
         data = response.get_json()
@@ -688,10 +627,7 @@ class TestSetAudiobookGenres:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/1/genres",
-                json={"genres": ["Fiction"]},
-            )
+            response = client.put("/api/audiobooks/1/genres", json={"genres": ["Fiction"]})
 
         assert response.status_code == 500
         data = response.get_json()
@@ -714,11 +650,7 @@ class TestBulkManageGenres:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/audiobooks/bulk-genres",
-                json={
-                    "ids": [1, 2, 3],
-                    "genres": ["Thriller"],
-                    "mode": "add",
-                },
+                json={"ids": [1, 2, 3], "genres": ["Thriller"], "mode": "add"},
             )
 
         assert response.status_code == 200
@@ -741,11 +673,7 @@ class TestBulkManageGenres:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/audiobooks/bulk-genres",
-                json={
-                    "ids": [1, 2],
-                    "genres": ["Thriller"],
-                    "mode": "remove",
-                },
+                json={"ids": [1, 2], "genres": ["Thriller"], "mode": "remove"},
             )
 
         assert response.status_code == 200
@@ -757,9 +685,7 @@ class TestBulkManageGenres:
         """Test returns 400 when no data provided."""
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/audiobooks/bulk-genres",
-                content_type="application/json",
-                data="null",
+                "/api/audiobooks/bulk-genres", content_type="application/json", data="null"
             )
 
         assert response.status_code == 400
@@ -782,8 +708,7 @@ class TestBulkManageGenres:
         """Test returns 400 when no genres provided."""
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/audiobooks/bulk-genres",
-                json={"ids": [1, 2], "genres": [], "mode": "add"},
+                "/api/audiobooks/bulk-genres", json={"ids": [1, 2], "genres": [], "mode": "add"}
             )
 
         assert response.status_code == 400
@@ -815,11 +740,7 @@ class TestBulkManageGenres:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/audiobooks/bulk-genres",
-                json={
-                    "ids": [1, 2],
-                    "genres": ["NonexistentGenre"],
-                    "mode": "remove",
-                },
+                json={"ids": [1, 2], "genres": ["NonexistentGenre"], "mode": "remove"},
             )
 
         assert response.status_code == 200
@@ -839,11 +760,7 @@ class TestBulkManageGenres:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/audiobooks/bulk-genres",
-                json={
-                    "ids": [1, 2],
-                    "genres": ["Fiction"],
-                    "mode": "add",
-                },
+                json={"ids": [1, 2], "genres": ["Fiction"], "mode": "add"},
             )
 
         assert response.status_code == 500

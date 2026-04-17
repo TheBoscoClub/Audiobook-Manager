@@ -39,10 +39,7 @@ from auth.totp import TOTPAuthenticator  # noqa: E402
 def _make_user(auth_db, username, **kwargs):
     """Create a user with defaults, return saved User."""
     defaults = dict(
-        auth_type=AuthType.TOTP,
-        auth_credential=b"testsecret",
-        is_admin=False,
-        can_download=True,
+        auth_type=AuthType.TOTP, auth_credential=b"testsecret", is_admin=False, can_download=True
     )
     defaults.update(kwargs)
     user = User(username=username, **defaults)
@@ -53,10 +50,7 @@ def _make_user(auth_db, username, **kwargs):
 def _make_session_cookie(auth_db, user_id):
     """Create session, return raw token."""
     _, raw_token = Session.create_for_user(
-        db=auth_db,
-        user_id=user_id,
-        user_agent="pytest",
-        ip_address="127.0.0.1",
+        db=auth_db, user_id=user_id, user_agent="pytest", ip_address="127.0.0.1"
     )
     return raw_token
 
@@ -185,18 +179,14 @@ class TestAuthMethodSwitchAdvanced:
         client = _authed_client(auth_app, auth_db, user)
 
         # Setup phase
-        r = client.put(
-            "/auth/me/auth-method",
-            json={"auth_method": "totp", "phase": "setup"},
-        )
+        r = client.put("/auth/me/auth-method", json={"auth_method": "totp", "phase": "setup"})
         assert r.status_code == 200
         secret = r.get_json()["totp_secret"]
 
         # Confirm phase with valid code
         code = pyotp.TOTP(secret).now()
         r = client.put(
-            "/auth/me/auth-method",
-            json={"auth_method": "totp", "phase": "confirm", "code": code},
+            "/auth/me/auth-method", json={"auth_method": "totp", "phase": "confirm", "code": code}
         )
         assert r.status_code == 200
         assert r.get_json()["auth_type"] == "totp"
@@ -207,10 +197,7 @@ class TestAuthMethodSwitchAdvanced:
         client = _authed_client(auth_app, auth_db, user)
 
         # Setup phase
-        r = client.put(
-            "/auth/me/auth-method",
-            json={"auth_method": "totp", "phase": "setup"},
-        )
+        r = client.put("/auth/me/auth-method", json={"auth_method": "totp", "phase": "setup"})
         assert r.status_code == 200
 
         # Confirm with wrong code
@@ -277,10 +264,7 @@ class TestAuthMethodSwitchAdvanced:
         user = _make_user(auth_db, "webauthn_miss_cov")
         client = _authed_client(auth_app, auth_db, user)
 
-        r = client.post(
-            "/auth/me/webauthn/complete",
-            json={"credential": None, "challenge": ""},
-        )
+        r = client.post("/auth/me/webauthn/complete", json={"credential": None, "challenge": ""})
         assert r.status_code == 400
 
     def test_webauthn_complete_invalid_challenge(self, auth_app, auth_db):
@@ -330,10 +314,7 @@ class TestRegistrationStartEdgeCases:
         request_repo.create("pending_cov_user", hash_token(trunc), None)
 
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/register/start",
-            json={"username": "pending_cov_user"},
-        )
+        r = client.post("/auth/register/start", json={"username": "pending_cov_user"})
         assert r.status_code == 400
         assert "pending" in r.get_json()["error"].lower()
 
@@ -346,10 +327,7 @@ class TestRegistrationStartEdgeCases:
         request_repo.deny(access_req.id, "admin", "denied")
 
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/register/start",
-            json={"username": "prev_req_cov_user"},
-        )
+        r = client.post("/auth/register/start", json={"username": "prev_req_cov_user"})
         assert r.status_code == 400
         assert "previous" in r.get_json()["error"].lower()
 
@@ -376,11 +354,7 @@ class TestClaimFlowEdgeCases:
         client = auth_app.test_client()
         r = client.post(
             "/auth/register/claim",
-            json={
-                "username": "claim_meta_cov",
-                "claim_token": formatted,
-                "auth_method": "totp",
-            },
+            json={"username": "claim_meta_cov", "claim_token": formatted, "auth_method": "totp"},
         )
         assert r.status_code == 200
         assert r.get_json()["success"] is True
@@ -424,11 +398,7 @@ class TestClaimFlowEdgeCases:
         # Try to claim but the endpoint checks username_exists()
         r = client.post(
             "/auth/register/claim",
-            json={
-                "username": "claim_exist_cov2",
-                "claim_token": formatted,
-                "auth_method": "totp",
-            },
+            json={"username": "claim_exist_cov2", "claim_token": formatted, "auth_method": "totp"},
         )
         # Should succeed since username doesn't exist yet
         assert r.status_code == 200
@@ -466,10 +436,7 @@ class TestClaimFlowEdgeCases:
         client = auth_app.test_client()
         r = client.post(
             "/auth/register/claim/validate",
-            json={
-                "username": "cv_pending_cov",
-                "claim_token": formatted,
-            },
+            json={"username": "cv_pending_cov", "claim_token": formatted},
         )
         assert r.status_code == 400
         assert r.get_json()["status"] == "pending"
@@ -486,10 +453,7 @@ class TestClaimFlowEdgeCases:
         client = auth_app.test_client()
         r = client.post(
             "/auth/register/claim/validate",
-            json={
-                "username": "cv_denied_cov",
-                "claim_token": formatted,
-            },
+            json={"username": "cv_denied_cov", "claim_token": formatted},
         )
         assert r.status_code == 400
         assert r.get_json()["status"] == "denied"
@@ -509,10 +473,7 @@ class TestClaimFlowEdgeCases:
         client = auth_app.test_client()
         r = client.post(
             "/auth/register/claim/validate",
-            json={
-                "username": "cv_exists_cov",
-                "claim_token": formatted,
-            },
+            json={"username": "cv_exists_cov", "claim_token": formatted},
         )
         # The endpoint checks credentials_claimed OR username_exists
         assert r.status_code == 400
@@ -530,10 +491,7 @@ class TestClaimFlowEdgeCases:
         client = auth_app.test_client()
         r = client.post(
             "/auth/register/claim/validate",
-            json={
-                "username": "cv_approved_cov",
-                "claim_token": formatted,
-            },
+            json={"username": "cv_approved_cov", "claim_token": formatted},
         )
         assert r.status_code == 200
         assert r.get_json()["valid"] is True
@@ -567,11 +525,7 @@ class TestClaimWebAuthnFlows:
         client = auth_app.test_client()
         r = client.post(
             "/auth/register/claim/webauthn/begin",
-            json={
-                "username": "cwb_pending_cov",
-                "claim_token": formatted,
-                "auth_type": "passkey",
-            },
+            json={"username": "cwb_pending_cov", "claim_token": formatted, "auth_type": "passkey"},
         )
         assert r.status_code == 400
         assert "pending" in r.get_json()["error"].lower()
@@ -589,11 +543,7 @@ class TestClaimWebAuthnFlows:
         client = auth_app.test_client()
         r = client.post(
             "/auth/register/claim/webauthn/begin",
-            json={
-                "username": "cwb_claimed_cov",
-                "claim_token": formatted,
-                "auth_type": "passkey",
-            },
+            json={"username": "cwb_claimed_cov", "claim_token": formatted, "auth_type": "passkey"},
         )
         assert r.status_code == 400
 
@@ -603,11 +553,7 @@ class TestClaimWebAuthnFlows:
         client = auth_app.test_client()
         r = client.post(
             "/auth/register/claim/webauthn/begin",
-            json={
-                "username": "cwb_fido2_cov",
-                "claim_token": formatted,
-                "auth_type": "fido2",
-            },
+            json={"username": "cwb_fido2_cov", "claim_token": formatted, "auth_type": "fido2"},
         )
         assert r.status_code == 200
         assert "challenge" in r.get_json()
@@ -618,11 +564,7 @@ class TestClaimWebAuthnFlows:
         client = auth_app.test_client()
         r = client.post(
             "/auth/register/claim/webauthn/begin",
-            json={
-                "username": "cwb_ok_cov",
-                "claim_token": formatted,
-                "auth_type": "fido2",
-            },
+            json={"username": "cwb_ok_cov", "claim_token": formatted, "auth_type": "fido2"},
         )
         assert r.status_code == 200
         data = r.get_json()
@@ -741,39 +683,27 @@ class TestRegistrationVerifyLegacy:
         """Verify registration with recovery email set."""
         from auth.models import PendingRegistration
 
-        reg, raw_token = PendingRegistration.create(
-            auth_db, "verify_rec_cov", expiry_minutes=30
-        )
+        reg, raw_token = PendingRegistration.create(auth_db, "verify_rec_cov", expiry_minutes=30)
 
         client = auth_app.test_client()
         r = client.post(
             "/auth/register/verify",
-            json={
-                "token": raw_token,
-                "recovery_email": "recovery@test.com",
-            },
+            json={"token": raw_token, "recovery_email": "recovery@test.com"},
         )
         assert r.status_code == 200
         data = r.get_json()
         assert data["recovery_enabled"] is True
         assert "warning" in data
-        assert (
-            "email" in data["warning"].lower() or "recover" in data["warning"].lower()
-        )
+        assert "email" in data["warning"].lower() or "recover" in data["warning"].lower()
 
     def test_verify_without_recovery(self, auth_app, auth_db):
         """Verify registration without recovery info sets backup-only warning."""
         from auth.models import PendingRegistration
 
-        reg, raw_token = PendingRegistration.create(
-            auth_db, "verify_norec_cov", expiry_minutes=30
-        )
+        reg, raw_token = PendingRegistration.create(auth_db, "verify_norec_cov", expiry_minutes=30)
 
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/register/verify",
-            json={"token": raw_token},
-        )
+        r = client.post("/auth/register/verify", json={"token": raw_token})
         assert r.status_code == 200
         data = r.get_json()
         assert data["recovery_enabled"] is False
@@ -783,15 +713,10 @@ class TestRegistrationVerifyLegacy:
         """Verify registration with QR code inclusion."""
         from auth.models import PendingRegistration
 
-        reg, raw_token = PendingRegistration.create(
-            auth_db, "verify_qr_cov", expiry_minutes=30
-        )
+        reg, raw_token = PendingRegistration.create(auth_db, "verify_qr_cov", expiry_minutes=30)
 
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/register/verify",
-            json={"token": raw_token, "include_qr": True},
-        )
+        r = client.post("/auth/register/verify", json={"token": raw_token, "include_qr": True})
         assert r.status_code == 200
         data = r.get_json()
         assert "totp_qr" in data
@@ -800,15 +725,10 @@ class TestRegistrationVerifyLegacy:
         """Verify with expired token returns error."""
         from auth.models import PendingRegistration
 
-        reg, raw_token = PendingRegistration.create(
-            auth_db, "verify_exp_cov", expiry_minutes=-1
-        )
+        reg, raw_token = PendingRegistration.create(auth_db, "verify_exp_cov", expiry_minutes=-1)
 
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/register/verify",
-            json={"token": raw_token},
-        )
+        r = client.post("/auth/register/verify", json={"token": raw_token})
         assert r.status_code == 400
         assert "expired" in r.get_json()["error"].lower()
 
@@ -830,8 +750,7 @@ class TestNotificationsCRUD:
     def test_create_and_delete_notification(self, admin_client, auth_db):
         """Admin can create and delete a notification."""
         r = admin_client.post(
-            "/auth/admin/notifications",
-            json={"message": "Test coverage notification"},
+            "/auth/admin/notifications", json={"message": "Test coverage notification"}
         )
         assert r.status_code == 200
         notif_id = r.get_json()["notification_id"]
@@ -847,19 +766,13 @@ class TestNotificationsCRUD:
 
     def test_create_notification_no_body(self, admin_client):
         """Create notification without body returns 400."""
-        r = admin_client.post(
-            "/auth/admin/notifications",
-            data="",
-            content_type="application/json",
-        )
+        r = admin_client.post("/auth/admin/notifications", data="", content_type="application/json")
         assert r.status_code == 400
 
     def test_dismiss_notification(self, auth_app, auth_db, user_client, test_user):
         """User can dismiss a dismissable notification."""
         notif = Notification(
-            message="Dismissable test",
-            type=NotificationType.INFO,
-            dismissable=True,
+            message="Dismissable test", type=NotificationType.INFO, dismissable=True
         )
         notif.save(auth_db)
 
@@ -949,26 +862,15 @@ class TestMagicLinkLoginFlow:
         """Non-magic-link user without recovery email gets generic message."""
         _make_user(auth_db, "ml_norec_cov")
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/magic-link/login",
-            json={"identifier": "ml_norec_cov"},
-        )
+        r = client.post("/auth/magic-link/login", json={"identifier": "ml_norec_cov"})
         assert r.status_code == 200
         assert r.get_json()["success"] is True
 
     def test_magic_link_login_no_email_on_user(self, auth_app, auth_db):
         """Magic link user without email gets generic message."""
-        _make_user(
-            auth_db,
-            "ml_noemail_cov",
-            auth_type=AuthType.MAGIC_LINK,
-            auth_credential=b"",
-        )
+        _make_user(auth_db, "ml_noemail_cov", auth_type=AuthType.MAGIC_LINK, auth_credential=b"")
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/magic-link/login",
-            json={"identifier": "ml_noemail_cov"},
-        )
+        r = client.post("/auth/magic-link/login", json={"identifier": "ml_noemail_cov"})
         assert r.status_code == 200
         assert r.get_json()["success"] is True
 
@@ -980,18 +882,12 @@ class TestMagicLinkLoginFlow:
         mock_smtp.return_value.__exit__ = MagicMock(return_value=False)
 
         user = _make_user(
-            auth_db,
-            "ml_send_cov",
-            auth_type=AuthType.MAGIC_LINK,
-            auth_credential=b"",
+            auth_db, "ml_send_cov", auth_type=AuthType.MAGIC_LINK, auth_credential=b""
         )
         UserRepository(auth_db).update_email(user.id, "ml@send.com")
 
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/magic-link/login",
-            json={"identifier": "ml_send_cov"},
-        )
+        r = client.post("/auth/magic-link/login", json={"identifier": "ml_send_cov"})
         assert r.status_code == 200
 
     @patch("smtplib.SMTP")
@@ -1002,28 +898,18 @@ class TestMagicLinkLoginFlow:
         mock_smtp.return_value.__exit__ = MagicMock(return_value=False)
 
         user = _make_user(
-            auth_db,
-            "ml_byemail_cov",
-            auth_type=AuthType.MAGIC_LINK,
-            auth_credential=b"",
+            auth_db, "ml_byemail_cov", auth_type=AuthType.MAGIC_LINK, auth_credential=b""
         )
         UserRepository(auth_db).update_email(user.id, "byemail@test.com")
 
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/magic-link/login",
-            json={"identifier": "byemail@test.com"},
-        )
+        r = client.post("/auth/magic-link/login", json={"identifier": "byemail@test.com"})
         assert r.status_code == 200
 
     def test_magic_link_login_no_body(self, auth_app):
         """Magic link login without body returns 400."""
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/magic-link/login",
-            data="",
-            content_type="application/json",
-        )
+        r = client.post("/auth/magic-link/login", data="", content_type="application/json")
         assert r.status_code == 400
 
     @patch("smtplib.SMTP")
@@ -1047,8 +933,7 @@ class TestMagicLinkLoginFlow:
         admin_auth = TOTPAuthenticator(auth_app.admin_secret)
         admin_client = auth_app.test_client()
         admin_client.post(
-            "/auth/login",
-            json={"username": "adminuser", "code": admin_auth.current_code()},
+            "/auth/login", json={"username": "adminuser", "code": admin_auth.current_code()}
         )
 
         r = admin_client.post(f"/auth/admin/access-requests/{access_req.id}/approve")
@@ -1075,10 +960,7 @@ class TestAdminAlertEmail:
 
         r = client.post(
             "/auth/contact",
-            json={
-                "message": "Test contact message for coverage",
-                "reply_via": "in-app",
-            },
+            json={"message": "Test contact message for coverage", "reply_via": "in-app"},
         )
         assert r.status_code == 200
 
@@ -1154,13 +1036,10 @@ class TestSecurityFeatures:
         request_repo = AccessRequestRepository(auth_db)
         raw, _ = generate_verification_token()
         trunc = raw[:16]
-        access_req = request_repo.create(
-            "deny_email_cov", hash_token(trunc), "deny@test.com"
-        )
+        access_req = request_repo.create("deny_email_cov", hash_token(trunc), "deny@test.com")
 
         r = admin_client.post(
-            f"/auth/admin/access-requests/{access_req.id}/deny",
-            json={"reason": "testing"},
+            f"/auth/admin/access-requests/{access_req.id}/deny", json={"reason": "testing"}
         )
         assert r.status_code == 200
         # email_sent may be True or False depending on SMTP config availability
@@ -1175,8 +1054,7 @@ class TestSecurityFeatures:
         request_repo.approve(access_req.id, "admin")
 
         r = admin_client.post(
-            f"/auth/admin/access-requests/{access_req.id}/deny",
-            json={"reason": "testing"},
+            f"/auth/admin/access-requests/{access_req.id}/deny", json={"reason": "testing"}
         )
         assert r.status_code == 400
 
@@ -1201,10 +1079,7 @@ class TestAdminInviteFlowExtended:
 
         r = admin_client.post(
             "/auth/admin/users/invite",
-            json={
-                "username": "stale_inv_cov",
-                "email": "stale@test.com",
-            },
+            json={"username": "stale_inv_cov", "email": "stale@test.com"},
         )
         assert r.status_code == 200
         assert r.get_json()["success"] is True
@@ -1218,27 +1093,21 @@ class TestAdminInviteFlowExtended:
 
         r = admin_client.post(
             "/auth/admin/users/invite",
-            json={
-                "username": "inv_ml_cov",
-                "email": "invml@test.com",
-                "auth_method": "magic_link",
-            },
+            json={"username": "inv_ml_cov", "email": "invml@test.com", "auth_method": "magic_link"},
         )
         assert r.status_code == 200
 
     def test_invite_username_validation(self, admin_client):
         """Invite with empty username returns error."""
         r = admin_client.post(
-            "/auth/admin/users/invite",
-            json={"username": "", "email": "test@test.com"},
+            "/auth/admin/users/invite", json={"username": "", "email": "test@test.com"}
         )
         assert r.status_code == 400
 
     def test_invite_too_short_username(self, admin_client):
         """Invite with too-short username returns error."""
         r = admin_client.post(
-            "/auth/admin/users/invite",
-            json={"username": "ab", "email": "test@test.com"},
+            "/auth/admin/users/invite", json={"username": "ab", "email": "test@test.com"}
         )
         assert r.status_code == 400
 
@@ -1290,50 +1159,32 @@ class TestAdminUserOperations:
 
     def test_admin_update_user_username_short(self, admin_client, test_user):
         """Admin update user with too-short username."""
-        r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}",
-            json={"username": "ab"},
-        )
+        r = admin_client.put(f"/auth/admin/users/{test_user.id}", json={"username": "ab"})
         assert r.status_code == 400
 
     def test_admin_update_user_username_long(self, admin_client, test_user):
         """Admin update user with too-long username."""
-        r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}",
-            json={"username": "a" * 25},
-        )
+        r = admin_client.put(f"/auth/admin/users/{test_user.id}", json={"username": "a" * 25})
         assert r.status_code == 400
 
     def test_admin_update_user_username_invalid_chars(self, admin_client, test_user):
         """Admin update user with invalid characters."""
-        r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}",
-            json={"username": "bad<user>"},
-        )
+        r = admin_client.put(f"/auth/admin/users/{test_user.id}", json={"username": "bad<user>"})
         assert r.status_code == 400
 
     def test_admin_update_user_leading_space(self, admin_client, test_user):
         """Admin update user with leading whitespace."""
-        r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}",
-            json={"username": " leading"},
-        )
+        r = admin_client.put(f"/auth/admin/users/{test_user.id}", json={"username": " leading"})
         assert r.status_code == 400
 
     def test_admin_update_user_email_remove(self, admin_client, test_user):
         """Admin update user with null email removes it."""
-        r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}",
-            json={"email": None},
-        )
+        r = admin_client.put(f"/auth/admin/users/{test_user.id}", json={"email": None})
         assert r.status_code == 200
 
     def test_admin_update_user_email_empty_string(self, admin_client, test_user):
         """Admin update user with empty string email removes it."""
-        r = admin_client.put(
-            f"/auth/admin/users/{test_user.id}",
-            json={"email": ""},
-        )
+        r = admin_client.put(f"/auth/admin/users/{test_user.id}", json={"email": ""})
         assert r.status_code == 200
 
     def test_admin_delete_user_last_admin_guard(self, admin_client, auth_db):
@@ -1365,8 +1216,7 @@ class TestAdminGranularManagementExtended:
         UserRepository(auth_db).update_email(user.id, "adm_ml@test.com")
 
         r = admin_client.put(
-            f"/auth/admin/users/{user.id}/auth-method",
-            json={"auth_method": "magic_link"},
+            f"/auth/admin/users/{user.id}/auth-method", json={"auth_method": "magic_link"}
         )
         assert r.status_code == 200
 
@@ -1374,8 +1224,7 @@ class TestAdminGranularManagementExtended:
         """Admin switch user to passkey creates pending setup."""
         user = _make_user(auth_db, "adm_pk_switch_cov")
         r = admin_client.put(
-            f"/auth/admin/users/{user.id}/auth-method",
-            json={"auth_method": "passkey"},
+            f"/auth/admin/users/{user.id}/auth-method", json={"auth_method": "passkey"}
         )
         assert r.status_code == 200
         data = r.get_json()
@@ -1384,10 +1233,7 @@ class TestAdminGranularManagementExtended:
     def test_reset_credentials_magic_link(self, admin_client, auth_db):
         """Admin reset credentials for magic_link user."""
         user = _make_user(
-            auth_db,
-            "adm_reset_ml_cov",
-            auth_type=AuthType.MAGIC_LINK,
-            auth_credential=b"",
+            auth_db, "adm_reset_ml_cov", auth_type=AuthType.MAGIC_LINK, auth_credential=b""
         )
         UserRepository(auth_db).update_email(user.id, "reset_ml@test.com")
 
@@ -1397,10 +1243,7 @@ class TestAdminGranularManagementExtended:
     def test_reset_credentials_passkey(self, admin_client, auth_db):
         """Admin reset credentials for passkey user."""
         user = _make_user(
-            auth_db,
-            "adm_reset_pk_cov",
-            auth_type=AuthType.PASSKEY,
-            auth_credential=b"pending",
+            auth_db, "adm_reset_pk_cov", auth_type=AuthType.PASSKEY, auth_credential=b"pending"
         )
         r = admin_client.post(f"/auth/admin/users/{user.id}/reset-credentials")
         assert r.status_code == 200
@@ -1439,10 +1282,7 @@ class TestSelfServiceAccountExtended:
         UserRepository(auth_db).update_email(user.id, "acct_ml@test.com")
         client = _authed_client(auth_app, auth_db, user)
 
-        r = client.put(
-            "/auth/account/auth-method",
-            json={"auth_method": "magic_link"},
-        )
+        r = client.put("/auth/account/auth-method", json={"auth_method": "magic_link"})
         assert r.status_code == 200
 
     def test_account_switch_magic_link_with_new_email(self, auth_app, auth_db):
@@ -1451,18 +1291,14 @@ class TestSelfServiceAccountExtended:
         client = _authed_client(auth_app, auth_db, user)
 
         r = client.put(
-            "/auth/account/auth-method",
-            json={"auth_method": "magic_link", "email": "new@test.com"},
+            "/auth/account/auth-method", json={"auth_method": "magic_link", "email": "new@test.com"}
         )
         assert r.status_code == 200
 
     def test_account_reset_passkey(self, auth_app, auth_db):
         """Self-service reset for passkey user."""
         user = _make_user(
-            auth_db,
-            "acct_reset_pk_cov",
-            auth_type=AuthType.PASSKEY,
-            auth_credential=b"pending",
+            auth_db, "acct_reset_pk_cov", auth_type=AuthType.PASSKEY, auth_credential=b"pending"
         )
         client = _authed_client(auth_app, auth_db, user)
 
@@ -1474,10 +1310,7 @@ class TestSelfServiceAccountExtended:
     def test_account_reset_magic_link(self, auth_app, auth_db):
         """Self-service reset for magic_link user."""
         user = _make_user(
-            auth_db,
-            "acct_reset_ml_cov",
-            auth_type=AuthType.MAGIC_LINK,
-            auth_credential=b"",
+            auth_db, "acct_reset_ml_cov", auth_type=AuthType.MAGIC_LINK, auth_credential=b""
         )
         UserRepository(auth_db).update_email(user.id, "reset@test.com")
         client = _authed_client(auth_app, auth_db, user)
@@ -1550,8 +1383,7 @@ class TestAdminInboxExtended:
         msg.save(auth_db)
 
         r = admin_client.post(
-            f"/auth/admin/inbox/{msg.id}/reply",
-            json={"reply": "Thanks for writing!"},
+            f"/auth/admin/inbox/{msg.id}/reply", json={"reply": "Thanks for writing!"}
         )
         assert r.status_code == 200
 
@@ -1559,9 +1391,7 @@ class TestAdminInboxExtended:
         """Archive an inbox message."""
         InboxRepository(auth_db)
         msg = InboxMessage(
-            from_user_id=test_user.id,
-            message="Archive coverage test",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Archive coverage test", reply_via=ReplyMethod.IN_APP
         )
         msg.save(auth_db)
 
@@ -1572,9 +1402,7 @@ class TestAdminInboxExtended:
         """Getting an inbox message marks it as read."""
         InboxRepository(auth_db)
         msg = InboxMessage(
-            from_user_id=test_user.id,
-            message="Read coverage test",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Read coverage test", reply_via=ReplyMethod.IN_APP
         )
         msg.save(auth_db)
 
@@ -1587,9 +1415,7 @@ class TestAdminInboxExtended:
         """List inbox with messages returns correct structure."""
         InboxRepository(auth_db)
         msg = InboxMessage(
-            from_user_id=test_user.id,
-            message="List coverage test",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="List coverage test", reply_via=ReplyMethod.IN_APP
         )
         msg.save(auth_db)
 
@@ -1636,11 +1462,7 @@ class TestContactEndpointExtended:
         client = _authed_client(auth_app, auth_db, user)
 
         r = client.post(
-            "/auth/contact",
-            json={
-                "message": "Coverage test in-app",
-                "reply_via": "in-app",
-            },
+            "/auth/contact", json={"message": "Coverage test in-app", "reply_via": "in-app"}
         )
         assert r.status_code == 200
 
@@ -1662,10 +1484,7 @@ class TestWebAuthnLoginFlowExtended:
             auth_credential=b"not-valid-json",
         )
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/login/webauthn/begin",
-            json={"username": "wa_login_bad_cov"},
-        )
+        r = client.post("/auth/login/webauthn/begin", json={"username": "wa_login_bad_cov"})
         assert r.status_code == 500
         assert "credential" in r.get_json()["error"].lower()
 
@@ -1701,17 +1520,11 @@ class TestRegisterWebAuthnComplete:
         """WebAuthn registration complete with expired token."""
         from auth.models import PendingRegistration
 
-        reg, raw_token = PendingRegistration.create(
-            auth_db, "wa_reg_exp_cov", expiry_minutes=-1
-        )
+        reg, raw_token = PendingRegistration.create(auth_db, "wa_reg_exp_cov", expiry_minutes=-1)
         client = auth_app.test_client()
         r = client.post(
             "/auth/register/webauthn/complete",
-            json={
-                "token": raw_token,
-                "credential": {"id": "test"},
-                "challenge": "dGVzdA",
-            },
+            json={"token": raw_token, "credential": {"id": "test"}, "challenge": "dGVzdA"},
         )
         assert r.status_code == 400
         assert "expired" in r.get_json()["error"].lower()
@@ -1720,17 +1533,11 @@ class TestRegisterWebAuthnComplete:
         """WebAuthn registration complete with invalid challenge format."""
         from auth.models import PendingRegistration
 
-        reg, raw_token = PendingRegistration.create(
-            auth_db, "wa_reg_ch_cov", expiry_minutes=30
-        )
+        reg, raw_token = PendingRegistration.create(auth_db, "wa_reg_ch_cov", expiry_minutes=30)
         client = auth_app.test_client()
         r = client.post(
             "/auth/register/webauthn/complete",
-            json={
-                "token": raw_token,
-                "credential": {"id": "test"},
-                "challenge": "!!!",
-            },
+            json={"token": raw_token, "credential": {"id": "test"}, "challenge": "!!!"},
         )
         assert r.status_code == 400
 
@@ -1738,13 +1545,10 @@ class TestRegisterWebAuthnComplete:
         """WebAuthn registration begin with expired token."""
         from auth.models import PendingRegistration
 
-        reg, raw_token = PendingRegistration.create(
-            auth_db, "wa_begin_exp_cov", expiry_minutes=-1
-        )
+        reg, raw_token = PendingRegistration.create(auth_db, "wa_begin_exp_cov", expiry_minutes=-1)
         client = auth_app.test_client()
         r = client.post(
-            "/auth/register/webauthn/begin",
-            json={"token": raw_token, "auth_type": "passkey"},
+            "/auth/register/webauthn/begin", json={"token": raw_token, "auth_type": "passkey"}
         )
         assert r.status_code == 400
         assert "expired" in r.get_json()["error"].lower()
@@ -1753,18 +1557,12 @@ class TestRegisterWebAuthnComplete:
         """WebAuthn registration complete without body."""
         client = auth_app.test_client()
         r = client.post(
-            "/auth/register/webauthn/complete",
-            data="",
-            content_type="application/json",
+            "/auth/register/webauthn/complete", data="", content_type="application/json"
         )
         assert r.status_code == 400
 
     def test_register_webauthn_begin_no_body(self, auth_app):
         """WebAuthn registration begin without body."""
         client = auth_app.test_client()
-        r = client.post(
-            "/auth/register/webauthn/begin",
-            data="",
-            content_type="application/json",
-        )
+        r = client.post("/auth/register/webauthn/begin", data="", content_type="application/json")
         assert r.status_code == 400

@@ -21,12 +21,7 @@ logger = logging.getLogger(__name__)
 @i18n_bp.route("/api/i18n/supported")
 def get_supported_locales():
     """Return supported locales and the default."""
-    return jsonify(
-        {
-            "default": DEFAULT_LOCALE,
-            "supported": sorted(SUPPORTED_LOCALES),
-        }
-    )
+    return jsonify({"default": DEFAULT_LOCALE, "supported": sorted(SUPPORTED_LOCALES)})
 
 
 @i18n_bp.route("/api/i18n/<locale>")

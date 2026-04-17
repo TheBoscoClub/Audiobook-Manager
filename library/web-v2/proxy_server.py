@@ -108,10 +108,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
 
     # Map API-like GET paths to their static HTML pages.
     # Browsers hitting /auth/login expect a page, not a POST-only API endpoint.
-    _PAGE_REDIRECTS = {
-        "/auth/login": "/login.html",
-        "/auth/register": "/register.html",
-    }
+    _PAGE_REDIRECTS = {"/auth/login": "/login.html", "/auth/register": "/register.html"}
 
     def do_GET(self):
         if self._is_proxy_path() and is_websocket_upgrade(self.headers):
@@ -161,22 +158,13 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             super().do_GET()
 
     # Allowlist of content types for cover images
-    _ALLOWED_COVER_TYPES = {
-        "image/jpeg",
-        "image/png",
-        "image/gif",
-        "image/webp",
-        "image/svg+xml",
-    }
+    _ALLOWED_COVER_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"}
 
     @staticmethod
     def _is_safe_cover_filename(filename: str) -> bool:
         """Check that a cover filename has no path traversal characters."""
         return (
-            bool(filename)
-            and "/" not in filename
-            and "\\" not in filename
-            and ".." not in filename
+            bool(filename) and "/" not in filename and "\\" not in filename and ".." not in filename
         )
 
     def _resolve_cover_content_type(self, filename: str) -> str:
@@ -223,7 +211,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         try:
             content_type = self._resolve_cover_content_type(filename)
             self._send_cover_response(cover_path, content_type)
-        except (OSError, BrokenPipeError):
+        except OSError, BrokenPipeError:
             pass
 
     def do_POST(self):
@@ -254,13 +242,10 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         """Handle CORS preflight requests."""
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
-        self.send_header(
-            "Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-        )
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Range")
         self.send_header(
-            "Access-Control-Expose-Headers",
-            "Content-Range, Accept-Ranges, Content-Length",
+            "Access-Control-Expose-Headers", "Content-Range, Accept-Ranges, Content-Length"
         )
         self.end_headers()
 
@@ -348,7 +333,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                     break
                 if not self._ws_relay_readable(readable, client_sock, backend):
                     return
-        except (BrokenPipeError, ConnectionResetError, OSError):
+        except BrokenPipeError, ConnectionResetError, OSError:
             pass
         finally:
             try:
@@ -407,9 +392,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         try:
             headers = self._collect_proxy_headers()
             body = self._read_request_body(method)
-            req = urllib.request.Request(
-                api_url, data=body, headers=headers, method=method
-            )
+            req = urllib.request.Request(api_url, data=body, headers=headers, method=method)
 
             # URL scheme is always http:// built from fixed API_PORT; path is
             # validated against PROXY_PREFIXES allowlist at line 400 before

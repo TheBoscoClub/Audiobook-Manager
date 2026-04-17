@@ -289,8 +289,7 @@ class TestWriteNotification:
     def test_inserts_notification(self, scheduler, db_path):
         with patch.object(scheduler, "DATABASE_PATH", db_path):
             scheduler.write_notification(
-                "update",
-                {"window_id": 1, "status": "running", "message": "Starting"},
+                "update", {"window_id": 1, "status": "running", "message": "Starting"}
             )
 
         conn = sqlite3.connect(str(db_path))
@@ -328,9 +327,7 @@ class TestUpdateNextRun:
             scheduler.update_next_run(window)
 
         conn = sqlite3.connect(str(db_path))
-        row = conn.execute(
-            "SELECT status FROM maintenance_windows WHERE id = 1"
-        ).fetchone()
+        row = conn.execute("SELECT status FROM maintenance_windows WHERE id = 1").fetchone()
         conn.close()
         assert row[0] == "completed"
 
@@ -347,25 +344,19 @@ class TestUpdateNextRun:
         window = {"id": 1, "schedule_type": "recurring", "cron_expression": "0 * * * *"}
 
         mock_cron_instance = MagicMock()
-        mock_cron_instance.get_next.return_value = datetime(
-            2026, 6, 1, 12, 0, tzinfo=timezone.utc
-        )
+        mock_cron_instance.get_next.return_value = datetime(2026, 6, 1, 12, 0, tzinfo=timezone.utc)
         mock_croniter_cls = MagicMock(return_value=mock_cron_instance)
 
         # croniter is imported locally inside update_next_run via
         # 'from croniter import croniter', so we mock the croniter module
         with (
             patch.object(scheduler, "DATABASE_PATH", db_path),
-            patch.dict(
-                "sys.modules", {"croniter": MagicMock(croniter=mock_croniter_cls)}
-            ),
+            patch.dict("sys.modules", {"croniter": MagicMock(croniter=mock_croniter_cls)}),
         ):
             scheduler.update_next_run(window)
 
         conn = sqlite3.connect(str(db_path))
-        row = conn.execute(
-            "SELECT next_run_at FROM maintenance_windows WHERE id = 1"
-        ).fetchone()
+        row = conn.execute("SELECT next_run_at FROM maintenance_windows WHERE id = 1").fetchone()
         conn.close()
         assert row[0] is not None
         assert "2026-06-01" in row[0]
@@ -409,18 +400,13 @@ class TestExecuteWindow:
         with (
             patch.object(scheduler, "DATABASE_PATH", db_path),
             patch.dict(
-                "sys.modules",
-                {
-                    "api_modular.maintenance_tasks": MagicMock(registry=mock_registry),
-                },
+                "sys.modules", {"api_modular.maintenance_tasks": MagicMock(registry=mock_registry)}
             ),
         ):
             scheduler.execute_window(window)
 
         conn = sqlite3.connect(str(db_path))
-        row = conn.execute(
-            "SELECT status, result_message FROM maintenance_history"
-        ).fetchone()
+        row = conn.execute("SELECT status, result_message FROM maintenance_history").fetchone()
         conn.close()
         assert row[0] == "failure"
         assert "Unknown task type" in row[1]
@@ -430,36 +416,26 @@ class TestExecuteWindow:
 
         window = self._make_window()
         mock_task = MagicMock()
-        mock_task.validate.return_value = ValidationResult(
-            ok=False, message="bad params"
-        )
+        mock_task.validate.return_value = ValidationResult(ok=False, message="bad params")
         mock_registry = MagicMock()
         mock_registry.get.return_value = mock_task
 
         with (
             patch.object(scheduler, "DATABASE_PATH", db_path),
             patch.dict(
-                "sys.modules",
-                {
-                    "api_modular.maintenance_tasks": MagicMock(registry=mock_registry),
-                },
+                "sys.modules", {"api_modular.maintenance_tasks": MagicMock(registry=mock_registry)}
             ),
         ):
             scheduler.execute_window(window)
 
         conn = sqlite3.connect(str(db_path))
-        row = conn.execute(
-            "SELECT status, result_message FROM maintenance_history"
-        ).fetchone()
+        row = conn.execute("SELECT status, result_message FROM maintenance_history").fetchone()
         conn.close()
         assert row[0] == "failure"
         assert "Validation failed" in row[1]
 
     def test_successful_execution(self, scheduler, db_path):
-        from backend.api_modular.maintenance_tasks.base import (
-            ExecutionResult,
-            ValidationResult,
-        )
+        from backend.api_modular.maintenance_tasks.base import ExecutionResult, ValidationResult
 
         window = self._make_window()
         mock_task = MagicMock()
@@ -473,10 +449,7 @@ class TestExecuteWindow:
         with (
             patch.object(scheduler, "DATABASE_PATH", db_path),
             patch.dict(
-                "sys.modules",
-                {
-                    "api_modular.maintenance_tasks": MagicMock(registry=mock_registry),
-                },
+                "sys.modules", {"api_modular.maintenance_tasks": MagicMock(registry=mock_registry)}
             ),
             patch.object(scheduler, "update_next_run") as mock_update,
         ):
@@ -484,35 +457,25 @@ class TestExecuteWindow:
             mock_update.assert_called_once_with(window)
 
         conn = sqlite3.connect(str(db_path))
-        row = conn.execute(
-            "SELECT status, result_message FROM maintenance_history"
-        ).fetchone()
+        row = conn.execute("SELECT status, result_message FROM maintenance_history").fetchone()
         conn.close()
         assert row[0] == "success"
         assert "Vacuumed OK" in row[1]
 
     def test_failed_execution(self, scheduler, db_path):
-        from backend.api_modular.maintenance_tasks.base import (
-            ExecutionResult,
-            ValidationResult,
-        )
+        from backend.api_modular.maintenance_tasks.base import ExecutionResult, ValidationResult
 
         window = self._make_window()
         mock_task = MagicMock()
         mock_task.validate.return_value = ValidationResult(ok=True)
-        mock_task.execute.return_value = ExecutionResult(
-            success=False, message="Disk full"
-        )
+        mock_task.execute.return_value = ExecutionResult(success=False, message="Disk full")
         mock_registry = MagicMock()
         mock_registry.get.return_value = mock_task
 
         with (
             patch.object(scheduler, "DATABASE_PATH", db_path),
             patch.dict(
-                "sys.modules",
-                {
-                    "api_modular.maintenance_tasks": MagicMock(registry=mock_registry),
-                },
+                "sys.modules", {"api_modular.maintenance_tasks": MagicMock(registry=mock_registry)}
             ),
             patch.object(scheduler, "update_next_run"),
         ):
@@ -524,10 +487,7 @@ class TestExecuteWindow:
         assert row[0] == "failure"
 
     def test_notifications_sent_during_execution(self, scheduler, db_path):
-        from backend.api_modular.maintenance_tasks.base import (
-            ExecutionResult,
-            ValidationResult,
-        )
+        from backend.api_modular.maintenance_tasks.base import ExecutionResult, ValidationResult
 
         window = self._make_window()
         mock_task = MagicMock()
@@ -539,10 +499,7 @@ class TestExecuteWindow:
         with (
             patch.object(scheduler, "DATABASE_PATH", db_path),
             patch.dict(
-                "sys.modules",
-                {
-                    "api_modular.maintenance_tasks": MagicMock(registry=mock_registry),
-                },
+                "sys.modules", {"api_modular.maintenance_tasks": MagicMock(registry=mock_registry)}
             ),
             patch.object(scheduler, "update_next_run"),
         ):
@@ -562,10 +519,7 @@ class TestExecuteWindow:
         assert "success" in statuses
 
     def test_task_params_deserialized_with_db_path(self, scheduler, db_path):
-        from backend.api_modular.maintenance_tasks.base import (
-            ExecutionResult,
-            ValidationResult,
-        )
+        from backend.api_modular.maintenance_tasks.base import ExecutionResult, ValidationResult
 
         window = self._make_window(task_params='{"deep": true}')
         mock_task = MagicMock()
@@ -577,10 +531,7 @@ class TestExecuteWindow:
         with (
             patch.object(scheduler, "DATABASE_PATH", db_path),
             patch.dict(
-                "sys.modules",
-                {
-                    "api_modular.maintenance_tasks": MagicMock(registry=mock_registry),
-                },
+                "sys.modules", {"api_modular.maintenance_tasks": MagicMock(registry=mock_registry)}
             ),
             patch.object(scheduler, "update_next_run"),
         ):
@@ -604,9 +555,7 @@ class TestCheckAnnouncements:
             scheduler.check_announcements()
 
         conn = sqlite3.connect(str(db_path))
-        count = conn.execute(
-            "SELECT COUNT(*) FROM maintenance_notifications"
-        ).fetchone()[0]
+        count = conn.execute("SELECT COUNT(*) FROM maintenance_notifications").fetchone()[0]
         conn.close()
         assert count == 0
 
@@ -653,8 +602,7 @@ class TestCheckAnnouncements:
 
         conn = sqlite3.connect(str(db_path))
         count = conn.execute(
-            "SELECT COUNT(*) FROM maintenance_notifications "
-            "WHERE notification_type = 'announce'"
+            "SELECT COUNT(*) FROM maintenance_notifications WHERE notification_type = 'announce'"
         ).fetchone()[0]
         conn.close()
         assert count == 1
@@ -711,9 +659,7 @@ class TestRunAuthCleanup:
                     "database": MagicMock(AuthDatabase=MagicMock(return_value=mock_db)),
                     "models": MagicMock(
                         SessionRepository=MagicMock(return_value=mock_session_repo),
-                        PendingRegistrationRepository=MagicMock(
-                            return_value=mock_reg_repo
-                        ),
+                        PendingRegistrationRepository=MagicMock(return_value=mock_reg_repo),
                         PendingRecoveryRepository=MagicMock(return_value=mock_rec_repo),
                     ),
                 },
@@ -741,9 +687,7 @@ class TestRunAuthCleanup:
                     "database": MagicMock(AuthDatabase=MagicMock(return_value=mock_db)),
                     "models": MagicMock(
                         SessionRepository=MagicMock(return_value=mock_session_repo),
-                        PendingRegistrationRepository=MagicMock(
-                            return_value=mock_reg_repo
-                        ),
+                        PendingRegistrationRepository=MagicMock(return_value=mock_reg_repo),
                         PendingRecoveryRepository=MagicMock(return_value=mock_rec_repo),
                     ),
                 },
@@ -791,9 +735,7 @@ class TestRunAuthCleanup:
         """If a repository method raises, the whole cleanup is caught."""
         mock_db = MagicMock()
         mock_session_repo = MagicMock()
-        mock_session_repo.cleanup_stale.side_effect = sqlite3.OperationalError(
-            "database is locked"
-        )
+        mock_session_repo.cleanup_stale.side_effect = sqlite3.OperationalError("database is locked")
 
         with (
             patch.dict(
@@ -948,9 +890,7 @@ class TestMainLoop:
             scheduler._shutdown = True
 
         with (
-            patch.object(
-                scheduler, "run_auth_cleanup", side_effect=lambda: fail_then_stop()
-            ),
+            patch.object(scheduler, "run_auth_cleanup", side_effect=lambda: fail_then_stop()),
             patch.object(scheduler, "check_announcements"),
             patch.object(scheduler, "find_due_windows", return_value=[]),
             patch.object(scheduler, "time"),

@@ -39,9 +39,7 @@ class TestLocalhostOnly:
 
     def test_allows_127_0_0_1(self, auth_app):
         """Request from 127.0.0.1 should pass through."""
-        with auth_app.test_request_context(
-            "/test", environ_base={"REMOTE_ADDR": "127.0.0.1"}
-        ):
+        with auth_app.test_request_context("/test", environ_base={"REMOTE_ADDR": "127.0.0.1"}):
             from backend.api_modular.auth import localhost_only
 
             @localhost_only
@@ -53,9 +51,7 @@ class TestLocalhostOnly:
 
     def test_allows_ipv6_loopback(self, auth_app):
         """Request from ::1 should pass through."""
-        with auth_app.test_request_context(
-            "/test", environ_base={"REMOTE_ADDR": "::1"}
-        ):
+        with auth_app.test_request_context("/test", environ_base={"REMOTE_ADDR": "::1"}):
             from backend.api_modular.auth import localhost_only
 
             @localhost_only
@@ -67,9 +63,7 @@ class TestLocalhostOnly:
 
     def test_blocks_remote_addr(self, auth_app):
         """Request from a non-local IP should return 404."""
-        with auth_app.test_request_context(
-            "/test", environ_base={"REMOTE_ADDR": "10.0.0.5"}
-        ):
+        with auth_app.test_request_context("/test", environ_base={"REMOTE_ADDR": "10.0.0.5"}):
             from backend.api_modular.auth import localhost_only
 
             @localhost_only
@@ -114,9 +108,7 @@ class TestLocalhostOnly:
     def test_x_forwarded_for_ipv6_loopback(self, auth_app):
         """X-Forwarded-For with ::1 should pass through."""
         with auth_app.test_request_context(
-            "/test",
-            environ_base={"REMOTE_ADDR": "192.168.1.1"},
-            headers={"X-Forwarded-For": "::1"},
+            "/test", environ_base={"REMOTE_ADDR": "192.168.1.1"}, headers={"X-Forwarded-For": "::1"}
         ):
             from backend.api_modular.auth import localhost_only
 
@@ -129,9 +121,7 @@ class TestLocalhostOnly:
 
     def test_error_response_hides_existence(self, auth_app):
         """404 response should include 'Access denied' to hide endpoint."""
-        with auth_app.test_request_context(
-            "/test", environ_base={"REMOTE_ADDR": "8.8.8.8"}
-        ):
+        with auth_app.test_request_context("/test", environ_base={"REMOTE_ADDR": "8.8.8.8"}):
             from backend.api_modular.auth import localhost_only
 
             @localhost_only
@@ -192,16 +182,8 @@ class TestFirstUserBootstrap:
                     "otpauth://totp/Library:bootstrap_user?secret=BASE32SECRET",
                 ),
             ),
-            patch.object(
-                auth_mod,
-                "generate_qr_code",
-                return_value=mock_qr_png,
-            ),
-            patch.object(
-                auth_mod,
-                "base32_to_secret",
-                return_value=b"decoded_secret",
-            ),
+            patch.object(auth_mod, "generate_qr_code", return_value=mock_qr_png),
+            patch.object(auth_mod, "base32_to_secret", return_value=b"decoded_secret"),
             patch.object(auth_mod, "BackupCodeRepository") as MockBackupRepo,
             patch.object(auth_mod, "User") as MockUser,
         ):
@@ -218,17 +200,10 @@ class TestFirstUserBootstrap:
             MockUser.return_value = mock_user_instance
 
             mock_backup_repo = MockBackupRepo.return_value
-            mock_backup_repo.create_codes_for_user.return_value = [
-                "CODE1",
-                "CODE2",
-                "CODE3",
-            ]
+            mock_backup_repo.create_codes_for_user.return_value = ["CODE1", "CODE2", "CODE3"]
 
             client = auth_app.test_client()
-            resp = client.post(
-                "/auth/register/start",
-                json={"username": "bootstrapuser"},
-            )
+            resp = client.post("/auth/register/start", json={"username": "bootstrapuser"})
             data = resp.get_json()
 
             assert data["success"] is True
@@ -255,21 +230,9 @@ class TestFirstUserBootstrap:
         with (
             patch.object(auth_mod, "UserRepository") as MockUserRepo,
             patch.object(auth_mod, "AccessRequestRepository") as MockReqRepo,
-            patch.object(
-                auth_mod,
-                "setup_totp",
-                return_value=(b"secret", "B32", "otpauth://..."),
-            ),
-            patch.object(
-                auth_mod,
-                "generate_qr_code",
-                return_value=mock_qr_png,
-            ),
-            patch.object(
-                auth_mod,
-                "base32_to_secret",
-                return_value=b"decoded",
-            ),
+            patch.object(auth_mod, "setup_totp", return_value=(b"secret", "B32", "otpauth://...")),
+            patch.object(auth_mod, "generate_qr_code", return_value=mock_qr_png),
+            patch.object(auth_mod, "base32_to_secret", return_value=b"decoded"),
             patch.object(auth_mod, "BackupCodeRepository") as MockBackupRepo,
             patch.object(auth_mod, "User") as MockUser,
         ):
@@ -289,10 +252,7 @@ class TestFirstUserBootstrap:
             mock_backup_repo.create_codes_for_user.return_value = ["C1"]
 
             client = auth_app.test_client()
-            resp = client.post(
-                "/auth/register/start",
-                json={"username": "qrbootstrap"},
-            )
+            resp = client.post("/auth/register/start", json={"username": "qrbootstrap"})
             data = resp.get_json()
             assert data["first_user"] is True
             assert data["totp_qr"] == expected_b64
@@ -314,7 +274,7 @@ class TestInviteMetadataParsing:
                 invite_meta = json.loads(backup_codes_json)
                 if isinstance(invite_meta, dict) and invite_meta.get("invited"):
                     can_download = invite_meta.get("can_download", True)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError, TypeError:
                 pass
         return can_download
 
@@ -390,10 +350,7 @@ class TestWebAuthnConfigDerivation:
             return default
 
         with (
-            patch(
-                "backend.api_modular.auth.get_webauthn_config.__module__",
-                create=True,
-            ),
+            patch("backend.api_modular.auth.get_webauthn_config.__module__", create=True),
             patch("socket.getfqdn", return_value="test-vm-cachyos"),
         ):
             from backend.api_modular.auth import get_webauthn_config
@@ -448,10 +405,7 @@ class TestWebAuthnConfigDerivation:
     def test_localhost_always_includes_port(self):
         """Localhost origin always includes the port."""
         rp_id, rp_name, origin = self._call_get_webauthn_config(
-            {
-                "AUDIOBOOKS_HOSTNAME": "mybox.local",
-                "AUDIOBOOKS_WEB_PORT": "8443",
-            }
+            {"AUDIOBOOKS_HOSTNAME": "mybox.local", "AUDIOBOOKS_WEB_PORT": "8443"}
         )
         assert rp_id == "localhost"
         assert origin == "https://localhost:8443"
@@ -470,9 +424,7 @@ class TestWebAuthnConfigDerivation:
 
     def test_localdomain_suffix_becomes_localhost(self):
         """A .localdomain hostname should map to localhost."""
-        rp_id, _, _ = self._call_get_webauthn_config(
-            {"AUDIOBOOKS_HOSTNAME": "server.localdomain"}
-        )
+        rp_id, _, _ = self._call_get_webauthn_config({"AUDIOBOOKS_HOSTNAME": "server.localdomain"})
         assert rp_id == "localhost"
 
     def test_http_scheme_when_https_disabled(self):
@@ -601,9 +553,7 @@ class TestSendApprovalEmail:
         """SMTP failure should return False and log the error."""
         patcher, mock_smtp, mock_server = _smtp_mock()
         try:
-            mock_server.sendmail.side_effect = smtplib.SMTPException(
-                "Connection refused"
-            )
+            mock_server.sendmail.side_effect = smtplib.SMTPException("Connection refused")
             with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_approval_email
 
@@ -645,9 +595,7 @@ class TestSendDenialEmail:
             with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_denial_email
 
-                result = _send_denial_email(
-                    "user@example.com", "alice", reason="Invitation only"
-                )
+                result = _send_denial_email("user@example.com", "alice", reason="Invitation only")
                 assert result is True
                 msg_body = mock_server.sendmail.call_args[0][2]
                 assert "Invitation only" in msg_body
@@ -827,9 +775,7 @@ class TestSendReplyEmail:
             with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_reply_email
 
-                result = _send_reply_email(
-                    "user@example.com", "alice", "Thanks for your message!"
-                )
+                result = _send_reply_email("user@example.com", "alice", "Thanks for your message!")
                 assert result is True
                 mock_server.sendmail.assert_called_once()
         finally:
@@ -842,9 +788,7 @@ class TestSendReplyEmail:
             with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_reply_email
 
-                _send_reply_email(
-                    "user@example.com", "bob", "Your issue is resolved now"
-                )
+                _send_reply_email("user@example.com", "bob", "Your issue is resolved now")
                 msg_body = mock_server.sendmail.call_args[0][2]
                 assert "Your issue is resolved now" in msg_body
         finally:
@@ -892,9 +836,7 @@ class TestSendInvitationEmail:
             with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_invitation_email
 
-                result = _send_invitation_email(
-                    "user@example.com", "alice", "ABCD-EFGH-IJKL-MNOP"
-                )
+                result = _send_invitation_email("user@example.com", "alice", "ABCD-EFGH-IJKL-MNOP")
                 assert result is True
         finally:
             patcher.stop()
@@ -919,9 +861,7 @@ class TestSendInvitationEmail:
             with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_invitation_email
 
-                _send_invitation_email(
-                    "user@example.com", "carol", "ABCD-EFGH-IJKL-MNOP"
-                )
+                _send_invitation_email("user@example.com", "carol", "ABCD-EFGH-IJKL-MNOP")
                 msg_body = _decode_email_body(mock_server.sendmail.call_args[0][2])
                 assert "claim.html" in msg_body
                 assert "library.example.com" in msg_body
@@ -935,9 +875,7 @@ class TestSendInvitationEmail:
             with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_invitation_email
 
-                _send_invitation_email(
-                    "user@example.com", "dave", "ABCD-EFGH-IJKL-MNOP"
-                )
+                _send_invitation_email("user@example.com", "dave", "ABCD-EFGH-IJKL-MNOP")
                 msg_body = mock_server.sendmail.call_args[0][2]
                 assert "Content-Type: text/plain" in msg_body
                 assert "Content-Type: text/html" in msg_body
@@ -952,9 +890,7 @@ class TestSendInvitationEmail:
             with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_invitation_email
 
-                result = _send_invitation_email(
-                    "user@example.com", "eve", "ABCD-EFGH-IJKL-MNOP"
-                )
+                result = _send_invitation_email("user@example.com", "eve", "ABCD-EFGH-IJKL-MNOP")
                 assert result is False
         finally:
             patcher.stop()
@@ -969,9 +905,7 @@ class TestSendInvitationEmail:
             with auth_app.test_request_context(), patch.dict(os.environ, env):
                 from backend.api_modular.auth import _send_invitation_email
 
-                result = _send_invitation_email(
-                    "user@example.com", "frank", "ABCD-EFGH-IJKL-MNOP"
-                )
+                result = _send_invitation_email("user@example.com", "frank", "ABCD-EFGH-IJKL-MNOP")
                 assert result is True
                 mock_server.starttls.assert_not_called()
                 mock_server.login.assert_not_called()
@@ -994,9 +928,7 @@ class TestSendActivationEmail:
             with auth_app.test_request_context(), patch.dict(os.environ, _email_env()):
                 from backend.api_modular.auth import _send_activation_email
 
-                result = _send_activation_email(
-                    "user@example.com", "alice", "tok123abc"
-                )
+                result = _send_activation_email("user@example.com", "alice", "tok123abc")
                 assert result is True
         finally:
             patcher.stop()

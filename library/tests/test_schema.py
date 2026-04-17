@@ -45,8 +45,7 @@ class TestForeignKeyEnforcement:
             # Attempt to link to a non-existent audiobook — should raise
             with pytest.raises(sqlite3.IntegrityError):
                 conn.execute(
-                    "INSERT INTO book_authors (book_id, author_id, position) "
-                    "VALUES (?, ?, ?)",
+                    "INSERT INTO book_authors (book_id, author_id, position) VALUES (?, ?, ?)",
                     (99999, 1, 0),
                 )
         finally:

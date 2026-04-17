@@ -37,8 +37,7 @@ def _seed_audiobooks(db_path, count=4):
         else:
             # Row already existed, find it
             row = conn.execute(
-                "SELECT id FROM audiobooks WHERE file_path = ?",
-                (f"/test/genrebook{i}.opus",),
+                "SELECT id FROM audiobooks WHERE file_path = ?", (f"/test/genrebook{i}.opus",)
             ).fetchone()
             ids.append(row[0])
     conn.commit()
@@ -54,8 +53,7 @@ def _cleanup_genre_test_data(db_path, book_ids):
         conn.execute("DELETE FROM audiobooks WHERE id = ?", (bid,))
     # Clean up any genres that have no remaining associations
     conn.execute(
-        "DELETE FROM genres WHERE id NOT IN "
-        "(SELECT DISTINCT genre_id FROM audiobook_genres)"
+        "DELETE FROM genres WHERE id NOT IN (SELECT DISTINCT genre_id FROM audiobook_genres)"
     )
     conn.commit()
     conn.close()
@@ -114,10 +112,7 @@ class TestListGenres:
             f"/api/audiobooks/{book_ids[0]}/genres",
             json={"genres": ["BehavSci-Fi", "BehavFantasy"]},
         )
-        client.put(
-            f"/api/audiobooks/{book_ids[1]}/genres",
-            json={"genres": ["BehavFantasy"]},
-        )
+        client.put(f"/api/audiobooks/{book_ids[1]}/genres", json={"genres": ["BehavFantasy"]})
 
         resp = client.get("/api/genres")
         assert resp.status_code == 200
@@ -133,10 +128,7 @@ class TestListGenres:
         client, book_ids, _ = genre_client
 
         # Create a genre via the API
-        client.put(
-            f"/api/audiobooks/{book_ids[0]}/genres",
-            json={"genres": ["FieldCheckGenre"]},
-        )
+        client.put(f"/api/audiobooks/{book_ids[0]}/genres", json={"genres": ["FieldCheckGenre"]})
 
         resp = client.get("/api/genres")
         genres = resp.get_json()
@@ -163,8 +155,7 @@ class TestSetAudiobookGenres:
         bid = book_ids[0]
 
         resp = client.put(
-            f"/api/audiobooks/{bid}/genres",
-            json={"genres": ["SetHorror", "SetThriller"]},
+            f"/api/audiobooks/{bid}/genres", json={"genres": ["SetHorror", "SetThriller"]}
         )
         assert resp.status_code == 200
         data = resp.get_json()
@@ -190,10 +181,7 @@ class TestSetAudiobookGenres:
         """Genres that do not exist yet should be created automatically."""
         client, book_ids, _ = genre_client
 
-        client.put(
-            f"/api/audiobooks/{book_ids[0]}/genres",
-            json={"genres": ["BrandNewTestGenre"]},
-        )
+        client.put(f"/api/audiobooks/{book_ids[0]}/genres", json={"genres": ["BrandNewTestGenre"]})
 
         resp = client.get("/api/genres")
         names = [g["name"] for g in resp.get_json()]
@@ -202,19 +190,13 @@ class TestSetAudiobookGenres:
     def test_set_genres_nonexistent_audiobook(self, genre_client):
         """Setting genres on a nonexistent audiobook should return 404."""
         client, _, _ = genre_client
-        resp = client.put(
-            "/api/audiobooks/999999/genres",
-            json={"genres": ["Horror"]},
-        )
+        resp = client.put("/api/audiobooks/999999/genres", json={"genres": ["Horror"]})
         assert resp.status_code == 404
 
     def test_set_genres_missing_body(self, genre_client):
         """Missing 'genres' key should return 400."""
         client, book_ids, _ = genre_client
-        resp = client.put(
-            f"/api/audiobooks/{book_ids[0]}/genres",
-            json={"wrong_key": []},
-        )
+        resp = client.put(f"/api/audiobooks/{book_ids[0]}/genres", json={"wrong_key": []})
         assert resp.status_code == 400
 
     def test_set_genres_empty_list_clears_all(self, genre_client):
@@ -222,10 +204,7 @@ class TestSetAudiobookGenres:
         client, book_ids, db_path = genre_client
         bid = book_ids[0]
 
-        client.put(
-            f"/api/audiobooks/{bid}/genres",
-            json={"genres": ["ClearA", "ClearB"]},
-        )
+        client.put(f"/api/audiobooks/{bid}/genres", json={"genres": ["ClearA", "ClearB"]})
         assert len(_get_audiobook_genres(db_path, bid)) == 2
 
         client.put(f"/api/audiobooks/{bid}/genres", json={"genres": []})
@@ -236,10 +215,7 @@ class TestSetAudiobookGenres:
         client, book_ids, db_path = genre_client
         bid = book_ids[0]
 
-        client.put(
-            f"/api/audiobooks/{bid}/genres",
-            json={"genres": ["  WsSci-Fi  ", " WsFantasy"]},
-        )
+        client.put(f"/api/audiobooks/{bid}/genres", json={"genres": ["  WsSci-Fi  ", " WsFantasy"]})
         actual = _get_audiobook_genres(db_path, bid)
         assert "WsSci-Fi" in actual
         assert "WsFantasy" in actual
@@ -249,10 +225,7 @@ class TestSetAudiobookGenres:
         client, book_ids, db_path = genre_client
         bid = book_ids[0]
 
-        client.put(
-            f"/api/audiobooks/{bid}/genres",
-            json={"genres": ["BlankValid", "", "  "]},
-        )
+        client.put(f"/api/audiobooks/{bid}/genres", json={"genres": ["BlankValid", "", "  "]})
         assert _get_audiobook_genres(db_path, bid) == ["BlankValid"]
 
 
@@ -270,11 +243,7 @@ class TestBulkGenres:
 
         resp = client.post(
             "/api/audiobooks/bulk-genres",
-            json={
-                "ids": book_ids[:3],
-                "genres": ["BulkRomance"],
-                "mode": "add",
-            },
+            json={"ids": book_ids[:3], "genres": ["BulkRomance"], "mode": "add"},
         )
         assert resp.status_code == 200
         data = resp.get_json()
@@ -289,11 +258,7 @@ class TestBulkGenres:
         client, book_ids, db_path = genre_client
         bid = book_ids[0]
 
-        payload = {
-            "ids": [bid],
-            "genres": ["IdempMystery"],
-            "mode": "add",
-        }
+        payload = {"ids": [bid], "genres": ["IdempMystery"], "mode": "add"}
         client.post("/api/audiobooks/bulk-genres", json=payload)
         client.post("/api/audiobooks/bulk-genres", json=payload)
 
@@ -329,11 +294,7 @@ class TestBulkGenres:
         client, book_ids, _ = genre_client
         resp = client.post(
             "/api/audiobooks/bulk-genres",
-            json={
-                "ids": [book_ids[0]],
-                "genres": ["NonExistGenre99"],
-                "mode": "remove",
-            },
+            json={"ids": [book_ids[0]], "genres": ["NonExistGenre99"], "mode": "remove"},
         )
         assert resp.status_code == 200
         assert resp.get_json()["success"] is True
@@ -351,8 +312,7 @@ class TestBulkGenres:
         """Empty IDs list should return 400."""
         client, _, _ = genre_client
         resp = client.post(
-            "/api/audiobooks/bulk-genres",
-            json={"ids": [], "genres": ["X"], "mode": "add"},
+            "/api/audiobooks/bulk-genres", json={"ids": [], "genres": ["X"], "mode": "add"}
         )
         assert resp.status_code == 400
 
@@ -360,8 +320,7 @@ class TestBulkGenres:
         """Empty genres list should return 400."""
         client, book_ids, _ = genre_client
         resp = client.post(
-            "/api/audiobooks/bulk-genres",
-            json={"ids": [book_ids[0]], "genres": [], "mode": "add"},
+            "/api/audiobooks/bulk-genres", json={"ids": [book_ids[0]], "genres": [], "mode": "add"}
         )
         assert resp.status_code == 400
 
@@ -369,9 +328,7 @@ class TestBulkGenres:
         """Missing request body should return 400."""
         client, _, _ = genre_client
         resp = client.post(
-            "/api/audiobooks/bulk-genres",
-            content_type="application/json",
-            data="null",
+            "/api/audiobooks/bulk-genres", content_type="application/json", data="null"
         )
         assert resp.status_code == 400
 
@@ -381,11 +338,7 @@ class TestBulkGenres:
 
         resp = client.post(
             "/api/audiobooks/bulk-genres",
-            json={
-                "ids": book_ids,
-                "genres": ["MultiAction", "MultiAdventure"],
-                "mode": "add",
-            },
+            json={"ids": book_ids, "genres": ["MultiAction", "MultiAdventure"], "mode": "add"},
         )
         assert resp.status_code == 200
         data = resp.get_json()
@@ -402,11 +355,7 @@ class TestBulkGenres:
         client, book_ids, _ = genre_client
         resp = client.post(
             "/api/audiobooks/bulk-genres",
-            json={
-                "ids": book_ids[:2],
-                "genres": ["AffectedGenre"],
-                "mode": "add",
-            },
+            json={"ids": book_ids[:2], "genres": ["AffectedGenre"], "mode": "add"},
         )
         data = resp.get_json()
         assert data["affected"] == 2
@@ -417,8 +366,7 @@ class TestBulkGenres:
         bid = book_ids[0]
 
         resp = client.post(
-            "/api/audiobooks/bulk-genres",
-            json={"ids": [bid], "genres": ["DefaultModeGenre"]},
+            "/api/audiobooks/bulk-genres", json={"ids": [bid], "genres": ["DefaultModeGenre"]}
         )
         assert resp.status_code == 200
         assert "DefaultModeGenre" in _get_audiobook_genres(db_path, bid)
@@ -440,10 +388,7 @@ class TestGenreEndToEnd:
             f"/api/audiobooks/{book_ids[0]}/genres",
             json={"genres": ["E2EDystopian", "E2EYoungAdult"]},
         )
-        client.put(
-            f"/api/audiobooks/{book_ids[1]}/genres",
-            json={"genres": ["E2EDystopian"]},
-        )
+        client.put(f"/api/audiobooks/{book_ids[1]}/genres", json={"genres": ["E2EDystopian"]})
 
         resp = client.get("/api/genres")
         by_name = {g["name"]: g["book_count"] for g in resp.get_json()}

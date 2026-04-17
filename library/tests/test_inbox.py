@@ -55,9 +55,7 @@ def test_user(temp_db):
 @pytest.fixture
 def second_user(temp_db):
     """Create a second test user."""
-    user = User(
-        username="seconduser", auth_type=AuthType.TOTP, auth_credential=b"secret2"
-    )
+    user = User(username="seconduser", auth_type=AuthType.TOTP, auth_credential=b"secret2")
     user.save(temp_db)
     return user
 
@@ -97,9 +95,7 @@ class TestInboxMessageCreation:
     def test_create_logs_contact(self, temp_db, test_user):
         """Test creating message logs to contact_log table."""
         msg = InboxMessage(
-            from_user_id=test_user.id,
-            message="Test message",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Test message", reply_via=ReplyMethod.IN_APP
         )
         msg.save(temp_db)
 
@@ -117,11 +113,7 @@ class TestInboxStatusTransitions:
 
     def test_mark_read(self, temp_db, test_user):
         """Test marking a message as read."""
-        msg = InboxMessage(
-            from_user_id=test_user.id,
-            message="Test",
-            reply_via=ReplyMethod.IN_APP,
-        )
+        msg = InboxMessage(from_user_id=test_user.id, message="Test", reply_via=ReplyMethod.IN_APP)
         msg.save(temp_db)
 
         assert msg.status == InboxStatus.UNREAD
@@ -135,11 +127,7 @@ class TestInboxStatusTransitions:
 
     def test_mark_replied(self, temp_db, test_user):
         """Test marking a message as replied."""
-        msg = InboxMessage(
-            from_user_id=test_user.id,
-            message="Test",
-            reply_via=ReplyMethod.IN_APP,
-        )
+        msg = InboxMessage(from_user_id=test_user.id, message="Test", reply_via=ReplyMethod.IN_APP)
         msg.save(temp_db)
 
         msg.mark_replied(temp_db)
@@ -172,9 +160,7 @@ class TestInboxStatusTransitions:
     def test_archive_message(self, temp_db, test_user):
         """Test archiving a message."""
         msg = InboxMessage(
-            from_user_id=test_user.id,
-            message="To archive",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="To archive", reply_via=ReplyMethod.IN_APP
         )
         msg.save(temp_db)
 
@@ -193,9 +179,7 @@ class TestInboxRepository:
     def test_get_by_id(self, temp_db, test_user):
         """Test getting a message by ID."""
         msg = InboxMessage(
-            from_user_id=test_user.id,
-            message="Find me",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Find me", reply_via=ReplyMethod.IN_APP
         )
         msg.save(temp_db)
 
@@ -216,22 +200,16 @@ class TestInboxRepository:
         """Test listing unread messages."""
         # Create unread messages
         InboxMessage(
-            from_user_id=test_user.id,
-            message="Unread 1",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Unread 1", reply_via=ReplyMethod.IN_APP
         ).save(temp_db)
 
         InboxMessage(
-            from_user_id=test_user.id,
-            message="Unread 2",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Unread 2", reply_via=ReplyMethod.IN_APP
         ).save(temp_db)
 
         # Create read message
         read_msg = InboxMessage(
-            from_user_id=test_user.id,
-            message="Already read",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Already read", reply_via=ReplyMethod.IN_APP
         )
         read_msg.save(temp_db)
         read_msg.mark_read(temp_db)
@@ -246,16 +224,12 @@ class TestInboxRepository:
         """Test list_all excludes archived by default."""
         # Create normal message
         InboxMessage(
-            from_user_id=test_user.id,
-            message="Normal",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Normal", reply_via=ReplyMethod.IN_APP
         ).save(temp_db)
 
         # Create and archive message
         archived = InboxMessage(
-            from_user_id=test_user.id,
-            message="Archived",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Archived", reply_via=ReplyMethod.IN_APP
         )
         archived.save(temp_db)
         archived.status = InboxStatus.ARCHIVED
@@ -272,16 +246,12 @@ class TestInboxRepository:
         """Test list_all can include archived."""
         # Create normal message
         InboxMessage(
-            from_user_id=test_user.id,
-            message="Normal",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Normal", reply_via=ReplyMethod.IN_APP
         ).save(temp_db)
 
         # Create and archive message
         archived = InboxMessage(
-            from_user_id=test_user.id,
-            message="Archived",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Archived", reply_via=ReplyMethod.IN_APP
         )
         archived.save(temp_db)
         archived.status = InboxStatus.ARCHIVED
@@ -302,17 +272,13 @@ class TestInboxRepository:
 
         # Add unread messages
         InboxMessage(
-            from_user_id=test_user.id,
-            message="Unread 1",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Unread 1", reply_via=ReplyMethod.IN_APP
         ).save(temp_db)
 
         assert repo.count_unread() == 1
 
         InboxMessage(
-            from_user_id=test_user.id,
-            message="Unread 2",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Unread 2", reply_via=ReplyMethod.IN_APP
         ).save(temp_db)
 
         assert repo.count_unread() == 2
@@ -325,16 +291,12 @@ class TestInboxRepository:
 
     def test_list_all_returns_all(self, temp_db, test_user):
         """Test list_all returns all messages."""
-        InboxMessage(
-            from_user_id=test_user.id,
-            message="First",
-            reply_via=ReplyMethod.IN_APP,
-        ).save(temp_db)
+        InboxMessage(from_user_id=test_user.id, message="First", reply_via=ReplyMethod.IN_APP).save(
+            temp_db
+        )
 
         InboxMessage(
-            from_user_id=test_user.id,
-            message="Second",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Second", reply_via=ReplyMethod.IN_APP
         ).save(temp_db)
 
         repo = InboxRepository(temp_db)
@@ -351,9 +313,7 @@ class TestReplyMethods:
     def test_inapp_reply_method(self, temp_db, test_user):
         """Test IN_APP reply method."""
         msg = InboxMessage(
-            from_user_id=test_user.id,
-            message="Reply in app",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Reply in app", reply_via=ReplyMethod.IN_APP
         )
         msg.save(temp_db)
 
@@ -380,15 +340,11 @@ class TestMultipleUsers:
     def test_messages_from_different_users(self, temp_db, test_user, second_user):
         """Test messages from different users."""
         InboxMessage(
-            from_user_id=test_user.id,
-            message="From first user",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="From first user", reply_via=ReplyMethod.IN_APP
         ).save(temp_db)
 
         InboxMessage(
-            from_user_id=second_user.id,
-            message="From second user",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=second_user.id, message="From second user", reply_via=ReplyMethod.IN_APP
         ).save(temp_db)
 
         repo = InboxRepository(temp_db)
@@ -402,29 +358,21 @@ class TestMultipleUsers:
     def test_contact_log_multiple_users(self, temp_db, test_user, second_user):
         """Test contact log tracks all users."""
         # Messages from both users
+        InboxMessage(from_user_id=test_user.id, message="First", reply_via=ReplyMethod.IN_APP).save(
+            temp_db
+        )
+
         InboxMessage(
-            from_user_id=test_user.id,
-            message="First",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=test_user.id, message="Second from same user", reply_via=ReplyMethod.IN_APP
         ).save(temp_db)
 
         InboxMessage(
-            from_user_id=test_user.id,
-            message="Second from same user",
-            reply_via=ReplyMethod.IN_APP,
-        ).save(temp_db)
-
-        InboxMessage(
-            from_user_id=second_user.id,
-            message="From other user",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=second_user.id, message="From other user", reply_via=ReplyMethod.IN_APP
         ).save(temp_db)
 
         # Check contact_log
         with temp_db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT user_id, COUNT(*) FROM contact_log GROUP BY user_id"
-            )
+            cursor = conn.execute("SELECT user_id, COUNT(*) FROM contact_log GROUP BY user_id")
             counts = {row[0]: row[1] for row in cursor.fetchall()}
 
         assert counts[test_user.id] == 2

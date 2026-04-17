@@ -286,9 +286,7 @@ class TestAddNewAudiobooks:
 
     @patch("scanner.add_new_audiobooks.get_file_metadata")
     @patch("scanner.add_new_audiobooks.extract_cover_art")
-    def test_returns_empty_result_when_no_new_files(
-        self, mock_cover, mock_metadata, temp_dir
-    ):
+    def test_returns_empty_result_when_no_new_files(self, mock_cover, mock_metadata, temp_dir):
         """Test returns zero counts when no new files found."""
         from scanner.add_new_audiobooks import add_new_audiobooks
         from tests.conftest import init_test_database
@@ -300,11 +298,7 @@ class TestAddNewAudiobooks:
         library_dir.mkdir()
         cover_dir = temp_dir / "covers"
 
-        result = add_new_audiobooks(
-            library_dir=library_dir,
-            db_path=db_path,
-            cover_dir=cover_dir,
-        )
+        result = add_new_audiobooks(library_dir=library_dir, db_path=db_path, cover_dir=cover_dir)
 
         assert result["added"] == 0
         assert result["skipped"] == 0
@@ -346,10 +340,7 @@ class TestAddNewAudiobooks:
         mock_cover.return_value = "cover_123.jpg"
 
         result = add_new_audiobooks(
-            library_dir=library_dir,
-            db_path=db_path,
-            cover_dir=cover_dir,
-            calculate_hashes=False,
+            library_dir=library_dir, db_path=db_path, cover_dir=cover_dir, calculate_hashes=False
         )
 
         assert result["added"] == 1
@@ -359,9 +350,7 @@ class TestAddNewAudiobooks:
 
     @patch("scanner.add_new_audiobooks.get_file_metadata")
     @patch("scanner.add_new_audiobooks.extract_cover_art")
-    def test_handles_metadata_extraction_failure(
-        self, mock_cover, mock_metadata, temp_dir
-    ):
+    def test_handles_metadata_extraction_failure(self, mock_cover, mock_metadata, temp_dir):
         """Test counts errors when metadata extraction fails."""
         from scanner.add_new_audiobooks import add_new_audiobooks
         from tests.conftest import init_test_database
@@ -379,11 +368,7 @@ class TestAddNewAudiobooks:
         # Mock metadata extraction to return None (failure)
         mock_metadata.return_value = None
 
-        result = add_new_audiobooks(
-            library_dir=library_dir,
-            db_path=db_path,
-            cover_dir=cover_dir,
-        )
+        result = add_new_audiobooks(library_dir=library_dir, db_path=db_path, cover_dir=cover_dir)
 
         assert result["added"] == 0
         assert result["errors"] == 1
@@ -444,11 +429,7 @@ class TestAddNewAudiobooks:
         }
         mock_cover.return_value = None
 
-        add_new_audiobooks(
-            library_dir=library_dir,
-            db_path=db_path,
-            cover_dir=cover_dir,
-        )
+        add_new_audiobooks(library_dir=library_dir, db_path=db_path, cover_dir=cover_dir)
 
         assert cover_dir.exists()
 
@@ -500,9 +481,7 @@ class TestErrorHandling:
     @patch("scanner.add_new_audiobooks.get_file_metadata")
     @patch("scanner.add_new_audiobooks.extract_cover_art")
     @patch("scanner.add_new_audiobooks.insert_audiobook")
-    def test_handles_integrity_error(
-        self, mock_insert, mock_cover, mock_metadata, temp_dir
-    ):
+    def test_handles_integrity_error(self, mock_insert, mock_cover, mock_metadata, temp_dir):
         """Test handles IntegrityError (duplicate file path)."""
         from scanner.add_new_audiobooks import add_new_audiobooks
         from tests.conftest import init_test_database
@@ -526,11 +505,7 @@ class TestErrorHandling:
         mock_cover.return_value = None
         mock_insert.side_effect = sqlite3.IntegrityError("UNIQUE constraint failed")
 
-        result = add_new_audiobooks(
-            library_dir=library_dir,
-            db_path=db_path,
-            cover_dir=cover_dir,
-        )
+        result = add_new_audiobooks(library_dir=library_dir, db_path=db_path, cover_dir=cover_dir)
 
         assert result["skipped"] == 1
         assert result["added"] == 0
@@ -538,9 +513,7 @@ class TestErrorHandling:
     @patch("scanner.add_new_audiobooks.get_file_metadata")
     @patch("scanner.add_new_audiobooks.extract_cover_art")
     @patch("scanner.add_new_audiobooks.insert_audiobook")
-    def test_handles_generic_exception(
-        self, mock_insert, mock_cover, mock_metadata, temp_dir
-    ):
+    def test_handles_generic_exception(self, mock_insert, mock_cover, mock_metadata, temp_dir):
         """Test handles generic exceptions during insert."""
         from scanner.add_new_audiobooks import add_new_audiobooks
         from tests.conftest import init_test_database
@@ -564,11 +537,7 @@ class TestErrorHandling:
         mock_cover.return_value = None
         mock_insert.side_effect = RuntimeError("Database error")
 
-        result = add_new_audiobooks(
-            library_dir=library_dir,
-            db_path=db_path,
-            cover_dir=cover_dir,
-        )
+        result = add_new_audiobooks(library_dir=library_dir, db_path=db_path, cover_dir=cover_dir)
 
         assert result["errors"] == 1
         assert result["added"] == 0

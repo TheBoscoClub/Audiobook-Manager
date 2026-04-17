@@ -79,10 +79,7 @@ def _insert_author(db_path: Path, name: str, asin: str | None = None) -> int | N
     """Insert an author row and return its ID."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
-    cur.execute(
-        "INSERT INTO authors (name, sort_name, asin) VALUES (?, ?, ?)",
-        (name, name, asin),
-    )
+    cur.execute("INSERT INTO authors (name, sort_name, asin) VALUES (?, ?, ?)", (name, name, asin))
     author_id = cur.lastrowid
     conn.commit()
     conn.close()
@@ -126,10 +123,7 @@ SAMPLE_AUDIBLE_PRODUCT = {
         "content_type": "Product",
         "series": [{"title": "Test Series", "sequence": "3"}],
         "rating": {
-            "overall_distribution": {
-                "display_average_rating": 4.5,
-                "num_ratings": 1000,
-            },
+            "overall_distribution": {"display_average_rating": 4.5, "num_ratings": 1000},
             "performance_distribution": {"display_average_rating": 4.3},
             "story_distribution": {"display_average_rating": 4.7},
             "num_reviews": 500,
@@ -139,12 +133,7 @@ SAMPLE_AUDIBLE_PRODUCT = {
             "1024": "https://example.com/img1024.jpg",
         },
         "category_ladders": [
-            {
-                "ladder": [
-                    {"name": "Fiction", "id": "cat1"},
-                    {"name": "Sci-Fi", "id": "cat2"},
-                ]
-            }
+            {"ladder": [{"name": "Fiction", "id": "cat1"}, {"name": "Sci-Fi", "id": "cat2"}]}
         ],
         "editorial_reviews": [
             {"review": "Excellent book!", "source": "Publisher"},
@@ -174,12 +163,7 @@ SAMPLE_GOOGLE_BOOKS_RESPONSE = {
 }
 
 SAMPLE_OPENLIBRARY_RESPONSE = {
-    "docs": [
-        {
-            "description": {"value": "An open library description."},
-            "isbn": ["9780987654321"],
-        }
-    ]
+    "docs": [{"description": {"value": "An open library description."}, "isbn": ["9780987654321"]}]
 }
 
 
@@ -232,12 +216,7 @@ class TestExtractCategories:
     def test_single_ladder(self):
         product = {
             "category_ladders": [
-                {
-                    "ladder": [
-                        {"name": "Fiction", "id": "cat1"},
-                        {"name": "Fantasy", "id": "cat2"},
-                    ]
-                }
+                {"ladder": [{"name": "Fiction", "id": "cat1"}, {"name": "Fantasy", "id": "cat2"}]}
             ]
         }
         result = _extract_categories(product)
@@ -265,12 +244,7 @@ class TestExtractCategories:
     def test_items_without_name(self):
         product = {
             "category_ladders": [
-                {
-                    "ladder": [
-                        {"name": "", "id": "cat1"},
-                        {"name": "Fantasy", "id": "cat2"},
-                    ]
-                }
+                {"ladder": [{"name": "", "id": "cat1"}, {"name": "Fantasy", "id": "cat2"}]}
             ]
         }
         result = _extract_categories(product)
@@ -306,10 +280,7 @@ class TestExtractEditorialReviews:
 
     def test_mixed_reviews(self):
         product = {
-            "editorial_reviews": [
-                {"review": "Dict review", "source": "Pub"},
-                "String review",
-            ]
+            "editorial_reviews": [{"review": "Dict review", "source": "Pub"}, "String review"]
         }
         result = _extract_editorial_reviews(product)
         assert len(result) == 2
@@ -329,10 +300,7 @@ class TestExtractRating:
     def test_full_rating(self):
         product = {
             "rating": {
-                "overall_distribution": {
-                    "display_average_rating": 4.5,
-                    "num_ratings": 1200,
-                },
+                "overall_distribution": {"display_average_rating": 4.5, "num_ratings": 1200},
                 "performance_distribution": {"display_average_rating": 4.3},
                 "story_distribution": {"display_average_rating": 4.7},
                 "num_reviews": 500,
@@ -346,11 +314,7 @@ class TestExtractRating:
         assert result["num_reviews"] == 1200
 
     def test_partial_rating(self):
-        product = {
-            "rating": {
-                "overall_distribution": {"display_average_rating": 3.9},
-            }
-        }
+        product = {"rating": {"overall_distribution": {"display_average_rating": 3.9}}}
         result = _extract_rating(product)
         assert result["rating_overall"] == 3.9
         assert result["rating_performance"] is None
@@ -366,13 +330,7 @@ class TestGetBestImageUrl:
         assert _get_best_image_url({"product_images": {}}) is None
 
     def test_prefers_2400(self):
-        product = {
-            "product_images": {
-                "500": "url500",
-                "1024": "url1024",
-                "2400": "url2400",
-            }
-        }
+        product = {"product_images": {"500": "url500", "1024": "url1024", "2400": "url2400"}}
         assert _get_best_image_url(product) == "url2400"
 
     def test_prefers_1024_when_no_2400(self):
@@ -414,9 +372,7 @@ class TestFetchAudibleProduct:
     def test_429_retries_then_succeeds(self, mock_urlopen):
         mock_resp = _make_mock_urlopen(SAMPLE_AUDIBLE_PRODUCT)
         mock_urlopen.side_effect = [
-            urllib.error.HTTPError(
-                url="", code=429, msg="Too Many Requests", hdrs=None, fp=None
-            ),
+            urllib.error.HTTPError(url="", code=429, msg="Too Many Requests", hdrs=None, fp=None),
             mock_resp,
         ]
         with patch("scripts.enrich_single.time.sleep"):
@@ -426,9 +382,7 @@ class TestFetchAudibleProduct:
     @patch("scripts.enrich_single.urllib.request.urlopen")
     def test_429_retries_then_fails(self, mock_urlopen):
         mock_urlopen.side_effect = [
-            urllib.error.HTTPError(
-                url="", code=429, msg="Too Many Requests", hdrs=None, fp=None
-            ),
+            urllib.error.HTTPError(url="", code=429, msg="Too Many Requests", hdrs=None, fp=None),
             Exception("Still failing"),
         ]
         with patch("scripts.enrich_single.time.sleep"):
@@ -628,8 +582,7 @@ class TestEnrichBookAudible:
 
         conn = sqlite3.connect(db)
         cats = conn.execute(
-            "SELECT * FROM audible_categories WHERE audiobook_id = ?",
-            (book_id,),
+            "SELECT * FROM audible_categories WHERE audiobook_id = ?", (book_id,)
         ).fetchall()
         conn.close()
         assert len(cats) == 2  # Fiction + Fiction > Sci-Fi
@@ -645,8 +598,7 @@ class TestEnrichBookAudible:
 
         conn = sqlite3.connect(db)
         reviews = conn.execute(
-            "SELECT * FROM editorial_reviews WHERE audiobook_id = ?",
-            (book_id,),
+            "SELECT * FROM editorial_reviews WHERE audiobook_id = ?", (book_id,)
         ).fetchall()
         conn.close()
         assert len(reviews) == 2
@@ -670,9 +622,7 @@ class TestEnrichBookAudible:
         assert author["asin"] == "AUTH001"
 
     @patch("scripts.enrich_single._fetch_audible_product")
-    def test_audible_does_not_overwrite_existing_author_asin(
-        self, mock_fetch, tmp_path
-    ):
+    def test_audible_does_not_overwrite_existing_author_asin(self, mock_fetch, tmp_path):
         db = tmp_path / "test.db"
         _init_db(db)
         book_id = _insert_book(db, asin="B00TEST123")
@@ -732,10 +682,7 @@ class TestEnrichBookAudible:
 
         # Clear isbn_enriched_at so re-enrichment can happen fully
         conn = sqlite3.connect(db)
-        conn.execute(
-            "UPDATE audiobooks SET isbn_enriched_at = NULL WHERE id = ?",
-            (book_id,),
-        )
+        conn.execute("UPDATE audiobooks SET isbn_enriched_at = NULL WHERE id = ?", (book_id,))
         conn.commit()
         conn.close()
 
@@ -744,8 +691,7 @@ class TestEnrichBookAudible:
 
         conn = sqlite3.connect(db)
         count = conn.execute(
-            "SELECT COUNT(*) FROM audible_categories WHERE audiobook_id = ?",
-            (book_id,),
+            "SELECT COUNT(*) FROM audible_categories WHERE audiobook_id = ?", (book_id,)
         ).fetchone()[0]
         conn.close()
         # Should still be 2, not 4 (duplicated)
@@ -905,11 +851,7 @@ class TestEnrichBookISBN:
         _init_db(db)
         book_id = _insert_book(db, isbn=None)
 
-        gb_data = {
-            "industryIdentifiers": [
-                {"type": "ISBN_13", "identifier": "9781234567890"},
-            ]
-        }
+        gb_data = {"industryIdentifiers": [{"type": "ISBN_13", "identifier": "9781234567890"}]}
         mock_gb.return_value = gb_data
         enrich_book(book_id=book_id, db_path=db, quiet=True)
 
@@ -1134,11 +1076,6 @@ class TestMain:
             "errors": [],
         }
         db = tmp_path / "test.db"
-        with patch(
-            "sys.argv",
-            ["enrich_single.py", "--db", str(db), "--id", "42", "--quiet"],
-        ):
+        with patch("sys.argv", ["enrich_single.py", "--db", str(db), "--id", "42", "--quiet"]):
             main()
-        mock_enrich.assert_called_once_with(
-            book_id=42, db_path=Path(str(db)), quiet=True
-        )
+        mock_enrich.assert_called_once_with(book_id=42, db_path=Path(str(db)), quiet=True)

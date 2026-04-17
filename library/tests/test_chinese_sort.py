@@ -47,10 +47,7 @@ def _load_isolated(module_name: str, file_path: Path):
     return mod
 
 
-_search_cjk = _load_isolated(
-    "search_cjk_iso",
-    _LIB / "backend" / "api_modular" / "search_cjk.py",
-)
+_search_cjk = _load_isolated("search_cjk_iso", _LIB / "backend" / "api_modular" / "search_cjk.py")
 cjk_bigram_like_clause = _search_cjk.cjk_bigram_like_clause
 cjk_bigrams = _search_cjk.cjk_bigrams
 contains_cjk = _search_cjk.contains_cjk
@@ -146,13 +143,7 @@ def sample_db():
     """In-memory SQLite with a tiny books table for LIKE matching."""
     conn = sqlite3.connect(":memory:")
     conn.execute("CREATE TABLE books (id INTEGER PRIMARY KEY, title TEXT NOT NULL)")
-    titles = [
-        (1, "西游记"),
-        (2, "东游志"),
-        (3, "三国演义"),
-        (4, "水浒传"),
-        (5, "The Hobbit"),
-    ]
+    titles = [(1, "西游记"), (2, "东游志"), (3, "三国演义"), (4, "水浒传"), (5, "The Hobbit")]
     conn.executemany("INSERT INTO books VALUES (?, ?)", titles)
     conn.commit()
     try:
@@ -237,8 +228,7 @@ def translations_db(tmp_path):
 
 
 _backfill = _load_isolated(
-    "backfill_pinyin_sort_iso",
-    _LIB / "backend" / "migrations" / "backfill_pinyin_sort.py",
+    "backfill_pinyin_sort_iso", _LIB / "backend" / "migrations" / "backfill_pinyin_sort.py"
 )
 
 
@@ -261,9 +251,7 @@ class TestBackfill:
 
         # Check actual populated values
         rows = dict(
-            conn.execute(
-                "SELECT audiobook_id, pinyin_sort FROM audiobook_translations"
-            ).fetchall()
+            conn.execute("SELECT audiobook_id, pinyin_sort FROM audiobook_translations").fetchall()
         )
         assert rows[2] == "xiyouji"  # 西游记
         assert rows[3] == "lisiliezhuan"  # 李四列传
@@ -314,8 +302,7 @@ class TestLocaleGating:
             """
         )
         rows = conn.execute(
-            "SELECT id FROM books "
-            "ORDER BY COALESCE(NULLIF(pinyin_sort, ''), title) COLLATE NOCASE"
+            "SELECT id FROM books ORDER BY COALESCE(NULLIF(pinyin_sort, ''), title) COLLATE NOCASE"
         ).fetchall()
         # Apple (falls back to title), Mango (pinyin override)... wait, xxx > apple
         # Expected order: apple, mango (pinyin 'xxx-override' but lowercased 'xxx-override'), zebra

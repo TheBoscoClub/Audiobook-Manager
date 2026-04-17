@@ -162,14 +162,10 @@ def rebuild_junction_tables(conn: sqlite3.Connection) -> tuple[int, int]:
     for row in rows:
         book_id, author_raw, narrator_raw = row[0], row[1], row[2]
 
-        author_entries = _process_person_names(
-            author_raw, authors_map, cursor, "authors"
-        )
+        author_entries = _process_person_names(author_raw, authors_map, cursor, "authors")
         _link_book_persons(cursor, book_id, author_entries, "book_authors")
 
-        narrator_entries = _process_person_names(
-            narrator_raw, narrators_map, cursor, "narrators"
-        )
+        narrator_entries = _process_person_names(narrator_raw, narrators_map, cursor, "narrators")
         _link_book_persons(cursor, book_id, narrator_entries, "book_narrators")
 
     return len(authors_map), len(narrators_map)
@@ -239,13 +235,11 @@ def _execute_and_verify(conn, cursor, has_last, ba_count, bn_count):
     print(f"  With author_last_name: {has_last} -> {has_last_new}")
 
     cursor.execute(
-        "SELECT COUNT(*) FROM audiobooks WHERE id NOT IN "
-        "(SELECT book_id FROM book_authors)"
+        "SELECT COUNT(*) FROM audiobooks WHERE id NOT IN (SELECT book_id FROM book_authors)"
     )
     orphan_authors = cursor.fetchone()[0]
     cursor.execute(
-        "SELECT COUNT(*) FROM audiobooks WHERE id NOT IN "
-        "(SELECT book_id FROM book_narrators)"
+        "SELECT COUNT(*) FROM audiobooks WHERE id NOT IN (SELECT book_id FROM book_narrators)"
     )
     orphan_narrators = cursor.fetchone()[0]
     print(f"\n  Orphan books (no author junction): {orphan_authors}")
@@ -256,19 +250,12 @@ def _execute_and_verify(conn, cursor, has_last, ba_count, bn_count):
 
 
 def main():
-    parser = ArgumentParser(
-        description="Populate name columns and rebuild junction tables"
+    parser = ArgumentParser(description="Populate name columns and rebuild junction tables")
+    parser.add_argument(
+        "--execute", action="store_true", help="Actually apply changes (default is dry run)"
     )
     parser.add_argument(
-        "--execute",
-        action="store_true",
-        help="Actually apply changes (default is dry run)",
-    )
-    parser.add_argument(
-        "--db",
-        type=str,
-        default=None,
-        help="Path to database (default: config DATABASE_PATH)",
+        "--db", type=str, default=None, help="Path to database (default: config DATABASE_PATH)"
     )
     args = parser.parse_args()
 

@@ -45,11 +45,7 @@ def sample_user(auth_app):
     from auth.models import AuthType, User
 
     auth_db = auth_app.auth_db
-    user = User(
-        username="audit_test_user",
-        auth_type=AuthType.TOTP,
-        auth_credential=b"testsecret",
-    )
+    user = User(username="audit_test_user", auth_type=AuthType.TOTP, auth_credential=b"testsecret")
     user = user.save(auth_db)
     yield user.id
 
@@ -67,9 +63,7 @@ def second_user(auth_app):
 
     auth_db = auth_app.auth_db
     user = User(
-        username="audit_test_user2",
-        auth_type=AuthType.TOTP,
-        auth_credential=b"testsecret2",
+        username="audit_test_user2", auth_type=AuthType.TOTP, auth_credential=b"testsecret2"
     )
     user = user.save(auth_db)
     yield user.id
@@ -118,11 +112,7 @@ class TestAuditLogDataclass:
 class TestAuditLogRepositoryLog:
     def test_log_creates_entry(self, audit_repo, sample_user, second_user):
         """log() should create an entry and return it with all fields set."""
-        entry = audit_repo.log(
-            actor_id=sample_user,
-            target_id=second_user,
-            action="user.create",
-        )
+        entry = audit_repo.log(actor_id=sample_user, target_id=second_user, action="user.create")
         assert entry is not None
         assert entry.id is not None
         assert entry.actor_id == sample_user
@@ -134,10 +124,7 @@ class TestAuditLogRepositoryLog:
         """log() should store details dict as a JSON string."""
         details = {"reason": "test", "count": 42}
         entry = audit_repo.log(
-            actor_id=sample_user,
-            target_id=second_user,
-            action="user.update",
-            details=details,
+            actor_id=sample_user, target_id=second_user, action="user.update", details=details
         )
         assert entry.details is not None
         # details should be a JSON string in the database
@@ -147,20 +134,12 @@ class TestAuditLogRepositoryLog:
 
     def test_log_without_details(self, audit_repo, sample_user):
         """log() with no details should store NULL (details=None)."""
-        entry = audit_repo.log(
-            actor_id=sample_user,
-            target_id=None,
-            action="session.login",
-        )
+        entry = audit_repo.log(actor_id=sample_user, target_id=None, action="session.login")
         assert entry.details is None
 
     def test_log_returns_persisted_entry(self, audit_repo, sample_user):
         """log() should return an entry that can be retrieved by ID."""
-        entry = audit_repo.log(
-            actor_id=sample_user,
-            target_id=None,
-            action="session.logout",
-        )
+        entry = audit_repo.log(actor_id=sample_user, target_id=None, action="session.logout")
         fetched = audit_repo.get_by_id(entry.id)
         assert fetched is not None
         assert fetched.id == entry.id
@@ -201,28 +180,20 @@ class TestAuditLogRepositoryList:
     def test_list_filter_by_user_as_actor(self, audit_repo, sample_user, second_user):
         """list() with user_filter should return entries where user is actor."""
         unique_action = "actor.filter.test.xyz456"
-        audit_repo.log(
-            actor_id=sample_user, target_id=second_user, action=unique_action
-        )
+        audit_repo.log(actor_id=sample_user, target_id=second_user, action=unique_action)
 
         results = audit_repo.list(user_filter=sample_user, action_filter=unique_action)
         assert len(results) >= 1
-        assert all(
-            e.actor_id == sample_user or e.target_id == sample_user for e in results
-        )
+        assert all(e.actor_id == sample_user or e.target_id == sample_user for e in results)
 
     def test_list_filter_by_user_as_target(self, audit_repo, sample_user, second_user):
         """list() with user_filter should return entries where user is target."""
         unique_action = "target.filter.test.xyz789"
-        audit_repo.log(
-            actor_id=second_user, target_id=sample_user, action=unique_action
-        )
+        audit_repo.log(actor_id=second_user, target_id=sample_user, action=unique_action)
 
         results = audit_repo.list(user_filter=sample_user, action_filter=unique_action)
         assert len(results) >= 1
-        assert all(
-            e.actor_id == sample_user or e.target_id == sample_user for e in results
-        )
+        assert all(e.actor_id == sample_user or e.target_id == sample_user for e in results)
 
     def test_list_pagination(self, audit_repo, sample_user):
         """list() should respect limit/offset for pagination."""
@@ -248,9 +219,7 @@ class TestAuditLogRepositoryList:
 class TestAuditLogRepositoryCount:
     def test_count_unseen(self, audit_repo, sample_user):
         """count_unseen() should count entries with id > last_seen_id."""
-        anchor = audit_repo.log(
-            actor_id=sample_user, target_id=None, action="unseen.anchor"
-        )
+        anchor = audit_repo.log(actor_id=sample_user, target_id=None, action="unseen.anchor")
         last_seen = anchor.id
 
         # Create 3 more entries after the anchor
@@ -295,11 +264,7 @@ class TestAuditLogUserDeletion:
         ephemeral_id = ephemeral.id
 
         # Log an action with this user as actor
-        entry = audit_repo.log(
-            actor_id=ephemeral_id,
-            target_id=None,
-            action="ephemeral.action",
-        )
+        entry = audit_repo.log(actor_id=ephemeral_id, target_id=None, action="ephemeral.action")
         entry_id = entry.id
 
         # Delete the user

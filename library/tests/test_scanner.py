@@ -271,9 +271,7 @@ class TestGetFileMetadata:
         from scanner.scan_audiobooks import get_file_metadata
 
         # Create a test file
-        test_file = (
-            temp_dir / "Library" / "Author Name" / "Book Title" / "audiobook.opus"
-        )
+        test_file = temp_dir / "Library" / "Author Name" / "Book Title" / "audiobook.opus"
         test_file.parent.mkdir(parents=True, exist_ok=True)
         test_file.write_bytes(b"fake audio content" * 1000)
 
@@ -375,9 +373,7 @@ class TestExtractCoverArt:
         # Mock successful ffmpeg extraction
         def create_cover_file(*args, **kwargs):
             # Create the cover file that ffmpeg would create
-            file_hash = hashlib.md5(
-                str(test_file).encode(), usedforsecurity=False
-            ).hexdigest()
+            file_hash = hashlib.md5(str(test_file).encode(), usedforsecurity=False).hexdigest()
             cover_path = output_dir / f"{file_hash}.jpg"
             cover_path.write_bytes(b"fake jpeg")
             return MagicMock(returncode=0)
@@ -415,9 +411,7 @@ class TestExtractCoverArt:
         output_dir.mkdir()
 
         # Pre-create the cover file
-        cover_hash = hashlib.md5(
-            str(test_file).encode(), usedforsecurity=False
-        ).hexdigest()
+        cover_hash = hashlib.md5(str(test_file).encode(), usedforsecurity=False).hexdigest()
         cover_path = output_dir / f"{cover_hash}.jpg"
         cover_path.write_bytes(b"existing cover")
 
@@ -548,12 +542,8 @@ class TestFindMissingMain:
         empty_file.write_bytes(b"")
 
         monkeypatch.setattr("scanner.find_missing_audiobooks.AUDIOBOOK_DIR", temp_dir)
-        monkeypatch.setattr(
-            "scanner.find_missing_audiobooks.OUTPUT_CSV", temp_dir / "out.csv"
-        )
-        monkeypatch.setattr(
-            "scanner.find_missing_audiobooks.OUTPUT_TXT", temp_dir / "out.txt"
-        )
+        monkeypatch.setattr("scanner.find_missing_audiobooks.OUTPUT_CSV", temp_dir / "out.csv")
+        monkeypatch.setattr("scanner.find_missing_audiobooks.OUTPUT_TXT", temp_dir / "out.txt")
         monkeypatch.chdir(temp_dir)
 
         from scanner.find_missing_audiobooks import main

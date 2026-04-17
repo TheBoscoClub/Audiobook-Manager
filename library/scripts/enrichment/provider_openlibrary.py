@@ -47,7 +47,7 @@ def _search_openlibrary(title: str, author: str) -> dict | None:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (_OL_SEARCH_API) + urlencode-escaped search params; not user-controlled scheme
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
             data = json.loads(resp.read())
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):
+    except urllib.error.URLError, urllib.error.HTTPError, TimeoutError:
         return None
 
     docs = data.get("docs", [])
@@ -68,15 +68,55 @@ def _extract_series_from_doc(doc: dict) -> tuple[str, float | None]:
     if series_list:
         raw = series_list[0] if isinstance(series_list, list) else str(series_list)
         # Try to parse "Series Name #N" or "Series Name, Book N"
-        m = re.search(
-            r"(.+?),?\s*(?:#|Book|Vol\.?|Volume)\s*(\d+(?:\.\d+)?)",
-            raw,
-            re.IGNORECASE,
-        )
+        m = re.search(r"(.+?),?\s*(?:#|Book|Vol\.?|Volume)\s*(\d+(?:\.\d+)?)", raw, re.IGNORECASE)
         if m:
             return (m.group(1).strip(), float(m.group(2)))
         return (str(raw).strip(), None)
     return ("", None)
+
+
+def _apply_ol_series(result: dict, book: dict, doc: dict) -> None:
+    """Fill series / series_sequence if the book doesn't already have them."""
+    if book.get("series"):
+        return
+    series_name, seq = _extract_series_from_doc(doc)
+    if series_name:
+        result["series"] = series_name
+        if seq is not None:
+            result["series_sequence"] = seq
+
+
+def _apply_ol_isbn(result: dict, book: dict, doc: dict) -> None:
+    """Choose a preferred ISBN (13-digit if available)."""
+    isbn_list = doc.get("isbn", [])
+    if not isbn_list or book.get("isbn"):
+        return
+    isbn13 = [i for i in isbn_list if len(str(i)) == 13]
+    result["isbn"] = isbn13[0] if isbn13 else isbn_list[0]
+
+
+def _apply_ol_scalars(result: dict, book: dict, doc: dict) -> None:
+    """Fill simple one-off fields (year, publisher, page count, subjects)."""
+    if doc.get("first_publish_year") and not book.get("published_year"):
+        result["published_year"] = doc["first_publish_year"]
+
+    subjects = doc.get("subject", [])
+    if subjects:
+        result["ol_subjects"] = subjects[:20]  # Limit to top 20
+
+    publishers = doc.get("publisher", [])
+    if publishers and not book.get("publisher"):
+        result["publisher"] = publishers[0]
+
+    if doc.get("number_of_pages_median") and not book.get("page_count"):
+        result["page_count"] = doc["number_of_pages_median"]
+
+
+def _apply_ol_cover(result: dict, doc: dict) -> None:
+    """Materialize the Open Library cover URL if a cover ID is present."""
+    cover_i = doc.get("cover_i")
+    if cover_i:
+        result["ol_cover_url"] = f"https://covers.openlibrary.org/b/id/{cover_i}-L.jpg"
 
 
 class OpenLibraryProvider(EnrichmentProvider):
@@ -100,45 +140,8 @@ class OpenLibraryProvider(EnrichmentProvider):
             return {}
 
         result: dict = {}
-
-        # Series (only if not already set)
-        if not book.get("series"):
-            series_name, seq = _extract_series_from_doc(doc)
-            if series_name:
-                result["series"] = series_name
-                if seq is not None:
-                    result["series_sequence"] = seq
-
-        # ISBN
-        isbn_list = doc.get("isbn", [])
-        if isbn_list and not book.get("isbn"):
-            # Prefer 13-digit ISBN
-            isbn13 = [i for i in isbn_list if len(str(i)) == 13]
-            result["isbn"] = isbn13[0] if isbn13 else isbn_list[0]
-
-        # First publish year
-        if doc.get("first_publish_year") and not book.get("published_year"):
-            result["published_year"] = doc["first_publish_year"]
-
-        # Subjects
-        subjects = doc.get("subject", [])
-        if subjects:
-            result["ol_subjects"] = subjects[:20]  # Limit to top 20
-
-        # Publisher
-        publishers = doc.get("publisher", [])
-        if publishers and not book.get("publisher"):
-            result["publisher"] = publishers[0]
-
-        # Number of pages (median)
-        if doc.get("number_of_pages_median") and not book.get("page_count"):
-            result["page_count"] = doc["number_of_pages_median"]
-
-        # Cover image
-        cover_i = doc.get("cover_i")
-        if cover_i:
-            result["ol_cover_url"] = (
-                f"https://covers.openlibrary.org/b/id/{cover_i}-L.jpg"
-            )
-
+        _apply_ol_series(result, book, doc)
+        _apply_ol_isbn(result, book, doc)
+        _apply_ol_scalars(result, book, doc)
+        _apply_ol_cover(result, doc)
         return result

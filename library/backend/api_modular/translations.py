@@ -35,109 +35,100 @@ def _sanitize_log(value) -> str:
 _db_path: Path | None = None
 
 
+def _run_migration(label: str, body):
+    """Open a connection, invoke body(conn), commit, close. Log + swallow sqlite3.Error."""
+    conn = None
+    try:
+        conn = sqlite3.connect(str(_db_path))
+        body(conn)
+        conn.commit()
+    except sqlite3.Error:
+        logger.exception(label)
+    finally:
+        if conn is not None:
+            conn.close()
+
+
+def _migrate_series_display(conn):
+    """Older installs lack series_display column. SQLite has no
+    ADD COLUMN IF NOT EXISTS, so we check pragma first."""
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(audiobook_translations)")}
+    if "series_display" not in cols:
+        conn.execute("ALTER TABLE audiobook_translations ADD COLUMN series_display TEXT")
+        logger.info("Added series_display column to audiobook_translations")
+
+
+def _migrate_collection_translations(conn):
+    """Migration 018: collection_translations cache table."""
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS collection_translations (
+            collection_id TEXT NOT NULL,
+            locale TEXT NOT NULL,
+            name TEXT NOT NULL,
+            translator TEXT DEFAULT 'deepl',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (collection_id, locale)
+        )"""
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_collection_translations_locale "
+        "ON collection_translations(locale)"
+    )
+
+
+def _migrate_string_translations(conn):
+    """Migration 019: string_translations generic cache table."""
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS string_translations (
+            source_hash TEXT NOT NULL,
+            locale TEXT NOT NULL,
+            source TEXT NOT NULL,
+            translation TEXT NOT NULL,
+            translator TEXT DEFAULT 'deepl',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (source_hash, locale)
+        )"""
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_string_translations_locale ON string_translations(locale)"
+    )
+
+
+def _migrate_deepl_quota(conn):
+    """Migration 020: deepl_quota single-row bookkeeping for quota/glossary."""
+    conn.execute(
+        """CREATE TABLE IF NOT EXISTS deepl_quota (
+            id TEXT PRIMARY KEY DEFAULT 'default',
+            chars_used INTEGER NOT NULL DEFAULT 0,
+            char_limit INTEGER NOT NULL DEFAULT 500000,
+            period_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_api_check TIMESTAMP,
+            glossary_id TEXT,
+            glossary_source_hash TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )"""
+    )
+    conn.execute("INSERT OR IGNORE INTO deepl_quota (id) VALUES ('default')")
+
+
+# Each entry: (error log label, migration callable taking a live conn).
+_MIGRATIONS: tuple[tuple[str, object], ...] = (
+    ("Failed to ensure audiobook_translations.series_display column", _migrate_series_display),
+    ("Failed to ensure collection_translations table", _migrate_collection_translations),
+    ("Failed to ensure string_translations table", _migrate_string_translations),
+    ("Failed to ensure deepl_quota table", _migrate_deepl_quota),
+)
+
+
 def init_translations_routes(database_path):
     """Initialize with database path and ensure schema is current."""
     global _db_path
     _db_path = database_path
 
-    # Idempotent migration: older installs lack series_display column.
-    # SQLite has no ADD COLUMN IF NOT EXISTS, so we check pragma first.
-    conn = None
-    try:
-        conn = sqlite3.connect(str(_db_path))
-        cols = {
-            row[1] for row in conn.execute("PRAGMA table_info(audiobook_translations)")
-        }
-        if "series_display" not in cols:
-            conn.execute(
-                "ALTER TABLE audiobook_translations ADD COLUMN series_display TEXT"
-            )
-            conn.commit()
-            logger.info("Added series_display column to audiobook_translations")
-    except sqlite3.Error:
-        logger.exception(
-            "Failed to ensure audiobook_translations.series_display column"
-        )
-    finally:
-        if conn is not None:
-            conn.close()
-
-    # Migration 018: collection_translations cache table.
-    conn = None
-    try:
-        conn = sqlite3.connect(str(_db_path))
-        conn.execute(
-            """CREATE TABLE IF NOT EXISTS collection_translations (
-                collection_id TEXT NOT NULL,
-                locale TEXT NOT NULL,
-                name TEXT NOT NULL,
-                translator TEXT DEFAULT 'deepl',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (collection_id, locale)
-            )"""
-        )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_collection_translations_locale "
-            "ON collection_translations(locale)"
-        )
-        conn.commit()
-    except sqlite3.Error:
-        logger.exception("Failed to ensure collection_translations table")
-    finally:
-        if conn is not None:
-            conn.close()
-
-    # Migration 019: string_translations generic cache table.
-    conn = None
-    try:
-        conn = sqlite3.connect(str(_db_path))
-        conn.execute(
-            """CREATE TABLE IF NOT EXISTS string_translations (
-                source_hash TEXT NOT NULL,
-                locale TEXT NOT NULL,
-                source TEXT NOT NULL,
-                translation TEXT NOT NULL,
-                translator TEXT DEFAULT 'deepl',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (source_hash, locale)
-            )"""
-        )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_string_translations_locale "
-            "ON string_translations(locale)"
-        )
-        conn.commit()
-    except sqlite3.Error:
-        logger.exception("Failed to ensure string_translations table")
-    finally:
-        if conn is not None:
-            conn.close()
-
-    # Migration 020: deepl_quota single-row bookkeeping for quota/glossary.
-    conn = None
-    try:
-        conn = sqlite3.connect(str(_db_path))
-        conn.execute(
-            """CREATE TABLE IF NOT EXISTS deepl_quota (
-                id TEXT PRIMARY KEY DEFAULT 'default',
-                chars_used INTEGER NOT NULL DEFAULT 0,
-                char_limit INTEGER NOT NULL DEFAULT 500000,
-                period_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                last_api_check TIMESTAMP,
-                glossary_id TEXT,
-                glossary_source_hash TEXT,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )"""
-        )
-        conn.execute("INSERT OR IGNORE INTO deepl_quota (id) VALUES ('default')")
-        conn.commit()
-    except sqlite3.Error:
-        logger.exception("Failed to ensure deepl_quota table")
-    finally:
-        if conn is not None:
-            conn.close()
+    for label, migration in _MIGRATIONS:
+        _run_migration(label, migration)
 
 
 def _hash_source(text: str) -> str:
@@ -166,8 +157,7 @@ def get_book_translations(book_id):
     conn = _get_db()
     try:
         rows = conn.execute(
-            "SELECT * FROM audiobook_translations "
-            "WHERE audiobook_id = ? ORDER BY locale",
+            "SELECT * FROM audiobook_translations WHERE audiobook_id = ? ORDER BY locale",
             (book_id,),
         ).fetchall()
         return jsonify([dict(r) for r in rows])
@@ -175,17 +165,14 @@ def get_book_translations(book_id):
         conn.close()
 
 
-@translations_bp.route(
-    "/api/audiobooks/<int:book_id>/translations/<locale>", methods=["GET"]
-)
+@translations_bp.route("/api/audiobooks/<int:book_id>/translations/<locale>", methods=["GET"])
 @guest_allowed
 def get_translation(book_id, locale):
     """Get translation for a specific locale."""
     conn = _get_db()
     try:
         row = conn.execute(
-            "SELECT * FROM audiobook_translations "
-            "WHERE audiobook_id = ? AND locale = ?",
+            "SELECT * FROM audiobook_translations WHERE audiobook_id = ? AND locale = ?",
             (book_id, locale),
         ).fetchone()
         if not row:
@@ -212,9 +199,7 @@ def upsert_translation(book_id):
     conn = _get_db()
     try:
         # Verify the audiobook exists
-        book = conn.execute(
-            "SELECT id FROM audiobooks WHERE id = ?", (book_id,)
-        ).fetchone()
+        book = conn.execute("SELECT id FROM audiobooks WHERE id = ?", (book_id,)).fetchone()
         if not book:
             return jsonify({"error": "Audiobook not found"}), 404
 
@@ -237,8 +222,7 @@ def upsert_translation(book_id):
         conn.commit()
 
         row = conn.execute(
-            "SELECT * FROM audiobook_translations "
-            "WHERE audiobook_id = ? AND locale = ?",
+            "SELECT * FROM audiobook_translations WHERE audiobook_id = ? AND locale = ?",
             (book_id, locale),
         ).fetchone()
         return jsonify(dict(row)), 201
@@ -246,9 +230,7 @@ def upsert_translation(book_id):
         conn.close()
 
 
-@translations_bp.route(
-    "/api/audiobooks/<int:book_id>/translations/<locale>", methods=["DELETE"]
-)
+@translations_bp.route("/api/audiobooks/<int:book_id>/translations/<locale>", methods=["DELETE"])
 @admin_if_enabled
 def delete_translation(book_id, locale):
     """Delete a translation for a specific locale."""
@@ -264,6 +246,44 @@ def delete_translation(book_id, locale):
         return jsonify({"message": "Translation deleted"})
     finally:
         conn.close()
+
+
+def _load_locale_translations(conn, locale):
+    """Fetch cached translations for a locale, keyed by audiobook_id as str."""
+    rows = conn.execute(
+        "SELECT audiobook_id, title, author_display, series_display, description "
+        "FROM audiobook_translations WHERE locale = ?",
+        (locale,),
+    ).fetchall()
+    return {
+        str(r["audiobook_id"]): {
+            "title": r["title"],
+            "author_display": r["author_display"],
+            "series_display": r["series_display"],
+            "description": r["description"],
+        }
+        for r in rows
+    }
+
+
+def _parse_ids_param(ids_param):
+    """Parse ?ids=1,2,3 into a list of ints, capped at 60. Ignores garbage."""
+    if not ids_param:
+        return []
+    try:
+        requested_ids = [int(x) for x in ids_param.split(",") if x.strip()]
+    except ValueError, TypeError:
+        return []
+    return requested_ids[:60]
+
+
+def _compute_missing_ids(requested_ids, result):
+    """A book is missing if not cached OR cached row lacks series_display."""
+    return [
+        bid
+        for bid in requested_ids
+        if str(bid) not in result or result[str(bid)].get("series_display") is None
+    ]
 
 
 @translations_bp.route("/api/translations/by-locale/<locale>", methods=["GET"])
@@ -283,43 +303,12 @@ def get_translations_by_locale(locale):
 
     conn = _get_db()
     try:
-        # Fetch all cached translations for this locale
-        rows = conn.execute(
-            "SELECT audiobook_id, title, author_display, series_display, description "
-            "FROM audiobook_translations WHERE locale = ?",
-            (locale,),
-        ).fetchall()
-        result = {}
-        for r in rows:
-            result[str(r["audiobook_id"])] = {
-                "title": r["title"],
-                "author_display": r["author_display"],
-                "series_display": r["series_display"],
-                "description": r["description"],
-            }
-
-        # On-demand translation: if ?ids= provided, translate missing ones
-        ids_param = request.args.get("ids", "")
-        if ids_param:
-            try:
-                requested_ids = [int(x) for x in ids_param.split(",") if x.strip()]
-            except (ValueError, TypeError):
-                requested_ids = []
-
-            # Cap per request
-            requested_ids = requested_ids[:60]
-            # A book needs (re-)translation if it is not cached OR the cached
-            # row predates the series_display column and has no series yet.
-            missing_ids = [
-                bid
-                for bid in requested_ids
-                if str(bid) not in result
-                or result[str(bid)].get("series_display") is None
-            ]
-
+        result = _load_locale_translations(conn, locale)
+        requested_ids = _parse_ids_param(request.args.get("ids", ""))
+        if requested_ids:
+            missing_ids = _compute_missing_ids(requested_ids, result)
             if missing_ids:
                 _translate_missing(conn, missing_ids, locale, result)
-
         return jsonify(result)
     finally:
         conn.close()
@@ -327,9 +316,7 @@ def get_translations_by_locale(locale):
 
 def _load_books_for_missing(conn, missing_ids):
     """Fetch audiobook rows whose id is in missing_ids."""
-    all_books = conn.execute(
-        "SELECT id, title, author, series FROM audiobooks"
-    ).fetchall()
+    all_books = conn.execute("SELECT id, title, author, series FROM audiobooks").fetchall()
     return [dict(r) for r in all_books if r["id"] in missing_ids]
 
 
@@ -362,9 +349,7 @@ def _translate_unique_series(translator, books, locale):
     return dict(zip(unique_series, translated_series)), unique_series
 
 
-def _insert_fresh_translation(
-    conn, book, locale, t_title, t_author, t_series, result_dict
-):
+def _insert_fresh_translation(conn, book, locale, t_title, t_author, t_series, result_dict):
     """INSERT a fresh translation row and update result_dict."""
     pinyin = pinyin_sort_key(t_title) if locale.startswith("zh") else None
     conn.execute(
@@ -402,13 +387,7 @@ def _update_series_only(conn, book, locale, t_series, result_dict):
 
 
 def _apply_translations(
-    conn,
-    books,
-    locale,
-    translated_titles,
-    author_map_new,
-    series_translation,
-    result_dict,
+    conn, books, locale, translated_titles, author_map_new, series_translation, result_dict
 ):
     """Apply title/author/series translations to DB and result_dict."""
     title_iter = iter(translated_titles)
@@ -423,9 +402,7 @@ def _apply_translations(
         if book_id_str not in result_dict:
             t_title = next(title_iter, book["title"])
             t_author = next(author_iter2, book["author"] or "")
-            _insert_fresh_translation(
-                conn, book, locale, t_title, t_author, t_series, result_dict
-            )
+            _insert_fresh_translation(conn, book, locale, t_title, t_author, t_series, result_dict)
         else:
             _update_series_only(conn, book, locale, t_series, result_dict)
 
@@ -450,17 +427,9 @@ def _do_translate_missing(conn, missing_ids, locale, result_dict):
     translated_titles, author_map_new = _translate_title_author_batch(
         translator, needs_title, locale
     )
-    series_translation, unique_series = _translate_unique_series(
-        translator, books, locale
-    )
+    series_translation, unique_series = _translate_unique_series(translator, books, locale)
     _apply_translations(
-        conn,
-        books,
-        locale,
-        translated_titles,
-        author_map_new,
-        series_translation,
-        result_dict,
+        conn, books, locale, translated_titles, author_map_new, series_translation, result_dict
     )
 
     conn.commit()
@@ -513,13 +482,10 @@ def get_collection_translations(locale):
                 id_to_name[child["id"]] = child["name"]
 
         cached_rows = conn.execute(
-            "SELECT collection_id, name FROM collection_translations WHERE locale = ?",
-            (locale,),
+            "SELECT collection_id, name FROM collection_translations WHERE locale = ?", (locale,)
         ).fetchall()
         result: dict[str, str] = {
-            r["collection_id"]: r["name"]
-            for r in cached_rows
-            if r["collection_id"] in id_to_name
+            r["collection_id"]: r["name"] for r in cached_rows if r["collection_id"] in id_to_name
         }
 
         missing = [cid for cid in id_to_name if cid not in result]
@@ -544,9 +510,7 @@ def _translate_missing_collections(conn, missing_ids, id_to_name, locale, result
             logger.warning("Collection translation: no DeepL API key configured")
             return
 
-        unique_names = sorted(
-            {id_to_name[cid] for cid in missing_ids if id_to_name.get(cid)}
-        )
+        unique_names = sorted({id_to_name[cid] for cid in missing_ids if id_to_name.get(cid)})
         if not unique_names:
             return
 
@@ -716,7 +680,7 @@ def _parse_on_demand_ids(data):
     """Parse + validate audiobook_ids. Returns (ids, error_response_or_None)."""
     try:
         requested_ids = [int(bid) for bid in data["audiobook_ids"]]
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None, (jsonify({"error": "audiobook_ids must contain integers"}), 400)
     return requested_ids, None
 
@@ -795,14 +759,7 @@ def _validate_on_demand_request(data):
     (either a plain response or a (response, status) tuple).
     """
     if not data or not data.get("locale") or not data.get("audiobook_ids"):
-        return (
-            None,
-            None,
-            (
-                jsonify({"error": "locale and audiobook_ids are required"}),
-                400,
-            ),
-        )
+        return (None, None, (jsonify({"error": "locale and audiobook_ids are required"}), 400))
 
     locale = data["locale"]
     if locale == "en":
@@ -826,9 +783,7 @@ def _do_on_demand_translation(conn, locale, missing_ids, cached):
     from localization.config import DEEPL_API_KEY
 
     if not DEEPL_API_KEY:
-        logger.warning(
-            "On-demand translation requested but no DeepL API key configured"
-        )
+        logger.warning("On-demand translation requested but no DeepL API key configured")
         return
 
     all_books = conn.execute("SELECT id, title, author FROM audiobooks").fetchall()
@@ -914,54 +869,25 @@ def _validate_batch_request(data):
     book_ids = data.get("audiobook_ids")
 
     if provider != "deepl":
-        return (
-            None,
-            None,
-            (
-                jsonify({"error": "Only 'deepl' provider is supported"}),
-                400,
-            ),
-        )
+        return (None, None, (jsonify({"error": "Only 'deepl' provider is supported"}), 400))
 
     if isinstance(book_ids, list):
         try:
             requested_ids = {int(bid) for bid in book_ids}
-        except (ValueError, TypeError):
-            return (
-                None,
-                None,
-                (
-                    jsonify({"error": "audiobook_ids must contain integers"}),
-                    400,
-                ),
-            )
+        except ValueError, TypeError:
+            return (None, None, (jsonify({"error": "audiobook_ids must contain integers"}), 400))
         if not requested_ids:
-            return (
-                None,
-                None,
-                (
-                    jsonify({"error": "audiobook_ids must not be empty"}),
-                    400,
-                ),
-            )
+            return (None, None, (jsonify({"error": "audiobook_ids must not be empty"}), 400))
         return locale, requested_ids, None
     if book_ids != "all":
-        return (
-            None,
-            None,
-            (
-                jsonify({"error": "audiobook_ids must be a list or 'all'"}),
-                400,
-            ),
-        )
+        return (None, None, (jsonify({"error": "audiobook_ids must be a list or 'all'"}), 400))
     return locale, None, None
 
 
 def _load_batch_books(conn, requested_ids):
     """Load candidate book rows; optionally filter by requested_ids."""
     all_rows = conn.execute(
-        "SELECT id, title, author, series, description, publisher_summary "
-        "FROM audiobooks"
+        "SELECT id, title, author, series, description, publisher_summary FROM audiobooks"
     ).fetchall()
     if requested_ids is not None:
         return [dict(r) for r in all_rows if r["id"] in requested_ids]
@@ -973,8 +899,7 @@ def _find_existing_translations(conn, locale, books):
     if not books:
         return set()
     all_translations = conn.execute(
-        "SELECT audiobook_id FROM audiobook_translations WHERE locale = ?",
-        (locale,),
+        "SELECT audiobook_id FROM audiobook_translations WHERE locale = ?", (locale,)
     ).fetchall()
     all_translated_ids = {r["audiobook_id"] for r in all_translations}
     book_ids_set = {b["id"] for b in books}
@@ -1051,9 +976,7 @@ def _translate_batch_all_fields(translator, needs_translation, locale):
     titles = [b["title"] for b in needs_translation]
     authors = [b["author"] or "" for b in needs_translation]
     series_list = [b["series"] or "" for b in needs_translation]
-    descriptions = [
-        b["description"] or b["publisher_summary"] or "" for b in needs_translation
-    ]
+    descriptions = [b["description"] or b["publisher_summary"] or "" for b in needs_translation]
 
     translated_titles = translator.translate(titles, locale)
     author_map = _translate_batch_field_with_map(translator, authors, locale)
@@ -1076,20 +999,10 @@ def _run_batch_translation(conn, locale, needs_translation):
         translator, needs_translation, locale
     )
     translations = _persist_batch_translations(
-        conn,
-        needs_translation,
-        translated_titles,
-        author_map,
-        series_map,
-        desc_map,
-        locale,
+        conn, needs_translation, translated_titles, author_map, series_map, desc_map, locale
     )
     conn.commit()
-    logger.info(
-        "Batch translated %d books to %s",
-        len(needs_translation),
-        _sanitize_log(locale),
-    )
+    logger.info("Batch translated %d books to %s", len(needs_translation), _sanitize_log(locale))
     return translations, None
 
 
@@ -1171,6 +1084,8 @@ def admin_localization_quota():
           "note": str
         }
     """
+    if _db_path is None:
+        return jsonify({"error": "quota unavailable (db not initialized)"}), 500
     try:
         from localization.translation.quota import QuotaTracker
 

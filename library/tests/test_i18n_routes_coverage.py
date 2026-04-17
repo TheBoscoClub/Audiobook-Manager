@@ -94,8 +94,7 @@ class TestActivateLocale:
         with (
             patch("localization.queue.enqueue_all_books_for_locale") as mock_enq,
             patch(
-                "localization.queue.get_queue_status",
-                return_value={"pending": 7, "processing": 0},
+                "localization.queue.get_queue_status", return_value={"pending": 7, "processing": 0}
             ),
         ):
             resp = i18n_client.post("/api/i18n/activate", json={"locale": "zh-Hans"})
@@ -107,8 +106,7 @@ class TestActivateLocale:
 
     def test_activate_handles_exception(self, i18n_client):
         with patch(
-            "localization.queue.enqueue_all_books_for_locale",
-            side_effect=RuntimeError("boom"),
+            "localization.queue.enqueue_all_books_for_locale", side_effect=RuntimeError("boom")
         ):
             resp = i18n_client.post("/api/i18n/activate", json={"locale": "es"})
             assert resp.status_code == 500
@@ -119,9 +117,7 @@ class TestActivateLocale:
     def test_activate_with_non_json_body(self, i18n_client):
         # request.get_json(silent=True) returns None for non-JSON; the code
         # falls through to the "or {}" branch.
-        resp = i18n_client.post(
-            "/api/i18n/activate", data="not-json", content_type="text/plain"
-        )
+        resp = i18n_client.post("/api/i18n/activate", data="not-json", content_type="text/plain")
         assert resp.status_code == 200
         assert resp.get_json() == {"status": "ok", "queued": 0}
 
@@ -132,19 +128,13 @@ class TestActivateLocale:
 class TestTranslationQueueStatus:
     def test_queue_returns_status_dict(self, i18n_client):
         payload = {"pending": 4, "processing": 1, "completed": 0, "failed": 0}
-        with patch(
-            "localization.queue.get_queue_status",
-            return_value=payload,
-        ):
+        with patch("localization.queue.get_queue_status", return_value=payload):
             resp = i18n_client.get("/api/translation/queue")
             assert resp.status_code == 200
             assert resp.get_json() == payload
 
     def test_queue_returns_500_on_exception(self, i18n_client):
-        with patch(
-            "localization.queue.get_queue_status",
-            side_effect=RuntimeError("db down"),
-        ):
+        with patch("localization.queue.get_queue_status", side_effect=RuntimeError("db down")):
             resp = i18n_client.get("/api/translation/queue")
             assert resp.status_code == 500
             body = resp.get_json()
@@ -161,10 +151,7 @@ class TestBumpPriority:
         assert resp.get_json() == {"status": "ok"}
 
     def test_bump_with_english_is_ok(self, i18n_client):
-        resp = i18n_client.post(
-            "/api/translation/bump",
-            json={"audiobook_id": 1, "locale": "en"},
-        )
+        resp = i18n_client.post("/api/translation/bump", json={"audiobook_id": 1, "locale": "en"})
         assert resp.status_code == 200
         assert resp.get_json() == {"status": "ok"}
 
@@ -179,24 +166,17 @@ class TestBumpPriority:
             patch("localization.queue.enqueue") as mock_enqueue,
         ):
             resp = i18n_client.post(
-                "/api/translation/bump",
-                json={"audiobook_id": 42, "locale": "zh-Hans"},
+                "/api/translation/bump", json={"audiobook_id": 42, "locale": "zh-Hans"}
             )
             assert resp.status_code == 200
             assert resp.get_json() == {"status": "ok"}
             mock_bump.assert_called_once_with(42, "zh-Hans", priority=100)
-            mock_enqueue.assert_called_once_with(
-                42, "zh-Hans", priority=100, start_worker=True
-            )
+            mock_enqueue.assert_called_once_with(42, "zh-Hans", priority=100, start_worker=True)
 
     def test_bump_handles_exception(self, i18n_client):
-        with patch(
-            "localization.queue.bump_priority",
-            side_effect=RuntimeError("oops"),
-        ):
+        with patch("localization.queue.bump_priority", side_effect=RuntimeError("oops")):
             resp = i18n_client.post(
-                "/api/translation/bump",
-                json={"audiobook_id": 5, "locale": "ja"},
+                "/api/translation/bump", json={"audiobook_id": 5, "locale": "ja"}
             )
             assert resp.status_code == 500
             assert resp.get_json()["status"] == "error"
@@ -207,28 +187,21 @@ class TestBumpPriority:
 
 class TestBookTranslationStatus:
     def test_status_not_queued_returns_marker(self, i18n_client):
-        with patch(
-            "localization.queue.get_book_translation_status",
-            return_value=None,
-        ):
+        with patch("localization.queue.get_book_translation_status", return_value=None):
             resp = i18n_client.get("/api/translation/status/7/zh-Hans")
             assert resp.status_code == 200
             assert resp.get_json() == {"state": "not_queued"}
 
     def test_status_returns_dict_when_queued(self, i18n_client):
         payload = {"state": "pending", "step": "stt", "priority": 0}
-        with patch(
-            "localization.queue.get_book_translation_status",
-            return_value=payload,
-        ):
+        with patch("localization.queue.get_book_translation_status", return_value=payload):
             resp = i18n_client.get("/api/translation/status/11/es")
             assert resp.status_code == 200
             assert resp.get_json() == payload
 
     def test_status_returns_500_on_exception(self, i18n_client):
         with patch(
-            "localization.queue.get_book_translation_status",
-            side_effect=RuntimeError("db"),
+            "localization.queue.get_book_translation_status", side_effect=RuntimeError("db")
         ):
             resp = i18n_client.get("/api/translation/status/99/fr")
             assert resp.status_code == 500

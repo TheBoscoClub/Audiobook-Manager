@@ -34,13 +34,9 @@ class XTTSProvider(TTSProvider):
 
     def available_voices(self, language: str) -> list[Voice]:
         """XTTS uses voice cloning — voices are dynamically created from reference audio."""
-        return [
-            Voice(id="clone", name="Voice Clone", language=language, gender="neutral")
-        ]
+        return [Voice(id="clone", name="Voice Clone", language=language, gender="neutral")]
 
-    def synthesize(
-        self, text: str, language: str, voice: str, output_path: Path
-    ) -> Path:
+    def synthesize(self, text: str, language: str, voice: str, output_path: Path) -> Path:
         """Generate audio via RunPod XTTS endpoint.
 
         Args:
@@ -54,26 +50,16 @@ class XTTSProvider(TTSProvider):
         """
         logger.info("Synthesizing %d chars via XTTS (lang=%s)", len(text), language)
 
-        payload = {
-            "input": {
-                "text": text,
-                "language": language,
-            }
-        }
+        payload = {"input": {"text": text, "language": language}}
 
         # If voice is a file path, include reference audio for cloning
         ref_path = Path(voice)
         if ref_path.exists():
-            payload["input"]["speaker_wav_b64"] = base64.b64encode(
-                ref_path.read_bytes()
-            ).decode()
+            payload["input"]["speaker_wav_b64"] = base64.b64encode(ref_path.read_bytes()).decode()
 
         run_url = f"{RUNPOD_API_URL}/{self._endpoint_id}/run"
         resp = requests.post(
-            run_url,
-            headers={"Authorization": f"Bearer {self._api_key}"},
-            json=payload,
-            timeout=30,
+            run_url, headers={"Authorization": f"Bearer {self._api_key}"}, json=payload, timeout=30
         )
         resp.raise_for_status()
         job_id = resp.json()["id"]
@@ -98,9 +84,7 @@ class XTTSProvider(TTSProvider):
 
         while time.monotonic() - start < max_wait:
             resp = requests.get(
-                status_url,
-                headers={"Authorization": f"Bearer {self._api_key}"},
-                timeout=10,
+                status_url, headers={"Authorization": f"Bearer {self._api_key}"}, timeout=10
             )
             resp.raise_for_status()
             data = resp.json()
@@ -109,9 +93,7 @@ class XTTSProvider(TTSProvider):
             if status == "COMPLETED":
                 return data.get("output", {})
             if status in ("FAILED", "CANCELLED"):
-                raise RuntimeError(
-                    f"RunPod XTTS job {status}: {data.get('error', 'unknown')}"
-                )
+                raise RuntimeError(f"RunPod XTTS job {status}: {data.get('error', 'unknown')}")
 
             time.sleep(poll_interval)
             poll_interval = min(poll_interval * 1.5, 10)

@@ -44,10 +44,7 @@ def create_test_db(db_path):
         )
     """)
     migration_sql = (
-        Path(__file__).parent.parent
-        / "backend"
-        / "migrations"
-        / "011_multi_author_narrator.sql"
+        Path(__file__).parent.parent / "backend" / "migrations" / "011_multi_author_narrator.sql"
     ).read_text()
     conn.executescript(migration_sql)
     return conn
@@ -152,8 +149,7 @@ class TestMigrateDryRun:
     def test_dry_run_does_not_write(self):
         """Line 150: Dry run does not insert data."""
         self.conn.execute(
-            "INSERT INTO audiobooks (title, author, narrator, file_path)"
-            " VALUES (?, ?, ?, ?)",
+            "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, ?, ?)",
             ("It", "Stephen King", "Steven Weber", "/fake/it.opus"),
         )
         self.conn.commit()
@@ -169,8 +165,7 @@ class TestMigrateDryRun:
     def test_dry_run_stats_returned(self):
         """Lines 155, 157: Stats are populated even in dry run."""
         self.conn.execute(
-            "INSERT INTO audiobooks (title, author, narrator, file_path)"
-            " VALUES (?, ?, ?, ?)",
+            "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, ?, ?)",
             ("It", "Stephen King", "Steven Weber", "/fake/it.opus"),
         )
         self.conn.commit()
@@ -196,8 +191,7 @@ class TestNarratorExclusions:
     def test_narrator_junk_excluded(self):
         """Lines 195-196: Junk narrator names excluded."""
         self.conn.execute(
-            "INSERT INTO audiobooks (title, author, narrator, file_path)"
-            " VALUES (?, ?, ?, ?)",
+            "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, ?, ?)",
             ("Test", "Real Author", "Unknown", "/fake/test.opus"),
         )
         self.conn.commit()
@@ -212,8 +206,7 @@ class TestNarratorExclusions:
     def test_narrator_brand_excluded(self):
         """Lines 197-199: Brand narrator names excluded."""
         self.conn.execute(
-            "INSERT INTO audiobooks (title, author, narrator, file_path)"
-            " VALUES (?, ?, ?, ?)",
+            "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, ?, ?)",
             ("Test", "Real Author", "Audible Studios", "/fake/test2.opus"),
         )
         self.conn.commit()
@@ -227,8 +220,7 @@ class TestNarratorExclusions:
     def test_null_narrator_skipped(self):
         """Lines 194-196: Null/empty narrator names skipped."""
         self.conn.execute(
-            "INSERT INTO audiobooks (title, author, narrator, file_path)"
-            " VALUES (?, ?, NULL, ?)",
+            "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, NULL, ?)",
             ("Test", "Real Author", "/fake/test3.opus"),
         )
         self.conn.commit()
@@ -253,13 +245,11 @@ class TestNarratorDedup:
     def test_narrator_dedup_merges(self):
         """Lines 202-204: Same narrator on different books is deduplicated."""
         self.conn.execute(
-            "INSERT INTO audiobooks (title, author, narrator, file_path)"
-            " VALUES (?, ?, ?, ?)",
+            "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, ?, ?)",
             ("Book 1", "Author A", "Frank Muller", "/fake/b1.opus"),
         )
         self.conn.execute(
-            "INSERT INTO audiobooks (title, author, narrator, file_path)"
-            " VALUES (?, ?, ?, ?)",
+            "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, ?, ?)",
             ("Book 2", "Author B", "Frank Muller", "/fake/b2.opus"),
         )
         self.conn.commit()
@@ -288,8 +278,7 @@ class TestEmptySortNameSkip:
         from unittest.mock import patch
 
         self.conn.execute(
-            "INSERT INTO audiobooks (title, author, narrator, file_path)"
-            " VALUES (?, ?, ?, ?)",
+            "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, ?, ?)",
             ("Test", "Real Author", "Valid Narrator", "/fake/testsort.opus"),
         )
         self.conn.commit()
@@ -317,8 +306,7 @@ class TestMainBlock:
         db_path = tmp.name
         conn = create_test_db(db_path)
         conn.execute(
-            "INSERT INTO audiobooks (title, author, narrator, file_path)"
-            " VALUES (?, ?, ?, ?)",
+            "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, ?, ?)",
             ("It", "Stephen King", "Steven Weber", "/fake/it.opus"),
         )
         conn.commit()
@@ -350,8 +338,7 @@ class TestMainBlock:
         db_path = tmp.name
         conn = create_test_db(db_path)
         conn.execute(
-            "INSERT INTO audiobooks (title, author, narrator, file_path)"
-            " VALUES (?, ?, ?, ?)",
+            "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, ?, ?)",
             ("It", "Stephen King", "Steven Weber", "/fake/it.opus"),
         )
         conn.commit()

@@ -20,7 +20,7 @@ from ._subprocess import run_with_progress
 utilities_ops_hashing_bp = Blueprint("utilities_ops_hashing", __name__)
 
 # Module-level state set by init_hashing_routes
-_project_root = None
+_project_root: Path = Path()
 
 # Compiled regex patterns for hash progress parsing
 _progress_pattern = regex.compile(r"\[(\d+)/(\d+)\]")
@@ -49,33 +49,21 @@ def _parse_hash_line(line, state, tracker, operation_id):
         if total > 0:
             progress = 5 + int((current / total) * 90)
             if progress > state["last_progress"]:
-                tracker.update_progress(
-                    operation_id,
-                    progress,
-                    f"Hashing: {current}/{total} files",
-                )
+                tracker.update_progress(operation_id, progress, f"Hashing: {current}/{total} files")
                 state["last_progress"] = progress
         return
 
     match = _file_pattern.search(line)
     if match:
         filename = match.group(1).strip()[:40]
-        tracker.update_progress(
-            operation_id,
-            state["last_progress"],
-            f"Hashing: {filename}",
-        )
+        tracker.update_progress(operation_id, state["last_progress"], f"Hashing: {filename}")
 
     match = _processing_pattern.search(line)
     if match:
         count = int(match.group(1))
         progress = min(5 + (count // 10), 90)
         if progress > state["last_progress"]:
-            tracker.update_progress(
-                operation_id,
-                progress,
-                f"Processed {count} files",
-            )
+            tracker.update_progress(operation_id, progress, f"Processed {count} files")
             state["last_progress"] = progress
 
     match = _generated_pattern.search(line)
@@ -117,7 +105,7 @@ def _checksum_first_mb(filepath):
         with open(filepath, "rb") as f:
             data = f.read(1048576)
         return hashlib.md5(data, usedforsecurity=False).hexdigest()
-    except (IOError, OSError):
+    except IOError, OSError:
         return None
 
 
@@ -158,9 +146,7 @@ def _process_file_checksums(files, tracker, operation_id, processed, total_files
         if processed % 50 == 0:
             pct = 10 + int((processed / total_files) * 80)
             tracker.update_progress(
-                operation_id,
-                pct,
-                f"Processed {processed}/{total_files} files...",
+                operation_id, pct, f"Processed {processed}/{total_files} files..."
             )
     return checksums, processed
 
@@ -194,16 +180,12 @@ def _checksum_work(tracker, operation_id):
         )
         return
 
-    tracker.update_progress(
-        operation_id, 10, f"Processing {len(source_files)} source files..."
-    )
+    tracker.update_progress(operation_id, 10, f"Processing {len(source_files)} source files...")
     source_checksums, processed = _process_file_checksums(
         source_files, tracker, operation_id, 0, total_files
     )
 
-    tracker.update_progress(
-        operation_id, 50, f"Processing {len(library_files)} library files..."
-    )
+    tracker.update_progress(operation_id, 50, f"Processing {len(library_files)} library files...")
     library_checksums, _ = _process_file_checksums(
         library_files, tracker, operation_id, processed, total_files
     )
@@ -222,9 +204,7 @@ def _checksum_work(tracker, operation_id):
     )
 
 
-@utilities_ops_hashing_bp.route(
-    "/api/utilities/generate-hashes-async", methods=["POST"]
-)
+@utilities_ops_hashing_bp.route("/api/utilities/generate-hashes-async", methods=["POST"])
 @admin_if_enabled
 def generate_hashes_async() -> FlaskResponse:
     """Generate SHA-256 hashes with progress tracking."""
@@ -237,9 +217,7 @@ def generate_hashes_async() -> FlaskResponse:
     )
 
 
-@utilities_ops_hashing_bp.route(
-    "/api/utilities/generate-checksums-async", methods=["POST"]
-)
+@utilities_ops_hashing_bp.route("/api/utilities/generate-checksums-async", methods=["POST"])
 @admin_if_enabled
 def generate_checksums_async() -> FlaskResponse:
     """Generate MD5 checksums for Sources and Library with progress tracking."""

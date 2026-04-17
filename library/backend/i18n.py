@@ -25,9 +25,7 @@ _LOCALES_DIR = Path(__file__).parent.parent / "locales"
 
 # Defaults — overridable via environment
 DEFAULT_LOCALE = os.environ.get("AUDIOBOOKS_DEFAULT_LOCALE", "en")
-SUPPORTED_LOCALES = set(
-    os.environ.get("AUDIOBOOKS_SUPPORTED_LOCALES", "en,zh-Hans").split(",")
-)
+SUPPORTED_LOCALES = set(os.environ.get("AUDIOBOOKS_SUPPORTED_LOCALES", "en,zh-Hans").split(","))
 
 
 @lru_cache(maxsize=16)
@@ -74,6 +72,35 @@ def t(key: str, locale: Optional[str] = None) -> str:
     return catalog.get(key, key)
 
 
+def _match_accept_language_tag(tag: str) -> Optional[str]:
+    """Return the supported locale for a single Accept-Language tag, or None.
+
+    Tries exact match first, then language-only prefix match (e.g., ``zh``
+    matches ``zh-Hans``). Empty/degenerate tags return None.
+    """
+    if not tag:
+        return None
+    if tag in SUPPORTED_LOCALES:
+        return tag
+    lang = tag.split("-")[0]
+    if not lang:
+        return None
+    for supported in SUPPORTED_LOCALES:
+        if supported.startswith(lang):
+            return supported
+    return None
+
+
+def _locale_from_accept_language(header: str) -> Optional[str]:
+    """Scan an Accept-Language header and return the first supported locale."""
+    for part in header.split(","):
+        tag = part.split(";")[0].strip()
+        match = _match_accept_language_tag(tag)
+        if match:
+            return match
+    return None
+
+
 def get_locale() -> str:
     """
     Detect the current request's locale.
@@ -81,9 +108,8 @@ def get_locale() -> str:
     Priority:
     1. ?locale= query parameter
     2. X-Locale header (set by frontend i18n.js)
-    3. User's saved preference (from session/cookie)
-    4. Accept-Language header
-    5. Default locale
+    3. Accept-Language header
+    4. Default locale
     """
     # 1. Query param
     locale = request.args.get("locale")
@@ -95,16 +121,10 @@ def get_locale() -> str:
     if locale and locale in SUPPORTED_LOCALES:
         return locale
 
-    # 3. Accept-Language header (parse first match)
+    # 3. Accept-Language header
     accept = request.headers.get("Accept-Language", "")
-    for part in accept.split(","):
-        tag = part.split(";")[0].strip()
-        if tag in SUPPORTED_LOCALES:
-            return tag
-        # Try language-only (e.g., "zh" → "zh-Hans")
-        lang = tag.split("-")[0]
-        for supported in SUPPORTED_LOCALES:
-            if supported.startswith(lang):
-                return supported
+    match = _locale_from_accept_language(accept)
+    if match:
+        return match
 
     return DEFAULT_LOCALE

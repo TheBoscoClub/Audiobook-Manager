@@ -279,9 +279,7 @@ def _render_reply(locale: str, v: Dict[str, Any]) -> Tuple[str, str, str]:
 
     greeting = _format_html(_t("email.common.greeting", locale), v)
     footer = _format_html(_t("email.reply.footer", locale), v)
-    escaped_reply = html.escape(str(v.get("reply_text", "")), quote=True).replace(
-        "\n", "<br>"
-    )
+    escaped_reply = html.escape(str(v.get("reply_text", "")), quote=True).replace("\n", "<br>")
 
     inner = (
         f'    <p style="line-height: 1.8;">{greeting}</p>\n'
@@ -390,9 +388,7 @@ _RENDERERS = {
 }
 
 
-def render_email(
-    template_name: str, locale: str, **variables: Any
-) -> Tuple[str, str, str]:
+def render_email(template_name: str, locale: str, **variables: Any) -> Tuple[str, str, str]:
     """Render a localized email and return ``(subject, text, html)``.
 
     ``template_name`` must be one of the keys in :data:`_RENDERERS`.

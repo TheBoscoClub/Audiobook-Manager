@@ -1,0 +1,12 @@
+# Trivy config — excludes dev-only, gitignored, self-signed TLS artifacts.
+# See library/certs/README.md for why these files exist on disk but never
+# reach the git index or any shipped artifact.
+scan:
+  skip-files:
+    - library/certs/server.key
+    - library/certs/server.crt
+  skip-dirs:
+    - venv
+    - node_modules
+    - .snapshots
+    - .btrbk-snapshots

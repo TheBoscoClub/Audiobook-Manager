@@ -126,20 +126,11 @@ def parse_sequence(seq_str: str) -> float | None:
 #   "Title (Series Name Book N) (Unabridged)"
 TITLE_SERIES_PATTERNS = [
     # "Title: Series, Book N" or "Title: Series #N"
-    re.compile(
-        r"^.+?:\s+(.+?),?\s+(?:Book|#)\s*(\d+(?:\.\d+)?)\s*(?:\(|$)",
-        re.IGNORECASE,
-    ),
+    re.compile(r"^.+?:\s+(.+?),?\s+(?:Book|#)\s*(\d+(?:\.\d+)?)\s*(?:\(|$)", re.IGNORECASE),
     # "Title (Series Name Book N)"
-    re.compile(
-        r"\((.+?)\s+(?:Book|#)\s*(\d+(?:\.\d+)?)\)",
-        re.IGNORECASE,
-    ),
+    re.compile(r"\((.+?)\s+(?:Book|#)\s*(\d+(?:\.\d+)?)\)", re.IGNORECASE),
     # "Title: A Series Name Novel" (no number)
-    re.compile(
-        r"^.+?:\s+(?:A\s+)?(.+?)\s+Novel\s*(?:\(|$)",
-        re.IGNORECASE,
-    ),
+    re.compile(r"^.+?:\s+(?:A\s+)?(.+?)\s+Novel\s*(?:\(|$)", re.IGNORECASE),
 ]
 
 
@@ -231,12 +222,7 @@ def _update_from_api(cursor, raw_series, series_counter, asin_books, dry_run):
         series_name, seq = pick_best_series(series_list, series_counter)
         if series_name:
             _apply_series_update(
-                cursor,
-                book_id,
-                series_name,
-                seq,
-                dry_run,
-                title_by_id.get(book_id, "?"),
+                cursor, book_id, series_name, seq, dry_run, title_by_id.get(book_id, "?")
             )
             updated += 1
     return updated
@@ -260,16 +246,12 @@ def _print_series_results(results, dry_run):
     print(f"{'=' * 50}")
     print(f"Updated from Audible API: {results['updated_from_api']}")
     print(f"Updated from title parse: {results['updated_from_title']}")
-    print(
-        f"Total updated: {results['updated_from_api'] + results['updated_from_title']}"
-    )
+    print(f"Total updated: {results['updated_from_api'] + results['updated_from_title']}")
     print(f"Unique series: {results['unique_series']}")
 
 
 def populate_series(
-    dry_run: bool = False,
-    delay: float = DEFAULT_DELAY,
-    db_path: Path | None = None,
+    dry_run: bool = False, delay: float = DEFAULT_DELAY, db_path: Path | None = None
 ) -> dict:
     """Main function: populate series from Audible API, then title fallback."""
     if db_path is None:
@@ -284,9 +266,7 @@ def populate_series(
     print(f"Books without ASIN, no series: {len(no_asin_books)}\n")
 
     print("Phase 1: Querying Audible API...")
-    raw_series, series_counter, api_hits, api_misses = _query_audible_series(
-        asin_books, delay
-    )
+    raw_series, series_counter, api_hits, api_misses = _query_audible_series(asin_books, delay)
     print(f"\n  API results: {api_hits} with series, {api_misses} without, 0 errors")
     print(f"  Unique series found: {len(series_counter)}")
     top_series = sorted(series_counter.items(), key=lambda x: -x[1])[:15]
@@ -298,9 +278,7 @@ def populate_series(
     print("Phase 2: Updating database...")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    updated_asin = _update_from_api(
-        cursor, raw_series, series_counter, asin_books, dry_run
-    )
+    updated_asin = _update_from_api(cursor, raw_series, series_counter, asin_books, dry_run)
 
     print(f"\nPhase 3: Title fallback for {len(no_asin_books)} books without ASIN...")
     updated_title = _update_from_titles(cursor, no_asin_books, dry_run)
@@ -329,9 +307,7 @@ def main():
         description="Populate series data from Audible API + title fallback"
     )
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would be updated without writing to DB",
+        "--dry-run", action="store_true", help="Show what would be updated without writing to DB"
     )
     parser.add_argument(
         "--delay",
@@ -340,10 +316,7 @@ def main():
         help=f"Seconds between API calls (default: {DEFAULT_DELAY})",
     )
     parser.add_argument(
-        "--db",
-        type=str,
-        default=None,
-        help="Path to SQLite database (default: from config)",
+        "--db", type=str, default=None, help="Path to SQLite database (default: from config)"
     )
     args = parser.parse_args()
 

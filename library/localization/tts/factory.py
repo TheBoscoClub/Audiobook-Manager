@@ -37,25 +37,20 @@ def _remote_tts_candidates() -> list[TTSProvider]:
 
         providers.append(
             XTTSProvider(
-                api_key=loc_config.RUNPOD_API_KEY,
-                endpoint_id=loc_config.RUNPOD_XTTS_ENDPOINT,
+                api_key=loc_config.RUNPOD_API_KEY, endpoint_id=loc_config.RUNPOD_XTTS_ENDPOINT
             )
         )
     if loc_config.VASTAI_XTTS_HOST:
         from .vastai_xtts import VastaiXTTSProvider
 
         providers.append(
-            VastaiXTTSProvider(
-                host=loc_config.VASTAI_XTTS_HOST,
-                port=loc_config.VASTAI_XTTS_PORT,
-            )
+            VastaiXTTSProvider(host=loc_config.VASTAI_XTTS_HOST, port=loc_config.VASTAI_XTTS_PORT)
         )
     return providers
 
 
 def get_tts_provider(
-    provider_name: str | None = None,
-    workload: WorkloadHint = WorkloadHint.ANY,
+    provider_name: str | None = None, workload: WorkloadHint = WorkloadHint.ANY
 ) -> TTSProvider:
     """Return a TTSProvider matching the configured backend.
 
@@ -81,43 +76,12 @@ def get_tts_provider(
 
     name = (provider_name or loc_config.TTS_PROVIDER or "").lower()
 
-    if name in ("edge-tts", "edge"):
-        return EdgeTTSProvider()
-
-    if name in ("xtts", "xtts-runpod", "runpod"):
-        from .xtts import XTTSProvider
-
-        if not loc_config.RUNPOD_API_KEY:
-            raise ValueError(
-                "xtts-runpod requires AUDIOBOOKS_RUNPOD_API_KEY in audiobooks.conf"
-            )
-        if not loc_config.RUNPOD_XTTS_ENDPOINT:
-            raise ValueError(
-                "xtts-runpod requires AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT in audiobooks.conf"
-            )
-        return XTTSProvider(
-            api_key=loc_config.RUNPOD_API_KEY,
-            endpoint_id=loc_config.RUNPOD_XTTS_ENDPOINT,
-        )
-
-    if name in ("xtts-vastai", "vastai", "vast"):
-        from .vastai_xtts import VastaiXTTSProvider
-
-        if not loc_config.VASTAI_XTTS_HOST:
-            raise ValueError(
-                "xtts-vastai requires AUDIOBOOKS_VASTAI_XTTS_HOST in audiobooks.conf"
-            )
-        return VastaiXTTSProvider(
-            host=loc_config.VASTAI_XTTS_HOST,
-            port=loc_config.VASTAI_XTTS_PORT,
-        )
-
-    if name:
-        raise ValueError(f"Unknown TTS provider: {name}")
+    explicit = _tts_by_explicit_name(name, loc_config)
+    if explicit is not None:
+        return explicit
 
     # Auto mode: workload-aware ordering.
     remote = _remote_tts_candidates()
-
     if workload is WorkloadHint.SHORT_CLIP or not remote:
         if not remote:
             logger.info("No remote TTS configured — using edge-tts")
@@ -128,12 +92,39 @@ def get_tts_provider(
     return chosen
 
 
+def _tts_by_explicit_name(name: str, loc_config) -> TTSProvider | None:
+    """Build a TTS provider for a named backend, or None for auto mode.
+    Raises ValueError if the backend is known but unconfigured/unsupported.
+    """
+    if not name:
+        return None
+    if name in ("edge-tts", "edge"):
+        return EdgeTTSProvider()
+    if name in ("xtts", "xtts-runpod", "runpod"):
+        from .xtts import XTTSProvider
+
+        if not loc_config.RUNPOD_API_KEY:
+            raise ValueError("xtts-runpod requires AUDIOBOOKS_RUNPOD_API_KEY in audiobooks.conf")
+        if not loc_config.RUNPOD_XTTS_ENDPOINT:
+            raise ValueError(
+                "xtts-runpod requires AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT in audiobooks.conf"
+            )
+        return XTTSProvider(
+            api_key=loc_config.RUNPOD_API_KEY, endpoint_id=loc_config.RUNPOD_XTTS_ENDPOINT
+        )
+    if name in ("xtts-vastai", "vastai", "vast"):
+        from .vastai_xtts import VastaiXTTSProvider
+
+        if not loc_config.VASTAI_XTTS_HOST:
+            raise ValueError("xtts-vastai requires AUDIOBOOKS_VASTAI_XTTS_HOST in audiobooks.conf")
+        return VastaiXTTSProvider(
+            host=loc_config.VASTAI_XTTS_HOST, port=loc_config.VASTAI_XTTS_PORT
+        )
+    raise ValueError(f"Unknown TTS provider: {name}")
+
+
 def synthesize_with_fallback(
-    provider: TTSProvider,
-    text: str,
-    language: str,
-    voice: str,
-    output_path: Path,
+    provider: TTSProvider, text: str, language: str, voice: str, output_path: Path
 ) -> Path:
     """Synthesize via ``provider``; on network failure, retry once via edge-tts.
 
@@ -146,7 +137,5 @@ def synthesize_with_fallback(
         provider_name=provider.name,
         is_local=provider.is_local,
         remote_call=lambda: provider.synthesize(text, language, voice, output_path),
-        local_call=lambda: EdgeTTSProvider().synthesize(
-            text, language, voice, output_path
-        ),
+        local_call=lambda: EdgeTTSProvider().synthesize(text, language, voice, output_path),
     )

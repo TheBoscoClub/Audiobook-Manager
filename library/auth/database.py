@@ -48,9 +48,7 @@ class AuthDatabase:
     SCHEMA_VERSION = 10
     KEY_LENGTH = 32  # 256 bits
 
-    def __init__(
-        self, db_path: str, key_path: Optional[str] = None, is_dev: bool = False
-    ):
+    def __init__(self, db_path: str, key_path: Optional[str] = None, is_dev: bool = False):
         """
         Initialize auth database.
 
@@ -60,9 +58,7 @@ class AuthDatabase:
             is_dev: Development mode (relaxed key permissions)
         """
         if sqlcipher is None:
-            raise AuthDatabaseError(
-                "SQLCipher not available. Install with: pip install sqlcipher3"
-            )
+            raise AuthDatabaseError("SQLCipher not available. Install with: pip install sqlcipher3")
 
         self.db_path = Path(db_path)
         self.is_dev = is_dev
@@ -106,16 +102,12 @@ class AuthDatabase:
 
             # Validate key format (64 hex chars = 256 bits)
             if len(key) != 64 or not all(c in "0123456789abcdef" for c in key.lower()):
-                raise EncryptionKeyError(
-                    "Invalid key format. Expected 64 hex characters."
-                )
+                raise EncryptionKeyError("Invalid key format. Expected 64 hex characters.")
 
             return key
 
         except PermissionError:
-            raise EncryptionKeyError(
-                f"Cannot read key file {self.key_path}. Check permissions."
-            )
+            raise EncryptionKeyError(f"Cannot read key file {self.key_path}. Check permissions.")
         except FileNotFoundError:
             raise EncryptionKeyError(f"Key file not found: {self.key_path}")
 
@@ -228,12 +220,9 @@ class AuthDatabase:
                 )
             """)
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp"
-                " ON audit_log(timestamp DESC)"
+                "CREATE INDEX IF NOT EXISTS idx_audit_log_timestamp ON audit_log(timestamp DESC)"
             )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action)"
-            )
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action)")
 
             # Migration: add user_hidden_books table if not exists
             conn.execute("""
@@ -248,9 +237,7 @@ class AuthDatabase:
 
             # Migration: add last_audit_seen_id to users if not exists
             try:
-                conn.execute(
-                    "ALTER TABLE users ADD COLUMN last_audit_seen_id INTEGER DEFAULT 0"
-                )
+                conn.execute("ALTER TABLE users ADD COLUMN last_audit_seen_id INTEGER DEFAULT 0")
             except Exception:
                 pass  # Column already exists
 
@@ -266,17 +253,13 @@ class AuthDatabase:
                 "VALUES ('multi_session_default', 'false')"
             )
             # Migration: add multi_session column to users if not exists
-            cols = {
-                row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()
-            }
+            cols = {row[1] for row in conn.execute("PRAGMA table_info(users)").fetchall()}
             if "multi_session" not in cols:
                 conn.execute(
                     "ALTER TABLE users ADD COLUMN multi_session TEXT NOT NULL DEFAULT 'default'"
                 )
             if "preferred_locale" not in cols:
-                conn.execute(
-                    "ALTER TABLE users ADD COLUMN preferred_locale TEXT DEFAULT 'en'"
-                )
+                conn.execute("ALTER TABLE users ADD COLUMN preferred_locale TEXT DEFAULT 'en'")
 
         return created
 
@@ -363,19 +346,11 @@ class AuthDatabase:
         ("access_requests", "preferred_auth_method", "TEXT DEFAULT 'totp'"),
     )
     _V5_ALLOWED_TABLES_FOR_PRAGMA: frozenset[str] = frozenset(
-        {
-            "sessions",
-            "access_requests",
-            "users",
-            "user_listening_history",
-            "user_downloads",
-        }
+        {"sessions", "access_requests", "users", "user_listening_history", "user_downloads"}
     )
 
     @staticmethod
-    def _v5_add_column_if_missing(
-        conn, table: str, column: str, definition: str, logger
-    ) -> None:
+    def _v5_add_column_if_missing(conn, table: str, column: str, definition: str, logger) -> None:
         """Add a column to a table if it doesn't already exist."""
         if (table, column, definition) not in AuthDatabase._V5_MIGRATION_ALLOWLIST:
             raise ValueError(
@@ -402,8 +377,7 @@ class AuthDatabase:
         """Check if a table exists in the database."""
         return bool(
             conn.execute(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
-                (table,),
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?", (table,)
             ).fetchone()[0]
         )
 
@@ -443,11 +417,7 @@ class AuthDatabase:
         # Step 3: Add preferred_auth_method to access_requests
         if ar_exists:
             self._v5_add_column_if_missing(
-                conn,
-                "access_requests",
-                "preferred_auth_method",
-                "TEXT DEFAULT 'totp'",
-                logger,
+                conn, "access_requests", "preferred_auth_method", "TEXT DEFAULT 'totp'", logger
             )
 
         # Step 4: Update schema version
@@ -463,8 +433,7 @@ class AuthDatabase:
             )
         if post_session_count != session_count:
             raise RuntimeError(
-                f"Migration validation failed: sessions"
-                f" {session_count} → {post_session_count}"
+                f"Migration validation failed: sessions {session_count} → {post_session_count}"
             )
 
         logger.info(
@@ -488,8 +457,7 @@ class AuthDatabase:
         for table in ("user_listening_history", "user_downloads"):
             # Check if table exists
             cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                (table,),
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
             )
             if not cursor.fetchone():
                 logger.info("v6→v7: table %s does not exist, skipping", table)
@@ -553,9 +521,7 @@ class AuthDatabase:
                 result["schema_version"] = row[0] if row else 0
 
                 # Count tables
-                cursor = conn.execute(
-                    "SELECT count(*) FROM sqlite_master WHERE type='table'"
-                )
+                cursor = conn.execute("SELECT count(*) FROM sqlite_master WHERE type='table'")
                 result["table_count"] = cursor.fetchone()[0]
 
                 # Count users

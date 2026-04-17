@@ -107,9 +107,7 @@ def _try_audible(asin: str, output_dir: Path, timeout: int) -> Optional[str]:
     url = f"https://m.media-amazon.com/images/I/{asin}._SL500_.jpg"
     try:
         resp = requests.get(url, timeout=timeout)
-        if resp.status_code == 200 and resp.headers.get("content-type", "").startswith(
-            "image/"
-        ):
+        if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image/"):
             return _save_image(resp.content, output_dir, url)
     except requests.RequestException:
         pass
@@ -119,9 +117,7 @@ def _try_audible(asin: str, output_dir: Path, timeout: int) -> Optional[str]:
     url2 = f"https://images-na.ssl-images-amazon.com/images/I/{asin}._SL500_.jpg"
     try:
         resp = requests.get(url2, timeout=timeout)
-        if resp.status_code == 200 and resp.headers.get("content-type", "").startswith(
-            "image/"
-        ):
+        if resp.status_code == 200 and resp.headers.get("content-type", "").startswith("image/"):
             return _save_image(resp.content, output_dir, url2)
     except requests.RequestException:
         pass

@@ -77,9 +77,7 @@ class TestNormalizeStringsPayload:
         assert len(result) == 2
 
     def test_skips_non_strings(self):
-        assert _normalize_strings_payload([None, 42, {}, "ok"]) == {
-            _hash_source("ok"): "ok"
-        }
+        assert _normalize_strings_payload([None, 42, {}, "ok"]) == {_hash_source("ok"): "ok"}
 
     def test_skips_overlong_strings(self):
         long = "A" * 1001
@@ -105,9 +103,7 @@ class TestTranslateBatchFieldWithMap:
     def test_translates_non_empty(self):
         translator = MagicMock()
         translator.translate.return_value = ["你好", "世界"]
-        result = _translate_batch_field_with_map(
-            translator, ["hello", "", "world"], "zh-Hans"
-        )
+        result = _translate_batch_field_with_map(translator, ["hello", "", "world"], "zh-Hans")
         assert result == ["你好", "", "世界"]
 
     def test_falls_back_when_translator_returns_less(self):
@@ -178,9 +174,7 @@ class TestValidateOnDemandRequest:
         assert err is not None
 
     def test_english_short_circuits(self, _app_context):
-        locale, ids, err = _validate_on_demand_request(
-            {"locale": "en", "audiobook_ids": [1]}
-        )
+        locale, ids, err = _validate_on_demand_request({"locale": "en", "audiobook_ids": [1]})
         assert err is not None
         assert locale is None
 
@@ -203,21 +197,15 @@ class TestValidateBatchRequest:
         assert err is not None
 
     def test_wrong_provider(self, _app_context):
-        locale, ids, err = _validate_batch_request(
-            {"locale": "zh-Hans", "provider": "google"}
-        )
+        locale, ids, err = _validate_batch_request({"locale": "zh-Hans", "provider": "google"})
         assert err is not None
 
     def test_empty_ids_list(self, _app_context):
-        locale, ids, err = _validate_batch_request(
-            {"locale": "zh-Hans", "audiobook_ids": []}
-        )
+        locale, ids, err = _validate_batch_request({"locale": "zh-Hans", "audiobook_ids": []})
         assert err is not None
 
     def test_ids_all_string_accepted(self, _app_context):
-        locale, ids, err = _validate_batch_request(
-            {"locale": "zh-Hans", "audiobook_ids": "all"}
-        )
+        locale, ids, err = _validate_batch_request({"locale": "zh-Hans", "audiobook_ids": "all"})
         assert err is None
         assert ids is None  # None = "all"
         assert locale == "zh-Hans"
@@ -229,15 +217,11 @@ class TestValidateBatchRequest:
         assert err is not None
 
     def test_ids_non_integer(self, _app_context):
-        locale, ids, err = _validate_batch_request(
-            {"locale": "zh-Hans", "audiobook_ids": ["abc"]}
-        )
+        locale, ids, err = _validate_batch_request({"locale": "zh-Hans", "audiobook_ids": ["abc"]})
         assert err is not None
 
     def test_valid(self):
-        locale, ids, err = _validate_batch_request(
-            {"locale": "zh-Hans", "audiobook_ids": [1, 2]}
-        )
+        locale, ids, err = _validate_batch_request({"locale": "zh-Hans", "audiobook_ids": [1, 2]})
         assert err is None
         assert ids == {1, 2}
 
@@ -334,8 +318,7 @@ class TestUpsertTranslation:
 
     def test_book_not_found_404(self, app_client, translations_db):
         resp = app_client.post(
-            "/api/audiobooks/99999/translations",
-            json={"locale": "zh-Hans", "title": "foo"},
+            "/api/audiobooks/99999/translations", json={"locale": "zh-Hans", "title": "foo"}
         )
         assert resp.status_code == 404
 
@@ -357,21 +340,18 @@ class TestUpsertTranslation:
     def test_update_translation_upsert(self, app_client, translations_db):
         # Insert first
         app_client.post(
-            "/api/audiobooks/1/translations",
-            json={"locale": "zh-Hans", "title": "old"},
+            "/api/audiobooks/1/translations", json={"locale": "zh-Hans", "title": "old"}
         )
         # Then overwrite
         resp = app_client.post(
-            "/api/audiobooks/1/translations",
-            json={"locale": "zh-Hans", "title": "new"},
+            "/api/audiobooks/1/translations", json={"locale": "zh-Hans", "title": "new"}
         )
         assert resp.status_code == 201
         assert resp.get_json()["title"] == "new"
 
     def test_non_zh_locale_no_pinyin(self, app_client, translations_db):
         resp = app_client.post(
-            "/api/audiobooks/1/translations",
-            json={"locale": "ja", "title": "日本語"},
+            "/api/audiobooks/1/translations", json={"locale": "ja", "title": "日本語"}
         )
         body = resp.get_json()
         assert body["pinyin_sort"] is None
@@ -422,9 +402,7 @@ class TestGetTranslationsByLocale:
         assert "1" in body
         assert body["1"]["title"] == "戒指"
 
-    def test_ids_param_with_no_deepl_key_returns_cached_only(
-        self, app_client, translations_db
-    ):
+    def test_ids_param_with_no_deepl_key_returns_cached_only(self, app_client, translations_db):
         """When DEEPL_API_KEY is missing, missing ids should gracefully skip."""
         with patch("localization.config.DEEPL_API_KEY", None):
             resp = app_client.get("/api/translations/by-locale/zh-Hans?ids=1,2,3")
@@ -451,15 +429,13 @@ class TestTranslateStringsEndpoint:
 
     def test_strings_not_list_400(self, app_client, translations_db):
         resp = app_client.post(
-            "/api/translations/strings",
-            json={"locale": "zh-Hans", "strings": "not-a-list"},
+            "/api/translations/strings", json={"locale": "zh-Hans", "strings": "not-a-list"}
         )
         assert resp.status_code == 400
 
     def test_empty_strings_returns_empty(self, app_client, translations_db):
         resp = app_client.post(
-            "/api/translations/strings",
-            json={"locale": "zh-Hans", "strings": []},
+            "/api/translations/strings", json={"locale": "zh-Hans", "strings": []}
         )
         assert resp.status_code == 200
         assert resp.get_json() == {}
@@ -492,22 +468,18 @@ class TestOnDemandTranslate:
         assert resp.status_code == 400
 
     def test_missing_ids_400(self, app_client, translations_db):
-        resp = app_client.post(
-            "/api/translations/on-demand", json={"locale": "zh-Hans"}
-        )
+        resp = app_client.post("/api/translations/on-demand", json={"locale": "zh-Hans"})
         assert resp.status_code == 400
 
     def test_invalid_ids_400(self, app_client, translations_db):
         resp = app_client.post(
-            "/api/translations/on-demand",
-            json={"locale": "zh-Hans", "audiobook_ids": ["abc"]},
+            "/api/translations/on-demand", json={"locale": "zh-Hans", "audiobook_ids": ["abc"]}
         )
         assert resp.status_code == 400
 
     def test_english_returns_empty(self, app_client, translations_db):
         resp = app_client.post(
-            "/api/translations/on-demand",
-            json={"locale": "en", "audiobook_ids": [1]},
+            "/api/translations/on-demand", json={"locale": "en", "audiobook_ids": [1]}
         )
         assert resp.status_code == 200
         assert resp.get_json() == {}
@@ -524,8 +496,7 @@ class TestOnDemandTranslate:
 
         with patch("localization.config.DEEPL_API_KEY", None):
             resp = app_client.post(
-                "/api/translations/on-demand",
-                json={"locale": "zh-Hans", "audiobook_ids": [1, 2]},
+                "/api/translations/on-demand", json={"locale": "zh-Hans", "audiobook_ids": [1, 2]}
             )
         assert resp.status_code == 200
         body = resp.get_json()
@@ -546,16 +517,14 @@ class TestBatchTranslate:
 
     def test_empty_ids_400(self, app_client, translations_db):
         resp = app_client.post(
-            "/api/translations/batch",
-            json={"locale": "zh-Hans", "audiobook_ids": []},
+            "/api/translations/batch", json={"locale": "zh-Hans", "audiobook_ids": []}
         )
         assert resp.status_code == 400
 
     def test_no_api_key_returns_503(self, app_client, translations_db):
         with patch("localization.config.DEEPL_API_KEY", None):
             resp = app_client.post(
-                "/api/translations/batch",
-                json={"locale": "zh-Hans", "audiobook_ids": [1]},
+                "/api/translations/batch", json={"locale": "zh-Hans", "audiobook_ids": [1]}
             )
         assert resp.status_code == 503
 

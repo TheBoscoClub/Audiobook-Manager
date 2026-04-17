@@ -180,9 +180,7 @@ class TestAudiobooksFiltering:
 
     def test_filter_multiple_params(self, app_client):
         """Test filtering with multiple parameters."""
-        response = app_client.get(
-            "/api/audiobooks?author=Test&narrator=Test&format=opus"
-        )
+        response = app_client.get("/api/audiobooks?author=Test&narrator=Test&format=opus")
         assert response.status_code == 200
 
     def test_invalid_sort_field(self, app_client):
@@ -277,9 +275,7 @@ class TestDeletionEndpoints:
     def test_verify_deletion_missing_ids(self, app_client):
         """Test verify deletion with missing audiobook_ids."""
         response = app_client.post(
-            "/api/duplicates/verify",
-            data=json.dumps({}),
-            content_type="application/json",
+            "/api/duplicates/verify", data=json.dumps({}), content_type="application/json"
         )
         assert response.status_code == 400
 
@@ -651,9 +647,7 @@ class TestBulkOperations:
     def test_bulk_update_missing_fields(self, app_client):
         """Test bulk update with missing fields."""
         response = app_client.post(
-            "/api/audiobooks/bulk-update",
-            data=json.dumps({}),
-            content_type="application/json",
+            "/api/audiobooks/bulk-update", data=json.dumps({}), content_type="application/json"
         )
         assert response.status_code == 400
 
@@ -678,9 +672,7 @@ class TestBulkOperations:
     def test_bulk_delete_missing_ids(self, app_client):
         """Test bulk delete with missing IDs."""
         response = app_client.post(
-            "/api/audiobooks/bulk-delete",
-            data=json.dumps({}),
-            content_type="application/json",
+            "/api/audiobooks/bulk-delete", data=json.dumps({}), content_type="application/json"
         )
         assert response.status_code == 400
 

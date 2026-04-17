@@ -54,9 +54,7 @@ class DeepLSTT(STTProvider):
         if not api_key:
             raise ValueError("DeepL API key is required")
         self._api_key = api_key
-        self._base_url = (
-            DEEPL_FREE_API_URL if api_key.endswith(":fx") else DEEPL_API_URL
-        )
+        self._base_url = DEEPL_FREE_API_URL if api_key.endswith(":fx") else DEEPL_API_URL
 
     @property
     def name(self) -> str:
@@ -92,9 +90,7 @@ class DeepLSTT(STTProvider):
         if not self.supports_language(language):
             raise ValueError(f"Language '{language}' not supported by DeepL STT")
 
-        logger.info(
-            "Transcribing %s via DeepL STT (lang=%s)", audio_path.name, language
-        )
+        logger.info("Transcribing %s via DeepL STT (lang=%s)", audio_path.name, language)
 
         with open(audio_path, "rb") as f:
             resp = requests.post(

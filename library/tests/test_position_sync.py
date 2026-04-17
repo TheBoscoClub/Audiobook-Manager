@@ -186,9 +186,7 @@ class TestUpdatePositionRoute:
 
         with flask_app.test_client() as client:
             response = client.put(
-                "/api/position/9002",
-                json={"position_ms": 3000000},
-                content_type="application/json",
+                "/api/position/9002", json={"position_ms": 3000000}, content_type="application/json"
             )
 
         assert response.status_code == 200
@@ -211,11 +209,7 @@ class TestUpdatePositionRoute:
         conn.close()
 
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/position/9003",
-                json={},
-                content_type="application/json",
-            )
+            response = client.put("/api/position/9003", json={}, content_type="application/json")
 
         assert response.status_code == 400
 
@@ -245,15 +239,7 @@ class TestPercentageCalculation:
                 id, title, author, asin, duration_hours, playback_position_ms, file_path
             ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-            (
-                9030,
-                "Percent Test",
-                "Author",
-                "B77777",
-                10.0,
-                18000000,
-                "/test/percent.opus",
-            ),
+            (9030, "Percent Test", "Author", "B77777", 10.0, 18000000, "/test/percent.opus"),
         )
         conn.commit()
         conn.close()

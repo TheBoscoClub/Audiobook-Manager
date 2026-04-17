@@ -141,10 +141,7 @@ class TestWebAuthnSwitchBegin:
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         mock_reg_opts.return_value = ('{"rp": {}}', b"\xab\xcd")
 
-        resp = user_client.post(
-            "/auth/me/webauthn/begin",
-            json={"auth_type": "passkey"},
-        )
+        resp = user_client.post("/auth/me/webauthn/begin", json={"auth_type": "passkey"})
         assert resp.status_code == 200
         data = resp.get_json()
         assert "options" in data
@@ -160,25 +157,16 @@ class TestWebAuthnSwitchBegin:
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         mock_reg_opts.return_value = ('{"rp": {}}', b"\xab\xcd")
 
-        resp = user_client.post(
-            "/auth/me/webauthn/begin",
-            json={"auth_type": "fido2"},
-        )
+        resp = user_client.post("/auth/me/webauthn/begin", json={"auth_type": "fido2"})
         assert resp.status_code == 200
 
     def test_begin_invalid_auth_type(self, user_client):
-        resp = user_client.post(
-            "/auth/me/webauthn/begin",
-            json={"auth_type": "invalid"},
-        )
+        resp = user_client.post("/auth/me/webauthn/begin", json={"auth_type": "invalid"})
         assert resp.status_code == 400
         assert "Invalid auth type" in resp.get_json()["error"]
 
     def test_begin_unauthenticated(self, anon_client):
-        resp = anon_client.post(
-            "/auth/me/webauthn/begin",
-            json={"auth_type": "passkey"},
-        )
+        resp = anon_client.post("/auth/me/webauthn/begin", json={"auth_type": "passkey"})
         assert resp.status_code == 401
 
 
@@ -265,16 +253,14 @@ class TestWebAuthnSwitchComplete:
 
     def test_complete_missing_credential(self, user_client):
         resp = user_client.post(
-            "/auth/me/webauthn/complete",
-            json={"challenge": "abc", "auth_type": "passkey"},
+            "/auth/me/webauthn/complete", json={"challenge": "abc", "auth_type": "passkey"}
         )
         assert resp.status_code == 400
         assert "required" in resp.get_json()["error"].lower()
 
     def test_complete_missing_challenge(self, user_client):
         resp = user_client.post(
-            "/auth/me/webauthn/complete",
-            json={"credential": {"id": "x"}, "auth_type": "passkey"},
+            "/auth/me/webauthn/complete", json={"credential": {"id": "x"}, "auth_type": "passkey"}
         )
         assert resp.status_code == 400
 
@@ -286,11 +272,7 @@ class TestWebAuthnSwitchComplete:
 
         resp = user_client.post(
             "/auth/me/webauthn/complete",
-            json={
-                "credential": {"id": "x"},
-                "challenge": challenge_b64,
-                "auth_type": "magic_link",
-            },
+            json={"credential": {"id": "x"}, "challenge": challenge_b64, "auth_type": "magic_link"},
         )
         assert resp.status_code == 400
 
@@ -312,9 +294,7 @@ class TestWebAuthnSwitchComplete:
 
     @patch("api_modular.auth.webauthn_verify_registration")
     @patch("api_modular.auth.get_webauthn_config")
-    def test_complete_verification_fails(
-        self, mock_config, mock_verify, user_client, test_user
-    ):
+    def test_complete_verification_fails(self, mock_config, mock_verify, user_client, test_user):
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         mock_verify.return_value = None  # Verification failure
 
@@ -325,11 +305,7 @@ class TestWebAuthnSwitchComplete:
 
         resp = user_client.post(
             "/auth/me/webauthn/complete",
-            json={
-                "credential": {"id": "test"},
-                "challenge": challenge_b64,
-                "auth_type": "passkey",
-            },
+            json={"credential": {"id": "test"}, "challenge": challenge_b64, "auth_type": "passkey"},
         )
         assert resp.status_code == 400
         assert "verification failed" in resp.get_json()["error"].lower()
@@ -337,11 +313,7 @@ class TestWebAuthnSwitchComplete:
     def test_complete_unauthenticated(self, anon_client):
         resp = anon_client.post(
             "/auth/me/webauthn/complete",
-            json={
-                "credential": {"id": "test"},
-                "challenge": "abc",
-                "auth_type": "passkey",
-            },
+            json={"credential": {"id": "test"}, "challenge": "abc", "auth_type": "passkey"},
         )
         assert resp.status_code == 401
 
@@ -363,10 +335,7 @@ class TestClaimWebAuthnComplete:
         mock_verify.return_value = fake_cred
 
         _create_approved_access_request(
-            auth_db,
-            "claimuser_wn",
-            "AAAA1111BBBB2222",
-            contact_email="claim@test.com",
+            auth_db, "claimuser_wn", "AAAA1111BBBB2222", contact_email="claim@test.com"
         )
 
         client = auth_app.test_client()
@@ -410,10 +379,7 @@ class TestClaimWebAuthnComplete:
         mock_verify.return_value = fake_cred
 
         _create_approved_access_request(
-            auth_db,
-            "claimfido2_wn",
-            "CCCC3333DDDD4444",
-            contact_email="fido2@test.com",
+            auth_db, "claimfido2_wn", "CCCC3333DDDD4444", contact_email="fido2@test.com"
         )
 
         client = auth_app.test_client()
@@ -440,10 +406,7 @@ class TestClaimWebAuthnComplete:
 
     def test_claim_missing_fields(self, auth_app):
         client = auth_app.test_client()
-        resp = client.post(
-            "/auth/register/claim/webauthn/complete",
-            json={"username": "x"},
-        )
+        resp = client.post("/auth/register/claim/webauthn/complete", json={"username": "x"})
         assert resp.status_code == 400
 
     def test_claim_invalid_auth_type(self, auth_app):
@@ -476,17 +439,12 @@ class TestClaimWebAuthnComplete:
 
     @patch("api_modular.auth.webauthn_verify_registration")
     @patch("api_modular.auth.get_webauthn_config")
-    def test_claim_verification_fails(
-        self, mock_config, mock_verify, auth_app, auth_db
-    ):
+    def test_claim_verification_fails(self, mock_config, mock_verify, auth_app, auth_db):
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         mock_verify.return_value = None  # Verification failure
 
         _create_approved_access_request(
-            auth_db,
-            "claimfail_wn",
-            "FAIL1111FAIL2222",
-            contact_email="fail@test.com",
+            auth_db, "claimfail_wn", "FAIL1111FAIL2222", contact_email="fail@test.com"
         )
 
         client = auth_app.test_client()
@@ -557,8 +515,7 @@ class TestRegisterWebAuthnBegin:
 
         client = auth_app.test_client()
         resp = client.post(
-            "/auth/register/webauthn/begin",
-            json={"token": raw_token, "auth_type": "passkey"},
+            "/auth/register/webauthn/begin", json={"token": raw_token, "auth_type": "passkey"}
         )
         assert resp.status_code == 200
         data = resp.get_json()
@@ -568,10 +525,7 @@ class TestRegisterWebAuthnBegin:
 
     def test_begin_missing_token(self, auth_app):
         client = auth_app.test_client()
-        resp = client.post(
-            "/auth/register/webauthn/begin",
-            json={"auth_type": "passkey"},
-        )
+        resp = client.post("/auth/register/webauthn/begin", json={"auth_type": "passkey"})
         assert resp.status_code == 400
         assert "token" in resp.get_json()["error"].lower()
 
@@ -586,8 +540,7 @@ class TestRegisterWebAuthnBegin:
     def test_begin_invalid_auth_type(self, auth_app):
         client = auth_app.test_client()
         resp = client.post(
-            "/auth/register/webauthn/begin",
-            json={"token": "x", "auth_type": "magic_link"},
+            "/auth/register/webauthn/begin", json={"token": "x", "auth_type": "magic_link"}
         )
         assert resp.status_code == 400
 
@@ -610,18 +563,14 @@ class TestRegisterWebAuthnBegin:
 
         client = auth_app.test_client()
         resp = client.post(
-            "/auth/register/webauthn/begin",
-            json={"token": raw_token, "auth_type": "passkey"},
+            "/auth/register/webauthn/begin", json={"token": raw_token, "auth_type": "passkey"}
         )
         assert resp.status_code == 400
         assert "expired" in resp.get_json()["error"].lower()
 
     def test_begin_no_body(self, auth_app):
         client = auth_app.test_client()
-        resp = client.post(
-            "/auth/register/webauthn/begin",
-            content_type="application/json",
-        )
+        resp = client.post("/auth/register/webauthn/begin", content_type="application/json")
         assert resp.status_code == 400
 
 
@@ -635,9 +584,7 @@ class TestRegisterWebAuthnComplete:
 
     @patch("api_modular.auth.webauthn_verify_registration")
     @patch("api_modular.auth.get_webauthn_config")
-    def test_complete_passkey_success(
-        self, mock_config, mock_verify, auth_app, auth_db
-    ):
+    def test_complete_passkey_success(self, mock_config, mock_verify, auth_app, auth_db):
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         fake_cred = _make_fake_webauthn_cred()
         mock_verify.return_value = fake_cred
@@ -721,10 +668,7 @@ class TestRegisterWebAuthnComplete:
 
     def test_complete_missing_fields(self, auth_app):
         client = auth_app.test_client()
-        resp = client.post(
-            "/auth/register/webauthn/complete",
-            json={"token": "x"},
-        )
+        resp = client.post("/auth/register/webauthn/complete", json={"token": "x"})
         assert resp.status_code == 400
 
     def test_complete_invalid_token(self, auth_app):
@@ -772,9 +716,7 @@ class TestRegisterWebAuthnComplete:
 
     @patch("api_modular.auth.webauthn_verify_registration")
     @patch("api_modular.auth.get_webauthn_config")
-    def test_complete_verification_fails(
-        self, mock_config, mock_verify, auth_app, auth_db
-    ):
+    def test_complete_verification_fails(self, mock_config, mock_verify, auth_app, auth_db):
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         mock_verify.return_value = None
 
@@ -827,19 +769,14 @@ class TestLoginWebAuthnBegin:
 
     @patch("api_modular.auth.webauthn_authentication_options")
     @patch("api_modular.auth.get_webauthn_config")
-    def test_begin_passkey_success(
-        self, mock_config, mock_auth_opts, auth_app, auth_db
-    ):
+    def test_begin_passkey_success(self, mock_config, mock_auth_opts, auth_app, auth_db):
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         mock_auth_opts.return_value = ('{"rpId": "localhost"}', b"\xab\xcd")
 
         _make_passkey_user(auth_db)
 
         client = auth_app.test_client()
-        resp = client.post(
-            "/auth/login/webauthn/begin",
-            json={"username": "passkeylogin_fix"},
-        )
+        resp = client.post("/auth/login/webauthn/begin", json={"username": "passkeylogin_fix"})
         assert resp.status_code == 200
         data = resp.get_json()
         assert "options" in data
@@ -854,10 +791,7 @@ class TestLoginWebAuthnBegin:
         _make_fido2_user(auth_db)
 
         client = auth_app.test_client()
-        resp = client.post(
-            "/auth/login/webauthn/begin",
-            json={"username": "fido2login_fix"},
-        )
+        resp = client.post("/auth/login/webauthn/begin", json={"username": "fido2login_fix"})
         assert resp.status_code == 200
         data = resp.get_json()
         assert "options" in data
@@ -865,10 +799,7 @@ class TestLoginWebAuthnBegin:
 
     def test_begin_nonexistent_user(self, auth_app):
         client = auth_app.test_client()
-        resp = client.post(
-            "/auth/login/webauthn/begin",
-            json={"username": "nosuchuser_wn"},
-        )
+        resp = client.post("/auth/login/webauthn/begin", json={"username": "nosuchuser_wn"})
         assert resp.status_code == 401
 
     def test_begin_totp_user(self, auth_app):
@@ -883,19 +814,13 @@ class TestLoginWebAuthnBegin:
 
     def test_begin_missing_username(self, auth_app):
         client = auth_app.test_client()
-        resp = client.post(
-            "/auth/login/webauthn/begin",
-            json={"not_username": "val"},
-        )
+        resp = client.post("/auth/login/webauthn/begin", json={"not_username": "val"})
         assert resp.status_code == 400
         assert "username" in resp.get_json()["error"].lower()
 
     def test_begin_no_body(self, auth_app):
         client = auth_app.test_client()
-        resp = client.post(
-            "/auth/login/webauthn/begin",
-            content_type="application/json",
-        )
+        resp = client.post("/auth/login/webauthn/begin", content_type="application/json")
         assert resp.status_code == 400
 
 
@@ -944,9 +869,7 @@ class TestLoginWebAuthnComplete:
 
     @patch("api_modular.auth.webauthn_verify_authentication")
     @patch("api_modular.auth.get_webauthn_config")
-    def test_complete_remember_me_false(
-        self, mock_config, mock_verify, auth_app, auth_db
-    ):
+    def test_complete_remember_me_false(self, mock_config, mock_verify, auth_app, auth_db):
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         mock_verify.return_value = 7
 
@@ -988,9 +911,7 @@ class TestLoginWebAuthnComplete:
 
     @patch("api_modular.auth.webauthn_verify_authentication")
     @patch("api_modular.auth.get_webauthn_config")
-    def test_complete_verification_fails(
-        self, mock_config, mock_verify, auth_app, auth_db
-    ):
+    def test_complete_verification_fails(self, mock_config, mock_verify, auth_app, auth_db):
         mock_config.return_value = ("localhost", "TestApp", "http://localhost:5001")
         mock_verify.return_value = None  # Verification failure
 
@@ -1010,10 +931,7 @@ class TestLoginWebAuthnComplete:
 
     def test_complete_missing_fields(self, auth_app):
         client = auth_app.test_client()
-        resp = client.post(
-            "/auth/login/webauthn/complete",
-            json={"username": "x"},
-        )
+        resp = client.post("/auth/login/webauthn/complete", json={"username": "x"})
         assert resp.status_code == 400
 
     def test_complete_nonexistent_user(self, auth_app):
@@ -1043,10 +961,7 @@ class TestLoginWebAuthnComplete:
 
     def test_complete_no_body(self, auth_app):
         client = auth_app.test_client()
-        resp = client.post(
-            "/auth/login/webauthn/complete",
-            content_type="application/json",
-        )
+        resp = client.post("/auth/login/webauthn/complete", content_type="application/json")
         assert resp.status_code == 400
 
     def test_complete_invalid_challenge_format(self, auth_app, auth_db):

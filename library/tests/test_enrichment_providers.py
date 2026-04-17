@@ -29,11 +29,7 @@ def init_test_db(db_path: Path) -> None:
 
 
 def insert_test_book(db_path: Path, **overrides) -> int:
-    defaults = {
-        "title": "Test Book",
-        "author": "Test Author",
-        "file_path": "/test/book.opus",
-    }
+    defaults = {"title": "Test Book", "author": "Test Author", "file_path": "/test/book.opus"}
     defaults.update(overrides)
     conn = sqlite3.connect(db_path)
     cursor = conn.execute(
@@ -105,9 +101,7 @@ class TestLocalProvider:
         sources_dir = tmp_path / "Sources"
         sources_dir.mkdir()
         voucher = {"content_license": {"asin": "B0D7JLGFST"}}
-        (sources_dir / "B0D7JLGFST_Revenge_Prey-AAX_44_128.voucher").write_text(
-            json.dumps(voucher)
-        )
+        (sources_dir / "B0D7JLGFST_Revenge_Prey-AAX_44_128.voucher").write_text(json.dumps(voucher))
 
         p = LocalProvider(sources_dir=sources_dir)
         book = {
@@ -200,9 +194,7 @@ class TestLocalProvider:
         sources_dir = tmp_path / "Sources"
         sources_dir.mkdir()
         voucher = {"content_license": {"asin": "B0NEWONE00"}}
-        (sources_dir / "B0NEWONE00_Book-AAX_44_128.voucher").write_text(
-            json.dumps(voucher)
-        )
+        (sources_dir / "B0NEWONE00_Book-AAX_44_128.voucher").write_text(json.dumps(voucher))
 
         p = LocalProvider(sources_dir=sources_dir)
         book = {
@@ -296,10 +288,7 @@ class TestEnrichBookIntegration:
                 }
 
         result = enrich_book(
-            book_id,
-            db_path=db_path,
-            quiet=True,
-            providers=[MockAudibleProvider()],
+            book_id, db_path=db_path, quiet=True, providers=[MockAudibleProvider()]
         )
 
         assert result["audible_enriched"] is True
@@ -335,12 +324,7 @@ class TestEnrichBookIntegration:
             def enrich(self, book):
                 return {"content_type": "Podcast"}
 
-        enrich_book(
-            book_id,
-            db_path=db_path,
-            quiet=True,
-            providers=[MockProvider()],
-        )
+        enrich_book(book_id, db_path=db_path, quiet=True, providers=[MockProvider()])
 
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -367,15 +351,10 @@ class TestEnrichBookIntegration:
                     "publisher_summary": (
                         "A gripping war story about military conflict "
                         "and political intrigue in a society at the brink."
-                    ),
+                    )
                 }
 
-        enrich_book(
-            book_id,
-            db_path=db_path,
-            quiet=True,
-            providers=[MockProvider()],
-        )
+        enrich_book(book_id, db_path=db_path, quiet=True, providers=[MockProvider()])
 
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()

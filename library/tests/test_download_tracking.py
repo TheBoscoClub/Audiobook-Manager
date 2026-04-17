@@ -62,10 +62,7 @@ class TestDownloadCompletionAPI:
     def test_complete_records_format(self, client, auth_app):
         """Recording download includes file format in response."""
         _login(client, auth_app)
-        resp = client.post(
-            "/api/user/downloads/1/complete",
-            json={"file_format": "opus"},
-        )
+        resp = client.post("/api/user/downloads/1/complete", json={"file_format": "opus"})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True
@@ -77,10 +74,7 @@ class TestDownloadCompletionAPI:
         _login(client, auth_app)
 
         # Record a download for book 2
-        resp = client.post(
-            "/api/user/downloads/2/complete",
-            json={"file_format": "opus"},
-        )
+        resp = client.post("/api/user/downloads/2/complete", json={"file_format": "opus"})
         assert resp.status_code == 200
 
         # Verify it shows up in download history
@@ -98,18 +92,12 @@ class TestDownloadCompletionAPI:
         _login(client, auth_app)
 
         # Record first download
-        resp1 = client.post(
-            "/api/user/downloads/3/complete",
-            json={"file_format": "opus"},
-        )
+        resp1 = client.post("/api/user/downloads/3/complete", json={"file_format": "opus"})
         assert resp1.status_code == 200
         id1 = resp1.get_json()["download_id"]
 
         # Record second download of the same book
-        resp2 = client.post(
-            "/api/user/downloads/3/complete",
-            json={"file_format": "opus"},
-        )
+        resp2 = client.post("/api/user/downloads/3/complete", json={"file_format": "opus"})
         assert resp2.status_code == 200
         id2 = resp2.get_json()["download_id"]
 
@@ -125,10 +113,7 @@ class TestDownloadCompletionAPI:
     def test_nonexistent_book_returns_404(self, client, auth_app):
         """Attempting to record download of non-existent book returns 404."""
         _login(client, auth_app)
-        resp = client.post(
-            "/api/user/downloads/99999/complete",
-            json={"file_format": "opus"},
-        )
+        resp = client.post("/api/user/downloads/99999/complete", json={"file_format": "opus"})
         assert resp.status_code == 404
         data = resp.get_json()
         assert "error" in data
@@ -143,19 +128,13 @@ class TestDownloadCompletionAPI:
 
     def test_requires_authentication(self, client):
         """Download completion requires a logged-in user."""
-        resp = client.post(
-            "/api/user/downloads/1/complete",
-            json={"file_format": "opus"},
-        )
+        resp = client.post("/api/user/downloads/1/complete", json={"file_format": "opus"})
         assert resp.status_code == 401
 
     def test_admin_can_record_downloads(self, client, auth_app):
         """Admin users can also record downloads."""
         _login_admin(client, auth_app)
-        resp = client.post(
-            "/api/user/downloads/1/complete",
-            json={"file_format": "opus"},
-        )
+        resp = client.post("/api/user/downloads/1/complete", json={"file_format": "opus"})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True

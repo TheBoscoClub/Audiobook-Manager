@@ -180,9 +180,7 @@ class TestCreateDatabase:
 class TestImportAudiobooks:
     """Test audiobook import functionality."""
 
-    def test_import_audiobooks_basic(
-        self, temp_db_path, temp_schema_path, temp_json_path
-    ):
+    def test_import_audiobooks_basic(self, temp_db_path, temp_schema_path, temp_json_path):
         """Test basic audiobook import."""
         from backend import import_to_db
 
@@ -229,9 +227,7 @@ class TestImportAudiobooks:
 
         conn.close()
 
-    def test_import_audiobooks_handles_genres(
-        self, temp_db_path, temp_schema_path, temp_json_path
-    ):
+    def test_import_audiobooks_handles_genres(self, temp_db_path, temp_schema_path, temp_json_path):
         """Test that import handles genres correctly."""
         from backend import import_to_db
 
@@ -263,9 +259,7 @@ class TestImportAudiobooks:
 
         conn.close()
 
-    def test_import_audiobooks_handles_eras(
-        self, temp_db_path, temp_schema_path, temp_json_path
-    ):
+    def test_import_audiobooks_handles_eras(self, temp_db_path, temp_schema_path, temp_json_path):
         """Test that import handles eras correctly."""
         from backend import import_to_db
 
@@ -284,9 +278,7 @@ class TestImportAudiobooks:
 
         conn.close()
 
-    def test_import_audiobooks_handles_topics(
-        self, temp_db_path, temp_schema_path, temp_json_path
-    ):
+    def test_import_audiobooks_handles_topics(self, temp_db_path, temp_schema_path, temp_json_path):
         """Test that import handles topics correctly."""
         from backend import import_to_db
 
@@ -321,8 +313,7 @@ class TestImportAudiobooks:
 
         cursor = conn.cursor()
         cursor.execute(
-            "SELECT narrator, publisher, series FROM audiobooks"
-            " WHERE title = 'Another Book'"
+            "SELECT narrator, publisher, series FROM audiobooks WHERE title = 'Another Book'"
         )
         row = cursor.fetchone()
 
@@ -370,8 +361,7 @@ class TestImportAudiobooks:
 
         # Manually update narrator (simulating Audible export sync)
         cursor.execute(
-            "UPDATE audiobooks SET narrator = 'Manually Set Narrator'"
-            " WHERE title = 'Another Book'"
+            "UPDATE audiobooks SET narrator = 'Manually Set Narrator' WHERE title = 'Another Book'"
         )
         conn.commit()
 
@@ -426,8 +416,7 @@ class TestImportAudiobooks:
 
         # Insert book
         cursor.execute(
-            "INSERT INTO audiobooks (title, file_path)"
-            " VALUES ('Another Book', '/test/book.opus')"
+            "INSERT INTO audiobooks (title, file_path) VALUES ('Another Book', '/test/book.opus')"
         )
         book_id = cursor.lastrowid
 
@@ -569,9 +558,7 @@ class TestMain:
 class TestDatabaseOptimization:
     """Test database optimization."""
 
-    def test_vacuum_and_analyze(
-        self, temp_db_path, temp_schema_path, temp_json_path, capsys
-    ):
+    def test_vacuum_and_analyze(self, temp_db_path, temp_schema_path, temp_json_path, capsys):
         """Test that VACUUM and ANALYZE are run."""
         from backend import import_to_db
 
@@ -615,9 +602,7 @@ class TestEdgeCases:
         assert count == 0
         conn.close()
 
-    def test_audiobook_with_empty_genres(
-        self, temp_db_path, temp_schema_path, tmp_path
-    ):
+    def test_audiobook_with_empty_genres(self, temp_db_path, temp_schema_path, tmp_path):
         """Test import with audiobook that has empty genres list."""
         from backend import import_to_db
 
@@ -655,9 +640,7 @@ class TestEdgeCases:
         assert count == 0
         conn.close()
 
-    def test_duplicate_genres_across_books(
-        self, temp_db_path, temp_schema_path, tmp_path
-    ):
+    def test_duplicate_genres_across_books(self, temp_db_path, temp_schema_path, tmp_path):
         """Test that duplicate genres are not created."""
         from backend import import_to_db
 
@@ -708,9 +691,7 @@ class TestEdgeCases:
 
         conn.close()
 
-    def test_special_characters_in_metadata(
-        self, temp_db_path, temp_schema_path, tmp_path
-    ):
+    def test_special_characters_in_metadata(self, temp_db_path, temp_schema_path, tmp_path):
         """Test import with special characters in metadata."""
         from backend import import_to_db
 
@@ -764,9 +745,7 @@ class TestEdgeCases:
             import_to_db.import_audiobooks(conn)
 
         cursor = conn.cursor()
-        cursor.execute(
-            "SELECT sha256_hash FROM audiobooks WHERE title = 'The Great Test'"
-        )
+        cursor.execute("SELECT sha256_hash FROM audiobooks WHERE title = 'The Great Test'")
         row = cursor.fetchone()
 
         assert row[0] == "abc123def456"

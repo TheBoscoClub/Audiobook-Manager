@@ -38,8 +38,7 @@ class TestPerUserStateTables:
 
     def test_user_listening_history_table_exists(self, db):
         cursor = db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-            " AND name='user_listening_history'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='user_listening_history'"
         )
         assert cursor.fetchone() is not None
 
@@ -57,8 +56,7 @@ class TestPerUserStateTables:
 
     def test_user_downloads_table_exists(self, db):
         cursor = db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-            " AND name='user_downloads'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='user_downloads'"
         )
         assert cursor.fetchone() is not None
 
@@ -73,8 +71,7 @@ class TestPerUserStateTables:
 
     def test_user_preferences_table_exists(self, db):
         cursor = db.execute(
-            "SELECT name FROM sqlite_master WHERE type='table'"
-            " AND name='user_preferences'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='user_preferences'"
         )
         assert cursor.fetchone() is not None
 
@@ -99,9 +96,7 @@ class TestPerUserStateTables:
         db.commit()
         db.execute("DELETE FROM users WHERE id = 1")
         db.commit()
-        cursor = db.execute(
-            "SELECT COUNT(*) FROM user_listening_history WHERE user_id = 1"
-        )
+        cursor = db.execute("SELECT COUNT(*) FROM user_listening_history WHERE user_id = 1")
         assert cursor.fetchone()[0] == 0
 
     def test_cascade_delete_downloads(self, db):
@@ -266,9 +261,7 @@ class TestMigrationRunner:
             assert cursor.fetchone()[0] == 4
 
             # All three new tables exist
-            cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-            )
+            cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
             tables = {row[0] for row in cursor.fetchall()}
             assert "user_listening_history" in tables
             assert "user_downloads" in tables
@@ -294,8 +287,7 @@ class TestMigrationRunner:
 
             # Table should still be absent (migration was skipped)
             cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-                " AND name='user_downloads'"
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='user_downloads'"
             )
             assert cursor.fetchone() is None
         finally:

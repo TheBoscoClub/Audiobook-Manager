@@ -99,15 +99,13 @@ def _get_db():
     return db
 
 
-def _close_db(exc=None):
+def _close_db(exc=None):  # pylint: disable=unused-argument  # required by Flask teardown_appcontext signature
     db = getattr(g, "_streaming_db", None)
     if db is not None:
         db.close()
 
 
-def _has_cached_subtitles(
-    db, audiobook_id: int, chapter_index: int, locale: str
-) -> bool:
+def _has_cached_subtitles(db, audiobook_id: int, chapter_index: int, locale: str) -> bool:
     """Check if full chapter subtitles already exist (from batch pipeline)."""
     row = db.execute(
         "SELECT id FROM chapter_subtitles "
@@ -130,16 +128,14 @@ def _has_cached_audio(db, audiobook_id: int, chapter_index: int, locale: str) ->
 def _get_chapter_count(db, audiobook_id: int) -> int:
     """Get total number of chapters for a book from existing subtitles or audio data."""
     row = db.execute(
-        "SELECT MAX(chapter_index) + 1 as cnt FROM chapter_subtitles "
-        "WHERE audiobook_id = ?",
+        "SELECT MAX(chapter_index) + 1 as cnt FROM chapter_subtitles WHERE audiobook_id = ?",
         (audiobook_id,),
     ).fetchone()
     if row and row["cnt"]:
         return row["cnt"]
     # Fallback: check translation queue for chapter count
     row = db.execute(
-        "SELECT total_chapters FROM translation_queue WHERE audiobook_id = ?",
-        (audiobook_id,),
+        "SELECT total_chapters FROM translation_queue WHERE audiobook_id = ?", (audiobook_id,)
     ).fetchone()
     if row and row["total_chapters"]:
         return row["total_chapters"]
@@ -165,7 +161,7 @@ def _chapter_segment_count(duration_sec: float) -> int:
     return math.ceil(duration_sec / SEGMENT_DURATION_SEC)
 
 
-def _get_chapter_duration_sec(db, audiobook_id: int, chapter_index: int) -> float:
+def _get_chapter_duration_sec(db, audiobook_id: int, chapter_index: int) -> float:  # pylint: disable=unused-argument  # chapter_index reserved for future per-chapter duration lookup; current impl returns average
     """Estimate chapter duration from book duration and chapter count.
 
     For more accurate results, the streaming worker uses ffprobe chapter
@@ -295,6 +291,85 @@ def _broadcast_buffer_progress(
 # ── Routes ──
 
 
+def _parse_stream_request(data):
+    """Extract+validate fields from /api/translate/stream payload.
+
+    Returns (audiobook_id, locale, chapter_index, err_response_or_None).
+    """
+    audiobook_id = data.get("audiobook_id")
+    locale = data.get("locale", "zh-Hans")
+    chapter_index = data.get("chapter_index", 0)
+
+    if not audiobook_id:
+        return None, None, None, (jsonify({"error": "audiobook_id required"}), 400)
+
+    try:
+        audiobook_id = int(audiobook_id)
+        chapter_index = int(chapter_index)
+        locale = _sanitize_locale(locale)
+    except ValueError, TypeError:
+        return None, None, None, (jsonify({"error": "invalid parameters"}), 400)
+
+    return audiobook_id, locale, chapter_index, None
+
+
+def _fully_cached_response(db, audiobook_id, chapter_index, locale):
+    """Build the response when the active chapter is cached. Enumerates
+    all chapters to report which others are cached.
+    """
+    chapter_count = _get_chapter_count(db, audiobook_id)
+    all_cached = True
+    cached_chapters = []
+    for ch in range(chapter_count):
+        if _has_cached_subtitles(db, audiobook_id, ch, locale) and _has_cached_audio(
+            db, audiobook_id, ch, locale
+        ):
+            cached_chapters.append(ch)
+        else:
+            all_cached = False
+
+    return jsonify(
+        {
+            "state": "cached",
+            "audiobook_id": audiobook_id,
+            "chapter_index": chapter_index,
+            "locale": locale,
+            "cached_chapters": cached_chapters,
+            "total_chapters": chapter_count,
+            "all_cached": all_cached,
+        }
+    )
+
+
+def _get_or_create_streaming_session(db, audiobook_id, locale, chapter_index):
+    """Return session_id, creating a streaming_sessions row or updating
+    an existing buffering/streaming session's active_chapter.
+    """
+    existing = db.execute(
+        "SELECT id, state FROM streaming_sessions "
+        "WHERE audiobook_id = ? AND locale = ? AND state IN ('buffering', 'streaming')",
+        (audiobook_id, locale),
+    ).fetchone()
+
+    if existing:
+        session_id = existing["id"]
+        db.execute(
+            "UPDATE streaming_sessions SET active_chapter = ?, updated_at = CURRENT_TIMESTAMP "
+            "WHERE id = ?",
+            (chapter_index, session_id),
+        )
+    else:
+        cursor = db.execute(
+            "INSERT INTO streaming_sessions "
+            "(audiobook_id, locale, active_chapter, buffer_threshold) "
+            "VALUES (?, ?, ?, ?)",
+            (audiobook_id, locale, chapter_index, BUFFER_THRESHOLD),
+        )
+        session_id = cursor.lastrowid
+    db.commit()
+    return session_id
+
+
 @streaming_bp.route("/api/translate/stream", methods=["POST"])
 @guest_allowed
 def request_streaming_translation():
@@ -309,76 +384,20 @@ def request_streaming_translation():
         - If all chapters are already cached: {state: "cached", chapters: [...]}
         - If streaming is needed: {state: "buffering", session_id: N, ...}
     """
-    data = request.get_json(silent=True) or {}
-    audiobook_id = data.get("audiobook_id")
-    locale = data.get("locale", "zh-Hans")
-    chapter_index = data.get("chapter_index", 0)
-
-    if not audiobook_id:
-        return jsonify({"error": "audiobook_id required"}), 400
-
-    try:
-        audiobook_id = int(audiobook_id)
-        chapter_index = int(chapter_index)
-        locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
-        return jsonify({"error": "invalid parameters"}), 400
+    audiobook_id, locale, chapter_index, err = _parse_stream_request(
+        request.get_json(silent=True) or {}
+    )
+    if err:
+        return err
 
     db = _get_db()
 
-    # Check if the active chapter already has subtitles + audio
-    has_subs = _has_cached_subtitles(db, audiobook_id, chapter_index, locale)
-    has_audio = _has_cached_audio(db, audiobook_id, chapter_index, locale)
+    if _has_cached_subtitles(db, audiobook_id, chapter_index, locale) and _has_cached_audio(
+        db, audiobook_id, chapter_index, locale
+    ):
+        return _fully_cached_response(db, audiobook_id, chapter_index, locale)
 
-    if has_subs and has_audio:
-        # Check if ALL chapters are cached
-        chapter_count = _get_chapter_count(db, audiobook_id)
-        all_cached = True
-        cached_chapters = []
-        for ch in range(chapter_count):
-            ch_has_subs = _has_cached_subtitles(db, audiobook_id, ch, locale)
-            ch_has_audio = _has_cached_audio(db, audiobook_id, ch, locale)
-            if ch_has_subs and ch_has_audio:
-                cached_chapters.append(ch)
-            else:
-                all_cached = False
-
-        return jsonify(
-            {
-                "state": "cached",
-                "audiobook_id": audiobook_id,
-                "chapter_index": chapter_index,
-                "locale": locale,
-                "cached_chapters": cached_chapters,
-                "total_chapters": chapter_count,
-                "all_cached": all_cached,
-            }
-        )
-
-    # Need streaming — create or reuse a session
-    existing = db.execute(
-        "SELECT id, state FROM streaming_sessions "
-        "WHERE audiobook_id = ? AND locale = ? AND state IN ('buffering', 'streaming')",
-        (audiobook_id, locale),
-    ).fetchone()
-
-    if existing:
-        session_id = existing["id"]
-        # Update active chapter if it changed (user jumped chapters)
-        db.execute(
-            "UPDATE streaming_sessions SET active_chapter = ?, updated_at = CURRENT_TIMESTAMP "
-            "WHERE id = ?",
-            (chapter_index, session_id),
-        )
-        db.commit()
-    else:
-        cursor = db.execute(
-            "INSERT INTO streaming_sessions (audiobook_id, locale, active_chapter, buffer_threshold) "
-            "VALUES (?, ?, ?, ?)",
-            (audiobook_id, locale, chapter_index, BUFFER_THRESHOLD),
-        )
-        session_id = cursor.lastrowid
-        db.commit()
+    session_id = _get_or_create_streaming_session(db, audiobook_id, locale, chapter_index)
 
     # Ensure segment rows exist for the active chapter (priority 0 = active playback)
     _ensure_chapter_segments(db, audiobook_id, chapter_index, locale, priority=0)
@@ -386,12 +405,7 @@ def request_streaming_translation():
     # Also pre-create segments for the next chapter (priority 1 = prefetch)
     chapter_count = _get_chapter_count(db, audiobook_id)
     if chapter_count and chapter_index + 1 < chapter_count:
-        _ensure_chapter_segments(
-            db, audiobook_id, chapter_index + 1, locale, priority=1
-        )
-
-    # Get bitmap for the active chapter
-    bitmap = _get_segment_bitmap(db, audiobook_id, chapter_index, locale)
+        _ensure_chapter_segments(db, audiobook_id, chapter_index + 1, locale, priority=1)
 
     return jsonify(
         {
@@ -401,14 +415,12 @@ def request_streaming_translation():
             "chapter_index": chapter_index,
             "locale": locale,
             "buffer_threshold": BUFFER_THRESHOLD,
-            "segment_bitmap": bitmap,
+            "segment_bitmap": _get_segment_bitmap(db, audiobook_id, chapter_index, locale),
         }
     )
 
 
-@streaming_bp.route(
-    "/api/translate/segments/<int:audiobook_id>/<int:chapter_index>/<locale>"
-)
+@streaming_bp.route("/api/translate/segments/<int:audiobook_id>/<int:chapter_index>/<locale>")
 @guest_allowed
 def get_segment_bitmap(audiobook_id, chapter_index, locale):
     """Get segment completion bitmap for a chapter.
@@ -418,7 +430,7 @@ def get_segment_bitmap(audiobook_id, chapter_index, locale):
     """
     try:
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -432,7 +444,7 @@ def get_session_state(audiobook_id, locale):
     """Get current streaming session state."""
     try:
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -510,7 +522,7 @@ def handle_seek():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -538,13 +550,7 @@ def handle_seek():
         "UPDATE streaming_segments SET priority = 0 "
         "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ? "
         "AND segment_index >= ? AND segment_index < ? AND state = 'pending'",
-        (
-            audiobook_id,
-            chapter_index,
-            locale,
-            segment_index,
-            segment_index + BUFFER_THRESHOLD,
-        ),
+        (audiobook_id, chapter_index, locale, segment_index, segment_index + BUFFER_THRESHOLD),
     )
 
     # Update session active chapter
@@ -590,9 +596,7 @@ def segment_complete():
     segment_index = data.get("segment_index")
     locale = data.get("locale")
 
-    if not all(
-        [audiobook_id, locale, chapter_index is not None, segment_index is not None]
-    ):
+    if audiobook_id is None or locale is None or chapter_index is None or segment_index is None:
         return jsonify({"error": "missing fields"}), 400
 
     try:
@@ -600,7 +604,7 @@ def segment_complete():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -624,15 +628,9 @@ def segment_complete():
 
     # Check buffer progress for the active chapter
     bitmap = _get_segment_bitmap(db, audiobook_id, chapter_index, locale)
-    completed_count = (
-        len(bitmap["completed"]) if isinstance(bitmap["completed"], list) else 0
-    )
+    completed_count = len(bitmap["completed"]) if isinstance(bitmap["completed"], list) else 0
     _broadcast_buffer_progress(
-        audiobook_id,
-        chapter_index,
-        locale,
-        completed_count,
-        bitmap["total"],
+        audiobook_id, chapter_index, locale, completed_count, bitmap["total"]
     )
 
     # If this chapter is fully done, broadcast chapter_ready
@@ -665,14 +663,14 @@ def chapter_complete():
     chapter_index = data.get("chapter_index")
     locale = data.get("locale")
 
-    if not all([audiobook_id, chapter_index is not None, locale]):
+    if audiobook_id is None or chapter_index is None or locale is None:
         return jsonify({"error": "missing fields"}), 400
 
     try:
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -743,14 +741,10 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
 
     # Write consolidated VTT file — validated to live inside library root
     if _library_path is None:
-        logger.error(
-            "Cannot consolidate streaming chapter — library path not configured"
-        )
+        logger.error("Cannot consolidate streaming chapter — library path not configured")
         return
     try:
-        vtt_path = _safe_subtitles_path(
-            _library_path, audiobook_id, chapter_index, locale
-        )
+        vtt_path = _safe_subtitles_path(_library_path, audiobook_id, chapter_index, locale)
     except ValueError as exc:
         logger.error("Rejected unsafe consolidated VTT path: %s", _safe_log_value(exc))
         return

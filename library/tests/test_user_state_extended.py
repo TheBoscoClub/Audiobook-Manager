@@ -121,16 +121,11 @@ class TestUserLibraryHiddenBooks:
 
         # Create a user with no activity
         user = User(
-            username="empty_lib_user",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
+            username="empty_lib_user", auth_type=AuthType.TOTP, auth_credential=b"secret"
         ).save(auth_db)
 
         _session, raw_token = Session.create_for_user(
-            db=auth_db,
-            user_id=user.id,
-            user_agent="pytest",
-            ip_address="127.0.0.1",
+            db=auth_db, user_id=user.id, user_agent="pytest", ip_address="127.0.0.1"
         )
         client = auth_app.test_client()
         client.set_cookie("audiobooks_session", raw_token)
@@ -149,11 +144,7 @@ class TestUserLibraryTimestamps:
         """Download with None downloaded_at handled (line 280)."""
         # Create a download record — the save() auto-populates downloaded_at,
         # so test the API response which should work correctly
-        d = UserDownload(
-            user_id=test_user.id,
-            audiobook_id="3",
-            file_format="mp3",
-        )
+        d = UserDownload(user_id=test_user.id, audiobook_id="3", file_format="mp3")
         d.save(auth_db)
 
         resp = user_client.get("/api/user/library")
@@ -197,18 +188,14 @@ class TestHideBooks:
     def test_hide_requires_list_of_integers(self, user_client):
         """Non-integer list returns 400 (lines 353-354)."""
         resp = user_client.post(
-            "/api/user/library/hide",
-            json={"audiobook_ids": ["not", "integers"]},
+            "/api/user/library/hide", json={"audiobook_ids": ["not", "integers"]}
         )
         assert resp.status_code == 400
         assert "list of integers" in resp.get_json()["error"]
 
     def test_hide_books_success(self, user_client):
         """Successfully hide books (lines 356-358)."""
-        resp = user_client.post(
-            "/api/user/library/hide",
-            json={"audiobook_ids": [1, 2]},
-        )
+        resp = user_client.post("/api/user/library/hide", json={"audiobook_ids": [1, 2]})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True
@@ -216,11 +203,7 @@ class TestHideBooks:
 
     def test_hide_no_data(self, user_client):
         """No JSON body returns 400."""
-        resp = user_client.post(
-            "/api/user/library/hide",
-            content_type="application/json",
-            data="",
-        )
+        resp = user_client.post("/api/user/library/hide", content_type="application/json", data="")
         assert resp.status_code == 400
 
 
@@ -235,10 +218,7 @@ class TestUnhideBooks:
 
     def test_unhide_requires_list_of_integers(self, user_client):
         """Non-integer list returns 400 (lines 377-378)."""
-        resp = user_client.post(
-            "/api/user/library/unhide",
-            json={"audiobook_ids": [1.5, "abc"]},
-        )
+        resp = user_client.post("/api/user/library/unhide", json={"audiobook_ids": [1.5, "abc"]})
         assert resp.status_code == 400
         assert "list of integers" in resp.get_json()["error"]
 
@@ -250,10 +230,7 @@ class TestUnhideBooks:
         repo = HiddenBookRepository(auth_db)
         repo.hide(test_user.id, [3, 4])
 
-        resp = user_client.post(
-            "/api/user/library/unhide",
-            json={"audiobook_ids": [3, 4]},
-        )
+        resp = user_client.post("/api/user/library/unhide", json={"audiobook_ids": [3, 4]})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True
@@ -262,9 +239,7 @@ class TestUnhideBooks:
     def test_unhide_no_data(self, user_client):
         """No JSON body returns 400."""
         resp = user_client.post(
-            "/api/user/library/unhide",
-            content_type="application/json",
-            data="",
+            "/api/user/library/unhide", content_type="application/json", data=""
         )
         assert resp.status_code == 400
 

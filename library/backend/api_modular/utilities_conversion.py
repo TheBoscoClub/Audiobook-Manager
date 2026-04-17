@@ -39,7 +39,7 @@ def get_ffmpeg_processes() -> tuple[list[int], dict[int, str]]:
                         pid = int(parts[1])
                         pids.append(pid)
                         cmdlines[pid] = parts[10]  # The command line
-                    except (ValueError, IndexError):
+                    except ValueError, IndexError:
                         pass  # Non-critical: skip malformed line
     except Exception as e:
         logger.debug("Process listing failed (non-critical): %s", e)
@@ -82,7 +82,7 @@ def parse_job_io(pid: int) -> tuple[int, int]:
                     read_bytes = int(line.split(":")[1].strip())
                 elif line.startswith("wchar:"):
                     write_bytes = int(line.split(":")[1].strip())
-    except (FileNotFoundError, PermissionError):
+    except FileNotFoundError, PermissionError:
         pass  # Process may have exited; return zeros
 
     return read_bytes, write_bytes
@@ -171,11 +171,7 @@ def get_system_stats() -> dict:
     except Exception as e:
         logger.debug("Failed to get tmpfs stats (non-critical): %s", e)
 
-    return {
-        "load_avg": load_avg,
-        "tmpfs_usage": tmpfs_usage,
-        "tmpfs_avail": tmpfs_avail,
-    }
+    return {"load_avg": load_avg, "tmpfs_usage": tmpfs_usage, "tmpfs_avail": tmpfs_avail}
 
 
 def _count_opus_files(directory: Path) -> int:
@@ -189,9 +185,7 @@ def _count_opus_files(directory: Path) -> int:
     return count
 
 
-def _get_remaining_count(
-    sources_dir: Path, aaxc_count: int, total_converted: int
-) -> int:
+def _get_remaining_count(sources_dir: Path, aaxc_count: int, total_converted: int) -> int:
     """Get remaining conversion count from queue file or arithmetic fallback."""
     queue_file = sources_dir.parent / ".index" / "queue.txt"
     if queue_file.exists():
@@ -294,9 +288,6 @@ def init_conversion_routes(project_root: str | Path):
             )
         except Exception as e:
             logger.exception("Error getting conversion status: %s", e)
-            return (
-                jsonify({"success": False, "error": "Failed to get conversion status"}),
-                500,
-            )
+            return (jsonify({"success": False, "error": "Failed to get conversion status"}), 500)
 
     return utilities_conversion_bp

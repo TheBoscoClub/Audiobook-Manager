@@ -6,8 +6,7 @@ from pathlib import Path
 UPGRADE_SH = Path(__file__).resolve().parents[2] / "upgrade.sh"
 
 pytestmark = pytest.mark.skipif(
-    not UPGRADE_SH.is_file(),
-    reason="upgrade.sh not present (deployed installation)",
+    not UPGRADE_SH.is_file(), reason="upgrade.sh not present (deployed installation)"
 )
 
 
@@ -25,9 +24,7 @@ def test_preflight_file_path_defined():
     import re
 
     hardcoded = re.findall(r"/var/lib/audiobooks/\.control/upgrade-preflight", content)
-    assert len(hardcoded) == 0, (
-        "Preflight path must use $AUDIOBOOKS_VAR_DIR, not hardcoded path"
-    )
+    assert len(hardcoded) == 0, "Preflight path must use $AUDIOBOOKS_VAR_DIR, not hardcoded path"
 
 
 def test_force_bypasses_preflight():

@@ -14,11 +14,7 @@ from ..core import FlaskResponse
 
 
 def run_async_operation(
-    operation_type: str,
-    description: str,
-    conflict_error: str,
-    success_message: str,
-    work_fn,
+    operation_type: str, description: str, conflict_error: str, success_message: str, work_fn
 ) -> FlaskResponse:
     """Run a background operation with standard boilerplate.
 
@@ -42,16 +38,7 @@ def run_async_operation(
 
     existing = tracker.is_operation_running(operation_type)
     if existing:
-        return (
-            jsonify(
-                {
-                    "success": False,
-                    "error": conflict_error,
-                    "operation_id": existing,
-                }
-            ),
-            409,
-        )
+        return (jsonify({"success": False, "error": conflict_error, "operation_id": existing}), 409)
 
     operation_id = tracker.create_operation(operation_type, description)
 
@@ -65,13 +52,7 @@ def run_async_operation(
     thread = threading.Thread(target=_thread_target, daemon=True)
     thread.start()
 
-    return jsonify(
-        {
-            "success": True,
-            "message": success_message,
-            "operation_id": operation_id,
-        }
-    )
+    return jsonify({"success": True, "message": success_message, "operation_id": operation_id})
 
 
 def handle_result(tracker, operation_id, result, success_data, fallback_error):

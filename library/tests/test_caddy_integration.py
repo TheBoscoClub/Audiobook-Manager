@@ -8,8 +8,7 @@ UPGRADE_SH = Path(__file__).resolve().parents[2] / "upgrade.sh"
 
 # Skip when running on deployed installation (install.sh/upgrade.sh not in app tree)
 pytestmark = pytest.mark.skipif(
-    not INSTALL_SH.is_file(),
-    reason="install.sh not present (deployed installation)",
+    not INSTALL_SH.is_file(), reason="install.sh not present (deployed installation)"
 )
 
 

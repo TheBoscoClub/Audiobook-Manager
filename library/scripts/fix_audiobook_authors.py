@@ -107,8 +107,7 @@ def _apply_author_updates(cursor, conn, updates):
 
     for upd in updates:
         cursor.execute(
-            "UPDATE audiobooks SET author = ? WHERE id = ?",
-            (upd["new_author"], upd["id"]),
+            "UPDATE audiobooks SET author = ? WHERE id = ?", (upd["new_author"], upd["id"])
         )
 
     conn.commit()
@@ -176,9 +175,7 @@ def main():
         description="Fix author metadata for audiobooks with author='Audiobook'"
     )
     parser.add_argument(
-        "--execute",
-        action="store_true",
-        help="Actually apply changes (default is dry run)",
+        "--execute", action="store_true", help="Actually apply changes (default is dry run)"
     )
 
     args = parser.parse_args()

@@ -50,7 +50,7 @@ def _search_google_books(title: str, author: str) -> dict | None:
             req, timeout=10
         ) as resp:
             data = json.loads(resp.read())
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):
+    except urllib.error.URLError, urllib.error.HTTPError, TimeoutError:
         return None
 
     items = data.get("items", [])
@@ -73,11 +73,7 @@ def _extract_series_from_volume(vol: dict) -> tuple[str, float | None]:
         if not text:
             continue
         # Pattern: "Series Name, Book N" or "Series Name #N"
-        m = re.search(
-            r"(.+?),?\s+(?:Book|Volume|#)\s*(\d+(?:\.\d+)?)",
-            text,
-            re.IGNORECASE,
-        )
+        m = re.search(r"(.+?),?\s+(?:Book|Volume|#)\s*(\d+(?:\.\d+)?)", text, re.IGNORECASE)
         if m:
             return (m.group(1).strip(), float(m.group(2)))
         # Pattern: "A SeriesName Novel"

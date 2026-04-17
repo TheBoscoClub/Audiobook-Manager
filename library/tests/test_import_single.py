@@ -105,9 +105,7 @@ class TestImportDirectory:
 
         nonexistent = temp_dir / "nonexistent"
 
-        result = import_directory(
-            nonexistent, db_path=db_path, cover_dir=temp_dir / "covers"
-        )
+        result = import_directory(nonexistent, db_path=db_path, cover_dir=temp_dir / "covers")
 
         assert result["errors"] == 1
         assert "error" in result
@@ -124,9 +122,7 @@ class TestImportDirectory:
         empty_dir = temp_dir / "empty"
         empty_dir.mkdir()
 
-        result = import_directory(
-            empty_dir, db_path=db_path, cover_dir=temp_dir / "covers"
-        )
+        result = import_directory(empty_dir, db_path=db_path, cover_dir=temp_dir / "covers")
 
         assert result["added"] == 0
         assert "message" in result
@@ -159,9 +155,7 @@ class TestImportDirectory:
         conn.commit()
         conn.close()
 
-        result = import_directory(
-            import_dir, db_path=db_path, cover_dir=temp_dir / "covers"
-        )
+        result = import_directory(import_dir, db_path=db_path, cover_dir=temp_dir / "covers")
 
         assert result["skipped"] == 1
         assert result["added"] == 0
@@ -197,9 +191,7 @@ class TestImportDirectory:
         }
         mock_cover.return_value = "cover_new.jpg"
 
-        result = import_directory(
-            import_dir, db_path=db_path, cover_dir=temp_dir / "covers"
-        )
+        result = import_directory(import_dir, db_path=db_path, cover_dir=temp_dir / "covers")
 
         assert result["added"] == 1
         assert result["errors"] == 0
@@ -220,9 +212,7 @@ class TestImportDirectory:
 
         mock_metadata.return_value = None
 
-        result = import_directory(
-            import_dir, db_path=db_path, cover_dir=temp_dir / "covers"
-        )
+        result = import_directory(import_dir, db_path=db_path, cover_dir=temp_dir / "covers")
 
         assert result["errors"] == 1
         assert result["added"] == 0
@@ -230,9 +220,7 @@ class TestImportDirectory:
     @patch("scanner.import_single.get_file_metadata")
     @patch("scanner.import_single.extract_cover_art")
     @patch("scanner.import_single.insert_audiobook")
-    def test_handles_integrity_error(
-        self, mock_insert, mock_cover, mock_metadata, temp_dir
-    ):
+    def test_handles_integrity_error(self, mock_insert, mock_cover, mock_metadata, temp_dir):
         """Test handles IntegrityError (duplicate)."""
         from scanner.import_single import import_directory
         from tests.conftest import init_test_database
@@ -254,18 +242,14 @@ class TestImportDirectory:
         mock_cover.return_value = None
         mock_insert.side_effect = sqlite3.IntegrityError("UNIQUE constraint")
 
-        result = import_directory(
-            import_dir, db_path=db_path, cover_dir=temp_dir / "covers"
-        )
+        result = import_directory(import_dir, db_path=db_path, cover_dir=temp_dir / "covers")
 
         assert result["skipped"] == 1
 
     @patch("scanner.import_single.get_file_metadata")
     @patch("scanner.import_single.extract_cover_art")
     @patch("scanner.import_single.insert_audiobook")
-    def test_handles_generic_exception(
-        self, mock_insert, mock_cover, mock_metadata, temp_dir
-    ):
+    def test_handles_generic_exception(self, mock_insert, mock_cover, mock_metadata, temp_dir):
         """Test handles generic exceptions during insert."""
         from scanner.import_single import import_directory
         from tests.conftest import init_test_database
@@ -287,9 +271,7 @@ class TestImportDirectory:
         mock_cover.return_value = None
         mock_insert.side_effect = RuntimeError("Database error")
 
-        result = import_directory(
-            import_dir, db_path=db_path, cover_dir=temp_dir / "covers"
-        )
+        result = import_directory(import_dir, db_path=db_path, cover_dir=temp_dir / "covers")
 
         assert result["errors"] == 1
 
@@ -306,9 +288,7 @@ class TestImportDirectory:
         (import_dir / "book.cover.jpg").touch()  # Should be filtered
         (import_dir / "Book.Cover.m4b").touch()  # Should be filtered
 
-        result = import_directory(
-            import_dir, db_path=db_path, cover_dir=temp_dir / "covers"
-        )
+        result = import_directory(import_dir, db_path=db_path, cover_dir=temp_dir / "covers")
 
         # No audio files to import after filtering
         assert result.get("message") == "No audio files found" or result["added"] == 0

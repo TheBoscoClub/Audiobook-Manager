@@ -73,18 +73,14 @@ class TestCmdList:
         inbox_repo.count_unread.return_value = 0
         mock_inbox_cls.return_value = inbox_repo
 
-        result = __import__("auth.inbox_cli", fromlist=["cmd_list"]).cmd_list(
-            _make_args()
-        )
+        result = __import__("auth.inbox_cli", fromlist=["cmd_list"]).cmd_list(_make_args())
         assert result == 0
         assert "No messages" in capsys.readouterr().out
 
     @patch("auth.inbox_cli.UserRepository")
     @patch("auth.inbox_cli.InboxRepository")
     @patch("auth.inbox_cli.get_db")
-    def test_list_with_messages(
-        self, mock_get_db, mock_inbox_cls, mock_user_cls, capsys
-    ):
+    def test_list_with_messages(self, mock_get_db, mock_inbox_cls, mock_user_cls, capsys):
         mock_get_db.return_value = MagicMock()
 
         msg = _make_inbox_message()
@@ -111,9 +107,7 @@ class TestCmdList:
     @patch("auth.inbox_cli.UserRepository")
     @patch("auth.inbox_cli.InboxRepository")
     @patch("auth.inbox_cli.get_db")
-    def test_list_deleted_user(
-        self, mock_get_db, mock_inbox_cls, mock_user_cls, capsys
-    ):
+    def test_list_deleted_user(self, mock_get_db, mock_inbox_cls, mock_user_cls, capsys):
         mock_get_db.return_value = MagicMock()
 
         msg = _make_inbox_message()
@@ -136,9 +130,7 @@ class TestCmdList:
     @patch("auth.inbox_cli.UserRepository")
     @patch("auth.inbox_cli.InboxRepository")
     @patch("auth.inbox_cli.get_db")
-    def test_list_long_message_truncated(
-        self, mock_get_db, mock_inbox_cls, mock_user_cls, capsys
-    ):
+    def test_list_long_message_truncated(self, mock_get_db, mock_inbox_cls, mock_user_cls, capsys):
         mock_get_db.return_value = MagicMock()
 
         msg = _make_inbox_message(message="A" * 60)
@@ -194,9 +186,7 @@ class TestCmdRead:
     @patch("auth.inbox_cli.UserRepository")
     @patch("auth.inbox_cli.InboxRepository")
     @patch("auth.inbox_cli.get_db")
-    def test_read_already_read(
-        self, mock_get_db, mock_inbox_cls, mock_user_cls, capsys
-    ):
+    def test_read_already_read(self, mock_get_db, mock_inbox_cls, mock_user_cls, capsys):
         mock_get_db.return_value = MagicMock()
 
         msg = _make_inbox_message(status=InboxStatus.READ)
@@ -233,9 +223,7 @@ class TestCmdRead:
     @patch("auth.inbox_cli.UserRepository")
     @patch("auth.inbox_cli.InboxRepository")
     @patch("auth.inbox_cli.get_db")
-    def test_read_replied_no_reply_hint(
-        self, mock_get_db, mock_inbox_cls, mock_user_cls, capsys
-    ):
+    def test_read_replied_no_reply_hint(self, mock_get_db, mock_inbox_cls, mock_user_cls, capsys):
         mock_get_db.return_value = MagicMock()
 
         msg = _make_inbox_message(status=InboxStatus.REPLIED)
@@ -261,9 +249,7 @@ class TestCmdRead:
     def test_read_shows_email(self, mock_get_db, mock_inbox_cls, mock_user_cls, capsys):
         mock_get_db.return_value = MagicMock()
 
-        msg = _make_inbox_message(
-            reply_via=ReplyMethod.EMAIL, reply_email="alice@example.com"
-        )
+        msg = _make_inbox_message(reply_via=ReplyMethod.EMAIL, reply_email="alice@example.com")
         inbox_repo = MagicMock()
         inbox_repo.get_by_id.return_value = msg
         mock_inbox_cls.return_value = inbox_repo
@@ -291,9 +277,7 @@ class TestCmdReply:
     @patch("auth.inbox_cli.UserRepository")
     @patch("auth.inbox_cli.InboxRepository")
     @patch("auth.inbox_cli.get_db")
-    def test_reply_in_app(
-        self, mock_get_db, mock_inbox_cls, mock_user_cls, mock_notif_cls, capsys
-    ):
+    def test_reply_in_app(self, mock_get_db, mock_inbox_cls, mock_user_cls, mock_notif_cls, capsys):
         mock_get_db.return_value = MagicMock()
 
         msg = _make_inbox_message(reply_via=ReplyMethod.IN_APP)
@@ -326,10 +310,7 @@ class TestCmdReply:
     ):
         mock_get_db.return_value = MagicMock()
 
-        msg = _make_inbox_message(
-            reply_via=ReplyMethod.EMAIL,
-            reply_email="alice@example.com",
-        )
+        msg = _make_inbox_message(reply_via=ReplyMethod.EMAIL, reply_email="alice@example.com")
         inbox_repo = MagicMock()
         inbox_repo.get_by_id.return_value = msg
         mock_inbox_cls.return_value = inbox_repo
@@ -358,10 +339,7 @@ class TestCmdReply:
     ):
         mock_get_db.return_value = MagicMock()
 
-        msg = _make_inbox_message(
-            reply_via=ReplyMethod.EMAIL,
-            reply_email="alice@example.com",
-        )
+        msg = _make_inbox_message(reply_via=ReplyMethod.EMAIL, reply_email="alice@example.com")
         inbox_repo = MagicMock()
         inbox_repo.get_by_id.return_value = msg
         mock_inbox_cls.return_value = inbox_repo
@@ -441,13 +419,7 @@ class TestSendEmailReply:
 
         from auth.inbox_cli import send_email_reply
 
-        with patch.dict(
-            "os.environ",
-            {
-                "SMTP_USER": "user@test.com",
-                "SMTP_PASS": "secret",
-            },
-        ):
+        with patch.dict("os.environ", {"SMTP_USER": "user@test.com", "SMTP_PASS": "secret"}):
             result = send_email_reply("alice@example.com", "alice", "Hello!")
 
         assert result is False

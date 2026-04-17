@@ -143,9 +143,9 @@ def sanitize_message(text):
 @login_required
 def submit_suggestion():
     """Authenticated user submits a suggestion."""
-    from .auth import get_current_user
+    from .auth import require_current_user
 
-    user = get_current_user()
+    user = require_current_user()
     data = request.get_json()
     if not data or not data.get("message"):
         return jsonify({"error": "message is required"}), 400
@@ -174,12 +174,7 @@ def submit_suggestion():
     try:
         from .websocket import connection_manager
 
-        connection_manager.broadcast(
-            {
-                "type": "suggestion_new",
-                "username": user.username,
-            }
-        )
+        connection_manager.broadcast({"type": "suggestion_new", "username": user.username})
     except Exception as e:
         logger.debug("WebSocket notification failed (optional): %s", e)
 
@@ -202,9 +197,7 @@ def admin_get_suggestions():
             "SELECT * FROM user_suggestions WHERE is_read = 1 ORDER BY created_at ASC"
         ).fetchall()
     else:
-        rows = conn.execute(
-            "SELECT * FROM user_suggestions ORDER BY created_at ASC"
-        ).fetchall()
+        rows = conn.execute("SELECT * FROM user_suggestions ORDER BY created_at ASC").fetchall()
 
     conn.close()
     return jsonify([dict(r) for r in rows])
@@ -215,9 +208,7 @@ def admin_get_suggestions():
 def admin_unread_count():
     """Admin: get count of unread suggestions (for badge)."""
     conn = _get_db()
-    count = conn.execute(
-        "SELECT COUNT(*) FROM user_suggestions WHERE is_read = 0"
-    ).fetchone()[0]
+    count = conn.execute("SELECT COUNT(*) FROM user_suggestions WHERE is_read = 0").fetchone()[0]
     conn.close()
     return jsonify({"count": count})
 

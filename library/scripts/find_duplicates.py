@@ -147,12 +147,7 @@ def _build_duplicate_group(conn, hash_value, count, idx, total_groups):
 
 
 def _export_report(
-    export_data,
-    total_books,
-    duplicates,
-    total_wasted_files,
-    total_wasted_space,
-    export_path,
+    export_data, total_books, duplicates, total_wasted_files, total_wasted_space, export_path
 ):
     """Export duplicate report to JSON file."""
     output_path = Path(export_path) if export_path else Path("duplicates.json")
@@ -252,13 +247,7 @@ def _build_removal_plan(duplicates, conn):
         for f in files_sorted[1:]:
             file_id, title, _author, path, size, _fmt, _duration, _created = f
             files_to_remove.append(
-                {
-                    "id": file_id,
-                    "path": path,
-                    "size_mb": size,
-                    "hash": hash_value,
-                    "title": title,
-                }
+                {"id": file_id, "path": path, "size_mb": size, "hash": hash_value, "title": title}
             )
             space_to_free += size
 
@@ -299,8 +288,7 @@ def _verify_safe_deletions(cursor, files_to_remove):
 
     for f in files_to_remove:
         cursor.execute(
-            "SELECT COUNT(*) as count FROM audiobooks "
-            "WHERE sha256_hash = ? AND id != ?",
+            "SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash = ? AND id != ?",
             (f["hash"], f["id"]),
         )
         remaining = cursor.fetchone()[0]
@@ -363,9 +351,7 @@ def remove_duplicates(dry_run: bool = True):
         conn.close()
         return
 
-    files_to_remove, protected_keepers, space_to_free = _build_removal_plan(
-        duplicates, conn
-    )
+    files_to_remove, protected_keepers, space_to_free = _build_removal_plan(duplicates, conn)
 
     print(f"\n{'=' * 70}")
     print("DUPLICATE REMOVAL PLAN" + (" (DRY RUN)" if dry_run else ""))
@@ -416,17 +402,11 @@ def remove_duplicates(dry_run: bool = True):
 
 def main():
     parser = ArgumentParser(description="Find and report duplicate audiobooks")
-    parser.add_argument(
-        "--json", "-j", action="store_true", help="Export duplicate report to JSON"
-    )
+    parser.add_argument("--json", "-j", action="store_true", help="Export duplicate report to JSON")
     parser.add_argument("--output", "-o", type=str, help="Output path for JSON export")
+    parser.add_argument("--remove", action="store_true", help="Show removal plan (dry run)")
     parser.add_argument(
-        "--remove", action="store_true", help="Show removal plan (dry run)"
-    )
-    parser.add_argument(
-        "--execute",
-        action="store_true",
-        help="Actually remove duplicate files (DESTRUCTIVE)",
+        "--execute", action="store_true", help="Actually remove duplicate files (DESTRUCTIVE)"
     )
 
     args = parser.parse_args()

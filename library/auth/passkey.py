@@ -258,10 +258,7 @@ def verify_registration(
 
 
 def create_authentication_options(
-    user_id: int,
-    credential_id: bytes,
-    rp_id: str = DEFAULT_RP_ID,
-    username: str = "",
+    user_id: int, credential_id: bytes, rp_id: str = DEFAULT_RP_ID, username: str = ""
 ) -> tuple[str, bytes]:
     """
     Generate WebAuthn authentication options.
@@ -279,9 +276,7 @@ def create_authentication_options(
 
     options = generate_authentication_options(
         rp_id=rp_id,
-        allow_credentials=[
-            PublicKeyCredentialDescriptor(id=credential_id),
-        ],
+        allow_credentials=[PublicKeyCredentialDescriptor(id=credential_id)],
         user_verification=UserVerificationRequirement.REQUIRED,
         timeout=CHALLENGE_TIMEOUT_SECONDS * 1000,
     )

@@ -111,11 +111,7 @@ class TestAuthBackup:
         db = AuthDatabase(db_path=str(db_path), key_path=str(key_path), is_dev=True)
         db.initialize()
 
-        User(
-            username="encrypted_user",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
-        ).save(db)
+        User(username="encrypted_user", auth_type=AuthType.TOTP, auth_credential=b"secret").save(db)
 
         # Create backup
         shutil.copy(db_path, backup_db_path)
@@ -143,9 +139,7 @@ class TestAuthBackup:
         db.initialize()
 
         notif = Notification(
-            message="Important announcement",
-            type=NotificationType.MAINTENANCE,
-            priority=10,
+            message="Important announcement", type=NotificationType.MAINTENANCE, priority=10
         )
         notif.save(db)
 
@@ -177,17 +171,11 @@ class TestAuthBackup:
         db = AuthDatabase(db_path=str(db_path), key_path=str(key_path), is_dev=True)
         db.initialize()
 
-        user = User(
-            username="inbox_test_user",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
-        )
+        user = User(username="inbox_test_user", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(db)
 
         msg = InboxMessage(
-            from_user_id=user.id,
-            message="Please add more books!",
-            reply_via=ReplyMethod.IN_APP,
+            from_user_id=user.id, message="Please add more books!", reply_via=ReplyMethod.IN_APP
         )
         msg.save(db)
 
@@ -216,11 +204,7 @@ class TestAuthBackup:
         db = AuthDatabase(db_path=str(db_path), key_path=str(key_path), is_dev=True)
         db.initialize()
 
-        User(
-            username="key_test_user",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
-        ).save(db)
+        User(username="key_test_user", auth_type=AuthType.TOTP, auth_credential=b"secret").save(db)
 
         # Delete key file
         os.remove(key_path)
@@ -230,9 +214,7 @@ class TestAuthBackup:
 
         # Should fail to open with new/different key
         with pytest.raises(Exception):
-            new_db = AuthDatabase(
-                db_path=str(db_path), key_path=str(new_key_path), is_dev=True
-            )
+            new_db = AuthDatabase(db_path=str(db_path), key_path=str(new_key_path), is_dev=True)
             # Try to access data
             UserRepository(new_db).list_all()
 
@@ -258,9 +240,7 @@ class TestAuthBackup:
 
         # Add notification targeting user
         notif = Notification(
-            message="Personal message",
-            type=NotificationType.PERSONAL,
-            target_user_id=user.id,
+            message="Personal message", type=NotificationType.PERSONAL, target_user_id=user.id
         )
         notif.save(db)
 
@@ -282,16 +262,11 @@ class TestAuthBackup:
         shutil.copy(db_path, backup_db_path)
 
         # Open backup and verify counts match
-        backup_db = AuthDatabase(
-            db_path=str(backup_db_path), key_path=str(key_path), is_dev=True
-        )
+        backup_db = AuthDatabase(db_path=str(backup_db_path), key_path=str(key_path), is_dev=True)
 
         assert len(UserRepository(backup_db).list_all()) == user_count
         assert len(NotificationRepository(backup_db).list_all()) == notif_count
-        assert (
-            len(InboxRepository(backup_db).list_all(include_archived=True))
-            == inbox_count
-        )
+        assert len(InboxRepository(backup_db).list_all(include_archived=True)) == inbox_count
 
         # Verify user data integrity
         backup_user = UserRepository(backup_db).get_by_username("integrity_test")
@@ -313,11 +288,7 @@ class TestDatabaseRecovery:
         db = AuthDatabase(db_path=str(db_path), key_path=str(key_path), is_dev=True)
         db.initialize()
 
-        User(
-            username="recover_user",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
-        ).save(db)
+        User(username="recover_user", auth_type=AuthType.TOTP, auth_credential=b"secret").save(db)
 
         # Create backup
         shutil.copy(db_path, backup_db_path)
@@ -328,17 +299,13 @@ class TestDatabaseRecovery:
 
         # Main database should fail to open
         with pytest.raises(Exception):
-            bad_db = AuthDatabase(
-                db_path=str(db_path), key_path=str(key_path), is_dev=True
-            )
+            bad_db = AuthDatabase(db_path=str(db_path), key_path=str(key_path), is_dev=True)
             UserRepository(bad_db).list_all()
 
         # Restore from backup
         shutil.copy(backup_db_path, db_path)
 
         # Should work now
-        recovered_db = AuthDatabase(
-            db_path=str(db_path), key_path=str(key_path), is_dev=True
-        )
+        recovered_db = AuthDatabase(db_path=str(db_path), key_path=str(key_path), is_dev=True)
         user = UserRepository(recovered_db).get_by_username("recover_user")
         assert user is not None

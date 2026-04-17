@@ -32,12 +32,7 @@ def find_corrupted_files():
                 title_clean = title.replace("_", " ")
 
                 # Remove quality indicators
-                for quality in [
-                    "-AAX 44 128",
-                    "-AAX 22 64",
-                    "-AAX_44_128",
-                    "-AAX_22_64",
-                ]:
+                for quality in ["-AAX 44 128", "-AAX 22 64", "-AAX_44_128", "-AAX_22_64"]:
                     title_clean = title_clean.replace(quality, "")
 
                 corrupted.append(

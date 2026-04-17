@@ -52,10 +52,7 @@ class TestVerifyRegistrationExceptionPath:
         """Lines 251-257: Empty JSON object fails parsing."""
         _, challenge = create_registration_options(username="testuser")
 
-        result = verify_registration(
-            credential_json="{}",
-            expected_challenge=challenge,
-        )
+        result = verify_registration(credential_json="{}", expected_challenge=challenge)
         assert result is None
 
     def test_malformed_credential_returns_none(self):
@@ -75,10 +72,7 @@ class TestVerifyRegistrationExceptionPath:
             }
         )
 
-        result = verify_registration(
-            credential_json=fake_credential,
-            expected_challenge=challenge,
-        )
+        result = verify_registration(credential_json=fake_credential, expected_challenge=challenge)
         assert result is None
 
     def test_challenge_cleaned_up_on_success_path_entry(self):
@@ -90,20 +84,14 @@ class TestVerifyRegistrationExceptionPath:
 
         # The verification itself will fail (invalid credential), but the try
         # block is entered, confirming lines 223+ are exercised
-        result = verify_registration(
-            credential_json="{}",
-            expected_challenge=challenge,
-        )
+        result = verify_registration(credential_json="{}", expected_challenge=challenge)
         assert result is None
 
     def test_verify_registration_prints_error(self, capsys):
         """Lines 255-256: Exception is printed for debugging."""
         _, challenge = create_registration_options(username="testuser")
 
-        verify_registration(
-            credential_json="not even json",
-            expected_challenge=challenge,
-        )
+        verify_registration(credential_json="not even json", expected_challenge=challenge)
         # The exception handler prints the error
         captured = capsys.readouterr()
         assert "WebAuthn registration verification failed" in captured.out
@@ -121,14 +109,8 @@ class TestVerifyRegistrationExceptionPath:
         mock_credential.response.transports = ["internal", "hybrid"]
 
         with (
-            patch(
-                "auth.passkey.parse_registration_credential_json",
-                return_value=mock_credential,
-            ),
-            patch(
-                "auth.passkey.verify_registration_response",
-                return_value=mock_verification,
-            ),
+            patch("auth.passkey.parse_registration_credential_json", return_value=mock_credential),
+            patch("auth.passkey.verify_registration_response", return_value=mock_verification),
         ):
             result = verify_registration(
                 credential_json="{}",
@@ -155,19 +137,10 @@ class TestVerifyRegistrationExceptionPath:
         mock_credential.response.transports = None
 
         with (
-            patch(
-                "auth.passkey.parse_registration_credential_json",
-                return_value=mock_credential,
-            ),
-            patch(
-                "auth.passkey.verify_registration_response",
-                return_value=mock_verification,
-            ),
+            patch("auth.passkey.parse_registration_credential_json", return_value=mock_credential),
+            patch("auth.passkey.verify_registration_response", return_value=mock_verification),
         ):
-            result = verify_registration(
-                credential_json="{}",
-                expected_challenge=challenge,
-            )
+            result = verify_registration(credential_json="{}", expected_challenge=challenge)
             assert result is not None
             assert result.transports == []
 
@@ -183,14 +156,8 @@ class TestVerifyRegistrationExceptionPath:
         mock_credential.response.transports = []
 
         with (
-            patch(
-                "auth.passkey.parse_registration_credential_json",
-                return_value=mock_credential,
-            ),
-            patch(
-                "auth.passkey.verify_registration_response",
-                return_value=mock_verification,
-            ),
+            patch("auth.passkey.parse_registration_credential_json", return_value=mock_credential),
+            patch("auth.passkey.verify_registration_response", return_value=mock_verification),
         ):
             verify_registration(credential_json="{}", expected_challenge=challenge)
 
@@ -257,13 +224,9 @@ class TestVerifyAuthenticationExceptionPath:
 
         with (
             patch(
-                "auth.passkey.parse_authentication_credential_json",
-                return_value=mock_credential,
+                "auth.passkey.parse_authentication_credential_json", return_value=mock_credential
             ),
-            patch(
-                "auth.passkey.verify_authentication_response",
-                return_value=mock_verification,
-            ),
+            patch("auth.passkey.verify_authentication_response", return_value=mock_verification),
         ):
             result = verify_authentication(
                 credential_json="{}",
@@ -285,13 +248,9 @@ class TestVerifyAuthenticationExceptionPath:
 
         with (
             patch(
-                "auth.passkey.parse_authentication_credential_json",
-                return_value=mock_credential,
+                "auth.passkey.parse_authentication_credential_json", return_value=mock_credential
             ),
-            patch(
-                "auth.passkey.verify_authentication_response",
-                return_value=mock_verification,
-            ),
+            patch("auth.passkey.verify_authentication_response", return_value=mock_verification),
         ):
             verify_authentication(
                 credential_json="{}",

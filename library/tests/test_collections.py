@@ -108,9 +108,7 @@ def create_test_library_db(path: str) -> None:
     ]
     for genre_name, book_ids in genres:
         conn.execute("INSERT INTO genres (name) VALUES (?)", (genre_name,))
-        genre_id = conn.execute(
-            "SELECT id FROM genres WHERE name = ?", (genre_name,)
-        ).fetchone()[0]
+        genre_id = conn.execute("SELECT id FROM genres WHERE name = ?", (genre_name,)).fetchone()[0]
         for bid in book_ids:
             conn.execute(
                 "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
@@ -124,25 +122,17 @@ def create_test_library_db(path: str) -> None:
     ]
     for era_name, book_ids in eras:
         conn.execute("INSERT INTO eras (name) VALUES (?)", (era_name,))
-        era_id = conn.execute(
-            "SELECT id FROM eras WHERE name = ?", (era_name,)
-        ).fetchone()[0]
+        era_id = conn.execute("SELECT id FROM eras WHERE name = ?", (era_name,)).fetchone()[0]
         for bid in book_ids:
             conn.execute(
-                "INSERT INTO audiobook_eras (audiobook_id, era_id) VALUES (?, ?)",
-                (bid, era_id),
+                "INSERT INTO audiobook_eras (audiobook_id, era_id) VALUES (?, ?)", (bid, era_id)
             )
 
     # Insert topics
-    topics = [
-        ("American Dream", [1]),
-        ("Space Exploration", [2, 3]),
-    ]
+    topics = [("American Dream", [1]), ("Space Exploration", [2, 3])]
     for topic_name, book_ids in topics:
         conn.execute("INSERT INTO topics (name) VALUES (?)", (topic_name,))
-        topic_id = conn.execute(
-            "SELECT id FROM topics WHERE name = ?", (topic_name,)
-        ).fetchone()[0]
+        topic_id = conn.execute("SELECT id FROM topics WHERE name = ?", (topic_name,)).fetchone()[0]
         for bid in book_ids:
             conn.execute(
                 "INSERT INTO audiobook_topics (audiobook_id, topic_id) VALUES (?, ?)",

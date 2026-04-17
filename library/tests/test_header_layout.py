@@ -19,9 +19,7 @@ class TestHiddenAttributeFix:
     def test_layout_css_not_hidden_nav_link(self):
         """.nav-link:not([hidden]) must be in layout.css."""
         content = (CSS_DIR / "layout.css").read_text()
-        assert ".nav-link:not([hidden])" in content, (
-            "layout.css should use .nav-link:not([hidden])"
-        )
+        assert ".nav-link:not([hidden])" in content, "layout.css should use .nav-link:not([hidden])"
 
     def test_layout_css_not_hidden_utilities_link(self):
         """.utilities-link:not([hidden]) must be in layout.css."""
@@ -69,9 +67,7 @@ class TestHeaderStructure:
         content = (WEB_DIR / "shell.html").read_text()
         header_start = content.index("shell-header")
         header_section = content[header_start : header_start + 600]
-        assert "my-account-btn" in header_section, (
-            "Account button should be inside shell-header"
-        )
+        assert "my-account-btn" in header_section, "Account button should be inside shell-header"
 
     def test_account_button_not_in_index(self):
         """v8: account button only in shell header, not duplicated in index.html."""
@@ -83,9 +79,7 @@ class TestHeaderStructure:
     def test_shell_header_has_accessibility_btn(self):
         """Shell header should have accessibility panel toggle."""
         content = (WEB_DIR / "shell.html").read_text()
-        assert "accessibility-btn" in content, (
-            "Shell header should have accessibility button"
-        )
+        assert "accessibility-btn" in content, "Shell header should have accessibility button"
 
 
 class TestTutorialIntegration:

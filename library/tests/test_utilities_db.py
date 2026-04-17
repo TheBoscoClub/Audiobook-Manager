@@ -25,9 +25,7 @@ class TestRescanLibrary:
         scanner_path.touch()
 
         mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="Scanning...\nTotal audiobook files: 150\nComplete!",
-            stderr="",
+            returncode=0, stdout="Scanning...\nTotal audiobook files: 150\nComplete!", stderr=""
         )
 
         with flask_app.test_client() as client:
@@ -46,9 +44,7 @@ class TestRescanLibrary:
         scanner_path.touch()
 
         mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="Found files...\nTotal audiobook files: 42\nDone",
-            stderr="",
+            returncode=0, stdout="Found files...\nTotal audiobook files: 42\nDone", stderr=""
         )
 
         with flask_app.test_client() as client:
@@ -116,9 +112,7 @@ class TestReimportDatabase:
         import_path.touch()
 
         mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="Importing...\nImported 25 audiobooks\nComplete!",
-            stderr="",
+            returncode=0, stdout="Importing...\nImported 25 audiobooks\nComplete!", stderr=""
         )
 
         with flask_app.test_client() as client:
@@ -185,9 +179,7 @@ class TestGenerateHashes:
         hash_script.touch()
 
         mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="Processing...\nGenerated 100 hashes\nComplete!",
-            stderr="",
+            returncode=0, stdout="Processing...\nGenerated 100 hashes\nComplete!", stderr=""
         )
 
         with flask_app.test_client() as client:
@@ -199,9 +191,7 @@ class TestGenerateHashes:
         assert data["hashes_generated"] == 100
 
     @patch("backend.api_modular.utilities_db.subprocess.run")
-    def test_generate_hashes_handles_timeout(
-        self, mock_run, flask_app, session_temp_dir
-    ):
+    def test_generate_hashes_handles_timeout(self, mock_run, flask_app, session_temp_dir):
         """Test hash generation handles timeout."""
         hash_script = session_temp_dir / "library" / "scripts" / "generate_hashes.py"
         hash_script.parent.mkdir(parents=True, exist_ok=True)
@@ -217,9 +207,7 @@ class TestGenerateHashes:
         assert "timed out" in data["error"]
 
     @patch("backend.api_modular.utilities_db.subprocess.run")
-    def test_generate_hashes_handles_exception(
-        self, mock_run, flask_app, session_temp_dir
-    ):
+    def test_generate_hashes_handles_exception(self, mock_run, flask_app, session_temp_dir):
         """Test hash generation handles generic exceptions."""
         hash_script = session_temp_dir / "library" / "scripts" / "generate_hashes.py"
         hash_script.parent.mkdir(parents=True, exist_ok=True)
@@ -427,11 +415,7 @@ class TestOutputTruncation:
 
         # Create output larger than 2000 chars
         large_output = "x" * 5000 + "\nTotal audiobook files: 50"
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout=large_output,
-            stderr="",
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout=large_output, stderr="")
 
         with flask_app.test_client() as client:
             response = client.post("/api/utilities/rescan")
@@ -445,18 +429,14 @@ class TestParsingEdgeCases:
     """Test parsing edge cases in subprocess output."""
 
     @patch("backend.api_modular.utilities_db.subprocess.run")
-    def test_rescan_handles_malformed_file_count(
-        self, mock_run, flask_app, session_temp_dir
-    ):
+    def test_rescan_handles_malformed_file_count(self, mock_run, flask_app, session_temp_dir):
         """Test rescan handles malformed file count line."""
         scanner_path = session_temp_dir / "library" / "scanner" / "scan_audiobooks.py"
         scanner_path.parent.mkdir(parents=True, exist_ok=True)
         scanner_path.touch()
 
         mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="Total audiobook files: not-a-number\nDone",
-            stderr="",
+            returncode=0, stdout="Total audiobook files: not-a-number\nDone", stderr=""
         )
 
         with flask_app.test_client() as client:
@@ -467,9 +447,7 @@ class TestParsingEdgeCases:
         assert data["files_found"] == 0
 
     @patch("backend.api_modular.utilities_db.subprocess.run")
-    def test_reimport_handles_malformed_count(
-        self, mock_run, flask_app, session_temp_dir
-    ):
+    def test_reimport_handles_malformed_count(self, mock_run, flask_app, session_temp_dir):
         """Test reimport handles malformed import count."""
         import_path = session_temp_dir / "library" / "backend" / "import_to_db.py"
         import_path.parent.mkdir(parents=True, exist_ok=True)
@@ -488,18 +466,14 @@ class TestParsingEdgeCases:
         assert data["imported_count"] == 0
 
     @patch("backend.api_modular.utilities_db.subprocess.run")
-    def test_generate_hashes_parses_various_formats(
-        self, mock_run, flask_app, session_temp_dir
-    ):
+    def test_generate_hashes_parses_various_formats(self, mock_run, flask_app, session_temp_dir):
         """Test hash generation parses different output formats."""
         hash_script = session_temp_dir / "library" / "scripts" / "generate_hashes.py"
         hash_script.parent.mkdir(parents=True, exist_ok=True)
         hash_script.touch()
 
         mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="Processing 50 hashes completed",
-            stderr="",
+            returncode=0, stdout="Processing 50 hashes completed", stderr=""
         )
 
         with flask_app.test_client() as client:

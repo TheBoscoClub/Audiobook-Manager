@@ -41,9 +41,7 @@ def test_write_notification(scheduler_db):
     conn.execute("""INSERT INTO maintenance_notifications (notification_type, payload)
            VALUES ('update', '{"window_id": 1, "status": "success"}')""")
     conn.commit()
-    rows = conn.execute(
-        "SELECT * FROM maintenance_notifications WHERE delivered = 0"
-    ).fetchall()
+    rows = conn.execute("SELECT * FROM maintenance_notifications WHERE delivered = 0").fetchall()
     conn.close()
     assert len(rows) == 1
 

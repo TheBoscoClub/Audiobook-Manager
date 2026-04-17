@@ -1,0 +1,10 @@
+# library/certs/server.key is a locally-generated self-signed dev cert
+# used by the dev server only. It is gitignored and never shipped.
+# See library/certs/README.md for the scanner-vs-git-index boundary.
+#
+# The HIGH finding on `library/certs/server.key` (and `.crt`) is an
+# AsymmetricPrivateKey secret detection. We suppress it via the trivy.yaml
+# `scan.skip-files` list (path-based secret ignores are not supported by
+# `.trivyignore` in trivy 0.69). The entries below document the policy for
+# future trivy versions that add path-aware suppressions.
+AsymmetricPrivateKey

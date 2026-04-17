@@ -56,9 +56,7 @@ class TestWriteRequestEdgeCases:
         module.HELPER_REQUEST_FILE = control_dir / "upgrade-request"
         module.HELPER_STATUS_FILE = control_dir / "upgrade-status"
 
-        with patch.object(
-            pathlib.Path, "write_text", side_effect=RuntimeError("unexpected")
-        ):
+        with patch.object(pathlib.Path, "write_text", side_effect=RuntimeError("unexpected")):
             result = module._write_request({"type": "test"})
 
         assert result is False
@@ -100,9 +98,7 @@ class TestReadPreflight:
 
         old_ts = datetime.now(timezone.utc) - timedelta(hours=1)
         preflight = temp_dir / "preflight.json"
-        preflight.write_text(
-            json.dumps({"timestamp": old_ts.isoformat(), "status": "ok"})
-        )
+        preflight.write_text(json.dumps({"timestamp": old_ts.isoformat(), "status": "ok"}))
         module.PREFLIGHT_FILE = preflight
 
         result = module._read_preflight()
@@ -139,9 +135,7 @@ class TestReadPreflight:
 
         now = datetime.now(timezone.utc)
         preflight = temp_dir / "preflight.json"
-        preflight.write_text(
-            json.dumps({"timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ")})
-        )
+        preflight.write_text(json.dumps({"timestamp": now.strftime("%Y-%m-%dT%H:%M:%SZ")}))
         module.PREFLIGHT_FILE = preflight
 
         result = module._read_preflight()
@@ -156,10 +150,7 @@ class TestServiceStartFailure:
     @patch("backend.api_modular.utilities_system._write_request")
     def test_start_service_failure_returns_500(self, mock_write, mock_wait, flask_app):
         mock_write.return_value = True
-        mock_wait.return_value = {
-            "success": False,
-            "message": "Service failed to start",
-        }
+        mock_wait.return_value = {"success": False, "message": "Service failed to start"}
 
         with flask_app.test_client() as client:
             response = client.post("/api/system/services/audiobook-converter/start")
@@ -176,10 +167,7 @@ class TestServiceStopFailure:
     @patch("backend.api_modular.utilities_system._write_request")
     def test_stop_service_failure_returns_500(self, mock_write, mock_wait, flask_app):
         mock_write.return_value = True
-        mock_wait.return_value = {
-            "success": False,
-            "message": "Service failed to stop",
-        }
+        mock_wait.return_value = {"success": False, "message": "Service failed to stop"}
 
         with flask_app.test_client() as client:
             response = client.post("/api/system/services/audiobook-converter/stop")
@@ -307,11 +295,7 @@ class TestCheckUpgradeExtended:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/system/upgrade/check",
-                json={
-                    "source": "project",
-                    "project_path": "/some/path",
-                    "version": "1.0.0",
-                },
+                json={"source": "project", "project_path": "/some/path", "version": "1.0.0"},
             )
 
         # Should get 400 for either project_path or version error
@@ -326,8 +310,7 @@ class TestCheckUpgradeExtended:
 
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/system/upgrade/check",
-                json={"source": "github", "version": "7.5.0"},
+                "/api/system/upgrade/check", json={"source": "github", "version": "7.5.0"}
             )
 
         assert response.status_code == 200
@@ -340,10 +323,7 @@ class TestCheckUpgradeExtended:
         mock_write.return_value = False
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/system/upgrade/check",
-                json={"source": "github"},
-            )
+            response = client.post("/api/system/upgrade/check", json={"source": "github"})
 
         assert response.status_code == 500
 
@@ -389,28 +369,20 @@ class TestStartUpgradeExtended:
         mock_preflight.return_value = None
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/system/upgrade",
-                json={"source": "github"},
-            )
+            response = client.post("/api/system/upgrade", json={"source": "github"})
 
         assert response.status_code == 400
         assert "Preflight check required" in response.get_json()["error"]
 
     @patch("backend.api_modular.utilities_system._read_preflight")
     @patch("backend.api_modular.utilities_system._read_status")
-    def test_upgrade_rejects_stale_preflight(
-        self, mock_read, mock_preflight, flask_app
-    ):
+    def test_upgrade_rejects_stale_preflight(self, mock_read, mock_preflight, flask_app):
         """Stale preflight report returns 400 (lines 561-562)."""
         mock_read.return_value = {"running": False}
         mock_preflight.return_value = {"stale": True, "status": "ok"}
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/system/upgrade",
-                json={"source": "github"},
-            )
+            response = client.post("/api/system/upgrade", json={"source": "github"})
 
         assert response.status_code == 400
         assert "Preflight" in response.get_json()["error"]
@@ -423,10 +395,7 @@ class TestStartUpgradeExtended:
         mock_write.return_value = False
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/system/upgrade",
-                json={"source": "github", "force": True},
-            )
+            response = client.post("/api/system/upgrade", json={"source": "github", "force": True})
 
         assert response.status_code == 500
 
@@ -436,9 +405,7 @@ class TestGetVersionExtended:
 
     def test_version_exception_returns_unknown(self, flask_app):
         """Exception reading VERSION returns 'unknown' (lines 612-614)."""
-        with patch.object(
-            pathlib.Path, "exists", side_effect=PermissionError("denied")
-        ):
+        with patch.object(pathlib.Path, "exists", side_effect=PermissionError("denied")):
             with flask_app.test_client() as client:
                 response = client.get("/api/system/version")
 
@@ -452,9 +419,7 @@ class TestGetHealthExtended:
 
     def test_health_version_exception(self, flask_app):
         """Exception reading version in health returns 'unknown' (lines 631-632)."""
-        with patch.object(
-            pathlib.Path, "read_text", side_effect=PermissionError("denied")
-        ):
+        with patch.object(pathlib.Path, "read_text", side_effect=PermissionError("denied")):
             with flask_app.test_client() as client:
                 response = client.get("/api/system/health")
 

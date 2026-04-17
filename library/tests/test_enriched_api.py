@@ -18,9 +18,7 @@ LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
 SCHEMA_PATH = LIBRARY_DIR / "backend" / "schema.sql"
-MIGRATION_PATH = (
-    LIBRARY_DIR / "backend" / "migrations" / "011_multi_author_narrator.sql"
-)
+MIGRATION_PATH = LIBRARY_DIR / "backend" / "migrations" / "011_multi_author_narrator.sql"
 
 
 @pytest.fixture(scope="module")
@@ -79,29 +77,22 @@ def enriched_app(enriched_temp_dir):
 
     # Populate normalized authors
     conn.execute(
-        "INSERT INTO authors (id, name, sort_name)"
-        " VALUES (1, 'Stephen King', 'King, Stephen')"
+        "INSERT INTO authors (id, name, sort_name) VALUES (1, 'Stephen King', 'King, Stephen')"
     )
     conn.execute(
-        "INSERT INTO authors (id, name, sort_name)"
-        " VALUES (2, 'Peter Straub', 'Straub, Peter')"
+        "INSERT INTO authors (id, name, sort_name) VALUES (2, 'Peter Straub', 'Straub, Peter')"
     )
-    conn.execute(
-        "INSERT INTO authors (id, name, sort_name) VALUES (3, 'Jane Doe', 'Doe, Jane')"
-    )
+    conn.execute("INSERT INTO authors (id, name, sort_name) VALUES (3, 'Jane Doe', 'Doe, Jane')")
 
     # Populate normalized narrators
     conn.execute(
-        "INSERT INTO narrators (id, name, sort_name)"
-        " VALUES (1, 'Frank Muller', 'Muller, Frank')"
+        "INSERT INTO narrators (id, name, sort_name) VALUES (1, 'Frank Muller', 'Muller, Frank')"
     )
     conn.execute(
-        "INSERT INTO narrators (id, name, sort_name)"
-        " VALUES (2, 'Steven Weber', 'Weber, Steven')"
+        "INSERT INTO narrators (id, name, sort_name) VALUES (2, 'Steven Weber', 'Weber, Steven')"
     )
     conn.execute(
-        "INSERT INTO narrators (id, name, sort_name)"
-        " VALUES (3, 'John Smith', 'Smith, John')"
+        "INSERT INTO narrators (id, name, sort_name) VALUES (3, 'John Smith', 'Smith, John')"
     )
 
     # Populate junction tables (book_authors)
@@ -225,9 +216,7 @@ class TestEnrichedNarratorsArray:
         resp = client.get("/api/audiobooks")
         data = resp.get_json()
         for book in data["audiobooks"]:
-            assert "narrators" in book, (
-                f"Book '{book['title']}' missing 'narrators' array"
-            )
+            assert "narrators" in book, f"Book '{book['title']}' missing 'narrators' array"
             assert isinstance(book["narrators"], list)
 
     def test_narrator_entry_has_required_fields(self, client):
@@ -284,9 +273,7 @@ class TestFlatFieldsUnchanged:
 class TestEmptyAuthorsNarrators:
     """Test behavior when normalized tables have no entries for a book."""
 
-    def test_book_without_normalized_authors_gets_empty_array(
-        self, enriched_app, client
-    ):
+    def test_book_without_normalized_authors_gets_empty_array(self, enriched_app, client):
         """A book with no entries in book_authors should get an empty authors array."""
         # Insert a book with no normalized author data
         db_path = enriched_app.config["DATABASE_PATH"]
@@ -303,9 +290,7 @@ class TestEmptyAuthorsNarrators:
         try:
             resp = client.get("/api/audiobooks?search=Orphan")
             data = resp.get_json()
-            orphan = next(
-                (b for b in data["audiobooks"] if b["title"] == "Orphan Book"), None
-            )
+            orphan = next((b for b in data["audiobooks"] if b["title"] == "Orphan Book"), None)
             assert orphan is not None
             assert orphan["authors"] == []
             assert orphan["narrators"] == []

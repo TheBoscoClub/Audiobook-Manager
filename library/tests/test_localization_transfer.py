@@ -266,9 +266,7 @@ class TestFetchOptional:
         conn.close()
         conn = transfer._connect(str(db))
         try:
-            rows = transfer._fetch_optional(
-                conn, "collection_translations", "collections", None
-            )
+            rows = transfer._fetch_optional(conn, "collection_translations", "collections", None)
             assert rows == []
         finally:
             conn.close()
@@ -279,9 +277,7 @@ class TestFetchOptional:
         _populate_source(db, tmp_path / "vtt", tmp_path / "audio")
         conn = transfer._connect(str(db))
         try:
-            rows = transfer._fetch_optional(
-                conn, "collection_translations", "collections", None
-            )
+            rows = transfer._fetch_optional(conn, "collection_translations", "collections", None)
             assert len(rows) == 1
         finally:
             conn.close()
@@ -399,9 +395,7 @@ class TestExportTranslations:
         _build_db(db)
         # Populate DB but intentionally do NOT create the referenced VTT/audio files
         conn = sqlite3.connect(str(db))
-        conn.execute(
-            "INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'A', '/x')"
-        )
+        conn.execute("INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'A', '/x')")
         conn.execute(
             "INSERT INTO chapter_subtitles "
             "(audiobook_id, chapter_index, locale, vtt_path) VALUES (1, 0, 'en', '/missing.vtt')"
@@ -479,9 +473,7 @@ class TestImportTranslations:
         tgt_db = tmp_path / "tgt.db"
         _build_db(tgt_db)
         conn = sqlite3.connect(str(tgt_db))
-        conn.execute(
-            "INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'Unrelated', '/x')"
-        )
+        conn.execute("INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'Unrelated', '/x')")
         conn.commit()
         conn.close()
 
@@ -501,9 +493,7 @@ class TestMain:
         _populate_source(db, tmp_path / "vtt", tmp_path / "audio")
 
         out = tmp_path / "out.tar.gz"
-        monkeypatch.setattr(
-            sys, "argv", ["transfer", "--db", str(db), "export", "-o", str(out)]
-        )
+        monkeypatch.setattr(sys, "argv", ["transfer", "--db", str(db), "export", "-o", str(out)])
         transfer.main()
         assert out.exists()
 
@@ -519,9 +509,7 @@ class TestMain:
         _populate_target(tgt_db, tmp_path / "tgt_audio")
 
         monkeypatch.setattr(
-            sys,
-            "argv",
-            ["transfer", "--db", str(tgt_db), "import", "-a", str(archive)],
+            sys, "argv", ["transfer", "--db", str(tgt_db), "import", "-a", str(archive)]
         )
         transfer.main()
 

@@ -165,8 +165,7 @@ def _apply_updates(cursor, conn, updates):
 
     for update in updates:
         cursor.execute(
-            "UPDATE audiobooks SET narrator = ? WHERE id = ?",
-            (update["narrator"], update["id"]),
+            "UPDATE audiobooks SET narrator = ? WHERE id = ?", (update["narrator"], update["id"])
         )
 
     conn.commit()
@@ -183,10 +182,7 @@ def update_narrators(dry_run=True):
     print(f"Loaded {len(audible_library)} items from Audible library export")
 
     audible_by_title, audible_by_asin = _build_audible_lookups(audible_library)
-    print(
-        f"Built lookup with {len(audible_by_title)} titles,"
-        f" {len(audible_by_asin)} ASINs"
-    )
+    print(f"Built lookup with {len(audible_by_title)} titles, {len(audible_by_asin)} ASINs")
 
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -201,9 +197,7 @@ def update_narrators(dry_run=True):
     print(f"Found {len(unknown_narrator_books)} books with unknown narrator")
     print()
 
-    updates, no_match = _match_books(
-        unknown_narrator_books, audible_by_title, audible_by_asin
-    )
+    updates, no_match = _match_books(unknown_narrator_books, audible_by_title, audible_by_asin)
 
     _print_match_results(updates, no_match)
 
@@ -221,13 +215,9 @@ def update_narrators(dry_run=True):
 
 
 def main():
-    parser = ArgumentParser(
-        description="Update narrator info from Audible library export"
-    )
+    parser = ArgumentParser(description="Update narrator info from Audible library export")
     parser.add_argument(
-        "--execute",
-        action="store_true",
-        help="Actually apply changes (default is dry run)",
+        "--execute", action="store_true", help="Actually apply changes (default is dry run)"
     )
     args = parser.parse_args()
     update_narrators(dry_run=not args.execute)

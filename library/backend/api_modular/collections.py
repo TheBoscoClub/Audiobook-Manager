@@ -26,14 +26,7 @@ collections_bp = Blueprint("collections", __name__)
 
 # These come from scanner/metadata_utils.py GENRE_DISPLAY_NAMES values
 FICTION_GENRES = frozenset(
-    {
-        "Mystery",
-        "Science Fiction",
-        "Fantasy",
-        "Literary Fiction",
-        "Horror",
-        "Romance",
-    }
+    {"Mystery", "Science Fiction", "Fantasy", "Literary Fiction", "Horror", "Romance"}
 )
 
 NONFICTION_GENRES = frozenset(
@@ -68,9 +61,7 @@ def _genre_query(genre_name: str) -> str:
 
 def _multi_genre_query(genre_names: list[str]) -> str:
     """SQL WHERE clause for books matching any of the given genre names."""
-    conditions = " OR ".join(
-        [f"g.name = '{n.replace(chr(39), chr(39) * 2)}'" for n in genre_names]
-    )
+    conditions = " OR ".join([f"g.name = '{n.replace(chr(39), chr(39) * 2)}'" for n in genre_names])
     return f"""id IN (
         SELECT DISTINCT ag.audiobook_id FROM audiobook_genres ag
         JOIN genres g ON ag.genre_id = g.id
@@ -162,9 +153,7 @@ def _build_special_collections(tree, flat):
         }
 
 
-def _build_children_from_rows(
-    rows, slug_prefix, query_fn, name_field="name", extra_fields=None
-):
+def _build_children_from_rows(rows, slug_prefix, query_fn, name_field="name", extra_fields=None):
     """Build child collection dicts from DB rows.
 
     Args:
@@ -179,9 +168,7 @@ def _build_children_from_rows(
     children = []
     for row in rows:
         name = _row_field(row, name_field, 0)
-        count = _row_field(
-            row, "cnt", len(row) - 1 if not isinstance(row, dict) else "cnt"
-        )
+        count = _row_field(row, "cnt", len(row) - 1 if not isinstance(row, dict) else "cnt")
         child = {
             "id": f"{slug_prefix}-{_slugify(name)}",
             "name": name,
@@ -195,9 +182,7 @@ def _build_children_from_rows(
     return children
 
 
-def _add_parent_node(
-    tree, flat, node_id, name, description, query, icon, category, children
-):
+def _add_parent_node(tree, flat, node_id, name, description, query, icon, category, children):
     """Add a parent collection node with its children to tree and flat."""
     node = {
         "id": node_id,
@@ -460,14 +445,7 @@ def init_collections_routes(db_path):
             cursor.execute(sql)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             return cursor.fetchone()["count"]
 
-        category_order = [
-            "special",
-            "fiction",
-            "nonfiction",
-            "series",
-            "eras",
-            "topics",
-        ]
+        category_order = ["special", "fiction", "nonfiction", "series", "eras", "topics"]
         category_labels = {
             "special": "Special Collections",
             "fiction": "Fiction",
@@ -483,11 +461,7 @@ def init_collections_routes(db_path):
             for child in node.get("children", []):
                 child_count = child.get("count") or get_count(child["query"])
                 if child_count > 0:
-                    child_entry = {
-                        "id": child["id"],
-                        "name": child["name"],
-                        "count": child_count,
-                    }
+                    child_entry = {"id": child["id"], "name": child["name"], "count": child_count}
                     # Series children include content_type badge
                     if "content_type" in child:
                         child_entry["content_type"] = child["content_type"]
@@ -500,9 +474,7 @@ def init_collections_routes(db_path):
                 "icon": node.get("icon", "📁"),
                 "count": get_count(node["query"]),
                 "category": node.get("category", "main"),
-                "category_label": category_labels.get(
-                    node.get("category", "main"), "Other"
-                ),
+                "category_label": category_labels.get(node.get("category", "main"), "Other"),
                 "children": children,
             }
             result.append(entry)
@@ -510,9 +482,7 @@ def init_collections_routes(db_path):
         # Sort by category order, then alphabetically within category
         def sort_key(item):
             cat_idx = (
-                category_order.index(item["category"])
-                if item["category"] in category_order
-                else 99
+                category_order.index(item["category"]) if item["category"] in category_order else 99
             )
             return (cat_idx, item["name"])
 

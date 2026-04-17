@@ -83,9 +83,7 @@ class TestLoadKey:
             os.chmod(key_path, 0o644)  # Insecure
 
             db = AuthDatabase(
-                db_path=os.path.join(tmpdir, "test.db"),
-                key_path=str(key_path),
-                is_dev=False,
+                db_path=os.path.join(tmpdir, "test.db"), key_path=str(key_path), is_dev=False
             )
             with pytest.raises(EncryptionKeyError, match="insecure permissions"):
                 db._load_key()
@@ -98,9 +96,7 @@ class TestLoadKey:
             os.chmod(key_path, 0o600)
 
             db = AuthDatabase(
-                db_path=os.path.join(tmpdir, "test.db"),
-                key_path=str(key_path),
-                is_dev=True,
+                db_path=os.path.join(tmpdir, "test.db"), key_path=str(key_path), is_dev=True
             )
             with pytest.raises(EncryptionKeyError, match="Invalid key format"):
                 db._load_key()
@@ -113,9 +109,7 @@ class TestLoadKey:
             os.chmod(key_path, 0o000)
 
             db = AuthDatabase(
-                db_path=os.path.join(tmpdir, "test.db"),
-                key_path=str(key_path),
-                is_dev=True,
+                db_path=os.path.join(tmpdir, "test.db"), key_path=str(key_path), is_dev=True
             )
             try:
                 with pytest.raises(EncryptionKeyError, match="Cannot read key file"):
@@ -144,9 +138,7 @@ class TestGenerateKey:
         with tempfile.TemporaryDirectory() as tmpdir:
             key_path = Path(tmpdir) / "gen.key"
             db = AuthDatabase(
-                db_path=os.path.join(tmpdir, "test.db"),
-                key_path=str(key_path),
-                is_dev=False,
+                db_path=os.path.join(tmpdir, "test.db"), key_path=str(key_path), is_dev=False
             )
             key = db._generate_key()
             assert len(key) == 64
@@ -178,9 +170,7 @@ class TestCreateConnection:
             ]
 
             with patch("auth.database.sqlcipher.connect", return_value=mock_conn):
-                with pytest.raises(
-                    sqlcipher.DatabaseError, match="some other database error"
-                ):
+                with pytest.raises(sqlcipher.DatabaseError, match="some other database error"):
                     db._create_connection()
             mock_conn.close.assert_called_once()
 
@@ -228,9 +218,7 @@ class TestMigrateV6ToV7:
         # hit the "already has title column" branch
         with temp_db.connection() as conn:
             # Check tables exist
-            tables = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-            ).fetchall()
+            tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()
             table_names = [t[0] for t in tables]
 
             # Only run if the activity tables exist
@@ -256,8 +244,7 @@ class TestMigrateV4ToV5:
         with temp_db.connection() as conn:
             # Insert a test user
             conn.execute(
-                "INSERT INTO users (username, auth_type, auth_credential)"
-                " VALUES (?, ?, ?)",
+                "INSERT INTO users (username, auth_type, auth_credential) VALUES (?, ?, ?)",
                 ("miguser", "totp", b"secret"),
             )
 
@@ -288,9 +275,7 @@ class TestVerify:
             Path(key_path).write_text("a" * 64)
 
             db = AuthDatabase(
-                db_path=os.path.join(tmpdir, "nonexistent.db"),
-                key_path=key_path,
-                is_dev=True,
+                db_path=os.path.join(tmpdir, "nonexistent.db"), key_path=key_path, is_dev=True
             )
             result = db.verify()
             assert not result["db_exists"]
@@ -303,9 +288,7 @@ class TestVerify:
             Path(db_path).touch()
 
             db = AuthDatabase(
-                db_path=db_path,
-                key_path=os.path.join(tmpdir, "nonexistent.key"),
-                is_dev=True,
+                db_path=db_path, key_path=os.path.join(tmpdir, "nonexistent.key"), is_dev=True
             )
             result = db.verify()
             assert not result["key_exists"]
@@ -384,9 +367,7 @@ class TestGetAuthDb:
         with patch("auth.database.AuthDatabase") as MockDB:
             MockDB.return_value = MagicMock()
             get_auth_db(db_path="/my/db.db", key_path="/my/key.key", is_dev=True)
-            MockDB.assert_called_once_with(
-                db_path="/my/db.db", key_path="/my/key.key", is_dev=True
-            )
+            MockDB.assert_called_once_with(db_path="/my/db.db", key_path="/my/key.key", is_dev=True)
 
 
 class TestGenerateVerificationToken:

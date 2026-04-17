@@ -103,15 +103,11 @@ class TestLoadModel:
         stub2 = _StubModel()
         # If _load_model called whisper.load_model again it would return stub2;
         # we want the original.
-        monkeypatch.setattr(
-            sys.modules["whisper"], "load_model", lambda *a, **kw: stub2
-        )
+        monkeypatch.setattr(sys.modules["whisper"], "load_model", lambda *a, **kw: stub2)
         second = svc._load_model()
         assert second is stub
 
-    def test_falls_back_to_cpu_without_gpu(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_falls_back_to_cpu_without_gpu(self, monkeypatch: pytest.MonkeyPatch) -> None:
         stub = _install_stubs(monkeypatch, cuda_available=False)
         svc._load_model()
         assert getattr(stub, "loaded_device", "") == "cpu"
@@ -144,10 +140,7 @@ class TestTranscribeFile:
     def test_empty_segments_returns_zero_duration(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        _install_stubs(
-            monkeypatch,
-            model=_StubModel(result={"segments": [], "language": "en"}),
-        )
+        _install_stubs(monkeypatch, model=_StubModel(result={"segments": [], "language": "en"}))
         out = svc.transcribe_file(tmp_path / "x.opus", language="en")
         assert out["duration"] == 0
         assert out["words"] == []
@@ -170,9 +163,7 @@ class TestTranscribeFile:
 
 
 class TestFlaskRoutes:
-    def test_health_reports_model_and_gpu(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_health_reports_model_and_gpu(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _install_stubs(monkeypatch)
         app = svc.create_app()
         with app.test_client() as client:
@@ -202,18 +193,13 @@ class TestFlaskRoutes:
         assert resp.status_code == 400
         assert "No file uploaded" in resp.get_json()["error"]
 
-    def test_transcribe_success_returns_words(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_transcribe_success_returns_words(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _install_stubs(monkeypatch)
         app = svc.create_app()
         with app.test_client() as client:
             resp = client.post(
                 "/transcribe",
-                data={
-                    "file": (io.BytesIO(b"\x00" * 32), "clip.opus"),
-                    "language": "en",
-                },
+                data={"file": (io.BytesIO(b"\x00" * 32), "clip.opus"), "language": "en"},
                 content_type="multipart/form-data",
             )
         assert resp.status_code == 200
@@ -269,18 +255,14 @@ class TestMain:
 
         monkeypatch.setattr(svc, "create_app", lambda: _FakeApp())
         monkeypatch.setattr(
-            sys,
-            "argv",
-            ["whisper_gpu_service.py", "--host", "127.0.0.1", "--port", "9999"],
+            sys, "argv", ["whisper_gpu_service.py", "--host", "127.0.0.1", "--port", "9999"]
         )
         svc.main()
         assert captured == {"host": "127.0.0.1", "port": 9999, "threaded": True}
         assert load_calls["n"] == 0  # --preload not passed
         assert svc._model_name == "large-v3"
 
-    def test_main_with_preload_loads_model(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_main_with_preload_loads_model(self, monkeypatch: pytest.MonkeyPatch) -> None:
         _install_stubs(monkeypatch)
         load_calls = {"n": 0}
 
@@ -296,9 +278,7 @@ class TestMain:
 
         monkeypatch.setattr(svc, "create_app", lambda: _FakeApp())
         monkeypatch.setattr(
-            sys,
-            "argv",
-            ["whisper_gpu_service.py", "--preload", "--model", "small"],
+            sys, "argv", ["whisper_gpu_service.py", "--preload", "--model", "small"]
         )
         svc.main()
         assert load_calls["n"] == 1

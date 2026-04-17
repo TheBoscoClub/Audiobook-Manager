@@ -37,9 +37,7 @@ class TestGenerateHashesWorkerThread:
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_hash_gen_success_with_progress(
-        self, mock_get_tracker, mock_popen_cls, flask_app
-    ):
+    def test_hash_gen_success_with_progress(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Successful hash generation parses [X/Y] progress."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -76,8 +74,7 @@ class TestGenerateHashesWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_proc = _make_mock_popen(
-            ["Hashing: /path/to/audiobook.opus", "Completed 1"],
-            returncode=0,
+            ["Hashing: /path/to/audiobook.opus", "Completed 1"], returncode=0
         )
         mock_popen_cls.return_value = mock_proc
 
@@ -92,19 +89,14 @@ class TestGenerateHashesWorkerThread:
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_hash_gen_processing_pattern(
-        self, mock_get_tracker, mock_popen_cls, flask_app
-    ):
+    def test_hash_gen_processing_pattern(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Processing pattern updates progress count."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "hash-w-003"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_proc = _make_mock_popen(
-            ["Processing file 500"],
-            returncode=0,
-        )
+        mock_proc = _make_mock_popen(["Processing file 500"], returncode=0)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -135,9 +127,7 @@ class TestGenerateHashesWorkerThread:
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_hash_gen_empty_stderr_fallback(
-        self, mock_get_tracker, mock_popen_cls, flask_app
-    ):
+    def test_hash_gen_empty_stderr_fallback(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Empty stderr on failure uses fallback message."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -163,9 +153,7 @@ class TestGenerateHashesWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_proc = _make_mock_popen([], returncode=0)
-        mock_proc.wait.side_effect = subprocess.TimeoutExpired(
-            cmd="python", timeout=1800
-        )
+        mock_proc.wait.side_effect = subprocess.TimeoutExpired(cmd="python", timeout=1800)
         mock_popen_cls.return_value = mock_proc
 
         with flask_app.test_client() as client:
@@ -178,9 +166,7 @@ class TestGenerateHashesWorkerThread:
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_hash_gen_generic_exception(
-        self, mock_get_tracker, mock_popen_cls, flask_app
-    ):
+    def test_hash_gen_generic_exception(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Generic exception calls fail_operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -198,9 +184,7 @@ class TestGenerateHashesWorkerThread:
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_hash_gen_output_truncation(
-        self, mock_get_tracker, mock_popen_cls, flask_app
-    ):
+    def test_hash_gen_output_truncation(self, mock_get_tracker, mock_popen_cls, flask_app):
         """Output over 2000 chars is truncated."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -227,9 +211,7 @@ class TestGenerateChecksumsWorkerThread:
     """Test the run_checksum_gen() background thread function."""
 
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_checksum_no_files_completes_early(
-        self, mock_get_tracker, flask_app, tmp_path
-    ):
+    def test_checksum_no_files_completes_early(self, mock_get_tracker, flask_app, tmp_path):
         """No source or library files completes with zero counts."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -259,9 +241,7 @@ class TestGenerateChecksumsWorkerThread:
         assert result["library_checksums"] == 0
 
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_checksum_processes_source_files(
-        self, mock_get_tracker, flask_app, tmp_path
-    ):
+    def test_checksum_processes_source_files(self, mock_get_tracker, flask_app, tmp_path):
         """Checksums source .aaxc files correctly."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -299,9 +279,7 @@ class TestGenerateChecksumsWorkerThread:
         assert result["total_files"] == 2
 
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_checksum_processes_library_files(
-        self, mock_get_tracker, flask_app, tmp_path
-    ):
+    def test_checksum_processes_library_files(self, mock_get_tracker, flask_app, tmp_path):
         """Checksums library .opus files, excluding .cover.opus."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -374,9 +352,7 @@ class TestGenerateChecksumsWorkerThread:
         assert "|" in content  # format: checksum|filepath
 
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_checksum_handles_unreadable_file(
-        self, mock_get_tracker, flask_app, tmp_path
-    ):
+    def test_checksum_handles_unreadable_file(self, mock_get_tracker, flask_app, tmp_path):
         """Unreadable files produce None checksums (skipped)."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -439,9 +415,7 @@ class TestGenerateChecksumsWorkerThread:
         mock_tracker.fail_operation.assert_called_once()
 
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_checksum_progress_updates_periodically(
-        self, mock_get_tracker, flask_app, tmp_path
-    ):
+    def test_checksum_progress_updates_periodically(self, mock_get_tracker, flask_app, tmp_path):
         """Progress updates at 50-file intervals."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None

@@ -18,9 +18,7 @@ class TestDeleteAudiobookCoverCleanup:
 
     @patch("backend.api_modular.utilities_crud.COVER_DIR")
     @patch("backend.api_modular.utilities_crud.get_db")
-    def test_delete_cleans_up_cover_file(
-        self, mock_get_db, mock_cover_dir, flask_app, tmp_path
-    ):
+    def test_delete_cleans_up_cover_file(self, mock_get_db, mock_cover_dir, flask_app, tmp_path):
         """Line 148: cover_file.unlink() is called when cover exists."""
         cover_file = tmp_path / "cover123.jpg"
         cover_file.write_text("fake cover")
@@ -54,9 +52,7 @@ class TestBulkDeleteCoverAndFileFailure:
 
     @patch("backend.api_modular.utilities_crud.COVER_DIR")
     @patch("backend.api_modular.utilities_crud.get_db")
-    def test_bulk_delete_cleans_up_covers(
-        self, mock_get_db, mock_cover_dir, flask_app, tmp_path
-    ):
+    def test_bulk_delete_cleans_up_covers(self, mock_get_db, mock_cover_dir, flask_app, tmp_path):
         """Lines 285, 334-336: cover files are collected and deleted."""
         cover_file = tmp_path / "bulk_cover.jpg"
         cover_file.write_text("cover data")
@@ -66,17 +62,14 @@ class TestBulkDeleteCoverAndFileFailure:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = [
-            {"id": 1, "file_path": None, "cover_path": "bulk_cover.jpg"},
+            {"id": 1, "file_path": None, "cover_path": "bulk_cover.jpg"}
         ]
         mock_cursor.rowcount = 1
         mock_conn.cursor.return_value = mock_cursor
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/audiobooks/bulk-delete",
-                json={"ids": [1]},
-            )
+            response = client.post("/api/audiobooks/bulk-delete", json={"ids": [1]})
 
         assert response.status_code == 200
         data = response.get_json()
@@ -98,7 +91,7 @@ class TestBulkDeleteCoverAndFileFailure:
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
         mock_cursor.fetchall.return_value = [
-            {"id": 1, "file_path": str(bad_file), "cover_path": None},
+            {"id": 1, "file_path": str(bad_file), "cover_path": None}
         ]
         mock_cursor.rowcount = 1
         mock_conn.cursor.return_value = mock_cursor
@@ -108,8 +101,7 @@ class TestBulkDeleteCoverAndFileFailure:
         with patch("pathlib.Path.unlink", side_effect=PermissionError("denied")):
             with flask_app.test_client() as client:
                 response = client.post(
-                    "/api/audiobooks/bulk-delete",
-                    json={"ids": [1], "delete_files": True},
+                    "/api/audiobooks/bulk-delete", json={"ids": [1], "delete_files": True}
                 )
 
         assert response.status_code == 200
@@ -141,8 +133,7 @@ class TestEmptyNameSkipPaths:
 
         with flask_app.test_client() as client:
             response = client.put(
-                "/api/audiobooks/1/genres",
-                json={"genres": ["Fiction", "", "  "]},
+                "/api/audiobooks/1/genres", json={"genres": ["Fiction", "", "  "]}
             )
 
         assert response.status_code == 200
@@ -246,8 +237,7 @@ class TestSetAudiobookTopics:
 
         with flask_app.test_client() as client:
             response = client.put(
-                "/api/audiobooks/1/topics",
-                json={"topics": ["Adventure", "Survival"]},
+                "/api/audiobooks/1/topics", json={"topics": ["Adventure", "Survival"]}
             )
 
         assert response.status_code == 200
@@ -264,29 +254,20 @@ class TestSetAudiobookTopics:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/999/topics",
-                json={"topics": ["Adventure"]},
-            )
+            response = client.put("/api/audiobooks/999/topics", json={"topics": ["Adventure"]})
 
         assert response.status_code == 404
         assert "not found" in response.get_json()["error"]
 
     def test_set_topics_missing_field(self, flask_app):
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/1/topics",
-                json={"wrong": "data"},
-            )
+            response = client.put("/api/audiobooks/1/topics", json={"wrong": "data"})
         assert response.status_code == 400
         assert "topics" in response.get_json()["error"]
 
     def test_set_topics_not_a_list(self, flask_app):
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/1/topics",
-                json={"topics": "not-a-list"},
-            )
+            response = client.put("/api/audiobooks/1/topics", json={"topics": "not-a-list"})
         assert response.status_code == 400
         assert "list" in response.get_json()["error"]
 
@@ -304,8 +285,7 @@ class TestSetAudiobookTopics:
 
         with flask_app.test_client() as client:
             response = client.put(
-                "/api/audiobooks/1/topics",
-                json={"topics": ["Adventure", "", "  "]},
+                "/api/audiobooks/1/topics", json={"topics": ["Adventure", "", "  "]}
             )
 
         assert response.status_code == 200
@@ -326,10 +306,7 @@ class TestSetAudiobookTopics:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/1/topics",
-                json={"topics": ["Adventure"]},
-            )
+            response = client.put("/api/audiobooks/1/topics", json={"topics": ["Adventure"]})
 
         assert response.status_code == 500
         assert response.get_json()["success"] is False
@@ -400,17 +377,14 @@ class TestBulkManageTopics:
     def test_bulk_topics_no_data(self, flask_app):
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/audiobooks/bulk-topics",
-                content_type="application/json",
-                data="null",
+                "/api/audiobooks/bulk-topics", content_type="application/json", data="null"
             )
         assert response.status_code == 400
 
     def test_bulk_topics_no_ids(self, flask_app):
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/audiobooks/bulk-topics",
-                json={"ids": [], "topics": ["X"], "mode": "add"},
+                "/api/audiobooks/bulk-topics", json={"ids": [], "topics": ["X"], "mode": "add"}
             )
         assert response.status_code == 400
         assert "No audiobook IDs" in response.get_json()["error"]
@@ -418,8 +392,7 @@ class TestBulkManageTopics:
     def test_bulk_topics_no_topics(self, flask_app):
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/audiobooks/bulk-topics",
-                json={"ids": [1], "topics": [], "mode": "add"},
+                "/api/audiobooks/bulk-topics", json={"ids": [1], "topics": [], "mode": "add"}
             )
         assert response.status_code == 400
         assert "No topics" in response.get_json()["error"]
@@ -427,8 +400,7 @@ class TestBulkManageTopics:
     def test_bulk_topics_invalid_mode(self, flask_app):
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/audiobooks/bulk-topics",
-                json={"ids": [1], "topics": ["X"], "mode": "replace"},
+                "/api/audiobooks/bulk-topics", json={"ids": [1], "topics": ["X"], "mode": "replace"}
             )
         assert response.status_code == 400
         assert "mode" in response.get_json()["error"]
@@ -482,8 +454,7 @@ class TestBulkManageTopics:
 
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/audiobooks/bulk-topics",
-                json={"ids": [1], "topics": ["X"], "mode": "add"},
+                "/api/audiobooks/bulk-topics", json={"ids": [1], "topics": ["X"], "mode": "add"}
             )
 
         assert response.status_code == 500
@@ -546,10 +517,7 @@ class TestSetAudiobookEras:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/1/eras",
-                json={"eras": ["Victorian"]},
-            )
+            response = client.put("/api/audiobooks/1/eras", json={"eras": ["Victorian"]})
 
         assert response.status_code == 200
         data = response.get_json()
@@ -565,29 +533,20 @@ class TestSetAudiobookEras:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/999/eras",
-                json={"eras": ["Victorian"]},
-            )
+            response = client.put("/api/audiobooks/999/eras", json={"eras": ["Victorian"]})
 
         assert response.status_code == 404
         assert "not found" in response.get_json()["error"]
 
     def test_set_eras_missing_field(self, flask_app):
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/1/eras",
-                json={"wrong": "data"},
-            )
+            response = client.put("/api/audiobooks/1/eras", json={"wrong": "data"})
         assert response.status_code == 400
         assert "eras" in response.get_json()["error"]
 
     def test_set_eras_not_a_list(self, flask_app):
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/1/eras",
-                json={"eras": "not-a-list"},
-            )
+            response = client.put("/api/audiobooks/1/eras", json={"eras": "not-a-list"})
         assert response.status_code == 400
         assert "list" in response.get_json()["error"]
 
@@ -604,10 +563,7 @@ class TestSetAudiobookEras:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/1/eras",
-                json={"eras": ["Victorian", "", "  "]},
-            )
+            response = client.put("/api/audiobooks/1/eras", json={"eras": ["Victorian", "", "  "]})
 
         assert response.status_code == 200
         assert response.get_json()["success"] is True
@@ -627,10 +583,7 @@ class TestSetAudiobookEras:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.put(
-                "/api/audiobooks/1/eras",
-                json={"eras": ["Victorian"]},
-            )
+            response = client.put("/api/audiobooks/1/eras", json={"eras": ["Victorian"]})
 
         assert response.status_code == 500
         assert response.get_json()["success"] is False
@@ -711,10 +664,7 @@ class TestAddEditorialReview:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/audiobooks/1/reviews",
-                json={"review_text": "Great!"},
-            )
+            response = client.post("/api/audiobooks/1/reviews", json={"review_text": "Great!"})
 
         assert response.status_code == 200
         assert response.get_json()["success"] is True
@@ -729,8 +679,7 @@ class TestAddEditorialReview:
 
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/audiobooks/999/reviews",
-                json={"review_text": "No book here"},
+                "/api/audiobooks/999/reviews", json={"review_text": "No book here"}
             )
 
         assert response.status_code == 404
@@ -738,10 +687,7 @@ class TestAddEditorialReview:
 
     def test_add_review_missing_text(self, flask_app):
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/audiobooks/1/reviews",
-                json={"source": "NYT"},
-            )
+            response = client.post("/api/audiobooks/1/reviews", json={"source": "NYT"})
         assert response.status_code == 400
         assert "review_text" in response.get_json()["error"]
 
@@ -764,10 +710,7 @@ class TestAddEditorialReview:
         mock_get_db.return_value = mock_conn
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/audiobooks/1/reviews",
-                json={"review_text": "Will fail"},
-            )
+            response = client.post("/api/audiobooks/1/reviews", json={"review_text": "Will fail"})
 
         assert response.status_code == 500
         assert response.get_json()["success"] is False
@@ -823,7 +766,7 @@ class TestGetAudibleCategories:
                 "root_category": "Fiction",
                 "depth": 1,
                 "audible_category_id": "cat123",
-            },
+            }
         ]
         mock_conn.cursor.return_value = mock_cursor
         mock_get_db.return_value = mock_conn
@@ -894,11 +837,7 @@ class TestGetEnrichmentStats:
         mock_cursor.fetchone.side_effect = lambda: next(fetchone_iter)
 
         # content_types fetchall
-        mock_cursor.fetchall.return_value = [
-            ("Product", 80),
-            ("Podcast", 15),
-            ("Lecture", 5),
-        ]
+        mock_cursor.fetchall.return_value = [("Product", 80), ("Podcast", 15), ("Lecture", 5)]
 
         mock_conn.cursor.return_value = mock_cursor
         mock_get_db.return_value = mock_conn

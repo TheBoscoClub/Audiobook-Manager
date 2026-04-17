@@ -95,10 +95,7 @@ class TestNormalizeBaseTitle:
         """Test numbered editions like '2nd Edition' are removed."""
         from backend.api_modular.editions import normalize_base_title
 
-        assert (
-            normalize_base_title("Python Crash Course - 2nd Edition")
-            == "python crash course"
-        )
+        assert normalize_base_title("Python Crash Course - 2nd Edition") == "python crash course"
         assert normalize_base_title("Clean Code - 1st Edition") == "clean code"
 
     def test_removes_unabridged_suffix(self):
@@ -170,15 +167,7 @@ class TestEditionsAPI:
 
         # Insert test audiobooks - same book, different editions
         test_books = [
-            (
-                1,
-                "The Great Gatsby",
-                "F. Scott Fitzgerald",
-                "Jake Gyllenhaal",
-                4.5,
-                "4h 30m",
-                256.0,
-            ),
+            (1, "The Great Gatsby", "F. Scott Fitzgerald", "Jake Gyllenhaal", 4.5, "4h 30m", 256.0),
             (
                 2,
                 "The Great Gatsby (50th Anniversary Edition)",
@@ -198,15 +187,7 @@ class TestEditionsAPI:
                 290.0,
             ),
             # Different author - should not be grouped
-            (
-                4,
-                "The Great Gatsby Analysis",
-                "John Smith",
-                "Narrator X",
-                2.0,
-                "2h 0m",
-                100.0,
-            ),
+            (4, "The Great Gatsby Analysis", "John Smith", "Narrator X", 2.0, "2h 0m", 100.0),
             # Same author, different book
             (
                 5,
@@ -219,15 +200,7 @@ class TestEditionsAPI:
             ),
         ]
 
-        for (
-            book_id,
-            title,
-            author,
-            narrator,
-            duration,
-            duration_fmt,
-            size,
-        ) in test_books:
+        for book_id, title, author, narrator, duration, duration_fmt, size in test_books:
             cursor.execute(
                 """
                 INSERT OR REPLACE INTO audiobooks

@@ -17,9 +17,7 @@ class TestListeningHistoryModel:
         """In-memory auth DB with schema."""
         conn = sqlite3.connect(":memory:")
         conn.execute("PRAGMA foreign_keys = ON")
-        schema_path = os.path.join(
-            os.path.dirname(__file__), "..", "auth", "schema.sql"
-        )
+        schema_path = os.path.join(os.path.dirname(__file__), "..", "auth", "schema.sql")
         with open(schema_path) as f:
             conn.executescript(f.read())
         conn.execute(
@@ -42,11 +40,7 @@ class TestListeningHistoryModel:
         from auth.models import UserListeningHistory, ListeningHistoryRepository
 
         ListeningHistoryRepository(mock_auth_db)  # verify importable
-        session = UserListeningHistory(
-            user_id=1,
-            audiobook_id="100",
-            position_start_ms=5000,
-        )
+        session = UserListeningHistory(user_id=1, audiobook_id="100", position_start_ms=5000)
         saved = session.save(mock_auth_db)
         assert saved.id is not None
         assert saved.started_at is not None
@@ -55,11 +49,7 @@ class TestListeningHistoryModel:
         from auth.models import UserListeningHistory, ListeningHistoryRepository
 
         repo = ListeningHistoryRepository(mock_auth_db)
-        session = UserListeningHistory(
-            user_id=1,
-            audiobook_id="100",
-            position_start_ms=5000,
-        )
+        session = UserListeningHistory(user_id=1, audiobook_id="100", position_start_ms=5000)
         saved = session.save(mock_auth_db)
 
         saved.position_end_ms = 120000
@@ -93,9 +83,7 @@ class TestListeningHistoryModel:
 
         repo = ListeningHistoryRepository(mock_auth_db)
         for book_id in ["100", "100", "200"]:
-            session = UserListeningHistory(
-                user_id=1, audiobook_id=book_id, position_start_ms=0
-            )
+            session = UserListeningHistory(user_id=1, audiobook_id=book_id, position_start_ms=0)
             session.save(mock_auth_db)
 
         books = repo.get_user_book_ids(1)
@@ -107,19 +95,13 @@ class TestListeningHistoryModel:
 
         repo = ListeningHistoryRepository(mock_auth_db)
         brief = UserListeningHistory(
-            user_id=1,
-            audiobook_id="100",
-            position_start_ms=0,
-            duration_listened_ms=3000,
+            user_id=1, audiobook_id="100", position_start_ms=0, duration_listened_ms=3000
         )
         brief.ended_at = datetime.now()
         brief.save(mock_auth_db)
 
         real = UserListeningHistory(
-            user_id=1,
-            audiobook_id="200",
-            position_start_ms=0,
-            duration_listened_ms=120000,
+            user_id=1, audiobook_id="200", position_start_ms=0, duration_listened_ms=120000
         )
         real.ended_at = datetime.now()
         real.save(mock_auth_db)
@@ -133,9 +115,7 @@ class TestListeningHistoryModel:
 
         repo = ListeningHistoryRepository(mock_auth_db)
         # Create an open session
-        session = UserListeningHistory(
-            user_id=1, audiobook_id="100", position_start_ms=0
-        )
+        session = UserListeningHistory(user_id=1, audiobook_id="100", position_start_ms=0)
         session.save(mock_auth_db)
 
         # Should find it
@@ -159,9 +139,7 @@ class TestDownloadModel:
     def db(self):
         conn = sqlite3.connect(":memory:")
         conn.execute("PRAGMA foreign_keys = ON")
-        schema_path = os.path.join(
-            os.path.dirname(__file__), "..", "auth", "schema.sql"
-        )
+        schema_path = os.path.join(os.path.dirname(__file__), "..", "auth", "schema.sql")
         with open(schema_path) as f:
             conn.executescript(f.read())
         conn.execute(
@@ -192,12 +170,8 @@ class TestDownloadModel:
         from auth.models import UserDownload, DownloadRepository
 
         repo = DownloadRepository(mock_auth_db)
-        UserDownload(user_id=1, audiobook_id="100", file_format="opus").save(
-            mock_auth_db
-        )
-        UserDownload(user_id=1, audiobook_id="200", file_format="opus").save(
-            mock_auth_db
-        )
+        UserDownload(user_id=1, audiobook_id="100", file_format="opus").save(mock_auth_db)
+        UserDownload(user_id=1, audiobook_id="200", file_format="opus").save(mock_auth_db)
 
         downloads = repo.get_for_user(1)
         assert len(downloads) == 2
@@ -206,9 +180,7 @@ class TestDownloadModel:
         from auth.models import UserDownload, DownloadRepository
 
         repo = DownloadRepository(mock_auth_db)
-        UserDownload(user_id=1, audiobook_id="100", file_format="opus").save(
-            mock_auth_db
-        )
+        UserDownload(user_id=1, audiobook_id="100", file_format="opus").save(mock_auth_db)
 
         assert repo.has_downloaded(1, "100") is True
         assert repo.has_downloaded(1, "999") is False
@@ -221,9 +193,7 @@ class TestUserPreferencesModel:
     def db(self):
         conn = sqlite3.connect(":memory:")
         conn.execute("PRAGMA foreign_keys = ON")
-        schema_path = os.path.join(
-            os.path.dirname(__file__), "..", "auth", "schema.sql"
-        )
+        schema_path = os.path.join(os.path.dirname(__file__), "..", "auth", "schema.sql")
         with open(schema_path) as f:
             conn.executescript(f.read())
         conn.execute(

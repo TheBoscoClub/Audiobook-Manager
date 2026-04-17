@@ -100,8 +100,7 @@ class TestInitQueue:
         conn = sqlite3.connect(str(audiobooks_db))
         try:
             row = conn.execute(
-                "SELECT name FROM sqlite_master "
-                "WHERE type='table' AND name='translation_queue'"
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='translation_queue'"
             ).fetchone()
             assert row is not None
         finally:
@@ -157,10 +156,7 @@ class TestInitQueue:
 
         conn = sqlite3.connect(str(db_path))
         try:
-            cols = {
-                r[1]
-                for r in conn.execute("PRAGMA table_info(translation_queue)").fetchall()
-            }
+            cols = {r[1] for r in conn.execute("PRAGMA table_info(translation_queue)").fetchall()}
             assert "last_progress_at" in cols
             assert "total_chapters" in cols
             # Existing row must have last_progress_at populated from started_at.
@@ -233,9 +229,7 @@ class TestEnqueue:
         lq.enqueue(1, "zh-Hans", start_worker=True)
         assert called == [True]
 
-    def test_enqueue_book_all_locales_skips_empty(
-        self, audiobooks_db: Path, monkeypatch
-    ):
+    def test_enqueue_book_all_locales_skips_empty(self, audiobooks_db: Path, monkeypatch):
         """If SUPPORTED_LOCALES contains only 'en', no rows are written."""
 
         class _Cfg:
@@ -260,9 +254,7 @@ class TestEnqueue:
         status = lq.get_queue_status()
         assert status["pending"] == 2
 
-    def test_enqueue_all_books_for_locale_only_covers_missing_en(
-        self, audiobooks_db: Path
-    ):
+    def test_enqueue_all_books_for_locale_only_covers_missing_en(self, audiobooks_db: Path):
         """Books 1 has en chapter_subtitles; book 2 does not. The helper
         targets the un-transcribed book only."""
         inserted = lq.enqueue_all_books_for_locale("zh-Hans", priority=4)
@@ -364,9 +356,7 @@ class TestPriorityAndStatus:
         assert status["current"] is not None
         assert status["current"]["phase"] == "stt"
 
-    def test_get_book_translation_status_returns_none_for_missing(
-        self, audiobooks_db: Path
-    ):
+    def test_get_book_translation_status_returns_none_for_missing(self, audiobooks_db: Path):
         assert lq.get_book_translation_status(999, "zh-Hans") is None
 
     def test_get_book_translation_status_returns_row(self, audiobooks_db: Path):
@@ -445,8 +435,7 @@ class TestJobLifecycle:
         conn = sqlite3.connect(str(audiobooks_db))
         try:
             row = conn.execute(
-                "SELECT state, error, finished_at FROM translation_queue WHERE id = ?",
-                (job["id"],),
+                "SELECT state, error, finished_at FROM translation_queue WHERE id = ?", (job["id"],)
             ).fetchone()
             assert row is not None
             assert row[0] == "completed"
@@ -466,8 +455,7 @@ class TestJobLifecycle:
         conn = sqlite3.connect(str(audiobooks_db))
         try:
             row = conn.execute(
-                "SELECT state, error FROM translation_queue WHERE id = ?",
-                (job["id"],),
+                "SELECT state, error FROM translation_queue WHERE id = ?", (job["id"],)
             ).fetchone()
             assert row is not None
             assert row[0] == "failed"
@@ -495,8 +483,7 @@ class TestJobLifecycle:
         conn = sqlite3.connect(str(audiobooks_db))
         try:
             row = conn.execute(
-                "SELECT step FROM translation_queue WHERE id = ?",
-                (job["id"],),
+                "SELECT step FROM translation_queue WHERE id = ?", (job["id"],)
             ).fetchone()
             assert row is not None
             assert row[0] == "tts"
@@ -546,3 +533,288 @@ class TestShutdown:
         lq._ensure_worker()
         assert started == []  # no thread creation
         lq._worker_thread = None
+
+
+# ── _run_stt_and_translate closure ─────────────────────────────────────
+
+
+class TestRunSttAndTranslate:
+    """Exercise the STT+translate closure including its nested progress +
+    chapter-complete callbacks. Uses ``sys.modules`` injection to stub
+    ``.pipeline`` and ``.selection`` without loading the real Vast.ai /
+    RunPod-backed providers."""
+
+    def _install_fake_pipeline(self, monkeypatch, stt_name: str = "fake-stt", driver=None):
+        """Inject fake `.pipeline` + `.selection` modules so the imports
+        inside `_run_stt_and_translate` resolve to controlled stubs.
+
+        ``driver``, if supplied, is a callable
+        ``driver(on_progress, on_chapter_complete)`` invoked FROM INSIDE
+        the stubbed ``generate_book_subtitles``. This matters because
+        ``_run_stt_and_translate`` opens ``gen_conn`` just before calling
+        the pipeline and closes it in a ``finally`` block — so the
+        chapter-complete callback is only valid while the pipeline call is
+        in flight. Invoking it after ``_run_stt_and_translate`` returns
+        would hit a closed connection.
+        """
+        import sys
+        import types
+
+        state: dict = {"stt_name": stt_name}
+
+        class _FakeSTT:
+            name = stt_name
+
+        def _get_stt_provider(_asset_path, workload=None):
+            state["stt"] = _FakeSTT()
+            state["workload"] = workload
+            return state["stt"]
+
+        def _generate_book_subtitles(
+            audio_path,
+            output_dir,
+            target_locale,
+            stt_provider,
+            on_progress,
+            on_chapter_complete,
+            skip_chapters,
+        ):
+            state["audio_path"] = audio_path
+            state["output_dir"] = output_dir
+            state["target_locale"] = target_locale
+            state["stt_provider"] = stt_provider
+            state["skip_chapters"] = skip_chapters
+            # Drive the real closures synchronously from inside the call —
+            # the caller's gen_conn is still open at this point.
+            if driver is not None:
+                driver(on_progress, on_chapter_complete)
+
+        class _WorkloadHint:
+            LONG_FORM = "long_form"
+            SHORT_FORM = "short_form"
+
+        pipeline_mod = types.ModuleType("localization.pipeline")
+        pipeline_mod.generate_book_subtitles = _generate_book_subtitles
+        pipeline_mod.get_stt_provider = _get_stt_provider
+
+        selection_mod = types.ModuleType("localization.selection")
+        selection_mod.WorkloadHint = _WorkloadHint
+
+        monkeypatch.setitem(sys.modules, "localization.pipeline", pipeline_mod)
+        monkeypatch.setitem(sys.modules, "localization.selection", selection_mod)
+        return state
+
+    def test_closure_invokes_pipeline_with_expected_arguments(self, monkeypatch, tmp_path: Path):
+        """The closure should forward audio_path, subtitle_dir, locale, and
+        skip_chapters unchanged to generate_book_subtitles."""
+        state = self._install_fake_pipeline(monkeypatch)
+
+        audio_path = tmp_path / "book1.opus"
+        audio_path.write_bytes(b"fake audio")
+
+        lq._run_stt_and_translate(
+            book_id=1,
+            locale="zh-Hans",
+            audio_path=audio_path,
+            skip_chapters={3, 7},
+        )
+
+        assert state["audio_path"] == audio_path
+        assert state["output_dir"] == audio_path.parent / "subtitles"
+        assert state["output_dir"].exists()  # subtitle dir auto-created
+        assert state["target_locale"] == "zh-Hans"
+        assert state["skip_chapters"] == {3, 7}
+        assert state["workload"] == "long_form"
+
+    def test_on_progress_callback_updates_status_and_heartbeat(
+        self, monkeypatch, tmp_path: Path, audiobooks_db: Path
+    ):
+        """Driving the captured _on_progress closure should update both
+        the in-memory _current_status and the translation_queue.last_progress_at
+        column for the active row."""
+        captured: dict = {}
+
+        def _driver(on_progress, _on_complete):
+            on_progress(2, 10, "Chapter Three")
+
+        self._install_fake_pipeline(monkeypatch, driver=_driver)
+
+        audio_path = tmp_path / "book1.opus"
+        audio_path.write_bytes(b"fake audio")
+
+        # Create a processing-state queue row so heartbeat UPDATE matches.
+        lq.enqueue(1, "zh-Hans")
+        job = lq._next_job()
+        assert job is not None
+
+        lq._run_stt_and_translate(
+            book_id=1, locale="zh-Hans", audio_path=audio_path, skip_chapters=set()
+        )
+
+        assert lq._current_status["phase"] == "transcribing"
+        assert "Chapter 3/10" in lq._current_status["message"]
+        assert lq._current_status["chapter_index"] == 2
+        assert lq._current_status["chapter_total"] == 10
+
+        conn = sqlite3.connect(str(audiobooks_db))
+        try:
+            row = conn.execute(
+                "SELECT total_chapters FROM translation_queue WHERE id = ?",
+                (job["id"],),
+            ).fetchone()
+            assert row is not None
+            assert row[0] == 10
+        finally:
+            conn.close()
+        _ = captured  # silence unused if driver chain grows
+
+    def test_on_progress_swallows_db_errors(self, monkeypatch, tmp_path: Path):
+        """If the heartbeat UPDATE fails (connection broken, locked, etc.),
+        the closure must not propagate the exception."""
+
+        def _driver(on_progress, _on_complete):
+            # Break _get_db so the heartbeat write raises. The closure's
+            # try/except must swallow and continue.
+            def _broken():
+                raise sqlite3.Error("boom")
+
+            monkeypatch.setattr(lq, "_get_db", _broken)
+            on_progress(0, 3, "Any Title")  # must not raise
+
+        self._install_fake_pipeline(monkeypatch, driver=_driver)
+
+        audio_path = tmp_path / "book1.opus"
+        audio_path.write_bytes(b"fake audio")
+
+        lq._run_stt_and_translate(
+            book_id=1, locale="zh-Hans", audio_path=audio_path, skip_chapters=set()
+        )
+
+    def test_on_chapter_complete_writes_source_and_translated_rows(
+        self, monkeypatch, tmp_path: Path, audiobooks_db: Path
+    ):
+        """When both source_vtt and translated_vtt are supplied, the
+        closure must insert one 'en' row and one target-locale row with the
+        correct stt_provider/translation_provider labels."""
+        src = tmp_path / "chapter0.en.vtt"
+        tr = tmp_path / "chapter0.zh-Hans.vtt"
+        src.write_text("WEBVTT\n", encoding="utf-8")
+        tr.write_text("WEBVTT\n", encoding="utf-8")
+
+        def _driver(_on_progress, on_chapter_complete):
+            on_chapter_complete(0, src, tr)
+
+        self._install_fake_pipeline(monkeypatch, stt_name="whisper-turbo", driver=_driver)
+
+        audio_path = tmp_path / "book1.opus"
+        audio_path.write_bytes(b"fake audio")
+
+        lq._run_stt_and_translate(
+            book_id=1, locale="zh-Hans", audio_path=audio_path, skip_chapters=set()
+        )
+
+        conn = sqlite3.connect(str(audiobooks_db))
+        try:
+            rows = conn.execute(
+                "SELECT locale, vtt_path, stt_provider, translation_provider "
+                "FROM chapter_subtitles "
+                "WHERE audiobook_id = 1 AND chapter_index = 0 "
+                "ORDER BY locale"
+            ).fetchall()
+            by_locale = {r[0]: r for r in rows}
+            # 'en' row was seeded in fixture (ch0 has /tmp/a.ch0.vtt). The
+            # closure uses INSERT OR REPLACE, so the new path + stt_provider
+            # overwrite the seed.
+            assert by_locale["en"][1] == str(src)
+            assert by_locale["en"][2] == "whisper-turbo"
+            assert by_locale["en"][3] is None
+            assert by_locale["zh-Hans"][1] == str(tr)
+            assert by_locale["zh-Hans"][2] == "whisper-turbo"
+            assert by_locale["zh-Hans"][3] == "deepl"
+        finally:
+            conn.close()
+
+    def test_on_chapter_complete_skips_translated_row_when_none(
+        self, monkeypatch, tmp_path: Path, audiobooks_db: Path
+    ):
+        """Some chapters may have been pre-filtered via skip_chapters — the
+        pipeline will pass translated_vtt=None. The closure must write the
+        source row and nothing else."""
+        src = tmp_path / "chapter5.en.vtt"
+        src.write_text("WEBVTT\n", encoding="utf-8")
+
+        def _driver(_on_progress, on_chapter_complete):
+            on_chapter_complete(5, src, None)
+
+        self._install_fake_pipeline(monkeypatch, stt_name="whisper", driver=_driver)
+
+        audio_path = tmp_path / "book2.opus"
+        audio_path.write_bytes(b"fake audio")
+
+        lq._run_stt_and_translate(
+            book_id=2, locale="zh-Hans", audio_path=audio_path, skip_chapters={5}
+        )
+
+        conn = sqlite3.connect(str(audiobooks_db))
+        try:
+            rows = conn.execute(
+                "SELECT locale FROM chapter_subtitles WHERE audiobook_id = 2 AND chapter_index = 5"
+            ).fetchall()
+            locales = {r[0] for r in rows}
+            assert locales == {"en"}  # no zh-Hans row
+        finally:
+            conn.close()
+
+
+# ── _load_vtt_rows ────────────────────────────────────────────────────
+
+
+class TestLoadVttRows:
+    def test_returns_ordered_rows_for_locale(self, audiobooks_db: Path):
+        """Rows must come back ordered by chapter_index regardless of
+        insertion order."""
+        conn = sqlite3.connect(str(audiobooks_db))
+        try:
+            conn.execute(
+                "INSERT INTO chapter_subtitles (audiobook_id, chapter_index, "
+                "locale, vtt_path) VALUES (1, 5, 'zh-Hans', '/tmp/ch5.vtt')"
+            )
+            conn.execute(
+                "INSERT INTO chapter_subtitles (audiobook_id, chapter_index, "
+                "locale, vtt_path) VALUES (1, 1, 'zh-Hans', '/tmp/ch1.vtt')"
+            )
+            conn.execute(
+                "INSERT INTO chapter_subtitles (audiobook_id, chapter_index, "
+                "locale, vtt_path) VALUES (1, 2, 'zh-Hans', '/tmp/ch2.vtt')"
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        rows = lq._load_vtt_rows(1, "zh-Hans")
+        indices = [r[0] if not isinstance(r, sqlite3.Row) else r["chapter_index"] for r in rows]
+        assert indices == [1, 2, 5]
+
+    def test_returns_empty_for_missing_locale(self, audiobooks_db: Path):
+        rows = lq._load_vtt_rows(1, "fr")
+        assert list(rows) == []
+
+    def test_scoped_by_audiobook_id(self, audiobooks_db: Path):
+        """Rows from other audiobooks must not be returned."""
+        conn = sqlite3.connect(str(audiobooks_db))
+        try:
+            conn.execute(
+                "INSERT INTO chapter_subtitles (audiobook_id, chapter_index, "
+                "locale, vtt_path) VALUES (1, 0, 'zh-Hans', '/tmp/ch0.vtt')"
+            )
+            conn.execute(
+                "INSERT INTO chapter_subtitles (audiobook_id, chapter_index, "
+                "locale, vtt_path) VALUES (2, 0, 'zh-Hans', '/tmp/other.vtt')"
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        rows = lq._load_vtt_rows(1, "zh-Hans")
+        paths = [r[1] if not isinstance(r, sqlite3.Row) else r["vtt_path"] for r in rows]
+        assert paths == ["/tmp/ch0.vtt"]

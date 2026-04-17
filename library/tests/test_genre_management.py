@@ -40,9 +40,7 @@ class TestGenreManagementJS:
 
     @pytest.fixture
     def js(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "js", "utilities.js"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "js", "utilities.js")
         with open(path) as f:
             return f.read()
 
@@ -69,9 +67,7 @@ class TestGenreManagementCSS:
 
     @pytest.fixture
     def css(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "css", "utilities.css"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "css", "utilities.css")
         with open(path) as f:
             return f.read()
 
@@ -93,11 +89,7 @@ class TestGenreAPIRoutes:
     @pytest.fixture
     def crud_py(self):
         path = os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "backend",
-            "api_modular",
-            "utilities_crud.py",
+            os.path.dirname(__file__), "..", "backend", "api_modular", "utilities_crud.py"
         )
         with open(path) as f:
             return f.read()

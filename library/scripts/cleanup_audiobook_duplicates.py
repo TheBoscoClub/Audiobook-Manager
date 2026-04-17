@@ -100,12 +100,7 @@ def _classify_entry(cursor, entry):
             "real_path": match[3],
         }, None
 
-    return None, {
-        "id": entry_id,
-        "title": title,
-        "author": author,
-        "file_path": file_path,
-    }
+    return None, {"id": entry_id, "title": title, "author": author, "file_path": file_path}
 
 
 def _print_duplicate_samples(duplicates):
@@ -180,9 +175,7 @@ def _execute_cleanup(conn, duplicates, delete_files):
     return removed_count, deleted_files, space_freed, errors
 
 
-def _print_cleanup_results(
-    removed_count, deleted_files, space_freed, errors, delete_files
-):
+def _print_cleanup_results(removed_count, deleted_files, space_freed, errors, delete_files):
     """Print the cleanup completion summary."""
     print("\n" + "=" * 70)
     print("CLEANUP COMPLETE")
@@ -251,26 +244,18 @@ def cleanup_duplicates(dry_run=True, delete_files=False):
     )
     conn.close()
 
-    _print_cleanup_results(
-        removed_count, deleted_files_count, space_freed, errors, delete_files
-    )
+    _print_cleanup_results(removed_count, deleted_files_count, space_freed, errors, delete_files)
 
 
 def main():
     parser = ArgumentParser(
-        description=(
-            "Clean up duplicate audiobook entries from /Library/Audiobook/ folder"
-        )
+        description=("Clean up duplicate audiobook entries from /Library/Audiobook/ folder")
     )
     parser.add_argument(
-        "--execute",
-        action="store_true",
-        help="Actually remove duplicates (default is dry run)",
+        "--execute", action="store_true", help="Actually remove duplicates (default is dry run)"
     )
     parser.add_argument(
-        "--delete-files",
-        action="store_true",
-        help="Also delete the physical files (DESTRUCTIVE)",
+        "--delete-files", action="store_true", help="Also delete the physical files (DESTRUCTIVE)"
     )
 
     args = parser.parse_args()

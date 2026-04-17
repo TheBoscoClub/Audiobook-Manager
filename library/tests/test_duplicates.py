@@ -133,9 +133,7 @@ class TestRegenerateChecksums:
                     },
                 ):
                     with flask_app.test_client() as client:
-                        response = client.post(
-                            "/api/duplicates/regenerate-checksums", json={}
-                        )
+                        response = client.post("/api/duplicates/regenerate-checksums", json={})
 
         assert response.status_code == 200
 

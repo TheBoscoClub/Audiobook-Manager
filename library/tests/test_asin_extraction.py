@@ -86,9 +86,7 @@ class TestExtractAsinFromVoucher:
         sources_dir = tmp_path / "Sources"
         sources_dir.mkdir()
         voucher = {"content_license": {"asin": "B01ABCDEF0"}}
-        (sources_dir / "B01ABCDEF0_Cool_Book-AAX_44_128.voucher").write_text(
-            json.dumps(voucher)
-        )
+        (sources_dir / "B01ABCDEF0_Cool_Book-AAX_44_128.voucher").write_text(json.dumps(voucher))
 
         result = extract_asin(opus_file, sources_dir=sources_dir)
         assert result == "B01ABCDEF0"
@@ -140,9 +138,7 @@ class TestAsinPriority:
         sources_dir = tmp_path / "Sources"
         sources_dir.mkdir()
         voucher = {"content_license": {"asin": "ASIN_FROM_V"}}
-        (sources_dir / "ASIN_FROM_V_Dual-AAX_44_128.voucher").write_text(
-            json.dumps(voucher)
-        )
+        (sources_dir / "ASIN_FROM_V_Dual-AAX_44_128.voucher").write_text(json.dumps(voucher))
 
         result = extract_asin(opus_file, sources_dir=sources_dir)
         assert result == "ASIN_FROM_C"

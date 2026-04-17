@@ -370,9 +370,7 @@ class TestRegistrationVerification:
 
     def test_verify_registration_invalid_challenge(self):
         """Test verification fails with unknown challenge."""
-        result = verify_registration(
-            credential_json="{}", expected_challenge=b"\x00\x00\x00\x00"
-        )
+        result = verify_registration(credential_json="{}", expected_challenge=b"\x00\x00\x00\x00")
         assert result is None
 
     def test_verify_registration_expired_challenge(self):
@@ -483,9 +481,7 @@ class TestAuthTypeIntegration:
         assert retrieved.auth_type == AuthType.PASSKEY
 
         # Deserialize credential
-        stored_cred = WebAuthnCredential.from_json(
-            retrieved.auth_credential.decode("utf-8")
-        )
+        stored_cred = WebAuthnCredential.from_json(retrieved.auth_credential.decode("utf-8"))
         assert stored_cred.credential_id == b"\x01\x02\x03\x04"
 
     def test_auth_type_fido2(self, temp_db):
@@ -534,9 +530,7 @@ class TestAuthTypeIntegration:
         # Simulate authentication by updating sign count
         repo = UserRepository(temp_db)
         retrieved = repo.get_by_id(user_id)
-        stored_cred = WebAuthnCredential.from_json(
-            retrieved.auth_credential.decode("utf-8")
-        )
+        stored_cred = WebAuthnCredential.from_json(retrieved.auth_credential.decode("utf-8"))
 
         # Create updated credential with new sign count
         updated_cred = WebAuthnCredential(
@@ -567,9 +561,7 @@ class TestEdgeCases:
         """Test multiple users can have concurrent challenges."""
         _, c1 = create_registration_options(username="user1")
         _, c2 = create_registration_options(username="user2")
-        _, c3 = create_authentication_options(
-            user_id=1, credential_id=b"\x01", username="user3"
-        )
+        _, c3 = create_authentication_options(user_id=1, credential_id=b"\x01", username="user3")
 
         assert len(_pending_challenges) == 3
         assert get_pending_challenge(c1).username == "user1"

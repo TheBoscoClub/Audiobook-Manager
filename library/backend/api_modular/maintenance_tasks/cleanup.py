@@ -33,9 +33,7 @@ def _delete_files(file_list):
 class BackupRetentionTask(MaintenanceTask):
     name = "backup_retention"
     display_name = "Backup Retention Cleanup"
-    description = (
-        f"Remove old database backups, keeping the {_BACKUP_RETENTION} most recent"
-    )
+    description = f"Remove old database backups, keeping the {_BACKUP_RETENTION} most recent"
 
     def validate(self, params: dict) -> ValidationResult:
         db_path = _resolve_db_path(params)
@@ -54,9 +52,7 @@ class BackupRetentionTask(MaintenanceTask):
         backup_dir = db_path.parent / "backups"
         if not backup_dir.is_dir():
             return ExecutionResult(
-                success=True,
-                message="No backups to clean up",
-                data={"deleted": 0},
+                success=True, message="No backups to clean up", data={"deleted": 0}
             )
 
         try:
@@ -137,21 +133,16 @@ class OrphanedSupplementsTask(MaintenanceTask):
 
             # Check if table exists
             cursor.execute(
-                "SELECT name FROM sqlite_master "
-                "WHERE type='table' AND name='supplements'"
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='supplements'"
             )
             if not cursor.fetchone():
                 conn.close()
                 return ExecutionResult(
-                    success=True,
-                    message="No supplements table",
-                    data={"removed": 0},
+                    success=True, message="No supplements table", data={"removed": 0}
                 )
 
             orphan_ids, total_checked = _find_orphan_supplement_ids(cursor)
-            _report_progress(
-                progress_callback, 0.6, f"Found {len(orphan_ids)} orphans..."
-            )
+            _report_progress(progress_callback, 0.6, f"Found {len(orphan_ids)} orphans...")
 
             if orphan_ids:
                 placeholders = ",".join("?" * len(orphan_ids))
@@ -203,11 +194,7 @@ def _is_conversion_active():
     """Check if any ffmpeg conversions are currently running."""
     import subprocess
 
-    result = subprocess.run(
-        ["pgrep", "-f", "ffmpeg.*opus"],
-        capture_output=True,
-        timeout=5,
-    )
+    result = subprocess.run(["pgrep", "-f", "ffmpeg.*opus"], capture_output=True, timeout=5)
     return result.returncode == 0
 
 
@@ -246,9 +233,7 @@ class StagingCleanupTask(MaintenanceTask):
 
         if not staging.is_dir():
             return ExecutionResult(
-                success=True,
-                message="Staging directory does not exist",
-                data={"deleted": 0},
+                success=True, message="Staging directory does not exist", data={"deleted": 0}
             )
 
         try:

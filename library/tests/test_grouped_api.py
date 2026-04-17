@@ -59,20 +59,8 @@ def grouped_db(flask_app, app_client):
             "Product",
         ),
         ("It", "Stephen King", "Steven Weber", "/test/it.opus", "Product"),
-        (
-            "Ghost Story",
-            "Peter Straub",
-            "Frank Muller",
-            "/test/ghost.opus",
-            "Product",
-        ),
-        (
-            "Orphan Book",
-            "Unknown Author",
-            "Unknown Narrator",
-            "/test/orphan.opus",
-            "Product",
-        ),
+        ("Ghost Story", "Peter Straub", "Frank Muller", "/test/ghost.opus", "Product"),
+        ("Orphan Book", "Unknown Author", "Unknown Narrator", "/test/orphan.opus", "Product"),
     ]
 
     book_ids = []
@@ -91,27 +79,23 @@ def grouped_db(flask_app, app_client):
 
     # Insert authors (sort_name in "Last, First" form)
     cursor.execute(
-        "INSERT INTO authors (name, sort_name) VALUES (?, ?)",
-        ("Stephen King", "King, Stephen"),
+        "INSERT INTO authors (name, sort_name) VALUES (?, ?)", ("Stephen King", "King, Stephen")
     )
     king_id = cursor.lastrowid
 
     cursor.execute(
-        "INSERT INTO authors (name, sort_name) VALUES (?, ?)",
-        ("Peter Straub", "Straub, Peter"),
+        "INSERT INTO authors (name, sort_name) VALUES (?, ?)", ("Peter Straub", "Straub, Peter")
     )
     straub_id = cursor.lastrowid
 
     # Insert narrators
     cursor.execute(
-        "INSERT INTO narrators (name, sort_name) VALUES (?, ?)",
-        ("Frank Muller", "Muller, Frank"),
+        "INSERT INTO narrators (name, sort_name) VALUES (?, ?)", ("Frank Muller", "Muller, Frank")
     )
     muller_id = cursor.lastrowid
 
     cursor.execute(
-        "INSERT INTO narrators (name, sort_name) VALUES (?, ?)",
-        ("Steven Weber", "Weber, Steven"),
+        "INSERT INTO narrators (name, sort_name) VALUES (?, ?)", ("Steven Weber", "Weber, Steven")
     )
     weber_id = cursor.lastrowid
 
@@ -158,12 +142,7 @@ def grouped_db(flask_app, app_client):
     conn.commit()
 
     yield {
-        "book_ids": {
-            "talisman": talisman_id,
-            "it": it_id,
-            "ghost": ghost_id,
-            "orphan": orphan_id,
-        },
+        "book_ids": {"talisman": talisman_id, "it": it_id, "ghost": ghost_id, "orphan": orphan_id},
         "author_ids": {"king": king_id, "straub": straub_id},
         "narrator_ids": {"muller": muller_id, "weber": weber_id},
     }
@@ -269,9 +248,7 @@ class TestGroupedByAuthor:
         resp = app_client.get("/api/audiobooks/grouped?by=author")
         data = resp.get_json()
 
-        unknown_groups = [
-            g for g in data["groups"] if g["key"]["name"] == "Unknown Author"
-        ]
+        unknown_groups = [g for g in data["groups"] if g["key"]["name"] == "Unknown Author"]
         assert len(unknown_groups) == 1
 
         orphan_id = grouped_db["book_ids"]["orphan"]
@@ -355,7 +332,7 @@ class TestGroupedPublicationDateSort:
                 published_date, published_year)
             VALUES ('The Stand', 'Stephen King', 'Grover Gardner',
                     '/test/stand.opus', 'opus', 20.0, 'Product', 200.0,
-                    '1978-10-03', 1978)""",
+                    '1978-10-03', 1978)"""
         )
         stand_id = cursor.lastrowid
         cursor.execute(
@@ -369,7 +346,7 @@ class TestGroupedPublicationDateSort:
                 published_date, published_year)
             VALUES ('Carrie', 'Stephen King', 'Sissy Spacek',
                     '/test/carrie.opus', 'opus', 8.0, 'Product', 80.0,
-                    '1974-04-05', 1974)""",
+                    '1974-04-05', 1974)"""
         )
         carrie_id = cursor.lastrowid
         cursor.execute(
@@ -402,12 +379,9 @@ class TestGroupedPublicationDateSort:
             assert "release_date" in first_book
         finally:
             cursor.execute(
-                "DELETE FROM book_authors WHERE book_id IN (?, ?)",
-                (stand_id, carrie_id),
+                "DELETE FROM book_authors WHERE book_id IN (?, ?)", (stand_id, carrie_id)
             )
-            cursor.execute(
-                "DELETE FROM audiobooks WHERE id IN (?, ?)", (stand_id, carrie_id)
-            )
+            cursor.execute("DELETE FROM audiobooks WHERE id IN (?, ?)", (stand_id, carrie_id))
             conn.commit()
             conn.close()
 

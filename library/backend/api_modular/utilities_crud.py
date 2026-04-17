@@ -124,9 +124,7 @@ def _delete_audiobook_files(file_paths):
         except Exception as e:
             # Log but don't fail - DB deletion already succeeded
             logger.warning("File deletion failed for %s: %s", file_path, e)
-            failed_files.append(
-                {"path": str(file_path), "error": "File deletion failed"}
-            )
+            failed_files.append({"path": str(file_path), "error": "File deletion failed"})
     return deleted_files, failed_files
 
 
@@ -150,15 +148,7 @@ def _collect_paths_for_deletion(cursor, ids, placeholders, delete_files):
 def _validate_bulk_request(data, required_key, entity_label):
     """Validate common bulk request fields. Returns (ids, names, mode, error_response)."""
     if not data:
-        return (
-            None,
-            None,
-            None,
-            (
-                jsonify({"success": False, "error": "No data provided"}),
-                400,
-            ),
-        )
+        return (None, None, None, (jsonify({"success": False, "error": "No data provided"}), 400))
 
     ids = data.get("ids", [])
     names = data.get(required_key, [])
@@ -168,15 +158,7 @@ def _validate_bulk_request(data, required_key, entity_label):
             None,
             None,
             None,
-            (
-                jsonify(
-                    {
-                        "success": False,
-                        "error": "Invalid mode: must be 'add' or 'remove'",
-                    }
-                ),
-                400,
-            ),
+            (jsonify({"success": False, "error": "Invalid mode: must be 'add' or 'remove'"}), 400),
         )
 
     if not ids:
@@ -184,30 +166,21 @@ def _validate_bulk_request(data, required_key, entity_label):
             None,
             None,
             None,
-            (
-                jsonify({"success": False, "error": "No audiobook IDs provided"}),
-                400,
-            ),
+            (jsonify({"success": False, "error": "No audiobook IDs provided"}), 400),
         )
     if not names:
         return (
             None,
             None,
             None,
-            (
-                jsonify({"success": False, "error": f"No {entity_label} provided"}),
-                400,
-            ),
+            (jsonify({"success": False, "error": f"No {entity_label} provided"}), 400),
         )
     if mode not in ("add", "remove"):
         return (
             None,
             None,
             None,
-            (
-                jsonify({"success": False, "error": "mode must be 'add' or 'remove'"}),
-                400,
-            ),
+            (jsonify({"success": False, "error": "mode must be 'add' or 'remove'"}), 400),
         )
     return ids, names, mode, None
 
@@ -263,9 +236,7 @@ def _bulk_remove_tags(cursor, ids, names, table, id_column, entity_table):
     return affected
 
 
-def _set_tags_for_audiobook(
-    cursor, audiobook_id, names, junction_table, id_column, entity_table
-):
+def _set_tags_for_audiobook(cursor, audiobook_id, names, junction_table, id_column, entity_table):
     """Replace all tag associations for a single audiobook."""
     cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         f"DELETE FROM {junction_table} WHERE audiobook_id = ?",  # nosec B608
@@ -311,10 +282,7 @@ def update_audiobook(id: int) -> FlaskResponse:
             values.append(data[field])
 
     if not updates:
-        return (
-            jsonify({"success": False, "error": "No valid fields to update"}),
-            400,
-        )
+        return (jsonify({"success": False, "error": "No valid fields to update"}), 400)
 
     conn = get_db(_db_path)
     cursor = conn.cursor()
@@ -387,12 +355,7 @@ def bulk_update_audiobooks() -> FlaskResponse:
 
     if not data or "ids" not in data or "field" not in data:
         return (
-            jsonify(
-                {
-                    "success": False,
-                    "error": "Missing required fields: ids, field, value",
-                }
-            ),
+            jsonify({"success": False, "error": "Missing required fields: ids, field, value"}),
             400,
         )
 
@@ -402,20 +365,12 @@ def bulk_update_audiobooks() -> FlaskResponse:
 
     if field not in _BULK_UPDATE_ALLOWED_FIELDS:
         return (
-            jsonify(
-                {
-                    "success": False,
-                    "error": f"Field not allowed for bulk update: {field}",
-                }
-            ),
+            jsonify({"success": False, "error": f"Field not allowed for bulk update: {field}"}),
             400,
         )
 
     if not ids:
-        return (
-            jsonify({"success": False, "error": "No audiobook IDs provided"}),
-            400,
-        )
+        return (jsonify({"success": False, "error": "No audiobook IDs provided"}), 400)
 
     conn = get_db(_db_path)
     cursor = conn.cursor()
@@ -448,19 +403,13 @@ def bulk_delete_audiobooks() -> FlaskResponse:
     data = request.get_json()
 
     if not data or "ids" not in data:
-        return (
-            jsonify({"success": False, "error": "Missing required field: ids"}),
-            400,
-        )
+        return (jsonify({"success": False, "error": "Missing required field: ids"}), 400)
 
     ids = data["ids"]
     delete_files = data.get("delete_files", False)
 
     if not ids:
-        return (
-            jsonify({"success": False, "error": "No audiobook IDs provided"}),
-            400,
-        )
+        return (jsonify({"success": False, "error": "No audiobook IDs provided"}), 400)
 
     conn = get_db(_db_path)
     cursor = conn.cursor()
@@ -578,17 +527,11 @@ def set_audiobook_genres(id: int) -> FlaskResponse:
     data = request.get_json()
 
     if not data or "genres" not in data:
-        return (
-            jsonify({"success": False, "error": "Missing required field: genres"}),
-            400,
-        )
+        return (jsonify({"success": False, "error": "Missing required field: genres"}), 400)
 
     genre_names = data["genres"]
     if not isinstance(genre_names, list):
-        return (
-            jsonify({"success": False, "error": "genres must be a list"}),
-            400,
-        )
+        return (jsonify({"success": False, "error": "genres must be a list"}), 400)
 
     conn = get_db(_db_path)
     cursor = conn.cursor()
@@ -600,9 +543,7 @@ def set_audiobook_genres(id: int) -> FlaskResponse:
             return jsonify({"success": False, "error": "Audiobook not found"}), 404
 
         cursor.execute("BEGIN TRANSACTION")
-        _set_tags_for_audiobook(
-            cursor, id, genre_names, "audiobook_genres", "genre_id", "genres"
-        )
+        _set_tags_for_audiobook(cursor, id, genre_names, "audiobook_genres", "genre_id", "genres")
         conn.commit()
         conn.close()
 
@@ -611,10 +552,7 @@ def set_audiobook_genres(id: int) -> FlaskResponse:
         logger.exception("Error setting genres for audiobook %d: %s", int(id), e)
         conn.rollback()
         conn.close()
-        return (
-            jsonify({"success": False, "error": "Failed to update genres"}),
-            500,
-        )
+        return (jsonify({"success": False, "error": "Failed to update genres"}), 500)
 
 
 @utilities_crud_bp.route("/api/audiobooks/bulk-genres", methods=["POST"])
@@ -663,10 +601,7 @@ def bulk_manage_genres() -> FlaskResponse:
         logger.exception("Error in bulk genre %s", mode)
         conn.rollback()
         conn.close()
-        return (
-            jsonify({"success": False, "error": "Bulk genre operation failed"}),
-            500,
-        )
+        return (jsonify({"success": False, "error": "Bulk genre operation failed"}), 500)
 
 
 # ── Topic management ──────────────────────────────────────────────────
@@ -696,9 +631,7 @@ def set_audiobook_topics(id: int) -> FlaskResponse:
     """Set topics for a single audiobook (replaces all existing topics)."""
     data = request.get_json()
     if not data or "topics" not in data:
-        return jsonify(
-            {"success": False, "error": "Missing required field: topics"}
-        ), 400
+        return jsonify({"success": False, "error": "Missing required field: topics"}), 400
 
     topic_names = data["topics"]
     if not isinstance(topic_names, list):
@@ -713,9 +646,7 @@ def set_audiobook_topics(id: int) -> FlaskResponse:
             return jsonify({"success": False, "error": "Audiobook not found"}), 404
 
         cursor.execute("BEGIN TRANSACTION")
-        _set_tags_for_audiobook(
-            cursor, id, topic_names, "audiobook_topics", "topic_id", "topics"
-        )
+        _set_tags_for_audiobook(cursor, id, topic_names, "audiobook_topics", "topic_id", "topics")
         conn.commit()
         conn.close()
         return jsonify({"success": True, "topics": topic_names})
@@ -801,9 +732,7 @@ def set_audiobook_eras(id: int) -> FlaskResponse:
             return jsonify({"success": False, "error": "Audiobook not found"}), 404
 
         cursor.execute("BEGIN TRANSACTION")
-        _set_tags_for_audiobook(
-            cursor, id, era_names, "audiobook_eras", "era_id", "eras"
-        )
+        _set_tags_for_audiobook(cursor, id, era_names, "audiobook_eras", "era_id", "eras")
         conn.commit()
         conn.close()
         return jsonify({"success": True, "eras": era_names})
@@ -910,9 +839,7 @@ def get_enrichment_stats() -> Response:
     cursor.execute("SELECT COUNT(*) FROM audiobooks")
     stats["total"] = cursor.fetchone()[0]
 
-    cursor.execute(
-        "SELECT COUNT(*) FROM audiobooks WHERE audible_enriched_at IS NOT NULL"
-    )
+    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE audible_enriched_at IS NOT NULL")
     stats["audible_enriched"] = cursor.fetchone()[0]
 
     cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE isbn_enriched_at IS NOT NULL")
@@ -940,14 +867,10 @@ def get_enrichment_stats() -> Response:
     )
     stats["content_types"] = {row[0]: row[1] for row in cursor.fetchall()}
 
-    cursor.execute(
-        "SELECT COUNT(*) FROM audiobooks WHERE subtitle IS NOT NULL AND subtitle != ''"
-    )
+    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE subtitle IS NOT NULL AND subtitle != ''")
     stats["with_subtitle"] = cursor.fetchone()[0]
 
-    cursor.execute(
-        "SELECT COUNT(*) FROM audiobooks WHERE language IS NOT NULL AND language != ''"
-    )
+    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE language IS NOT NULL AND language != ''")
     stats["with_language"] = cursor.fetchone()[0]
 
     conn.close()

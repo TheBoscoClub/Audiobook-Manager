@@ -79,11 +79,7 @@ class SoftwareAuthenticator:
     # AAGUID for our software authenticator (all zeros = no attestation)
     aaguid: bytes = field(default=b"\x00" * 16)
 
-    def make_credential(
-        self,
-        options: dict,
-        origin: str,
-    ) -> dict:
+    def make_credential(self, options: dict, origin: str) -> dict:
         """Perform a WebAuthn registration ceremony (navigator.credentials.create).
 
         Args:
@@ -107,10 +103,7 @@ class SoftwareAuthenticator:
 
         # Store credential
         self.credentials[credential_id] = StoredCredential(
-            credential_id=credential_id,
-            private_key=private_key,
-            rp_id=rp_id,
-            sign_count=0,
+            credential_id=credential_id, private_key=private_key, rp_id=rp_id, sign_count=0
         )
 
         # Build clientDataJSON
@@ -130,13 +123,7 @@ class SoftwareAuthenticator:
         )
 
         # Build attestation object (none format)
-        attestation_object = cbor2.dumps(
-            {
-                "fmt": "none",
-                "attStmt": {},
-                "authData": auth_data,
-            }
-        )
+        attestation_object = cbor2.dumps({"fmt": "none", "attStmt": {}, "authData": auth_data})
 
         return {
             "id": _b64url_encode(credential_id),
@@ -149,12 +136,7 @@ class SoftwareAuthenticator:
             "authenticatorAttachment": "platform",
         }
 
-    def get_assertion(
-        self,
-        options: dict,
-        origin: str,
-        credential_id: bytes | None = None,
-    ) -> dict:
+    def get_assertion(self, options: dict, origin: str, credential_id: bytes | None = None) -> dict:
         """Perform a WebAuthn authentication ceremony (navigator.credentials.get).
 
         Args:
@@ -203,10 +185,7 @@ class SoftwareAuthenticator:
 
         # Sign: authData || SHA-256(clientDataJSON)
         client_data_hash = hashlib.sha256(client_data).digest()
-        signature = stored.private_key.sign(
-            auth_data + client_data_hash,
-            ec.ECDSA(SHA256()),
-        )
+        signature = stored.private_key.sign(auth_data + client_data_hash, ec.ECDSA(SHA256()))
 
         return {
             "id": _b64url_encode(credential_id),
@@ -221,10 +200,7 @@ class SoftwareAuthenticator:
         }
 
     def _build_auth_data_registration(
-        self,
-        rp_id: str,
-        credential_id: bytes,
-        public_key: ec.EllipticCurvePublicKey,
+        self, rp_id: str, credential_id: bytes, public_key: ec.EllipticCurvePublicKey
     ) -> bytes:
         """Build authenticator data for registration with attested credential data.
 

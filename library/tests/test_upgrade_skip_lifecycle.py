@@ -7,8 +7,7 @@ from pathlib import Path
 UPGRADE_SH = Path(__file__).resolve().parents[2] / "upgrade.sh"
 
 pytestmark = pytest.mark.skipif(
-    not UPGRADE_SH.is_file(),
-    reason="upgrade.sh not present (deployed installation)",
+    not UPGRADE_SH.is_file(), reason="upgrade.sh not present (deployed installation)"
 )
 
 
@@ -25,9 +24,7 @@ def test_skip_lifecycle_flag_accepted():
 def test_skip_lifecycle_flag_in_source():
     """upgrade.sh source must contain SKIP_SERVICE_LIFECYCLE variable."""
     content = UPGRADE_SH.read_text()
-    assert "SKIP_SERVICE_LIFECYCLE" in content, (
-        "Missing SKIP_SERVICE_LIFECYCLE variable"
-    )
+    assert "SKIP_SERVICE_LIFECYCLE" in content, "Missing SKIP_SERVICE_LIFECYCLE variable"
     assert "--skip-service-lifecycle" in content, (
         "Missing --skip-service-lifecycle in argument parser"
     )
@@ -35,9 +32,7 @@ def test_skip_lifecycle_flag_in_source():
 
 def test_skip_lifecycle_not_in_help():
     """--skip-service-lifecycle is internal and must NOT appear in --help output."""
-    result = subprocess.run(
-        ["bash", str(UPGRADE_SH), "--help"], capture_output=True, text=True
-    )
+    result = subprocess.run(["bash", str(UPGRADE_SH), "--help"], capture_output=True, text=True)
     assert "--skip-service-lifecycle" not in result.stdout, (
         "--skip-service-lifecycle should not appear in --help (internal flag)"
     )

@@ -10,10 +10,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from scripts.enrichment.provider_openlibrary import (
-    OpenLibraryProvider,
-    _extract_series_from_doc,
-)
+from scripts.enrichment.provider_openlibrary import OpenLibraryProvider, _extract_series_from_doc
 
 
 class TestOpenLibraryProviderCanEnrich:
@@ -36,10 +33,7 @@ class TestOpenLibraryProviderEnrich:
 
     @patch("scripts.enrichment.provider_openlibrary._search_openlibrary")
     def test_extracts_series(self, mock_search):
-        mock_search.return_value = {
-            "title": "The Gunslinger",
-            "series": ["The Dark Tower #1"],
-        }
+        mock_search.return_value = {"title": "The Gunslinger", "series": ["The Dark Tower #1"]}
         provider = OpenLibraryProvider()
         result = provider.enrich({"title": "The Gunslinger"})
         assert result["series"] == "The Dark Tower"
@@ -47,20 +41,14 @@ class TestOpenLibraryProviderEnrich:
 
     @patch("scripts.enrichment.provider_openlibrary._search_openlibrary")
     def test_skips_series_when_already_set(self, mock_search):
-        mock_search.return_value = {
-            "title": "Some Book",
-            "series": ["Mystery Series #5"],
-        }
+        mock_search.return_value = {"title": "Some Book", "series": ["Mystery Series #5"]}
         provider = OpenLibraryProvider()
         result = provider.enrich({"title": "Some Book", "series": "Existing"})
         assert "series" not in result
 
     @patch("scripts.enrichment.provider_openlibrary._search_openlibrary")
     def test_extracts_isbn_prefers_13(self, mock_search):
-        mock_search.return_value = {
-            "title": "Some Book",
-            "isbn": ["1234567890", "9781234567890"],
-        }
+        mock_search.return_value = {"title": "Some Book", "isbn": ["1234567890", "9781234567890"]}
         provider = OpenLibraryProvider()
         result = provider.enrich({"title": "Some Book"})
         assert result["isbn"] == "9781234567890"

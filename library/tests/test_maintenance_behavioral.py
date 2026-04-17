@@ -158,9 +158,7 @@ class TestBackupBehavioral:
         backup_path = result.data["backup_path"]
         backup_conn = sqlite3.connect(backup_path)
         count = backup_conn.execute("SELECT COUNT(*) FROM audiobooks").fetchone()[0]
-        title = backup_conn.execute(
-            "SELECT title FROM audiobooks WHERE id = 1"
-        ).fetchone()[0]
+        title = backup_conn.execute("SELECT title FROM audiobooks WHERE id = 1").fetchone()[0]
         backup_conn.close()
 
         assert count == 25
@@ -496,9 +494,7 @@ class TestIntegrityBehavioral:
 
     def test_healthy_db_passes(self, tmp_path):
         """A well-formed database should pass integrity check."""
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
 
         db = _create_full_db(tmp_path / "test.db", row_count=20)
 
@@ -510,9 +506,7 @@ class TestIntegrityBehavioral:
 
     def test_corrupted_db_detected(self, tmp_path):
         """Corrupting database bytes should cause integrity check to fail."""
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
 
         db = _create_full_db(tmp_path / "test.db", row_count=50)
         file_size = db.stat().st_size
@@ -530,9 +524,7 @@ class TestIntegrityBehavioral:
 
     def test_empty_db_passes(self, tmp_path):
         """An empty database (schema only, no rows) should pass."""
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
 
         db = _create_full_db(tmp_path / "test.db", row_count=0)
 
@@ -544,9 +536,7 @@ class TestIntegrityBehavioral:
 
     def test_integrity_result_includes_database_path(self, tmp_path):
         """Result data should include the database path for audit trail."""
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
 
         db = _create_full_db(tmp_path / "test.db", row_count=5)
 
@@ -605,9 +595,7 @@ class TestTaskEdgeCases:
     def test_all_tasks_handle_no_db_path(self):
         """All tasks should fail gracefully when no db_path is provided."""
         from backend.api_modular.maintenance_tasks.db_backup import DatabaseBackupTask
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
         from backend.api_modular.maintenance_tasks.db_vacuum import DatabaseVacuumTask
         from backend.api_modular.maintenance_tasks.hash_verify import HashVerifyTask
 
@@ -619,6 +607,4 @@ class TestTaskEdgeCases:
         ]:
             task = TaskClass()
             result = task.execute({})
-            assert result.success is False, (
-                f"{TaskClass.name} should fail without db_path"
-            )
+            assert result.success is False, f"{TaskClass.name} should fail without db_path"

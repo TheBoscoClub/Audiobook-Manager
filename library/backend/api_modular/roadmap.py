@@ -102,9 +102,7 @@ def update_roadmap_item(item_id):
         return jsonify({"error": "No data provided"}), 400
 
     conn = _get_db()
-    existing = conn.execute(
-        "SELECT id FROM roadmap_items WHERE id = ?", (item_id,)
-    ).fetchone()
+    existing = conn.execute("SELECT id FROM roadmap_items WHERE id = ?", (item_id,)).fetchone()
     if not existing:
         conn.close()
         return jsonify({"error": "Not found"}), 404
@@ -118,9 +116,7 @@ def update_roadmap_item(item_id):
                 return jsonify({"error": f"Invalid status. Use: {VALID_STATUSES}"}), 400
             if col == "priority" and data[col] not in VALID_PRIORITIES:
                 conn.close()
-                return jsonify(
-                    {"error": f"Invalid priority. Use: {VALID_PRIORITIES}"}
-                ), 400
+                return jsonify({"error": f"Invalid priority. Use: {VALID_PRIORITIES}"}), 400
             fields.append(f"{col} = ?")
             params.append(data[col])
 

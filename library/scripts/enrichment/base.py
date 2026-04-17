@@ -19,9 +19,7 @@ class EnrichmentProvider(ABC):
 
     def __init__(self):
         if not self.name:
-            raise TypeError(
-                f"{type(self).__name__} must define a non-empty 'name' attribute"
-            )
+            raise TypeError(f"{type(self).__name__} must define a non-empty 'name' attribute")
 
     @abstractmethod
     def can_enrich(self, book: dict) -> bool:

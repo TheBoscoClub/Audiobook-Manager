@@ -42,9 +42,7 @@ class TestAsinExtraction:
     def test_extract_standard_asin(self):
         """Test extraction from standard Audible filename format."""
 
-        filename = (
-            "0062868071_The_End_Is_Always_Near_Apocalyptic_Moments-AAX_44_128.aaxc"
-        )
+        filename = "0062868071_The_End_Is_Always_Near_Apocalyptic_Moments-AAX_44_128.aaxc"
         asin, title = extract_asin_and_title(filename)
 
         assert asin == "0062868071"

@@ -93,10 +93,7 @@ class TestPollLoopProcessesNotifications:
     def test_poll_loop_delivers_valid_notification(self, tmp_path):
         """Lines 139-162: successful notification processing."""
         db_path = tmp_path / "notify.db"
-        _create_notification_db(
-            db_path,
-            rows=[("announce", '{"message": "server restart"}', 0)],
-        )
+        _create_notification_db(db_path, rows=[("announce", '{"message": "server restart"}', 0)])
 
         poll_fn, mock_gevent = _capture_poll_loop(db_path)
         assert poll_fn is not None, "gevent.spawn must receive _poll_loop"
@@ -129,10 +126,7 @@ class TestPollLoopProcessesNotifications:
     def test_poll_loop_handles_bad_json_payload(self, tmp_path):
         """Lines 156-159: per-notification error handling (bad JSON)."""
         db_path = tmp_path / "bad_json.db"
-        _create_notification_db(
-            db_path,
-            rows=[("alert", "NOT VALID JSON {{{", 0)],
-        )
+        _create_notification_db(db_path, rows=[("alert", "NOT VALID JSON {{{", 0)])
 
         poll_fn, mock_gevent = _capture_poll_loop(db_path)
         assert poll_fn is not None
@@ -152,10 +146,7 @@ class TestPollLoopProcessesNotifications:
     def test_poll_loop_handles_broadcast_failure(self, tmp_path):
         """Lines 156-159: error when broadcast itself fails."""
         db_path = tmp_path / "broadcast_fail.db"
-        _create_notification_db(
-            db_path,
-            rows=[("announce", '{"msg": "ok"}', 0)],
-        )
+        _create_notification_db(db_path, rows=[("announce", '{"msg": "ok"}', 0)])
 
         poll_fn, _ = _capture_poll_loop(db_path)
 
@@ -251,7 +242,7 @@ class TestPollLoopProcessesNotifications:
         _create_notification_db(
             db_path,
             rows=[
-                ("announce", '{"msg": "already done"}', 1),  # already delivered
+                ("announce", '{"msg": "already done"}', 1)  # already delivered
             ],
         )
 

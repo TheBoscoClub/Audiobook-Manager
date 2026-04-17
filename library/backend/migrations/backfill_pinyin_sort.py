@@ -72,9 +72,7 @@ def apply_column_migration(conn: sqlite3.Connection) -> None:
                 "ON audiobook_translations(locale, pinyin_sort);"
             )
             conn.commit()
-            print(
-                "[migration 021] pinyin_sort column already exists — skipped ADD COLUMN"
-            )
+            print("[migration 021] pinyin_sort column already exists — skipped ADD COLUMN")
         else:
             raise
 
@@ -95,7 +93,7 @@ def backfill(conn: sqlite3.Connection) -> tuple[int, int, int]:
     updated = 0
     skipped = 0
 
-    for row_id, locale, title in rows:
+    for row_id, _locale, title in rows:
         key = pinyin_sort_key(title or "")
         if key is None:
             # Empty title OR pypinyin unavailable — leave NULL so the
@@ -103,8 +101,7 @@ def backfill(conn: sqlite3.Connection) -> tuple[int, int, int]:
             skipped += 1
             continue
         cursor.execute(
-            "UPDATE audiobook_translations SET pinyin_sort = ? WHERE id = ?",
-            (key, row_id),
+            "UPDATE audiobook_translations SET pinyin_sort = ? WHERE id = ?", (key, row_id)
         )
         updated += 1
 
@@ -117,10 +114,7 @@ def main() -> int:
     parser.add_argument(
         "--db-path",
         default=None,
-        help=(
-            "Path to audiobooks SQLite database. "
-            "Defaults to backend.config.DATABASE_PATH."
-        ),
+        help=("Path to audiobooks SQLite database. Defaults to backend.config.DATABASE_PATH."),
     )
     args = parser.parse_args()
 

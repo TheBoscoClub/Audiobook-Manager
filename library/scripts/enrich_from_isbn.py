@@ -96,7 +96,7 @@ def query_openlibrary_isbn(isbn: str) -> dict | None:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (OPENLIBRARY_API) + validated ISBN from internal DB; not user-controlled scheme
         with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
             return json.loads(resp.read())
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+    except urllib.error.HTTPError, urllib.error.URLError, TimeoutError:
         return None
 
 
@@ -129,11 +129,7 @@ def _resolve_db_path(db_path: Path | None) -> Path:
     return DATABASE_PATH
 
 
-def _fetch_isbn_candidates(
-    db_path: Path,
-    include_asin_books: bool,
-    single_id: int | None,
-) -> list:
+def _fetch_isbn_candidates(db_path: Path, include_asin_books: bool, single_id: int | None) -> list:
     """Fetch candidate books for ISBN enrichment."""
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -141,13 +137,11 @@ def _fetch_isbn_candidates(
 
     if single_id is not None:
         cursor.execute(
-            "SELECT id, title, author, isbn, asin FROM audiobooks WHERE id = ?",
-            (single_id,),
+            "SELECT id, title, author, isbn, asin FROM audiobooks WHERE id = ?", (single_id,)
         )
     elif include_asin_books:
         cursor.execute(
-            "SELECT id, title, author, isbn, asin FROM audiobooks "
-            "WHERE isbn_enriched_at IS NULL"
+            "SELECT id, title, author, isbn, asin FROM audiobooks WHERE isbn_enriched_at IS NULL"
         )
     else:
         cursor.execute(
@@ -247,9 +241,7 @@ def _extract_ol_description(ol_data: dict) -> str:
     return desc or ""
 
 
-def _extract_ol_fields(
-    ol_data: dict, isbn: str | None
-) -> tuple[list[str], list[str | None], int]:
+def _extract_ol_fields(ol_data: dict, isbn: str | None) -> tuple[list[str], list[str | None], int]:
     """Extract update fields from Open Library data.
 
     Returns (updates, params, isbn_found_count).
@@ -261,12 +253,8 @@ def _extract_ol_fields(
         return updates, params, 0
 
     _add_coalesce_field(updates, params, "language", _extract_ol_language(ol_data))
-    _add_coalesce_field(
-        updates, params, "description", _extract_ol_description(ol_data)
-    )
-    _add_coalesce_field(
-        updates, params, "published_date", ol_data.get("publish_date", "")
-    )
+    _add_coalesce_field(updates, params, "description", _extract_ol_description(ol_data))
+    _add_coalesce_field(updates, params, "published_date", ol_data.get("publish_date", ""))
 
     isbn_found = 0
     if not isbn:
@@ -278,13 +266,7 @@ def _extract_ol_fields(
     return updates, params, isbn_found
 
 
-def _enrich_one_book(
-    cursor,
-    book: dict,
-    now: str,
-    dry_run: bool,
-    delay: float,
-) -> tuple[str, int]:
+def _enrich_one_book(cursor, book: dict, now: str, dry_run: bool, delay: float) -> tuple[str, int]:
     """Enrich a single book from ISBN sources.
 
     Returns (status, isbn_found_count) where status is 'enriched', 'skipped',
@@ -326,20 +308,12 @@ def _enrich_one_book(
         return "enriched", isbn_found
 
     # No data found but mark as attempted
-    cursor.execute(
-        "UPDATE audiobooks SET isbn_enriched_at = ? WHERE id = ?",
-        (now, book_id),
-    )
+    cursor.execute("UPDATE audiobooks SET isbn_enriched_at = ? WHERE id = ?", (now, book_id))
     return "skipped", 0
 
 
 def _print_isbn_summary(
-    books: list,
-    enriched: int,
-    skipped: int,
-    errors: int,
-    isbn_found: int,
-    dry_run: bool,
+    books: list, enriched: int, skipped: int, errors: int, isbn_found: int, dry_run: bool
 ) -> dict:
     """Print ISBN enrichment summary and return results dict."""
     results = {
@@ -419,9 +393,7 @@ def main():
         description="Enrich audiobook metadata from ISBN (Open Library + Google Books)"
     )
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would be updated without writing to DB",
+        "--dry-run", action="store_true", help="Show what would be updated without writing to DB"
     )
     parser.add_argument(
         "--delay",
@@ -430,22 +402,10 @@ def main():
         help=f"Seconds between API calls (default: {DEFAULT_DELAY})",
     )
     parser.add_argument(
-        "--db",
-        type=str,
-        default=None,
-        help="Path to SQLite database (default: from config)",
+        "--db", type=str, default=None, help="Path to SQLite database (default: from config)"
     )
-    parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Include books that already have ASINs",
-    )
-    parser.add_argument(
-        "--id",
-        type=int,
-        default=None,
-        help="Enrich a single book by database ID",
-    )
+    parser.add_argument("--all", action="store_true", help="Include books that already have ASINs")
+    parser.add_argument("--id", type=int, default=None, help="Enrich a single book by database ID")
     args = parser.parse_args()
 
     db = Path(args.db) if args.db else None

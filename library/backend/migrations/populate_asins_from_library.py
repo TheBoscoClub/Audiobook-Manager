@@ -19,6 +19,7 @@ import sqlite3
 import sys
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from common import normalize_title
@@ -144,7 +145,7 @@ def _find_best_fuzzy_match(norm_title, by_title):
 
     Returns (best_match_item, best_score, best_confidence) or (None, 0.0, "fuzzy").
     """
-    best = {"match": None, "score": 0.0, "confidence": "fuzzy"}
+    best: dict[str, Any] = {"match": None, "score": 0.0, "confidence": "fuzzy"}
 
     for lib_norm_title, lib_items in by_title.items():
         score = calculate_similarity(norm_title, lib_norm_title)
@@ -179,9 +180,7 @@ def match_books_to_library(
             continue
 
         # Try fuzzy match
-        best_match, best_score, best_confidence = _find_best_fuzzy_match(
-            norm_title, by_title
-        )
+        best_match, best_score, best_confidence = _find_best_fuzzy_match(norm_title, by_title)
 
         if best_match and best_score >= threshold:
             confidence_str = f"{best_confidence} ({best_score:.0%})"
@@ -253,35 +252,21 @@ def analyze_unmatched(unmatched: list[dict]):
         print(f"   {ctype}: {len(books)}")
 
     print("\nSample unmatched (with best potential matches):")
-    for book in sorted(unmatched, key=lambda x: x.get("best_score", 0), reverse=True)[
-        :15
-    ]:
+    for book in sorted(unmatched, key=lambda x: x.get("best_score", 0), reverse=True)[:15]:
         print(f"   {book['title'][:60]}")
         if book.get("best_match"):
-            print(
-                f"       Best match ({book['best_score']:.0%}):"
-                f" {book['best_match'][:50]}"
-            )
+            print(f"       Best match ({book['best_score']:.0%}): {book['best_match'][:50]}")
         else:
             print("       No potential matches found")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Populate ASINs from Audible library export"
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Preview without updating"
-    )
+    parser = argparse.ArgumentParser(description="Populate ASINs from Audible library export")
+    parser.add_argument("--dry-run", action="store_true", help="Preview without updating")
     parser.add_argument("--db", type=Path, default=DB_PATH, help="Database path")
+    parser.add_argument("--library", type=Path, required=True, help="Audible library JSON export")
     parser.add_argument(
-        "--library", type=Path, required=True, help="Audible library JSON export"
-    )
-    parser.add_argument(
-        "--threshold",
-        type=float,
-        default=0.6,
-        help="Fuzzy match threshold (default 0.6)",
+        "--threshold", type=float, default=0.6, help="Fuzzy match threshold (default 0.6)"
     )
     args = parser.parse_args()
 
@@ -302,9 +287,7 @@ def main():
         print("All audiobooks already have ASINs!")
         return
 
-    matches, unmatched = match_books_to_library(
-        audiobooks, library_index, args.threshold
-    )
+    matches, unmatched = match_books_to_library(audiobooks, library_index, args.threshold)
 
     update_database(args.db, matches, dry_run=args.dry_run)
 

@@ -64,11 +64,7 @@ def user_state_seeded(auth_app):
     h2.save(auth_db)
 
     # A download for book 1
-    d1 = UserDownload(
-        user_id=user_id,
-        audiobook_id="1",
-        file_format="opus",
-    )
+    d1 = UserDownload(user_id=user_id, audiobook_id="1", file_format="opus")
     d1.save(auth_db)
 
     return auth_app
@@ -205,20 +201,14 @@ class TestDownloadComplete:
 
     def test_record_download(self, client, user_state_seeded):
         _login(client, user_state_seeded, user_state_seeded.test_user_secret)
-        resp = client.post(
-            "/api/user/downloads/3/complete",
-            json={"file_format": "opus"},
-        )
+        resp = client.post("/api/user/downloads/3/complete", json={"file_format": "opus"})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True
 
     def test_record_download_nonexistent_book(self, client, user_state_seeded):
         _login(client, user_state_seeded, user_state_seeded.test_user_secret)
-        resp = client.post(
-            "/api/user/downloads/99999/complete",
-            json={"file_format": "opus"},
-        )
+        resp = client.post("/api/user/downloads/99999/complete", json={"file_format": "opus"})
         assert resp.status_code == 404
 
     def test_record_download_no_format(self, client, user_state_seeded):
@@ -332,10 +322,7 @@ class TestPositionSyncHistory:
         _login(client, user_state_seeded, user_state_seeded.test_user_secret)
 
         # Update position for book 4 (no history yet — must be >= 30000ms)
-        resp = client.put(
-            "/api/position/4",
-            json={"position_ms": 60000},
-        )
+        resp = client.put("/api/position/4", json={"position_ms": 60000})
         assert resp.status_code == 200
 
         # Check that a history entry was created
@@ -349,10 +336,7 @@ class TestPositionSyncHistory:
         _login(client, user_state_seeded, user_state_seeded.test_user_secret)
 
         # Book 2 already has an open session from seeding
-        resp = client.put(
-            "/api/position/2",
-            json={"position_ms": 50000},
-        )
+        resp = client.put("/api/position/2", json={"position_ms": 50000})
         assert resp.status_code == 200
 
         # Check history -- should still have the same session but updated end position

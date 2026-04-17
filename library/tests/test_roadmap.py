@@ -16,12 +16,7 @@ import pytest
 
 
 def _insert_roadmap_item(
-    auth_app,
-    title="Test Item",
-    status="planned",
-    priority="medium",
-    sort_order=0,
-    description="",
+    auth_app, title="Test Item", status="planned", priority="medium", sort_order=0, description=""
 ):
     """Insert a roadmap item directly into the database and return its id."""
     db_path = auth_app.config.get("DATABASE_PATH") or auth_app.config.get("DATABASE")
@@ -206,10 +201,7 @@ class TestCreateRoadmapItem:
 
     def test_create_minimal(self, auth_app, admin_client):
         """Create an item with only the required 'title' field."""
-        resp = admin_client.post(
-            "/api/admin/roadmap",
-            json={"title": "New Feature"},
-        )
+        resp = admin_client.post("/api/admin/roadmap", json={"title": "New Feature"})
         assert resp.status_code == 201
         data = resp.get_json()
         assert "id" in data
@@ -246,18 +238,13 @@ class TestCreateRoadmapItem:
 
     def test_create_empty_body(self, admin_client):
         """Empty JSON body returns 400."""
-        resp = admin_client.post(
-            "/api/admin/roadmap",
-            data="",
-            content_type="application/json",
-        )
+        resp = admin_client.post("/api/admin/roadmap", data="", content_type="application/json")
         assert resp.status_code == 400
 
     def test_create_invalid_status(self, admin_client):
         """Invalid status value returns 400."""
         resp = admin_client.post(
-            "/api/admin/roadmap",
-            json={"title": "Bad Status", "status": "unknown"},
+            "/api/admin/roadmap", json={"title": "Bad Status", "status": "unknown"}
         )
         assert resp.status_code == 400
         assert "status" in resp.get_json()["error"].lower()
@@ -265,8 +252,7 @@ class TestCreateRoadmapItem:
     def test_create_invalid_priority(self, admin_client):
         """Invalid priority value returns 400."""
         resp = admin_client.post(
-            "/api/admin/roadmap",
-            json={"title": "Bad Priority", "priority": "critical"},
+            "/api/admin/roadmap", json={"title": "Bad Priority", "priority": "critical"}
         )
         assert resp.status_code == 400
         assert "priority" in resp.get_json()["error"].lower()
@@ -282,18 +268,12 @@ class TestCreateRoadmapItem:
 
     def test_create_non_admin_forbidden(self, user_client):
         """Regular user cannot create roadmap items."""
-        resp = user_client.post(
-            "/api/admin/roadmap",
-            json={"title": "Sneaky"},
-        )
+        resp = user_client.post("/api/admin/roadmap", json={"title": "Sneaky"})
         assert resp.status_code == 403
 
     def test_create_anon_unauthorized(self, anon_client):
         """Unauthenticated request cannot create roadmap items."""
-        resp = anon_client.post(
-            "/api/admin/roadmap",
-            json={"title": "Anon"},
-        )
+        resp = anon_client.post("/api/admin/roadmap", json={"title": "Anon"})
         assert resp.status_code == 401
 
 
@@ -308,10 +288,7 @@ class TestUpdateRoadmapItem:
     def test_update_title(self, auth_app, admin_client):
         """Update an item's title."""
         item_id = _insert_roadmap_item(auth_app, title="Old Title")
-        resp = admin_client.put(
-            f"/api/admin/roadmap/{item_id}",
-            json={"title": "New Title"},
-        )
+        resp = admin_client.put(f"/api/admin/roadmap/{item_id}", json={"title": "New Title"})
         assert resp.status_code == 200
         assert resp.get_json()["message"] == "Updated"
 
@@ -347,75 +324,52 @@ class TestUpdateRoadmapItem:
         items_before = admin_client.get("/api/admin/roadmap").get_json()
         original_updated = items_before[0]["updated_at"]
 
-        admin_client.put(
-            f"/api/admin/roadmap/{item_id}",
-            json={"title": "Changed"},
-        )
+        admin_client.put(f"/api/admin/roadmap/{item_id}", json={"title": "Changed"})
         items_after = admin_client.get("/api/admin/roadmap").get_json()
         assert items_after[0]["updated_at"] != original_updated
 
     def test_update_not_found(self, admin_client):
         """Updating a nonexistent item returns 404."""
-        resp = admin_client.put(
-            "/api/admin/roadmap/99999",
-            json={"title": "Ghost"},
-        )
+        resp = admin_client.put("/api/admin/roadmap/99999", json={"title": "Ghost"})
         assert resp.status_code == 404
 
     def test_update_no_data(self, auth_app, admin_client):
         """Sending no JSON body returns 400."""
         item_id = _insert_roadmap_item(auth_app, title="No Data")
         resp = admin_client.put(
-            f"/api/admin/roadmap/{item_id}",
-            data="",
-            content_type="application/json",
+            f"/api/admin/roadmap/{item_id}", data="", content_type="application/json"
         )
         assert resp.status_code == 400
 
     def test_update_no_valid_fields(self, auth_app, admin_client):
         """Sending only unrecognized fields returns 400."""
         item_id = _insert_roadmap_item(auth_app, title="No Fields")
-        resp = admin_client.put(
-            f"/api/admin/roadmap/{item_id}",
-            json={"unknown_field": "value"},
-        )
+        resp = admin_client.put(f"/api/admin/roadmap/{item_id}", json={"unknown_field": "value"})
         assert resp.status_code == 400
         assert "no valid fields" in resp.get_json()["error"].lower()
 
     def test_update_invalid_status(self, auth_app, admin_client):
         """Invalid status on update returns 400."""
         item_id = _insert_roadmap_item(auth_app, title="Bad Update")
-        resp = admin_client.put(
-            f"/api/admin/roadmap/{item_id}",
-            json={"status": "invalid_status"},
-        )
+        resp = admin_client.put(f"/api/admin/roadmap/{item_id}", json={"status": "invalid_status"})
         assert resp.status_code == 400
 
     def test_update_invalid_priority(self, auth_app, admin_client):
         """Invalid priority on update returns 400."""
         item_id = _insert_roadmap_item(auth_app, title="Bad Prio")
-        resp = admin_client.put(
-            f"/api/admin/roadmap/{item_id}",
-            json={"priority": "urgent"},
-        )
+        resp = admin_client.put(f"/api/admin/roadmap/{item_id}", json={"priority": "urgent"})
         assert resp.status_code == 400
 
     def test_update_non_admin_forbidden(self, auth_app, user_client):
         """Regular user cannot update roadmap items."""
         item_id = _insert_roadmap_item(auth_app, title="Protected")
-        resp = user_client.put(
-            f"/api/admin/roadmap/{item_id}",
-            json={"title": "Hacked"},
-        )
+        resp = user_client.put(f"/api/admin/roadmap/{item_id}", json={"title": "Hacked"})
         assert resp.status_code == 403
 
     def test_update_anon_unauthorized(self, auth_app, anon_client):
         """Unauthenticated request cannot update roadmap items."""
         item_id = _insert_roadmap_item(auth_app, title="Protected2")
-        resp = anon_client.put(
-            f"/api/admin/roadmap/{item_id}",
-            json={"title": "Hacked"},
-        )
+        resp = anon_client.put(f"/api/admin/roadmap/{item_id}", json={"title": "Hacked"})
         assert resp.status_code == 401
 
 
@@ -495,8 +449,7 @@ class TestRoadmapOrdering:
         """All valid status values are accepted on creation."""
         for status in ("planned", "in_progress", "completed", "cancelled"):
             resp = admin_client.post(
-                "/api/admin/roadmap",
-                json={"title": f"Status {status}", "status": status},
+                "/api/admin/roadmap", json={"title": f"Status {status}", "status": status}
             )
             assert resp.status_code == 201, f"Status {status} rejected"
 
@@ -504,7 +457,6 @@ class TestRoadmapOrdering:
         """All valid priority values are accepted on creation."""
         for priority in ("low", "medium", "high"):
             resp = admin_client.post(
-                "/api/admin/roadmap",
-                json={"title": f"Priority {priority}", "priority": priority},
+                "/api/admin/roadmap", json={"title": f"Priority {priority}", "priority": priority}
             )
             assert resp.status_code == 201, f"Priority {priority} rejected"

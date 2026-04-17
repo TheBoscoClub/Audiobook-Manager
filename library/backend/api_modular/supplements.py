@@ -125,9 +125,7 @@ def get_supplement_stats() -> FlaskResponse:
     cursor.execute("SELECT COUNT(*) as total FROM supplements")
     total = cursor.fetchone()["total"]
 
-    cursor.execute(
-        "SELECT COUNT(*) as linked FROM supplements WHERE audiobook_id IS NOT NULL"
-    )
+    cursor.execute("SELECT COUNT(*) as linked FROM supplements WHERE audiobook_id IS NOT NULL")
     linked = cursor.fetchone()["linked"]
 
     cursor.execute("SELECT SUM(file_size_mb) as total_size FROM supplements")
@@ -170,11 +168,7 @@ def get_audiobook_supplements(audiobook_id: int) -> FlaskResponse:
     conn.close()
 
     return jsonify(
-        {
-            "audiobook_id": audiobook_id,
-            "supplements": supplements,
-            "count": len(supplements),
-        }
+        {"audiobook_id": audiobook_id, "supplements": supplements, "count": len(supplements)}
     )
 
 
@@ -202,10 +196,7 @@ def download_supplement(supplement_id: int) -> FlaskResponse:
     mimetype = _MIME_TYPES.get(ext, "application/octet-stream")
 
     return send_file(
-        file_path,
-        mimetype=mimetype,
-        as_attachment=False,
-        download_name=row["filename"],
+        file_path, mimetype=mimetype, as_attachment=False, download_name=row["filename"]
     )
 
 

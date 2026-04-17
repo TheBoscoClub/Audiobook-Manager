@@ -92,9 +92,7 @@ class TestAdminResetPasskeyThenClaim:
     def test_reset_passkey_validate_succeeds(self, admin_client, auth_app):
         """Reset passkey user, then validate claim token at claim endpoint."""
         # Step 1: Create a passkey user
-        uid, _ = _create_user_via_admin(
-            admin_client, "reset-claim-pk1", auth_method="passkey"
-        )
+        uid, _ = _create_user_via_admin(admin_client, "reset-claim-pk1", auth_method="passkey")
 
         # Step 2: Admin resets credentials — gets claim token
         reset_data = _reset_credentials(admin_client, uid)
@@ -106,10 +104,7 @@ class TestAdminResetPasskeyThenClaim:
         anon = auth_app.test_client()
         resp = anon.post(
             "/auth/register/claim/validate",
-            json={
-                "username": "reset-claim-pk1",
-                "claim_token": claim_token,
-            },
+            json={"username": "reset-claim-pk1", "claim_token": claim_token},
         )
         assert resp.status_code == 200, (
             f"Validate should succeed for reset token: {resp.get_json()}"
@@ -127,9 +122,7 @@ class TestAdminResetPasskeyThenClaim:
         mock_reg_opts.return_value = ('{"rp": {"id": "localhost"}}', b"\xab\xcd\xef")
 
         # Step 1: Create and reset
-        uid, _ = _create_user_via_admin(
-            admin_client, "reset-claim-pk2", auth_method="passkey"
-        )
+        uid, _ = _create_user_via_admin(admin_client, "reset-claim-pk2", auth_method="passkey")
         reset_data = _reset_credentials(admin_client, uid)
         claim_token = reset_data["setup_data"]["claim_token"]
 
@@ -153,9 +146,7 @@ class TestAdminResetPasskeyThenClaim:
     def test_reset_passkey_claim_totp_instead(self, admin_client, auth_app):
         """Reset passkey user, but claim TOTP credentials instead."""
         # Step 1: Create passkey user and reset
-        uid, _ = _create_user_via_admin(
-            admin_client, "reset-claim-pk-totp", auth_method="passkey"
-        )
+        uid, _ = _create_user_via_admin(admin_client, "reset-claim-pk-totp", auth_method="passkey")
         reset_data = _reset_credentials(admin_client, uid)
         claim_token = reset_data["setup_data"]["claim_token"]
 
@@ -211,10 +202,7 @@ class TestSelfServiceResetThenClaim:
         from auth.models import Session
 
         _, raw_token = Session.create_for_user(
-            db=auth_db,
-            user_id=user.id,
-            user_agent="pytest",
-            ip_address="127.0.0.1",
+            db=auth_db, user_id=user.id, user_agent="pytest", ip_address="127.0.0.1"
         )
 
         # Step 1: Self-service reset
@@ -229,11 +217,7 @@ class TestSelfServiceResetThenClaim:
         anon = auth_app.test_client()
         resp = anon.post(
             "/auth/register/claim",
-            json={
-                "username": "self-reset-pk1",
-                "claim_token": claim_token,
-                "auth_method": "totp",
-            },
+            json={"username": "self-reset-pk1", "claim_token": claim_token, "auth_method": "totp"},
         )
         assert resp.status_code == 200, (
             f"Self-service reset claim should succeed: {resp.get_json()}"
@@ -279,9 +263,7 @@ class TestClaimURLFormat:
 
     def test_admin_reset_passkey_claim_url_format(self, admin_client):
         """Resetting passkey credentials returns /claim.html URL."""
-        uid, _ = _create_user_via_admin(
-            admin_client, "url-check-reset", auth_method="passkey"
-        )
+        uid, _ = _create_user_via_admin(admin_client, "url-check-reset", auth_method="passkey")
         reset_data = _reset_credentials(admin_client, uid)
         claim_url = reset_data["setup_data"]["claim_url"]
         assert claim_url.startswith("/claim.html?"), (
@@ -303,10 +285,7 @@ class TestClaimURLFormat:
             can_download=True,
         ).save(auth_db)
         _, raw_token = Session.create_for_user(
-            db=auth_db,
-            user_id=user.id,
-            user_agent="pytest",
-            ip_address="127.0.0.1",
+            db=auth_db, user_id=user.id, user_agent="pytest", ip_address="127.0.0.1"
         )
         client = auth_app.test_client()
         client.set_cookie("audiobooks_session", raw_token)
@@ -342,9 +321,7 @@ class TestClaimURLFormat:
 
     def test_claim_token_format_matches_pattern(self, admin_client):
         """Claim tokens follow XXXX-XXXX-XXXX-XXXX format."""
-        uid, _ = _create_user_via_admin(
-            admin_client, "token-fmt-check", auth_method="passkey"
-        )
+        uid, _ = _create_user_via_admin(admin_client, "token-fmt-check", auth_method="passkey")
         reset_data = _reset_credentials(admin_client, uid)
         token = reset_data["setup_data"]["claim_token"]
         assert re.match(r"^[A-Za-z0-9]{4}(-[A-Za-z0-9]{4}){3}$", token), (
@@ -362,9 +339,7 @@ class TestResetTokenConsumption:
 
     def test_token_consumed_after_totp_claim(self, admin_client, auth_app):
         """After claiming TOTP, the same token cannot be reused."""
-        uid, _ = _create_user_via_admin(
-            admin_client, "consume-totp1", auth_method="passkey"
-        )
+        uid, _ = _create_user_via_admin(admin_client, "consume-totp1", auth_method="passkey")
         reset_data = _reset_credentials(admin_client, uid)
         claim_token = reset_data["setup_data"]["claim_token"]
 
@@ -373,21 +348,14 @@ class TestResetTokenConsumption:
         # First claim succeeds
         resp = anon.post(
             "/auth/register/claim",
-            json={
-                "username": "consume-totp1",
-                "claim_token": claim_token,
-                "auth_method": "totp",
-            },
+            json={"username": "consume-totp1", "claim_token": claim_token, "auth_method": "totp"},
         )
         assert resp.status_code == 200
 
         # Second claim with same token fails
         resp = anon.post(
             "/auth/register/claim/validate",
-            json={
-                "username": "consume-totp1",
-                "claim_token": claim_token,
-            },
+            json={"username": "consume-totp1", "claim_token": claim_token},
         )
         # Token should be gone — either 400 (already claimed) or 404 (not found)
         assert resp.status_code in (400, 404), (
@@ -405,9 +373,7 @@ class TestExpiredResetToken:
 
     def test_expired_reset_token_rejected(self, admin_client, auth_app, auth_db):
         """Claim endpoint rejects expired reset tokens."""
-        uid, _ = _create_user_via_admin(
-            admin_client, "expired-reset1", auth_method="passkey"
-        )
+        uid, _ = _create_user_via_admin(admin_client, "expired-reset1", auth_method="passkey")
         reset_data = _reset_credentials(admin_client, uid)
         claim_token = reset_data["setup_data"]["claim_token"]
 
@@ -417,20 +383,14 @@ class TestExpiredResetToken:
                 """UPDATE pending_registrations
                    SET expires_at = ?
                    WHERE username = ?""",
-                (
-                    (datetime.now() - timedelta(hours=1)).isoformat(),
-                    "expired-reset1",
-                ),
+                ((datetime.now() - timedelta(hours=1)).isoformat(), "expired-reset1"),
             )
 
         # Attempt to claim — should fail with expired
         anon = auth_app.test_client()
         resp = anon.post(
             "/auth/register/claim/validate",
-            json={
-                "username": "expired-reset1",
-                "claim_token": claim_token,
-            },
+            json={"username": "expired-reset1", "claim_token": claim_token},
         )
         assert resp.status_code == 400
         data = resp.get_json()
@@ -448,19 +408,14 @@ class TestResetTokenUsernameMismatch:
 
     def test_wrong_username_rejected(self, admin_client, auth_app):
         """Claiming with wrong username for a valid reset token fails."""
-        uid, _ = _create_user_via_admin(
-            admin_client, "mismatch-user1", auth_method="passkey"
-        )
+        uid, _ = _create_user_via_admin(admin_client, "mismatch-user1", auth_method="passkey")
         reset_data = _reset_credentials(admin_client, uid)
         claim_token = reset_data["setup_data"]["claim_token"]
 
         anon = auth_app.test_client()
         resp = anon.post(
             "/auth/register/claim/validate",
-            json={
-                "username": "wrong-username",
-                "claim_token": claim_token,
-            },
+            json={"username": "wrong-username", "claim_token": claim_token},
         )
         # Should not validate for a different username
         assert resp.status_code in (400, 404), (

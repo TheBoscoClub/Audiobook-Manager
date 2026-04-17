@@ -24,8 +24,7 @@ class TestMultiSessionMigration:
     def test_system_settings_table_exists(self, temp_db):
         with temp_db.connection() as conn:
             cursor = conn.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'"
-                " AND name='system_settings'"
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='system_settings'"
             )
             assert cursor.fetchone() is not None
 
@@ -45,9 +44,7 @@ class TestMultiSessionMigration:
                 "INSERT INTO users (username, auth_type, auth_credential)"
                 " VALUES ('testuser', 'totp', X'00')"
             )
-            cursor = conn.execute(
-                "SELECT multi_session FROM users WHERE username = 'testuser'"
-            )
+            cursor = conn.execute("SELECT multi_session FROM users WHERE username = 'testuser'")
             row = cursor.fetchone()
             assert row is not None
             assert row[0] == "default"
@@ -60,11 +57,7 @@ class TestMultiSessionMigration:
 
 class TestUserMultiSessionField:
     def test_user_has_multi_session_default(self, temp_db):
-        user = User(
-            username="ms_test1",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
-        )
+        user = User(username="ms_test1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
         with temp_db.connection() as conn:
             cursor = conn.execute("SELECT * FROM users WHERE id = ?", (user.id,))
@@ -85,11 +78,7 @@ class TestUserMultiSessionField:
         assert fetched.multi_session == "yes"
 
     def test_user_multi_session_update(self, temp_db):
-        user = User(
-            username="ms_test3",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
-        )
+        user = User(username="ms_test3", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
         assert user.multi_session == "default"
         user.multi_session = "no"
@@ -145,11 +134,7 @@ class TestSystemSettingsRepository:
 
 class TestSessionAllowMulti:
     def _make_user(self, temp_db, username="session_user"):
-        user = User(
-            username=username,
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
-        )
+        user = User(username=username, auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
         return user
 
@@ -290,10 +275,7 @@ class TestAdminSettingsAPI:
         assert data["multi_session_default"] == "false"
 
     def test_patch_settings(self, app_client):
-        resp = app_client.patch(
-            "/auth/admin/settings",
-            json={"multi_session_default": "true"},
-        )
+        resp = app_client.patch("/auth/admin/settings", json={"multi_session_default": "true"})
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["success"] is True
@@ -327,11 +309,7 @@ class TestUserDictMultiSession:
     def test_user_dict_default_value(self, temp_db):
         from backend.api_modular.auth import _user_dict
 
-        user = User(
-            username="dict_default",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
-        )
+        user = User(username="dict_default", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
         d = _user_dict(user)
         assert d["multi_session"] == "default"
@@ -346,11 +324,7 @@ class TestMultiSessionIntegration:
 
         SystemSettingsRepository(temp_db).set("multi_session_default", "true")
 
-        user = User(
-            username="integration1",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
-        )
+        user = User(username="integration1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
 
         from backend.api_modular.auth import _user_allows_multi_session
@@ -391,11 +365,7 @@ class TestMultiSessionIntegration:
 
     def test_backwards_compat_default_global_false(self, temp_db):
         """Default state (global=false, user=default) should enforce single session."""
-        user = User(
-            username="integration3",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
-        )
+        user = User(username="integration3", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
 
         from backend.api_modular.auth import _user_allows_multi_session

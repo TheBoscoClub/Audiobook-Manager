@@ -53,8 +53,7 @@ def _admin_create_user(admin_client, username, auth_method="passkey", **extra):
 def _validate_claim(client, username, claim_token):
     """Validate a claim token, return response."""
     return client.post(
-        "/auth/register/claim/validate",
-        json={"username": username, "claim_token": claim_token},
+        "/auth/register/claim/validate", json={"username": username, "claim_token": claim_token}
     )
 
 
@@ -62,21 +61,14 @@ def _claim_totp(client, username, claim_token):
     """Claim TOTP credentials, return response."""
     return client.post(
         "/auth/register/claim",
-        json={
-            "username": username,
-            "claim_token": claim_token,
-            "auth_method": "totp",
-        },
+        json={"username": username, "claim_token": claim_token, "auth_method": "totp"},
     )
 
 
 def _login_totp(client, username, totp_secret):
     """Generate a TOTP code and login, return response."""
     code = pyotp.TOTP(totp_secret).now()
-    return client.post(
-        "/auth/login",
-        json={"username": username, "code": code},
-    )
+    return client.post("/auth/login", json={"username": username, "code": code})
 
 
 # ──────────────────────────────────────────────────────────────────────

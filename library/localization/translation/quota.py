@@ -55,12 +55,7 @@ class QuotaTracker:
 
     _lock = threading.Lock()
 
-    def __init__(
-        self,
-        db_path: Path,
-        api_key: str = "",
-        base_url: str = "",
-    ) -> None:
+    def __init__(self, db_path: Path, api_key: str = "", base_url: str = "") -> None:
         self._db_path = Path(db_path)
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
@@ -106,9 +101,7 @@ class QuotaTracker:
         if row is None:
             conn.execute("INSERT INTO deepl_quota (id) VALUES ('default')")
             conn.commit()
-            row = conn.execute(
-                "SELECT * FROM deepl_quota WHERE id = 'default'"
-            ).fetchone()
+            row = conn.execute("SELECT * FROM deepl_quota WHERE id = 'default'").fetchone()
         return row
 
     # -- public API ------------------------------------------------------

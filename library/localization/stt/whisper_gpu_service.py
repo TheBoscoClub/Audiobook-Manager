@@ -17,10 +17,7 @@ import tempfile
 import time
 from pathlib import Path
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s",
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("whisper-gpu")
 
 _model = None
@@ -59,10 +56,7 @@ def transcribe_file(audio_path: Path, language: str = "en") -> dict:
     start = time.monotonic()
 
     result = model.transcribe(
-        str(audio_path),
-        language=language,
-        word_timestamps=True,
-        verbose=False,
+        str(audio_path), language=language, word_timestamps=True, verbose=False
     )
 
     elapsed = time.monotonic() - start
@@ -70,17 +64,9 @@ def transcribe_file(audio_path: Path, language: str = "en") -> dict:
     words = []
     for segment in result.get("segments", []):
         for w in segment.get("words", []):
-            words.append(
-                {
-                    "word": w["word"].strip(),
-                    "start": w["start"],
-                    "end": w["end"],
-                }
-            )
+            words.append({"word": w["word"].strip(), "start": w["start"], "end": w["end"]})
 
-    duration = (
-        result.get("segments", [{}])[-1].get("end", 0) if result.get("segments") else 0
-    )
+    duration = result.get("segments", [{}])[-1].get("end", 0) if result.get("segments") else 0
 
     logger.info(
         "Transcription complete: %d words, %.1fs audio, %.1fs wall time",
@@ -115,9 +101,7 @@ def create_app():
                 "model": _model_name,
                 "model_loaded": _model is not None,
                 "gpu_available": torch.cuda.is_available(),
-                "gpu_name": torch.cuda.get_device_name(0)
-                if torch.cuda.is_available()
-                else None,
+                "gpu_name": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
             }
         )
 
@@ -125,9 +109,7 @@ def create_app():
     def transcribe():
         if "file" not in request.files:
             return jsonify(
-                {
-                    "error": "No file uploaded. Send as multipart/form-data with key 'file'."
-                }
+                {"error": "No file uploaded. Send as multipart/form-data with key 'file'."}
             ), 400
 
         audio_file = request.files["file"]

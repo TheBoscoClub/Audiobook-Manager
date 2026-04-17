@@ -39,20 +39,14 @@ def _subprocess_result_payload(result, count_key: str, count_value: int) -> dict
 def _run_script(script_path, timeout: int):
     """Run a Python script as a subprocess with the given timeout."""
     return subprocess.run(
-        [sys.executable, str(script_path)],
-        capture_output=True,
-        text=True,
-        timeout=timeout,
+        [sys.executable, str(script_path)], capture_output=True, text=True, timeout=timeout
     )
 
 
 def _run_script_with_args(script_path, args: list, timeout: int):
     """Run a Python script with extra arguments."""
     return subprocess.run(
-        [sys.executable, str(script_path)] + args,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
+        [sys.executable, str(script_path)] + args, capture_output=True, text=True, timeout=timeout
     )
 
 
@@ -62,7 +56,7 @@ def _parse_files_found(output: str) -> int:
         if "Total audiobook files:" in line:
             try:
                 return int(line.split(":")[1].strip())
-            except (ValueError, IndexError):
+            except ValueError, IndexError:
                 pass
     return 0
 
@@ -76,7 +70,7 @@ def _parse_imported_count(output: str) -> int:
                 for i, part in enumerate(parts):
                     if part == "Imported" and i + 1 < len(parts):
                         return int(parts[i + 1])
-            except (ValueError, IndexError):
+            except ValueError, IndexError:
                 pass
     return 0
 
@@ -135,9 +129,7 @@ def reimport_database() -> FlaskResponse:
     try:
         result = _run_script(import_path, timeout=300)
         imported_count = _parse_imported_count(result.stdout)
-        return jsonify(
-            _subprocess_result_payload(result, "imported_count", imported_count)
-        )
+        return jsonify(_subprocess_result_payload(result, "imported_count", imported_count))
     except subprocess.TimeoutExpired:
         return _error_response("Import timed out after 5 minutes")
     except Exception as e:
@@ -158,9 +150,7 @@ def generate_hashes() -> FlaskResponse:
     try:
         result = _run_script_with_args(hash_script, ["--parallel"], timeout=1800)
         hashes_generated = _parse_hashes_generated(result.stdout)
-        return jsonify(
-            _subprocess_result_payload(result, "hashes_generated", hashes_generated)
-        )
+        return jsonify(_subprocess_result_payload(result, "hashes_generated", hashes_generated))
     except subprocess.TimeoutExpired:
         return _error_response("Hash generation timed out after 30 minutes")
     except Exception as e:
@@ -240,13 +230,9 @@ def export_json() -> FlaskResponse:
     }
 
     response = current_app.response_class(
-        response=json.dumps(export_data, indent=2),
-        status=200,
-        mimetype="application/json",
+        response=json.dumps(export_data, indent=2), status=200, mimetype="application/json"
     )
-    response.headers["Content-Disposition"] = (
-        "attachment; filename=audiobooks_export.json"
-    )
+    response.headers["Content-Disposition"] = "attachment; filename=audiobooks_export.json"
     return response
 
 

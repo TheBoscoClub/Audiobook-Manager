@@ -22,9 +22,7 @@ def _make_side_effect(stdout_lines, returncode=0, stderr_text="", timed_out=Fals
     real run_with_progress behavior.
     """
 
-    def side_effect(
-        cmd, *, line_callback, timeout_secs, operation_name="Operation", env=None
-    ):
+    def side_effect(cmd, *, line_callback, timeout_secs, operation_name="Operation", env=None):
         # Invoke line_callback for each line so regex parsing is exercised
         for line_text in stdout_lines:
             line_callback(line_text)
@@ -54,9 +52,7 @@ def _make_side_effect(stdout_lines, returncode=0, stderr_text="", timed_out=Fals
 def _make_side_effect_raises(exc):
     """Create a side_effect function that raises an exception."""
 
-    def side_effect(
-        cmd, *, line_callback, timeout_secs, operation_name="Operation", env=None
-    ):
+    def side_effect(cmd, *, line_callback, timeout_secs, operation_name="Operation", env=None):
         raise exc
 
     return side_effect
@@ -67,9 +63,7 @@ class TestRebuildQueueWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_successful_rebuild_completes_operation(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_successful_rebuild_completes_operation(self, mock_get_tracker, mock_rwp, flask_app):
         """Successful rebuild calls complete_operation with queue_size."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -77,8 +71,7 @@ class TestRebuildQueueWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_rwp.side_effect = _make_side_effect(
-            ["Scanning sources...", "Found 42 files", "Queue size: 42"],
-            returncode=0,
+            ["Scanning sources...", "Found 42 files", "Queue size: 42"], returncode=0
         )
 
         with flask_app.test_client() as client:
@@ -92,18 +85,14 @@ class TestRebuildQueueWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_rebuild_failure_calls_fail_operation(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_rebuild_failure_calls_fail_operation(self, mock_get_tracker, mock_rwp, flask_app):
         """Non-zero return code calls fail_operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "rb-002"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_rwp.side_effect = _make_side_effect(
-            [], returncode=1, stderr_text="Script error"
-        )
+        mock_rwp.side_effect = _make_side_effect([], returncode=1, stderr_text="Script error")
 
         with flask_app.test_client() as client:
             client.post("/api/utilities/rebuild-queue-async")
@@ -150,9 +139,7 @@ class TestRebuildQueueWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_rebuild_scanning_progress_updates(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_rebuild_scanning_progress_updates(self, mock_get_tracker, mock_rwp, flask_app):
         """Scanning pattern updates progress."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -160,8 +147,7 @@ class TestRebuildQueueWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_rwp.side_effect = _make_side_effect(
-            ["Scanning directory 500", "Found 200 files", "Queue rebuilt: 150"],
-            returncode=0,
+            ["Scanning directory 500", "Found 200 files", "Queue rebuilt: 150"], returncode=0
         )
 
         with flask_app.test_client() as client:
@@ -214,9 +200,7 @@ class TestCleanupIndexesWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_cleanup_success_with_progress_pattern(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_cleanup_success_with_progress_pattern(self, mock_get_tracker, mock_rwp, flask_app):
         """Cleanup processes [X/Y] progress pattern correctly."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -251,8 +235,7 @@ class TestCleanupIndexesWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_rwp.side_effect = _make_side_effect(
-            ["Checking entry 500", "Verifying index 1000", "would remove 3 stale"],
-            returncode=0,
+            ["Checking entry 500", "Verifying index 1000", "would remove 3 stale"], returncode=0
         )
 
         with flask_app.test_client() as client:
@@ -304,9 +287,7 @@ class TestPopulateSortFieldsWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_sort_fields_success_with_loading(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_sort_fields_success_with_loading(self, mock_get_tracker, mock_rwp, flask_app):
         """Sort field population parses loading and update count."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -324,9 +305,7 @@ class TestPopulateSortFieldsWorkerThread:
         )
 
         with flask_app.test_client() as client:
-            client.post(
-                "/api/utilities/populate-sort-fields-async", json={"dry_run": False}
-            )
+            client.post("/api/utilities/populate-sort-fields-async", json={"dry_run": False})
 
         wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
@@ -335,9 +314,7 @@ class TestPopulateSortFieldsWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_sort_fields_dry_run_would_update(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_sort_fields_dry_run_would_update(self, mock_get_tracker, mock_rwp, flask_app):
         """Dry run parses 'would update' count."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -345,14 +322,11 @@ class TestPopulateSortFieldsWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_rwp.side_effect = _make_side_effect(
-            ["Loading 100 audiobooks", "would update 25"],
-            returncode=0,
+            ["Loading 100 audiobooks", "would update 25"], returncode=0
         )
 
         with flask_app.test_client() as client:
-            client.post(
-                "/api/utilities/populate-sort-fields-async", json={"dry_run": True}
-            )
+            client.post("/api/utilities/populate-sort-fields-async", json={"dry_run": True})
 
         wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
@@ -367,9 +341,7 @@ class TestPopulateSortFieldsWorkerThread:
         mock_tracker.create_operation.return_value = "sf-003"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_rwp.side_effect = _make_side_effect(
-            [], returncode=1, stderr_text="DB locked"
-        )
+        mock_rwp.side_effect = _make_side_effect([], returncode=1, stderr_text="DB locked")
 
         with flask_app.test_client() as client:
             client.post("/api/utilities/populate-sort-fields-async", json={})
@@ -397,9 +369,7 @@ class TestPopulateSortFieldsWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_sort_fields_execute_appends_flag(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_sort_fields_execute_appends_flag(self, mock_get_tracker, mock_rwp, flask_app):
         """Execute mode appends --execute flag."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -409,9 +379,7 @@ class TestPopulateSortFieldsWorkerThread:
         mock_rwp.side_effect = _make_side_effect([], returncode=0)
 
         with flask_app.test_client() as client:
-            client.post(
-                "/api/utilities/populate-sort-fields-async", json={"dry_run": False}
-            )
+            client.post("/api/utilities/populate-sort-fields-async", json={"dry_run": False})
 
         wait_for_thread_completion(mock_tracker)
         cmd_args = mock_rwp.call_args[0][0]
@@ -419,19 +387,14 @@ class TestPopulateSortFieldsWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_sort_fields_processing_pattern(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_sort_fields_processing_pattern(self, mock_get_tracker, mock_rwp, flask_app):
         """Processing pattern updates progress."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "sf-006"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_rwp.side_effect = _make_side_effect(
-            ["Processing title 500"],
-            returncode=0,
-        )
+        mock_rwp.side_effect = _make_side_effect(["Processing title 500"], returncode=0)
 
         with flask_app.test_client() as client:
             client.post("/api/utilities/populate-sort-fields-async", json={})
@@ -447,9 +410,7 @@ class TestPopulateAsinsWorkerThread:
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{MODULE}.subprocess.run")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_asin_populate_success(
-        self, mock_get_tracker, mock_sub_run, mock_rwp, flask_app
-    ):
+    def test_asin_populate_success(self, mock_get_tracker, mock_sub_run, mock_rwp, flask_app):
         """Successful ASIN population with export + match steps."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -465,8 +426,7 @@ class TestPopulateAsinsWorkerThread:
 
         # Step 2: Match process via run_with_progress
         mock_rwp.side_effect = _make_side_effect(
-            ["[10/50] Processing audiobook 10", "Matched: 30", "Unmatched: 20"],
-            returncode=0,
+            ["[10/50] Processing audiobook 10", "Matched: 30", "Unmatched: 20"], returncode=0
         )
 
         with flask_app.test_client() as client:
@@ -477,8 +437,7 @@ class TestPopulateAsinsWorkerThread:
                 ):
                     with patch(f"{MODULE}.os.close"):
                         resp = client.post(
-                            "/api/utilities/populate-asins-async",
-                            json={"dry_run": False},
+                            "/api/utilities/populate-asins-async", json={"dry_run": False}
                         )
 
         assert resp.status_code == 200
@@ -540,9 +499,7 @@ class TestPopulateAsinsWorkerThread:
 
     @patch(f"{MODULE}.subprocess.run")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_asin_export_file_not_found(
-        self, mock_get_tracker, mock_sub_run, flask_app
-    ):
+    def test_asin_export_file_not_found(self, mock_get_tracker, mock_sub_run, flask_app):
         """Export completes but file not found fails operation."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -587,9 +544,7 @@ class TestFindSourceDuplicatesWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_duplicates_success_with_progress(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_duplicates_success_with_progress(self, mock_get_tracker, mock_rwp, flask_app):
         """Duplicate scan parses progress and duplicate counts."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -597,14 +552,11 @@ class TestFindSourceDuplicatesWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_rwp.side_effect = _make_side_effect(
-            ["Found 100 files", "[50/100] Comparing...", "duplicate groups: 5"],
-            returncode=0,
+            ["Found 100 files", "[50/100] Comparing...", "duplicate groups: 5"], returncode=0
         )
 
         with flask_app.test_client() as client:
-            client.post(
-                "/api/utilities/find-source-duplicates-async", json={"dry_run": True}
-            )
+            client.post("/api/utilities/find-source-duplicates-async", json={"dry_run": True})
 
         wait_for_thread_completion(mock_tracker)
         result = mock_tracker.complete_operation.call_args[0][1]
@@ -621,8 +573,7 @@ class TestFindSourceDuplicatesWorkerThread:
         mock_get_tracker.return_value = mock_tracker
 
         mock_rwp.side_effect = _make_side_effect(
-            ["Scanning files 500", "Checking hash 1000"],
-            returncode=0,
+            ["Scanning files 500", "Checking hash 1000"], returncode=0
         )
 
         with flask_app.test_client() as client:
@@ -640,9 +591,7 @@ class TestFindSourceDuplicatesWorkerThread:
         mock_tracker.create_operation.return_value = "dup-003"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_rwp.side_effect = _make_side_effect(
-            [], returncode=1, stderr_text="Permission denied"
-        )
+        mock_rwp.side_effect = _make_side_effect([], returncode=1, stderr_text="Permission denied")
 
         with flask_app.test_client() as client:
             client.post("/api/utilities/find-source-duplicates-async", json={})
@@ -670,19 +619,14 @@ class TestFindSourceDuplicatesWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_duplicates_found_files_progress(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_duplicates_found_files_progress(self, mock_get_tracker, mock_rwp, flask_app):
         """Found N files pattern updates progress to 20%."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
         mock_tracker.create_operation.return_value = "dup-005"
         mock_get_tracker.return_value = mock_tracker
 
-        mock_rwp.side_effect = _make_side_effect(
-            ["Found 250 sources to analyze"],
-            returncode=0,
-        )
+        mock_rwp.side_effect = _make_side_effect(["Found 250 sources to analyze"], returncode=0)
 
         with flask_app.test_client() as client:
             client.post("/api/utilities/find-source-duplicates-async", json={})
@@ -695,9 +639,7 @@ class TestFindSourceDuplicatesWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_duplicates_dry_run_appends_flag(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_duplicates_dry_run_appends_flag(self, mock_get_tracker, mock_rwp, flask_app):
         """Dry run appends --dry-run flag to command."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None
@@ -707,9 +649,7 @@ class TestFindSourceDuplicatesWorkerThread:
         mock_rwp.side_effect = _make_side_effect([], returncode=0)
 
         with flask_app.test_client() as client:
-            client.post(
-                "/api/utilities/find-source-duplicates-async", json={"dry_run": True}
-            )
+            client.post("/api/utilities/find-source-duplicates-async", json={"dry_run": True})
 
         wait_for_thread_completion(mock_tracker)
         cmd_args = mock_rwp.call_args[0][0]
@@ -717,9 +657,7 @@ class TestFindSourceDuplicatesWorkerThread:
 
     @patch(f"{MODULE}.run_with_progress")
     @patch(f"{HELPERS_MODULE}.get_tracker")
-    def test_duplicates_empty_stderr_fallback(
-        self, mock_get_tracker, mock_rwp, flask_app
-    ):
+    def test_duplicates_empty_stderr_fallback(self, mock_get_tracker, mock_rwp, flask_app):
         """Empty stderr on failure uses fallback message."""
         mock_tracker = MagicMock()
         mock_tracker.is_operation_running.return_value = None

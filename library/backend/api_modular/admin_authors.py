@@ -29,7 +29,7 @@ from .auth import admin_if_enabled
 admin_authors_bp = Blueprint("admin_authors", __name__, url_prefix="/api/admin")
 
 
-def init_admin_authors_routes(database_path: str) -> None:
+def init_admin_authors_routes(database_path: str) -> None:  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
     """Initialize admin author routes (no-op, kept for API compatibility).
 
     Database path is now resolved at request time via current_app.config.
@@ -87,11 +87,7 @@ def regenerate_flat_narrator(conn: sqlite3.Connection, book_id: int) -> None:
     conn.execute("UPDATE audiobooks SET narrator = ? WHERE id = ?", (flat, book_id))
 
 
-def _get_affected_book_ids(
-    conn: sqlite3.Connection,
-    entity_type: str,
-    entity_id: int,
-) -> list[int]:
+def _get_affected_book_ids(conn: sqlite3.Connection, entity_type: str, entity_id: int) -> list[int]:
     """Get all book IDs associated with an author or narrator."""
     if entity_type == "author":
         table = "book_authors"
@@ -119,8 +115,7 @@ def _narrator_to_dict(row: sqlite3.Row) -> dict:
 def _book_with_authors(conn: sqlite3.Connection, book_id: int) -> dict | None:
     """Get a book dict with its authors array."""
     book = conn.execute(
-        "SELECT id, title, author FROM audiobooks WHERE id = ?",
-        (book_id,),
+        "SELECT id, title, author FROM audiobooks WHERE id = ?", (book_id,)
     ).fetchone()
     if not book:
         return None
@@ -149,8 +144,7 @@ def _book_with_authors(conn: sqlite3.Connection, book_id: int) -> dict | None:
 def _book_with_narrators(conn: sqlite3.Connection, book_id: int) -> dict | None:
     """Get a book dict with its narrators array."""
     book = conn.execute(
-        "SELECT id, title, narrator FROM audiobooks WHERE id = ?",
-        (book_id,),
+        "SELECT id, title, narrator FROM audiobooks WHERE id = ?", (book_id,)
     ).fetchone()
     if not book:
         return None
@@ -202,9 +196,7 @@ def rename_author(author_id: int):
 
     conn = _get_db()
     try:
-        author = conn.execute(
-            "SELECT * FROM authors WHERE id = ?", (author_id,)
-        ).fetchone()
+        author = conn.execute("SELECT * FROM authors WHERE id = ?", (author_id,)).fetchone()
         if not author:
             return jsonify({"error": "Author not found"}), 404
 
@@ -231,22 +223,14 @@ def rename_author(author_id: int):
 
         conn.commit()
 
-        updated = conn.execute(
-            "SELECT * FROM authors WHERE id = ?", (author_id,)
-        ).fetchone()
+        updated = conn.execute("SELECT * FROM authors WHERE id = ?", (author_id,)).fetchone()
         return jsonify(_author_to_dict(updated)), 200
     finally:
         conn.close()
 
 
 def _merge_entities(
-    conn,
-    source_ids,
-    target_id,
-    junction_table,
-    entity_id_col,
-    entity_table,
-    regenerate_fn,
+    conn, source_ids, target_id, junction_table, entity_id_col, entity_table, regenerate_fn
 ):
     """Merge duplicate authors/narrators by reassigning junctions.
 
@@ -311,9 +295,7 @@ def _validate_merge_request(data, entity_label):
             None,
             (
                 jsonify(
-                    {
-                        "error": f"'source_ids' and 'target_id' required for {entity_label} merge"
-                    }
+                    {"error": f"'source_ids' and 'target_id' required for {entity_label} merge"}
                 ),
                 400,
             ),
@@ -323,11 +305,7 @@ def _validate_merge_request(data, entity_label):
             None,
             None,
             (
-                jsonify(
-                    {
-                        "error": f"target_id cannot be in source_ids for {entity_label} merge"
-                    }
-                ),
+                jsonify({"error": f"target_id cannot be in source_ids for {entity_label} merge"}),
                 400,
             ),
         )
@@ -388,15 +366,10 @@ def merge_authors():
         )
         conn.commit()
 
-        updated_target = conn.execute(
-            "SELECT * FROM authors WHERE id = ?", (target_id,)
-        ).fetchone()
+        updated_target = conn.execute("SELECT * FROM authors WHERE id = ?", (target_id,)).fetchone()
 
         return jsonify(
-            {
-                "author": _author_to_dict(updated_target),
-                "books_reassigned": books_reassigned,
-            }
+            {"author": _author_to_dict(updated_target), "books_reassigned": books_reassigned}
         ), 200
     finally:
         conn.close()
@@ -427,17 +400,13 @@ def reassign_book_authors(book_id: int):
     conn = _get_db()
     try:
         # Verify book exists
-        book = conn.execute(
-            "SELECT id FROM audiobooks WHERE id = ?", (book_id,)
-        ).fetchone()
+        book = conn.execute("SELECT id FROM audiobooks WHERE id = ?", (book_id,)).fetchone()
         if not book:
             return jsonify({"error": "Book not found"}), 404
 
         # Verify all authors exist
         for aid in author_ids:
-            author = conn.execute(
-                "SELECT id FROM authors WHERE id = ?", (aid,)
-            ).fetchone()
+            author = conn.execute("SELECT id FROM authors WHERE id = ?", (aid,)).fetchone()
             if not author:
                 return jsonify({"error": f"Author {aid} not found"}), 404
 
@@ -447,8 +416,7 @@ def reassign_book_authors(book_id: int):
         # Insert new links
         for aid, pos in zip(author_ids, positions):
             conn.execute(
-                "INSERT INTO book_authors"
-                " (book_id, author_id, position) VALUES (?, ?, ?)",
+                "INSERT INTO book_authors (book_id, author_id, position) VALUES (?, ?, ?)",
                 (book_id, aid, pos),
             )
 
@@ -489,9 +457,7 @@ def rename_narrator(narrator_id: int):
 
     conn = _get_db()
     try:
-        narrator = conn.execute(
-            "SELECT * FROM narrators WHERE id = ?", (narrator_id,)
-        ).fetchone()
+        narrator = conn.execute("SELECT * FROM narrators WHERE id = ?", (narrator_id,)).fetchone()
         if not narrator:
             return jsonify({"error": "Narrator not found"}), 404
 
@@ -517,9 +483,7 @@ def rename_narrator(narrator_id: int):
 
         conn.commit()
 
-        updated = conn.execute(
-            "SELECT * FROM narrators WHERE id = ?", (narrator_id,)
-        ).fetchone()
+        updated = conn.execute("SELECT * FROM narrators WHERE id = ?", (narrator_id,)).fetchone()
         return jsonify(_narrator_to_dict(updated)), 200
     finally:
         conn.close()
@@ -544,9 +508,7 @@ def merge_narrators():
 
     conn = _get_db()
     try:
-        err = _verify_entities_exist(
-            conn, "narrators", target_id, source_ids, "narrator"
-        )
+        err = _verify_entities_exist(conn, "narrators", target_id, source_ids, "narrator")
         if err:
             return err
 
@@ -566,10 +528,7 @@ def merge_narrators():
         ).fetchone()
 
         return jsonify(
-            {
-                "narrator": _narrator_to_dict(updated_target),
-                "books_reassigned": books_reassigned,
-            }
+            {"narrator": _narrator_to_dict(updated_target), "books_reassigned": books_reassigned}
         ), 200
     finally:
         conn.close()
@@ -599,16 +558,12 @@ def reassign_book_narrators(book_id: int):
 
     conn = _get_db()
     try:
-        book = conn.execute(
-            "SELECT id FROM audiobooks WHERE id = ?", (book_id,)
-        ).fetchone()
+        book = conn.execute("SELECT id FROM audiobooks WHERE id = ?", (book_id,)).fetchone()
         if not book:
             return jsonify({"error": "Book not found"}), 404
 
         for nid in narrator_ids:
-            narrator = conn.execute(
-                "SELECT id FROM narrators WHERE id = ?", (nid,)
-            ).fetchone()
+            narrator = conn.execute("SELECT id FROM narrators WHERE id = ?", (nid,)).fetchone()
             if not narrator:
                 return jsonify({"error": f"Narrator {nid} not found"}), 404
 
@@ -616,8 +571,7 @@ def reassign_book_narrators(book_id: int):
 
         for nid, pos in zip(narrator_ids, positions):
             conn.execute(
-                "INSERT INTO book_narrators"
-                " (book_id, narrator_id, position) VALUES (?, ?, ?)",
+                "INSERT INTO book_narrators (book_id, narrator_id, position) VALUES (?, ?, ?)",
                 (book_id, nid, pos),
             )
 

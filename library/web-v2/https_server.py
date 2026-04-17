@@ -187,9 +187,7 @@ def run_http_redirect_server():
             ("0.0.0.0", HTTP_PORT),  # nosec B104 - HTTP redirect server, intentional all-interfaces bind
             HTTPToHTTPSRedirectHandler,
         )
-        print(
-            f"HTTP redirect server on http://0.0.0.0:{HTTP_PORT}/ -> https://...:{HTTPS_PORT}/"
-        )
+        print(f"HTTP redirect server on http://0.0.0.0:{HTTP_PORT}/ -> https://...:{HTTPS_PORT}/")
         server.serve_forever()
     except Exception as e:
         print(f"HTTP redirect server error: {e}")

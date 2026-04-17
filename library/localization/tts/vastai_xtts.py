@@ -38,18 +38,12 @@ class VastaiXTTSProvider(TTSProvider):
         return True
 
     def available_voices(self, language: str) -> list[Voice]:
-        return [
-            Voice(id="clone", name="Voice Clone", language=language, gender="neutral")
-        ]
+        return [Voice(id="clone", name="Voice Clone", language=language, gender="neutral")]
 
-    def synthesize(
-        self, text: str, language: str, voice: str, output_path: Path
-    ) -> Path:
+    def synthesize(self, text: str, language: str, voice: str, output_path: Path) -> Path:
         """POST text to the Vast.ai XTTS server and write the returned audio."""
         lang_prefix = language.split("-")[0].lower()
-        logger.info(
-            "Synthesizing %d chars via Vast.ai XTTS (lang=%s)", len(text), lang_prefix
-        )
+        logger.info("Synthesizing %d chars via Vast.ai XTTS (lang=%s)", len(text), lang_prefix)
 
         resp = requests.post(
             f"{self._base_url}/synthesize",

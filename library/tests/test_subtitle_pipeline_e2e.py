@@ -97,10 +97,7 @@ def test_pipeline_dual_language_with_deepl_stubbed(tmp_path: Path):
 
     with (
         patch("library.localization.pipeline.DEEPL_API_KEY", "fake-key"),
-        patch(
-            "library.localization.translation.deepl_translate.DeepLTranslator",
-            StubTranslator,
-        ),
+        patch("library.localization.translation.deepl_translate.DeepLTranslator", StubTranslator),
     ):
         source_vtt, translated_vtt = generate_subtitles(
             audio_path=tmp_path / "ch01.opus",

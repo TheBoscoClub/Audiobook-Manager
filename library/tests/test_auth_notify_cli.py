@@ -91,10 +91,7 @@ class TestCmdList:
     @patch("auth.notify_cli.get_db")
     def test_list_personal_notification(self, mock_get_db, mock_repo_cls, capsys):
         mock_get_db.return_value = MagicMock()
-        notif = _make_notification(
-            type=NotificationType.PERSONAL,
-            target_user_id=5,
-        )
+        notif = _make_notification(type=NotificationType.PERSONAL, target_user_id=5)
         repo = MagicMock()
         repo.list_all.return_value = [notif]
         mock_repo_cls.return_value = repo
@@ -145,9 +142,7 @@ class TestCmdList:
     def test_list_multiple(self, mock_get_db, mock_repo_cls, capsys):
         mock_get_db.return_value = MagicMock()
         n1 = _make_notification(id=1, type=NotificationType.INFO)
-        n2 = _make_notification(
-            id=2, type=NotificationType.OUTAGE, message="System outage"
-        )
+        n2 = _make_notification(id=2, type=NotificationType.OUTAGE, message="System outage")
         repo = MagicMock()
         repo.list_all.return_value = [n1, n2]
         mock_repo_cls.return_value = repo
@@ -222,12 +217,7 @@ class TestCmdCreate:
         from auth.notify_cli import cmd_create
 
         args = _make_args(
-            message="Test",
-            type="bogus",
-            user=None,
-            expires=None,
-            no_dismiss=False,
-            priority=0,
+            message="Test", type="bogus", user=None, expires=None, no_dismiss=False, priority=0
         )
         # get_db is never called since validation fails first
         with patch("auth.notify_cli.get_db", return_value=MagicMock()):

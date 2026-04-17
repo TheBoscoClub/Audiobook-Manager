@@ -35,17 +35,7 @@ class TestSanitizeLocale:
     """_sanitize_locale — path-traversal and log-injection defense."""
 
     @pytest.mark.parametrize(
-        "locale",
-        [
-            "en",
-            "zh",
-            "zh-Hans",
-            "pt-BR",
-            "es",
-            "ja",
-            "de-CH",
-            "en-US",
-        ],
+        "locale", ["en", "zh", "zh-Hans", "pt-BR", "es", "ja", "de-CH", "en-US"]
     )
     def test_valid_locales_pass(self, locale):
         assert _sanitize_locale(locale) == locale
@@ -227,16 +217,14 @@ class TestRequestStreamingTranslation:
 
     def test_invalid_locale_400(self, app_client, streaming_db):
         resp = app_client.post(
-            "/api/translate/stream",
-            json={"audiobook_id": 1, "locale": "../etc"},
+            "/api/translate/stream", json={"audiobook_id": 1, "locale": "../etc"}
         )
         assert resp.status_code == 400
         assert "invalid" in resp.get_json()["error"]
 
     def test_non_integer_book_id_400(self, app_client, streaming_db):
         resp = app_client.post(
-            "/api/translate/stream",
-            json={"audiobook_id": "not-an-int", "locale": "zh-Hans"},
+            "/api/translate/stream", json={"audiobook_id": "not-an-int", "locale": "zh-Hans"}
         )
         assert resp.status_code == 400
 
@@ -419,10 +407,7 @@ class TestHandleSeek:
         assert resp.status_code == 400
 
     def test_invalid_locale_400(self, app_client, streaming_db):
-        resp = app_client.post(
-            "/api/translate/seek",
-            json={"audiobook_id": 1, "locale": "../bad"},
-        )
+        resp = app_client.post("/api/translate/seek", json={"audiobook_id": 1, "locale": "../bad"})
         assert resp.status_code == 400
 
     def test_seek_to_cached_segment(self, app_client, streaming_db):
@@ -437,12 +422,7 @@ class TestHandleSeek:
 
         resp = app_client.post(
             "/api/translate/seek",
-            json={
-                "audiobook_id": 1,
-                "locale": "zh-Hans",
-                "chapter_index": 0,
-                "segment_index": 3,
-            },
+            json={"audiobook_id": 1, "locale": "zh-Hans", "chapter_index": 0, "segment_index": 3},
         )
         assert resp.status_code == 200
         body = resp.get_json()
@@ -469,12 +449,7 @@ class TestHandleSeek:
 
         resp = app_client.post(
             "/api/translate/seek",
-            json={
-                "audiobook_id": 1,
-                "locale": "zh-Hans",
-                "chapter_index": 1,
-                "segment_index": 5,
-            },
+            json={"audiobook_id": 1, "locale": "zh-Hans", "chapter_index": 1, "segment_index": 5},
         )
         assert resp.status_code == 200
         body = resp.get_json()
@@ -555,11 +530,7 @@ class TestChapterComplete:
     def test_invalid_locale_400(self, app_client, streaming_db):
         resp = app_client.post(
             "/api/translate/chapter-complete",
-            json={
-                "audiobook_id": 1,
-                "chapter_index": 0,
-                "locale": "..\ntrouble",
-            },
+            json={"audiobook_id": 1, "chapter_index": 0, "locale": "..\ntrouble"},
         )
         assert resp.status_code == 400
 

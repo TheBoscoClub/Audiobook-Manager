@@ -97,10 +97,7 @@ class TestGet:
     def test_429_retry_then_success(self):
         client = OpenLibraryClient(rate_limit_delay=0.0, max_retries=3)
         client.session = MagicMock()
-        client.session.get.side_effect = [
-            _mock_response(429),
-            _mock_response(200, {"data": "ok"}),
-        ]
+        client.session.get.side_effect = [_mock_response(429), _mock_response(200, {"data": "ok"})]
         with patch("time.sleep"):
             result = client._get("http://example.com")
         assert result == {"data": "ok"}
@@ -173,8 +170,7 @@ class TestSearch:
         client = OpenLibraryClient(rate_limit_delay=0.0)
         client.session = MagicMock()
         client.session.get.return_value = _mock_response(
-            200,
-            {"docs": [{"title": "The Hobbit"}, {"title": "Hobbit 2"}]},
+            200, {"docs": [{"title": "The Hobbit"}, {"title": "Hobbit 2"}]}
         )
         results = client.search(title="Hobbit", author="Tolkien", limit=5)
         called_url = client.session.get.call_args[0][0]
@@ -238,8 +234,7 @@ class TestGetWork:
         client = OpenLibraryClient(rate_limit_delay=0.0)
         client.session = MagicMock()
         client.session.get.return_value = _mock_response(
-            200,
-            {"title": "x", "description": {"value": "dict desc"}},
+            200, {"title": "x", "description": {"value": "dict desc"}}
         )
         work = client.get_work("OL1W")
         assert work.description == "dict desc"
@@ -265,28 +260,17 @@ class TestGetAuthor:
 class TestGetCoverUrl:
     def test_default_size(self):
         client = OpenLibraryClient()
-        assert (
-            client.get_cover_url(12345)
-            == "https://covers.openlibrary.org/b/id/12345-M.jpg"
-        )
+        assert client.get_cover_url(12345) == "https://covers.openlibrary.org/b/id/12345-M.jpg"
 
     def test_custom_size(self):
         client = OpenLibraryClient()
-        assert (
-            client.get_cover_url(99, size="L")
-            == "https://covers.openlibrary.org/b/id/99-L.jpg"
-        )
+        assert client.get_cover_url(99, size="L") == "https://covers.openlibrary.org/b/id/99-L.jpg"
 
 
 class TestParseEdition:
     def test_non_list_isbn(self):
         client = OpenLibraryClient()
-        data = {
-            "key": "/books/OL1M",
-            "title": "t",
-            "isbn_10": "0-1-2",
-            "isbn_13": "9-7-8",
-        }
+        data = {"key": "/books/OL1M", "title": "t", "isbn_10": "0-1-2", "isbn_13": "9-7-8"}
         edition = client._parse_edition(data)
         assert edition.isbn_10 == "0-1-2"
         assert edition.isbn_13 == "9-7-8"

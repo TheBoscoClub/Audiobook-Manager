@@ -11,11 +11,7 @@ from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import (
-    AUDIOBOOKS_BIND_ADDRESS,
-    AUDIOBOOKS_HTTP_REDIRECT_PORT,
-    AUDIOBOOKS_WEB_PORT,
-)
+from config import AUDIOBOOKS_BIND_ADDRESS, AUDIOBOOKS_HTTP_REDIRECT_PORT, AUDIOBOOKS_WEB_PORT
 
 HTTPS_PORT = AUDIOBOOKS_WEB_PORT
 HTTP_PORT = AUDIOBOOKS_HTTP_REDIRECT_PORT

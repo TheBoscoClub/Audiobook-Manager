@@ -27,9 +27,7 @@ def maint_app(tmp_path):
     conn.close()
 
     app = create_app(
-        database_path=db_path,
-        project_dir=tmp_path,
-        supplements_dir=tmp_path / "supplements",
+        database_path=db_path, project_dir=tmp_path, supplements_dir=tmp_path / "supplements"
     )
     app.config["TESTING"] = True
     return app
@@ -47,18 +45,14 @@ class TestGetUsernameEdgeCases:
         from backend.api_modular.maintenance import _get_username
 
         with patch(
-            "backend.api_modular.maintenance.get_current_user",
-            side_effect=Exception("no context"),
+            "backend.api_modular.maintenance.get_current_user", side_effect=Exception("no context")
         ):
             assert _get_username() == "system"
 
     def test_returns_system_when_no_user(self):
         from backend.api_modular.maintenance import _get_username
 
-        with patch(
-            "backend.api_modular.maintenance.get_current_user",
-            return_value=None,
-        ):
+        with patch("backend.api_modular.maintenance.get_current_user", return_value=None):
             assert _get_username() == "system"
 
 
@@ -68,19 +62,14 @@ class TestCreateWindowValidation:
     def test_no_json_body_returns_400(self, mclient):
         """Missing JSON body returns 400 (line 70)."""
         resp = mclient.post(
-            "/api/admin/maintenance/windows",
-            content_type="application/json",
-            data="null",
+            "/api/admin/maintenance/windows", content_type="application/json", data="null"
         )
         assert resp.status_code == 400
         assert "JSON body required" in resp.get_json()["error"]
 
     def test_missing_required_fields_returns_400(self, mclient):
         """Missing name/task_type/schedule_type returns 400 (line 76)."""
-        resp = mclient.post(
-            "/api/admin/maintenance/windows",
-            json={"name": "Test"},
-        )
+        resp = mclient.post("/api/admin/maintenance/windows", json={"name": "Test"})
         assert resp.status_code == 400
         assert "required" in resp.get_json()["error"]
 
@@ -88,11 +77,7 @@ class TestCreateWindowValidation:
         """Invalid schedule_type returns 400 (line 79)."""
         resp = mclient.post(
             "/api/admin/maintenance/windows",
-            json={
-                "name": "Test",
-                "task_type": "db_vacuum",
-                "schedule_type": "invalid",
-            },
+            json={"name": "Test", "task_type": "db_vacuum", "schedule_type": "invalid"},
         )
         assert resp.status_code == 400
         assert "once" in resp.get_json()["error"]
@@ -119,18 +104,11 @@ class TestCreateWindowTaskValidation:
         """Unknown task type returns available tasks (lines 106-117)."""
         mock_registry = MagicMock()
         mock_registry.get.return_value = None
-        mock_registry.list_all.return_value = [
-            {"name": "db_vacuum"},
-            {"name": "checksum_audit"},
-        ]
+        mock_registry.list_all.return_value = [{"name": "db_vacuum"}, {"name": "checksum_audit"}]
 
         with patch.dict(
             "sys.modules",
-            {
-                "backend.api_modular.maintenance_tasks": MagicMock(
-                    registry=mock_registry
-                )
-            },
+            {"backend.api_modular.maintenance_tasks": MagicMock(registry=mock_registry)},
         ):
             resp = mclient.post(
                 "/api/admin/maintenance/windows",
@@ -180,18 +158,13 @@ class TestUpdateWindowExtended:
         wid = resp.get_json()["id"]
 
         resp = mclient.put(
-            f"/api/admin/maintenance/windows/{wid}",
-            content_type="application/json",
-            data="",
+            f"/api/admin/maintenance/windows/{wid}", content_type="application/json", data=""
         )
         assert resp.status_code == 400
 
     def test_update_nonexistent_returns_404(self, mclient):
         """Updating nonexistent window returns 404 (line 163)."""
-        resp = mclient.put(
-            "/api/admin/maintenance/windows/99999",
-            json={"name": "Ghost"},
-        )
+        resp = mclient.put("/api/admin/maintenance/windows/99999", json={"name": "Ghost"})
         assert resp.status_code == 404
         assert "not found" in resp.get_json()["error"].lower()
 
@@ -209,8 +182,7 @@ class TestUpdateWindowExtended:
         wid = resp.get_json()["id"]
 
         resp = mclient.put(
-            f"/api/admin/maintenance/windows/{wid}",
-            json={"task_params": {"key": "value"}},
+            f"/api/admin/maintenance/windows/{wid}", json={"task_params": {"key": "value"}}
         )
         assert resp.status_code == 200
 
@@ -228,8 +200,7 @@ class TestUpdateWindowExtended:
         wid = resp.get_json()["id"]
 
         resp = mclient.put(
-            f"/api/admin/maintenance/windows/{wid}",
-            json={"cron_expression": "0 4 * * *"},
+            f"/api/admin/maintenance/windows/{wid}", json={"cron_expression": "0 4 * * *"}
         )
         assert resp.status_code == 200
         data = resp.get_json()
@@ -249,8 +220,7 @@ class TestUpdateWindowExtended:
         wid = resp.get_json()["id"]
 
         resp = mclient.put(
-            f"/api/admin/maintenance/windows/{wid}",
-            json={"scheduled_at": "2026-05-01T00:00:00Z"},
+            f"/api/admin/maintenance/windows/{wid}", json={"scheduled_at": "2026-05-01T00:00:00Z"}
         )
         assert resp.status_code == 200
         data = resp.get_json()
@@ -269,10 +239,7 @@ class TestUpdateWindowExtended:
         )
         wid = resp.get_json()["id"]
 
-        resp = mclient.put(
-            f"/api/admin/maintenance/windows/{wid}",
-            json={"invalid_field": "value"},
-        )
+        resp = mclient.put(f"/api/admin/maintenance/windows/{wid}", json={"invalid_field": "value"})
         assert resp.status_code == 400
         assert "No valid fields" in resp.get_json()["error"]
 
@@ -315,14 +282,8 @@ class TestListMessages:
 
     def test_list_returns_all_messages(self, mclient):
         """List returns messages ordered by created_at desc."""
-        mclient.post(
-            "/api/admin/maintenance/messages",
-            json={"message": "First"},
-        )
-        mclient.post(
-            "/api/admin/maintenance/messages",
-            json={"message": "Second"},
-        )
+        mclient.post("/api/admin/maintenance/messages", json={"message": "First"})
+        mclient.post("/api/admin/maintenance/messages", json={"message": "Second"})
         resp = mclient.get("/api/admin/maintenance/messages")
         assert resp.status_code == 200
         data = resp.get_json()
@@ -334,19 +295,14 @@ class TestCreateMessageValidation:
 
     def test_missing_message_field_returns_400(self, mclient):
         """Missing message field returns 400."""
-        resp = mclient.post(
-            "/api/admin/maintenance/messages",
-            json={"not_message": "test"},
-        )
+        resp = mclient.post("/api/admin/maintenance/messages", json={"not_message": "test"})
         assert resp.status_code == 400
         assert "message field required" in resp.get_json()["error"]
 
     def test_no_json_returns_400(self, mclient):
         """No JSON body returns 400."""
         resp = mclient.post(
-            "/api/admin/maintenance/messages",
-            content_type="application/json",
-            data="",
+            "/api/admin/maintenance/messages", content_type="application/json", data=""
         )
         assert resp.status_code == 400
 
@@ -361,8 +317,7 @@ class TestCreateMessageWebSocketBroadcast:
 
         with patch("backend.api_modular.websocket.connection_manager", mock_cm):
             resp = mclient.post(
-                "/api/admin/maintenance/messages",
-                json={"message": "Broadcast fail test"},
+                "/api/admin/maintenance/messages", json={"message": "Broadcast fail test"}
             )
 
         assert resp.status_code == 201
@@ -373,10 +328,7 @@ class TestDismissMessageWebSocketBroadcast:
 
     def test_dismiss_broadcast_failure_handled(self, mclient):
         """WebSocket broadcast failure on dismiss doesn't break endpoint."""
-        resp = mclient.post(
-            "/api/admin/maintenance/messages",
-            json={"message": "Dismiss test"},
-        )
+        resp = mclient.post("/api/admin/maintenance/messages", json={"message": "Dismiss test"})
         mid = resp.get_json()["id"]
 
         mock_cm = MagicMock()
@@ -414,10 +366,7 @@ class TestPublicAnnouncementsExtended:
 
     def test_announcements_dismissed_excluded(self, mclient):
         """Dismissed messages don't appear in announcements."""
-        resp = mclient.post(
-            "/api/admin/maintenance/messages",
-            json={"message": "Will dismiss"},
-        )
+        resp = mclient.post("/api/admin/maintenance/messages", json={"message": "Will dismiss"})
         mid = resp.get_json()["id"]
 
         mclient.delete(f"/api/admin/maintenance/messages/{mid}")

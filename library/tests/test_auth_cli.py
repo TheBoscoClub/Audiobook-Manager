@@ -46,11 +46,7 @@ AuthType = _cli_mod.AuthType
 
 def _make_args(**overrides):
     """Build a minimal args namespace for cmd_* functions."""
-    defaults = {
-        "database": ":memory:",
-        "key_file": "/dev/null",
-        "dev": True,
-    }
+    defaults = {"database": ":memory:", "key_file": "/dev/null", "dev": True}
     defaults.update(overrides)
     return SimpleNamespace(**defaults)
 
@@ -191,9 +187,7 @@ class TestGetDb:
     def test_passes_args(self, mock_db_cls):
         args = _make_args()
         get_db(args)
-        mock_db_cls.assert_called_once_with(
-            db_path=":memory:", key_path="/dev/null", is_dev=True
-        )
+        mock_db_cls.assert_called_once_with(db_path=":memory:", key_path="/dev/null", is_dev=True)
 
 
 # ---------------------------------------------------------------------------
@@ -206,11 +200,7 @@ class TestCmdInit:
     def test_init_new_db(self, mock_get_db, capsys):
         db = MagicMock()
         db.initialize.return_value = True
-        db.verify.return_value = {
-            "schema_version": 1,
-            "table_count": 8,
-            "user_count": 0,
-        }
+        db.verify.return_value = {"schema_version": 1, "table_count": 8, "user_count": 0}
         mock_get_db.return_value = db
 
         args = _make_args(database="/tmp/test.db", key_file="/tmp/key")  # nosec B108  # test fixture path
@@ -225,11 +215,7 @@ class TestCmdInit:
     def test_init_existing_db(self, mock_get_db, capsys):
         db = MagicMock()
         db.initialize.return_value = False
-        db.verify.return_value = {
-            "schema_version": 1,
-            "table_count": 8,
-            "user_count": 3,
-        }
+        db.verify.return_value = {"schema_version": 1, "table_count": 8, "user_count": 3}
         mock_get_db.return_value = db
 
         args = _make_args(database="/tmp/test.db", key_file="/tmp/key")  # nosec B108  # test fixture path
@@ -334,11 +320,7 @@ class TestCmdAdd:
         mock_user_cls.return_value = user_inst
 
         args = _make_args(
-            username="newuser",
-            passkey=False,
-            fido2=False,
-            download=True,
-            admin=False,
+            username="newuser", passkey=False, fido2=False, download=True, admin=False
         )
         result = cmd_add(args)
 
@@ -353,9 +335,7 @@ class TestCmdAdd:
     def test_add_invalid_username(self, mock_get_db, mock_repo_cls, capsys):
         mock_get_db.return_value = MagicMock()
 
-        args = _make_args(
-            username="ab", passkey=False, fido2=False, download=True, admin=False
-        )
+        args = _make_args(username="ab", passkey=False, fido2=False, download=True, admin=False)
         result = cmd_add(args)
 
         assert result == 1
@@ -449,9 +429,7 @@ class TestCmdDelete:
     @patch("auth.cli.SessionRepository")
     @patch("auth.cli.UserRepository")
     @patch("auth.cli.get_db")
-    def test_delete_user_confirmed(
-        self, mock_get_db, mock_user_cls, mock_sess_cls, capsys
-    ):
+    def test_delete_user_confirmed(self, mock_get_db, mock_user_cls, mock_sess_cls, capsys):
         db = MagicMock()
         mock_get_db.return_value = db
         user = _make_user(is_admin=False)
@@ -607,9 +585,7 @@ class TestCmdKick:
     @patch("auth.cli.SessionRepository")
     @patch("auth.cli.UserRepository")
     @patch("auth.cli.get_db")
-    def test_kick_with_sessions(
-        self, mock_get_db, mock_user_cls, mock_sess_cls, capsys
-    ):
+    def test_kick_with_sessions(self, mock_get_db, mock_user_cls, mock_sess_cls, capsys):
         db = MagicMock()
         mock_get_db.return_value = db
         user = _make_user()
@@ -730,9 +706,7 @@ class TestCmdTotpReset:
     @patch("auth.cli.SessionRepository")
     @patch("auth.cli.UserRepository")
     @patch("auth.cli.get_db")
-    def test_totp_reset_success(
-        self, mock_get_db, mock_user_cls, mock_sess_cls, capsys
-    ):
+    def test_totp_reset_success(self, mock_get_db, mock_user_cls, mock_sess_cls, capsys):
         db = MagicMock()
         mock_get_db.return_value = db
         user = _make_user(auth_type=AuthType.TOTP)

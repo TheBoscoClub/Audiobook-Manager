@@ -83,7 +83,7 @@ def _get_project_major_version():
     try:
         version_str = version_file.read_text().strip()
         return int(version_str.split(".")[0])
-    except (FileNotFoundError, ValueError, IndexError):
+    except FileNotFoundError, ValueError, IndexError:
         return 0
 
 
@@ -113,8 +113,7 @@ def pytest_collection_modifyitems(config, items):
 
 
 HARDWARE_SKIP_MSG = (
-    "hardware authentication skipped; "
-    "user not present or did not respond to the prompt."
+    "hardware authentication skipped; user not present or did not respond to the prompt."
 )
 
 
@@ -211,12 +210,9 @@ def ensure_vm_running():
     """
     try:
         result = subprocess.run(
-            ["sudo", "virsh", "domstate", VM_NAME],
-            capture_output=True,
-            text=True,
-            timeout=10,
+            ["sudo", "virsh", "domstate", VM_NAME], capture_output=True, text=True, timeout=10
         )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    except FileNotFoundError, subprocess.TimeoutExpired:
         pytest.skip("virsh not available or timed out")
         return
 
@@ -231,10 +227,7 @@ def ensure_vm_running():
 
     # Start the VM
     start_result = subprocess.run(
-        ["sudo", "virsh", "start", VM_NAME],
-        capture_output=True,
-        text=True,
-        timeout=30,
+        ["sudo", "virsh", "start", VM_NAME], capture_output=True, text=True, timeout=30
     )
     if start_result.returncode != 0:
         pytest.fail(f"Failed to start VM: {start_result.stderr}")
@@ -243,24 +236,12 @@ def ensure_vm_running():
     ssh_cmd = ["ssh"]
     if VM_SSH_KEY:
         ssh_cmd += ["-i", VM_SSH_KEY]
-    ssh_cmd += [
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        "ConnectTimeout=3",
-        "-o",
-        "StrictHostKeyChecking=no",
-    ]
+    ssh_cmd += ["-o", "BatchMode=yes", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=no"]
     deadline = time.time() + 60
     while time.time() < deadline:
         try:
             r = subprocess.run(
-                ssh_cmd
-                + [
-                    f"{VM_USER}@{VM_HOST}",
-                    "echo",
-                    "ok",
-                ],
+                ssh_cmd + [f"{VM_USER}@{VM_HOST}", "echo", "ok"],
                 capture_output=True,
                 text=True,
                 timeout=10,
@@ -291,14 +272,7 @@ def deploy_to_vm(ensure_vm_running):
         pytest.skip("upgrade.sh not found at project root")
 
     result = subprocess.run(
-        [
-            str(upgrade_script),
-            "--from-project",
-            str(PROJECT_ROOT),
-            "--remote",
-            VM_HOST,
-            "--yes",
-        ],
+        [str(upgrade_script), "--from-project", str(PROJECT_ROOT), "--remote", VM_HOST, "--yes"],
         capture_output=True,
         text=True,
         timeout=300,
@@ -586,9 +560,7 @@ def auth_app(auth_temp_dir):
     conn.close()
 
     # Initialize auth database
-    auth_db = AuthDatabase(
-        db_path=str(auth_db_path), key_path=str(auth_key_path), is_dev=True
-    )
+    auth_db = AuthDatabase(db_path=str(auth_db_path), key_path=str(auth_key_path), is_dev=True)
     auth_db.initialize()
 
     # Create test user (regular user, can_download=False for auth tests)
@@ -684,10 +656,7 @@ def _make_session_cookie(auth_db_instance, user_id: int) -> str:
     from auth.models import Session
 
     _session, raw_token = Session.create_for_user(
-        db=auth_db_instance,
-        user_id=user_id,
-        user_agent="pytest",
-        ip_address="127.0.0.1",
+        db=auth_db_instance, user_id=user_id, user_agent="pytest", ip_address="127.0.0.1"
     )
     return raw_token
 
@@ -780,11 +749,9 @@ def test_magic_link_user(auth_db):
     """A Magic Link user with a recovery email."""
     from auth.models import User, AuthType, UserRepository
 
-    user = User(
-        username="mluser_fix",
-        auth_type=AuthType.MAGIC_LINK,
-        auth_credential=b"",
-    ).save(auth_db)
+    user = User(username="mluser_fix", auth_type=AuthType.MAGIC_LINK, auth_credential=b"").save(
+        auth_db
+    )
     UserRepository(auth_db).update_email(user.id, "ml@test.com")
     return UserRepository(auth_db).get_by_id(user.id)
 

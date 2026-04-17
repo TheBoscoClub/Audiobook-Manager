@@ -27,11 +27,7 @@ class TestDoubanSearchByIsbn:
     def test_successful_lookup_returns_metadata(self, requests_mock) -> None:
         requests_mock.get(
             f"{DOUBAN_API_URL}/isbn/9787111000000",
-            json={
-                "title": "三体",
-                "author": ["刘慈欣"],
-                "translator": ["Ken Liu"],
-            },
+            json={"title": "三体", "author": ["刘慈欣"], "translator": ["Ken Liu"]},
         )
         client = DoubanClient(api_key="test-key")
         result = client.search_by_isbn("9787111000000")
@@ -58,43 +54,26 @@ class TestDoubanSearchByIsbn:
         assert result["translator"] == "译者一, 译者二"
 
     def test_404_returns_none(self, requests_mock) -> None:
-        requests_mock.get(
-            f"{DOUBAN_API_URL}/isbn/missing",
-            status_code=404,
-        )
+        requests_mock.get(f"{DOUBAN_API_URL}/isbn/missing", status_code=404)
         client = DoubanClient(api_key="test-key")
         assert client.search_by_isbn("missing") is None
 
     def test_http_error_returns_none(self, requests_mock) -> None:
-        requests_mock.get(
-            f"{DOUBAN_API_URL}/isbn/broken",
-            status_code=500,
-        )
+        requests_mock.get(f"{DOUBAN_API_URL}/isbn/broken", status_code=500)
         client = DoubanClient(api_key="test-key")
         assert client.search_by_isbn("broken") is None
 
     def test_connection_error_returns_none(self, requests_mock) -> None:
-        requests_mock.get(
-            f"{DOUBAN_API_URL}/isbn/net-fail",
-            exc=requests.ConnectionError("boom"),
-        )
+        requests_mock.get(f"{DOUBAN_API_URL}/isbn/net-fail", exc=requests.ConnectionError("boom"))
         client = DoubanClient(api_key="test-key")
         assert client.search_by_isbn("net-fail") is None
 
     def test_missing_optional_fields(self, requests_mock) -> None:
         """When author/translator arrays are absent, empty strings are returned."""
-        requests_mock.get(
-            f"{DOUBAN_API_URL}/isbn/sparse",
-            json={"title": "Bare Book"},
-        )
+        requests_mock.get(f"{DOUBAN_API_URL}/isbn/sparse", json={"title": "Bare Book"})
         client = DoubanClient(api_key="test-key")
         result = client.search_by_isbn("sparse")
-        assert result == {
-            "title": "Bare Book",
-            "author": "",
-            "translator": "",
-            "source": "douban",
-        }
+        assert result == {"title": "Bare Book", "author": "", "translator": "", "source": "douban"}
 
 
 # --- DoubanClient.search_by_title --------------------------------------------
@@ -128,9 +107,7 @@ class TestDoubanSearchByTitle:
 
         requests_mock.get(
             f"{DOUBAN_API_URL}/search",
-            json={
-                "books": [{"title": "The Three Body Problem", "author": ["Liu Cixin"]}]
-            },
+            json={"books": [{"title": "The Three Body Problem", "author": ["Liu Cixin"]}]},
             additional_matcher=_match,
         )
         client = DoubanClient(api_key="test-key")
@@ -157,11 +134,7 @@ class TestDoubanSearchByTitle:
 class _StubDouban:
     """Controllable DoubanClient stand-in for orchestration tests."""
 
-    def __init__(
-        self,
-        isbn_result: dict | None = None,
-        title_result: dict | None = None,
-    ) -> None:
+    def __init__(self, isbn_result: dict | None = None, title_result: dict | None = None) -> None:
         self.isbn_result = isbn_result
         self.title_result = title_result
         self.isbn_calls: list[str] = []
@@ -179,9 +152,7 @@ class _StubDouban:
 class _StubDeepL:
     """DeepL translator stand-in; can be told to succeed or raise."""
 
-    def __init__(
-        self, output: list[str] | None = None, raise_exc: bool = False
-    ) -> None:
+    def __init__(self, output: list[str] | None = None, raise_exc: bool = False) -> None:
         self.output = output or []
         self.raise_exc = raise_exc
         self.calls: list[tuple[list[str], str]] = []
@@ -198,9 +169,7 @@ class TestMetadataLookup:
         assert MetadataLookup().lookup("x", "y", "zh-Hans") is None
 
     def test_douban_isbn_wins(self) -> None:
-        douban = _StubDouban(
-            isbn_result={"title": "书", "author": "作者", "translator": "译者"}
-        )
+        douban = _StubDouban(isbn_result={"title": "书", "author": "作者", "translator": "译者"})
         lookup = MetadataLookup(douban_client=cast(DoubanClient, douban))
         meta = lookup.lookup("Book", "Author", "zh-Hans", isbn="9780000000000")
         assert isinstance(meta, BookMetadata)
@@ -236,8 +205,7 @@ class TestMetadataLookup:
         douban = _StubDouban(isbn_result=None, title_result=None)
         deepl = _StubDeepL(output=["书", "作者"])
         lookup = MetadataLookup(
-            douban_client=cast(DoubanClient, douban),
-            deepl_translator=cast(DeepLTranslator, deepl),
+            douban_client=cast(DoubanClient, douban), deepl_translator=cast(DeepLTranslator, deepl)
         )
         meta = lookup.lookup("Book", "Author", "zh-Hans")
         assert meta is not None
@@ -258,7 +226,6 @@ class TestMetadataLookup:
         douban = _StubDouban()
         deepl = _StubDeepL(raise_exc=True)
         lookup = MetadataLookup(
-            douban_client=cast(DoubanClient, douban),
-            deepl_translator=cast(DeepLTranslator, deepl),
+            douban_client=cast(DoubanClient, douban), deepl_translator=cast(DeepLTranslator, deepl)
         )
         assert lookup.lookup("Book", "Author", "zh-Hans") is None

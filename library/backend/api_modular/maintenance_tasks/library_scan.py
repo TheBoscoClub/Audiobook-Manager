@@ -41,10 +41,7 @@ class LibraryScanTask(MaintenanceTask):
                     message="Library scan completed",
                     data={"output": result.stdout[:500]},
                 )
-            return ExecutionResult(
-                success=False,
-                message=f"Scan failed: {result.stderr[:200]}",
-            )
+            return ExecutionResult(success=False, message=f"Scan failed: {result.stderr[:200]}")
         except subprocess.TimeoutExpired:
             return ExecutionResult(success=False, message="Scan timed out after 600s")
         except Exception as e:

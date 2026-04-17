@@ -123,15 +123,7 @@ def _extract_ffprobe_fields(aaxc_file, metadata):
     """Extract genre, date, series from ffprobe JSON output."""
     try:
         result = subprocess.run(
-            [
-                "ffprobe",
-                "-v",
-                "quiet",
-                "-print_format",
-                "json",
-                "-show_format",
-                str(aaxc_file),
-            ],
+            ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", str(aaxc_file)],
             capture_output=True,
             text=True,
             timeout=10,
@@ -304,12 +296,7 @@ def update_database():
     print(f"Source directory: {SOURCES_DIR}")
     print()
 
-    stats = {
-        "processed": 0,
-        "source_found": 0,
-        "source_not_found": 0,
-        "errors": 0,
-    }
+    stats = {"processed": 0, "source_found": 0, "source_not_found": 0, "errors": 0}
 
     for idx, book in enumerate(books, 1):
         print(f"[{idx}/{len(books)}] Processing: {book['title']}")

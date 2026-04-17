@@ -13,9 +13,7 @@ API_JS = Path(__file__).parent.parent / "web-v2" / "js" / "api.js"
 SHELL_JS = Path(__file__).parent.parent / "web-v2" / "js" / "shell.js"
 
 
-def _extract_fetch_block(
-    content: str, method_name: str, source_name: str = "source"
-) -> str:
+def _extract_fetch_block(content: str, method_name: str, source_name: str = "source") -> str:
     """Extract the body of a method from a JS file by name."""
     pattern = rf"(async\s+)?{method_name}\s*\([^)]*\)\s*\{{"
     match = re.search(pattern, content)
@@ -71,6 +69,4 @@ class TestPlaybackManagerCredentials:
         if uses_api_client:
             # Verify api.js actually includes credentials
             api_content = API_JS.read_text()
-            assert "credentials" in api_content, (
-                "api.js must include credentials in fetch options"
-            )
+            assert "credentials" in api_content, "api.js must include credentials in fetch options"

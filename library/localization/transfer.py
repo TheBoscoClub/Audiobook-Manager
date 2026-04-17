@@ -69,9 +69,7 @@ _EXPORT_QUERIES: dict[str, tuple[str, str]] = {
 }
 
 
-def _fetch_locale(
-    conn: sqlite3.Connection, key: str, locale: str | None
-) -> list[sqlite3.Row]:
+def _fetch_locale(conn: sqlite3.Connection, key: str, locale: str | None) -> list[sqlite3.Row]:
     """Run an export query, with/without a locale filter."""
     q_all, q_locale = _EXPORT_QUERIES[key]
     if locale and q_locale:
@@ -94,9 +92,7 @@ def _load_export_data(conn: sqlite3.Connection, locale: str | None) -> dict:
     subs = _fetch_locale(conn, "subs_other", locale)
     audio = _fetch_locale(conn, "audio", locale)
     meta = _fetch_locale(conn, "meta", locale)
-    collections = _fetch_optional(
-        conn, "collection_translations", "collections", locale
-    )
+    collections = _fetch_optional(conn, "collection_translations", "collections", locale)
     strings = _fetch_optional(conn, "string_translations", "strings", locale)
     queue = _fetch_locale(conn, "queue", locale)
 
@@ -120,8 +116,7 @@ def _build_manifest(data: dict) -> dict:
     """Build the manifest dict written into the tarball."""
     return {
         "version": 2,
-        "subtitles": [dict(r) for r in data["en_subs"]]
-        + [dict(r) for r in data["subs"]],
+        "subtitles": [dict(r) for r in data["en_subs"]] + [dict(r) for r in data["subs"]],
         "translated_audio": [dict(r) for r in data["audio"]],
         "audiobook_translations": [dict(r) for r in data["meta"]],
         "collection_translations": [dict(r) for r in data["collections"]],
@@ -156,11 +151,7 @@ def _write_tarball(output: str, manifest: dict, data: dict) -> None:
 
 def _print_export_summary(summary: dict, data: dict, output: str) -> None:
     """Emit the two human-readable lines + archive path."""
-    total = (
-        summary["en_subtitles"]
-        + summary["translated_subtitles"]
-        + summary["audio_files"]
-    )
+    total = summary["en_subtitles"] + summary["translated_subtitles"] + summary["audio_files"]
     print(
         f"Exported {total} chapter assets + {len(data['meta'])} metadata + "
         f"{len(data['collections'])} collection + {len(data['strings'])} string translations"
@@ -265,9 +256,7 @@ def _extract_file_to_dest(
     default_path: str,
 ) -> str:
     """Extract a file from the tar to its destination dir; return the final path."""
-    if not (
-        arc_key and arc_key in members and new_id in target_book_paths and filename
-    ):
+    if not (arc_key and arc_key in members and new_id in target_book_paths and filename):
         return default_path
     dest_dir = target_book_paths[new_id] / subdir
     dest_dir.mkdir(parents=True, exist_ok=True)
@@ -295,14 +284,7 @@ def _import_subtitles(
         vtt_name = Path(old_vtt).name if old_vtt else None
         arc_key = f"vtt/{vtt_name}" if vtt_name else None
         new_vtt_path = _extract_file_to_dest(
-            tar,
-            members,
-            arc_key,
-            new_id,
-            target_book_paths,
-            "subtitles",
-            vtt_name,
-            old_vtt,
+            tar, members, arc_key, new_id, target_book_paths, "subtitles", vtt_name, old_vtt
         )
         conn.execute(
             _INSERT_SUBTITLE,
@@ -337,14 +319,7 @@ def _import_audio(
         audio_name = Path(old_path).name if old_path else None
         arc_key = f"audio/{audio_name}" if audio_name else None
         new_audio_path = _extract_file_to_dest(
-            tar,
-            members,
-            arc_key,
-            new_id,
-            target_book_paths,
-            "translated",
-            audio_name,
-            old_path,
+            tar, members, arc_key, new_id, target_book_paths, "translated", audio_name, old_path
         )
         conn.execute(
             _INSERT_AUDIO,
@@ -362,9 +337,7 @@ def _import_audio(
     return count
 
 
-def _import_metadata(
-    conn: sqlite3.Connection, manifest: dict, id_map: dict[int, int]
-) -> int:
+def _import_metadata(conn: sqlite3.Connection, manifest: dict, id_map: dict[int, int]) -> int:
     count = 0
     for meta in manifest.get("audiobook_translations", []):
         new_id = id_map.get(meta["audiobook_id"])
@@ -394,12 +367,7 @@ def _import_collections(conn: sqlite3.Connection, manifest: dict) -> int:
     for col in manifest.get("collection_translations", []):
         conn.execute(
             _INSERT_COLLECTION,
-            (
-                col["collection_id"],
-                col["locale"],
-                col["name"],
-                col.get("translator"),
-            ),
+            (col["collection_id"], col["locale"], col["name"], col.get("translator")),
         )
         count += 1
     return count
@@ -424,9 +392,7 @@ def _import_strings(conn: sqlite3.Connection, manifest: dict) -> int:
     return count
 
 
-def _mark_queue_completed(
-    conn: sqlite3.Connection, manifest: dict, id_map: dict[int, int]
-) -> None:
+def _mark_queue_completed(conn: sqlite3.Connection, manifest: dict, id_map: dict[int, int]) -> None:
     for qe in manifest.get("queue_completed", []):
         new_id = id_map.get(qe["audiobook_id"])
         if not new_id:
@@ -479,9 +445,7 @@ def import_translations(db_path: str, archive: str) -> dict:
             imported_subs = _import_subtitles(
                 conn, tar, members, manifest, id_map, target_book_paths
             )
-            imported_audio = _import_audio(
-                conn, tar, members, manifest, id_map, target_book_paths
-            )
+            imported_audio = _import_audio(conn, tar, members, manifest, id_map, target_book_paths)
             imported_meta = _import_metadata(conn, manifest, id_map)
             imported_collections = _import_collections(conn, manifest)
             imported_strings = _import_strings(conn, manifest)
@@ -517,9 +481,7 @@ def main():
     )
     db_default = os.environ.get("AUDIOBOOKS_DATABASE", "audiobooks.db")
     parser.add_argument(
-        "--db",
-        default=db_default,
-        help="Path to audiobooks.db (default: $AUDIOBOOKS_DATABASE)",
+        "--db", default=db_default, help="Path to audiobooks.db (default: $AUDIOBOOKS_DATABASE)"
     )
     sub = parser.add_subparsers(dest="command", required=True)
 

@@ -22,10 +22,7 @@ class TestAddNewAudiobooks:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/utilities/add-new",
-                json={"calculate_hashes": True},
-            )
+            response = client.post("/api/utilities/add-new", json={"calculate_hashes": True})
 
         assert response.status_code == 200
         data = response.get_json()
@@ -78,10 +75,7 @@ class TestAddNewCalculateHashesOption:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/utilities/add-new",
-                json={"calculate_hashes": True},
-            )
+            response = client.post("/api/utilities/add-new", json={"calculate_hashes": True})
 
         assert response.status_code == 200
 
@@ -94,10 +88,7 @@ class TestAddNewCalculateHashesOption:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/utilities/add-new",
-                json={"calculate_hashes": False},
-            )
+            response = client.post("/api/utilities/add-new", json={"calculate_hashes": False})
 
         assert response.status_code == 200
 
@@ -161,9 +152,7 @@ class TestRescanLibraryAsync:
             client.post("/api/utilities/rescan-async")
 
         mock_tracker.is_operation_running.assert_called_with("rescan")
-        mock_tracker.create_operation.assert_called_with(
-            "rescan", "Scanning audiobook library"
-        )
+        mock_tracker.create_operation.assert_called_with("rescan", "Scanning audiobook library")
 
 
 class TestReimportDatabaseAsync:

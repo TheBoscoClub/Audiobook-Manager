@@ -146,9 +146,7 @@ class WhisperSTT(STTProvider):
         if not self.supports_language(language):
             raise ValueError(f"Language '{language}' not supported by Whisper")
 
-        logger.info(
-            "Transcribing %s via RunPod Whisper (lang=%s)", audio_path.name, language
-        )
+        logger.info("Transcribing %s via RunPod Whisper (lang=%s)", audio_path.name, language)
 
         import base64
 
@@ -165,7 +163,7 @@ class WhisperSTT(STTProvider):
                     "language": language,
                     "word_timestamps": True,
                     "model": "large-v3",
-                },
+                }
             },
             timeout=30,
         )
@@ -200,10 +198,7 @@ class WhisperSTT(STTProvider):
             duration_ms = words[-1].end_ms
 
         return Transcript(
-            words=words,
-            language=language,
-            provider="whisper-large-v3",
-            duration_ms=duration_ms,
+            words=words, language=language, provider="whisper-large-v3", duration_ms=duration_ms
         )
 
     def _poll_job(self, status_url: str, max_wait: int = 600) -> dict:
@@ -213,9 +208,7 @@ class WhisperSTT(STTProvider):
 
         while time.monotonic() - start < max_wait:
             resp = requests.get(
-                status_url,
-                headers={"Authorization": f"Bearer {self._api_key}"},
-                timeout=10,
+                status_url, headers={"Authorization": f"Bearer {self._api_key}"}, timeout=10
             )
             resp.raise_for_status()
             data = resp.json()
@@ -224,9 +217,7 @@ class WhisperSTT(STTProvider):
             if status == "COMPLETED":
                 return data.get("output", {})
             if status in ("FAILED", "CANCELLED"):
-                raise RuntimeError(
-                    f"RunPod job {status}: {data.get('error', 'unknown')}"
-                )
+                raise RuntimeError(f"RunPod job {status}: {data.get('error', 'unknown')}")
 
             time.sleep(poll_interval)
             poll_interval = min(poll_interval * 1.5, 10)

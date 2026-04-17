@@ -51,11 +51,7 @@ _project_root: str = ""
 # List of services that can be controlled
 # Note: audiobook-api and audiobook-proxy are intentionally excluded -
 # they are core infrastructure that should not be stopped via the UI
-SERVICES = [
-    "audiobook-converter",
-    "audiobook-mover",
-    "audiobook-downloader.timer",
-]
+SERVICES = ["audiobook-converter", "audiobook-mover", "audiobook-downloader.timer"]
 
 
 # =========================================================================
@@ -81,7 +77,7 @@ def _write_request(request_data: dict) -> bool:
         try:
             # Try to truncate the file instead of deleting
             HELPER_STATUS_FILE.write_text("")
-        except (PermissionError, OSError):
+        except PermissionError, OSError:
             # If we can't even truncate, just leave it - helper will overwrite
             pass
 
@@ -114,7 +110,7 @@ def _read_status() -> dict:
         content = HELPER_STATUS_FILE.read_text()
         status = json.loads(content)
         return status
-    except (json.JSONDecodeError, PermissionError):
+    except json.JSONDecodeError, PermissionError:
         return default_status
 
 
@@ -130,7 +126,7 @@ def _read_preflight() -> dict | None:
     try:
         content = PREFLIGHT_FILE.read_text()
         data = json.loads(content)
-    except (json.JSONDecodeError, PermissionError, OSError):
+    except json.JSONDecodeError, PermissionError, OSError:
         return None
 
     # Compute staleness from the timestamp field
@@ -141,7 +137,7 @@ def _read_preflight() -> dict | None:
             ts = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
             age = (datetime.now(timezone.utc) - ts).total_seconds()
             stale = age > PREFLIGHT_STALE_SECONDS
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             stale = True
 
     data["stale"] = stale
@@ -163,11 +159,9 @@ def _wait_for_completion(timeout: float = 30.0, poll_interval: float = 0.5) -> d
                 if content:  # Not empty
                     status = json.loads(content)
                     # Only return if we have a completed operation (success is not None)
-                    if status.get("success") is not None and not status.get(
-                        "running", True
-                    ):
+                    if status.get("success") is not None and not status.get("running", True):
                         return status
-            except (json.JSONDecodeError, PermissionError, OSError):
+            except json.JSONDecodeError, PermissionError, OSError:
                 pass  # Keep waiting
         time.sleep(poll_interval)
 
@@ -189,9 +183,7 @@ def _check_not_running() -> FlaskResponse | None:
     return None
 
 
-def _validate_project_path_basic(
-    project_path: str | None, source: str
-) -> FlaskResponse | None:
+def _validate_project_path_basic(project_path: str | None, source: str) -> FlaskResponse | None:
     """Validate project_path for check_upgrade (basic validation).
 
     Returns an error response tuple if invalid, or None if OK.
@@ -202,15 +194,9 @@ def _validate_project_path_basic(
     if source == "project" and project_path:
         project_path_obj = Path(project_path)
         if not project_path_obj.is_dir():
-            return (
-                jsonify({"error": "Project path not found or not a directory"}),
-                400,
-            )
+            return (jsonify({"error": "Project path not found or not a directory"}), 400)
         if not (project_path_obj / "VERSION").exists():
-            return (
-                jsonify({"error": "Invalid project: no VERSION file found"}),
-                400,
-            )
+            return (jsonify({"error": "Invalid project: no VERSION file found"}), 400)
     return None
 
 
@@ -223,10 +209,7 @@ def _validate_project_path_strict(
     resolved_path is None and the error should be returned to the caller.
     """
     if source == "project" and not project_path:
-        return (
-            jsonify({"error": "project_path required for project source"}),
-            400,
-        ), None
+        return (jsonify({"error": "project_path required for project source"}), 400), None
 
     if source != "project" or not project_path:
         return None, project_path
@@ -238,19 +221,13 @@ def _validate_project_path_strict(
     if "\0" in project_path or ".." in Path(project_path).parts:
         return (jsonify({"error": "Invalid project path"}), 400), None
     if not project_path_obj.is_dir():
-        return (
-            jsonify({"error": "Project path not found or not a directory"}),
-            400,
-        ), None
+        return (jsonify({"error": "Project path not found or not a directory"}), 400), None
     # Verify it's an actual audiobooks project (has VERSION file)
     version_file = project_path_obj / "VERSION"
     if not version_file.resolve().parent == project_path_obj:
         return (jsonify({"error": "Invalid project path"}), 400), None
     if not version_file.exists():
-        return (
-            jsonify({"error": "Invalid project: no VERSION file found"}),
-            400,
-        ), None
+        return (jsonify({"error": "Invalid project: no VERSION file found"}), 400), None
     # Use the resolved path from here on
     return None, str(project_path_obj)
 
@@ -258,10 +235,7 @@ def _validate_project_path_strict(
 def _validate_version_source(version: str | None, source: str) -> FlaskResponse | None:
     """Return error if version is set but source is not 'github'."""
     if version and source != "github":
-        return (
-            jsonify({"error": "version field is only valid with source 'github'"}),
-            400,
-        )
+        return (jsonify({"error": "version field is only valid with source 'github'"}), 400)
     return None
 
 
@@ -278,11 +252,7 @@ def _build_upgrade_check_request(
 
 
 def _build_upgrade_request(
-    source: str,
-    project_path: str | None,
-    force: bool,
-    major_version: bool,
-    version: str | None,
+    source: str, project_path: str | None, force: bool, major_version: bool, version: str | None
 ) -> dict:
     """Build the request dict for an upgrade."""
     request_data = {
@@ -306,9 +276,7 @@ def _check_preflight_gate(force: bool) -> FlaskResponse | None:
     preflight = _read_preflight()
     if preflight is None or preflight.get("stale", True):
         return (
-            jsonify(
-                {"error": ("Preflight check required. Run 'Check for Updates' first.")}
-            ),
+            jsonify({"error": ("Preflight check required. Run 'Check for Updates' first.")}),
             400,
         )
     return None
@@ -316,28 +284,19 @@ def _check_preflight_gate(force: bool) -> FlaskResponse | None:
 
 def _write_request_or_error() -> FlaskResponse:
     """Shared error response for failed request writes."""
-    return (
-        jsonify({"error": "Failed to write request (permission denied)"}),
-        500,
-    )
+    return (jsonify({"error": "Failed to write request (permission denied)"}), 500)
 
 
 def _get_service_status_entry(service: str) -> dict:
     """Get the status of a single systemd service."""
     try:
         result = subprocess.run(
-            ["systemctl", "is-active", service],
-            capture_output=True,
-            text=True,
-            timeout=5,
+            ["systemctl", "is-active", service], capture_output=True, text=True, timeout=5
         )
         is_active = result.stdout.strip() == "active"
 
         result_enabled = subprocess.run(
-            ["systemctl", "is-enabled", service],
-            capture_output=True,
-            text=True,
-            timeout=5,
+            ["systemctl", "is-enabled", service], capture_output=True, text=True, timeout=5
         )
         is_enabled = result_enabled.stdout.strip() == "enabled"
 
@@ -381,12 +340,7 @@ def _service_control(service_name: str, action: str) -> FlaskResponse:
     if status.get("success"):
         return jsonify({"success": True, "message": f"{verb} {service_name}"})
     return (
-        jsonify(
-            {
-                "success": False,
-                "error": status.get("message", f"Failed to {action} service"),
-            }
-        ),
+        jsonify({"success": False, "error": status.get("message", f"Failed to {action} service")}),
         500,
     )
 
@@ -414,10 +368,7 @@ def _read_project_version(version_path: str) -> str | None:
         return None
 
 
-def _scan_projects_in_dir(
-    base_dir: str,
-    seen_paths: set[str],
-) -> list[dict]:
+def _scan_projects_in_dir(base_dir: str, seen_paths: set[str]) -> list[dict]:
     """Scan a single directory for audiobook projects.
 
     Called from the admin-only list_projects endpoint.  The caller is
@@ -439,11 +390,7 @@ def _scan_projects_in_dir(
     return results
 
 
-def _scan_single_project(
-    base_dir: str,
-    name: str,
-    seen_paths: set[str],
-) -> dict | None:
+def _scan_single_project(base_dir: str, name: str, seen_paths: set[str]) -> dict | None:
     """Check if a directory entry is an audiobook project and return its info."""
     proj_path = os.path.join(base_dir, name)
     if proj_path in seen_paths or not os.path.isdir(proj_path):
@@ -476,7 +423,7 @@ def _load_cf_credentials_from_file(token_file: str) -> tuple[str | None, str | N
                     api_key = val
                 elif key == "CF_AUTH_EMAIL":
                     auth_email = val
-    except (PermissionError, OSError):
+    except PermissionError, OSError:
         pass
     return api_key, auth_email
 
@@ -512,14 +459,10 @@ def _execute_cf_purge(zone_id: str, api_key: str, auth_email: str) -> FlaskRespo
             result = json.loads(resp.read())
             if result.get("success"):
                 return jsonify({"success": True})
-            return jsonify(
-                {"success": False, "error": "Cloudflare API returned failure"}
-            ), 502
+            return jsonify({"success": False, "error": "Cloudflare API returned failure"}), 502
     except (urllib.error.HTTPError, urllib.error.URLError) as e:
         logger.error("Cloudflare API error: %s", e)
-        return jsonify(
-            {"success": False, "error": "Cloudflare API request failed"}
-        ), 502
+        return jsonify({"success": False, "error": "Cloudflare API request failed"}), 502
     except TimeoutError:
         return jsonify({"success": False, "error": "Cloudflare API timeout"}), 504
 
@@ -534,17 +477,10 @@ def _execute_cf_purge(zone_id: str, api_key: str, auth_email: str) -> FlaskRespo
 def get_services_status() -> FlaskResponse:
     """Get status of all audiobook services."""
     services = [_get_service_status_entry(svc) for svc in SERVICES]
-    return jsonify(
-        {
-            "services": services,
-            "all_active": all(s["active"] for s in services),
-        }
-    )
+    return jsonify({"services": services, "all_active": all(s["active"] for s in services)})
 
 
-@utilities_system_bp.route(
-    "/api/system/services/<service_name>/start", methods=["POST"]
-)
+@utilities_system_bp.route("/api/system/services/<service_name>/start", methods=["POST"])
 @admin_or_localhost
 def start_service(service_name: str) -> FlaskResponse:
     """Start a specific service."""
@@ -558,9 +494,7 @@ def stop_service(service_name: str) -> FlaskResponse:
     return _service_control(service_name, "stop")
 
 
-@utilities_system_bp.route(
-    "/api/system/services/<service_name>/restart", methods=["POST"]
-)
+@utilities_system_bp.route("/api/system/services/<service_name>/restart", methods=["POST"])
 @admin_or_localhost
 def restart_service(service_name: str) -> FlaskResponse:
     """Restart a specific service."""
@@ -668,13 +602,7 @@ def check_upgrade() -> FlaskResponse:
     if not _write_request(request_data):
         return _write_request_or_error()
 
-    return jsonify(
-        {
-            "success": True,
-            "message": "Upgrade check started",
-            "source": source,
-        }
-    )
+    return jsonify({"success": True, "message": "Upgrade check started", "source": source})
 
 
 @utilities_system_bp.route("/api/system/upgrade", methods=["POST"])
@@ -715,20 +643,12 @@ def start_upgrade() -> FlaskResponse:
     if preflight_err:
         return preflight_err
 
-    request_data = _build_upgrade_request(
-        source, resolved_path, force, major_version, version
-    )
+    request_data = _build_upgrade_request(source, resolved_path, force, major_version, version)
 
     if not _write_request(request_data):
         return _write_request_or_error()
 
-    return jsonify(
-        {
-            "success": True,
-            "message": "Upgrade started",
-            "source": source,
-        }
-    )
+    return jsonify({"success": True, "message": "Upgrade started", "source": source})
 
 
 @utilities_system_bp.route("/api/system/version", methods=["GET"])
@@ -816,11 +736,34 @@ def get_health() -> FlaskResponse:
     database_path = current_app.config.get("DATABASE_PATH")
     db_ok = Path(database_path).exists() if database_path else False
 
-    return jsonify(
+    return jsonify({"status": "ok", "version": version, "database": db_ok})
+
+
+def _resolve_user_project_path(user_path: str) -> str | None:
+    """Validate and return a user-provided project directory path, or None
+    if it fails the safety checks (absolute, no null bytes, must exist).
+    """
+    if not user_path:
+        return None
+    resolved = os.path.realpath(user_path)
+    if os.path.isabs(resolved) and "\x00" not in user_path and os.path.isdir(resolved):
+        return resolved
+    return None
+
+
+def _record_direct_project(resolved: str, seen: set[str], projects: list[dict]) -> None:
+    """If `resolved` is itself a project dir (has VERSION), append it to
+    `projects` and add to `seen`.
+    """
+    version_file = os.path.join(resolved, "VERSION")
+    if resolved in seen or not (os.path.isdir(resolved) and os.path.isfile(version_file)):
+        return
+    seen.add(resolved)
+    projects.append(
         {
-            "status": "ok",
-            "version": version,
-            "database": db_ok,
+            "name": os.path.basename(resolved),
+            "path": resolved,
+            "version": _read_project_version(version_file),
         }
     )
 
@@ -834,54 +777,26 @@ def list_projects() -> FlaskResponse:
     paths are accepted directly — the admin already has full system access.
     """
     configured_dir = os.environ.get("AUDIOBOOKS_PROJECT_DIR", "")
-    # Default base directories to scan when no user path is given
-    default_bases = [
-        configured_dir,
-        os.path.expanduser("~/projects"),
-        "/opt/projects",
-    ]
+    default_bases = [configured_dir, os.path.expanduser("~/projects"), "/opt/projects"]
     default_bases = [os.path.realpath(p) for p in default_bases if p]
 
     seen: set[str] = set()
     projects: list[dict] = []
 
-    user_path = request.args.get("base_path", "").strip()
-    # Paths to check: user-provided first, then configured default
-    paths_to_check = []
-    if user_path:
-        resolved_user = os.path.realpath(user_path)
-        # Validate: must be absolute, no null bytes, must exist
-        if (
-            os.path.isabs(resolved_user)
-            and "\x00" not in user_path
-            and os.path.isdir(resolved_user)
-        ):
-            paths_to_check.append(resolved_user)
+    paths_to_check: list[str] = []
+    resolved_user = _resolve_user_project_path(request.args.get("base_path", "").strip())
+    if resolved_user:
+        paths_to_check.append(resolved_user)
     if configured_dir:
         paths_to_check.append(os.path.realpath(configured_dir))
 
     for resolved in paths_to_check:
-        # Check if the path itself IS a project (has VERSION file)
-        version_file = os.path.join(resolved, "VERSION")
-        if os.path.isdir(resolved) and os.path.isfile(version_file):
-            if resolved not in seen:
-                version = _read_project_version(version_file)
-                seen.add(resolved)
-                projects.append(
-                    {
-                        "name": os.path.basename(resolved),
-                        "path": resolved,
-                        "version": version,
-                    }
-                )
-        # Also scan it as a parent directory for child projects
+        _record_direct_project(resolved, seen, projects)
         projects.extend(_scan_projects_in_dir(resolved, seen))
 
-    # Scan remaining default directories
     for base in default_bases:
         projects.extend(_scan_projects_in_dir(base, seen))
 
-    # Return configured default so UI can auto-populate the input
     default_path = os.path.realpath(configured_dir) if configured_dir else ""
     return jsonify({"projects": projects, "default_path": default_path})
 
@@ -897,21 +812,11 @@ def purge_cdn_cache() -> FlaskResponse:
     """
     zone_id = os.environ.get("CF_ZONE_ID", "")
     if not zone_id:
-        return jsonify(
-            {
-                "success": False,
-                "error": "CF_ZONE_ID not configured",
-            }
-        ), 503
+        return jsonify({"success": False, "error": "CF_ZONE_ID not configured"}), 503
     api_key, auth_email = _resolve_cf_credentials()
 
     if not api_key or not auth_email:
-        return jsonify(
-            {
-                "success": False,
-                "error": "Cloudflare credentials not configured",
-            }
-        ), 503
+        return jsonify({"success": False, "error": "Cloudflare credentials not configured"}), 503
 
     return _execute_cf_purge(zone_id, api_key, auth_email)
 

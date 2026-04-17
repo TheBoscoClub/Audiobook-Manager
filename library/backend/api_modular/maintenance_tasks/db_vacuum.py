@@ -23,7 +23,7 @@ def _resolve_db_path(params):
         from flask import current_app
 
         return current_app.config["DATABASE_PATH"]
-    except (RuntimeError, ImportError):
+    except RuntimeError, ImportError:
         return None
 
 

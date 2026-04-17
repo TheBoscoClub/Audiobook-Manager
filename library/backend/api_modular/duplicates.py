@@ -57,7 +57,7 @@ def _is_safe_path(filepath: Path, allowed_bases: list[Path]) -> bool:
                 # Not under this base, try next
                 continue
         return False
-    except (OSError, RuntimeError):
+    except OSError, RuntimeError:
         # Path resolution failed (broken symlink, permission error, etc.)
         return False
 
@@ -104,15 +104,9 @@ def remove_from_indexes(filepath: Path) -> dict:
 
 def _delete_audiobook_cascade(cursor, audiobook_id: int) -> None:
     """Delete an audiobook and all related records from the database."""
-    cursor.execute(
-        "DELETE FROM audiobook_topics WHERE audiobook_id = ?",
-        (audiobook_id,),
-    )
+    cursor.execute("DELETE FROM audiobook_topics WHERE audiobook_id = ?", (audiobook_id,))
     cursor.execute("DELETE FROM audiobook_eras WHERE audiobook_id = ?", (audiobook_id,))
-    cursor.execute(
-        "DELETE FROM audiobook_genres WHERE audiobook_id = ?",
-        (audiobook_id,),
-    )
+    cursor.execute("DELETE FROM audiobook_genres WHERE audiobook_id = ?", (audiobook_id,))
     cursor.execute("DELETE FROM audiobooks WHERE id = ?", (audiobook_id,))
 
 
@@ -212,11 +206,7 @@ def _find_duplicates_from_index(index_file: str) -> dict:
 
     checksums = _parse_checksum_index(index_file)
     if checksums is None:
-        return {
-            "exists": True,
-            "error": "Failed to parse checksum index",
-            "duplicate_groups": [],
-        }
+        return {"exists": True, "error": "Failed to parse checksum index", "duplicate_groups": []}
 
     # Find groups with >1 file (duplicates)
     duplicate_groups = []
@@ -355,9 +345,7 @@ def _perform_deletions(cursor, safe_to_delete: list[int]) -> tuple[list, list]:
     errors = []
 
     for audiobook_id in safe_to_delete:
-        cursor.execute(
-            "SELECT file_path, title FROM audiobooks WHERE id = ?", (audiobook_id,)
-        )
+        cursor.execute("SELECT file_path, title FROM audiobooks WHERE id = ?", (audiobook_id,))
         row = cursor.fetchone()
 
         if not row:
@@ -369,14 +357,10 @@ def _perform_deletions(cursor, safe_to_delete: list[int]) -> tuple[list, list]:
         try:
             _delete_file_and_index(file_path)
             _delete_audiobook_cascade(cursor, audiobook_id)
-            deleted_files.append(
-                {"id": audiobook_id, "title": title, "path": str(file_path)}
-            )
+            deleted_files.append({"id": audiobook_id, "title": title, "path": str(file_path)})
         except Exception as e:
             logger.exception("Error deleting audiobook %d: %s", audiobook_id, e)
-            errors.append(
-                {"id": audiobook_id, "title": title, "error": "Deletion failed"}
-            )
+            errors.append({"id": audiobook_id, "title": title, "error": "Deletion failed"})
 
     return deleted_files, errors
 
@@ -390,8 +374,7 @@ def _delete_library_file_with_db(
     skipped_not_found: list[str] = []
 
     cursor.execute(
-        "SELECT id, title, file_path FROM audiobooks WHERE file_path = ?",
-        (filepath_str,),
+        "SELECT id, title, file_path FROM audiobooks WHERE file_path = ?", (filepath_str,)
     )
     row = cursor.fetchone()
 
@@ -401,30 +384,20 @@ def _delete_library_file_with_db(
         try:
             _delete_file_and_index(filepath)
             _delete_audiobook_cascade(cursor, audiobook_id)
-            deleted_files.append(
-                {"path": filepath_str, "title": title, "id": audiobook_id}
-            )
+            deleted_files.append({"path": filepath_str, "title": title, "id": audiobook_id})
         except Exception as e:
             # CodeQL: _sanitize_for_log removes control chars (log injection safe)
             logger.exception(
-                "Error deleting library file %s: %s",
-                _sanitize_for_log(filepath_str),
-                e,
+                "Error deleting library file %s: %s", _sanitize_for_log(filepath_str), e
             )
             errors.append({"path": filepath_str, "error": "Deletion failed"})
     elif filepath.exists():
         try:
             _delete_file_and_index(filepath)
-            deleted_files.append(
-                {"path": filepath_str, "title": filepath.name, "id": None}
-            )
+            deleted_files.append({"path": filepath_str, "title": filepath.name, "id": None})
         except Exception as e:
             # CodeQL: _sanitize_for_log removes control chars (log injection safe)
-            logger.exception(
-                "Error deleting file %s: %s",
-                _sanitize_for_log(filepath_str),
-                e,
-            )
+            logger.exception("Error deleting file %s: %s", _sanitize_for_log(filepath_str), e)
             errors.append({"path": filepath_str, "error": "Deletion failed"})
     else:
         skipped_not_found.append(filepath_str)
@@ -442,15 +415,11 @@ def _delete_source_file(filepath: Path, filepath_str: str) -> tuple[list, list, 
     if filepath.exists():
         try:
             _delete_file_and_index(filepath)
-            deleted_files.append(
-                {"path": filepath_str, "title": filepath.name, "id": None}
-            )
+            deleted_files.append({"path": filepath_str, "title": filepath.name, "id": None})
         except Exception as e:
             # CodeQL: _sanitize_for_log removes control chars (log injection safe)
             logger.exception(
-                "Error deleting source file %s: %s",
-                _sanitize_for_log(filepath_str),
-                e,
+                "Error deleting source file %s: %s", _sanitize_for_log(filepath_str), e
             )
             errors.append({"path": filepath_str, "error": "Deletion failed"})
     else:
@@ -488,9 +457,7 @@ def get_hash_stats() -> Response:
         cursor.execute("SELECT COUNT(*) as total FROM audiobooks")
         total = cursor.fetchone()["total"]
 
-        cursor.execute(
-            "SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash IS NOT NULL"
-        )
+        cursor.execute("SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash IS NOT NULL")
         hashed = cursor.fetchone()["count"]
 
         cursor.execute("""
@@ -509,9 +476,7 @@ def get_hash_stats() -> Response:
                 "total_audiobooks": total,
                 "hashed_count": hashed,
                 "unhashed_count": total - hashed,
-                "hashed_percentage": (
-                    round(hashed * 100 / total, 1) if total > 0 else 0
-                ),
+                "hashed_percentage": (round(hashed * 100 / total, 1) if total > 0 else 0),
                 "duplicate_groups": duplicate_groups,
             }
         )
@@ -532,10 +497,7 @@ def get_duplicates() -> FlaskResponse:
         columns = [row["name"] for row in cursor.fetchall()]
 
         if "sha256_hash" not in columns:
-            return (
-                jsonify({"error": "Hash column not found. Run hash generation first."}),
-                400,
-            )
+            return (jsonify({"error": "Hash column not found. Run hash generation first."}), 400)
 
         # Get all duplicate groups
         cursor.execute("""
@@ -786,9 +748,7 @@ def delete_duplicates() -> FlaskResponse:
             "deleted_files": deleted_files,
             "blocked_count": len(blocked_ids),
             "blocked_ids": blocked_ids,
-            "blocked_reason": (
-                "These IDs were blocked to prevent deleting the last copy"
-            ),
+            "blocked_reason": ("These IDs were blocked to prevent deleting the last copy"),
             "errors": errors,
         }
     )
@@ -810,10 +770,7 @@ def get_duplicates_by_checksum() -> Response:
     check_type = request.args.get("type", "both")
     index_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks") + "/.index"
 
-    result: dict[str, Any] = {
-        "sources": None,
-        "library": None,
-    }
+    result: dict[str, Any] = {"sources": None, "library": None}
 
     if check_type in ("sources", "both"):
         result["sources"] = _find_duplicates_from_index(
@@ -1006,8 +963,7 @@ def _verify_hash_groups(cursor, items: list[dict]) -> tuple[list[int], list[dict
             continue
 
         cursor.execute(
-            "SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash = ?",
-            (hash_val,),
+            "SELECT COUNT(*) as count FROM audiobooks WHERE sha256_hash = ?", (hash_val,)
         )
         total_copies = cursor.fetchone()["count"]
 

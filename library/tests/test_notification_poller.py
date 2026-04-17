@@ -25,9 +25,7 @@ def test_poll_finds_pending_notifications(notif_db):
         ("announce", json.dumps({"window_id": 1})),
     )
     conn.commit()
-    rows = conn.execute(
-        "SELECT * FROM maintenance_notifications WHERE delivered = 0"
-    ).fetchall()
+    rows = conn.execute("SELECT * FROM maintenance_notifications WHERE delivered = 0").fetchall()
     assert len(rows) == 1
     conn.close()
 
@@ -41,9 +39,7 @@ def test_poll_marks_delivered(notif_db):
     )
     conn.commit()
     nid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-    conn.execute(
-        "UPDATE maintenance_notifications SET delivered = 1 WHERE id = ?", (nid,)
-    )
+    conn.execute("UPDATE maintenance_notifications SET delivered = 1 WHERE id = ?", (nid,))
     conn.commit()
     pending = conn.execute(
         "SELECT COUNT(*) FROM maintenance_notifications WHERE delivered = 0"

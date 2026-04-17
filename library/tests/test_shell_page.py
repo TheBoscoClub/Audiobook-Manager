@@ -22,9 +22,7 @@ class TestShellPageExists:
 
     def test_has_audio_element(self):
         content = SHELL_HTML.read_text()
-        assert 'id="audio-element"' in content, (
-            "shell.html must contain the <audio> element"
-        )
+        assert 'id="audio-element"' in content, "shell.html must contain the <audio> element"
 
     def test_has_player_bar(self):
         content = SHELL_HTML.read_text()

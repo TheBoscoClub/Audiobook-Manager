@@ -216,28 +216,10 @@ SEED_NARRATORS = [
 ]
 
 # book_id -> author_id
-SEED_BOOK_AUTHORS = [
-    (1, 1),
-    (2, 1),
-    (3, 2),
-    (4, 3),
-    (5, 4),
-    (6, 5),
-    (7, 6),
-    (8, 7),
-]
+SEED_BOOK_AUTHORS = [(1, 1), (2, 1), (3, 2), (4, 3), (5, 4), (6, 5), (7, 6), (8, 7)]
 
 # book_id -> narrator_id
-SEED_BOOK_NARRATORS = [
-    (1, 1),
-    (2, 1),
-    (3, 2),
-    (4, 3),
-    (5, 4),
-    (6, 1),
-    (7, 5),
-    (8, 6),
-]
+SEED_BOOK_NARRATORS = [(1, 1), (2, 1), (3, 2), (4, 3), (5, 4), (6, 1), (7, 5), (8, 6)]
 
 SEED_GENRES = [
     {"id": 1, "name": "Science Fiction"},
@@ -246,30 +228,11 @@ SEED_GENRES = [
 ]
 
 # audiobook_id -> genre_id
-SEED_AUDIOBOOK_GENRES = [
-    (1, 1),
-    (2, 1),
-    (3, 1),
-    (4, 1),
-    (5, 2),
-    (6, 1),
-    (7, 3),
-]
+SEED_AUDIOBOOK_GENRES = [(1, 1), (2, 1), (3, 1), (4, 1), (5, 2), (6, 1), (7, 3)]
 
-SEED_ERAS = [
-    {"id": 1, "name": "20th Century"},
-    {"id": 2, "name": "21st Century"},
-]
+SEED_ERAS = [{"id": 1, "name": "20th Century"}, {"id": 2, "name": "21st Century"}]
 
-SEED_AUDIOBOOK_ERAS = [
-    (1, 1),
-    (2, 1),
-    (3, 1),
-    (5, 1),
-    (6, 1),
-    (4, 2),
-    (7, 2),
-]
+SEED_AUDIOBOOK_ERAS = [(1, 1), (2, 1), (3, 1), (5, 1), (6, 1), (4, 2), (7, 2)]
 
 
 def _seed_database(db_path: Path) -> None:
@@ -335,8 +298,7 @@ def _seed_database(db_path: Path) -> None:
         cur.execute("INSERT INTO genres (id, name) VALUES (?, ?)", (g["id"], g["name"]))
     for ab_id, g_id in SEED_AUDIOBOOK_GENRES:
         cur.execute(
-            "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
-            (ab_id, g_id),
+            "INSERT INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)", (ab_id, g_id)
         )
 
     # Eras
@@ -344,8 +306,7 @@ def _seed_database(db_path: Path) -> None:
         cur.execute("INSERT INTO eras (id, name) VALUES (?, ?)", (e["id"], e["name"]))
     for ab_id, e_id in SEED_AUDIOBOOK_ERAS:
         cur.execute(
-            "INSERT INTO audiobook_eras (audiobook_id, era_id) VALUES (?, ?)",
-            (ab_id, e_id),
+            "INSERT INTO audiobook_eras (audiobook_id, era_id) VALUES (?, ?)", (ab_id, e_id)
         )
 
     conn.commit()
@@ -543,10 +504,7 @@ class TestCombinedFilters:
 
     def test_narrator_and_genre(self, client):
         """Scott Brick + Science Fiction -> Dune, Dune Messiah, Foundation."""
-        data = _get(
-            client,
-            "/api/audiobooks?narrator=Scott Brick&genre=Science Fiction",
-        )
+        data = _get(client, "/api/audiobooks?narrator=Scott Brick&genre=Science Fiction")
         books = data["audiobooks"]
         assert len(books) == 3
 
@@ -557,10 +515,7 @@ class TestCombinedFilters:
 
     def test_author_and_narrator_intersect(self, client):
         """Frank Herbert + Scott Brick -> Dune + Dune Messiah."""
-        data = _get(
-            client,
-            "/api/audiobooks?author=Frank Herbert&narrator=Scott Brick",
-        )
+        data = _get(client, "/api/audiobooks?author=Frank Herbert&narrator=Scott Brick")
         books = data["audiobooks"]
         assert len(books) == 2
 
@@ -588,16 +543,12 @@ class TestSortByDuration:
     """Sort by duration_hours produces numerically ordered results."""
 
     def test_duration_asc(self, client):
-        data = _get(
-            client, "/api/audiobooks?sort=duration_hours&order=asc&per_page=200"
-        )
+        data = _get(client, "/api/audiobooks?sort=duration_hours&order=asc&per_page=200")
         durations = [b["duration_hours"] for b in data["audiobooks"]]
         assert durations == sorted(durations)
 
     def test_duration_desc(self, client):
-        data = _get(
-            client, "/api/audiobooks?sort=duration_hours&order=desc&per_page=200"
-        )
+        data = _get(client, "/api/audiobooks?sort=duration_hours&order=desc&per_page=200")
         durations = [b["duration_hours"] for b in data["audiobooks"]]
         assert durations == sorted(durations, reverse=True)
 
@@ -606,18 +557,12 @@ class TestSortByPublishedYear:
     """Sort by published_year produces chronologically ordered results."""
 
     def test_year_asc(self, client):
-        data = _get(
-            client,
-            "/api/audiobooks?sort=published_year&order=asc&per_page=200",
-        )
+        data = _get(client, "/api/audiobooks?sort=published_year&order=asc&per_page=200")
         years = [b["published_year"] for b in data["audiobooks"]]
         assert years == sorted(years)
 
     def test_year_desc(self, client):
-        data = _get(
-            client,
-            "/api/audiobooks?sort=published_year&order=desc&per_page=200",
-        )
+        data = _get(client, "/api/audiobooks?sort=published_year&order=desc&per_page=200")
         years = [b["published_year"] for b in data["audiobooks"]]
         assert years == sorted(years, reverse=True)
 
@@ -649,14 +594,9 @@ class TestSortByAuthorLast:
     """Sort by author_last sorts by last name with NULLs at the end."""
 
     def test_author_last_asc(self, client):
-        data = _get(
-            client,
-            "/api/audiobooks?sort=author_last&order=asc&per_page=200",
-        )
+        data = _get(client, "/api/audiobooks?sort=author_last&order=asc&per_page=200")
         last_names = [
-            b["author_last_name"]
-            for b in data["audiobooks"]
-            if b["author_last_name"] is not None
+            b["author_last_name"] for b in data["audiobooks"] if b["author_last_name"] is not None
         ]
         assert last_names == sorted(last_names, key=str.lower)
 
@@ -665,10 +605,7 @@ class TestSortByFileSize:
     """Sort by file_size_mb produces numerically ordered results."""
 
     def test_file_size_asc(self, client):
-        data = _get(
-            client,
-            "/api/audiobooks?sort=file_size_mb&order=asc&per_page=200",
-        )
+        data = _get(client, "/api/audiobooks?sort=file_size_mb&order=asc&per_page=200")
         sizes = [b["file_size_mb"] for b in data["audiobooks"]]
         assert sizes == sorted(sizes)
 
@@ -789,10 +726,7 @@ class TestSearchWithFilters:
 
     def test_search_plus_genre_filter(self, client):
         """Search 'foundation' + genre=Science Fiction -> Foundation."""
-        data = _get(
-            client,
-            "/api/audiobooks?search=foundation&genre=Science Fiction",
-        )
+        data = _get(client, "/api/audiobooks?search=foundation&genre=Science Fiction")
         books = data["audiobooks"]
         assert len(books) >= 1
         assert books[0]["title"] == "Foundation"

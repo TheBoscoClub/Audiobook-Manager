@@ -61,9 +61,7 @@ def base32_to_secret(base32_secret: str) -> bytes:
     return base64.b32decode(base32_secret)
 
 
-def get_provisioning_uri(
-    secret: bytes, username: str, issuer: str = DEFAULT_ISSUER
-) -> str:
+def get_provisioning_uri(secret: bytes, username: str, issuer: str = DEFAULT_ISSUER) -> str:
     """
     Generate otpauth:// URI for QR code scanning.
 
@@ -79,9 +77,7 @@ def get_provisioning_uri(
     return totp.provisioning_uri(name=username, issuer_name=issuer)
 
 
-def generate_qr_code(
-    secret: bytes, username: str, issuer: str = DEFAULT_ISSUER
-) -> bytes:
+def generate_qr_code(secret: bytes, username: str, issuer: str = DEFAULT_ISSUER) -> bytes:
     """
     Generate QR code image as PNG bytes.
 
@@ -100,10 +96,7 @@ def generate_qr_code(
 
     uri = get_provisioning_uri(secret, username, issuer)
     qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=4,
+        version=1, error_correction=qrcode.constants.ERROR_CORRECT_L, box_size=10, border=4
     )
     qr.add_data(uri)
     qr.make(fit=True)

@@ -40,11 +40,7 @@ class TestParseYamlGlossary:
             encoding="utf-8",
         )
         entries = _parse_yaml_glossary(yaml_file)
-        assert entries == {
-            "audiobook": "有声书",
-            "series": "系列",
-            "author": "作者",
-        }
+        assert entries == {"audiobook": "有声书", "series": "系列", "author": "作者"}
 
     def test_ignores_comments_and_blank_and_invalid(self, tmp_path: Path) -> None:
         yaml_file = tmp_path / "g.yaml"
@@ -88,9 +84,7 @@ class TestEntriesHelpers:
 class _StubTracker:
     """In-memory stand-in for ``QuotaTracker``'s glossary accessors."""
 
-    def __init__(
-        self, cached_id: str | None = None, cached_hash: str | None = None
-    ) -> None:
+    def __init__(self, cached_id: str | None = None, cached_hash: str | None = None) -> None:
         self._id = cached_id
         self._hash = cached_hash
         self.set_calls: list[tuple[str, str]] = []
@@ -110,10 +104,7 @@ def _as_tracker(stub: _StubTracker) -> QuotaTracker:
 
 
 def _write_glossary(path: Path, entries: dict[str, str]) -> Path:
-    path.write_text(
-        "\n".join(f"{k}: {v}" for k, v in entries.items()) + "\n",
-        encoding="utf-8",
-    )
+    path.write_text("\n".join(f"{k}: {v}" for k, v in entries.items()) + "\n", encoding="utf-8")
     return path
 
 
@@ -188,10 +179,7 @@ class TestGlossaryManagerEnsure:
             captured["body"] = request.text
             return {"glossary_id": "new-gid"}
 
-        requests_mock.post(
-            "https://api.deepl.com/v2/glossaries",
-            json=_record,
-        )
+        requests_mock.post("https://api.deepl.com/v2/glossaries", json=_record)
         gm = GlossaryManager(
             api_key="sekret",
             base_url="https://api.deepl.com/v2",
@@ -210,8 +198,7 @@ class TestGlossaryManagerEnsure:
         yaml_file = _write_glossary(tmp_path / "g.yaml", {"book": "书"})
         tracker = _StubTracker(cached_id="old-gid", cached_hash="stale")
         requests_mock.post(
-            "https://api.deepl.com/v2/glossaries",
-            json={"glossary_id": "rebuilt-gid"},
+            "https://api.deepl.com/v2/glossaries", json={"glossary_id": "rebuilt-gid"}
         )
         gm = GlossaryManager(
             api_key="x",
@@ -232,16 +219,13 @@ class TestGlossaryManagerRefresh:
         )
         assert gm.refresh() is None
 
-    def test_refresh_pushes_even_when_cache_matches(
-        self, tmp_path: Path, requests_mock
-    ) -> None:
+    def test_refresh_pushes_even_when_cache_matches(self, tmp_path: Path, requests_mock) -> None:
         entries = {"book": "书"}
         yaml_file = _write_glossary(tmp_path / "g.yaml", entries)
         cached_hash = _hash_entries(entries)
         tracker = _StubTracker(cached_id="cached-gid", cached_hash=cached_hash)
         requests_mock.post(
-            "https://api.deepl.com/v2/glossaries",
-            json={"glossary_id": "forced-gid"},
+            "https://api.deepl.com/v2/glossaries", json={"glossary_id": "forced-gid"}
         )
         gm = GlossaryManager(
             api_key="x",
@@ -254,14 +238,10 @@ class TestGlossaryManagerRefresh:
 
 
 class TestGlossaryManagerPushErrors:
-    def test_http_error_raises_glossary_error(
-        self, tmp_path: Path, requests_mock
-    ) -> None:
+    def test_http_error_raises_glossary_error(self, tmp_path: Path, requests_mock) -> None:
         yaml_file = _write_glossary(tmp_path / "g.yaml", {"book": "书"})
         requests_mock.post(
-            "https://api.deepl.com/v2/glossaries",
-            status_code=500,
-            text="internal error",
+            "https://api.deepl.com/v2/glossaries", status_code=500, text="internal error"
         )
         gm = GlossaryManager(
             api_key="x",
@@ -272,13 +252,10 @@ class TestGlossaryManagerPushErrors:
         with pytest.raises(GlossaryError, match="glossary push failed"):
             gm.ensure()
 
-    def test_connection_error_raises_glossary_error(
-        self, tmp_path: Path, requests_mock
-    ) -> None:
+    def test_connection_error_raises_glossary_error(self, tmp_path: Path, requests_mock) -> None:
         yaml_file = _write_glossary(tmp_path / "g.yaml", {"book": "书"})
         requests_mock.post(
-            "https://api.deepl.com/v2/glossaries",
-            exc=requests.ConnectionError("net down"),
+            "https://api.deepl.com/v2/glossaries", exc=requests.ConnectionError("net down")
         )
         gm = GlossaryManager(
             api_key="x",
@@ -291,10 +268,7 @@ class TestGlossaryManagerPushErrors:
 
     def test_missing_glossary_id_raises(self, tmp_path: Path, requests_mock) -> None:
         yaml_file = _write_glossary(tmp_path / "g.yaml", {"book": "书"})
-        requests_mock.post(
-            "https://api.deepl.com/v2/glossaries",
-            json={"unexpected": "shape"},
-        )
+        requests_mock.post("https://api.deepl.com/v2/glossaries", json={"unexpected": "shape"})
         gm = GlossaryManager(
             api_key="x",
             base_url="https://api.deepl.com/v2",

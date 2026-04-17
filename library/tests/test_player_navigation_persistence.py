@@ -36,7 +36,7 @@ if VM_HOST:
         sock = socket.create_connection((VM_HOST, 5001), timeout=3)
         sock.close()
         _vm_reachable = True
-    except (OSError, ConnectionRefusedError):
+    except OSError, ConnectionRefusedError:
         pass
 
 pytestmark: list[pytest.MarkDecorator] = [
@@ -69,9 +69,7 @@ except ImportError:
 WEB_BASE_URL = os.environ.get("AUDIOBOOKS_WEB_URL", f"https://{VM_HOST}:8443")
 API_BASE_URL = os.environ.get("API_BASE_URL", f"http://{VM_HOST}:5001")
 ADMIN_USERNAME = "testadmin"
-ADMIN_TOTP_SECRET = os.environ.get(
-    "ADMIN_TOTP_SECRET", "4GOGK6NR7D6E75X3KMTWXE4FM5BIEARP"
-)
+ADMIN_TOTP_SECRET = os.environ.get("ADMIN_TOTP_SECRET", "4GOGK6NR7D6E75X3KMTWXE4FM5BIEARP")
 # Skip SSL verification for self-signed certs
 IGNORE_HTTPS_ERRORS = True
 
@@ -134,9 +132,7 @@ def browser_context(auth_session):
             try:
                 browser = browser_type.launch(
                     headless=False,  # Use headed mode for audio playback
-                    args=[
-                        "--autoplay-policy=no-user-gesture-required"
-                    ],  # Allow autoplay
+                    args=["--autoplay-policy=no-user-gesture-required"],  # Allow autoplay
                 )
                 break
             except Exception:
@@ -146,8 +142,7 @@ def browser_context(auth_session):
             pytest.skip("No supported browser found")
 
         context = browser.new_context(
-            ignore_https_errors=IGNORE_HTTPS_ERRORS,
-            viewport={"width": 1280, "height": 900},
+            ignore_https_errors=IGNORE_HTTPS_ERRORS, viewport={"width": 1280, "height": 900}
         )
         # Inject auth session cookie into browser context
         token = auth_session.cookies.get("audiobooks_session")
@@ -219,9 +214,7 @@ class TestPlayerNavigationPlaywright:
         print("\n  ✓ Audio player started successfully")
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
-    def test_playback_continues_during_navigation_to_backoffice(
-        self, page: Page, test_audiobook
-    ):
+    def test_playback_continues_during_navigation_to_backoffice(self, page: Page, test_audiobook):
         """Test that audio continues playing when navigating to Back Office."""
         # Navigate to library and start playing
         page.goto(WEB_BASE_URL)
@@ -270,9 +263,7 @@ class TestPlayerNavigationPlaywright:
         print("  ✓ Navigation to Back Office completed")
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
-    def test_playback_continues_through_navigation_cycle(
-        self, page: Page, test_audiobook
-    ):
+    def test_playback_continues_through_navigation_cycle(self, page: Page, test_audiobook):
         """Test full navigation cycle: Library -> Back Office -> Library."""
         # Start at library
         page.goto(WEB_BASE_URL)
@@ -347,10 +338,7 @@ class TestPlayerNavigationPlaywright:
             const audio = document.getElementById('audio-element');
             return audio ? audio.currentTime : -1;
         }""")
-        print(
-            f"\n  Playing before resize: {is_playing_before},"
-            f" position: {position_before:.2f}s"
-        )
+        print(f"\n  Playing before resize: {is_playing_before}, position: {position_before:.2f}s")
 
         # Resize to small (simulate mobile or minimize-ish)
         page.set_viewport_size({"width": 400, "height": 600})
@@ -378,10 +366,7 @@ class TestPlayerNavigationPlaywright:
             return audio ? audio.currentTime : -1;
         }""")
 
-        print(
-            f"  Playing after resize: {is_playing_after_large},"
-            f" position: {position_after:.2f}s"
-        )
+        print(f"  Playing after resize: {is_playing_after_large}, position: {position_after:.2f}s")
 
         assert is_playing_after_large, "Audio should continue playing after resize"
         assert position_after > position_before, "Position should have advanced"
@@ -491,9 +476,7 @@ class TestPlayerNavigationSelenium:
         play_btn.click()
 
         # Wait for player
-        WebDriverWait(driver, 5).until(
-            EC.visibility_of_element_located((By.ID, "audio-player"))
-        )
+        WebDriverWait(driver, 5).until(EC.visibility_of_element_located((By.ID, "audio-player")))
 
         time.sleep(2)
 
@@ -530,9 +513,7 @@ class TestPlayerSummary:
         for feature, note in features:
             print(f"    - {feature} ({note})")
 
-        assert len(features) == 6, (
-            "All 6 player persistence features should be documented"
-        )
+        assert len(features) == 6, "All 6 player persistence features should be documented"
         print("  ✓ Player test infrastructure documented")
 
 

@@ -49,16 +49,13 @@ class HashVerifyTask(MaintenanceTask):
         try:
             conn = sqlite3.connect(str(db_path))
             rows = conn.execute(
-                "SELECT id, file_path, sha256_hash "
-                "FROM audiobooks WHERE sha256_hash IS NOT NULL"
+                "SELECT id, file_path, sha256_hash FROM audiobooks WHERE sha256_hash IS NOT NULL"
             ).fetchall()
             conn.close()
 
             total = len(rows)
             if total == 0:
-                return ExecutionResult(
-                    success=True, message="No files with hashes to verify"
-                )
+                return ExecutionResult(success=True, message="No files with hashes to verify")
 
             mismatches = []
             missing = []

@@ -49,8 +49,7 @@ def _get_library_db() -> sqlite3.Connection:
     """Get library database connection."""
     if _db_path is None:
         raise RuntimeError(
-            "Admin activity routes not initialized. "
-            "Call init_admin_activity_routes first."
+            "Admin activity routes not initialized. Call init_admin_activity_routes first."
         )
     conn = sqlite3.connect(_db_path)
     conn.row_factory = sqlite3.Row
@@ -65,7 +64,7 @@ def _parse_date(value: str | None) -> date | None:
         return None
     try:
         return date.fromisoformat(value)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None
 
 
@@ -78,11 +77,11 @@ def _parse_pagination(args):
     """Parse limit and offset from request args with defaults and bounds."""
     try:
         limit = max(1, min(int(args.get("limit", 50)), 200))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         limit = 50
     try:
         offset = max(0, int(args.get("offset", 0)))
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         offset = 0
     return limit, offset
 
@@ -123,9 +122,7 @@ def _build_activity_filters(user_id, audiobook_id, from_date, to_date):
     return listen_w, listen_p, download_w, download_p
 
 
-def _build_union_sql(
-    type_filter, listen_wheres, listen_params, download_wheres, download_params
-):
+def _build_union_sql(type_filter, listen_wheres, listen_params, download_wheres, download_params):
     """Build the UNION ALL SQL and combined params.
 
     Returns (union_sql, all_params).
@@ -211,7 +208,7 @@ def get_activity():
     if audiobook_id_filter is not None:
         try:
             audiobook_id_filter = str(int(audiobook_id_filter))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return jsonify({"error": "audiobook_id must be a number"}), 400
 
     # Build filters and SQL
@@ -234,9 +231,7 @@ def get_activity():
     titles = _get_book_titles(book_ids)
     activity = [_row_to_activity_item(row, titles) for row in rows]
 
-    return jsonify(
-        {"activity": activity, "total": total, "limit": limit, "offset": offset}
-    )
+    return jsonify({"activity": activity, "total": total, "limit": limit, "offset": offset})
 
 
 # ============================================================
@@ -261,14 +256,10 @@ def get_activity_stats():
 
     with auth_db.connection() as conn:
         # Total listens
-        total_listens = conn.execute(
-            "SELECT COUNT(*) FROM user_listening_history"
-        ).fetchone()[0]
+        total_listens = conn.execute("SELECT COUNT(*) FROM user_listening_history").fetchone()[0]
 
         # Total downloads
-        total_downloads = conn.execute(
-            "SELECT COUNT(*) FROM user_downloads"
-        ).fetchone()[0]
+        total_downloads = conn.execute("SELECT COUNT(*) FROM user_downloads").fetchone()[0]
 
         # Active users (distinct users with any activity)
         active_users = conn.execute(
@@ -358,7 +349,7 @@ def _get_book_titles(audiobook_ids: set) -> dict[str, str | None]:
     for aid in audiobook_ids:
         try:
             int_ids.append(int(aid))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             continue
 
     if not int_ids:
@@ -366,7 +357,7 @@ def _get_book_titles(audiobook_ids: set) -> dict[str, str | None]:
 
     try:
         conn = _get_library_db()
-    except (RuntimeError, OSError):
+    except RuntimeError, OSError:
         return {}
 
     try:

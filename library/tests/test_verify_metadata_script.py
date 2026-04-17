@@ -222,10 +222,7 @@ class TestGetEmbeddedTags:
         mock_run.return_value = MagicMock(
             returncode=0,
             stdout=json.dumps(
-                {
-                    "format": {"tags": {"title": "My Book", "artist": "Author Name"}},
-                    "streams": [],
-                }
+                {"format": {"tags": {"title": "My Book", "artist": "Author Name"}}, "streams": []}
             ),
         )
         result = get_embedded_tags(str(fake_file))
@@ -241,9 +238,7 @@ class TestGetEmbeddedTags:
             stdout=json.dumps(
                 {
                     "format": {"tags": {}},
-                    "streams": [
-                        {"tags": {"title": "Opus Book", "artist": "Opus Author"}}
-                    ],
+                    "streams": [{"tags": {"title": "Opus Book", "artist": "Opus Author"}}],
                 }
             ),
         )
@@ -255,8 +250,7 @@ class TestGetEmbeddedTags:
         fake_file = tmp_path / "test.mp3"
         fake_file.touch()
         mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout=json.dumps({"format": {}, "streams": [{}]}),
+            returncode=0, stdout=json.dumps({"format": {}, "streams": [{}]})
         )
         result = get_embedded_tags(str(fake_file))
         assert result == {}
@@ -300,10 +294,7 @@ class TestGetEmbeddedTags:
         mock_run.return_value = MagicMock(
             returncode=0,
             stdout=json.dumps(
-                {
-                    "format": {"tags": {"Title": "Book", "ARTIST": "Author"}},
-                    "streams": [],
-                }
+                {"format": {"tags": {"Title": "Book", "ARTIST": "Author"}}, "streams": []}
             ),
         )
         result = get_embedded_tags(str(fake_file))
@@ -318,10 +309,7 @@ class TestGetEmbeddedTags:
         mock_run.return_value = MagicMock(
             returncode=0,
             stdout=json.dumps(
-                {
-                    "format": {"tags": None},
-                    "streams": [{"tags": {"title": "Stream Title"}}],
-                }
+                {"format": {"tags": None}, "streams": [{"tags": {"title": "Stream Title"}}]}
             ),
         )
         result = get_embedded_tags(str(fake_file))
@@ -335,8 +323,7 @@ class TestComputeDurationHours:
     @patch("scripts.verify_metadata.subprocess.run")
     def test_valid_duration(self, mock_run):
         mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout=json.dumps({"format": {"duration": "36000.0"}}),
+            returncode=0, stdout=json.dumps({"format": {"duration": "36000.0"}})
         )
         result = compute_duration_hours("/fake/file.opus")
         assert result == pytest.approx(10.0)
@@ -348,10 +335,7 @@ class TestComputeDurationHours:
 
     @patch("scripts.verify_metadata.subprocess.run")
     def test_missing_duration(self, mock_run):
-        mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout=json.dumps({"format": {}}),
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout=json.dumps({"format": {}}))
         assert compute_duration_hours("/fake/file.opus") is None
 
     @patch("scripts.verify_metadata.subprocess.run")
@@ -372,8 +356,7 @@ class TestComputeDurationHours:
     @patch("scripts.verify_metadata.subprocess.run")
     def test_duration_value_error(self, mock_run):
         mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout=json.dumps({"format": {"duration": "not_a_number"}}),
+            returncode=0, stdout=json.dumps({"format": {"duration": "not_a_number"}})
         )
         assert compute_duration_hours("/fake/file.opus") is None
 
@@ -670,14 +653,7 @@ class TestVerifyBook:
         assert "Unknown content type" in ct_issues[0].message
 
     def test_valid_content_types(self, sample_book):
-        for ct in (
-            "Product",
-            "Performance",
-            "Speech",
-            "Podcast",
-            "Lecture",
-            "Radio/TV Program",
-        ):
+        for ct in ("Product", "Performance", "Speech", "Podcast", "Lecture", "Radio/TV Program"):
             sample_book["content_type"] = ct
             issues = verify_book(sample_book, None, None)
             ct_issues = [i for i in issues if i.field == "content_type"]
@@ -694,9 +670,7 @@ class TestVerifyBook:
         issues = verify_book(sample_book, None, None)
         tag_fields = {"title", "author", "narrator", "series", "publisher"}
         mismatch_issues = [
-            i
-            for i in issues
-            if i.field in tag_fields and "mismatch" in i.message.lower()
+            i for i in issues if i.field in tag_fields and "mismatch" in i.message.lower()
         ]
         assert len(mismatch_issues) == 0
 
@@ -727,9 +701,7 @@ class TestVerifyBook:
         }
         tags = {"title": "Les Misérables", "artist": "Victor Hugo"}
         issues = verify_book(book, tags, None)
-        title_issues = [
-            i for i in issues if i.field == "title" and "mismatch" in i.message.lower()
-        ]
+        title_issues = [i for i in issues if i.field == "title" and "mismatch" in i.message.lower()]
         assert len(title_issues) == 0
 
     def test_duration_zero_audible_hours(self, sample_book):
@@ -748,10 +720,7 @@ class TestVerifyBook:
 class TestApplyFixes:
     def test_applies_high_confidence_fixes(self, tmp_path):
         db_path = tmp_path / "test.db"
-        _create_test_db(
-            db_path,
-            [{"id": 1, "title": "Wrong Title", "file_path": "/f/1.opus"}],
-        )
+        _create_test_db(db_path, [{"id": 1, "title": "Wrong Title", "file_path": "/f/1.opus"}])
         conn = sqlite3.connect(db_path)
 
         issues = [
@@ -774,10 +743,7 @@ class TestApplyFixes:
 
     def test_skips_low_confidence(self, tmp_path):
         db_path = tmp_path / "test.db"
-        _create_test_db(
-            db_path,
-            [{"id": 1, "title": "Old", "file_path": "/f/1.opus"}],
-        )
+        _create_test_db(db_path, [{"id": 1, "title": "Old", "file_path": "/f/1.opus"}])
         conn = sqlite3.connect(db_path)
 
         issues = [
@@ -796,10 +762,7 @@ class TestApplyFixes:
 
     def test_skips_info_severity(self, tmp_path):
         db_path = tmp_path / "test.db"
-        _create_test_db(
-            db_path,
-            [{"id": 1, "title": "Old", "file_path": "/f/1.opus"}],
-        )
+        _create_test_db(db_path, [{"id": 1, "title": "Old", "file_path": "/f/1.opus"}])
         conn = sqlite3.connect(db_path)
 
         issues = [
@@ -818,10 +781,7 @@ class TestApplyFixes:
 
     def test_skips_no_recommended_value(self, tmp_path):
         db_path = tmp_path / "test.db"
-        _create_test_db(
-            db_path,
-            [{"id": 1, "title": "Old", "file_path": "/f/1.opus"}],
-        )
+        _create_test_db(db_path, [{"id": 1, "title": "Old", "file_path": "/f/1.opus"}])
         conn = sqlite3.connect(db_path)
 
         issues = [
@@ -840,10 +800,7 @@ class TestApplyFixes:
 
     def test_skips_non_text_fields(self, tmp_path):
         db_path = tmp_path / "test.db"
-        _create_test_db(
-            db_path,
-            [{"id": 1, "title": "T", "file_path": "/f/1.opus"}],
-        )
+        _create_test_db(db_path, [{"id": 1, "title": "T", "file_path": "/f/1.opus"}])
         conn = sqlite3.connect(db_path)
 
         issues = [
@@ -862,10 +819,7 @@ class TestApplyFixes:
 
     def test_quiet_false_prints(self, tmp_path, capsys):
         db_path = tmp_path / "test.db"
-        _create_test_db(
-            db_path,
-            [{"id": 1, "title": "Old", "file_path": "/f/1.opus"}],
-        )
+        _create_test_db(db_path, [{"id": 1, "title": "Old", "file_path": "/f/1.opus"}])
         conn = sqlite3.connect(db_path)
 
         issues = [
@@ -898,27 +852,16 @@ class TestApplyFixes:
         _create_test_db(
             db_path,
             [
-                {
-                    "id": 1,
-                    "title": "Wrong1",
-                    "author": "WrongA",
-                    "file_path": "/f/1.opus",
-                },
+                {"id": 1, "title": "Wrong1", "author": "WrongA", "file_path": "/f/1.opus"},
                 {"id": 2, "title": "Wrong2", "file_path": "/f/2.opus"},
             ],
         )
         conn = sqlite3.connect(db_path)
 
         issues = [
-            MetadataIssue(
-                1, "title", "warning", "m", recommended_value="Right1", confidence=0.9
-            ),
-            MetadataIssue(
-                1, "author", "conflict", "m", recommended_value="RightA", confidence=0.8
-            ),
-            MetadataIssue(
-                2, "title", "error", "m", recommended_value="Right2", confidence=0.95
-            ),
+            MetadataIssue(1, "title", "warning", "m", recommended_value="Right1", confidence=0.9),
+            MetadataIssue(1, "author", "conflict", "m", recommended_value="RightA", confidence=0.8),
+            MetadataIssue(2, "title", "error", "m", recommended_value="Right2", confidence=0.95),
         ]
         count = apply_fixes(conn, issues, quiet=True)
         assert count == 3
@@ -1000,9 +943,7 @@ class TestVerifyMetadata:
                 },
             ],
         )
-        result = verify_metadata(
-            db_path=db_path, single_id=1, quiet=True, check_files=False
-        )
+        result = verify_metadata(db_path=db_path, single_id=1, quiet=True, check_files=False)
         assert result["total_checked"] == 1
 
     @patch("scripts.verify_metadata.get_embedded_tags")
@@ -1031,9 +972,7 @@ class TestVerifyMetadata:
         mock_tags.return_value = {"title": "XYZZY Unrelated"}
         mock_dur.return_value = None
 
-        result = verify_metadata(
-            db_path=db_path, auto_fix=True, quiet=True, check_files=True
-        )
+        result = verify_metadata(db_path=db_path, auto_fix=True, quiet=True, check_files=True)
         # INFO severity issues are not auto-fixed, so fixes_applied should be 0
         assert result["fixes_applied"] == 0
 
@@ -1047,10 +986,7 @@ class TestVerifyMetadata:
 
     def test_verbose_output(self, tmp_path, capsys):
         db_path = tmp_path / "test.db"
-        _create_test_db(
-            db_path,
-            [{"id": 1, "title": "T", "file_path": "/f/1.opus"}],
-        )
+        _create_test_db(db_path, [{"id": 1, "title": "T", "file_path": "/f/1.opus"}])
         verify_metadata(db_path=db_path, quiet=False, check_files=False)
         captured = capsys.readouterr()
         assert "Verifying metadata" in captured.out
@@ -1066,15 +1002,7 @@ class TestVerifyMetadata:
     def test_check_files_false_skips_ffprobe(self, tmp_path):
         db_path = tmp_path / "test.db"
         _create_test_db(
-            db_path,
-            [
-                {
-                    "id": 1,
-                    "title": "T",
-                    "file_path": "/f/1.opus",
-                    "runtime_length_min": 60,
-                }
-            ],
+            db_path, [{"id": 1, "title": "T", "file_path": "/f/1.opus", "runtime_length_min": 60}]
         )
         with patch("scripts.verify_metadata.get_embedded_tags") as mock_tags:
             verify_metadata(db_path=db_path, quiet=True, check_files=False)
@@ -1084,10 +1012,7 @@ class TestVerifyMetadata:
     @patch("scripts.verify_metadata.compute_duration_hours")
     def test_no_file_path_skips_file_checks(self, mock_dur, mock_tags, tmp_path):
         db_path = tmp_path / "test.db"
-        _create_test_db(
-            db_path,
-            [{"id": 1, "title": "T", "file_path": None}],
-        )
+        _create_test_db(db_path, [{"id": 1, "title": "T", "file_path": None}])
         verify_metadata(db_path=db_path, quiet=True, check_files=True)
         mock_tags.assert_not_called()
         mock_dur.assert_not_called()
@@ -1115,10 +1040,7 @@ class TestVerifyMetadata:
 
     def test_issues_are_dicts(self, tmp_path):
         db_path = tmp_path / "test.db"
-        _create_test_db(
-            db_path,
-            [{"id": 1, "title": "T", "file_path": "/f/1.opus"}],
-        )
+        _create_test_db(db_path, [{"id": 1, "title": "T", "file_path": "/f/1.opus"}])
         result = verify_metadata(db_path=db_path, quiet=True, check_files=False)
         for issue in result["issues"]:
             assert isinstance(issue, dict)
@@ -1144,8 +1066,7 @@ class TestVerifyMetadata:
         """When there are >=100 books, progress is printed at multiples of 100."""
         db_path = tmp_path / "test.db"
         books = [
-            {"id": i, "title": f"Book {i}", "file_path": f"/f/{i}.opus"}
-            for i in range(1, 102)
+            {"id": i, "title": f"Book {i}", "file_path": f"/f/{i}.opus"} for i in range(1, 102)
         ]
         _create_test_db(db_path, books)
         mock_tags.return_value = None
@@ -1159,15 +1080,7 @@ class TestVerifyMetadata:
         """Verbose output prints ERRORS section when errors exist."""
         db_path = tmp_path / "test.db"
         _create_test_db(
-            db_path,
-            [
-                {
-                    "id": 1,
-                    "title": "T",
-                    "file_path": "/f/1.opus",
-                    "runtime_length_min": 60,
-                }
-            ],
+            db_path, [{"id": 1, "title": "T", "file_path": "/f/1.opus", "runtime_length_min": 60}]
         )
         with (
             patch("scripts.verify_metadata.get_embedded_tags", return_value=None),
@@ -1206,10 +1119,7 @@ class TestVerifyMetadata:
     def test_verbose_warnings_truncated(self, tmp_path, capsys):
         """When >20 warnings, verbose output shows '... and N more'."""
         db_path = tmp_path / "test.db"
-        books = [
-            {"id": i, "title": f"B{i}", "file_path": f"/f/{i}.opus"}
-            for i in range(1, 30)
-        ]
+        books = [{"id": i, "title": f"B{i}", "file_path": f"/f/{i}.opus"} for i in range(1, 30)]
         _create_test_db(db_path, books)
         verify_metadata(db_path=db_path, quiet=False, check_files=False)
         captured = capsys.readouterr()
@@ -1225,10 +1135,7 @@ class TestVerifySingleBook:
     @patch("scripts.verify_metadata.compute_duration_hours", return_value=None)
     def test_delegates_to_verify_metadata(self, mock_dur, mock_tags, tmp_path):
         db_path = tmp_path / "test.db"
-        _create_test_db(
-            db_path,
-            [{"id": 1, "title": "T", "file_path": "/f/1.opus"}],
-        )
+        _create_test_db(db_path, [{"id": 1, "title": "T", "file_path": "/f/1.opus"}])
         result = verify_single_book(book_id=1, db_path=db_path, quiet=True)
         assert result["total_checked"] == 1
 
@@ -1243,10 +1150,7 @@ class TestMain:
         _create_test_db(db_path, [])
         mock_vm.return_value = {"total_checked": 0, "issues_found": 0}
 
-        with patch(
-            "sys.argv",
-            ["verify_metadata.py", "--db", str(db_path)],
-        ):
+        with patch("sys.argv", ["verify_metadata.py", "--db", str(db_path)]):
             from scripts.verify_metadata import main
 
             main()
@@ -1270,10 +1174,7 @@ class TestMain:
             "issues": [],
         }
 
-        with patch(
-            "sys.argv",
-            ["verify_metadata.py", "--db", str(db_path), "--json"],
-        ):
+        with patch("sys.argv", ["verify_metadata.py", "--db", str(db_path), "--json"]):
             from scripts.verify_metadata import main
 
             main()
@@ -1288,10 +1189,7 @@ class TestMain:
         _create_test_db(db_path, [])
         mock_vm.return_value = {}
 
-        with patch(
-            "sys.argv",
-            ["verify_metadata.py", "--db", str(db_path), "--dry-run"],
-        ):
+        with patch("sys.argv", ["verify_metadata.py", "--db", str(db_path), "--dry-run"]):
             from scripts.verify_metadata import main
 
             main()
@@ -1304,10 +1202,7 @@ class TestMain:
         _create_test_db(db_path, [])
         mock_vm.return_value = {}
 
-        with patch(
-            "sys.argv",
-            ["verify_metadata.py", "--db", str(db_path), "--fix"],
-        ):
+        with patch("sys.argv", ["verify_metadata.py", "--db", str(db_path), "--fix"]):
             from scripts.verify_metadata import main
 
             main()
@@ -1320,10 +1215,7 @@ class TestMain:
         _create_test_db(db_path, [])
         mock_vm.return_value = {}
 
-        with patch(
-            "sys.argv",
-            ["verify_metadata.py", "--db", str(db_path), "--id", "42"],
-        ):
+        with patch("sys.argv", ["verify_metadata.py", "--db", str(db_path), "--id", "42"]):
             from scripts.verify_metadata import main
 
             main()
@@ -1336,10 +1228,7 @@ class TestMain:
         _create_test_db(db_path, [])
         mock_vm.return_value = {}
 
-        with patch(
-            "sys.argv",
-            ["verify_metadata.py", "--db", str(db_path), "--no-file-check"],
-        ):
+        with patch("sys.argv", ["verify_metadata.py", "--db", str(db_path), "--no-file-check"]):
             from scripts.verify_metadata import main
 
             main()
@@ -1352,10 +1241,7 @@ class TestMain:
         _create_test_db(db_path, [])
         mock_vm.return_value = {}
 
-        with patch(
-            "sys.argv",
-            ["verify_metadata.py", "--db", str(db_path), "--quiet"],
-        ):
+        with patch("sys.argv", ["verify_metadata.py", "--db", str(db_path), "--quiet"]):
             from scripts.verify_metadata import main
 
             main()
@@ -1482,15 +1368,7 @@ class TestEdgeCases:
         """Book has runtime_length_min but compute_duration returns None."""
         db_path = tmp_path / "test.db"
         _create_test_db(
-            db_path,
-            [
-                {
-                    "id": 1,
-                    "title": "T",
-                    "file_path": "/f/1.opus",
-                    "runtime_length_min": 300,
-                }
-            ],
+            db_path, [{"id": 1, "title": "T", "file_path": "/f/1.opus", "runtime_length_min": 300}]
         )
         mock_tags.return_value = None
         with patch("scripts.verify_metadata.compute_duration_hours", return_value=None):

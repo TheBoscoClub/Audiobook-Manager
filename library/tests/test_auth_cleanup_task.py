@@ -64,9 +64,7 @@ class TestGetAuthDb:
         mock_instance = MagicMock()
         mock_auth_db_class.return_value = mock_instance
 
-        with patch.dict(
-            "sys.modules", {"database": MagicMock(AuthDatabase=mock_auth_db_class)}
-        ):
+        with patch.dict("sys.modules", {"database": MagicMock(AuthDatabase=mock_auth_db_class)}):
             result = _get_auth_db()
             mock_auth_db_class.assert_called_once()
             assert result is mock_instance
@@ -109,8 +107,7 @@ class TestValidate:
         mock_db = MagicMock()
         task = AuthCleanupTask()
         with patch(
-            "backend.api_modular.maintenance_tasks.auth_cleanup._get_auth_db",
-            return_value=mock_db,
+            "backend.api_modular.maintenance_tasks.auth_cleanup._get_auth_db", return_value=mock_db
         ):
             result = task.validate({})
 
@@ -155,12 +152,7 @@ class TestExecuteWithCleanup:
     """Tests for successful execute() with various cleanup counts."""
 
     def _run_execute(
-        self,
-        stale=0,
-        expired_regs=0,
-        expired_rec=0,
-        old_requests=0,
-        progress_callback=None,
+        self, stale=0, expired_regs=0, expired_rec=0, old_requests=0, progress_callback=None
     ):
         """Helper to run execute with mocked repos and DB."""
         mock_db, mock_conn, mock_cursor = _make_mock_db()
@@ -202,22 +194,12 @@ class TestExecuteWithCleanup:
             with patch.dict("sys.modules", {"models": mock_models}):
                 result = task.execute({}, progress_callback=progress_callback)
 
-        return (
-            result,
-            mock_db,
-            mock_conn,
-            mock_session_repo,
-            mock_reg_repo,
-            mock_rec_repo,
-        )
+        return (result, mock_db, mock_conn, mock_session_repo, mock_reg_repo, mock_rec_repo)
 
     def test_all_cleanup_types_with_items(self):
         """All four cleanup types find and remove items."""
         result, mock_db, mock_conn, *_ = self._run_execute(
-            stale=5,
-            expired_regs=3,
-            expired_rec=2,
-            old_requests=7,
+            stale=5, expired_regs=3, expired_rec=2, old_requests=7
         )
 
         assert result.success is True
@@ -235,10 +217,7 @@ class TestExecuteWithCleanup:
     def test_no_stale_data_found(self):
         """All cleanup types return 0 items."""
         result, mock_db, *_ = self._run_execute(
-            stale=0,
-            expired_regs=0,
-            expired_rec=0,
-            old_requests=0,
+            stale=0, expired_regs=0, expired_rec=0, old_requests=0
         )
 
         assert result.success is True
@@ -278,9 +257,7 @@ class TestExecuteWithCleanup:
     def test_session_repo_called_with_grace_minutes(self):
         """SessionRepository.cleanup_stale is called with grace_minutes=30."""
         _, _, _, mock_session_repo, *_ = self._run_execute(stale=1)
-        mock_session_repo.return_value.cleanup_stale.assert_called_once_with(
-            grace_minutes=30,
-        )
+        mock_session_repo.return_value.cleanup_stale.assert_called_once_with(grace_minutes=30)
 
     def test_registration_repo_cleanup_called(self):
         """PendingRegistrationRepository.cleanup_expired is called."""
@@ -374,9 +351,7 @@ class TestExecuteErrorHandling:
         mock_db, mock_conn, mock_cursor = _make_mock_db()
 
         mock_session_repo = MagicMock()
-        mock_session_repo.return_value.cleanup_stale.side_effect = RuntimeError(
-            "db locked"
-        )
+        mock_session_repo.return_value.cleanup_stale.side_effect = RuntimeError("db locked")
 
         import types
 

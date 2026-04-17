@@ -72,11 +72,7 @@ OPENLIBRARY_API = "https://openlibrary.org"
 
 def _fetch_audible_product(asin: str) -> dict | None:
     """Query Audible API for full product data."""
-    url = (
-        f"{AUDIBLE_API}/{asin}"
-        f"?response_groups={ALL_RESPONSE_GROUPS}"
-        f"&marketplace={MARKETPLACE}"
-    )
+    url = f"{AUDIBLE_API}/{asin}?response_groups={ALL_RESPONSE_GROUPS}&marketplace={MARKETPLACE}"
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (AUDIBLE_API) + validated ASIN from internal DB; not user-controlled scheme
@@ -96,7 +92,7 @@ def _fetch_audible_product(asin: str) -> dict | None:
             except Exception:
                 return None
         return None
-    except (urllib.error.URLError, TimeoutError):
+    except urllib.error.URLError, TimeoutError:
         return None
 
 
@@ -152,15 +148,11 @@ def _extract_editorial_reviews(product: dict) -> list[dict]:
 def _extract_rating(product: dict) -> dict:
     rating = product.get("rating", {})
     return {
-        "rating_overall": rating.get("overall_distribution", {}).get(
-            "display_average_rating"
-        ),
+        "rating_overall": rating.get("overall_distribution", {}).get("display_average_rating"),
         "rating_performance": rating.get("performance_distribution", {}).get(
             "display_average_rating"
         ),
-        "rating_story": rating.get("story_distribution", {}).get(
-            "display_average_rating"
-        ),
+        "rating_story": rating.get("story_distribution", {}).get("display_average_rating"),
         "num_ratings": rating.get("num_reviews"),
         "num_reviews": rating.get("overall_distribution", {}).get("num_ratings"),
     }
@@ -202,7 +194,7 @@ def _query_google_books(
             items = data.get("items", [])
             if items:
                 return items[0].get("volumeInfo", {})
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+    except urllib.error.HTTPError, urllib.error.URLError, TimeoutError:
         pass
     return None
 
@@ -219,7 +211,7 @@ def _query_openlibrary_search(title: str, author: str | None = None) -> dict | N
             data = json.loads(resp.read())
             docs = data.get("docs", [])
             return docs[0] if docs else None
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+    except urllib.error.HTTPError, urllib.error.URLError, TimeoutError:
         return None
 
 
@@ -249,9 +241,7 @@ LANG_MAP = {
 # ═══════════════════════════════════════════════════════════
 
 
-def _build_audible_fields(
-    product: dict, existing_series: str | None
-) -> tuple[list, list]:
+def _build_audible_fields(product: dict, existing_series: str | None) -> tuple[list, list]:
     """Build SQL update clauses from Audible product data.
 
     Returns (updates, params) lists.
@@ -279,9 +269,7 @@ def _build_audible_fields(
     add_field("runtime_length_min", product.get("runtime_length_min"))
 
     release_date = (
-        product.get("release_date")
-        or product.get("publication_datetime", "")[:10]
-        or None
+        product.get("release_date") or product.get("publication_datetime", "")[:10] or None
     )
     add_field("release_date", release_date)
     add_field("publisher_summary", product.get("publisher_summary"))
@@ -306,12 +294,7 @@ def _build_audible_fields(
 
 
 def _apply_audible_enrichment(
-    cursor,
-    book_id: int,
-    product: dict,
-    existing_series: str | None,
-    now: str,
-    quiet: bool,
+    cursor, book_id: int, product: dict, existing_series: str | None, now: str, quiet: bool
 ) -> int:
     """Apply Audible API enrichment for a single book.
 
@@ -334,10 +317,7 @@ def _apply_audible_enrichment(
     # Categories
     categories = _extract_categories(product)
     if categories:
-        cursor.execute(
-            "DELETE FROM audible_categories WHERE audiobook_id = ?",
-            (book_id,),
-        )
+        cursor.execute("DELETE FROM audible_categories WHERE audiobook_id = ?", (book_id,))
         for cat in categories:
             cursor.execute(
                 "INSERT INTO audible_categories "
@@ -357,10 +337,7 @@ def _apply_audible_enrichment(
     # Editorial reviews
     reviews = _extract_editorial_reviews(product)
     if reviews:
-        cursor.execute(
-            "DELETE FROM editorial_reviews WHERE audiobook_id = ?",
-            (book_id,),
-        )
+        cursor.execute("DELETE FROM editorial_reviews WHERE audiobook_id = ?", (book_id,))
         for review in reviews:
             cursor.execute(
                 "INSERT INTO editorial_reviews "
@@ -374,8 +351,7 @@ def _apply_audible_enrichment(
         a_name = contributor.get("name")
         if a_asin and a_name:
             cursor.execute(
-                "UPDATE authors SET asin = ? WHERE name = ? "
-                "AND (asin IS NULL OR asin = '')",
+                "UPDATE authors SET asin = ? WHERE name = ? AND (asin IS NULL OR asin = '')",
                 (a_asin, a_name),
             )
 
@@ -520,17 +496,9 @@ def _apply_isbn_enrichment(
     isbn_params: list[str | int | None] = []
 
     if gb_data:
-        isbn_updates, isbn_params = _extract_google_books_fields(
-            gb_data,
-            current,
-            current_isbn,
-        )
+        isbn_updates, isbn_params = _extract_google_books_fields(gb_data, current, current_isbn)
     elif ol_data:
-        isbn_updates, isbn_params = _extract_openlibrary_fields(
-            ol_data,
-            current,
-            current_isbn,
-        )
+        isbn_updates, isbn_params = _extract_openlibrary_fields(ol_data, current, current_isbn)
 
     # Mark as ISBN-enriched regardless
     isbn_updates.append("isbn_enriched_at = ?")
@@ -556,12 +524,7 @@ def _apply_isbn_enrichment(
 
 def _make_empty_result() -> dict:
     """Create an empty enrichment result dict."""
-    return {
-        "audible_enriched": False,
-        "isbn_enriched": False,
-        "fields_updated": 0,
-        "errors": [],
-    }
+    return {"audible_enriched": False, "isbn_enriched": False, "fields_updated": 0, "errors": []}
 
 
 def _resolve_enrich_db_path(db_path: Path | None) -> Path | None:
@@ -584,12 +547,7 @@ def _try_audible_enrichment(
     product = _fetch_audible_product(asin)
     if product:
         fields_updated = _apply_audible_enrichment(
-            cursor,
-            book_id,
-            product,
-            existing_series,
-            now,
-            quiet,
+            cursor, book_id, product, existing_series, now, quiet
         )
         result["fields_updated"] += fields_updated
         result["audible_enriched"] = True
@@ -630,29 +588,15 @@ def _try_isbn_enrichment(
 
     if _needs_isbn_enrichment(dict(current), isbn):
         isbn_count, was_enriched = _apply_isbn_enrichment(
-            cursor,
-            book_id,
-            dict(current),
-            isbn,
-            title,
-            author,
-            now,
-            quiet,
+            cursor, book_id, dict(current), isbn, title, author, now, quiet
         )
         result["fields_updated"] += isbn_count
         result["isbn_enriched"] = was_enriched
     else:
-        cursor.execute(
-            "UPDATE audiobooks SET isbn_enriched_at = ? WHERE id = ?",
-            (now, book_id),
-        )
+        cursor.execute("UPDATE audiobooks SET isbn_enriched_at = ? WHERE id = ?", (now, book_id))
 
 
-def enrich_book(
-    book_id: int,
-    db_path: Path | None = None,
-    quiet: bool = False,
-) -> dict:
+def enrich_book(book_id: int, db_path: Path | None = None, quiet: bool = False) -> dict:
     """Enrich a single audiobook by database ID.
 
     Uses the original Audible + ISBN enrichment path. The new orchestrator
@@ -674,8 +618,7 @@ def enrich_book(
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT id, title, author, asin, isbn, series FROM audiobooks WHERE id = ?",
-            (book_id,),
+            "SELECT id, title, author, asin, isbn, series FROM audiobooks WHERE id = ?", (book_id,)
         )
         book = cursor.fetchone()
         if not book:
@@ -687,24 +630,11 @@ def enrich_book(
 
         if book["asin"]:
             _try_audible_enrichment(
-                cursor,
-                book_id,
-                book["asin"],
-                book["series"],
-                now,
-                quiet,
-                result,
+                cursor, book_id, book["asin"], book["series"], now, quiet, result
             )
 
         _try_isbn_enrichment(
-            cursor,
-            book_id,
-            book["isbn"],
-            book["title"],
-            book["author"],
-            now,
-            quiet,
-            result,
+            cursor, book_id, book["isbn"], book["title"], book["author"], now, quiet, result
         )
 
         conn.commit()

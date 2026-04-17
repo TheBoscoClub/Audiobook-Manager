@@ -51,14 +51,9 @@ def normalize_base_title(title: str | None) -> str:
     # Remove edition markers and surrounding text
     base = re.sub(r"\s*\([^)]*edition[^)]*\)", "", base, flags=re.IGNORECASE)
     base = re.sub(r"\s*\([^)]*anniversary[^)]*\)", "", base, flags=re.IGNORECASE)
+    base = re.sub(r"\s*-\s*\d+(st|nd|rd|th)\s+edition.*$", "", base, flags=re.IGNORECASE)
     base = re.sub(
-        r"\s*-\s*\d+(st|nd|rd|th)\s+edition.*$", "", base, flags=re.IGNORECASE
-    )
-    base = re.sub(
-        r"\s*:\s*(unabridged|abridged|complete|expanded).*$",
-        "",
-        base,
-        flags=re.IGNORECASE,
+        r"\s*:\s*(unabridged|abridged|complete|expanded).*$", "", base, flags=re.IGNORECASE
     )
 
     # Remove "(Unabridged)" or similar at the end
@@ -73,15 +68,9 @@ def normalize_base_title(title: str | None) -> str:
     return base.strip()
 
 
-def _find_matching_editions(
-    all_books: list, base_title: str, book_id: int
-) -> list[dict]:
+def _find_matching_editions(all_books: list, base_title: str, book_id: int) -> list[dict]:
     """Find editions matching the base title, falling back to the single book."""
-    editions = [
-        dict(row)
-        for row in all_books
-        if normalize_base_title(row["title"]) == base_title
-    ]
+    editions = [dict(row) for row in all_books if normalize_base_title(row["title"]) == base_title]
 
     has_markers = any(has_edition_marker(ed["title"]) for ed in editions)
 
@@ -104,8 +93,7 @@ def _enrich_edition(cursor, edition: dict) -> dict:
     edition["genres"] = [r["name"] for r in cursor.fetchall()]
 
     cursor.execute(
-        "SELECT COUNT(*) as count FROM supplements WHERE audiobook_id = ?",
-        (edition["id"],),
+        "SELECT COUNT(*) as count FROM supplements WHERE audiobook_id = ?", (edition["id"],)
     )
     result = cursor.fetchone()
     edition["supplement_count"] = result["count"] if result else 0

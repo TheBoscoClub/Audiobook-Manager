@@ -71,9 +71,7 @@ class OpenLibraryClient:
 
     BASE_URL = "https://openlibrary.org"
 
-    def __init__(
-        self, rate_limit_delay: float = 0.6, timeout: int = 30, max_retries: int = 3
-    ):
+    def __init__(self, rate_limit_delay: float = 0.6, timeout: int = 30, max_retries: int = 3):
         """
         Initialize the client.
 
@@ -249,17 +247,9 @@ class OpenLibraryClient:
         isbn_10 = None
         isbn_13 = None
         if data.get("isbn_10"):
-            isbn_10 = (
-                data["isbn_10"][0]
-                if isinstance(data["isbn_10"], list)
-                else data["isbn_10"]
-            )
+            isbn_10 = data["isbn_10"][0] if isinstance(data["isbn_10"], list) else data["isbn_10"]
         if data.get("isbn_13"):
-            isbn_13 = (
-                data["isbn_13"][0]
-                if isinstance(data["isbn_13"], list)
-                else data["isbn_13"]
-            )
+            isbn_13 = data["isbn_13"][0] if isinstance(data["isbn_13"], list) else data["isbn_13"]
 
         return OpenLibraryEdition(
             key=data.get("key", ""),

@@ -62,15 +62,9 @@ EXPECTED_VERSION = VERSION_FILE.read_text().strip() if VERSION_FILE.exists() els
 # ---------------------------------------------------------------------------
 _docker_available = shutil.which("docker") is not None
 
-skip_no_docker = pytest.mark.skipif(
-    not _docker_available,
-    reason="Docker CLI not found on PATH",
-)
+skip_no_docker = pytest.mark.skipif(not _docker_available, reason="Docker CLI not found on PATH")
 
-skip_no_requests = pytest.mark.skipif(
-    requests is None,
-    reason="requests library not installed",
-)
+skip_no_requests = pytest.mark.skipif(requests is None, reason="requests library not installed")
 
 # Custom marker so `pytest -m docker` selects only these tests
 pytestmark = [pytest.mark.docker, skip_no_docker]
@@ -81,18 +75,10 @@ pytestmark = [pytest.mark.docker, skip_no_docker]
 # ---------------------------------------------------------------------------
 
 
-def _docker(
-    *args: str, check: bool = True, timeout: int = 120
-) -> subprocess.CompletedProcess:
+def _docker(*args: str, check: bool = True, timeout: int = 120) -> subprocess.CompletedProcess:
     """Run a docker CLI command and return the CompletedProcess."""
     cmd = ["docker", *args]
-    return subprocess.run(
-        cmd,
-        capture_output=True,
-        text=True,
-        timeout=timeout,
-        check=check,
-    )
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, check=check)
 
 
 def _docker_inspect(name: str, fmt: str) -> str:
@@ -236,9 +222,7 @@ def docker_container(docker_image):
         docker_image,
         timeout=30,
     )
-    assert run_result.returncode == 0, (
-        f"Container failed to start:\n{run_result.stderr}"
-    )
+    assert run_result.returncode == 0, f"Container failed to start:\n{run_result.stderr}"
     container_id = run_result.stdout.strip()
 
     # Discover assigned host ports
@@ -295,12 +279,8 @@ class TestDockerBuild:
         labels = json.loads(labels_json) if labels_json else {}
 
         assert "org.opencontainers.image.source" in labels, "Missing OCI source label"
-        assert "org.opencontainers.image.description" in labels, (
-            "Missing OCI description label"
-        )
-        assert "org.opencontainers.image.licenses" in labels, (
-            "Missing OCI licenses label"
-        )
+        assert "org.opencontainers.image.description" in labels, "Missing OCI description label"
+        assert "org.opencontainers.image.licenses" in labels, "Missing OCI licenses label"
         assert labels.get("org.opencontainers.image.licenses") == "MIT"
 
     def test_docker_image_runs_as_nonroot(self, docker_image):
@@ -319,9 +299,7 @@ class TestContainerLifecycle:
 
     def test_container_starts_and_becomes_healthy(self, docker_container):
         """Container starts and the Docker HEALTHCHECK eventually passes."""
-        assert docker_container["healthy"], (
-            "Container did not reach 'healthy' status within 60s"
-        )
+        assert docker_container["healthy"], "Container did not reach 'healthy' status within 60s"
 
     def test_container_health_check_works(self, healthy_container):
         """Docker reports the container health status as 'healthy'."""
@@ -339,17 +317,12 @@ class TestContainerLifecycle:
 
         # Check exit code
         exit_code = _docker_inspect(name, "{{.State.ExitCode}}")
-        assert exit_code in (
-            "0",
-            "143",
-        ), f"Expected exit code 0 or 143 (SIGTERM), got {exit_code}"
+        assert exit_code in ("0", "143"), f"Expected exit code 0 or 143 (SIGTERM), got {exit_code}"
 
     def test_container_port_bindings(self, healthy_container):
         """Ports 8443 (HTTPS) and 8080 (HTTP redirect) are bound to the host."""
         assert healthy_container["https_port"] is not None, "HTTPS port 8443 not bound"
-        assert healthy_container["http_port"] is not None, (
-            "HTTP redirect port 8080 not bound"
-        )
+        assert healthy_container["http_port"] is not None, "HTTP redirect port 8080 not bound"
 
 
 # ===================================================================
@@ -396,16 +369,11 @@ class TestAPIIntegration:
         """HTTP on 8080 redirects (301/302/307/308) to HTTPS."""
         url = self._http_url(healthy_container, "/")
         resp = requests.get(url, verify=False, timeout=10, allow_redirects=False)  # noqa: S501 # nosec B501 — self-signed cert on local test container
-        assert resp.status_code in (
-            301,
-            302,
-            307,
-            308,
-        ), f"Expected redirect, got {resp.status_code}"
-        location = resp.headers.get("Location", "")
-        assert "https" in location.lower(), (
-            f"Redirect Location does not point to HTTPS: {location}"
+        assert resp.status_code in (301, 302, 307, 308), (
+            f"Expected redirect, got {resp.status_code}"
         )
+        location = resp.headers.get("Location", "")
+        assert "https" in location.lower(), f"Redirect Location does not point to HTTPS: {location}"
 
     def test_api_audiobooks_list(self, healthy_container):
         """GET /api/audiobooks returns a valid response (empty library is OK)."""
@@ -434,14 +402,7 @@ class TestVolumeAndData:
     def test_database_auto_initialized(self, healthy_container):
         """The SQLite database file is created inside /app/data on first run."""
         name = healthy_container["name"]
-        result = _docker(
-            "exec",
-            name,
-            "test",
-            "-f",
-            "/app/data/audiobooks.db",
-            check=False,
-        )
+        result = _docker("exec", name, "test", "-f", "/app/data/audiobooks.db", check=False)
         assert result.returncode == 0, (
             "Database file /app/data/audiobooks.db not found in container"
         )
@@ -450,22 +411,8 @@ class TestVolumeAndData:
         """Self-signed TLS certificate and key are generated automatically."""
         name = healthy_container["name"]
 
-        cert_check = _docker(
-            "exec",
-            name,
-            "test",
-            "-f",
-            "/app/certs/server.crt",
-            check=False,
-        )
-        key_check = _docker(
-            "exec",
-            name,
-            "test",
-            "-f",
-            "/app/certs/server.key",
-            check=False,
-        )
+        cert_check = _docker("exec", name, "test", "-f", "/app/certs/server.crt", check=False)
+        key_check = _docker("exec", name, "test", "-f", "/app/certs/server.key", check=False)
         assert cert_check.returncode == 0, "server.crt not found in /app/certs/"
         assert key_check.returncode == 0, "server.key not found in /app/certs/"
 
@@ -511,9 +458,7 @@ class TestEnvironmentVariables:
 
             # Verify the custom port is exposed and bound
             mapped = _container_port(container_name, f"{custom_port}/tcp")
-            assert mapped is not None, (
-                f"Custom WEB_PORT {custom_port} not bound to host"
-            )
+            assert mapped is not None, f"Custom WEB_PORT {custom_port} not bound to host"
 
             if healthy and requests is not None:
                 url = f"https://127.0.0.1:{mapped}/"
@@ -532,18 +477,11 @@ class TestEnvironmentVariables:
     def test_version_matches_file(self, healthy_container):
         """VERSION inside the container matches the project VERSION file."""
         name = healthy_container["name"]
-        result = _docker(
-            "exec",
-            name,
-            "cat",
-            "/app/VERSION",
-            check=False,
-        )
+        result = _docker("exec", name, "cat", "/app/VERSION", check=False)
         assert result.returncode == 0, "Could not read /app/VERSION in container"
         container_version = result.stdout.strip()
         assert container_version == EXPECTED_VERSION, (
-            f"Container version '{container_version}' != "
-            f"project version '{EXPECTED_VERSION}'"
+            f"Container version '{container_version}' != project version '{EXPECTED_VERSION}'"
         )
 
 
@@ -558,27 +496,15 @@ class TestSecurity:
     def test_container_user_is_nonroot(self, healthy_container):
         """The running process user is 'audiobooks', not root."""
         name = healthy_container["name"]
-        result = _docker(
-            "exec",
-            name,
-            "whoami",
-            check=False,
-        )
+        result = _docker("exec", name, "whoami", check=False)
         assert result.returncode == 0
         user = result.stdout.strip()
-        assert user == "audiobooks", (
-            f"Expected container user 'audiobooks', got '{user}'"
-        )
+        assert user == "audiobooks", f"Expected container user 'audiobooks', got '{user}'"
 
     def test_no_secrets_in_image_layers(self, docker_image):
         """Docker history does not contain secrets (passwords, keys, tokens)."""
         result = _docker(
-            "history",
-            "--no-trunc",
-            "--format",
-            "{{.CreatedBy}}",
-            docker_image,
-            check=False,
+            "history", "--no-trunc", "--format", "{{.CreatedBy}}", docker_image, check=False
         )
         assert result.returncode == 0
 

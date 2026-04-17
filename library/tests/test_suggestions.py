@@ -17,9 +17,7 @@ from backend.api_modular.suggestions import sanitize_message, MAX_MESSAGE_LENGTH
 # ---------------------------------------------------------------------------
 
 
-def _insert_suggestion(
-    auth_app, username="testuser", message="A suggestion", is_read=0
-):
+def _insert_suggestion(auth_app, username="testuser", message="A suggestion", is_read=0):
     """Insert a suggestion directly into the database and return its id."""
     db_path = auth_app.config.get("DATABASE_PATH") or auth_app.config.get("DATABASE")
     conn = sqlite3.connect(str(db_path))
@@ -200,10 +198,7 @@ class TestSubmitSuggestion:
 
     def test_submit_valid(self, auth_app, user_client):
         """Authenticated user can submit a suggestion."""
-        resp = user_client.post(
-            "/api/suggestions",
-            json={"message": "Please add dark mode"},
-        )
+        resp = user_client.post("/api/suggestions", json={"message": "Please add dark mode"})
         assert resp.status_code == 201
         assert "thank you" in resp.get_json()["message"].lower()
         assert _count_suggestions(auth_app) == 1
@@ -227,13 +222,8 @@ class TestSubmitSuggestion:
 
     def test_submit_html_sanitized(self, auth_app, user_client):
         """HTML tags are stripped from the message."""
-        user_client.post(
-            "/api/suggestions",
-            json={"message": "<b>bold</b> suggestion"},
-        )
-        db_path = auth_app.config.get("DATABASE_PATH") or auth_app.config.get(
-            "DATABASE"
-        )
+        user_client.post("/api/suggestions", json={"message": "<b>bold</b> suggestion"})
+        db_path = auth_app.config.get("DATABASE_PATH") or auth_app.config.get("DATABASE")
         conn = sqlite3.connect(str(db_path))
         row = conn.execute("SELECT message FROM user_suggestions").fetchone()
         conn.close()
@@ -242,10 +232,7 @@ class TestSubmitSuggestion:
 
     def test_submit_only_html_returns_error(self, user_client):
         """Message that is entirely HTML tags becomes empty after sanitization."""
-        resp = user_client.post(
-            "/api/suggestions",
-            json={"message": "<div><span></span></div>"},
-        )
+        resp = user_client.post("/api/suggestions", json={"message": "<div><span></span></div>"})
         assert resp.status_code == 400
         assert "empty" in resp.get_json()["error"].lower()
 
@@ -255,9 +242,7 @@ class TestSubmitSuggestion:
         resp = user_client.post("/api/suggestions", json={"message": long_msg})
         assert resp.status_code == 201
 
-        db_path = auth_app.config.get("DATABASE_PATH") or auth_app.config.get(
-            "DATABASE"
-        )
+        db_path = auth_app.config.get("DATABASE_PATH") or auth_app.config.get("DATABASE")
         conn = sqlite3.connect(str(db_path))
         row = conn.execute("SELECT message FROM user_suggestions").fetchone()
         conn.close()
@@ -265,21 +250,13 @@ class TestSubmitSuggestion:
 
     def test_submit_anon_unauthorized(self, anon_client):
         """Unauthenticated request cannot submit suggestions."""
-        resp = anon_client.post(
-            "/api/suggestions",
-            json={"message": "I'm not logged in"},
-        )
+        resp = anon_client.post("/api/suggestions", json={"message": "I'm not logged in"})
         assert resp.status_code == 401
 
     def test_submit_stores_username(self, auth_app, user_client):
         """Submitted suggestion records the authenticated username."""
-        user_client.post(
-            "/api/suggestions",
-            json={"message": "Track my name"},
-        )
-        db_path = auth_app.config.get("DATABASE_PATH") or auth_app.config.get(
-            "DATABASE"
-        )
+        user_client.post("/api/suggestions", json={"message": "Track my name"})
+        db_path = auth_app.config.get("DATABASE_PATH") or auth_app.config.get("DATABASE")
         conn = sqlite3.connect(str(db_path))
         row = conn.execute("SELECT username FROM user_suggestions").fetchone()
         conn.close()
@@ -288,11 +265,7 @@ class TestSubmitSuggestion:
 
     def test_submit_no_body(self, user_client):
         """Request with no JSON body returns 400."""
-        resp = user_client.post(
-            "/api/suggestions",
-            data="",
-            content_type="application/json",
-        )
+        resp = user_client.post("/api/suggestions", data="", content_type="application/json")
         assert resp.status_code == 400
 
 
@@ -410,10 +383,7 @@ class TestAdminUpdateSuggestion:
     def test_mark_as_read(self, auth_app, admin_client):
         """Mark an unread suggestion as read."""
         item_id = _insert_suggestion(auth_app, message="Mark me", is_read=0)
-        resp = admin_client.patch(
-            f"/api/admin/suggestions/{item_id}",
-            json={"is_read": True},
-        )
+        resp = admin_client.patch(f"/api/admin/suggestions/{item_id}", json={"is_read": True})
         assert resp.status_code == 200
         assert resp.get_json()["message"] == "Updated"
 
@@ -424,10 +394,7 @@ class TestAdminUpdateSuggestion:
     def test_mark_as_unread(self, auth_app, admin_client):
         """Mark a read suggestion back to unread."""
         item_id = _insert_suggestion(auth_app, message="Toggle me", is_read=1)
-        resp = admin_client.patch(
-            f"/api/admin/suggestions/{item_id}",
-            json={"is_read": False},
-        )
+        resp = admin_client.patch(f"/api/admin/suggestions/{item_id}", json={"is_read": False})
         assert resp.status_code == 200
 
         count_resp = admin_client.get("/api/admin/suggestions/unread-count")
@@ -435,19 +402,13 @@ class TestAdminUpdateSuggestion:
 
     def test_update_not_found(self, admin_client):
         """Updating a nonexistent suggestion returns 404."""
-        resp = admin_client.patch(
-            "/api/admin/suggestions/99999",
-            json={"is_read": True},
-        )
+        resp = admin_client.patch("/api/admin/suggestions/99999", json={"is_read": True})
         assert resp.status_code == 404
 
     def test_update_missing_is_read(self, auth_app, admin_client):
         """Missing is_read field returns 400."""
         item_id = _insert_suggestion(auth_app, message="No field")
-        resp = admin_client.patch(
-            f"/api/admin/suggestions/{item_id}",
-            json={"other": "data"},
-        )
+        resp = admin_client.patch(f"/api/admin/suggestions/{item_id}", json={"other": "data"})
         assert resp.status_code == 400
         assert "is_read" in resp.get_json()["error"].lower()
 
@@ -455,28 +416,20 @@ class TestAdminUpdateSuggestion:
         """Empty body returns 400."""
         item_id = _insert_suggestion(auth_app, message="Empty")
         resp = admin_client.patch(
-            f"/api/admin/suggestions/{item_id}",
-            data="",
-            content_type="application/json",
+            f"/api/admin/suggestions/{item_id}", data="", content_type="application/json"
         )
         assert resp.status_code == 400
 
     def test_update_non_admin_forbidden(self, auth_app, user_client):
         """Regular user cannot update suggestions."""
         item_id = _insert_suggestion(auth_app, message="Protected")
-        resp = user_client.patch(
-            f"/api/admin/suggestions/{item_id}",
-            json={"is_read": True},
-        )
+        resp = user_client.patch(f"/api/admin/suggestions/{item_id}", json={"is_read": True})
         assert resp.status_code == 403
 
     def test_update_anon_unauthorized(self, auth_app, anon_client):
         """Unauthenticated request cannot update suggestions."""
         item_id = _insert_suggestion(auth_app, message="Protected")
-        resp = anon_client.patch(
-            f"/api/admin/suggestions/{item_id}",
-            json={"is_read": True},
-        )
+        resp = anon_client.patch(f"/api/admin/suggestions/{item_id}", json={"is_read": True})
         assert resp.status_code == 401
 
 

@@ -34,11 +34,7 @@ def _run_reconciler(env_overrides: dict[str, str]) -> subprocess.CompletedProces
     env = os.environ.copy()
     env.update(env_overrides)
     return subprocess.run(
-        ["bash", str(RECONCILER)],
-        capture_output=True,
-        text=True,
-        env=env,
-        check=False,
+        ["bash", str(RECONCILER)], capture_output=True, text=True, env=env, check=False
     )
 
 
@@ -120,9 +116,7 @@ def test_manifest_arrays_populated(tmp_path):
         echo CANONICAL_WRAPPERS=${{#CANONICAL_WRAPPERS[@]}}
         echo CONFIG_CANONICAL_DEFAULTS=${{#CONFIG_CANONICAL_DEFAULTS[@]}}
     """
-    result = subprocess.run(
-        ["bash", "-c", script], capture_output=True, text=True, check=True
-    )
+    result = subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=True)
     counts = dict(line.split("=") for line in result.stdout.strip().splitlines())
     for key in (
         "REQUIRED_VENVS",
@@ -148,9 +142,7 @@ def test_canonical_units_match_systemd_directory():
         source {MANIFEST}
         printf '%s\\n' "${{CANONICAL_UNITS[@]}}"
     """
-    result = subprocess.run(
-        ["bash", "-c", script], capture_output=True, text=True, check=True
-    )
+    result = subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=True)
     in_manifest = set(result.stdout.strip().splitlines())
     missing = on_disk - in_manifest
     assert not missing, f"units in systemd/ but not in manifest: {missing}"
@@ -168,9 +160,7 @@ def test_config_canonical_defaults_are_covered_in_config_py():
             echo "${{entry%%|*}}"
         done | sort -u
     """
-    result = subprocess.run(
-        ["bash", "-c", script], capture_output=True, text=True, check=True
-    )
+    result = subprocess.run(["bash", "-c", script], capture_output=True, text=True, check=True)
     manifest_keys = set(result.stdout.strip().splitlines())
     config_py_text = CONFIG_PY.read_text()
 
@@ -192,9 +182,7 @@ def test_report_mode_does_not_mutate(tmp_path):
     phantom = fx["LIB_DIR"] / "venv"
     phantom.mkdir()
     (phantom / "marker").write_text("do not delete me")
-    fx["CONF_FILE"].write_text(
-        "AUDIOBOOKS_COVERS=/opt/audiobooks/library/web-v2/covers\n"
-    )
+    fx["CONF_FILE"].write_text("AUDIOBOOKS_COVERS=/opt/audiobooks/library/web-v2/covers\n")
 
     result = _run_reconciler(_env_from_fixture(fx, mode="report"))
 
@@ -305,6 +293,5 @@ def test_scripts_have_no_hardcoded_var_lib(script):
         if "/var/lib/audiobooks" in line and not line.strip().startswith("#")
     ]
     assert not lines, (
-        f"{script.name} contains literal /var/lib/audiobooks outside comments:\n"
-        + "\n".join(lines)
+        f"{script.name} contains literal /var/lib/audiobooks outside comments:\n" + "\n".join(lines)
     )

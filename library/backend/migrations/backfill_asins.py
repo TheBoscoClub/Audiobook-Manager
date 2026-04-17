@@ -24,7 +24,7 @@ def extract_asin(chapters_path: Path) -> str | None:
         content_metadata = data.get("content_metadata", {})
         content_reference = content_metadata.get("content_reference", {})
         return content_reference.get("asin")
-    except (json.JSONDecodeError, IOError):
+    except json.JSONDecodeError, IOError:
         return None
 
 
@@ -50,9 +50,7 @@ def main():
     cursor = conn.cursor()
 
     # Get all audiobooks
-    cursor.execute(
-        "SELECT id, file_path FROM audiobooks WHERE asin IS NULL OR asin = ''"
-    )
+    cursor.execute("SELECT id, file_path FROM audiobooks WHERE asin IS NULL OR asin = ''")
     audiobooks = cursor.fetchall()
     print(f"Found {len(audiobooks)} audiobooks without ASINs")
 
@@ -72,9 +70,7 @@ def main():
     print(f"✓ Updated {updated} audiobooks with ASINs")
 
     # Show final stats
-    cursor.execute(
-        "SELECT COUNT(*) FROM audiobooks WHERE asin IS NOT NULL AND asin <> ''"
-    )
+    cursor.execute("SELECT COUNT(*) FROM audiobooks WHERE asin IS NOT NULL AND asin <> ''")
     total_with_asin = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM audiobooks")
     total = cursor.fetchone()[0]

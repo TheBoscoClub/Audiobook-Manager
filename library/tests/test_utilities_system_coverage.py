@@ -32,11 +32,7 @@ class TestCheckUpgradeVersionFieldValidation:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/system/upgrade/check",
-                json={
-                    "source": "project",
-                    "project_path": str(temp_dir),
-                    "version": "2.0.0",
-                },
+                json={"source": "project", "project_path": str(temp_dir), "version": "2.0.0"},
             )
 
         assert response.status_code == 400
@@ -72,11 +68,7 @@ class TestStartUpgradeVersionSymlinkTraversal:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/system/upgrade",
-                json={
-                    "source": "project",
-                    "project_path": str(project_dir),
-                    "force": True,
-                },
+                json={"source": "project", "project_path": str(project_dir), "force": True},
             )
 
         assert response.status_code == 400
@@ -94,9 +86,7 @@ class TestStartUpgradeVersionWithProjectSource:
     """Line 540: version field with project source (valid path)."""
 
     @patch("backend.api_modular.utilities_system._read_status")
-    def test_upgrade_version_with_valid_project_source(
-        self, mock_read, flask_app, temp_dir
-    ):
+    def test_upgrade_version_with_valid_project_source(self, mock_read, flask_app, temp_dir):
         """Version field with project source and valid path returns 400."""
         mock_read.return_value = {"running": False}
 
@@ -136,12 +126,7 @@ class TestStartUpgradeWithVersionParam:
 
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/system/upgrade",
-                json={
-                    "source": "github",
-                    "version": "7.5.0",
-                    "force": True,
-                },
+                "/api/system/upgrade", json={"source": "github", "version": "7.5.0", "force": True}
             )
 
         assert response.status_code == 200
@@ -185,9 +170,7 @@ class TestGetVersionMissingFile:
 class TestGetVersionInstanceBadge:
     """Line 619: INSTANCE_BADGE env var included in response."""
 
-    def test_instance_badge_included_when_set(
-        self, flask_app, session_temp_dir, monkeypatch
-    ):
+    def test_instance_badge_included_when_set(self, flask_app, session_temp_dir, monkeypatch):
         """INSTANCE_BADGE env var appears in version response."""
         (session_temp_dir / "VERSION").write_text("1.0.0")
         monkeypatch.setenv("INSTANCE_BADGE", "QA")
@@ -198,9 +181,7 @@ class TestGetVersionInstanceBadge:
         data = response.get_json()
         assert data["instance_badge"] == "QA"
 
-    def test_instance_badge_absent_when_not_set(
-        self, flask_app, session_temp_dir, monkeypatch
-    ):
+    def test_instance_badge_absent_when_not_set(self, flask_app, session_temp_dir, monkeypatch):
         """No instance_badge key when env var is empty."""
         (session_temp_dir / "VERSION").write_text("1.0.0")
         monkeypatch.delenv("INSTANCE_BADGE", raising=False)
@@ -220,9 +201,7 @@ class TestGetVersionInstanceBadge:
 class TestScanProjectsSkipNonAudiobook:
     """Line 670: directories without VERSION and non-Audiobook prefix skipped."""
 
-    def test_non_audiobook_dir_without_version_skipped(
-        self, flask_app, temp_dir, monkeypatch
-    ):
+    def test_non_audiobook_dir_without_version_skipped(self, flask_app, temp_dir, monkeypatch):
         """Regular directory without VERSION file is skipped."""
         # Create dir that doesn't start with 'Audiobook' and has no VERSION
         plain_dir = temp_dir / "SomeRandomProject"
@@ -375,9 +354,7 @@ class TestPurgeCdnCache:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch(
-            "urllib.request.urlopen", return_value=mock_response
-        ) as mock_urlopen:
+        with patch("urllib.request.urlopen", return_value=mock_response) as mock_urlopen:
             with flask_app.test_client() as client:
                 response = client.post("/api/system/purge-cache")
 
@@ -387,9 +364,7 @@ class TestPurgeCdnCache:
         assert req.get_header("X-auth-key") == "file-api-key"
         assert req.get_header("X-auth-email") == "file@example.com"
 
-    def test_token_file_with_quotes_and_comments(
-        self, flask_app, temp_dir, monkeypatch
-    ):
+    def test_token_file_with_quotes_and_comments(self, flask_app, temp_dir, monkeypatch):
         """Token file with quotes and comment lines parsed correctly."""
         monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         token_file = temp_dir / "cf-token"
@@ -409,9 +384,7 @@ class TestPurgeCdnCache:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch(
-            "urllib.request.urlopen", return_value=mock_response
-        ) as mock_urlopen:
+        with patch("urllib.request.urlopen", return_value=mock_response) as mock_urlopen:
             with flask_app.test_client() as client:
                 response = client.post("/api/system/purge-cache")
 
@@ -420,9 +393,7 @@ class TestPurgeCdnCache:
         assert req.get_header("X-auth-key") == "quoted-key"
         assert req.get_header("X-auth-email") == "quoted@example.com"
 
-    def test_token_file_permission_error_falls_back_to_env(
-        self, flask_app, temp_dir, monkeypatch
-    ):
+    def test_token_file_permission_error_falls_back_to_env(self, flask_app, temp_dir, monkeypatch):
         """Token file read failure falls back to env vars."""
         monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         # Create a token file path that exists but patch open to fail
@@ -445,9 +416,7 @@ class TestPurgeCdnCache:
         mock_response.__exit__ = MagicMock(return_value=False)
 
         with patch("builtins.open", side_effect=patched_open):
-            with patch(
-                "urllib.request.urlopen", return_value=mock_response
-            ) as mock_urlopen:
+            with patch("urllib.request.urlopen", return_value=mock_response) as mock_urlopen:
                 with flask_app.test_client() as client:
                     response = client.post("/api/system/purge-cache")
 
@@ -513,8 +482,7 @@ class TestPurgeCdnCache:
         monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent")
 
         with patch(
-            "urllib.request.urlopen",
-            side_effect=urllib.error.URLError("Connection refused"),
+            "urllib.request.urlopen", side_effect=urllib.error.URLError("Connection refused")
         ):
             with flask_app.test_client() as client:
                 response = client.post("/api/system/purge-cache")
@@ -531,10 +499,7 @@ class TestPurgeCdnCache:
         monkeypatch.setenv("CF_AUTH_EMAIL", "test@example.com")
         monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent")
 
-        with patch(
-            "urllib.request.urlopen",
-            side_effect=TimeoutError("Connection timed out"),
-        ):
+        with patch("urllib.request.urlopen", side_effect=TimeoutError("Connection timed out")):
             with flask_app.test_client() as client:
                 response = client.post("/api/system/purge-cache")
 
@@ -567,9 +532,7 @@ class TestPurgeCdnCache:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch(
-            "urllib.request.urlopen", return_value=mock_response
-        ) as mock_urlopen:
+        with patch("urllib.request.urlopen", return_value=mock_response) as mock_urlopen:
             with flask_app.test_client() as client:
                 response = client.post("/api/system/purge-cache")
 
@@ -577,9 +540,7 @@ class TestPurgeCdnCache:
         req = mock_urlopen.call_args[0][0]
         assert "custom-zone-123" in req.full_url
 
-    def test_env_vars_override_partial_token_file(
-        self, flask_app, temp_dir, monkeypatch
-    ):
+    def test_env_vars_override_partial_token_file(self, flask_app, temp_dir, monkeypatch):
         """Env vars fill in missing values from partial token file."""
         monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         # Token file only has API key, email comes from env
@@ -594,9 +555,7 @@ class TestPurgeCdnCache:
         mock_response.__enter__ = MagicMock(return_value=mock_response)
         mock_response.__exit__ = MagicMock(return_value=False)
 
-        with patch(
-            "urllib.request.urlopen", return_value=mock_response
-        ) as mock_urlopen:
+        with patch("urllib.request.urlopen", return_value=mock_response) as mock_urlopen:
             with flask_app.test_client() as client:
                 response = client.post("/api/system/purge-cache")
 

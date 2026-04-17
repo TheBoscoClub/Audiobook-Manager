@@ -28,10 +28,7 @@ class TestGenerateSortName:
         assert generate_sort_name("Ludwig van Beethoven") == "van Beethoven, Ludwig"
 
     def test_prefix_de(self):
-        assert (
-            generate_sort_name("Antoine de Saint-Exupéry")
-            == "de Saint-Exupéry, Antoine"
-        )
+        assert generate_sort_name("Antoine de Saint-Exupéry") == "de Saint-Exupéry, Antoine"
 
     def test_single_name(self):
         assert generate_sort_name("Plato") == "Plato"
@@ -123,28 +120,16 @@ class TestParseNames:
         assert parse_names("Stephen King") == ["Stephen King"]
 
     def test_semicolon_separated(self):
-        assert parse_names("Stephen King; Peter Straub") == [
-            "Stephen King",
-            "Peter Straub",
-        ]
+        assert parse_names("Stephen King; Peter Straub") == ["Stephen King", "Peter Straub"]
 
     def test_and_separated(self):
-        assert parse_names("Stephen King and Peter Straub") == [
-            "Stephen King",
-            "Peter Straub",
-        ]
+        assert parse_names("Stephen King and Peter Straub") == ["Stephen King", "Peter Straub"]
 
     def test_ampersand_separated(self):
-        assert parse_names("Stephen King & Peter Straub") == [
-            "Stephen King",
-            "Peter Straub",
-        ]
+        assert parse_names("Stephen King & Peter Straub") == ["Stephen King", "Peter Straub"]
 
     def test_comma_multiple_authors(self):
-        assert parse_names("Stephen King, Peter Straub") == [
-            "Stephen King",
-            "Peter Straub",
-        ]
+        assert parse_names("Stephen King, Peter Straub") == ["Stephen King", "Peter Straub"]
 
     def test_comma_last_first_format(self):
         assert parse_names("King, Stephen") == ["Stephen King"]
@@ -158,10 +143,7 @@ class TestParseNames:
         assert result == ["Author One", "Author Two", "Author Three"]
 
     def test_strips_whitespace(self):
-        assert parse_names("  Stephen King ;  Peter Straub  ") == [
-            "Stephen King",
-            "Peter Straub",
-        ]
+        assert parse_names("  Stephen King ;  Peter Straub  ") == ["Stephen King", "Peter Straub"]
 
     def test_empty_returns_empty_list(self):
         assert parse_names("") == []
@@ -283,9 +265,7 @@ class TestBrandDetection:
         assert is_brand_name(None) is False
 
     def test_government_org(self):
-        assert (
-            is_brand_name("Special Counsel's Office U.S. Department of Justice") is True
-        )
+        assert is_brand_name("Special Counsel's Office U.S. Department of Justice") is True
 
     def test_department_of(self):
         assert is_brand_name("Department of Defense") is True

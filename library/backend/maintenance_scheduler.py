@@ -26,10 +26,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import DATABASE_PATH
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="[SCHEDULER] %(asctime)s %(levelname)s %(message)s",
-)
+logging.basicConfig(level=logging.INFO, format="[SCHEDULER] %(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger("maintenance_scheduler")
 
 POLL_INTERVAL = 60  # seconds
@@ -48,7 +45,7 @@ LOCK_PATH = os.environ.get("MAINTENANCE_LOCK", str(Path(_run_dir) / "maintenance
 _shutdown = False
 
 
-def _handle_sigterm(signum, frame):
+def _handle_sigterm(signum, frame):  # pylint: disable=unused-argument  # required by signal.signal() callback signature
     global _shutdown
     logger.info("SIGTERM received, finishing current task then exiting...")
     _shutdown = True
@@ -101,8 +98,7 @@ def write_notification(ntype, payload):
     conn = get_db()
     try:
         conn.execute(
-            "INSERT INTO maintenance_notifications "
-            "(notification_type, payload) VALUES (?, ?)",
+            "INSERT INTO maintenance_notifications (notification_type, payload) VALUES (?, ?)",
             (ntype, json.dumps(payload)),
         )
         conn.commit()
@@ -117,8 +113,7 @@ def update_next_run(window):
         conn = get_db()
         try:
             conn.execute(
-                "UPDATE maintenance_windows SET status = 'completed' WHERE id = ?",
-                (window["id"],),
+                "UPDATE maintenance_windows SET status = 'completed' WHERE id = ?", (window["id"],)
             )
             conn.commit()
         finally:
@@ -145,12 +140,7 @@ def update_next_run(window):
 
 def execute_window(window):
     """Execute a single maintenance window's task."""
-    logger.info(
-        "Executing window %d: %s (%s)",
-        window["id"],
-        window["name"],
-        window["task_type"],
-    )
+    logger.info("Executing window %d: %s (%s)", window["id"], window["name"], window["task_type"])
 
     # Import registry inside function to use Flask app context if available
     try:
@@ -167,12 +157,7 @@ def execute_window(window):
         started_at = datetime.now(timezone.utc).isoformat() + "Z"
         record_history(window["id"], started_at, "failure", msg)
         write_notification(
-            "update",
-            {
-                "window_id": window["id"],
-                "status": "failure",
-                "message": msg,
-            },
+            "update", {"window_id": window["id"], "status": "failure", "message": msg}
         )
         return
 
@@ -188,12 +173,7 @@ def execute_window(window):
         started_at = datetime.now(timezone.utc).isoformat() + "Z"
         record_history(window["id"], started_at, "failure", msg)
         write_notification(
-            "update",
-            {
-                "window_id": window["id"],
-                "status": "failure",
-                "message": msg,
-            },
+            "update", {"window_id": window["id"], "status": "failure", "message": msg}
         )
         return
 
@@ -201,11 +181,7 @@ def execute_window(window):
     started_at = datetime.now(timezone.utc).isoformat() + "Z"
     write_notification(
         "update",
-        {
-            "window_id": window["id"],
-            "status": "running",
-            "message": f"Executing: {window['name']}",
-        },
+        {"window_id": window["id"], "status": "running", "message": f"Executing: {window['name']}"},
     )
 
     result = task.execute(params, progress_callback=lambda p, m: None)
@@ -213,12 +189,7 @@ def execute_window(window):
     status = "success" if result.success else "failure"
     record_history(window["id"], started_at, status, result.message, result.data)
     write_notification(
-        "update",
-        {
-            "window_id": window["id"],
-            "status": status,
-            "message": result.message,
-        },
+        "update", {"window_id": window["id"], "status": status, "message": result.message}
     )
 
     # Update next_run_at or mark completed
@@ -322,9 +293,7 @@ def main():
                     fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
                     execute_window(window)
                 except BlockingIOError:
-                    logger.info(
-                        "Lock held by another process, skipping window %d", window["id"]
-                    )
+                    logger.info("Lock held by another process, skipping window %d", window["id"])
                 finally:
                     try:
                         fcntl.flock(lock_fd, fcntl.LOCK_UN)

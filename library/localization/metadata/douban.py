@@ -28,9 +28,7 @@ class DoubanClient:
 
         try:
             resp = requests.get(
-                f"{DOUBAN_API_URL}/isbn/{isbn}",
-                params={"apikey": self._api_key},
-                timeout=10,
+                f"{DOUBAN_API_URL}/isbn/{isbn}", params={"apikey": self._api_key}, timeout=10
             )
             if resp.status_code == 404:
                 return None

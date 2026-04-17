@@ -43,9 +43,7 @@ def activity_seeded(auth_app):
     admin_user_id = auth_app.admin_user_id
 
     # Listening sessions for test user
-    for i, (book_id, minutes_ago) in enumerate(
-        [("1", 120), ("1", 90), ("2", 60), ("3", 30)]
-    ):
+    for i, (book_id, minutes_ago) in enumerate([("1", 120), ("1", 90), ("2", 60), ("3", 30)]):
         h = UserListeningHistory(
             user_id=test_user_id,
             audiobook_id=book_id,
@@ -72,19 +70,11 @@ def activity_seeded(auth_app):
 
     # Downloads for test user
     for book_id in ["1", "2", "3"]:
-        d = UserDownload(
-            user_id=test_user_id,
-            audiobook_id=book_id,
-            file_format="opus",
-        )
+        d = UserDownload(user_id=test_user_id, audiobook_id=book_id, file_format="opus")
         d.save(auth_db)
 
     # Downloads for admin user
-    d = UserDownload(
-        user_id=admin_user_id,
-        audiobook_id="1",
-        file_format="mp3",
-    )
+    d = UserDownload(user_id=admin_user_id, audiobook_id="1", file_format="mp3")
     d.save(auth_db)
 
     return auth_app
@@ -345,9 +335,7 @@ class TestActivityLog:
         """Multiple filters can be combined."""
         _login_admin(client, activity_seeded)
         user_id = activity_seeded.test_user_id
-        resp = client.get(
-            f"/api/admin/activity?user_id={user_id}&type=listen&audiobook_id=1"
-        )
+        resp = client.get(f"/api/admin/activity?user_id={user_id}&type=listen&audiobook_id=1")
         data = resp.get_json()
         for item in data["activity"]:
             assert item["user_id"] == user_id

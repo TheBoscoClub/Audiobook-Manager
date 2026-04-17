@@ -241,19 +241,13 @@ class GooglePlayProcessor:
         print(f"\nOutput: {output_file}")
 
     def _embed_and_save_cover(
-        self,
-        output_file: Path,
-        cover_data: bytes,
-        cover_mime: str,
-        metadata: Dict,
+        self, output_file: Path, cover_data: bytes, cover_mime: str, metadata: Dict
     ):
         """Embed cover art into OPUS and save a separate copy."""
         self._embed_opus_cover(output_file, cover_data, cover_mime)
 
         cover_ext = "jpg" if "jpeg" in cover_mime else "png"
-        cover_hash = hashlib.md5(
-            str(output_file).encode(), usedforsecurity=False
-        ).hexdigest()
+        cover_hash = hashlib.md5(str(output_file).encode(), usedforsecurity=False).hexdigest()
         cover_path = self.covers_dir / f"{cover_hash}.{cover_ext}"
         if not cover_path.exists():
             self.covers_dir.mkdir(parents=True, exist_ok=True)
@@ -273,16 +267,7 @@ class GooglePlayProcessor:
         audio_files: list[Path] = []
 
         # Search recursively for common audiobook formats
-        for pattern in [
-            "*.mp3",
-            "*.MP3",
-            "*.m4a",
-            "*.M4A",
-            "*.m4b",
-            "*.M4B",
-            "*.aac",
-            "*.AAC",
-        ]:
+        for pattern in ["*.mp3", "*.MP3", "*.m4a", "*.M4A", "*.m4b", "*.M4B", "*.aac", "*.AAC"]:
             audio_files.extend(directory.rglob(pattern))
 
         if not audio_files:
@@ -299,9 +284,7 @@ class GooglePlayProcessor:
         audio_files.sort(key=sort_key)
         return audio_files
 
-    def _extract_metadata_from_chapters(
-        self, chapter_files: List[Path]
-    ) -> Dict[str, Any]:
+    def _extract_metadata_from_chapters(self, chapter_files: List[Path]) -> Dict[str, Any]:
         """Extract metadata from chapter files using mutagen."""
         metadata = self._init_metadata(len(chapter_files))
 
@@ -350,9 +333,7 @@ class GooglePlayProcessor:
                     print(f"Warning: Could not read duration from {chapter_file}: {e}")
         return total
 
-    def _extract_first_chapter_tags(
-        self, chapter_file: Path, metadata: Dict, MutagenFile
-    ):
+    def _extract_first_chapter_tags(self, chapter_file: Path, metadata: Dict, MutagenFile):
         """Extract metadata tags from the first chapter file."""
         try:
             audio = MutagenFile(chapter_file)
@@ -374,10 +355,7 @@ class GooglePlayProcessor:
             metadata["title"] = metadata["album"]
         elif "TIT2" in tags:
             title = re.sub(
-                r",?\s*(Chapter|Part|Section)\s*\d+.*$",
-                "",
-                str(tags["TIT2"]),
-                flags=re.IGNORECASE,
+                r",?\s*(Chapter|Part|Section)\s*\d+.*$", "", str(tags["TIT2"]), flags=re.IGNORECASE
             )
             metadata["title"] = title
 
@@ -390,7 +368,7 @@ class GooglePlayProcessor:
         if "TDRC" in tags:
             try:
                 metadata["year"] = int(str(tags["TDRC"])[:4])
-            except (ValueError, TypeError):
+            except ValueError, TypeError:
                 pass  # Non-critical: year is optional metadata
 
     def _extract_m4a_tags(self, tags: Dict, metadata: Dict):
@@ -404,7 +382,7 @@ class GooglePlayProcessor:
         if "\xa9day" in tags:
             try:
                 metadata["year"] = int(str(tags["\xa9day"][0])[:4])
-            except (ValueError, TypeError, IndexError):
+            except ValueError, TypeError, IndexError:
                 pass  # Non-critical: year is optional metadata
 
     def _extract_m4a_title(self, tags: Dict, metadata: Dict):
@@ -435,9 +413,7 @@ class GooglePlayProcessor:
         elif "----:com.apple.iTunes:NARRATOR" in tags:
             metadata["narrator"] = str(tags["----:com.apple.iTunes:NARRATOR"][0])
 
-    def _extract_cover_art(
-        self, chapter_files: List[Path]
-    ) -> Tuple[Optional[bytes], str]:
+    def _extract_cover_art(self, chapter_files: List[Path]) -> Tuple[Optional[bytes], str]:
         """Extract embedded cover art from chapter files."""
         if not HAS_MUTAGEN:
             return None, ""
@@ -450,9 +426,7 @@ class GooglePlayProcessor:
         # Fall back to cover image files in directory
         return self._find_cover_file(chapter_files[0].parent)
 
-    def _extract_embedded_cover(
-        self, chapter_files: List[Path]
-    ) -> Optional[Tuple[bytes, str]]:
+    def _extract_embedded_cover(self, chapter_files: List[Path]) -> Optional[Tuple[bytes, str]]:
         """Try to extract embedded cover art from audio files."""
         from mutagen import File as MutagenFile
 
@@ -481,9 +455,7 @@ class GooglePlayProcessor:
                     return tag.data, tag.mime
         return None
 
-    def _extract_m4a_cover(
-        self, chapter_file: Path, MutagenFile
-    ) -> Optional[Tuple[bytes, str]]:
+    def _extract_m4a_cover(self, chapter_file: Path, MutagenFile) -> Optional[Tuple[bytes, str]]:
         """Extract cover art from M4A/M4B file."""
         audio = MutagenFile(chapter_file)
         if not (audio and audio.tags and "covr" in audio.tags):
@@ -502,18 +474,12 @@ class GooglePlayProcessor:
         for cover_name in cover_files:
             cover_path = directory / cover_name
             if cover_path.exists():
-                mime = (
-                    "image/jpeg"
-                    if cover_name.endswith((".jpg", ".jpeg"))
-                    else "image/png"
-                )
+                mime = "image/jpeg" if cover_name.endswith((".jpg", ".jpeg")) else "image/png"
                 with open(cover_path, "rb") as f:
                     return f.read(), mime
         return None, ""
 
-    def _merge_to_opus(
-        self, chapter_files: List[Path], output_path: Path, metadata: Dict
-    ) -> bool:
+    def _merge_to_opus(self, chapter_files: List[Path], output_path: Path, metadata: Dict) -> bool:
         """Merge chapter files into single OPUS file using FFmpeg."""
         # Create concat file list securely (mktemp is insecure - B306)
         fd, concat_path = tempfile.mkstemp(suffix=".txt")
@@ -658,9 +624,7 @@ class GooglePlayProcessor:
             return enriched
 
         try:
-            results = self.ol_client.search(
-                title=title, author=metadata.get("author", ""), limit=3
-            )
+            results = self.ol_client.search(title=title, author=metadata.get("author", ""), limit=3)
             if results:
                 self._apply_openlibrary_results(results, metadata, enriched)
         except Exception as e:
@@ -737,9 +701,7 @@ def calculate_file_hash(file_path: Path) -> Optional[str]:
         return None
 
 
-def import_to_database(
-    metadata: Dict, file_path: Path, covers_dir: Path
-) -> Optional[int]:
+def import_to_database(metadata: Dict, file_path: Path, covers_dir: Path) -> Optional[int]:
     """Import processed audiobook to database."""
     if not DB_PATH.exists():
         print(f"Database not found: {DB_PATH}")
@@ -798,12 +760,8 @@ def import_to_database(
 
 
 def main():
-    parser = ArgumentParser(
-        description="Process Google Play audiobook downloads into OPUS files"
-    )
-    parser.add_argument(
-        "input", type=Path, help="ZIP file or directory containing chapter MP3s"
-    )
+    parser = ArgumentParser(description="Process Google Play audiobook downloads into OPUS files")
+    parser.add_argument("input", type=Path, help="ZIP file or directory containing chapter MP3s")
     parser.add_argument(
         "--output-dir",
         "-o",
@@ -818,13 +776,9 @@ def main():
         "--import-db", action="store_true", help="Import to database after processing"
     )
     parser.add_argument(
-        "--execute",
-        action="store_true",
-        help="Actually process files (default is dry run)",
+        "--execute", action="store_true", help="Actually process files (default is dry run)"
     )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Show verbose output"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show verbose output")
 
     args = parser.parse_args()
 
@@ -835,7 +789,7 @@ def main():
     # Check for FFmpeg
     try:
         subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except subprocess.CalledProcessError, FileNotFoundError:
         print("Error: FFmpeg not found. Please install FFmpeg.")
         sys.exit(1)
 

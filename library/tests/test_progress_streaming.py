@@ -285,9 +285,7 @@ Download complete: 4 succeeded, 1 failed
         _item_pattern = re.compile(r"\[(\d+)/(\d+)\]\s*Downloading:\s*(.+)")  # noqa: F841
         success_pattern = re.compile(r"[✓✔]\s*Downloaded.*:\s*(.+)")
         fail_pattern = re.compile(r"[✗✘]\s*Failed.*:\s*(.+)")
-        complete_pattern = re.compile(
-            r"Download complete:\s*(\d+)\s*succeeded.*(\d+)\s*failed"
-        )
+        complete_pattern = re.compile(r"Download complete:\s*(\d+)\s*succeeded.*(\d+)\s*failed")
 
         downloaded = 0
         failed = 0
@@ -358,11 +356,7 @@ class TestCarriageReturnHandling:
     def test_parse_cr_progress(self):
         """Test parsing progress with carriage returns (scanner style)."""
         # Scanner outputs with \r for in-place updates
-        output = (
-            "Scanning: 10% | 100/1000\r"
-            "Scanning: 20% | 200/1000\r"
-            "Scanning: 30% | 300/1000\n"
-        )
+        output = "Scanning: 10% | 100/1000\rScanning: 20% | 200/1000\rScanning: 30% | 300/1000\n"
 
         pattern = re.compile(r"(\d+)%\s*\|\s*(\d+)/(\d+)")
 
@@ -454,9 +448,7 @@ class TestEdgeCases:
         assert len(truncated) == 50
 
         # Typical truncation pattern used in the code
-        title = (
-            "This is a very long audiobook title that exceeds the normal display width"
-        )
+        title = "This is a very long audiobook title that exceeds the normal display width"
         display_title = title.strip()[:40]
         assert len(display_title) == 40
 
@@ -504,12 +496,7 @@ class TestModuleImports:
     def test_modules_use_popen(self):
         """Verify modules use subprocess.Popen or run_with_progress (not blocking subprocess.run)."""
         import inspect
-        from backend.api_modular.utilities_ops import (
-            audible,
-            maintenance,
-            hashing,
-            library,
-        )
+        from backend.api_modular.utilities_ops import audible, maintenance, hashing, library
 
         # Get source code and check for Popen or run_with_progress usage
         for module in [audible, maintenance, hashing, library]:

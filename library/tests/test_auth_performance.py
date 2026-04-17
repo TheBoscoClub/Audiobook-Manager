@@ -56,11 +56,7 @@ class TestDatabasePerformance:
 
         for i in range(50):
             username = f"perf{i:04d}"
-            user = User(
-                username=username,
-                auth_type=AuthType.TOTP,
-                auth_credential=b"secret",
-            )
+            user = User(username=username, auth_type=AuthType.TOTP, auth_credential=b"secret")
 
             start = time.perf_counter()
             user.save(temp_db)
@@ -78,20 +74,16 @@ class TestDatabasePerformance:
         )
 
         # Assertions: should be fast for SQLite
-        assert avg_time < 0.05, (
-            f"Average user creation too slow: {avg_time * 1000:.2f}ms"
-        )
+        assert avg_time < 0.05, f"Average user creation too slow: {avg_time * 1000:.2f}ms"
         assert p95_time < 0.1, f"p95 user creation too slow: {p95_time * 1000:.2f}ms"
 
     def test_user_lookup_latency(self, temp_db):
         """Test user lookup time is acceptable."""
         # Create users first
         for i in range(100):
-            User(
-                username=f"look{i:04d}",
-                auth_type=AuthType.TOTP,
-                auth_credential=b"secret",
-            ).save(temp_db)
+            User(username=f"look{i:04d}", auth_type=AuthType.TOTP, auth_credential=b"secret").save(
+                temp_db
+            )
 
         repo = UserRepository(temp_db)
         times = []
@@ -123,11 +115,7 @@ class TestDatabasePerformance:
         # Create users and sessions
         tokens = []
         for i in range(100):
-            user = User(
-                username=f"sess{i:04d}",
-                auth_type=AuthType.TOTP,
-                auth_credential=b"secret",
-            )
+            user = User(username=f"sess{i:04d}", auth_type=AuthType.TOTP, auth_credential=b"secret")
             user.save(temp_db)
             session, token = Session.create_for_user(temp_db, user.id)
             tokens.append(token)
@@ -154,9 +142,7 @@ class TestDatabasePerformance:
         )
 
         # Token lookup includes hashing, so allow slightly more time
-        assert avg_time < 0.02, (
-            f"Average token lookup too slow: {avg_time * 1000:.2f}ms"
-        )
+        assert avg_time < 0.02, f"Average token lookup too slow: {avg_time * 1000:.2f}ms"
         assert p95_time < 0.05, f"p95 token lookup too slow: {p95_time * 1000:.2f}ms"
 
 
@@ -177,10 +163,7 @@ class TestTokenHashingPerformance:
         avg_time = statistics.mean(times)
         max_time = max(times)
 
-        print(
-            f"\nToken hashing: avg={avg_time * 1000000:.2f}μs,"
-            f" max={max_time * 1000000:.2f}μs"
-        )
+        print(f"\nToken hashing: avg={avg_time * 1000000:.2f}μs, max={max_time * 1000000:.2f}μs")
 
         # Hashing should be very fast (< 1ms)
         assert avg_time < 0.001, f"Token hashing too slow: {avg_time * 1000:.2f}ms"
@@ -201,11 +184,9 @@ class TestConcurrentOperations:
         """Test concurrent user lookups don't cause issues."""
         # Create users
         for i in range(50):
-            User(
-                username=f"conc{i:04d}",
-                auth_type=AuthType.TOTP,
-                auth_credential=b"secret",
-            ).save(temp_db)
+            User(username=f"conc{i:04d}", auth_type=AuthType.TOTP, auth_credential=b"secret").save(
+                temp_db
+            )
 
         repo = UserRepository(temp_db)
         errors = []
@@ -247,9 +228,7 @@ class TestConcurrentOperations:
         users = []
         for i in range(20):
             user = User(
-                username=f"csess{i:04d}",
-                auth_type=AuthType.TOTP,
-                auth_credential=b"secret",
+                username=f"csess{i:04d}", auth_type=AuthType.TOTP, auth_credential=b"secret"
             )
             user.save(temp_db)
             users.append(user)
@@ -292,35 +271,24 @@ class TestBulkOperations:
 
         for i in range(100):
             Notification(
-                message=f"Notification {i}",
-                type=NotificationType.INFO,
-                priority=i % 10,
+                message=f"Notification {i}", type=NotificationType.INFO, priority=i % 10
             ).save(temp_db)
 
         elapsed = time.perf_counter() - start
-        print(
-            f"\n100 notifications created in {elapsed * 1000:.2f}ms"
-            f" ({elapsed * 10:.2f}ms each)"
-        )
+        print(f"\n100 notifications created in {elapsed * 1000:.2f}ms ({elapsed * 10:.2f}ms each)")
 
         assert elapsed < 2.0, f"Bulk notification creation too slow: {elapsed:.2f}s"
 
     def test_notification_query_performance(self, temp_db):
         """Test notification query with many items."""
         # Create test user
-        user = User(
-            username="nquery",
-            auth_type=AuthType.TOTP,
-            auth_credential=b"secret",
-        )
+        user = User(username="nquery", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
 
         # Create many notifications
         for i in range(200):
             Notification(
-                message=f"Notification {i}",
-                type=NotificationType.INFO,
-                priority=i % 10,
+                message=f"Notification {i}", type=NotificationType.INFO, priority=i % 10
             ).save(temp_db)
 
         repo = NotificationRepository(temp_db)
@@ -334,10 +302,7 @@ class TestBulkOperations:
             times.append(elapsed)
 
         avg_time = statistics.mean(times)
-        print(
-            f"\nActive notifications query: avg={avg_time * 1000:.2f}ms,"
-            f" count={len(active)}"
-        )
+        print(f"\nActive notifications query: avg={avg_time * 1000:.2f}ms, count={len(active)}")
 
         assert avg_time < 0.05, f"Notification query too slow: {avg_time * 1000:.2f}ms"
 
@@ -346,9 +311,7 @@ class TestBulkOperations:
         # Create many users with sessions
         for i in range(100):
             user = User(
-                username=f"clean{i:04d}",
-                auth_type=AuthType.TOTP,
-                auth_credential=b"secret",
+                username=f"clean{i:04d}", auth_type=AuthType.TOTP, auth_credential=b"secret"
             )
             user.save(temp_db)
             Session.create_for_user(temp_db, user.id)
@@ -356,12 +319,8 @@ class TestBulkOperations:
         # Make half the sessions stale
         with temp_db.connection() as conn:
             # Use SQLite-compatible format to match DEFAULT CURRENT_TIMESTAMP
-            old_time = (datetime.now() - timedelta(hours=2)).strftime(
-                "%Y-%m-%d %H:%M:%S"
-            )
-            conn.execute(
-                "UPDATE sessions SET last_seen = ? WHERE id % 2 = 0", (old_time,)
-            )
+            old_time = (datetime.now() - timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
+            conn.execute("UPDATE sessions SET last_seen = ? WHERE id % 2 = 0", (old_time,))
 
         repo = SessionRepository(temp_db)
 
@@ -384,16 +343,12 @@ class TestDatabaseScaling:
         # Create 500 users
         start = time.perf_counter()
         for i in range(500):
-            User(
-                username=f"scale{i:04d}",
-                auth_type=AuthType.TOTP,
-                auth_credential=b"secret",
-            ).save(temp_db)
+            User(username=f"scale{i:04d}", auth_type=AuthType.TOTP, auth_credential=b"secret").save(
+                temp_db
+            )
         create_time = time.perf_counter() - start
 
-        print(
-            f"\n500 users created in {create_time:.2f}s ({create_time * 2:.2f}ms each)"
-        )
+        print(f"\n500 users created in {create_time:.2f}s ({create_time * 2:.2f}ms each)")
 
         repo = UserRepository(temp_db)
 
@@ -410,19 +365,15 @@ class TestDatabaseScaling:
         print(f"Lookups in 500-user table: avg={avg_lookup * 1000:.2f}ms")
 
         # Lookup should still be fast with index
-        assert avg_lookup < 0.01, (
-            f"Lookup degraded with scale: {avg_lookup * 1000:.2f}ms"
-        )
+        assert avg_lookup < 0.01, f"Lookup degraded with scale: {avg_lookup * 1000:.2f}ms"
 
     def test_list_all_users_performance(self, temp_db):
         """Test listing all users performance."""
         # Create users
         for i in range(200):
-            User(
-                username=f"list{i:04d}",
-                auth_type=AuthType.TOTP,
-                auth_credential=b"secret",
-            ).save(temp_db)
+            User(username=f"list{i:04d}", auth_type=AuthType.TOTP, auth_credential=b"secret").save(
+                temp_db
+            )
 
         repo = UserRepository(temp_db)
 
@@ -445,19 +396,11 @@ class TestEncryptionOverhead:
         # This test just measures baseline with encryption
         # (we can't easily compare without encryption in this setup)
 
-        times = {
-            "insert": [],
-            "select": [],
-            "update": [],
-        }
+        times = {"insert": [], "select": [], "update": []}
 
         # Measure insert
         for i in range(50):
-            user = User(
-                username=f"enc{i:04d}",
-                auth_type=AuthType.TOTP,
-                auth_credential=b"secret",
-            )
+            user = User(username=f"enc{i:04d}", auth_type=AuthType.TOTP, auth_credential=b"secret")
             start = time.perf_counter()
             user.save(temp_db)
             times["insert"].append(time.perf_counter() - start)

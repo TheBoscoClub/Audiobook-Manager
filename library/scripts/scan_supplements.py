@@ -25,9 +25,7 @@ except ImportError:
     # Database is in AUDIOBOOKS_VAR_DIR/db, NOT in data directory
     _data_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks")
     _var_dir = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
-    DATABASE_PATH = Path(
-        os.environ.get("AUDIOBOOKS_DATABASE", f"{_var_dir}/db/audiobooks.db")
-    )
+    DATABASE_PATH = Path(os.environ.get("AUDIOBOOKS_DATABASE", f"{_var_dir}/db/audiobooks.db"))
     DEFAULT_SUPPLEMENTS_DIR = Path(
         os.environ.get("AUDIOBOOKS_SUPPLEMENTS", f"{_data_dir}/Supplements")
     )
@@ -68,15 +66,10 @@ def ensure_supplements_table(cursor):
         )
     """)
     cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_supplements_audiobook_id"
-        " ON supplements(audiobook_id)"
+        "CREATE INDEX IF NOT EXISTS idx_supplements_audiobook_id ON supplements(audiobook_id)"
     )
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_supplements_asin ON supplements(asin)"
-    )
-    cursor.execute(
-        "CREATE INDEX IF NOT EXISTS idx_supplements_type ON supplements(type)"
-    )
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_supplements_asin ON supplements(asin)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_supplements_type ON supplements(type)")
 
 
 def _remove_orphaned_entries(cursor, conn, verbose):
@@ -105,10 +98,7 @@ def _remove_orphaned_entries(cursor, conn, verbose):
         conn.commit()
         removed = len(orphaned_ids)
         if verbose:
-            print(
-                f"  Removed {removed} orphaned supplement entries"
-                " (files no longer on disk)"
-            )
+            print(f"  Removed {removed} orphaned supplement entries (files no longer on disk)")
 
     return existing_paths, removed
 
@@ -234,9 +224,7 @@ def main():
         default=DEFAULT_SUPPLEMENTS_DIR,
         help="Path to supplements directory",
     )
-    parser.add_argument(
-        "--quiet", "-q", action="store_true", help="Suppress verbose output"
-    )
+    parser.add_argument("--quiet", "-q", action="store_true", help="Suppress verbose output")
     args = parser.parse_args()
 
     print(f"Scanning supplements from: {args.supplements_dir}")

@@ -78,11 +78,7 @@ class GlossaryManager:
     """Ensures a DeepL glossary exists and is in sync with the YAML file."""
 
     def __init__(
-        self,
-        api_key: str,
-        base_url: str,
-        tracker: QuotaTracker,
-        glossary_path: Path | None = None,
+        self, api_key: str, base_url: str, tracker: QuotaTracker, glossary_path: Path | None = None
     ) -> None:
         if not api_key:
             raise ValueError("DeepL API key is required for GlossaryManager")

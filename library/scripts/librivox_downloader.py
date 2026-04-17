@@ -147,11 +147,7 @@ class LibrivoxDownloader:
 
     def get_recent(self, limit: int = 20) -> List[LibrivoxBook]:
         """Get recently added audiobooks."""
-        params: dict[str, str | int] = {
-            "format": "json",
-            "limit": limit,
-            "sort": "release_date",
-        }
+        params: dict[str, str | int] = {"format": "json", "limit": limit, "sort": "release_date"}
 
         try:
             response = self.session.get(LIBRIVOX_API, params=params, timeout=30)
@@ -364,7 +360,7 @@ class LibrivoxDownloader:
             match = re.match(r"(\d{4})", str(year_str))
             if match:
                 return int(match.group(1))
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             pass  # Non-critical: return None for unparsable years
         return None
 
@@ -460,9 +456,7 @@ def _handle_wishlist(downloader, args):
         sys.exit(1)
 
     with open(args.wishlist) as f:
-        titles = [
-            line.strip() for line in f if line.strip() and not line.startswith("#")
-        ]
+        titles = [line.strip() for line in f if line.strip() and not line.startswith("#")]
 
     print(f"Processing wishlist with {len(titles)} titles...")
     for title in titles:
@@ -479,21 +473,12 @@ def _handle_wishlist(downloader, args):
 
 def main():
     parser = ArgumentParser(description="Download free audiobooks from Librivox")
-    parser.add_argument(
-        "--search", "-s", type=str, help="Search for audiobook by title"
-    )
-    parser.add_argument(
-        "--author", "-a", type=str, help="Filter by author (use with --search)"
-    )
-    parser.add_argument(
-        "--id", type=str, help="Download specific audiobook by Librivox ID"
-    )
+    parser.add_argument("--search", "-s", type=str, help="Search for audiobook by title")
+    parser.add_argument("--author", "-a", type=str, help="Filter by author (use with --search)")
+    parser.add_argument("--id", type=str, help="Download specific audiobook by Librivox ID")
     parser.add_argument("--recent", action="store_true", help="List recent audiobooks")
     parser.add_argument(
-        "--wishlist",
-        "-w",
-        type=Path,
-        help="Download from wishlist file (one title per line)",
+        "--wishlist", "-w", type=Path, help="Download from wishlist file (one title per line)"
     )
     parser.add_argument(
         "--output-dir",
@@ -503,9 +488,7 @@ def main():
         help=f"Output directory (default: {DEFAULT_OUTPUT})",
     )
     parser.add_argument(
-        "--individual",
-        action="store_true",
-        help="Download individual MP3s instead of ZIP",
+        "--individual", action="store_true", help="Download individual MP3s instead of ZIP"
     )
     parser.add_argument("--verbose", "-v", action="store_true", help="Verbose output")
 

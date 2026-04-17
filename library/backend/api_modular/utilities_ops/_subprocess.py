@@ -15,11 +15,10 @@ Why this exists:
 import select
 import subprocess
 import time
+from typing import Any
 
 
-def _make_result(
-    success, output_lines, stderr="", returncode=None, timed_out=False, error=None
-):
+def _make_result(success, output_lines, stderr="", returncode=None, timed_out=False, error=None):
     """Build a standard result dict."""
     output = "\n".join(output_lines)
     return {
@@ -59,9 +58,7 @@ def _flush_buffer(buffer, output_lines, line_callback):
         line_callback(buffer)
 
 
-def _read_stdout_loop(
-    process, fd, timeout_secs, operation_name, line_callback, output_lines
-):
+def _read_stdout_loop(process, fd, timeout_secs, operation_name, line_callback, output_lines):
     """Main read loop for subprocess stdout.
 
     Returns a result dict if terminated early (timeout), or None on normal EOF.
@@ -94,14 +91,7 @@ def _read_stdout_loop(
         buffer = _process_chunk(chunk, buffer, output_lines, line_callback)
 
 
-def run_with_progress(
-    cmd,
-    *,
-    line_callback,
-    timeout_secs,
-    operation_name="Operation",
-    env=None,
-):
+def run_with_progress(cmd, *, line_callback, timeout_secs, operation_name="Operation", env=None):
     """Run a subprocess with non-blocking stdout streaming.
 
     Args:
@@ -121,7 +111,7 @@ def run_with_progress(
             - timed_out: bool
             - error: str or None
     """
-    popen_kwargs = {
+    popen_kwargs: dict[str, Any] = {
         "stdout": subprocess.PIPE,
         "stderr": subprocess.PIPE,
         "text": True,
@@ -131,21 +121,18 @@ def run_with_progress(
         popen_kwargs["env"] = env
 
     process = subprocess.Popen(cmd, **popen_kwargs)
-    output_lines = []
+    # stdout/stderr are guaranteed non-None because popen_kwargs sets them to PIPE.
+    assert process.stdout is not None and process.stderr is not None
+    output_lines: list[str] = []
 
     try:
         fd = process.stdout.fileno()
-    except (AttributeError, OSError):
+    except AttributeError, OSError:
         fd = None
 
     try:
         early_result = _read_stdout_loop(
-            process,
-            fd,
-            timeout_secs,
-            operation_name,
-            line_callback,
-            output_lines,
+            process, fd, timeout_secs, operation_name, line_callback, output_lines
         )
         if early_result is not None:
             return early_result
@@ -158,9 +145,7 @@ def run_with_progress(
             output_lines=output_lines,
             stderr=stderr,
             returncode=process.returncode,
-            error=(stderr or f"{operation_name} failed")
-            if process.returncode != 0
-            else None,
+            error=(stderr or f"{operation_name} failed") if process.returncode != 0 else None,
         )
 
     except subprocess.TimeoutExpired:

@@ -39,21 +39,14 @@ from .collections import (
 from .core import add_cors_headers, add_security_headers
 from .core import get_db as _get_db_with_path
 from .duplicates import duplicates_bp, init_duplicates_routes
-from .editions import (
-    editions_bp,
-    has_edition_marker,
-    init_editions_routes,
-    normalize_base_title,
-)
+from .editions import editions_bp, has_edition_marker, init_editions_routes, normalize_base_title
 from .position_sync import init_position_routes, position_bp
 from .supplements import init_supplements_routes, supplements_bp
 from .grouped import grouped_bp, init_grouped_routes
 from .admin_activity import admin_activity_bp, init_admin_activity_routes
 from .admin_authors import admin_authors_bp, init_admin_authors_routes
 from .suggestions import suggestions_bp, init_suggestions_routes
-from .i18n_routes import (
-    i18n_bp,
-)  # uses absolute import for i18n module (sibling to api_modular/)
+from .i18n_routes import i18n_bp  # uses absolute import for i18n module (sibling to api_modular/)
 from .translations import translations_bp, init_translations_routes
 from .subtitles import subtitles_bp, init_subtitles_routes
 from .translated_audio import translated_audio_bp, init_translated_audio_routes
@@ -120,9 +113,7 @@ def _init_once(bp, init_fn, *args):
         bp._routes_initialized = True
 
 
-def _init_route_modules(
-    flask_app, database_path, project_root, supplements_dir, auth_dev_mode
-):
+def _init_route_modules(flask_app, database_path, project_root, supplements_dir, auth_dev_mode):
     """Initialize all route modules with their dependencies."""
     init_audiobooks_routes(database_path, project_root, database_path)
     _init_once(collections_bp, init_collections_routes, database_path)
@@ -243,10 +234,8 @@ def _setup_websocket(flask_app, database_path):
                 try:
                     msg = _json.loads(data)
                     if msg.get("type") == "heartbeat":
-                        connection_manager.heartbeat(
-                            session_id, state=msg.get("state", "browsing")
-                        )
-                except (ValueError, KeyError):
+                        connection_manager.heartbeat(session_id, state=msg.get("state", "browsing"))
+                except ValueError, KeyError:
                     pass
         except Exception as e:
             _ws_logger.debug("WebSocket connection closed: %s", e)
@@ -310,13 +299,11 @@ def create_app(
 
     @flask_app.route("/", defaults={"path": ""}, methods=["OPTIONS"])
     @flask_app.route("/<path:path>", methods=["OPTIONS"])
-    def handle_options(path: str) -> tuple[str, int]:
+    def handle_options(path: str) -> tuple[str, int]:  # pylint: disable=unused-argument  # path captured by Flask route converter but CORS preflight response is path-agnostic
         """Handle CORS preflight requests"""
         return "", 204
 
-    _init_route_modules(
-        flask_app, database_path, project_root, supplements_dir, auth_dev_mode
-    )
+    _init_route_modules(flask_app, database_path, project_root, supplements_dir, auth_dev_mode)
     _register_core_blueprints(flask_app)
     _register_auth_blueprints(flask_app)
     _register_extension_blueprints(flask_app, database_path, project_root)

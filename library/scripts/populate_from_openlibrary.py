@@ -128,8 +128,7 @@ def _try_isbn_lookup(
 
 
 def _find_best_title_match(
-    search_results: list,
-    book_title: str,
+    search_results: list, book_title: str
 ) -> tuple[Optional[dict], float, str]:
     """Find best title match from search results.
 
@@ -161,10 +160,7 @@ def _try_title_search(
 ) -> Optional[EnrichmentResult]:
     """Tier 2 & 3: Title/Author search with matching."""
     search_results = client.search(title=book_title, author=book_author, limit=5)
-    best_match, best_ratio, best_method = _find_best_title_match(
-        search_results,
-        book_title,
-    )
+    best_match, best_ratio, best_method = _find_best_title_match(search_results, book_title)
 
     if not best_match:
         return None
@@ -185,9 +181,7 @@ def _try_title_search(
         title=book_title,
         match_method=best_method,
         subjects_found=work.subjects,
-        publication_year=(
-            work.first_publish_year or best_match.get("first_publish_year")
-        ),
+        publication_year=(work.first_publish_year or best_match.get("first_publish_year")),
         isbn_found=found_isbn,
         work_id=work.work_id,
         similarity=best_ratio if "fuzzy" in best_method else None,
@@ -249,9 +243,7 @@ def _print_match_report(
         print(f"  ... and {len(no_match) - 5} more")
 
 
-def _apply_genre_updates(
-    cursor, matches: list[EnrichmentResult], all_subjects: set
-) -> None:
+def _apply_genre_updates(cursor, matches: list[EnrichmentResult], all_subjects: set) -> None:
     """Apply genre and metadata updates to the database."""
     genre_id_map = {}
 
@@ -305,9 +297,7 @@ def _update_year_if_missing(cursor, result: EnrichmentResult) -> int:
     return cursor.rowcount
 
 
-def _create_genre_associations(
-    cursor, result: EnrichmentResult, genre_id_map: dict
-) -> int:
+def _create_genre_associations(cursor, result: EnrichmentResult, genre_id_map: dict) -> int:
     """Create genre associations for a book. Returns count of new associations."""
     count = 0
     seen_genres = set()
@@ -364,10 +354,7 @@ def populate_from_openlibrary(
     cursor = conn.cursor()
 
     query, params = _build_candidate_query(
-        audiobook_id,
-        only_missing_genres,
-        only_non_audible,
-        limit,
+        audiobook_id, only_missing_genres, only_non_audible, limit
     )
     cursor.execute(query, params)
     candidates = cursor.fetchall()
@@ -420,30 +407,19 @@ def main():
         help="Only process books without genre data (default)",
     )
     parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Process all audiobooks (refresh existing data)",
+        "--all", action="store_true", help="Process all audiobooks (refresh existing data)"
     )
     parser.add_argument(
         "--non-audible", action="store_true", help="Only process books without ASIN"
     )
+    parser.add_argument("--id", type=int, default=None, help="Process single audiobook by ID")
     parser.add_argument(
-        "--id", type=int, default=None, help="Process single audiobook by ID"
+        "--rate-limit", type=float, default=0.6, help="Seconds between API requests (default: 0.6)"
     )
     parser.add_argument(
-        "--rate-limit",
-        type=float,
-        default=0.6,
-        help="Seconds between API requests (default: 0.6)",
+        "--execute", action="store_true", help="Actually apply changes (default is dry run)"
     )
-    parser.add_argument(
-        "--execute",
-        action="store_true",
-        help="Actually apply changes (default is dry run)",
-    )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Show verbose output"
-    )
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show verbose output")
 
     args = parser.parse_args()
 

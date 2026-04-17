@@ -136,12 +136,7 @@ class TestGetFileMetadataRelativePath:
         test_file = tmp_path / "book.opus"
         test_file.write_bytes(b"test")
 
-        mock_ffprobe.return_value = {
-            "format": {
-                "duration": "3600",
-                "tags": {"title": "Test"},
-            },
-        }
+        mock_ffprobe.return_value = {"format": {"duration": "3600", "tags": {"title": "Test"}}}
         mock_hash.return_value = "abc123"
 
         # Pass a different base dir that's not a parent
@@ -160,12 +155,7 @@ class TestGetFileMetadataRelativePath:
         test_file = tmp_path / "book.opus"
         test_file.write_bytes(b"test")
 
-        mock_ffprobe.return_value = {
-            "format": {
-                "duration": "3600",
-                "tags": {"title": "Test"},
-            },
-        }
+        mock_ffprobe.return_value = {"format": {"duration": "3600", "tags": {"title": "Test"}}}
 
         result = get_file_metadata(test_file, tmp_path, calculate_hash=False)
         assert result is not None
@@ -283,20 +273,11 @@ class TestExtractCoverArtEdgeCases:
 
         # Simpler approach: patch at module level
         mock_resolve = MagicMock(return_value="resolved.jpg")
-        with patch(
-            "scanner.metadata_utils.subprocess.run",
-            return_value=MagicMock(returncode=1),
-        ):
-            with patch(
-                "scanner.metadata_utils._find_standalone_cover", return_value=None
-            ):
+        with patch("scanner.metadata_utils.subprocess.run", return_value=MagicMock(returncode=1)):
+            with patch("scanner.metadata_utils._find_standalone_cover", return_value=None):
                 with patch.dict(
                     "sys.modules",
-                    {
-                        "scanner.utils.cover_resolver": MagicMock(
-                            resolve_cover=mock_resolve
-                        )
-                    },
+                    {"scanner.utils.cover_resolver": MagicMock(resolve_cover=mock_resolve)},
                 ):
                     extract_cover_art(test_file, cover_dir, metadata=metadata)
                     # The import happens inside the function; with mocked module
@@ -336,9 +317,7 @@ class TestExtractCoverArtEdgeCases:
         # Snapshot the cached module (if any) so we can restore it post-test.
         cached_module = sys.modules.get("scanner.utils.cover_resolver")
         try:
-            with patch(
-                "scanner.metadata_utils._find_standalone_cover", return_value=None
-            ):
+            with patch("scanner.metadata_utils._find_standalone_cover", return_value=None):
                 with patch("builtins.__import__", side_effect=selective_import):
                     # Drop any cached module so the import statement re-executes
                     # and hits our selective_import shim.
@@ -372,8 +351,7 @@ class TestExtractCoverArtEdgeCases:
 
         with patch("scanner.metadata_utils._find_standalone_cover", return_value=None):
             with patch(
-                "scanner.utils.cover_resolver.resolve_cover",
-                side_effect=RuntimeError("API down"),
+                "scanner.utils.cover_resolver.resolve_cover", side_effect=RuntimeError("API down")
             ):
                 result = extract_cover_art(test_file, cover_dir, metadata=metadata)
                 captured = capsys.readouterr()
@@ -387,9 +365,7 @@ class TestExtractCoverArtEdgeCases:
         cover_dir = tmp_path / "covers"
         cover_dir.mkdir()
 
-        with patch(
-            "scanner.metadata_utils.hashlib.md5", side_effect=Exception("hash error")
-        ):
+        with patch("scanner.metadata_utils.hashlib.md5", side_effect=Exception("hash error")):
             result = extract_cover_art(test_file, cover_dir)
             captured = capsys.readouterr()
             assert "Error extracting cover" in captured.err

@@ -6,6 +6,7 @@ Handles adding new audiobooks, rescanning the library, and reimporting to databa
 
 import re
 import sys
+from pathlib import Path
 
 from flask import Blueprint, request
 from operation_status import create_progress_callback
@@ -22,7 +23,7 @@ _ansi_escape = re.compile(r"\033\[[0-9;]*m")
 
 # Module-level state set by init_library_routes
 _db_path = None
-_project_root = None
+_project_root: Path = Path()
 
 # Compiled regex patterns for rescan progress
 _rescan_progress_pattern = re.compile(r"(\d+)%\s*\|\s*(\d+)/(\d+)")
@@ -53,16 +54,14 @@ def _parse_rescan_line(buf, state, tracker, operation_id):
         if percent > state["last_progress"]:
             scaled = 5 + int(percent * 0.9)
             tracker.update_progress(
-                operation_id,
-                scaled,
-                f"Scanning: {current}/{total} files ({percent}%)",
+                operation_id, scaled, f"Scanning: {current}/{total} files ({percent}%)"
             )
             state["last_progress"] = percent
 
     if "Total files:" in buf or "Total audiobooks:" in buf:
         try:
             state["files_found"] = int(buf.split(":")[1].strip())
-        except (ValueError, IndexError):
+        except ValueError, IndexError:
             pass
 
 
@@ -98,11 +97,7 @@ def _handle_reimport_regex(line, state, tracker, operation_id):
     match = _found_pattern.search(line)
     if match:
         state["total"] = int(match.group(1))
-        tracker.update_progress(
-            operation_id,
-            5,
-            f"Found {state['total']:,} audiobooks to import",
-        )
+        tracker.update_progress(operation_id, 5, f"Found {state['total']:,} audiobooks to import")
         state["last_progress"] = 5
         return True
 
@@ -114,9 +109,7 @@ def _handle_reimport_regex(line, state, tracker, operation_id):
             progress = 10 + int((current / total) * 75)
             if progress > state["last_progress"]:
                 tracker.update_progress(
-                    operation_id,
-                    progress,
-                    f"Importing: {current:,}/{total:,} audiobooks",
+                    operation_id, progress, f"Importing: {current:,}/{total:,} audiobooks"
                 )
                 state["last_progress"] = progress
         return True
@@ -124,9 +117,7 @@ def _handle_reimport_regex(line, state, tracker, operation_id):
     match = _imported_pattern.search(line)
     if match:
         state["imported"] = int(match.group(1))
-        tracker.update_progress(
-            operation_id, 90, f"Imported {state['imported']:,} audiobooks"
-        )
+        tracker.update_progress(operation_id, 90, f"Imported {state['imported']:,} audiobooks")
         state["last_progress"] = 90
         return True
 
@@ -207,11 +198,7 @@ def add_new_audiobooks_endpoint() -> FlaskResponse:
     def work(tracker, operation_id):
         progress_cb = create_progress_callback(operation_id)
         sys.path.insert(0, str(_project_root / "scanner"))
-        from add_new_audiobooks import (
-            AUDIOBOOK_DIR,
-            COVER_DIR,
-            add_new_audiobooks,
-        )
+        from add_new_audiobooks import AUDIOBOOK_DIR, COVER_DIR, add_new_audiobooks
 
         results = add_new_audiobooks(
             library_dir=AUDIOBOOK_DIR,

@@ -127,9 +127,7 @@ class BackupCodeRepository:
     def __init__(self, db: AuthDatabase):
         self.db = db
 
-    def create_codes_for_user(
-        self, user_id: int, count: int = NUM_BACKUP_CODES
-    ) -> List[str]:
+    def create_codes_for_user(self, user_id: int, count: int = NUM_BACKUP_CODES) -> List[str]:
         """
         Generate and store backup codes for a user.
 
@@ -147,8 +145,7 @@ class BackupCodeRepository:
         with self.db.connection() as conn:
             # Delete existing unused codes
             conn.execute(
-                "DELETE FROM backup_codes WHERE user_id = ? AND used_at IS NULL",
-                (user_id,),
+                "DELETE FROM backup_codes WHERE user_id = ? AND used_at IS NULL", (user_id,)
             )
 
             # Insert new codes
@@ -207,8 +204,7 @@ class BackupCodeRepository:
         """
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT COUNT(*) FROM backup_codes"
-                " WHERE user_id = ? AND used_at IS NULL",
+                "SELECT COUNT(*) FROM backup_codes WHERE user_id = ? AND used_at IS NULL",
                 (user_id,),
             )
             return cursor.fetchone()[0]
@@ -225,8 +221,7 @@ class BackupCodeRepository:
         """
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "SELECT * FROM backup_codes WHERE user_id = ? ORDER BY created_at",
-                (user_id,),
+                "SELECT * FROM backup_codes WHERE user_id = ? ORDER BY created_at", (user_id,)
             )
             return [BackupCode.from_row(row) for row in cursor.fetchall()]
 
@@ -241,9 +236,7 @@ class BackupCodeRepository:
             Number of codes deleted
         """
         with self.db.connection() as conn:
-            cursor = conn.execute(
-                "DELETE FROM backup_codes WHERE user_id = ?", (user_id,)
-            )
+            cursor = conn.execute("DELETE FROM backup_codes WHERE user_id = ?", (user_id,))
             return cursor.rowcount
 
 

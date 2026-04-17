@@ -29,9 +29,7 @@ class TestMarqueeCSS:
 
     @pytest.fixture
     def marquee_css(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "css", "marquee.css"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "css", "marquee.css")
         with open(path) as f:
             return f.read()
 
@@ -52,9 +50,7 @@ class TestMarqueeJS:
 
     @pytest.fixture
     def marquee_js(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "js", "marquee.js"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "js", "marquee.js")
         with open(path) as f:
             return f.read()
 

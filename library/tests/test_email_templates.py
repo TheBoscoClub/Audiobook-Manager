@@ -46,18 +46,9 @@ _TEMPLATE_VARS = {
         "link": "https://library.example.com/verify.html?token=abc123",
         "expires_minutes": 15,
     },
-    "approval": {
-        "username": "alice",
-        "claim_url": "https://library.example.com/claim.html",
-    },
-    "denial": {
-        "username": "alice",
-        "reason": "Username already in use.",
-    },
-    "reply": {
-        "username": "alice",
-        "reply_text": "Thanks for your message!\nRegards, The Library.",
-    },
+    "approval": {"username": "alice", "claim_url": "https://library.example.com/claim.html"},
+    "denial": {"username": "alice", "reason": "Username already in use."},
+    "reply": {"username": "alice", "reply_text": "Thanks for your message!\nRegards, The Library."},
     "invitation": {
         "username": "alice",
         "claim_url": "https://library.example.com/claim.html",
@@ -119,9 +110,7 @@ def test_username_is_html_escaped_in_html_body() -> None:
     payload = "<script>alert('xss')</script>"
     variables = dict(_TEMPLATE_VARS["magic_link"], username=payload)
 
-    _subject, text, html_body = email_templates.render_email(
-        "magic_link", "en", **variables
-    )
+    _subject, text, html_body = email_templates.render_email("magic_link", "en", **variables)
 
     # Plain-text body keeps the raw value — that's by design (text/plain
     # renders it literally, no injection risk).
@@ -138,9 +127,7 @@ def test_reply_text_is_html_escaped() -> None:
     payload = "<img src=x onerror=alert(1)>"
     variables = dict(_TEMPLATE_VARS["reply"], reply_text=payload)
 
-    _subject, _text, html_body = email_templates.render_email(
-        "reply", "en", **variables
-    )
+    _subject, _text, html_body = email_templates.render_email("reply", "en", **variables)
     assert "<img src=x" not in html_body
     assert "&lt;img src=x" in html_body
 

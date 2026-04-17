@@ -110,9 +110,7 @@ class TestLogin:
 
     def test_login_wrong_username(self, client):
         """Test login fails with non-existent user."""
-        r = client.post(
-            "/auth/login", json={"username": "nonexistent", "code": "123456"}
-        )
+        r = client.post("/auth/login", json={"username": "nonexistent", "code": "123456"})
 
         assert r.status_code == 401
         data = r.get_json()
@@ -142,9 +140,7 @@ class TestLogout:
         """Test successful logout."""
         # Login first
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         # Logout
         r = client.post("/auth/logout")
@@ -168,9 +164,7 @@ class TestCurrentUser:
     def test_me_authenticated(self, client, auth_app):
         """Test /auth/me returns user info when logged in."""
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         r = client.get("/auth/me")
         assert r.status_code == 200
@@ -231,9 +225,7 @@ class TestRegistration:
         secret = base32_to_secret(data["totp_secret"])
         auth = TOTPAuthenticator(secret)
 
-        r = client.post(
-            "/auth/login", json={"username": "flowuser1", "code": auth.current_code()}
-        )
+        r = client.post("/auth/login", json={"username": "flowuser1", "code": auth.current_code()})
         assert r.status_code == 200
         assert r.get_json()["success"] is True
 
@@ -254,9 +246,7 @@ class TestSessionManagement:
         auth = TOTPAuthenticator(auth_app.test_user_secret)
 
         # First login
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         # Verify logged in
         r = client.get("/auth/check")
@@ -267,9 +257,7 @@ class TestSessionManagement:
         import time
 
         time.sleep(0.1)  # Ensure different TOTP window or same code
-        client2.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client2.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         # Second client should be logged in
         r = client2.get("/auth/check")
@@ -390,9 +378,7 @@ class TestBackupCodeManagement:
     def test_get_remaining_codes_authenticated(self, client, auth_app):
         """Test getting remaining backup code count when logged in."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post("/auth/recover/remaining-codes")
         assert r.status_code == 200
@@ -415,9 +401,7 @@ class TestBackupCodeManagement:
 
         totp_secret = base32_to_secret(secret)
         auth = TOTPAuthenticator(totp_secret)
-        client.post(
-            "/auth/login", json={"username": "regenuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "regenuser", "code": auth.current_code()})
 
         # Regenerate codes
         r = client.post("/auth/recover/regenerate-codes")
@@ -447,14 +431,10 @@ class TestRecoveryContactManagement:
 
         totp_secret = base32_to_secret(secret)
         auth = TOTPAuthenticator(totp_secret)
-        client.post(
-            "/auth/login", json={"username": "contactuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "contactuser", "code": auth.current_code()})
 
         # Add recovery email
-        r = client.post(
-            "/auth/recover/update-contact", json={"recovery_email": "new@example.com"}
-        )
+        r = client.post("/auth/recover/update-contact", json={"recovery_email": "new@example.com"})
 
         assert r.status_code == 200
         data = r.get_json()
@@ -463,9 +443,7 @@ class TestRecoveryContactManagement:
 
     def test_remove_recovery_contact(self, client, auth_app):
         """Test removing recovery contact."""
-        data = _register_and_claim(
-            client, auth_app, "rmcontact", recovery_email="has@example.com"
-        )
+        data = _register_and_claim(client, auth_app, "rmcontact", recovery_email="has@example.com")
         secret = data["totp_secret"]
 
         # Login
@@ -473,9 +451,7 @@ class TestRecoveryContactManagement:
 
         totp_secret = base32_to_secret(secret)
         auth = TOTPAuthenticator(totp_secret)
-        client.post(
-            "/auth/login", json={"username": "rmcontact", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "rmcontact", "code": auth.current_code()})
 
         # Remove recovery email
         r = client.post("/auth/recover/update-contact", json={"recovery_email": None})
@@ -486,9 +462,7 @@ class TestRecoveryContactManagement:
 
     def test_update_contact_unauthenticated(self, client):
         """Test updating contact requires auth."""
-        r = client.post(
-            "/auth/recover/update-contact", json={"recovery_email": "test@example.com"}
-        )
+        r = client.post("/auth/recover/update-contact", json={"recovery_email": "test@example.com"})
         assert r.status_code == 401
 
 
@@ -537,9 +511,7 @@ class TestProtectedEndpointsAuthenticated:
     def test_audiobooks_accessible_when_logged_in(self, client, auth_app):
         """Test /api/audiobooks works when authenticated."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.get("/api/audiobooks")
         assert r.status_code == 200
@@ -547,9 +519,7 @@ class TestProtectedEndpointsAuthenticated:
     def test_stats_accessible_when_logged_in(self, client, auth_app):
         """Test /api/stats works when authenticated."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.get("/api/stats")
         assert r.status_code == 200
@@ -557,9 +527,7 @@ class TestProtectedEndpointsAuthenticated:
     def test_collections_accessible_when_logged_in(self, client, auth_app):
         """Test /api/collections works when authenticated."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.get("/api/collections")
         assert r.status_code == 200
@@ -571,9 +539,7 @@ class TestAdminEndpointsNonAdmin:
     def test_delete_requires_admin(self, client, auth_app):
         """Test DELETE /api/audiobooks/<id> requires admin."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.delete("/api/audiobooks/1")
         assert r.status_code == 403
@@ -582,9 +548,7 @@ class TestAdminEndpointsNonAdmin:
     def test_vacuum_requires_admin(self, client, auth_app):
         """Test POST /api/utilities/vacuum requires admin."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post("/api/utilities/vacuum")
         assert r.status_code == 403
@@ -592,9 +556,7 @@ class TestAdminEndpointsNonAdmin:
     def test_delete_duplicates_requires_admin(self, client, auth_app):
         """Test POST /api/duplicates/delete requires admin."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post("/api/duplicates/delete", json={"ids": []})
         assert r.status_code == 403
@@ -606,9 +568,7 @@ class TestAdminEndpointsWithAdmin:
     def test_vacuum_allowed_for_admin(self, client, auth_app):
         """Test POST /api/utilities/vacuum works for admin."""
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         r = client.post("/api/utilities/vacuum")
         # Should succeed (200) or handle gracefully - not 401/403
@@ -623,9 +583,7 @@ class TestDownloadPermissionEndpoints:
         needed)."""
         # testuser1 has can_download=False but should still be able to stream
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.get("/api/stream/1")
         # Should succeed or 404 (file doesn't exist on disk), but not 403
@@ -634,9 +592,7 @@ class TestDownloadPermissionEndpoints:
     def test_supplement_download_without_permission(self, client, auth_app):
         """Test supplement download requires download permission."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.get("/api/supplements/1/download")
         assert r.status_code == 403
@@ -645,9 +601,7 @@ class TestDownloadPermissionEndpoints:
         """Test supplement download works with download permission."""
         # adminuser has can_download=True
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         r = client.get("/api/supplements/1/download")
         # Should succeed or 404 (supplement doesn't exist), but not 403
@@ -657,9 +611,7 @@ class TestDownloadPermissionEndpoints:
         """Test audiobook download requires download permission."""
         # testuser1 has can_download=False
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.get("/api/download/1")
         assert r.status_code == 403
@@ -669,9 +621,7 @@ class TestDownloadPermissionEndpoints:
         """Test audiobook download works with download permission."""
         # adminuser has can_download=True
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         r = client.get("/api/download/1")
         # Should succeed or 404 (file doesn't exist on disk), but not 403
@@ -684,9 +634,7 @@ class TestAdminOnlyEndpoints:
     def test_download_audiobooks_requires_admin(self, client, auth_app):
         """Test POST /api/utilities/download-audiobooks-async requires admin."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post("/api/utilities/download-audiobooks-async")
         assert r.status_code == 403
@@ -698,9 +646,7 @@ class TestPerUserPositionTracking:
     def test_get_position_returns_user_position(self, client, auth_app):
         """Test GET /api/position/<id> returns user's personal position."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         # Getting position should work (returns 0 or saved position)
         r = client.get("/api/position/1")
@@ -710,9 +656,7 @@ class TestPerUserPositionTracking:
     def test_update_position_saves_per_user(self, client, auth_app):
         """Test PUT /api/position/<id> saves to user's personal position."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.put("/api/position/1", json={"position_ms": 120000})
         # Should succeed or 404 if audiobook doesn't exist
@@ -755,9 +699,7 @@ class TestMagicLinkRequest:
 
     def test_magic_link_request_user_with_recovery_email(self, client, auth_app):
         """Test magic link request for user with recovery email."""
-        _register_and_claim(
-            client, auth_app, "magicuser1", recovery_email="magic@example.com"
-        )
+        _register_and_claim(client, auth_app, "magicuser1", recovery_email="magic@example.com")
 
         # Request magic link
         r = client.post("/auth/magic-link", json={"username": "magicuser1"})
@@ -779,17 +721,13 @@ class TestMagicLinkVerify:
 
     def test_magic_link_verify_invalid_token(self, client):
         """Test magic link verify fails with invalid token."""
-        r = client.post(
-            "/auth/magic-link/verify", json={"token": "invalid_token_12345"}
-        )
+        r = client.post("/auth/magic-link/verify", json={"token": "invalid_token_12345"})
         assert r.status_code == 400
         assert "Invalid or expired" in r.get_json()["error"]
 
     def test_magic_link_verify_creates_session(self, client, auth_app):
         """Test successful magic link verification creates a session."""
-        _register_and_claim(
-            client, auth_app, "verifuser1", recovery_email="verify@example.com"
-        )
+        _register_and_claim(client, auth_app, "verifuser1", recovery_email="verify@example.com")
 
         # Manually create a recovery token through the database
         from auth import PendingRecovery
@@ -817,9 +755,7 @@ class TestMagicLinkVerify:
 
     def test_magic_link_token_single_use(self, client, auth_app):
         """Test magic link token can only be used once."""
-        _register_and_claim(
-            client, auth_app, "singleuse1", recovery_email="single@example.com"
-        )
+        _register_and_claim(client, auth_app, "singleuse1", recovery_email="single@example.com")
 
         # Create recovery token
         from auth import PendingRecovery
@@ -841,9 +777,7 @@ class TestMagicLinkVerify:
 
     def test_magic_link_expired_token(self, client, auth_app):
         """Test magic link verify fails with expired token."""
-        _register_and_claim(
-            client, auth_app, "expireuser", recovery_email="expire@example.com"
-        )
+        _register_and_claim(client, auth_app, "expireuser", recovery_email="expire@example.com")
 
         # Create expired recovery token (0 minutes = immediate expiry)
         from auth import PendingRecovery
@@ -877,16 +811,11 @@ class TestContactEndpoint:
     def test_contact_success_inapp_reply(self, client, auth_app):
         """Test sending contact message with in-app reply."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post(
             "/auth/contact",
-            json={
-                "message": "I would like to request a new audiobook.",
-                "reply_via": "in-app",
-            },
+            json={"message": "I would like to request a new audiobook.", "reply_via": "in-app"},
         )
 
         assert r.status_code == 200
@@ -897,9 +826,7 @@ class TestContactEndpoint:
     def test_contact_success_email_reply(self, client, auth_app):
         """Test sending contact message with email reply."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post(
             "/auth/contact",
@@ -917,9 +844,7 @@ class TestContactEndpoint:
     def test_contact_missing_message(self, client, auth_app):
         """Test contact fails with missing/empty message."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post("/auth/contact", json={"message": "", "reply_via": "in-app"})
         assert r.status_code == 400
@@ -928,9 +853,7 @@ class TestContactEndpoint:
     def test_contact_email_reply_requires_email(self, client, auth_app):
         """Test contact with email reply requires email address."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post(
             "/auth/contact",
@@ -947,13 +870,9 @@ class TestContactEndpoint:
     def test_contact_message_too_long(self, client, auth_app):
         """Test contact fails with message over 2000 chars."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
-        r = client.post(
-            "/auth/contact", json={"message": "x" * 2001, "reply_via": "in-app"}
-        )
+        r = client.post("/auth/contact", json={"message": "x" * 2001, "reply_via": "in-app"})
 
         assert r.status_code == 400
         assert "2000" in r.get_json()["error"]
@@ -965,9 +884,7 @@ class TestAdminNotificationsEndpoints:
     def test_list_notifications_requires_admin(self, client, auth_app):
         """Test listing notifications requires admin."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.get("/auth/admin/notifications")
         assert r.status_code == 403
@@ -975,9 +892,7 @@ class TestAdminNotificationsEndpoints:
     def test_list_notifications_as_admin(self, client, auth_app):
         """Test admin can list notifications."""
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         r = client.get("/auth/admin/notifications")
         assert r.status_code == 200
@@ -988,29 +903,21 @@ class TestAdminNotificationsEndpoints:
     def test_create_notification_requires_admin(self, client, auth_app):
         """Test creating notification requires admin."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post(
-            "/auth/admin/notifications",
-            json={"message": "Test notification", "type": "info"},
+            "/auth/admin/notifications", json={"message": "Test notification", "type": "info"}
         )
         assert r.status_code == 403
 
     def test_create_notification_as_admin(self, client, auth_app):
         """Test admin can create notification."""
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         r = client.post(
             "/auth/admin/notifications",
-            json={
-                "message": "Library maintenance tonight at 2am.",
-                "type": "maintenance",
-            },
+            json={"message": "Library maintenance tonight at 2am.", "type": "maintenance"},
         )
 
         assert r.status_code == 200
@@ -1021,9 +928,7 @@ class TestAdminNotificationsEndpoints:
     def test_create_notification_personal_requires_user(self, client, auth_app):
         """Test personal notification requires target user."""
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         r = client.post(
             "/auth/admin/notifications",
@@ -1040,9 +945,7 @@ class TestAdminNotificationsEndpoints:
     def test_delete_notification_requires_admin(self, client, auth_app):
         """Test deleting notification requires admin."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.delete("/auth/admin/notifications/1")
         assert r.status_code == 403
@@ -1050,14 +953,11 @@ class TestAdminNotificationsEndpoints:
     def test_delete_notification_as_admin(self, client, auth_app):
         """Test admin can delete notification."""
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         # First create a notification
         r = client.post(
-            "/auth/admin/notifications",
-            json={"message": "To be deleted", "type": "info"},
+            "/auth/admin/notifications", json={"message": "To be deleted", "type": "info"}
         )
         notification_id = r.get_json()["notification_id"]
 
@@ -1069,9 +969,7 @@ class TestAdminNotificationsEndpoints:
     def test_delete_nonexistent_notification(self, client, auth_app):
         """Test deleting nonexistent notification fails gracefully."""
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         r = client.delete("/auth/admin/notifications/99999")
         assert r.status_code == 404
@@ -1083,9 +981,7 @@ class TestAdminInboxEndpoints:
     def test_inbox_list_requires_admin(self, client, auth_app):
         """Test listing inbox requires admin."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.get("/auth/admin/inbox")
         assert r.status_code == 403
@@ -1093,9 +989,7 @@ class TestAdminInboxEndpoints:
     def test_inbox_list_as_admin(self, client, auth_app):
         """Test admin can list inbox messages."""
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         r = client.get("/auth/admin/inbox")
         assert r.status_code == 200
@@ -1106,9 +1000,7 @@ class TestAdminInboxEndpoints:
     def test_inbox_read_message_requires_admin(self, client, auth_app):
         """Test reading inbox message requires admin."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.get("/auth/admin/inbox/1")
         assert r.status_code == 403
@@ -1117,22 +1009,17 @@ class TestAdminInboxEndpoints:
         """Test reading a message marks it as read."""
         # First, create a message as a regular user
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post(
-            "/auth/contact",
-            json={"message": "Test message for reading", "reply_via": "in-app"},
+            "/auth/contact", json={"message": "Test message for reading", "reply_via": "in-app"}
         )
         message_id = r.get_json()["message_id"]
 
         # Logout and login as admin
         client.post("/auth/logout")
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         # Read the message
         r = client.get(f"/auth/admin/inbox/{message_id}")
@@ -1143,22 +1030,16 @@ class TestAdminInboxEndpoints:
     def test_inbox_reply_requires_admin(self, client, auth_app):
         """Test replying to inbox message requires admin."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
-        r = client.post(
-            "/auth/admin/inbox/1/reply", json={"reply": "Thanks for your message!"}
-        )
+        r = client.post("/auth/admin/inbox/1/reply", json={"reply": "Thanks for your message!"})
         assert r.status_code == 403
 
     def test_inbox_reply_as_admin(self, client, auth_app):
         """Test admin can reply to inbox message."""
         # Create a message as regular user
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post(
             "/auth/contact",
@@ -1169,9 +1050,7 @@ class TestAdminInboxEndpoints:
         # Logout and login as admin
         client.post("/auth/logout")
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         # Reply to message
         r = client.post(
@@ -1186,9 +1065,7 @@ class TestAdminInboxEndpoints:
     def test_inbox_archive_requires_admin(self, client, auth_app):
         """Test archiving inbox message requires admin."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post("/auth/admin/inbox/1/archive")
         assert r.status_code == 403
@@ -1197,22 +1074,17 @@ class TestAdminInboxEndpoints:
         """Test admin can archive inbox message."""
         # Create a message as regular user
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post(
-            "/auth/contact",
-            json={"message": "Just wanted to say thanks!", "reply_via": "in-app"},
+            "/auth/contact", json={"message": "Just wanted to say thanks!", "reply_via": "in-app"}
         )
         message_id = r.get_json()["message_id"]
 
         # Logout and login as admin
         client.post("/auth/logout")
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         # Archive message
         r = client.post(f"/auth/admin/inbox/{message_id}/archive")
@@ -1232,9 +1104,7 @@ class TestNotificationDismiss:
         """Test user can dismiss their own notification."""
         # Admin creates a notification for testuser1
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
 
         # Get testuser1's ID from the database
         user_repo = UserRepository(auth_app.auth_db)
@@ -1254,9 +1124,7 @@ class TestNotificationDismiss:
         # Logout and login as testuser1
         client.post("/auth/logout")
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         # Dismiss the notification
         r = client.post(f"/auth/notifications/dismiss/{notification_id}")
@@ -1266,9 +1134,7 @@ class TestNotificationDismiss:
     def test_dismiss_nonexistent_notification(self, client, auth_app):
         """Test dismissing nonexistent notification fails gracefully."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.post("/auth/notifications/dismiss/99999")
         # Should return an error (400 = not found/applicable, 404 = not found)
@@ -1281,9 +1147,7 @@ class TestNotificationsInAuthMe:
     def test_auth_me_includes_notifications(self, client, auth_app):
         """Test /auth/me response includes notifications array."""
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
 
         r = client.get("/auth/me")
         assert r.status_code == 200
@@ -1301,16 +1165,12 @@ class TestAdminUserManagement:
 
     def _admin_login(self, client, auth_app):
         auth = TOTPAuthenticator(auth_app.admin_secret)
-        client.post(
-            "/auth/login", json={"username": "adminuser", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "adminuser", "code": auth.current_code()})
         return client
 
     def _user_login(self, client, auth_app):
         auth = TOTPAuthenticator(auth_app.test_user_secret)
-        client.post(
-            "/auth/login", json={"username": "testuser1", "code": auth.current_code()}
-        )
+        client.post("/auth/login", json={"username": "testuser1", "code": auth.current_code()})
         return client
 
     def test_list_users_requires_admin(self, client, auth_app):

@@ -41,8 +41,7 @@ class Transcript:
 
             is_sentence_end = word.word.rstrip().endswith((".", "!", "?"))
             has_long_pause = (
-                i + 1 < len(self.words)
-                and self.words[i + 1].start_ms - word.end_ms > max_pause_ms
+                i + 1 < len(self.words) and self.words[i + 1].start_ms - word.end_ms > max_pause_ms
             )
 
             if is_sentence_end or has_long_pause:

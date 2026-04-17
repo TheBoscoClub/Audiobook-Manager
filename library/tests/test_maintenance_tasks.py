@@ -156,13 +156,7 @@ class TestRegistryAutoDiscovery:
     def test_registry_has_known_tasks(self):
         from backend.api_modular.maintenance_tasks import registry
 
-        known = [
-            "db_vacuum",
-            "db_backup",
-            "db_integrity",
-            "hash_verify",
-            "library_scan",
-        ]
+        known = ["db_vacuum", "db_backup", "db_integrity", "hash_verify", "library_scan"]
         for name in known:
             assert registry.get(name) is not None, f"Task '{name}' not registered"
 
@@ -374,9 +368,7 @@ class TestDatabaseBackupTask:
 
 class TestDatabaseIntegrityTask:
     def test_validate_ok(self, tmp_path):
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
 
         db = _create_test_db(tmp_path / "test.db")
         task = DatabaseIntegrityTask()
@@ -384,18 +376,14 @@ class TestDatabaseIntegrityTask:
         assert result.ok is True
 
     def test_validate_missing_db(self, tmp_path):
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
 
         task = DatabaseIntegrityTask()
         result = task.validate({"db_path": str(tmp_path / "missing.db")})
         assert result.ok is False
 
     def test_execute_healthy_db(self, tmp_path):
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
 
         db = _create_test_db(tmp_path / "test.db")
         task = DatabaseIntegrityTask()
@@ -406,18 +394,14 @@ class TestDatabaseIntegrityTask:
         assert cb.call_count >= 2
 
     def test_execute_no_db_path(self):
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
 
         task = DatabaseIntegrityTask()
         result = task.execute({})
         assert result.success is False
 
     def test_execute_corrupted_db(self, tmp_path):
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
 
         db = tmp_path / "bad.db"
         db.write_text("not a real database file contents")
@@ -426,9 +410,7 @@ class TestDatabaseIntegrityTask:
         assert result.success is False
 
     def test_execute_progress_callback(self, tmp_path):
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
 
         db = _create_test_db(tmp_path / "test.db")
         cb = MagicMock()
@@ -438,9 +420,7 @@ class TestDatabaseIntegrityTask:
         cb.assert_any_call(1.0, "Complete")
 
     def test_execute_without_callback(self, tmp_path):
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
 
         db = _create_test_db(tmp_path / "test.db")
         task = DatabaseIntegrityTask()
@@ -448,16 +428,12 @@ class TestDatabaseIntegrityTask:
         assert result.success is True
 
     def test_estimate_duration(self):
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
 
         assert DatabaseIntegrityTask().estimate_duration() == 60
 
     def test_data_includes_database_path(self, tmp_path):
-        from backend.api_modular.maintenance_tasks.db_integrity import (
-            DatabaseIntegrityTask,
-        )
+        from backend.api_modular.maintenance_tasks.db_integrity import DatabaseIntegrityTask
 
         db = _create_test_db(tmp_path / "test.db")
         task = DatabaseIntegrityTask()
@@ -509,12 +485,10 @@ class TestHashVerifyTask:
 
         conn = sqlite3.connect(str(db))
         conn.execute(
-            "INSERT INTO audiobooks (id, file_path, sha256_hash) VALUES (1, ?, ?)",
-            (str(f1), h1),
+            "INSERT INTO audiobooks (id, file_path, sha256_hash) VALUES (1, ?, ?)", (str(f1), h1)
         )
         conn.execute(
-            "INSERT INTO audiobooks (id, file_path, sha256_hash) VALUES (2, ?, ?)",
-            (str(f2), h2),
+            "INSERT INTO audiobooks (id, file_path, sha256_hash) VALUES (2, ?, ?)", (str(f2), h2)
         )
         conn.commit()
         conn.close()
@@ -537,10 +511,7 @@ class TestHashVerifyTask:
         conn = sqlite3.connect(str(db))
         conn.execute(
             "INSERT INTO audiobooks (id, file_path, sha256_hash) VALUES (1, ?, ?)",
-            (
-                str(f1),
-                "0000000000000000000000000000000000000000000000000000000000000000",
-            ),
+            (str(f1), "0000000000000000000000000000000000000000000000000000000000000000"),
         )
         conn.commit()
         conn.close()
@@ -653,9 +624,7 @@ class TestLibraryScanTask:
     def test_execute_success(self, mock_run):
         from backend.api_modular.maintenance_tasks.library_scan import LibraryScanTask
 
-        mock_run.return_value = MagicMock(
-            returncode=0, stdout='{"status":"ok"}', stderr=""
-        )
+        mock_run.return_value = MagicMock(returncode=0, stdout='{"status":"ok"}', stderr="")
         task = LibraryScanTask()
         cb = MagicMock()
         result = task.execute({}, progress_callback=cb)

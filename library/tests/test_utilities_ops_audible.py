@@ -70,10 +70,7 @@ class TestSyncGenresAsync:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/utilities/sync-genres-async",
-                json={"dry_run": True},
-            )
+            response = client.post("/api/utilities/sync-genres-async", json={"dry_run": True})
 
         assert response.status_code == 200
         data = response.get_json()
@@ -89,10 +86,7 @@ class TestSyncGenresAsync:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/utilities/sync-genres-async",
-                json={"dry_run": False},
-            )
+            response = client.post("/api/utilities/sync-genres-async", json={"dry_run": False})
 
         assert response.status_code == 200
         data = response.get_json()
@@ -140,10 +134,7 @@ class TestSyncNarratorsAsync:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/utilities/sync-narrators-async",
-                json={"dry_run": True},
-            )
+            response = client.post("/api/utilities/sync-narrators-async", json={"dry_run": True})
 
         assert response.status_code == 200
         data = response.get_json()
@@ -159,10 +150,7 @@ class TestSyncNarratorsAsync:
         mock_get_tracker.return_value = mock_tracker
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/utilities/sync-narrators-async",
-                json={"dry_run": False},
-            )
+            response = client.post("/api/utilities/sync-narrators-async", json={"dry_run": False})
 
         assert response.status_code == 200
         data = response.get_json()
@@ -201,9 +189,7 @@ class TestCheckAudiblePrereqs:
 
     @patch("backend.api_modular.utilities_ops.audible.os.path.isfile")
     @patch("backend.api_modular.utilities_ops.audible.os.environ.get")
-    def test_returns_true_when_metadata_exists(
-        self, mock_env_get, mock_isfile, flask_app
-    ):
+    def test_returns_true_when_metadata_exists(self, mock_env_get, mock_isfile, flask_app):
         """Test returns true when library_metadata.json exists."""
         mock_env_get.return_value = "/srv/audiobooks"
         mock_isfile.return_value = True
@@ -218,9 +204,7 @@ class TestCheckAudiblePrereqs:
 
     @patch("backend.api_modular.utilities_ops.audible.os.path.isfile")
     @patch("backend.api_modular.utilities_ops.audible.os.environ.get")
-    def test_returns_false_when_metadata_missing(
-        self, mock_env_get, mock_isfile, flask_app
-    ):
+    def test_returns_false_when_metadata_missing(self, mock_env_get, mock_isfile, flask_app):
         """Test returns false when library_metadata.json missing."""
         mock_env_get.return_value = "/srv/audiobooks"
         mock_isfile.return_value = False

@@ -167,8 +167,7 @@ class TestDeleteDuplicates:
         """Deleting nonexistent ID is skipped gracefully (line 496)."""
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/duplicates/delete",
-                json={"audiobook_ids": [99999], "mode": "title"},
+                "/api/duplicates/delete", json={"audiobook_ids": [99999], "mode": "title"}
             )
         assert response.status_code == 200
 
@@ -199,8 +198,7 @@ class TestDeleteDuplicates:
         # Try to delete both (should block one)
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/duplicates/delete",
-                json={"audiobook_ids": [id1, id2], "mode": "title"},
+                "/api/duplicates/delete", json={"audiobook_ids": [id1, id2], "mode": "title"}
             )
         assert response.status_code == 200
         data = response.get_json()
@@ -227,8 +225,7 @@ class TestDeleteDuplicatesHashMode:
 
         with flask_app.test_client() as client:
             response = client.post(
-                "/api/duplicates/delete",
-                json={"audiobook_ids": [null_id], "mode": "hash"},
+                "/api/duplicates/delete", json={"audiobook_ids": [null_id], "mode": "hash"}
             )
         assert response.status_code == 200
         data = response.get_json()
@@ -318,8 +315,7 @@ class TestDuplicatesByChecksumASIN:
         idx_file = index_dir / "source_checksums.idx"
         # ASIN format: 10 alphanumeric chars before underscore
         idx_file.write_text(
-            "abc123|/path/to/B00ABCDEFG_title.aaxc\n"
-            "abc123|/path/to/B00ABCDEFG_title2.aaxc\n"
+            "abc123|/path/to/B00ABCDEFG_title.aaxc\nabc123|/path/to/B00ABCDEFG_title2.aaxc\n"
         )
 
         with patch.dict(os.environ, {"AUDIOBOOKS_DATA": str(session_temp_dir)}):
@@ -344,9 +340,7 @@ class TestDuplicatesByChecksumFileError:
         index_dir = session_temp_dir / ".index"
         index_dir.mkdir(exist_ok=True)
         idx_file = index_dir / "library_checksums.idx"
-        idx_file.write_text(
-            "xyz789|/nonexistent/path1.opus\nxyz789|/nonexistent/path2.opus\n"
-        )
+        idx_file.write_text("xyz789|/nonexistent/path1.opus\nxyz789|/nonexistent/path2.opus\n")
 
         with patch.dict(os.environ, {"AUDIOBOOKS_DATA": str(session_temp_dir)}):
             with patch("os.path.getsize", side_effect=OSError("stat failed")):
@@ -376,8 +370,7 @@ class TestRegenerateChecksumsFailure:
             ):
                 with flask_app.test_client() as client:
                     response = client.post(
-                        "/api/duplicates/regenerate-checksums",
-                        json={"type": "sources"},
+                        "/api/duplicates/regenerate-checksums", json={"type": "sources"}
                     )
 
         assert response.status_code == 200
@@ -520,10 +513,7 @@ class TestVerifyDeletionSafety:
         conn.close()
 
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/duplicates/verify",
-                json={"audiobook_ids": [verify_id]},
-            )
+            response = client.post("/api/duplicates/verify", json={"audiobook_ids": [verify_id]})
         assert response.status_code == 200
         data = response.get_json()
         unsafe_ids = [u["id"] for u in data["unsafe_ids"]]
@@ -557,10 +547,7 @@ class TestVerifyDeletionSafety:
 
         # Deleting one of three copies is safe
         with flask_app.test_client() as client:
-            response = client.post(
-                "/api/duplicates/verify",
-                json={"audiobook_ids": [id1]},
-            )
+            response = client.post("/api/duplicates/verify", json={"audiobook_ids": [id1]})
         assert response.status_code == 200
         data = response.get_json()
         assert id1 in data["safe_ids"]
@@ -577,10 +564,7 @@ class TestDeleteByPathUnsafe:
         bad_file = other_dir / "outside.aaxc"
         bad_file.touch()
 
-        with patch.dict(
-            os.environ,
-            {"AUDIOBOOKS_SOURCES": str(tmp_path / "sources_only")},
-        ):
+        with patch.dict(os.environ, {"AUDIOBOOKS_SOURCES": str(tmp_path / "sources_only")}):
             with flask_app.test_client() as client:
                 response = client.post(
                     "/api/duplicates/delete-by-path",

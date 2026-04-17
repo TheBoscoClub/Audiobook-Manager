@@ -64,10 +64,7 @@ _SIDE_TABLE_KEYS = {
 # Fields where the schema default should be treated as "unfilled" during merge.
 # content_type defaults to 'Product' in schema, but the Audible API may return
 # a more specific type (Podcast, Show, Episode, Lecture, etc.).
-_DEFAULT_AS_EMPTY = {
-    "content_type": "Product",
-    "narrator": "Unknown Narrator",
-}
+_DEFAULT_AS_EMPTY = {"content_type": "Product", "narrator": "Unknown Narrator"}
 
 
 def _load_book(cursor: sqlite3.Cursor, book_id: int) -> dict | None:
@@ -107,16 +104,11 @@ def _merge_updates(current: dict, provider_result: dict) -> dict:
 
 
 def _apply_scalar_updates(
-    cursor: sqlite3.Cursor,
-    book_id: int,
-    updates: dict,
-    enrichment_source: str,
+    cursor: sqlite3.Cursor, book_id: int, updates: dict, enrichment_source: str
 ) -> int:
     """Write scalar column updates to the audiobooks table."""
     scalar = {
-        k: v
-        for k, v in updates.items()
-        if k in _SCALAR_COLUMNS and k not in _SIDE_TABLE_KEYS
+        k: v for k, v in updates.items() if k in _SCALAR_COLUMNS and k not in _SIDE_TABLE_KEYS
     }
     if not scalar:
         return 0
@@ -127,10 +119,7 @@ def _apply_scalar_updates(
 
     # Column names are validated against _SCALAR_COLUMNS (hardcoded allowlist)
     for col in scalar:
-        if col not in _SCALAR_COLUMNS and col not in (
-            "audible_enriched_at",
-            "enrichment_source",
-        ):
+        if col not in _SCALAR_COLUMNS and col not in ("audible_enriched_at", "enrichment_source"):
             raise ValueError(f"Invalid column name: {col}")
     set_clause = ", ".join(f"{col} = ?" for col in scalar)
     params = list(scalar.values()) + [book_id]
@@ -141,9 +130,7 @@ def _apply_scalar_updates(
     return len(scalar) - 2  # Don't count timestamp + source as "fields"
 
 
-def _apply_categories(
-    cursor: sqlite3.Cursor, book_id: int, categories: list[dict]
-) -> None:
+def _apply_categories(cursor: sqlite3.Cursor, book_id: int, categories: list[dict]) -> None:
     """Write categories to the audible_categories side table."""
     cursor.execute("DELETE FROM audible_categories WHERE audiobook_id = ?", (book_id,))
     for cat in categories:
@@ -183,9 +170,7 @@ def _apply_genres_from_categories(
 
     # Remove the generic "general" placeholder if we have real genre data
     if existing == {"general"} and categories:
-        cursor.execute(
-            "DELETE FROM audiobook_genres WHERE audiobook_id = ?", (book_id,)
-        )
+        cursor.execute("DELETE FROM audiobook_genres WHERE audiobook_id = ?", (book_id,))
         existing = set()
 
     for cat in categories:
@@ -207,9 +192,7 @@ def _apply_genres_from_categories(
         existing.add(name)
 
 
-def _apply_topics_from_summary(
-    cursor: sqlite3.Cursor, book_id: int, summary: str
-) -> None:
+def _apply_topics_from_summary(cursor: sqlite3.Cursor, book_id: int, summary: str) -> None:
     """Extract and populate topics from a book's publisher summary.
 
     Uses the scanner's extract_topics() to pull keywords from the description,
@@ -231,9 +214,7 @@ def _apply_topics_from_summary(
 
     # Replace "general" placeholder with real topics
     if existing == {"general"}:
-        cursor.execute(
-            "DELETE FROM audiobook_topics WHERE audiobook_id = ?", (book_id,)
-        )
+        cursor.execute("DELETE FROM audiobook_topics WHERE audiobook_id = ?", (book_id,))
         existing = set()
 
     for topic_name in topics:
@@ -253,9 +234,7 @@ def _apply_topics_from_summary(
         existing.add(topic_name)
 
 
-def _apply_editorial_reviews(
-    cursor: sqlite3.Cursor, book_id: int, reviews: list[dict]
-) -> None:
+def _apply_editorial_reviews(cursor: sqlite3.Cursor, book_id: int, reviews: list[dict]) -> None:
     """Write editorial reviews to the editorial_reviews side table."""
     cursor.execute("DELETE FROM editorial_reviews WHERE audiobook_id = ?", (book_id,))
     for review in reviews:
@@ -266,9 +245,33 @@ def _apply_editorial_reviews(
         )
 
 
-def _apply_narrators(
-    cursor: sqlite3.Cursor, book_id: int, narrator_list: list[dict]
-) -> None:
+_UNKNOWN_NARRATOR_NAMES = frozenset({"Unknown Narrator", "Unknown"})
+
+
+def _load_existing_narrator_names(cursor: sqlite3.Cursor, book_id: int) -> set[str]:
+    """Return the set of narrator names currently linked to the book."""
+    cursor.execute(
+        """SELECT n.name FROM narrators n
+           JOIN book_narrators bn ON n.id = bn.narrator_id
+           WHERE bn.book_id = ?""",
+        (book_id,),
+    )
+    return {row[0] for row in cursor.fetchall()}
+
+
+def _get_or_create_narrator_id(cursor: sqlite3.Cursor, name: str) -> int:
+    """Return the id of the narrator row matching ``name``, creating it if
+    necessary. The sort_name is derived via generate_sort_name()."""
+    cursor.execute("SELECT id FROM narrators WHERE name = ?", (name,))
+    row = cursor.fetchone()
+    if row:
+        return row[0]
+    sort_name = generate_sort_name(name) or name
+    cursor.execute("INSERT INTO narrators (name, sort_name) VALUES (?, ?)", (name, sort_name))
+    return cursor.lastrowid
+
+
+def _apply_narrators(cursor: sqlite3.Cursor, book_id: int, narrator_list: list[dict]) -> None:
     """Backfill narrators into the normalized narrators/book_narrators tables.
 
     Only adds narrators that don't already have junction entries for this book.
@@ -277,18 +280,10 @@ def _apply_narrators(
     if not narrator_list:
         return
 
-    # Check if current junction entries are only "Unknown Narrator"
-    cursor.execute(
-        """SELECT n.name FROM narrators n
-           JOIN book_narrators bn ON n.id = bn.narrator_id
-           WHERE bn.book_id = ?""",
-        (book_id,),
-    )
-    existing = {row[0] for row in cursor.fetchall()}
+    existing = _load_existing_narrator_names(cursor, book_id)
 
-    # If we only have placeholder narrators and now have real data, clear them
-    _UNKNOWN_NAMES = {"Unknown Narrator", "Unknown"}
-    if existing and existing <= _UNKNOWN_NAMES and narrator_list:
+    # If we only have placeholder narrators and now have real data, clear them.
+    if existing and existing <= _UNKNOWN_NARRATOR_NAMES and narrator_list:
         cursor.execute("DELETE FROM book_narrators WHERE book_id = ?", (book_id,))
         existing = set()
 
@@ -297,19 +292,7 @@ def _apply_narrators(
         if not name or name in existing:
             continue
 
-        # Get or create narrator
-        cursor.execute("SELECT id FROM narrators WHERE name = ?", (name,))
-        row = cursor.fetchone()
-        if row:
-            narrator_id = row[0]
-        else:
-            sort_name = generate_sort_name(name) or name
-            cursor.execute(
-                "INSERT INTO narrators (name, sort_name) VALUES (?, ?)",
-                (name, sort_name),
-            )
-            narrator_id = cursor.lastrowid
-
+        narrator_id = _get_or_create_narrator_id(cursor, name)
         cursor.execute(
             "INSERT OR IGNORE INTO book_narrators (book_id, narrator_id, position) VALUES (?, ?, ?)",
             (book_id, narrator_id, position),
@@ -320,16 +303,7 @@ def _apply_narrators(
 # Known podcast publishers — items whose author matches these are podcasts,
 # even when the Audible API returns content_type='Product'.
 _PODCAST_PUBLISHERS = frozenset(
-    {
-        "wondery",
-        "movewith",
-        "aaptiv",
-        "higher ground",
-        "panoply",
-        "gimlet",
-        "stitcher",
-        "parcast",
-    }
+    {"wondery", "movewith", "aaptiv", "higher ground", "panoply", "gimlet", "stitcher", "parcast"}
 )
 
 
@@ -362,11 +336,7 @@ def _default_providers(sources_dir: Path | None = None) -> list[EnrichmentProvid
 
 
 def _run_provider(
-    provider: EnrichmentProvider,
-    book: dict,
-    all_updates: dict,
-    result: dict,
-    winning_provider: str,
+    provider: EnrichmentProvider, book: dict, all_updates: dict, result: dict, winning_provider: str
 ) -> str:
     """Run a single provider against the merged book view.
 
@@ -376,10 +346,7 @@ def _run_provider(
     if not provider.can_enrich({**book, **all_updates}):
         return winning_provider
 
-    merged_view = {
-        **book,
-        **{k: v for k, v in all_updates.items() if k not in _SIDE_TABLE_KEYS},
-    }
+    merged_view = {**book, **{k: v for k, v in all_updates.items() if k not in _SIDE_TABLE_KEYS}}
     provider_data = provider.enrich(merged_view)
     if not provider_data:
         return winning_provider
@@ -402,17 +369,13 @@ def _run_provider(
 
 
 def _run_provider_chain(
-    providers: list[EnrichmentProvider],
-    book: dict,
-    result: dict,
+    providers: list[EnrichmentProvider], book: dict, result: dict
 ) -> tuple[dict, str]:
     """Iterate providers, accumulate updates, short-circuit when series is set."""
     all_updates: dict = {}
     winning_provider = ""
     for provider in providers:
-        winning_provider = _run_provider(
-            provider, book, all_updates, result, winning_provider
-        )
+        winning_provider = _run_provider(provider, book, all_updates, result, winning_provider)
         # Short-circuit: if series is populated, later fallback providers won't help
         series_val = all_updates.get("series") or book.get("series")
         if series_val and result["audible_enriched"]:
@@ -426,14 +389,10 @@ def _apply_podcast_override(book: dict, all_updates: dict, quiet: bool) -> None:
     if podcast_override:
         all_updates["content_type"] = podcast_override
         if not quiet:
-            logger.info(
-                "  Publisher-based override: content_type → %s", podcast_override
-            )
+            logger.info("  Publisher-based override: content_type → %s", podcast_override)
 
 
-def _apply_side_tables(
-    cursor: sqlite3.Cursor, book_id: int, book: dict, all_updates: dict
-) -> None:
+def _apply_side_tables(cursor: sqlite3.Cursor, book_id: int, book: dict, all_updates: dict) -> None:
     """Apply side-table updates (categories, reviews, narrators, topics)."""
     if "categories" in all_updates:
         _apply_categories(cursor, book_id, all_updates["categories"])
@@ -463,9 +422,7 @@ def _persist_updates(
     """Write accumulated updates to the database and commit."""
     if not all_updates:
         return
-    fields = _apply_scalar_updates(
-        cursor, book_id, all_updates, winning_provider or "local"
-    )
+    fields = _apply_scalar_updates(cursor, book_id, all_updates, winning_provider or "local")
     result["fields_updated"] = max(fields, 0)
     _apply_side_tables(cursor, book_id, book, all_updates)
     conn.commit()
@@ -500,9 +457,7 @@ def _enrich_book_inner(
 
     all_updates, winning_provider = _run_provider_chain(providers, book, result)
     _apply_podcast_override(book, all_updates, quiet)
-    _persist_updates(
-        conn, cursor, book_id, book, all_updates, winning_provider, result, quiet
-    )
+    _persist_updates(conn, cursor, book_id, book, all_updates, winning_provider, result, quiet)
 
 
 def enrich_book(

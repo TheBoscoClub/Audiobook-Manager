@@ -18,16 +18,22 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import COVER_DIR, DATABASE_PATH
 
 # Import shared utilities
-from scanner.metadata_utils import (
-    extract_cover_art,
-    get_file_metadata,
-)
+from scanner.metadata_utils import extract_cover_art, get_file_metadata
 from scanner.utils.constants import SUPPORTED_FORMATS, is_cover_art_file
 from scanner.utils.db_helpers import (
-    ALLOWED_LOOKUP_TABLES,  # noqa: F401 — re-exported for backward compatibility
-    get_or_create_lookup_id,  # noqa: F401 — re-exported for backward compatibility
+    ALLOWED_LOOKUP_TABLES,
+    get_or_create_lookup_id,
     insert_audiobook,
 )
+
+# Public API — includes re-exports for backward compatibility with older call sites.
+__all__ = [
+    "ALLOWED_LOOKUP_TABLES",
+    "SUPPORTED_FORMATS",
+    "get_or_create_lookup_id",
+    "import_directory",
+    "insert_audiobook",
+]
 
 # Auto-enrichment and verification (imported lazily to avoid circular deps)
 _enrich_module = None
@@ -88,12 +94,7 @@ def _post_import_hooks(audiobook_id: int, db_path: Path) -> None:
     verify_fn = _get_verify_module()
     if verify_fn and audiobook_id:
         try:
-            verify_fn(
-                book_id=audiobook_id,
-                db_path=db_path,
-                auto_fix=True,
-                quiet=True,
-            )
+            verify_fn(book_id=audiobook_id, db_path=db_path, auto_fix=True, quiet=True)
         except Exception as e:
             print(f"  ⚠ Verification error (non-fatal): {e}", file=sys.stderr)
 
@@ -110,9 +111,7 @@ def _import_single_file(
     filepath: Path, conn, dir_path: Path, cover_dir: Path, db_path: Path
 ) -> str:
     """Import one audiobook file. Returns 'added', 'skipped', or 'error'."""
-    metadata = get_file_metadata(
-        filepath, audiobook_dir=dir_path.parent, calculate_hash=False
-    )
+    metadata = get_file_metadata(filepath, audiobook_dir=dir_path.parent, calculate_hash=False)
     if not metadata:
         return "error"
 
@@ -149,21 +148,11 @@ def import_directory(
         dict with {added: int, skipped: int, errors: int}
     """
     if not dir_path.is_dir():
-        return {
-            "added": 0,
-            "skipped": 0,
-            "errors": 1,
-            "error": f"Not a directory: {dir_path}",
-        }
+        return {"added": 0, "skipped": 0, "errors": 1, "error": f"Not a directory: {dir_path}"}
 
     audio_files = _find_audio_files(dir_path)
     if not audio_files:
-        return {
-            "added": 0,
-            "skipped": 0,
-            "errors": 0,
-            "message": "No audio files found",
-        }
+        return {"added": 0, "skipped": 0, "errors": 0, "message": "No audio files found"}
 
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
