@@ -211,7 +211,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         try:
             content_type = self._resolve_cover_content_type(filename)
             self._send_cover_response(cover_path, content_type)
-        except OSError, BrokenPipeError:
+        except (OSError, BrokenPipeError):
             pass
 
     def do_POST(self):
@@ -333,7 +333,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                     break
                 if not self._ws_relay_readable(readable, client_sock, backend):
                     return
-        except BrokenPipeError, ConnectionResetError, OSError:
+        except (BrokenPipeError, ConnectionResetError, OSError):
             pass
         finally:
             try:

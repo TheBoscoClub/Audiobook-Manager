@@ -57,7 +57,7 @@ def _is_safe_path(filepath: Path, allowed_bases: list[Path]) -> bool:
                 # Not under this base, try next
                 continue
         return False
-    except OSError, RuntimeError:
+    except (OSError, RuntimeError):
         # Path resolution failed (broken symlink, permission error, etc.)
         return False
 

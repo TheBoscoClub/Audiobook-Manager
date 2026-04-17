@@ -73,7 +73,7 @@ def _compute_next_run_at(schedule_type, scheduled_at, cron_expression):
 
             cron = croniter(cron_expression, datetime.now(timezone.utc))
             return cron.get_next(datetime).isoformat() + "Z", None
-        except ValueError, KeyError:
+        except (ValueError, KeyError):
             return None, (jsonify({"error": "Invalid cron expression"}), 400)
     return None, None
 

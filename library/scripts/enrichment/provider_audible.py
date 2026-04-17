@@ -75,7 +75,7 @@ def _fetch_audible_product(asin: str) -> dict | None:
             except Exception:
                 return None
         return None
-    except urllib.error.URLError, TimeoutError:
+    except (urllib.error.URLError, TimeoutError):
         return None
 
 

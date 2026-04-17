@@ -274,7 +274,7 @@ class TestInviteMetadataParsing:
                 invite_meta = json.loads(backup_codes_json)
                 if isinstance(invite_meta, dict) and invite_meta.get("invited"):
                     can_download = invite_meta.get("can_download", True)
-            except json.JSONDecodeError, TypeError:
+            except (json.JSONDecodeError, TypeError):
                 pass
         return can_download
 
