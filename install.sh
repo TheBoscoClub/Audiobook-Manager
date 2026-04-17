@@ -786,8 +786,8 @@ prompt_delete_data() {
     fi
 
     # Confirm if anything is being deleted
-    if [[ "$DELETE_LIBRARY" == "true" ]] || [[ "$DELETE_SOURCES" == "true" ]] ||
-        [[ "$DELETE_SUPPLEMENTS" == "true" ]] || [[ "$DELETE_CONFIG" == "true" ]]; then
+    if [[ "$DELETE_LIBRARY" == "true" ]] || [[ "$DELETE_SOURCES" == "true" ]] \
+        || [[ "$DELETE_SUPPLEMENTS" == "true" ]] || [[ "$DELETE_CONFIG" == "true" ]]; then
         echo ""
         echo -e "${RED}╔═══════════════════════════════════════════════════════════════════╗${NC}"
         echo -e "${RED}║                    CONFIRM DELETION                               ║${NC}"
