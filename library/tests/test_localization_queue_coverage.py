@@ -805,11 +805,11 @@ class TestLoadVttRows:
         try:
             conn.execute(
                 "INSERT INTO chapter_subtitles (audiobook_id, chapter_index, "
-                "locale, vtt_path) VALUES (1, 0, 'zh-Hans', '/tmp/ch0.vtt')"
+                "locale, vtt_path) VALUES (1, 0, 'zh-Hans', '/tmp/ch0.vtt')"  # nosec B108  # synthetic fixture path; never dereferenced as file
             )
             conn.execute(
                 "INSERT INTO chapter_subtitles (audiobook_id, chapter_index, "
-                "locale, vtt_path) VALUES (2, 0, 'zh-Hans', '/tmp/other.vtt')"
+                "locale, vtt_path) VALUES (2, 0, 'zh-Hans', '/tmp/other.vtt')"  # nosec B108  # synthetic fixture path; never dereferenced as file
             )
             conn.commit()
         finally:
@@ -817,4 +817,4 @@ class TestLoadVttRows:
 
         rows = lq._load_vtt_rows(1, "zh-Hans")
         paths = [r[1] if not isinstance(r, sqlite3.Row) else r["vtt_path"] for r in rows]
-        assert paths == ["/tmp/ch0.vtt"]
+        assert paths == ["/tmp/ch0.vtt"]  # nosec B108  # asserting DB round-trip of synthetic string; no file I/O

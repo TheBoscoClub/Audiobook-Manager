@@ -448,8 +448,8 @@ class TestLoadTranslatedAudioContext:
 
         with app_client.application.app_context():
             vtt_path, audio_path = ta._load_translated_audio_context(1, "zh-Hans")
-        assert vtt_path == Path("/tmp/x.vtt")
-        assert audio_path == Path("/tmp/test1.opus")
+        assert vtt_path == Path("/tmp/x.vtt")  # nosec B108  # asserting DB round-trip of synthetic fixture path; no file I/O
+        assert audio_path == Path("/tmp/test1.opus")  # nosec B108  # asserting DB round-trip of synthetic fixture path; no file I/O
 
 
 # ── Admin _generate closure coverage ──
