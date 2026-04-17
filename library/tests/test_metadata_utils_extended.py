@@ -272,7 +272,7 @@ class TestExtractCoverArtEdgeCases:
                     original_import = __import__
 
                     def selective_import(name, *args, **kwargs):
-                        if name == "utils.cover_resolver":
+                        if name == "scanner.utils.cover_resolver":
                             return mock_resolver
                         return original_import(name, *args, **kwargs)
 
@@ -292,7 +292,11 @@ class TestExtractCoverArtEdgeCases:
             ):
                 with patch.dict(
                     "sys.modules",
-                    {"utils.cover_resolver": MagicMock(resolve_cover=mock_resolve)},
+                    {
+                        "scanner.utils.cover_resolver": MagicMock(
+                            resolve_cover=mock_resolve
+                        )
+                    },
                 ):
                     extract_cover_art(test_file, cover_dir, metadata=metadata)
                     # The import happens inside the function; with mocked module
@@ -300,7 +304,20 @@ class TestExtractCoverArtEdgeCases:
 
     @patch("scanner.metadata_utils.subprocess.run")
     def test_external_resolver_import_error(self, mock_run, tmp_path):
-        """Lines 478-479: ImportError from resolver is silently caught."""
+        """Lines 478-479: ImportError from resolver is silently caught.
+
+        Forces ImportError on the canonical import path
+        (`scanner.utils.cover_resolver`) by intercepting `__import__` and
+        raising for that exact target — the resolver module *does* exist on
+        sys.path post-F1, so we have to actively make the import fail.
+
+        After the test, sys.modules is restored so subsequent tests
+        (test_cover_resolver.py et al) keep the same module instance their
+        top-level `from scanner.utils.cover_resolver import ...` bound to.
+        Failing to restore caused 11 cross-file test failures earlier.
+        """
+        import builtins
+
         test_file = tmp_path / "book.opus"
         test_file.touch()
         cover_dir = tmp_path / "covers"
@@ -309,15 +326,42 @@ class TestExtractCoverArtEdgeCases:
         mock_run.return_value = MagicMock(returncode=1)
         metadata = {"title": "Test Book"}
 
-        # Patch the resolver to raise ImportError
-        with patch("scanner.metadata_utils._find_standalone_cover", return_value=None):
-            result = extract_cover_art(test_file, cover_dir, metadata=metadata)
-            # Should return None gracefully (ImportError caught)
-            assert result is None
+        real_import = builtins.__import__
+
+        def selective_import(name, *args, **kwargs):
+            if name == "scanner.utils.cover_resolver":
+                raise ImportError("simulated missing resolver")
+            return real_import(name, *args, **kwargs)
+
+        # Snapshot the cached module (if any) so we can restore it post-test.
+        cached_module = sys.modules.get("scanner.utils.cover_resolver")
+        try:
+            with patch(
+                "scanner.metadata_utils._find_standalone_cover", return_value=None
+            ):
+                with patch("builtins.__import__", side_effect=selective_import):
+                    # Drop any cached module so the import statement re-executes
+                    # and hits our selective_import shim.
+                    sys.modules.pop("scanner.utils.cover_resolver", None)
+                    result = extract_cover_art(test_file, cover_dir, metadata=metadata)
+                    # Should return None gracefully (ImportError caught)
+                    assert result is None
+        finally:
+            # Restore exactly the module instance other tests already imported.
+            if cached_module is not None:
+                sys.modules["scanner.utils.cover_resolver"] = cached_module
+            else:
+                sys.modules.pop("scanner.utils.cover_resolver", None)
 
     @patch("scanner.metadata_utils.subprocess.run")
     def test_external_resolver_generic_exception(self, mock_run, tmp_path, capsys):
-        """Lines 480-484: Generic exception from resolver logged."""
+        """Lines 480-484: Generic exception from resolver logged.
+
+        Patches `resolve_cover` on the real (now-importable) resolver module
+        to raise. Patching the live module is more robust than swapping
+        `sys.modules[...]` because `from X import Y` re-fetches `Y` from the
+        module object every call, regardless of any sys.modules dict shim.
+        """
         test_file = tmp_path / "book.opus"
         test_file.touch()
         cover_dir = tmp_path / "covers"
@@ -326,11 +370,11 @@ class TestExtractCoverArtEdgeCases:
         mock_run.return_value = MagicMock(returncode=1)
         metadata = {"title": "Test Book"}
 
-        mock_module = MagicMock()
-        mock_module.resolve_cover.side_effect = RuntimeError("API down")
-
         with patch("scanner.metadata_utils._find_standalone_cover", return_value=None):
-            with patch.dict("sys.modules", {"utils.cover_resolver": mock_module}):
+            with patch(
+                "scanner.utils.cover_resolver.resolve_cover",
+                side_effect=RuntimeError("API down"),
+            ):
                 result = extract_cover_art(test_file, cover_dir, metadata=metadata)
                 captured = capsys.readouterr()
                 assert "external cover resolver failed" in captured.err

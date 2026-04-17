@@ -21,6 +21,7 @@ The translation pipeline (STT → DeepL → TTS) uses rented cloud GPUs to run W
 **Cost model**: idle GPUs still bill. Always run `teardown-gpu.sh` after a backlog run. `AUTO_TEARDOWN_GPU=true` in config tears down automatically when the queue drains.
 
 **Typical run** (default `WORKERS_PER_GPU=4`):
+
 - 6× L40S fleet @ $0.53/hr ≈ $3.20/hr
 - ~15 min STT per book per stream, 4 streams per L40S
 - 1665 books ÷ (6 GPUs × 4 streams) × 15 min ≈ 17 hours ≈ $55
@@ -105,6 +106,7 @@ Repeat for each desired GPU (typical fleet: 6–10 instances).
 ### 2. Rent RunPod pods (optional)
 
 Via the [RunPod dashboard](https://www.runpod.io/console/pods): create a GPU Cloud pod with:
+
 - GPU: L40S or A4000
 - Container image: Whisper-capable (custom or pre-built)
 - Expose HTTP port: 8000
@@ -112,7 +114,7 @@ Via the [RunPod dashboard](https://www.runpod.io/console/pods): create a GPU Clo
 
 Once running, get the HTTPS proxy URL from **Pod Details → Connect → HTTP Service Port 8000**:
 
-```
+```text
 https://<pod_id>-8000.proxy.runpod.net
 ```
 
@@ -273,6 +275,7 @@ Leaving the daemon active with an empty fleet causes infinite SSH-tunnel restart
 ### "Tunnel X unhealthy — starting whisper server" in a loop
 
 The SSH tunnel connects but the Whisper process isn't running. Either:
+
 - The instance was freshly rented and never bootstrapped → SSH in and install Whisper + model (§3)
 - The instance was terminated/expired → `vastai show instances` to confirm; remove from `translation-env.sh` and restart daemon
 

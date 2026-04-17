@@ -455,7 +455,8 @@ def init_collections_routes(db_path):
             # or comment introducers before execution.
             if not isinstance(query, str) or ";" in query or "--" in query:
                 raise ValueError("rejected unsafe collection WHERE fragment")
-            sql = "SELECT COUNT(*) as count FROM audiobooks WHERE " + query
+            # nosec B608 below: WHERE fragments are internal-only (see comment above), validated for ; and --
+            sql = "SELECT COUNT(*) as count FROM audiobooks WHERE " + query  # nosec B608
             cursor.execute(sql)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             return cursor.fetchone()["count"]
 

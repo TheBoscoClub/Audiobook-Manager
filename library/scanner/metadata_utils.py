@@ -593,7 +593,10 @@ def _resolve_external_cover(
     if not metadata or not metadata.get("title"):
         return None
     try:
-        from utils.cover_resolver import resolve_cover
+        # Scanner runs with `library/` on sys.path; canonical path is
+        # `scanner.utils.cover_resolver`. The legacy `utils.cover_resolver`
+        # never resolved (silently disabled the fallback).
+        from scanner.utils.cover_resolver import resolve_cover
 
         return resolve_cover(
             title=metadata["title"],

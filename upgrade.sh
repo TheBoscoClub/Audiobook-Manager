@@ -294,8 +294,8 @@ do_remote_upgrade() {
     echo ""
     # shellcheck disable=SC2029  # $remote_tmp, $remote_target, $remote_flags intentionally expand client-side
     ssh "${ssh_opts[@]}" "$ssh_target" \
-        "sudo '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' $remote_flags" \
-        || {
+        "sudo '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' $remote_flags" ||
+        {
             local rc=$?
             echo -e "${RED}Remote upgrade failed (exit code $rc)${NC}"
             # Cleanup on failure
@@ -850,9 +850,9 @@ enable_new_services() {
 
     # Parse Wants= lines from the target file
     local services
-    services=$(grep '^Wants=' /etc/systemd/system/audiobook.target \
-        | sed 's/Wants=//' | tr ' ' '\n' \
-        | grep -v 'network-online')
+    services=$(grep '^Wants=' /etc/systemd/system/audiobook.target |
+        sed 's/Wants=//' | tr ' ' '\n' |
+        grep -v 'network-online')
 
     for svc in $services; do
         sudo systemctl enable "$svc" 2>/dev/null || true
@@ -1626,14 +1626,14 @@ do_upgrade() {
                     sudo "$sys_python" -m venv "$target/library/venv"
                     sudo chown -R audiobooks:audiobooks "$target/library/venv"
                     sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null \
-                        || sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet flask mutagen
+                        -r "$target/library/requirements.txt" 2>/dev/null ||
+                        sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet flask mutagen
                 else
                     rm -rf "$target/library/venv"
                     "$sys_python" -m venv "$target/library/venv"
                     "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null \
-                        || "$target/library/venv/bin/pip" install --quiet flask mutagen
+                        -r "$target/library/requirements.txt" 2>/dev/null ||
+                        "$target/library/venv/bin/pip" install --quiet flask mutagen
                 fi
                 echo -e "${GREEN}  Venv recreated with system Python${NC}"
             else
@@ -1642,14 +1642,14 @@ do_upgrade() {
                 echo -e "${BLUE}Syncing Python dependencies...${NC}"
                 if [[ -n "$use_sudo" ]]; then
                     sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null \
-                        && echo -e "${GREEN}  Dependencies synced${NC}" \
-                        || echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
+                        -r "$target/library/requirements.txt" 2>/dev/null &&
+                        echo -e "${GREEN}  Dependencies synced${NC}" ||
+                        echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
                 else
                     "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null \
-                        && echo -e "${GREEN}  Dependencies synced${NC}" \
-                        || echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
+                        -r "$target/library/requirements.txt" 2>/dev/null &&
+                        echo -e "${GREEN}  Dependencies synced${NC}" ||
+                        echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
                 fi
             fi
         fi
@@ -1661,13 +1661,13 @@ do_upgrade() {
         if [[ -d "$audible_venv" ]]; then
             echo -e "${BLUE}Syncing audible-cli dependencies...${NC}"
             if [[ -n "$use_sudo" ]]; then
-                sudo -u audiobooks "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2>/dev/null \
-                    && echo -e "${GREEN}  audible-cli synced${NC}" \
-                    || echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
+                sudo -u audiobooks "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2>/dev/null &&
+                    echo -e "${GREEN}  audible-cli synced${NC}" ||
+                    echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
             else
-                "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2>/dev/null \
-                    && echo -e "${GREEN}  audible-cli synced${NC}" \
-                    || echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
+                "$audible_venv/bin/pip" install --quiet --upgrade audible-cli 2>/dev/null &&
+                    echo -e "${GREEN}  audible-cli synced${NC}" ||
+                    echo -e "${YELLOW}  audible-cli sync had warnings (non-fatal)${NC}"
             fi
         else
             echo -e "${YELLOW}  audible-cli venv not found at $audible_venv — run install.sh to create${NC}"

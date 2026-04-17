@@ -7,21 +7,14 @@ All HTTP requests are mocked — no real API calls.
 """
 
 import hashlib
-import sys
-from pathlib import Path
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import requests
 
-# Ensure library/scripts is on path so `from utils.openlibrary_client`
-# resolves when cover_resolver is imported.
-LIBRARY_DIR = Path(__file__).resolve().parent.parent
-SCRIPTS_DIR = LIBRARY_DIR / "scripts"
-if str(SCRIPTS_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPTS_DIR))
-
-from scanner.utils.cover_resolver import (  # noqa: E402
+# Importable via `library/` on sys.path (conftest sets it). After the
+# 8.3.1 fix to cover_resolver.py, no manual path manipulation is required.
+from scanner.utils.cover_resolver import (
     _rate_limit,
     _save_image,
     _try_audible,
@@ -29,7 +22,7 @@ from scanner.utils.cover_resolver import (  # noqa: E402
     _try_openlibrary,
     resolve_cover,
 )
-import scanner.utils.cover_resolver as cr_module  # noqa: E402
+import scanner.utils.cover_resolver as cr_module
 
 
 # ---------------------------------------------------------------------------
@@ -836,3 +829,45 @@ class TestEdgeCases:
         mock_aud.assert_not_called()
         mock_ol.assert_called_once_with("Title", None, tmp_path, 15)
         mock_gb.assert_called_once_with("Title", None, tmp_path, 15)
+
+
+# ---------------------------------------------------------------------------
+# Regression — broken import path that silently disabled fallback (v8.3.1)
+# ---------------------------------------------------------------------------
+
+
+class TestCoverResolverImportPath:
+    """Regression test for the v8.3.1 import-path fix.
+
+    Pre-8.3.1, cover_resolver imported `from utils.openlibrary_client`
+    which never resolved, raising ImportError. metadata_utils caught the
+    error and returned None — silently disabling external cover-art
+    fallback for any audiobook missing embedded art. Verify the canonical
+    import path resolves and OpenLibraryClient is reachable.
+    """
+
+    def test_openlibrary_client_reachable_from_resolver(self):
+        """Importing cover_resolver must succeed and expose OpenLibraryClient."""
+        import importlib
+
+        import scanner.utils.cover_resolver as resolver
+
+        importlib.reload(resolver)
+        # OpenLibraryClient is the symbol cover_resolver depends on.
+        assert resolver.OpenLibraryClient is not None
+        # Confirm canonical module path resolves directly.
+        from scripts.utils.openlibrary_client import OpenLibraryClient
+
+        assert OpenLibraryClient is resolver.OpenLibraryClient
+
+    def test_metadata_utils_external_fallback_imports_resolver(self):
+        """metadata_utils must be able to import resolve_cover at runtime."""
+        from scanner.metadata_utils import _resolve_external_cover  # noqa: F401
+
+        # If the legacy path was still in place this would surface as a
+        # silent ImportError swallowed by `except ImportError: return None`.
+        # We import resolve_cover directly to assert it resolves through
+        # the canonical path.
+        from scanner.utils.cover_resolver import resolve_cover
+
+        assert callable(resolve_cover)

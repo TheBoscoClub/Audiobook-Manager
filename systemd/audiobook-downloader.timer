@@ -1,5 +1,6 @@
 [Unit]
 Description=Audiobook Download Timer (check for new audiobooks)
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 PartOf=audiobook.target
 
 [Timer]

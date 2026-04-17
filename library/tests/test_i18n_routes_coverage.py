@@ -98,9 +98,7 @@ class TestActivateLocale:
                 return_value={"pending": 7, "processing": 0},
             ),
         ):
-            resp = i18n_client.post(
-                "/api/i18n/activate", json={"locale": "zh-Hans"}
-            )
+            resp = i18n_client.post("/api/i18n/activate", json={"locale": "zh-Hans"})
             assert resp.status_code == 200
             body = resp.get_json()
             assert body["status"] == "ok"
@@ -112,9 +110,7 @@ class TestActivateLocale:
             "localization.queue.enqueue_all_books_for_locale",
             side_effect=RuntimeError("boom"),
         ):
-            resp = i18n_client.post(
-                "/api/i18n/activate", json={"locale": "es"}
-            )
+            resp = i18n_client.post("/api/i18n/activate", json={"locale": "es"})
             assert resp.status_code == 500
             body = resp.get_json()
             assert body["status"] == "error"
@@ -173,9 +169,7 @@ class TestBumpPriority:
         assert resp.get_json() == {"status": "ok"}
 
     def test_bump_with_missing_locale_is_ok(self, i18n_client):
-        resp = i18n_client.post(
-            "/api/translation/bump", json={"audiobook_id": 1}
-        )
+        resp = i18n_client.post("/api/translation/bump", json={"audiobook_id": 1})
         assert resp.status_code == 200
         assert resp.get_json() == {"status": "ok"}
 

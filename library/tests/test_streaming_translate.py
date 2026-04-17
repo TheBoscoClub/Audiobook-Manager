@@ -570,9 +570,9 @@ class TestChapterComplete:
                 "audiobook_id": 1,
                 "chapter_index": 0,
                 "locale": "zh-Hans",
-                "source_vtt_path": "/tmp/source.vtt",
-                "translated_vtt_path": "/tmp/translated.vtt",
-                "audio_path": "/tmp/audio.opus",
+                "source_vtt_path": "/tmp/source.vtt",  # nosec B108 -- DB row payload string, never written to disk
+                "translated_vtt_path": "/tmp/translated.vtt",  # nosec B108 -- DB row payload string, never written to disk
+                "audio_path": "/tmp/audio.opus",  # nosec B108 -- DB row payload string, never written to disk
             },
         )
         assert resp.status_code == 200
@@ -591,7 +591,7 @@ class TestChapterComplete:
         assert "zh-Hans" in locales
         assert "en" in locales  # source VTT stored as English
         assert audio is not None
-        assert audio[0] == "/tmp/audio.opus"
+        assert audio[0] == "/tmp/audio.opus"  # nosec B108 -- assertion against DB string payload, no filesystem access
 
     def test_chapter_complete_minimal_body(self, app_client, streaming_db):
         """Only audiobook_id/chapter_index/locale — worker reported empty chapter."""

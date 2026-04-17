@@ -195,9 +195,7 @@ class TestGenerateSubtitles:
         assert resp.status_code == 400
 
     def test_missing_audiobook_id_400(self, app_client, subtitles_db):
-        resp = app_client.post(
-            "/api/subtitles/generate", json={"locale": "zh-Hans"}
-        )
+        resp = app_client.post("/api/subtitles/generate", json={"locale": "zh-Hans"})
         assert resp.status_code == 400
 
     def test_book_not_found_404(self, app_client, subtitles_db):

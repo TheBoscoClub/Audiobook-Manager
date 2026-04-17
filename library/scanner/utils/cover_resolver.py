@@ -19,8 +19,12 @@ from typing import Optional
 
 import requests
 
-# Reuse the existing OpenLibrary client
-from utils.openlibrary_client import OpenLibraryClient
+# Reuse the existing OpenLibrary client.
+# Scanner runs with `library/` on sys.path (see scan_audiobooks.py), so the
+# canonical module path is `scripts.utils.openlibrary_client`. The previous
+# `utils.openlibrary_client` was unresolvable and silently disabled the
+# external cover-art fallback (masked by an `except ImportError` upstream).
+from scripts.utils.openlibrary_client import OpenLibraryClient
 
 # Rate limiting: shared across all resolvers within a session
 _last_request_time = 0.0

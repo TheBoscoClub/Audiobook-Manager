@@ -1,5 +1,6 @@
 [Unit]
 Description=Audiobook Staging Saver (save tmpfs before shutdown)
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 DefaultDependencies=no
 Before=shutdown.target reboot.target halt.target
 

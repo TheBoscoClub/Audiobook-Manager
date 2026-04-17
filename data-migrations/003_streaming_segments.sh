@@ -1,5 +1,5 @@
 #!/bin/bash
-# Data migration 004: streaming translation segment tables (v8.3.0)
+# Data migration 003: streaming translation segment tables (v8.3.0)
 #
 # Creates two tables for the on-demand streaming translation pipeline:
 #   - streaming_segments  — per-segment translation state and cache
@@ -17,7 +17,7 @@
 
 MIN_VERSION="8.3.0"
 
-_dm004_sqlite() {
+_dm003_sqlite() {
     if [[ -n "$USE_SUDO" ]]; then
         sudo -u audiobooks sqlite3 "$DB_PATH" "$@"
     else
@@ -25,26 +25,26 @@ _dm004_sqlite() {
     fi
 }
 
-_dm004_table_exists() {
+_dm003_table_exists() {
     local tbl="$1"
-    _dm004_sqlite "SELECT name FROM sqlite_master WHERE type='table' AND name='${tbl}';" 2>/dev/null \
-        | grep -q "^${tbl}$"
+    _dm003_sqlite "SELECT name FROM sqlite_master WHERE type='table' AND name='${tbl}';" 2>/dev/null |
+        grep -q "^${tbl}$"
 }
 
 run_migration() {
-    if _dm004_table_exists "streaming_segments" && _dm004_table_exists "streaming_sessions"; then
-        echo "  [004] streaming tables already exist — skipping"
+    if _dm003_table_exists "streaming_segments" && _dm003_table_exists "streaming_sessions"; then
+        echo "  [003] streaming tables already exist — skipping"
         return 0
     fi
 
     if [[ "$DRY_RUN" == "true" ]]; then
-        echo "  [004] DRY RUN: would create streaming_segments and streaming_sessions tables"
+        echo "  [003] DRY RUN: would create streaming_segments and streaming_sessions tables"
         return 0
     fi
 
-    echo "  [004] Creating streaming translation tables..."
+    echo "  [003] Creating streaming translation tables..."
 
-    _dm004_sqlite "
+    _dm003_sqlite "
 CREATE TABLE IF NOT EXISTS streaming_segments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     audiobook_id INTEGER NOT NULL,
@@ -87,9 +87,9 @@ CREATE INDEX IF NOT EXISTS idx_streaming_sess_state ON streaming_sessions(state)
     local rc=$?
 
     if [[ $rc -eq 0 ]]; then
-        echo "  [004] Streaming translation tables created successfully"
+        echo "  [003] Streaming translation tables created successfully"
     else
-        echo "  [004] ERROR: Failed to create streaming tables"
+        echo "  [003] ERROR: Failed to create streaming tables"
         return 1
     fi
 }

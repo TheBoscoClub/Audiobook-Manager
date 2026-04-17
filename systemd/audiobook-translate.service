@@ -1,5 +1,6 @@
 [Unit]
 Description=Audiobook translation pipeline (STT + DeepL + TTS)
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network-online.target audiobook-api.service
 Wants=network-online.target
 PartOf=audiobook.target

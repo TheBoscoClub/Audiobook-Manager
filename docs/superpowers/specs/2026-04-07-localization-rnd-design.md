@@ -32,6 +32,7 @@ ever scales to 5+ languages with external translators, JSON can be mechanically
 converted to `.po` format at that point.
 
 **String extraction and catalogs:**
+
 - Create `library/localization/i18n.py` — lightweight module with `t(key, locale)` lookup, loads from shared JSON catalogs
 - Create `library/web-v2/locales/en.json` and `library/web-v2/locales/zh-Hans.json` — shared by both backend and frontend
 - Backend serves locale files via `GET /api/i18n/<locale>` for frontend consumption
@@ -52,6 +53,7 @@ converted to `.po` format at that point.
 - All API error/success messages wrapped in `t(key, locale)` calls
 
 **Locale detection priority (highest to lowest):**
+
 1. User's explicit setting in `user_settings` table
 2. `Accept-Language` HTTP header
 3. System default (`en`)
@@ -70,6 +72,7 @@ Since the frontend is vanilla JS (no React/Vue), use a lightweight custom i18n a
 - Add locale switcher in the account settings panel and shell header
 
 **String categories to extract (~800-1000 total):**
+
 - Form labels and placeholders (~100)
 - Button text and tooltips (~80)
 - Navigation tabs and menu items (~30)
@@ -84,6 +87,7 @@ Since the frontend is vanilla JS (no React/Vue), use a lightweight custom i18n a
 ### 1.3 CJK Typography
 
 Add CJK font stack to CSS:
+
 ```css
 :root {
   --font-cjk: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -93,6 +97,7 @@ Add CJK font stack to CSS:
 Apply `var(--font-cjk)` as a fallback in all `font-family` declarations. CJK characters are typically wider — verify layout doesn't break with Chinese strings (buttons, nav tabs, table headers).
 
 **User-controlled font sizing:**
+
 - Add a font size slider/stepper in account settings and as a quick-access control in the shell header (near the locale switcher)
 - Range: 12px to 28px in 2px increments, stored in `user_settings.font_size`
 - Applies globally via CSS custom property `--user-font-size` on `<html>` element
@@ -103,6 +108,7 @@ Apply `var(--font-cjk)` as a fallback in all `font-family` declarations. CJK cha
 ### 1.4 Localized Book Card Metadata
 
 **Data source hierarchy (per book, per locale):**
+
 1. **Admin override** — manually entered Chinese title/author/translator in Back Office (highest priority)
 2. **Douban Books lookup** — query Douban API by ISBN or title+author for canonical Chinese metadata
 3. **DeepL translation fallback** — machine-translate title and transliterate author name
@@ -128,11 +134,13 @@ CREATE INDEX idx_translations_locale ON audiobook_translations(locale);
 ```
 
 **Display behavior:**
+
 - When user's locale matches a translation entry, show localized title/author on the book card
 - Original English always visible (either as subtitle text or tooltip)
 - If no translation exists for a book, show English with no tooltip
 
 **Admin Back Office:**
+
 - New "Translations" tab per book in the detail view
 - Editable fields: title, author, translator per locale
 - "Auto-translate" button that runs the lookup hierarchy and populates fields
@@ -141,6 +149,7 @@ CREATE INDEX idx_translations_locale ON audiobook_translations(locale);
 ### 1.5 Database Migrations
 
 **Auth DB migration** (next sequence number):
+
 ```sql
 -- Add locale preference and font size to user_settings
 ALTER TABLE user_settings ADD COLUMN locale TEXT DEFAULT 'en';
@@ -148,6 +157,7 @@ ALTER TABLE user_settings ADD COLUMN font_size INTEGER DEFAULT 16;
 ```
 
 **Main DB migration** (next sequence number):
+
 ```sql
 -- Audiobook translations table
 CREATE TABLE IF NOT EXISTS audiobook_translations ( ... );
@@ -172,7 +182,7 @@ New variables in `audiobook-config.sh`:
 
 Pluggable speech-to-text with two backends:
 
-```
+```text
 library/localization/
     __init__.py
     stt/
@@ -201,6 +211,7 @@ library/localization/
 ```
 
 **STTProvider interface:**
+
 ```python
 class STTProvider(ABC):
     @abstractmethod
@@ -218,6 +229,7 @@ class STTProvider(ABC):
 ```
 
 **Provider selection logic:**
+
 1. Check DeepL STT usage remaining
 2. If > 60 min remaining, use DeepL STT
 3. Otherwise, route to RunPod Whisper
@@ -226,6 +238,7 @@ class STTProvider(ABC):
 ### 2.2 Transcript → Translation → VTT
 
 **Pipeline per chapter:**
+
 1. STT produces word-level timestamps: `[{word, start_ms, end_ms}, ...]`
 2. Group words into sentences using punctuation + pause detection
 3. Send sentences to DeepL translation (preserving sentence boundaries)
@@ -256,7 +269,8 @@ CREATE TABLE chapter_subtitles (
 ```
 
 **File storage convention:**
-```
+
+```text
 Library/
   <Author> - <Title>/
     <Chapter>.opus              # Original audio
@@ -319,11 +333,13 @@ class TTSProvider(ABC):
 ```
 
 **Default provider: edge-tts**
+
 - Voices for zh-CN: `zh-CN-XiaoxiaoNeural` (female), `zh-CN-YunyangNeural` (male)
 - No GPU required, near-instant generation
 - Free (Microsoft's public TTS API)
 
 **Upgrade path: Coqui XTTS v2**
+
 - Deploy on RunPod as serverless endpoint
 - Voice cloning: feed 10-30 seconds of original narrator's voice
 - GPU-intensive: ~10-30 min per hour of audio on A40
@@ -332,6 +348,7 @@ class TTSProvider(ABC):
 ### 3.2 Translation → Audio Pipeline
 
 Per chapter:
+
 1. Read translated text from Phase 2 transcript (or re-translate if needed)
 2. Split into TTS-friendly chunks (respect sentence boundaries, max ~500 chars per chunk for edge-tts)
 3. Generate audio per chunk via TTS provider
@@ -358,7 +375,8 @@ CREATE TABLE chapter_translations_audio (
 ```
 
 **File storage:**
-```
+
+```text
 Library/
   <Author> - <Title>/
     <Chapter>.opus                      # Original audio
@@ -382,6 +400,7 @@ Library/
 ### 3.5 Batch Processing
 
 Same pattern as Phase 2:
+
 - `POST /api/localization/audio/generate` (admin only)
 - Background job queue via systemd service
 - Progress via WebSocket

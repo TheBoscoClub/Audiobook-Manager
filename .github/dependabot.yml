@@ -1,22 +1,10 @@
 ---
 version: 2
 updates:
-  # Python dependencies - library backend
-  - package-ecosystem: "pip"
-    directory: "/library/backend"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      timezone: "America/Chicago"
-    groups:
-      python-minor-patch:
-        patterns: ["*"]
-        update-types: ["minor", "patch"]
-    labels: ["dependencies", "python"]
-    commit-message:
-      prefix: "deps(py)"
-
-  # Python dependencies - library root
+  # Python dependencies - library root (manifests: requirements.txt,
+  # requirements-dev.txt, requirements-docker.txt). The legacy
+  # /library/backend entry was removed because that directory has no
+  # pip manifest — it was producing zero scans and noise in the dashboard.
   - package-ecosystem: "pip"
     directory: "/library"
     schedule:

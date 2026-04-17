@@ -28,13 +28,25 @@ set -uo pipefail
 # Resolve SCRIPT_DIR for finding sibling scripts (batch-translate.py, etc.)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-DB_PATH="/var/lib/audiobooks/db/audiobooks.db"
-LIBRARY_PATH="/srv/audiobooks/Library"
+# Source canonical config — sets AUDIOBOOKS_DATABASE, AUDIOBOOKS_LIBRARY,
+# AUDIOBOOKS_VENV, AUDIOBOOKS_RUN_DIR etc. from /etc/audiobooks/audiobooks.conf
+# (or built-in defaults). Hardcoded literals would break user customization.
+# shellcheck source=/dev/null
+if [[ -f /usr/local/lib/audiobooks/audiobook-config.sh ]]; then
+    source /usr/local/lib/audiobooks/audiobook-config.sh
+elif [[ -f "${SCRIPT_DIR}/../lib/audiobook-config.sh" ]]; then
+    source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
+fi
+
+DB_PATH="${AUDIOBOOKS_DATABASE}"
+LIBRARY_PATH="${AUDIOBOOKS_LIBRARY}"
 BATCH_SCRIPT="${SCRIPT_DIR}/batch-translate.py"
-VENV_PYTHON="/opt/audiobooks/library/venv/bin/python"
+VENV_PYTHON="${AUDIOBOOKS_VENV}/bin/python"
 SSH_KEY=""
-LOG_DIR="/var/log/audiobooks/translate"
-PID_FILE="/var/lib/audiobooks/.run/translate-daemon.pid"
+# LOG_DIR uses syslog-style location (matches systemd ExecStartPre mkdir).
+# Override via AUDIOBOOKS_TRANSLATE_LOG_DIR or translation-env.sh.
+LOG_DIR="${AUDIOBOOKS_TRANSLATE_LOG_DIR:-/var/log/audiobooks/translate}"
+PID_FILE="${AUDIOBOOKS_RUN_DIR}/translate-daemon.pid"
 HEALTH_CHECK_INTERVAL=120
 EMPTY_QUEUE_CHECKS=3
 AUTO_TEARDOWN_GPU=false

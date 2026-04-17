@@ -1,5 +1,6 @@
 [Unit]
 Description=Audiobook Downloader (Audible sync)
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network-online.target local-fs.target
 Wants=network-online.target
 PartOf=audiobook.target

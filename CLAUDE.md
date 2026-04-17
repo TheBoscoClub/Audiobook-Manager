@@ -41,6 +41,8 @@ See `VERSION` file. User/group: `audiobooks:audiobooks`
 | CONTENT-CLASSIFICATION-DRIFT.md | `./docs/CONTENT-CLASSIFICATION-DRIFT.md` |
 | MULTI-LANGUAGE-SETUP.md | `./docs/MULTI-LANGUAGE-SETUP.md` |
 | STREAMING-TRANSLATION.md | `./docs/STREAMING-TRANSLATION.md` |
+| STREAMING-TRANSLATION.zh-Hans.md | `./docs/STREAMING-TRANSLATION.zh-Hans.md` |
+| GPU-FLEET-OPS.md | `./docs/GPU-FLEET-OPS.md` |
 | CONTRIBUTING.md | `./CONTRIBUTING.md` |
 
 ## Future Improvements

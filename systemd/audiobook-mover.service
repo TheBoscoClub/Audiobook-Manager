@@ -1,5 +1,6 @@
 [Unit]
 Description=Audiobook Staging Mover (tmpfs to permanent storage)
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network.target
 RequiresMountsFor=/srv/audiobooks
 PartOf=audiobook.target

@@ -13,12 +13,16 @@
 
 set -uo pipefail
 
-DB_PATH="/var/lib/audiobooks/db/audiobooks.db"
-CONF_FILE="/etc/audiobooks/audiobooks.conf"
-if [[ -f "$CONF_FILE" ]]; then
-    conf_db=$(grep -oP '^AUDIOBOOKS_DATABASE=\K.*' "$CONF_FILE" 2>/dev/null)
-    [[ -n "$conf_db" ]] && DB_PATH="$conf_db"
+# Source canonical config — sets AUDIOBOOKS_DATABASE etc. from
+# /etc/audiobooks/audiobooks.conf (or built-in defaults).
+# shellcheck source=/dev/null
+if [[ -f /usr/local/lib/audiobooks/audiobook-config.sh ]]; then
+    source /usr/local/lib/audiobooks/audiobook-config.sh
+elif [[ -f "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/audiobook-config.sh" ]]; then
+    source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib/audiobook-config.sh"
 fi
+
+DB_PATH="${AUDIOBOOKS_DATABASE}"
 
 FLEET_STALE_SEC="${FLEET_STALE_SEC:-1200}" # 20 min — STT for one chapter is ≤5 min on L40S
 

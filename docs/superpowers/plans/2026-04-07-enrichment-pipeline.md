@@ -37,6 +37,7 @@
 ### Task 1: Schema Migration — Add `enrichment_source` Column
 
 **Files:**
+
 - Modify: `library/backend/schema.sql:4-63`
 - Create: `library/tests/test_enrichment_schema.py`
 
@@ -129,6 +130,7 @@ git commit -m "feat: add enrichment_source column to audiobooks schema"
 ### Task 2: ASIN Extraction — 3-Source `extract_asin()`
 
 **Files:**
+
 - Modify: `library/scanner/metadata_utils.py:288-308`
 - Create: `library/tests/test_asin_extraction.py`
 
@@ -437,10 +439,13 @@ def extract_asin(
 Also update the call site in `_build_metadata_dict()` (line 379):
 
 Change:
+
 ```python
     asin = extract_asin_from_chapters_json(filepath)
 ```
+
 To:
+
 ```python
     asin = extract_asin(filepath)
 ```
@@ -469,6 +474,7 @@ git commit -m "feat: multi-source ASIN extraction (chapters.json, voucher, filen
 ### Task 3: Provider Base Class
 
 **Files:**
+
 - Create: `library/scripts/enrichment/__init__.py` (empty for now — orchestrator comes in Task 7)
 - Create: `library/scripts/enrichment/base.py`
 - Create: `library/tests/test_enrichment_providers.py` (base class tests)
@@ -647,6 +653,7 @@ git commit -m "feat: enrichment provider base class with ABC interface"
 ### Task 4: Local Provider
 
 **Files:**
+
 - Create: `library/scripts/enrichment/provider_local.py`
 - Modify: `library/tests/test_enrichment_providers.py` (add local provider tests)
 
@@ -914,6 +921,7 @@ git commit -m "feat: local enrichment provider (ASIN recovery + title series par
 ### Task 5: Audible Provider
 
 **Files:**
+
 - Create: `library/scripts/enrichment/provider_audible.py`
 - Modify: `library/tests/test_enrichment_providers.py` (add Audible provider tests)
 
@@ -1307,6 +1315,7 @@ git commit -m "feat: Audible enrichment provider (refactored from enrich_single.
 ### Task 6: Google Books Provider
 
 **Files:**
+
 - Create: `library/scripts/enrichment/provider_google.py`
 - Modify: `library/tests/test_enrichment_providers.py` (add Google Books tests)
 
@@ -1540,6 +1549,7 @@ git commit -m "feat: Google Books enrichment provider (ISBN, description, langua
 ### Task 7: Open Library Provider
 
 **Files:**
+
 - Create: `library/scripts/enrichment/provider_openlibrary.py`
 - Modify: `library/tests/test_enrichment_providers.py` (add Open Library tests)
 
@@ -1714,6 +1724,7 @@ git commit -m "feat: Open Library enrichment provider (series, ISBN last-resort 
 ### Task 8: Enrichment Orchestrator
 
 **Files:**
+
 - Modify: `library/scripts/enrichment/__init__.py` (replace stub with orchestrator)
 - Create: `library/tests/test_enrichment_orchestrator.py`
 
@@ -2142,6 +2153,7 @@ git commit -m "feat: enrichment chain orchestrator with merge-only-empty semanti
 ### Task 9: Backward-Compatible Wrapper in `enrich_single.py`
 
 **Files:**
+
 - Modify: `library/scripts/enrich_single.py:645-709`
 - Modify: `library/scanner/add_new_audiobooks.py:45-54`
 
@@ -2234,6 +2246,7 @@ git commit -m "refactor: enrich_single.py delegates to new enrichment chain orch
 ### Task 10: Backfill Script
 
 **Files:**
+
 - Create: `library/scripts/backfill_enrichment.py`
 - Create: `library/tests/test_backfill_enrichment.py`
 
@@ -2692,6 +2705,7 @@ git commit -m "feat: enrichment backfill script (ASIN recovery + bulk enrichment
 ### Task 11: Systemd Timer and Service
 
 **Files:**
+
 - Create: `systemd/audiobook-enrichment.timer`
 - Create: `systemd/audiobook-enrichment.service`
 
@@ -2758,6 +2772,7 @@ git commit -m "feat: systemd timer for nightly enrichment backfill"
 ### Task 12: Install Script Integration
 
 **Files:**
+
 - Modify: `install.sh` (schema migration + timer enablement)
 
 - [ ] **Step 1: Add schema migration after DB initialization**
@@ -2809,6 +2824,7 @@ git commit -m "feat: install.sh schema migration + enrichment timer enablement"
 ### Task 13: Integration Test — Full Chain End-to-End
 
 **Files:**
+
 - Modify: `library/tests/test_enrichment_orchestrator.py` (add integration test)
 
 - [ ] **Step 1: Write the integration test**
@@ -2936,14 +2952,17 @@ git commit -m "test: full-chain integration tests for enrichment pipeline"
 - [ ] **Step 1: Run ruff on all new/modified files**
 
 Run:
+
 ```bash
 cd library && ruff check scripts/enrichment/ scripts/backfill_enrichment.py scanner/metadata_utils.py tests/test_enrichment_*.py tests/test_asin_extraction.py tests/test_backfill_enrichment.py
 ```
+
 Expected: No errors (fix any that appear)
 
 - [ ] **Step 2: Run ruff format**
 
 Run:
+
 ```bash
 cd library && ruff format scripts/enrichment/ scripts/backfill_enrichment.py scanner/metadata_utils.py tests/test_enrichment_*.py tests/test_asin_extraction.py tests/test_backfill_enrichment.py
 ```

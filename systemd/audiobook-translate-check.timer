@@ -1,5 +1,6 @@
 [Unit]
 Description=Periodically check for pending audiobook translations
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 PartOf=audiobook.target
 
 [Timer]

@@ -158,7 +158,8 @@ class TestInitQueue:
         conn = sqlite3.connect(str(db_path))
         try:
             cols = {
-                r[1] for r in conn.execute("PRAGMA table_info(translation_queue)").fetchall()
+                r[1]
+                for r in conn.execute("PRAGMA table_info(translation_queue)").fetchall()
             }
             assert "last_progress_at" in cols
             assert "total_chapters" in cols
@@ -171,9 +172,7 @@ class TestInitQueue:
         finally:
             conn.close()
 
-    def test_recover_stale_jobs_resets_processing_to_pending(
-        self, audiobooks_db: Path
-    ):
+    def test_recover_stale_jobs_resets_processing_to_pending(self, audiobooks_db: Path):
         conn = sqlite3.connect(str(audiobooks_db))
         conn.execute(
             "INSERT INTO translation_queue "
@@ -446,8 +445,7 @@ class TestJobLifecycle:
         conn = sqlite3.connect(str(audiobooks_db))
         try:
             row = conn.execute(
-                "SELECT state, error, finished_at "
-                "FROM translation_queue WHERE id = ?",
+                "SELECT state, error, finished_at FROM translation_queue WHERE id = ?",
                 (job["id"],),
             ).fetchone()
             assert row is not None
@@ -507,6 +505,7 @@ class TestJobLifecycle:
 
     def test_set_current_swallows_db_errors(self, monkeypatch):
         """Heartbeat writes must never raise into the worker."""
+
         def _broken() -> None:
             raise sqlite3.Error("intentional")
 
@@ -528,6 +527,7 @@ class TestShutdown:
         """If a worker is already alive, _ensure_worker must return without
         starting another thread. We fake an alive thread and assert that
         Thread() is never invoked."""
+
         class _FakeThread:
             def is_alive(self) -> bool:
                 return True

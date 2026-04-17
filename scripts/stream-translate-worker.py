@@ -212,7 +212,7 @@ def process_segment(
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        urllib.request.urlopen(req, timeout=30)
+        urllib.request.urlopen(req, timeout=30)  # nosec B310 -- callback URL constructed from trusted worker env (CALLBACK_URL), not user-controlled scheme
 
         logger.info(
             "Segment complete: book=%d ch=%d seg=%d",

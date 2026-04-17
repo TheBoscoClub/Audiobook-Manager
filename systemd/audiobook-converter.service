@@ -1,5 +1,6 @@
 [Unit]
 Description=Audiobook Continuous Converter (AAXC to Opus)
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network.target audiobook-mover.service
 PartOf=audiobook.target
 # Generous interval allows time for data mounts (RAID arrays) to come up at boot

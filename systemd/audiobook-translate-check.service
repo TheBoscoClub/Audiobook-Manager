@@ -1,5 +1,6 @@
 [Unit]
 Description=Check for pending audiobook translations
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network-online.target audiobook-api.service
 
 [Service]

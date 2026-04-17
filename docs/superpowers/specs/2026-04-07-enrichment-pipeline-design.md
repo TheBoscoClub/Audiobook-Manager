@@ -20,7 +20,7 @@ Three gaps in the metadata enrichment pipeline leave most books without series i
 
 Enrichment runs as a provider chain. Each provider fills in fields that are still empty — later providers never overwrite earlier ones. The chain short-circuits: if all target fields are populated after a provider runs, remaining providers are skipped.
 
-```
+```text
 Book inserted → Local Extraction → Audible API → Google Books → Open Library → Done
                 (always runs)      (if ASIN)      (if series    (if series
                                                    still empty)  still empty)
@@ -42,7 +42,7 @@ The voucher and filename lookups need access to the Sources directory path, whic
 
 New package with a provider interface and four implementations:
 
-```
+```text
 library/scripts/enrichment/
 ├── __init__.py          # Chain orchestrator
 ├── base.py              # Provider base class
@@ -120,6 +120,7 @@ def enrich_book(book_id: int, db_path: Path, providers: list[EnrichmentProvider]
 One-time script to fix the existing library:
 
 **Phase 1 — ASIN Recovery** (no API calls):
+
 - Scan Sources directory for `.voucher` files
 - Extract ASIN from each voucher's JSON and filename
 - Match to Library books by normalized title
@@ -127,6 +128,7 @@ One-time script to fix the existing library:
 - Report: "Recovered N ASINs from voucher files"
 
 **Phase 2 — Enrichment Chain**:
+
 - Query all books where `audible_enriched_at IS NULL`
 - Run enrichment chain on each
 - Progress reporting: "Enriched N/M books (series: X, ratings: Y, skipped: Z)"
@@ -134,6 +136,7 @@ One-time script to fix the existing library:
 - Resumable: skips books already enriched (checks `audible_enriched_at`)
 
 **CLI**:
+
 ```bash
 # Full backfill (ASIN recovery + enrichment)
 python3 library/scripts/backfill_enrichment.py --db /path/to/db
@@ -151,11 +154,13 @@ python3 library/scripts/backfill_enrichment.py --db /path/to/db --limit 10
 ### Component 5: Automatic Enrichment Trigger
 
 **Post-insert hook** (existing path, fixed):
+
 - `add_new_audiobooks.py:_run_post_insert_hooks()` already calls `enrich_book()`
 - The new orchestrator replaces the old function with the same signature
 - Now works even without ASIN (Google Books/Open Library fallback)
 
 **Systemd timer** (new, catch-up for missed books):
+
 ```ini
 # audiobook-enrichment.timer
 [Timer]

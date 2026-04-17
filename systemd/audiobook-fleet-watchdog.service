@@ -1,5 +1,6 @@
 [Unit]
 Description=Detect dead GPU fleet during translation processing
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network-online.target audiobook-api.service
 
 [Service]

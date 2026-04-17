@@ -69,14 +69,37 @@ def seeded_db(tmp_path: Path) -> Path:
         "(id, title, author, series, description, publisher_summary, file_path, format) "
         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         [
-            (1, "The Lord of the Rings", "Tolkien", "Middle-earth", "Epic fantasy",
-             None, "/tmp/1.opus", "opus"),
-            (2, "The Hobbit", "Tolkien", "Middle-earth", "Prequel",
-             None, "/tmp/2.opus", "opus"),
-            (3, "Dune", "Herbert", "", None, "Arrakis sci-fi",
-             "/tmp/3.opus", "opus"),
-            (4, "Standalone", "Single Author", None, "A lone book", None,
-             "/tmp/4.opus", "opus"),
+            (
+                1,
+                "The Lord of the Rings",
+                "Tolkien",
+                "Middle-earth",
+                "Epic fantasy",
+                None,
+                "/tmp/1.opus",
+                "opus",
+            ),  # nosec B108 -- DB string fixture, no filesystem write
+            (
+                2,
+                "The Hobbit",
+                "Tolkien",
+                "Middle-earth",
+                "Prequel",
+                None,
+                "/tmp/2.opus",
+                "opus",
+            ),  # nosec B108 -- DB string fixture, no filesystem write
+            (3, "Dune", "Herbert", "", None, "Arrakis sci-fi", "/tmp/3.opus", "opus"),  # nosec B108 -- DB string fixture, no filesystem write
+            (
+                4,
+                "Standalone",
+                "Single Author",
+                None,
+                "A lone book",
+                None,
+                "/tmp/4.opus",
+                "opus",
+            ),  # nosec B108 -- DB string fixture, no filesystem write
         ],
     )
     conn.commit()
@@ -114,9 +137,7 @@ class TestLoadBooksForMissing:
 class TestTranslateTitleAuthorBatch:
     def test_empty_needs_title_returns_empty(self):
         translator = MagicMock()
-        titles, authors = tr._translate_title_author_batch(
-            translator, [], "zh-Hans"
-        )
+        titles, authors = tr._translate_title_author_batch(translator, [], "zh-Hans")
         assert titles == []
         assert authors == []
         translator.translate.assert_not_called()
@@ -134,9 +155,7 @@ class TestTranslateTitleAuthorBatch:
             {"id": 1, "title": "LotR", "author": "Tolkien"},
             {"id": 2, "title": "Hobbit", "author": "Tolkien"},
         ]
-        titles, authors = tr._translate_title_author_batch(
-            translator, needs, "zh-Hans"
-        )
+        titles, authors = tr._translate_title_author_batch(translator, needs, "zh-Hans")
         assert titles == ["魔戒", "霍比特人"]
         assert authors == ["托尔金", "托尔金"]
 
@@ -144,9 +163,7 @@ class TestTranslateTitleAuthorBatch:
         translator = MagicMock()
         translator.translate.side_effect = [["T1"], []]
         needs = [{"id": 1, "title": "Book", "author": None}]
-        titles, authors = tr._translate_title_author_batch(
-            translator, needs, "es"
-        )
+        titles, authors = tr._translate_title_author_batch(translator, needs, "es")
         assert titles == ["T1"]
         assert authors == [""]
 
@@ -170,9 +187,7 @@ class TestTranslateUniqueSeries:
             {"id": 1, "series": "Middle-earth"},
             {"id": 2, "series": "Middle-earth"},
         ]
-        mapping, unique = tr._translate_unique_series(
-            translator, books, "zh-Hans"
-        )
+        mapping, unique = tr._translate_unique_series(translator, books, "zh-Hans")
         # Called once with the deduped list.
         translator.translate.assert_called_once_with(["Middle-earth"], "zh-Hans")
         assert mapping == {"Middle-earth": "中土"}
@@ -200,10 +215,18 @@ class TestApplyTranslations:
             # iterators are aligned to the fresh-only list via caller-supplied
             # order, so only Book 2's translation entry is provided.
             books = [
-                {"id": 1, "title": "LotR", "author": "Tolkien",
-                 "series": "Middle-earth"},
-                {"id": 2, "title": "Hobbit", "author": "Tolkien",
-                 "series": "Middle-earth"},
+                {
+                    "id": 1,
+                    "title": "LotR",
+                    "author": "Tolkien",
+                    "series": "Middle-earth",
+                },
+                {
+                    "id": 2,
+                    "title": "Hobbit",
+                    "author": "Tolkien",
+                    "series": "Middle-earth",
+                },
             ]
             tr._apply_translations(
                 conn,
@@ -245,8 +268,12 @@ class TestApplyTranslations:
         try:
             result: dict = {}
             books = [
-                {"id": 4, "title": "Standalone", "author": "Single Author",
-                 "series": None},
+                {
+                    "id": 4,
+                    "title": "Standalone",
+                    "author": "Single Author",
+                    "series": None,
+                },
             ]
             tr._apply_translations(
                 conn,
@@ -331,13 +358,10 @@ class TestPersistOnDemand:
         conn.row_factory = sqlite3.Row
         try:
             books = [{"id": 4, "title": "Standalone", "author": "Single Author"}]
-            tr._persist_on_demand_translations(
-                conn, books, ["Solo"], ["Autor"], "es"
-            )
+            tr._persist_on_demand_translations(conn, books, ["Solo"], ["Autor"], "es")
             conn.commit()
             row = conn.execute(
-                "SELECT pinyin_sort FROM audiobook_translations "
-                "WHERE audiobook_id = 4"
+                "SELECT pinyin_sort FROM audiobook_translations WHERE audiobook_id = 4"
             ).fetchone()
             assert row["pinyin_sort"] is None
         finally:
@@ -353,9 +377,7 @@ class TestPersistOnDemand:
                 {"id": 1, "title": "Book 1", "author": "Author 1"},
                 {"id": 2, "title": "Book 2", "author": "Author 2"},
             ]
-            tr._persist_on_demand_translations(
-                conn, books, ["译1"], [], "zh-Hans"
-            )
+            tr._persist_on_demand_translations(conn, books, ["译1"], [], "zh-Hans")
             conn.commit()
             rows = conn.execute(
                 "SELECT audiobook_id, title, author_display "
@@ -413,9 +435,7 @@ class TestTranslateBatchDescriptions:
         translator = MagicMock()
         # Translator returns fewer items than requested — trailing stays "".
         translator.translate.return_value = ["only-one"]
-        result = tr._translate_batch_descriptions(
-            translator, ["a", "b"], "de"
-        )
+        result = tr._translate_batch_descriptions(translator, ["a", "b"], "de")
         assert result[0] == "only-one"
         assert result[1] == ""
 
@@ -479,9 +499,14 @@ class TestPersistBatchTranslations:
         conn.row_factory = sqlite3.Row
         try:
             books = [
-                {"id": 1, "title": "LotR", "author": "Tolkien",
-                 "series": "ME", "description": "epic",
-                 "publisher_summary": None},
+                {
+                    "id": 1,
+                    "title": "LotR",
+                    "author": "Tolkien",
+                    "series": "ME",
+                    "description": "epic",
+                    "publisher_summary": None,
+                },
             ]
             result = tr._persist_batch_translations(
                 conn,
@@ -511,17 +536,25 @@ class TestPersistBatchTranslations:
         conn.row_factory = sqlite3.Row
         try:
             books = [
-                {"id": 1, "title": "Book1", "author": "Auth1",
-                 "series": "", "description": None,
-                 "publisher_summary": "pub"},
-                {"id": 2, "title": "Book2", "author": None,
-                 "series": None, "description": None,
-                 "publisher_summary": None},
+                {
+                    "id": 1,
+                    "title": "Book1",
+                    "author": "Auth1",
+                    "series": "",
+                    "description": None,
+                    "publisher_summary": "pub",
+                },
+                {
+                    "id": 2,
+                    "title": "Book2",
+                    "author": None,
+                    "series": None,
+                    "description": None,
+                    "publisher_summary": None,
+                },
             ]
             # Empty translation arrays — helper uses source as fallback.
-            tr._persist_batch_translations(
-                conn, books, [], [], [], ["", ""], "es"
-            )
+            tr._persist_batch_translations(conn, books, [], [], [], ["", ""], "es")
             conn.commit()
             rows = conn.execute(
                 "SELECT audiobook_id, title, author_display "
@@ -562,9 +595,7 @@ class TestParseOnDemandIds:
 
     def test_invalid_ids_returns_error_tuple(self, flask_app):
         with flask_app.app_context():
-            ids, err = tr._parse_on_demand_ids(
-                {"audiobook_ids": ["abc", "xyz"]}
-            )
+            ids, err = tr._parse_on_demand_ids({"audiobook_ids": ["abc", "xyz"]})
             assert ids is None
             assert err is not None
             resp, status = err
@@ -578,9 +609,7 @@ class TestTranslateOnDemandTitlesAuthors:
     def test_empty_books(self):
         translator = MagicMock()
         translator.translate.return_value = []
-        titles, authors = tr._translate_on_demand_titles_authors(
-            translator, [], "fr"
-        )
+        titles, authors = tr._translate_on_demand_titles_authors(translator, [], "fr")
         assert titles == []
         assert authors == []
 
@@ -669,14 +698,12 @@ class TestNormalizeStringsPayload:
 class TestDeepLKeyShortCircuits:
     def test_do_translate_missing_no_key(self, seeded_db: Path):
         conn = sqlite3.connect(str(seeded_db))
-        with patch(
-            "localization.config.DEEPL_API_KEY", ""
-        ):
+        with patch("localization.config.DEEPL_API_KEY", ""):
             tr._do_translate_missing(conn, [1], "zh-Hans", {})
         # No rows should be inserted.
-        n = conn.execute(
-            "SELECT COUNT(*) AS c FROM audiobook_translations"
-        ).fetchone()[0]
+        n = conn.execute("SELECT COUNT(*) AS c FROM audiobook_translations").fetchone()[
+            0
+        ]
         assert n == 0
         conn.close()
 
@@ -694,9 +721,7 @@ class TestDeepLKeyShortCircuits:
                 PRIMARY KEY (source_hash, locale)
             )"""
         )
-        with patch(
-            "localization.config.DEEPL_API_KEY", ""
-        ):
+        with patch("localization.config.DEEPL_API_KEY", ""):
             result: dict = {}
             tr._translate_and_cache_strings(
                 conn, {"abc123": "hello"}, "zh-Hans", result
