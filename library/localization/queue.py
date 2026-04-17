@@ -73,15 +73,10 @@ def _ensure_queue_table() -> None:
                 FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
             )
         """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_tq_state
-            ON translation_queue(state, priority DESC)
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_tq_last_progress
-            ON translation_queue(last_progress_at)
-        """)
-        # In-place ALTER for upgraded DBs that pre-date these columns.
+        # In-place ALTER for upgraded DBs that pre-date these columns. This
+        # MUST run before the CREATE INDEX on last_progress_at — otherwise a
+        # legacy DB whose translation_queue pre-dates the column errors out
+        # on the index creation before the ALTER can fix the schema.
         existing_cols = {
             row[1]
             for row in conn.execute("PRAGMA table_info(translation_queue)").fetchall()
@@ -98,6 +93,14 @@ def _ensure_queue_table() -> None:
             conn.execute(
                 "ALTER TABLE translation_queue ADD COLUMN total_chapters INTEGER"
             )
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_tq_state
+            ON translation_queue(state, priority DESC)
+        """)
+        conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_tq_last_progress
+            ON translation_queue(last_progress_at)
+        """)
         conn.commit()
     finally:
         conn.close()
