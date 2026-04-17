@@ -76,7 +76,8 @@ def query_google_books(
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (GOOGLE_BOOKS_API) + urllib.parse.quote'd search query; not user-controlled scheme
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
             data = json.loads(resp.read())
             items = data.get("items", [])
             if items:
@@ -92,7 +93,8 @@ def query_openlibrary_isbn(isbn: str) -> dict | None:
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (OPENLIBRARY_API) + validated ISBN from internal DB; not user-controlled scheme
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
             return json.loads(resp.read())
     except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
         return None
@@ -107,7 +109,8 @@ def query_openlibrary_search(title: str, author: str | None = None) -> dict | No
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
 
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (OPENLIBRARY_API) + urlencode-escaped search params; not user-controlled scheme
+        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
             data = json.loads(resp.read())
             docs = data.get("docs", [])
             return docs[0] if docs else None

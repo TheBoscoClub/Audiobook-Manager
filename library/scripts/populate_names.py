@@ -146,8 +146,12 @@ def rebuild_junction_tables(conn: sqlite3.Connection) -> tuple[int, int]:
     cursor = conn.cursor()
 
     # Clear existing junction data
+    # `table` comes from a hardcoded literal tuple of 4 schema-owned identifier
+    # names; no user input reaches the format string. SQLite does not permit
+    # identifiers as bound parameters, so this f-string is the only correct form.
     for table in ("book_authors", "book_narrators", "authors", "narrators"):
-        cursor.execute(f"DELETE FROM {table}")  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        cursor.execute(f"DELETE FROM {table}")  # nosec B608
 
     cursor.execute("SELECT id, author, narrator FROM audiobooks")
     rows = cursor.fetchall()

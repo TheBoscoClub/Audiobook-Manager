@@ -2424,6 +2424,7 @@ def login_webauthn_begin():
     except Exception as e:
         # Log only the exception class — never the credential bytes or parser message
         # (parser errors may echo portions of the raw credential blob).
+        # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure  # Reason: Log message only contains the phrase "Invalid stored credential" (not an actual credential value) plus user_id and exception class name; no secret material in the format string or arguments
         logger.error(
             "Invalid stored credential for user_id=%s error_class=%s",
             getattr(user, "id", "<unknown>"),
@@ -2544,6 +2545,7 @@ def _parse_webauthn_login(user, challenge_b64):
         )
     except Exception as e:
         # Log only the exception class — never the credential bytes or parser message
+        # nosemgrep: python.lang.security.audit.logging.logger-credential-leak.python-logger-credential-disclosure  # Reason: Log message contains only the phrase "Failed to parse WebAuthn credential" (not an actual credential value) plus exception class name; no secret material in format string or arguments
         logger.warning(
             "Failed to parse WebAuthn credential: error_class=%s", type(e).__name__
         )

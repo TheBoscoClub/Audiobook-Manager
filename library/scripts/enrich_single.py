@@ -79,9 +79,8 @@ def _fetch_audible_product(asin: str) -> dict | None:
     )
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
     try:
-        with (
-            urllib.request.urlopen(req, timeout=15) as resp  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
-        ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (AUDIBLE_API) + validated ASIN from internal DB; not user-controlled scheme
+        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310
             data = json.loads(resp.read())
             return data.get("product")
     except urllib.error.HTTPError as e:
@@ -90,9 +89,8 @@ def _fetch_audible_product(asin: str) -> dict | None:
         if e.code == 429:
             time.sleep(5)
             try:
-                with (
-                    urllib.request.urlopen(req, timeout=15) as resp  # nosec B310 - fixed HTTPS API URLs (Audible/OpenLibrary/Google Books/ISBN); no user-controlled scheme
-                ):  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # nosec B310
+                # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: retry of same trusted-URL request after HTTP 429 backoff
+                with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310
                     data = json.loads(resp.read())
                     return data.get("product")
             except Exception:

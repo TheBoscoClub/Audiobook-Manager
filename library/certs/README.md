@@ -35,3 +35,21 @@ chmod 600 library/certs/server.key
 If you see any `.key` or `.pem` file in this directory appear in
 `git status`, **do not commit it**. Confirm `.gitignore` still excludes
 `library/certs/` and investigate why the file became tracked.
+
+## Scanner False Positives (Trivy, etc.)
+
+Filesystem secret scanners (Trivy, gitleaks, truffleHog) scan the
+**working tree on disk**, not the git index. They will flag
+`library/certs/server.key` as a "private key" any time it exists locally,
+even though:
+
+- The file is gitignored (`library/certs/*` in `.gitignore`).
+- `git check-ignore -v library/certs/server.key` confirms the ignore rule.
+- `git status --porcelain library/certs/` shows nothing — the file has
+  never been tracked and cannot reach the repository.
+
+These findings are **false positives at the scan-vs-repo boundary**: the
+scanner sees bytes on disk; the repository never will. No remediation is
+required beyond keeping `library/certs/` gitignored. If you need to
+silence a specific scanner, use its own ignore mechanism (e.g.
+`.trivyignore`, `gitleaks.toml`) rather than committing the key.
