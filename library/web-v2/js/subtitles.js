@@ -200,8 +200,12 @@
 
     checkTranslatedAudio(bookId, chapterIndex, locale);
 
+    // Update the target-column header label on every call — even when
+    // no subtitles are loaded yet — so a locale switch that races fetch
+    // completion doesn't leave the `{localeName}` placeholder unfilled.
+    setTargetHeaderLabel(locale);
+
     if (hasSubtitles) {
-      setTargetHeaderLabel(locale);
       buildTranscriptPanel();
       hideGenBanner();
     } else if (locale !== "en") {
