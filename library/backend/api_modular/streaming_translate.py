@@ -878,7 +878,6 @@ def _consolidate_chapter_audio(
     audiobook_id: int,
     chapter_index: int,
     locale: str,
-    rows,
 ) -> None:
     """Concatenate per-segment opus files into chapter.opus and persist a row.
 
@@ -1085,7 +1084,7 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
     # Audio consolidation is a best-effort addition — any failure logs and
     # leaves the VTT-side cache intact.
     try:
-        _consolidate_chapter_audio(db, audiobook_id, chapter_index, locale, rows)
+        _consolidate_chapter_audio(db, audiobook_id, chapter_index, locale)
     except Exception as exc:  # pylint: disable=broad-except  # defense in depth — audio side must never break VTT path
         logger.warning(
             "Chapter audio consolidation raised unexpected exception: "
