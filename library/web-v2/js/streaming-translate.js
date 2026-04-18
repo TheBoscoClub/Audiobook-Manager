@@ -27,6 +27,116 @@
     STREAMING: "streaming",
   };
 
+  /**
+   * MseAudioChain — MediaSource Extensions segment appender.
+   *
+   * Chains per-segment opus fetches into a single HTMLAudioElement, giving
+   * gapless playback of the translated stream while segments continue to
+   * arrive over the WebSocket. Each 30-second opus seg is fetched via the
+   * /streaming-audio/<book>/<ch>/<seg>/<locale> route and fed into a
+   * SourceBuffer in sequence mode — the browser stitches them.
+   *
+   * Lifecycle:
+   *   new MseAudioChain(audioEl) — creates MediaSource, attaches to audio
+   *   enqueueSegment(url)       — fetch + appendBuffer (queued if updating)
+   *   endOfStream()             — signals no more segments will arrive
+   *   teardown()                — revokes ObjectURL, drops the MediaSource
+   */
+  function MseAudioChain(audioEl) {
+    var self = this;
+    self.audio = audioEl;
+    self.queue = [];
+    self.sourceBuffer = null;
+    self.objectUrl = null;
+    self.closed = false;
+
+    if (typeof MediaSource === "undefined") {
+      // Browser lacks MSE (rare on Chromium/Firefox). Chain is inert; the
+      // player falls back to whatever the <audio> element already does.
+      self.ready = Promise.reject(new Error("MediaSource unavailable"));
+      return;
+    }
+
+    self.mediaSource = new MediaSource();
+    self.objectUrl = URL.createObjectURL(self.mediaSource);
+    self.audio.src = self.objectUrl;
+
+    self.ready = new Promise(function (resolve, reject) {
+      function onOpen() {
+        try {
+          self.sourceBuffer = self.mediaSource.addSourceBuffer(
+            'audio/ogg; codecs=opus'
+          );
+          self.sourceBuffer.mode = "sequence";
+          self.sourceBuffer.addEventListener("updateend", function () {
+            self._drain();
+          });
+          resolve();
+        } catch (e) {
+          reject(e);
+        }
+      }
+      self.mediaSource.addEventListener("sourceopen", onOpen, { once: true });
+    });
+  }
+
+  MseAudioChain.prototype.enqueueSegment = function (url) {
+    var self = this;
+    if (self.closed) return;
+    // Even if .ready rejected (no MSE), we skip silently.
+    return self.ready
+      .then(function () {
+        return fetch(url);
+      })
+      .then(function (r) {
+        if (!r.ok) throw new Error("segment fetch " + r.status);
+        return r.arrayBuffer();
+      })
+      .then(function (buf) {
+        if (self.closed) return;
+        self.queue.push(buf);
+        self._drain();
+      })
+      .catch(function () {
+        // Swallow — one failed seg should not break the chain. The
+        // buffering overlay and WS retry handle re-dispatch server-side.
+      });
+  };
+
+  MseAudioChain.prototype._drain = function () {
+    if (!this.sourceBuffer || this.sourceBuffer.updating) return;
+    var next = this.queue.shift();
+    if (next) {
+      try {
+        this.sourceBuffer.appendBuffer(next);
+      } catch (e) {
+        // QuotaExceededError or buffer full — drop; updateend will retry.
+      }
+    }
+  };
+
+  MseAudioChain.prototype.endOfStream = function () {
+    if (this.closed) return;
+    if (this.mediaSource && this.mediaSource.readyState === "open") {
+      try {
+        this.mediaSource.endOfStream();
+      } catch (e) {
+        // endOfStream can throw if buffer is still updating; ignore.
+      }
+    }
+  };
+
+  MseAudioChain.prototype.teardown = function () {
+    this.closed = true;
+    this.queue = [];
+    if (this.objectUrl) {
+      try { URL.revokeObjectURL(this.objectUrl); } catch (e) {}
+      this.objectUrl = null;
+    }
+    this.sourceBuffer = null;
+    this.mediaSource = null;
+  };
+
   var state = State.IDLE;
   var currentBookId = null;
   var currentLocale = null;
@@ -35,6 +145,7 @@
   var segmentBitmap = {}; // chapter -> Set of completed segment indices
   var notificationAudio = null;
   var notificationPlayed = false;
+  var mseChain = null; // MseAudioChain for translated audio playback
 
   // DOM references
   var overlay = null;
@@ -152,8 +263,28 @@
     hideOverlay();
     stopNotification();
 
-    // Resume playback with translated audio
+    // Create the MSE chain that drives translated-audio playback. The
+    // English <audio> element is paused by enterBuffering; once we're in
+    // STREAMING, the chain takes over segment-by-segment.
     var audio = document.getElementById("audio-element");
+    if (audio && !mseChain) {
+      mseChain = new MseAudioChain(audio);
+
+      // Replay any segments that completed while we were buffering into
+      // the new chain, so the MSE buffer starts populated rather than
+      // waiting for the next segment_ready WS event.
+      var chMap = segmentBitmap[currentChapter];
+      if (chMap && chMap !== "all" && chMap.forEach) {
+        var sorted = Array.from(chMap).sort(function (a, b) { return a - b; });
+        sorted.forEach(function (segIdx) {
+          var url = "/streaming-audio/" + currentBookId + "/" + currentChapter +
+                    "/" + segIdx + "/" + currentLocale;
+          mseChain.enqueueSegment(url);
+        });
+      }
+    }
+
+    // Resume playback with translated audio
     if (audio && audio.paused && currentBookId) {
       audio.play().catch(function () {});
     }
@@ -163,6 +294,10 @@
     state = State.IDLE;
     hideOverlay();
     stopNotification();
+    if (mseChain) {
+      mseChain.teardown();
+      mseChain = null;
+    }
     currentBookId = null;
     currentLocale = null;
     sessionId = null;
@@ -180,6 +315,16 @@
 
     if (!segmentBitmap[ch]) segmentBitmap[ch] = new Set();
     segmentBitmap[ch].add(seg);
+
+    // Feed the MSE chain with the opus for this segment so translated
+    // audio playback stays ahead of the cursor. Only enqueue for the
+    // currently-playing chapter — future chapters will get their own
+    // chain when the player advances.
+    if (state === State.STREAMING && mseChain && ch === currentChapter) {
+      var url = "/streaming-audio/" + data.audiobook_id + "/" + ch +
+                "/" + seg + "/" + data.locale;
+      mseChain.enqueueSegment(url);
+    }
   }
 
   function onBufferProgress(data) {

@@ -23,7 +23,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from flask import Blueprint, g, jsonify, request
+from flask import Blueprint, abort, g, jsonify, request, send_file
+
+from i18n import SUPPORTED_LOCALES
 
 from .auth import guest_allowed
 from .websocket import connection_manager
@@ -1094,6 +1096,72 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
             _safe_log_value(locale),
             _safe_log_value(exc),
         )
+
+
+@streaming_bp.route(
+    "/streaming-audio/<int:audiobook_id>/<int:chapter_index>/<int:segment_index>/<locale>"
+)
+@guest_allowed
+def serve_streaming_segment(audiobook_id, chapter_index, segment_index, locale):
+    """Serve a per-segment opus file to the client MSE chain.
+
+    Path layout (owned by the streaming worker):
+        ``<_streaming_audio_root>/<book>/ch<NNN>/<locale>/seg<NNNN>.opus``
+
+    Defense in depth:
+    - Reject locales not in ``SUPPORTED_LOCALES`` (whitelist).
+    - Resolve the requested path and the root, then verify containment.
+      This catches ``..`` traversal, symlink escape, and any future
+      race window where the segment directory is replaced.
+    - Return 503 if the streaming root was never configured
+      (``init_streaming_routes`` not yet called) — distinct from 404 so
+      ops can tell "missing file" from "misconfigured deployment".
+    """
+    # Whitelist check. Routes that reached here with a bogus locale slug
+    # (``xx``, ``..``) are rejected before any filesystem work happens.
+    if locale not in SUPPORTED_LOCALES:
+        abort(404)
+
+    if _streaming_audio_root is None:
+        # Route was hit before init_streaming_routes configured the root.
+        abort(503)
+
+    # Resolve BOTH sides of the containment check. The module global is
+    # stored unresolved by init_streaming_routes, so we resolve here; if
+    # the target is a symlink pointing outside, .resolve() on the
+    # candidate exposes that and the containment check rejects it.
+    try:
+        root = _streaming_audio_root.resolve(strict=False)
+        candidate = (
+            _streaming_audio_root
+            / str(audiobook_id)
+            / f"ch{chapter_index:03d}"
+            / locale
+            / f"seg{segment_index:04d}.opus"
+        )
+        # strict=False so a missing file still resolves (we check exists()
+        # below and return 404); strict=True would raise FileNotFoundError.
+        resolved = candidate.resolve(strict=False)
+    except (OSError, RuntimeError):
+        # Resolve can raise on broken symlink loops; treat as not-found.
+        abort(404)
+
+    # Containment: the resolved candidate must live under the resolved
+    # root. Using .is_relative_to (3.9+); equivalent to "root in parents"
+    # but correctly handles the edge case where resolved == root.
+    if not resolved.is_relative_to(root):
+        abort(403)
+
+    if not resolved.is_file():
+        abort(404)
+
+    # conditional=True enables HTTP Range/If-Modified-Since handling,
+    # which MSE SourceBuffer.appendBuffer relies on for resumable fetches.
+    return send_file(
+        resolved,
+        mimetype="audio/ogg; codecs=opus",
+        conditional=True,
+    )
 
 
 def init_streaming_routes(database_path, library_path=None, streaming_audio_dir=None):
