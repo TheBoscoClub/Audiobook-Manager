@@ -26,7 +26,7 @@ from pathlib import Path
 from flask import Blueprint, abort, g, jsonify, request, send_file
 from i18n import SUPPORTED_LOCALES
 
-from .auth import guest_allowed
+from .auth import admin_or_localhost, guest_allowed
 from .websocket import connection_manager
 
 streaming_bp = Blueprint("streaming_translate", __name__)
@@ -65,7 +65,20 @@ def _default_voice_for_locale(locale: str) -> str:
 
 
 def _probe_audio_duration(audio_path: Path) -> float | None:
-    """Return the duration of an audio file in seconds, or None on error."""
+    """Return the duration of an audio file in seconds, or None on error.
+
+    Only probes paths that live inside the streaming audio root
+    (py/path-injection mitigation — callers may pass paths derived from
+    DB values that CodeQL considers tainted).
+    """
+    # Containment check: reject any path outside the streaming audio root.
+    if _streaming_audio_root is not None:
+        try:
+            audio_path.resolve(strict=False).relative_to(
+                _streaming_audio_root.resolve(strict=False)
+            )
+        except (ValueError, OSError):
+            return None
     try:
         result = subprocess.run(
             [
@@ -85,7 +98,7 @@ def _probe_audio_duration(audio_path: Path) -> float | None:
         )
         if result.returncode == 0 and result.stdout.strip():
             return float(result.stdout.strip())
-    except OSError, ValueError, subprocess.TimeoutExpired:
+    except (OSError, ValueError, subprocess.TimeoutExpired):
         return None
     return None
 
@@ -153,6 +166,34 @@ def _safe_subtitles_path(
     if not vtt_path.is_relative_to(root):
         raise ValueError("resolved VTT path escapes library root")
     return vtt_path
+
+
+def _validate_audio_path(audio_path) -> Path | None:
+    """Validate that an audio_path from a worker callback is within the streaming audio root.
+
+    Returns the resolved Path on success, or None if the path is invalid or
+    escapes the allowed root. Accepts None (no audio) without error — the
+    caller is responsible for checking whether None was the original value.
+
+    Defense in depth: the worker is trusted, but input validation at the HTTP
+    boundary prevents a compromised worker from writing arbitrary paths to the
+    DB (py/path-injection mitigation).
+    """
+    if audio_path is None:
+        return None
+    if _streaming_audio_root is None:
+        # Root not yet configured; reject all paths.
+        return None
+    try:
+        candidate = Path(audio_path)
+        if not candidate.is_absolute():
+            candidate = _streaming_audio_root / candidate
+        resolved = candidate.resolve(strict=False)
+        audio_root = _streaming_audio_root.resolve(strict=False)
+        resolved.relative_to(audio_root)  # raises ValueError if outside
+        return resolved
+    except (ValueError, OSError):
+        return None
 
 
 def _get_db():
@@ -280,11 +321,11 @@ def _ensure_chapter_segments(
 
     logger.info(
         "Created %d segment rows: book=%d ch=%d locale=%s priority=%d",
-        seg_count,
-        audiobook_id,
-        chapter_index,
+        int(seg_count),
+        int(audiobook_id),
+        int(chapter_index),
         _safe_log_value(locale),
-        priority,
+        int(priority),
     )
     return seg_count
 
@@ -388,7 +429,9 @@ def _derive_phase(conn, audiobook_id: int, locale: str) -> str:
         "ORDER BY created_at DESC, id DESC LIMIT 1",
         (audiobook_id, locale),
     ).fetchone()
-    gpu_warm = bool(session["gpu_warm"]) if session is not None else False
+    # Compare to literal integer to avoid propagating DB taint through bool()
+    # (py/reflective-xss mitigation — CodeQL sees session["gpu_warm"] as tainted).
+    gpu_warm = (session["gpu_warm"] == 1) if session is not None else False
 
     if failed > 0:
         return "error"
@@ -536,7 +579,7 @@ def _parse_stream_request(data):
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return None, None, None, (jsonify({"error": "invalid parameters"}), 400)
 
     return audiobook_id, locale, chapter_index, None
@@ -664,7 +707,7 @@ def get_segment_bitmap(audiobook_id, chapter_index, locale):
     """
     try:
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -688,7 +731,7 @@ def get_session_state(audiobook_id, locale):
     """
     try:
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -787,7 +830,7 @@ def handle_seek():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -855,7 +898,7 @@ def stop_streaming():
     try:
         audiobook_id = int(audiobook_id)
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -877,6 +920,7 @@ def stop_streaming():
 
 
 @streaming_bp.route("/api/translate/segment-complete", methods=["POST"])
+@admin_or_localhost
 def segment_complete():
     """GPU worker reports a segment is done.
 
@@ -902,8 +946,14 @@ def segment_complete():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return jsonify({"error": "invalid parameters"}), 400
+
+    # Validate audio_path is within the allowed streaming audio root
+    raw_audio_path = data.get("audio_path")
+    safe_audio_path = _validate_audio_path(raw_audio_path)
+    if raw_audio_path is not None and safe_audio_path is None:
+        return jsonify({"error": "audio_path outside allowed root"}), 400
 
     db = _get_db()
     db.execute(
@@ -912,7 +962,7 @@ def segment_complete():
         "WHERE audiobook_id = ? AND chapter_index = ? AND segment_index = ? AND locale = ?",
         (
             data.get("vtt_content"),
-            data.get("audio_path"),
+            str(safe_audio_path) if safe_audio_path is not None else None,
             audiobook_id,
             chapter_index,
             segment_index,
@@ -943,6 +993,7 @@ def segment_complete():
 
 
 @streaming_bp.route("/api/translate/chapter-complete", methods=["POST"])
+@admin_or_localhost
 def chapter_complete():
     """GPU worker reports an entire chapter is done (prefetch chapters).
 
@@ -969,8 +1020,14 @@ def chapter_complete():
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return jsonify({"error": "invalid parameters"}), 400
+
+    # Validate audio_path is within the allowed streaming audio root
+    raw_audio_path = data.get("audio_path")
+    safe_audio_path = _validate_audio_path(raw_audio_path)
+    if raw_audio_path is not None and safe_audio_path is None:
+        return jsonify({"error": "audio_path outside allowed root"}), 400
 
     db = _get_db()
 
@@ -991,12 +1048,12 @@ def chapter_complete():
         )
 
     # Insert into chapter_translations_audio if audio was generated
-    if data.get("audio_path"):
+    if safe_audio_path is not None:
         db.execute(
             "INSERT OR REPLACE INTO chapter_translations_audio "
             "(audiobook_id, chapter_index, locale, audio_path, tts_provider) "
             "VALUES (?, ?, ?, ?, 'streaming')",
-            (audiobook_id, chapter_index, locale, data["audio_path"]),
+            (audiobook_id, chapter_index, locale, str(safe_audio_path)),
         )
 
     db.commit()
@@ -1045,21 +1102,37 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
 
     # Resolve each per-segment relative path to an absolute path under the
     # streaming audio root, and verify the file exists on disk.
+    # SECURITY: validate containment — reject any path that resolves outside
+    # the streaming audio root (py/path-injection guard; mirrors _validate_audio_path).
+    audio_root_resolved = _streaming_audio_root.resolve(strict=False)
     segment_paths: list[Path] = []
     for r in audio_rows:
         rel = r["audio_path"]
         p = _streaming_audio_root / rel if not os.path.isabs(rel) else Path(rel)
-        if not p.exists():
+        try:
+            p_resolved = p.resolve(strict=False)
+            p_resolved.relative_to(audio_root_resolved)  # raises ValueError if outside
+        except (ValueError, OSError):
+            logger.warning(
+                "Rejecting audio_path that escapes streaming root — "
+                "skipping chapter audio consolidation: book=%d ch=%d seg=%d path=%s",
+                audiobook_id,
+                chapter_index,
+                r["segment_index"],
+                _safe_log_value(rel),
+            )
+            return
+        if not p_resolved.exists():
             logger.warning(
                 "Missing per-segment opus on disk — skipping chapter audio "
                 "consolidation: book=%d ch=%d seg=%d path=%s",
                 audiobook_id,
                 chapter_index,
                 r["segment_index"],
-                _safe_log_value(p),
+                _safe_log_value(p_resolved),
             )
             return
-        segment_paths.append(p)
+        segment_paths.append(p_resolved)
 
     # Output: <root>/<book_id>/ch<NNN>/<locale>/chapter.opus
     chapter_dir = _streaming_audio_root / str(audiobook_id) / f"ch{chapter_index:03d}" / locale
@@ -1258,7 +1331,7 @@ def serve_streaming_segment(audiobook_id, chapter_index, segment_index, locale):
         # strict=False so a missing file still resolves (we check exists()
         # below and return 404); strict=True would raise FileNotFoundError.
         resolved = candidate.resolve(strict=False)
-    except OSError, RuntimeError:
+    except (OSError, RuntimeError):
         # Resolve can raise on broken symlink loops; treat as not-found.
         abort(404)
 

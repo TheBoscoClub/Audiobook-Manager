@@ -346,7 +346,10 @@ def test_segment_complete_persists_audio_path_when_present(app_client, streaming
     conn.close()
     assert row is not None
     assert row[0] == "completed"
-    assert row[1] == "8/ch000/zh-Hans/seg0000.opus"
+    # Path validation resolves relative paths to absolute under the streaming audio root;
+    # verify the relative segment path components are preserved in the stored absolute path.
+    assert row[1] is not None
+    assert "8/ch000/zh-Hans/seg0000.opus" in row[1]
 
 
 # ── Task 10: chapter-level opus consolidation ──

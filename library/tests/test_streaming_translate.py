@@ -531,6 +531,9 @@ class TestChapterComplete:
         assert resp.status_code == 400
 
     def test_chapter_insert_writes_subtitles_and_audio(self, app_client, streaming_db):
+        # Use a relative path within the streaming audio root so _validate_audio_path accepts it.
+        # Absolute /tmp paths are now rejected as path-injection defense (Phase 6c).
+        audio_rel = "1/ch000/zh-Hans/chapter.opus"
         resp = app_client.post(
             "/api/translate/chapter-complete",
             json={
@@ -539,7 +542,7 @@ class TestChapterComplete:
                 "locale": "zh-Hans",
                 "source_vtt_path": "/tmp/source.vtt",  # nosec B108 -- DB row payload string, never written to disk
                 "translated_vtt_path": "/tmp/translated.vtt",  # nosec B108 -- DB row payload string, never written to disk
-                "audio_path": "/tmp/audio.opus",  # nosec B108 -- DB row payload string, never written to disk
+                "audio_path": audio_rel,
             },
         )
         assert resp.status_code == 200
@@ -558,9 +561,9 @@ class TestChapterComplete:
         assert "zh-Hans" in locales
         assert "en" in locales  # source VTT stored as English
         assert audio is not None
-        assert (
-            audio[0] == "/tmp/audio.opus"
-        )  # nosec B108 -- assertion against DB string payload, no filesystem access
+        # Path validation resolves relative paths to absolute under the streaming audio root
+        assert audio[0] is not None
+        assert audio_rel in audio[0]
 
     def test_chapter_complete_minimal_body(self, app_client, streaming_db):
         """Only audiobook_id/chapter_index/locale — worker reported empty chapter."""

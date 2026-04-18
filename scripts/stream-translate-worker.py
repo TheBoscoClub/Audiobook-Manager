@@ -365,10 +365,10 @@ def process_segment(
             headers={"Content-Type": "application/json"},
             method="POST",
         )
+        if not req.full_url.startswith(("http://", "https://")):
+            raise ValueError(f"Refusing non-http(s) callback URL: {req.full_url!r}")
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        urllib.request.urlopen(
-            req, timeout=30
-        )  # nosec B310 -- callback URL constructed from trusted worker env (CALLBACK_URL), not user-controlled scheme
+        urllib.request.urlopen(req, timeout=30)  # nosec B310
 
         logger.info(
             "Segment complete: book=%d ch=%d seg=%d", audiobook_id, chapter_index, segment_index
