@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 import requests
+import scanner.utils.cover_resolver as cr_module
 
 # Importable via `library/` on sys.path (conftest sets it). After the
 # 8.3.1 fix to cover_resolver.py, no manual path manipulation is required.
@@ -22,8 +23,6 @@ from scanner.utils.cover_resolver import (
     _try_openlibrary,
     resolve_cover,
 )
-import scanner.utils.cover_resolver as cr_module
-
 
 # ---------------------------------------------------------------------------
 # Helpers

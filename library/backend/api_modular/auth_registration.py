@@ -15,8 +15,6 @@ Test-patch compatibility:
 
 import base64
 
-from flask import jsonify, request
-
 from auth import (
     AccessRequestStatus,
     AuthType,
@@ -25,6 +23,7 @@ from auth import (
     generate_verification_token,
     hash_token,
 )
+from flask import jsonify, request
 
 # Test-patch compatibility: tests patch.object(auth_mod, "UserRepository"),
 # "AccessRequestRepository", "BackupCodeRepository", "setup_totp",
@@ -32,17 +31,16 @@ from auth import (
 # through _auth_module so patches on the `auth` namespace remain effective.
 from . import auth as _auth_module
 from .auth import (
-    auth_bp,
-    get_auth_db,
-    set_session_cookie,
     _extract_recovery_fields,
     _format_claim_token,
     _recovery_warning,
     _user_allows_multi_session,
     _validate_username,
     _verify_webauthn_credential,
+    auth_bp,
+    get_auth_db,
+    set_session_cookie,
 )
-
 
 # =============================================================================
 # Claim-flow helpers (moved from auth.py)
@@ -351,9 +349,9 @@ def _create_access_request(request_repo, username, contact_email):
 
     if contact_email:
         response_data["email_notification"] = True
-        response_data["message"] += (
-            f" We'll also notify you at {contact_email} when your request is reviewed."
-        )
+        response_data[
+            "message"
+        ] += f" We'll also notify you at {contact_email} when your request is reviewed."
 
     return jsonify(response_data)
 
@@ -687,9 +685,10 @@ def _validate_claim_webauthn_input(data: dict) -> tuple | None:
     auth_type = data.get("auth_type", "passkey").strip().lower()
 
     if not username or not claim_token or not credential or not challenge:
-        return jsonify(
-            {"error": "Username, claim_token, credential, and challenge are required"}
-        ), 400
+        return (
+            jsonify({"error": "Username, claim_token, credential, and challenge are required"}),
+            400,
+        )
     if auth_type not in ("passkey", "fido2"):
         return jsonify({"error": "Invalid auth type"}), 400
     return None

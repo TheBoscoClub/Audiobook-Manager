@@ -81,10 +81,9 @@ def admin_authors_app(admin_authors_tmpdir):
     blueprint re-registration conflicts when multiple test files each
     need their own app instance with different database paths.
     """
-    from flask import Flask
-
     from backend.api_modular.admin_authors import admin_authors_bp
     from backend.api_modular.core import add_cors_headers
+    from flask import Flask
 
     tmpdir = admin_authors_tmpdir
     db_path = tmpdir / "test.db"

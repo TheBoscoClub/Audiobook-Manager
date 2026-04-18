@@ -24,7 +24,6 @@ import tempfile
 from pathlib import Path
 
 from flask import Blueprint, abort, g, jsonify, request, send_file
-
 from i18n import SUPPORTED_LOCALES
 
 from .auth import guest_allowed
@@ -86,9 +85,10 @@ def _probe_audio_duration(audio_path: Path) -> float | None:
         )
         if result.returncode == 0 and result.stdout.strip():
             return float(result.stdout.strip())
-    except (OSError, ValueError, subprocess.TimeoutExpired):
+    except OSError, ValueError, subprocess.TimeoutExpired:
         return None
     return None
+
 
 SEGMENT_DURATION_SEC = 30
 # Cursor buffer window: the number of segments at and ahead of the playback
@@ -165,7 +165,9 @@ def _get_db():
     return db
 
 
-def _close_db(exc=None):  # pylint: disable=unused-argument  # required by Flask teardown_appcontext signature
+def _close_db(
+    exc=None,
+):  # pylint: disable=unused-argument  # required by Flask teardown_appcontext signature
     db = getattr(g, "_streaming_db", None)
     if db is not None:
         db.close()
@@ -227,7 +229,11 @@ def _chapter_segment_count(duration_sec: float) -> int:
     return math.ceil(duration_sec / SEGMENT_DURATION_SEC)
 
 
-def _get_chapter_duration_sec(db, audiobook_id: int, chapter_index: int) -> float:  # pylint: disable=unused-argument  # chapter_index reserved for future per-chapter duration lookup; current impl returns average
+def _get_chapter_duration_sec(
+    db, audiobook_id: int, chapter_index: int
+) -> (
+    float
+):  # pylint: disable=unused-argument  # chapter_index reserved for future per-chapter duration lookup; current impl returns average
     """Estimate chapter duration from book duration and chapter count.
 
     For more accurate results, the streaming worker uses ffprobe chapter
@@ -399,9 +405,7 @@ def _derive_phase(conn, audiobook_id: int, locale: str) -> str:
     return "idle"
 
 
-def _get_current_segment(
-    conn, audiobook_id: int, chapter_index: int, locale: str
-) -> int:
+def _get_current_segment(conn, audiobook_id: int, chapter_index: int, locale: str) -> int:
     """Return the next-to-play segment index for the active chapter.
 
     Defined as the lowest ``segment_index`` in state ``'processing'`` or
@@ -428,12 +432,7 @@ def _get_current_segment(
 
 
 def _broadcast_buffer_progress(
-    audiobook_id: int,
-    chapter_index: int,
-    locale: str,
-    completed: int,
-    total: int,
-    phase: str,
+    audiobook_id: int, chapter_index: int, locale: str, completed: int, total: int, phase: str
 ):
     """Push buffer progress update to connected clients.
 
@@ -537,7 +536,7 @@ def _parse_stream_request(data):
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None, None, None, (jsonify({"error": "invalid parameters"}), 400)
 
     return audiobook_id, locale, chapter_index, None
@@ -650,9 +649,7 @@ def request_streaming_translation():
             "buffer_threshold": BUFFER_THRESHOLD,
             "segment_bitmap": _get_segment_bitmap(db, audiobook_id, chapter_index, locale),
             "phase": _derive_phase(db, audiobook_id, locale),
-            "current_segment": _get_current_segment(
-                db, audiobook_id, chapter_index, locale
-            ),
+            "current_segment": _get_current_segment(db, audiobook_id, chapter_index, locale),
         }
     )
 
@@ -667,7 +664,7 @@ def get_segment_bitmap(audiobook_id, chapter_index, locale):
     """
     try:
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -691,7 +688,7 @@ def get_session_state(audiobook_id, locale):
     """
     try:
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -731,12 +728,8 @@ def get_session_state(audiobook_id, locale):
             "phase": _derive_phase(db, audiobook_id, locale),
             "completed": completed,
             "total": total,
-            "current_segment": _get_current_segment(
-                db, audiobook_id, active_chapter, locale
-            ),
-            "segment_bitmap": _get_segment_bitmap(
-                db, audiobook_id, active_chapter, locale
-            ),
+            "current_segment": _get_current_segment(db, audiobook_id, active_chapter, locale),
+            "segment_bitmap": _get_segment_bitmap(db, audiobook_id, active_chapter, locale),
         }
     )
 
@@ -794,7 +787,7 @@ def handle_seek():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -862,7 +855,7 @@ def stop_streaming():
     try:
         audiobook_id = int(audiobook_id)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -877,13 +870,7 @@ def stop_streaming():
     )
     db.commit()
 
-    return jsonify(
-        {
-            "state": "stopped",
-            "audiobook_id": audiobook_id,
-            "locale": locale,
-        }
-    )
+    return jsonify({"state": "stopped", "audiobook_id": audiobook_id, "locale": locale})
 
 
 # ── Worker callback endpoints (called by GPU workers) ──
@@ -915,7 +902,7 @@ def segment_complete():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -982,7 +969,7 @@ def chapter_complete():
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -1020,12 +1007,7 @@ def chapter_complete():
     return jsonify({"status": "ok"})
 
 
-def _consolidate_chapter_audio(
-    db,
-    audiobook_id: int,
-    chapter_index: int,
-    locale: str,
-) -> None:
+def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale: str) -> None:
     """Concatenate per-segment opus files into chapter.opus and persist a row.
 
     All completed segments must have `audio_path` set (Task 9's TTS may
@@ -1034,9 +1016,7 @@ def _consolidate_chapter_audio(
     consolidation continues unaffected in the caller.
     """
     if _streaming_audio_root is None:
-        logger.warning(
-            "Cannot consolidate chapter audio — _streaming_audio_root not configured"
-        )
+        logger.warning("Cannot consolidate chapter audio — _streaming_audio_root not configured")
         return
 
     # Pull (segment_index, audio_path) for all completed segments to confirm
@@ -1082,9 +1062,7 @@ def _consolidate_chapter_audio(
         segment_paths.append(p)
 
     # Output: <root>/<book_id>/ch<NNN>/<locale>/chapter.opus
-    chapter_dir = (
-        _streaming_audio_root / str(audiobook_id) / f"ch{chapter_index:03d}" / locale
-    )
+    chapter_dir = _streaming_audio_root / str(audiobook_id) / f"ch{chapter_index:03d}" / locale
     chapter_dir.mkdir(parents=True, exist_ok=True)
     out_path = chapter_dir / "chapter.opus"
 
@@ -1094,9 +1072,7 @@ def _consolidate_chapter_audio(
     try:
         with tempfile.TemporaryDirectory() as tmp_dir:
             concat_list = Path(tmp_dir) / "concat.txt"
-            concat_list.write_text(
-                "\n".join(f"file '{p}'" for p in segment_paths) + "\n"
-            )
+            concat_list.write_text("\n".join(f"file '{p}'" for p in segment_paths) + "\n")
             subprocess.run(
                 [
                     "ffmpeg",
@@ -1135,14 +1111,7 @@ def _consolidate_chapter_audio(
             "(audiobook_id, chapter_index, locale, audio_path, "
             " tts_provider, tts_voice, duration_seconds) "
             "VALUES (?, ?, ?, ?, 'streaming', ?, ?)",
-            (
-                audiobook_id,
-                chapter_index,
-                locale,
-                str(out_path),
-                voice,
-                duration,
-            ),
+            (audiobook_id, chapter_index, locale, str(out_path), voice, duration),
         )
         db.commit()
     except sqlite3.DatabaseError as exc:
@@ -1232,7 +1201,9 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
     # leaves the VTT-side cache intact.
     try:
         _consolidate_chapter_audio(db, audiobook_id, chapter_index, locale)
-    except Exception as exc:  # pylint: disable=broad-except  # defense in depth — audio side must never break VTT path
+    except (
+        Exception
+    ) as exc:  # pylint: disable=broad-except  # defense in depth — audio side must never break VTT path
         logger.warning(
             "Chapter audio consolidation raised unexpected exception: "
             "book=%d ch=%d locale=%s err=%s",
@@ -1287,7 +1258,7 @@ def serve_streaming_segment(audiobook_id, chapter_index, segment_index, locale):
         # strict=False so a missing file still resolves (we check exists()
         # below and return 404); strict=True would raise FileNotFoundError.
         resolved = candidate.resolve(strict=False)
-    except (OSError, RuntimeError):
+    except OSError, RuntimeError:
         # Resolve can raise on broken symlink loops; treat as not-found.
         abort(404)
 
@@ -1302,11 +1273,7 @@ def serve_streaming_segment(audiobook_id, chapter_index, segment_index, locale):
 
     # conditional=True enables HTTP Range/If-Modified-Since handling,
     # which MSE SourceBuffer.appendBuffer relies on for resumable fetches.
-    return send_file(
-        resolved,
-        mimetype="audio/ogg; codecs=opus",
-        conditional=True,
-    )
+    return send_file(resolved, mimetype="audio/ogg; codecs=opus", conditional=True)
 
 
 def init_streaming_routes(database_path, library_path=None, streaming_audio_dir=None):
@@ -1337,10 +1304,7 @@ def init_streaming_routes(database_path, library_path=None, streaming_audio_dir=
         # library.config loading completes.
         _var_dir = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
         _streaming_audio_root = Path(
-            os.environ.get(
-                "AUDIOBOOKS_STREAMING_AUDIO_DIR",
-                f"{_var_dir}/streaming-audio",
-            )
+            os.environ.get("AUDIOBOOKS_STREAMING_AUDIO_DIR", f"{_var_dir}/streaming-audio")
         )
 
 

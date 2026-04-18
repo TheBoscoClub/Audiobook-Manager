@@ -4,7 +4,6 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
 from backend.api_modular.core import get_db
 
 SCHEMA_PATH = Path(__file__).resolve().parent.parent / "backend" / "schema.sql"

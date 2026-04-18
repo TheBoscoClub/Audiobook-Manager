@@ -17,10 +17,8 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from localization.translation.deepl_translate import DeepLTranslator, _hash_source
 from localization.translation.quota import QuotaExceededError, QuotaTracker
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -31,8 +29,7 @@ def _bootstrap_db(path: Path) -> None:
     """Create the minimal schema the translator needs."""
     conn = sqlite3.connect(str(path))
     try:
-        conn.execute(
-            """CREATE TABLE string_translations (
+        conn.execute("""CREATE TABLE string_translations (
                 source_hash TEXT NOT NULL,
                 locale TEXT NOT NULL,
                 source TEXT NOT NULL,
@@ -41,8 +38,7 @@ def _bootstrap_db(path: Path) -> None:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (source_hash, locale)
-            )"""
-        )
+            )""")
         # deepl_quota is created by QuotaTracker._ensure_schema; no need here.
         conn.commit()
     finally:
@@ -322,8 +318,7 @@ class TestQuotaTrackerPaths:
         _bootstrap_db(db)
         tracker = QuotaTracker(db, api_key="key", base_url="https://api.deepl.com/v2")
         requests_mock.get(
-            "https://api.deepl.com/v2/usage",
-            json={"character_count": 8000, "character_limit": 0},
+            "https://api.deepl.com/v2/usage", json={"character_count": 8000, "character_limit": 0}
         )
         tracker.refresh_from_api()
         snap = tracker.snapshot()

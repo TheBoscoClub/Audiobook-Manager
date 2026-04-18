@@ -14,8 +14,6 @@ import json
 import urllib.parse
 from datetime import datetime, timedelta
 
-from flask import jsonify, request
-
 from auth import (
     AccessRequestRepository,
     AccessRequestStatus,
@@ -34,34 +32,29 @@ from auth import (
     hash_token,
 )
 from auth.models import SystemSettingsRepository
-from auth.totp import (
-    setup_totp,
-    secret_to_base32,
-    generate_qr_code,
-    get_provisioning_uri,
-)
+from auth.totp import generate_qr_code, get_provisioning_uri, secret_to_base32, setup_totp
+from flask import jsonify, request
 
 from .auth import (
-    auth_bp,
-    admin_required,
     INVITATION_EXPIRY_HOURS,
-    get_auth_db,
-    require_current_user,
-    _user_dict,
     _format_claim_token,
-    _setup_totp_data,
-    _setup_passkey_data,
-    _switch_auth_method,
-    _validate_username,
-    _validate_username_strict,
-    _validate_email_format,
     _send_activation_email,
     _send_approval_email,
     _send_denial_email,
     _send_invitation_email,
     _send_reply_email,
+    _setup_passkey_data,
+    _setup_totp_data,
+    _switch_auth_method,
+    _user_dict,
+    _validate_email_format,
+    _validate_username,
+    _validate_username_strict,
+    admin_required,
+    auth_bp,
+    get_auth_db,
+    require_current_user,
 )
-
 
 # =============================================================================
 # Admin Endpoints (localhost only in production)
@@ -552,9 +545,10 @@ def create_user():
     can_download = bool(data.get("can_download", True))
 
     if auth_method not in ("totp", "magic_link", "passkey"):
-        return jsonify(
-            {"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}
-        ), 400
+        return (
+            jsonify({"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}),
+            400,
+        )
 
     err = _validate_username_strict(username)
     if err:
@@ -731,9 +725,10 @@ def invite_user():
     auth_method = data.get("auth_method", "totp").strip()
 
     if auth_method not in ("totp", "magic_link", "passkey"):
-        return jsonify(
-            {"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}
-        ), 400
+        return (
+            jsonify({"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}),
+            400,
+        )
 
     err = _validate_username(username)
     if err:
@@ -806,7 +801,9 @@ def _invite_claim_flow(db, username, email, can_download):
     )
 
 
-def _invite_magic_link_user(db, user_repo, username, email, can_download):  # pylint: disable=unused-argument  # user_repo reserved for future lookup/update path; currently saves directly via User.save(db)
+def _invite_magic_link_user(
+    db, user_repo, username, email, can_download
+):  # pylint: disable=unused-argument  # user_repo reserved for future lookup/update path; currently saves directly via User.save(db)
     """
     Create a magic_link user account directly and send activation email.
 
@@ -1299,9 +1296,10 @@ def admin_change_auth_method(user_id: int):
     auth_method = data.get("auth_method", "").strip()
 
     if auth_method not in ("totp", "magic_link", "passkey"):
-        return jsonify(
-            {"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}
-        ), 400
+        return (
+            jsonify({"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}),
+            400,
+        )
 
     db = get_auth_db()
     target_user = UserRepository(db).get_by_id(user_id)

@@ -13,7 +13,6 @@ from unittest.mock import MagicMock, patch
 
 from tests.helpers import wait_for_thread_completion
 
-
 MODULE = "backend.api_modular.utilities_ops.hashing"
 SUBPROCESS_MODULE = "backend.api_modular.utilities_ops._subprocess"
 HELPERS_MODULE = "backend.api_modular.utilities_ops._helpers"

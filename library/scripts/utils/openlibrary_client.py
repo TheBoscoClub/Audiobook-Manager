@@ -27,7 +27,6 @@ Usage:
 import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
-
 from urllib.parse import quote
 
 import requests

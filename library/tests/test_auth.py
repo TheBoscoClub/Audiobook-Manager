@@ -23,34 +23,33 @@ import pytest
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from auth import (  # noqa: E402
+from auth import (  # noqa: E402; Backup codes
+    NUM_BACKUP_CODES,
     AuthDatabase,
     AuthType,
-    User,
-    UserRepository,
-    Session,
-    SessionRepository,
-    UserPosition,
-    PositionRepository,
-    Notification,
-    NotificationType,
-    NotificationRepository,
+    BackupCodeRepository,
     InboxMessage,
     InboxRepository,
-    ReplyMethod,
     InboxStatus,
+    Notification,
+    NotificationRepository,
+    NotificationType,
     PendingRegistration,
     PendingRegistrationRepository,
-    hash_token,
-    generate_session_token,
-    # Backup codes
-    BackupCodeRepository,
+    PositionRepository,
+    ReplyMethod,
+    Session,
+    SessionRepository,
+    User,
+    UserPosition,
+    UserRepository,
+    format_codes_for_display,
     generate_backup_code,
     generate_backup_codes,
+    generate_session_token,
     hash_backup_code,
+    hash_token,
     normalize_backup_code,
-    format_codes_for_display,
-    NUM_BACKUP_CODES,
 )
 
 

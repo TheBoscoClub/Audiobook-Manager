@@ -48,7 +48,7 @@ logger = logging.getLogger("stream-worker")
 _shutdown = False
 
 
-def _signal_handler(sig, frame):
+def _signal_handler(_sig, _frame):
     global _shutdown
     logger.info("Shutdown signal received — finishing current segment then exiting")
     _shutdown = True
@@ -65,7 +65,9 @@ SEGMENT_DURATION_SEC = 30
 # ${AUDIOBOOKS_VAR_DIR}/streaming-audio). The literal fallback below is the
 # hard-coded canonical default used only when unit tests import this module
 # without the env var set.
-_STREAMING_AUDIO_DEFAULT = "/var/lib/audiobooks/streaming-audio"  # default for AUDIOBOOKS_VAR_DIR fallback
+_STREAMING_AUDIO_DEFAULT = (
+    "/var/lib/audiobooks/streaming-audio"  # default for AUDIOBOOKS_VAR_DIR fallback
+)
 _STREAMING_AUDIO_ROOT = Path(
     os.environ.get("AUDIOBOOKS_STREAMING_AUDIO_DIR", _STREAMING_AUDIO_DEFAULT)
 )
@@ -112,11 +114,7 @@ def _vtt_to_plain(vtt_text: str) -> str:
 
 
 def _synthesize_segment_audio(
-    vtt_content: str,
-    audiobook_id: int,
-    chapter_index: int,
-    segment_index: int,
-    locale: str,
+    vtt_content: str, audiobook_id: int, chapter_index: int, segment_index: int, locale: str
 ) -> Path | None:
     """Generate per-segment opus audio from a translated VTT cue block.
 
@@ -230,23 +228,15 @@ def claim_next_segment(db_path: str) -> dict | None:
 
 
 def split_audio_segment(
-    audio_path: Path,
-    chapter_start_sec: float,
-    segment_index: int,
-    chapter_duration_sec: float,
+    audio_path: Path, chapter_start_sec: float, segment_index: int, chapter_duration_sec: float
 ) -> Path:
     """Extract a 30-second segment from the audiobook using ffmpeg stream copy."""
     seg_start = chapter_start_sec + (segment_index * SEGMENT_DURATION_SEC)
-    seg_duration = min(
-        SEGMENT_DURATION_SEC,
-        chapter_start_sec + chapter_duration_sec - seg_start,
-    )
+    seg_duration = min(SEGMENT_DURATION_SEC, chapter_start_sec + chapter_duration_sec - seg_start)
 
     suffix = audio_path.suffix or ".opus"
     tmp = tempfile.NamedTemporaryFile(
-        suffix=suffix,
-        prefix=f"seg{segment_index:04d}_",
-        delete=False,
+        suffix=suffix, prefix=f"seg{segment_index:04d}_", delete=False
     )
     tmp.close()
     out_path = Path(tmp.name)
@@ -304,10 +294,7 @@ def process_segment(
     try:
         # Extract the 30-second audio segment
         seg_audio = split_audio_segment(
-            audio_path,
-            chapter_start_sec,
-            segment_index,
-            chapter_duration_sec,
+            audio_path, chapter_start_sec, segment_index, chapter_duration_sec
         )
 
         # Run STT + translation on the segment
@@ -358,8 +345,8 @@ def process_segment(
             audio_rel = None
 
         # Report completion to coordinator API
-        import urllib.request
         import json
+        import urllib.request
 
         payload = json.dumps(
             {
@@ -379,13 +366,12 @@ def process_segment(
             method="POST",
         )
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        urllib.request.urlopen(req, timeout=30)  # nosec B310 -- callback URL constructed from trusted worker env (CALLBACK_URL), not user-controlled scheme
+        urllib.request.urlopen(
+            req, timeout=30
+        )  # nosec B310 -- callback URL constructed from trusted worker env (CALLBACK_URL), not user-controlled scheme
 
         logger.info(
-            "Segment complete: book=%d ch=%d seg=%d",
-            audiobook_id,
-            chapter_index,
-            segment_index,
+            "Segment complete: book=%d ch=%d seg=%d", audiobook_id, chapter_index, segment_index
         )
 
         # Cleanup temp files
@@ -438,11 +424,7 @@ def _offset_vtt_timestamps(vtt_content: str, offset_ms: int) -> str:
         nms = total_ms % 1000
         return f"{nh:02d}:{nm:02d}:{ns:02d}.{nms:03d}"
 
-    return re.sub(
-        r"(\d{2}):(\d{2}):(\d{2})\.(\d{3})",
-        _shift_ts,
-        vtt_content,
-    )
+    return re.sub(r"(\d{2}):(\d{2}):(\d{2})\.(\d{3})", _shift_ts, vtt_content)
 
 
 def get_chapter_info(db_path: str, audiobook_id: int, chapter_index: int) -> tuple:
@@ -450,8 +432,7 @@ def get_chapter_info(db_path: str, audiobook_id: int, chapter_index: int) -> tup
     conn = get_db(db_path)
     try:
         book = conn.execute(
-            "SELECT file_path FROM audiobooks WHERE id = ?",
-            (audiobook_id,),
+            "SELECT file_path FROM audiobooks WHERE id = ?", (audiobook_id,)
         ).fetchone()
         if not book:
             return None, 0.0, 0.0
@@ -468,15 +449,7 @@ def get_chapter_info(db_path: str, audiobook_id: int, chapter_index: int) -> tup
 
         # Fallback: single-chapter book
         result = subprocess.run(
-            [
-                "ffprobe",
-                "-v",
-                "quiet",
-                "-show_format",
-                "-print_format",
-                "json",
-                str(audio_path),
-            ],
+            ["ffprobe", "-v", "quiet", "-show_format", "-print_format", "json", str(audio_path)],
             capture_output=True,
             text=True,
             timeout=30,
@@ -498,15 +471,10 @@ def main():
     parser.add_argument("--db", required=True, help="Path to audiobooks.db")
     parser.add_argument("--library", required=True, help="Path to audiobook library")
     parser.add_argument(
-        "--api-base",
-        default="http://localhost:5001",
-        help="Coordinator API base URL",
+        "--api-base", default="http://localhost:5001", help="Coordinator API base URL"
     )
     parser.add_argument(
-        "--poll-interval",
-        type=int,
-        default=2,
-        help="Seconds between polling for new segments",
+        "--poll-interval", type=int, default=2, help="Seconds between polling for new segments"
     )
     args = parser.parse_args()
 
@@ -545,14 +513,7 @@ def main():
         else:
             audio_path, ch_start, ch_dur = chapter_cache[cache_key]
 
-        process_segment(
-            db_path,
-            segment,
-            audio_path,
-            ch_start,
-            ch_dur,
-            api_base,
-        )
+        process_segment(db_path, segment, audio_path, ch_start, ch_dur, api_base)
 
     logger.info("Streaming worker shutting down")
 

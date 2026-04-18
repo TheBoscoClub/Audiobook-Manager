@@ -13,8 +13,6 @@ from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import AUDIOBOOK_DIR, COVER_DIR, DATA_DIR
-
 # Import shared utilities from scanner package
 from scanner.metadata_utils import (
     categorize_genre,
@@ -24,9 +22,11 @@ from scanner.metadata_utils import (
     extract_topics,
 )
 from scanner.metadata_utils import (
-    get_file_metadata as _get_file_metadata,
-)  # Re-export for backwards compatibility with tests
+    get_file_metadata as _get_file_metadata,  # Re-export for backwards compatibility with tests
+)
 from scanner.utils.constants import SUPPORTED_FORMATS, is_cover_art_file
+
+from config import AUDIOBOOK_DIR, COVER_DIR, DATA_DIR
 
 # Re-export for backwards compatibility with tests
 __all__ = [

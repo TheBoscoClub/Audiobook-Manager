@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """HTTPS server for serving static files with API proxying and HTTP redirect."""
 
-import http.server
 import http.client
+import http.server
 import os
 import ssl
 import sys
@@ -12,11 +12,11 @@ from pathlib import Path
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import (
+    AUDIOBOOKS_API_PORT,
     AUDIOBOOKS_CERTS,
     AUDIOBOOKS_HTTP_REDIRECT_ENABLED,
     AUDIOBOOKS_HTTP_REDIRECT_PORT,
     AUDIOBOOKS_WEB_PORT,
-    AUDIOBOOKS_API_PORT,
 )
 
 HTTPS_PORT = AUDIOBOOKS_WEB_PORT
@@ -184,7 +184,10 @@ def run_http_redirect_server():
     """Run HTTP server that redirects to HTTPS."""
     try:
         server = http.server.HTTPServer(
-            ("0.0.0.0", HTTP_PORT),  # nosec B104 - HTTP redirect server, intentional all-interfaces bind
+            (
+                "0.0.0.0",
+                HTTP_PORT,
+            ),  # nosec B104 - HTTP redirect server, intentional all-interfaces bind
             HTTPToHTTPSRedirectHandler,
         )
         print(f"HTTP redirect server on http://0.0.0.0:{HTTP_PORT}/ -> https://...:{HTTPS_PORT}/")
@@ -217,7 +220,9 @@ def main():
     context.load_cert_chain(str(CERT_FILE), str(KEY_FILE))
 
     # Create HTTPS server
-    server = http.server.HTTPServer(("0.0.0.0", HTTPS_PORT), handler)  # nosec B104 — HTTPS server, intentional
+    server = http.server.HTTPServer(
+        ("0.0.0.0", HTTPS_PORT), handler
+    )  # nosec B104 — HTTPS server, intentional
     server.socket = context.wrap_socket(server.socket, server_side=True)
 
     print(f"Serving HTTPS on https://0.0.0.0:{HTTPS_PORT}/ ...")

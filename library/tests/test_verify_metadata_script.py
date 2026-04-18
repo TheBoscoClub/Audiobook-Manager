@@ -31,7 +31,6 @@ from scripts.verify_metadata import (
     verify_single_book,
 )
 
-
 # ── Fixtures ──
 
 

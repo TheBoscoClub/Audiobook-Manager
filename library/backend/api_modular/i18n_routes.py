@@ -11,7 +11,6 @@ GET  /api/translation/status/<id>/<locale> → per-book translation status
 import logging
 
 from flask import Blueprint, jsonify, request
-
 from i18n import DEFAULT_LOCALE, SUPPORTED_LOCALES, get_catalog, reload_catalogs
 
 i18n_bp = Blueprint("i18n", __name__)

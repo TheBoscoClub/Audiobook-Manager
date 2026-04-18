@@ -27,9 +27,8 @@ import sqlite3
 from typing import Any, Callable, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 import backend.api_modular.websocket as ws_module
+import pytest
 from backend.api_modular.websocket import connection_manager
 
 
@@ -248,10 +247,7 @@ class TestPollLoopProcessesNotifications:
         """Only processes delivered=0 rows."""
         db_path = tmp_path / "delivered.db"
         _create_notification_db(
-            db_path,
-            rows=[
-                ("announce", '{"msg": "already done"}', 1)  # already delivered
-            ],
+            db_path, rows=[("announce", '{"msg": "already done"}', 1)]  # already delivered
         )
 
         poll_fn, _ = _capture_poll_loop(db_path)

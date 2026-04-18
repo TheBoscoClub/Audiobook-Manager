@@ -23,11 +23,9 @@ def scheduler_db(tmp_path):
 def test_find_due_windows(scheduler_db):
     """Scheduler finds windows with next_run_at in the past."""
     conn = sqlite3.connect(str(scheduler_db))
-    conn.execute(
-        """INSERT INTO maintenance_windows
+    conn.execute("""INSERT INTO maintenance_windows
            (name, task_type, schedule_type, next_run_at, status)
-           VALUES ('Test', 'db_vacuum', 'once', datetime('now', '-1 hour'), 'active')"""
-    )
+           VALUES ('Test', 'db_vacuum', 'once', datetime('now', '-1 hour'), 'active')""")
     conn.commit()
     rows = conn.execute("""SELECT * FROM maintenance_windows
            WHERE next_run_at <= datetime('now') AND status = 'active'""").fetchall()
@@ -49,11 +47,9 @@ def test_write_notification(scheduler_db):
 def test_history_recorded(scheduler_db):
     """Execution results are recorded in history table."""
     conn = sqlite3.connect(str(scheduler_db))
-    conn.execute(
-        """INSERT INTO maintenance_windows
+    conn.execute("""INSERT INTO maintenance_windows
            (name, task_type, schedule_type, scheduled_at, next_run_at, status)
-           VALUES ('Test', 'db_vacuum', 'once', datetime('now'), datetime('now'), 'active')"""
-    )
+           VALUES ('Test', 'db_vacuum', 'once', datetime('now'), datetime('now'), 'active')""")
     conn.commit()
     wid = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
     conn.execute(

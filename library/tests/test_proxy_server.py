@@ -692,7 +692,10 @@ class TestReuseHTTPServer:
         server = object.__new__(proxy_server.ReuseHTTPServer)
         mock_socket = MagicMock()
         server.socket = mock_socket
-        server.server_address = ("0.0.0.0", 8443)  # nosec B104  # test fixture binds localhost/test network
+        server.server_address = (
+            "0.0.0.0",
+            8443,
+        )  # nosec B104  # test fixture binds localhost/test network
 
         with patch.object(http.server.ThreadingHTTPServer, "server_bind"):
             server.server_bind()

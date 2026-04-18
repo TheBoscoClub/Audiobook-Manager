@@ -221,11 +221,7 @@ def _send_reply_email(to_email: str, username: str, reply_text: str, locale: str
 
 
 def _send_invitation_email(
-    to_email: str,
-    username: str,
-    claim_token: str,
-    locale: str = "en",
-    expires_hours: int = 48,
+    to_email: str, username: str, claim_token: str, locale: str = "en", expires_hours: int = 48
 ) -> bool:
     """Send invitation email with claim URL + token (TOTP flow)."""
     from backend.api_modular.email_templates import render_email
@@ -271,11 +267,7 @@ def _send_invitation_email(
 
 
 def _send_activation_email(
-    to_email: str,
-    username: str,
-    activation_token: str,
-    locale: str = "en",
-    expires_hours: int = 48,
+    to_email: str, username: str, activation_token: str, locale: str = "en", expires_hours: int = 48
 ) -> bool:
     """Send activation email (magic-link flow — single click, no TOTP)."""
     from backend.api_modular.email_templates import render_email

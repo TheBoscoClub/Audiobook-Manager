@@ -196,8 +196,7 @@ def translations_db(tmp_path):
     """In-memory translations table modeled on the real schema."""
     db_path = tmp_path / "translations.db"
     conn = sqlite3.connect(str(db_path))
-    conn.executescript(
-        """
+    conn.executescript("""
         CREATE TABLE audiobook_translations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             audiobook_id INTEGER NOT NULL,
@@ -206,8 +205,7 @@ def translations_db(tmp_path):
             author_display TEXT,
             UNIQUE(audiobook_id, locale)
         );
-        """
-    )
+        """)
     rows = [
         (1, "zh-Hans", "张三的故事", "张三"),
         (2, "zh-Hans", "西游记", "吴承恩"),
@@ -288,8 +286,7 @@ class TestLocaleGating:
             COALESCE(NULLIF(pinyin_sort, ''), title) COLLATE NOCASE
         """
         conn = sqlite3.connect(":memory:")
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE books (
                 id INTEGER PRIMARY KEY,
                 title TEXT,
@@ -299,8 +296,7 @@ class TestLocaleGating:
                 (1, 'Zebra', NULL),
                 (2, 'Apple', ''),
                 (3, 'Mango', 'xxx-override');
-            """
-        )
+            """)
         rows = conn.execute(
             "SELECT id FROM books ORDER BY COALESCE(NULLIF(pinyin_sort, ''), title) COLLATE NOCASE"
         ).fetchall()

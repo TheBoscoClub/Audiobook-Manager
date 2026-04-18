@@ -53,8 +53,8 @@ from argparse import ArgumentParser
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional
-import defusedxml.ElementTree as ElementTree
 
+import defusedxml.ElementTree as ElementTree
 import requests
 
 # Add parent directory for config

@@ -1,8 +1,9 @@
 """Verify upgrade-helper-process uses correct singular service names."""
 
-import pytest
 import re
 from pathlib import Path
+
+import pytest
 
 HELPER_PATH = Path(__file__).resolve().parents[2] / "scripts" / "upgrade-helper-process"
 
@@ -45,9 +46,9 @@ def test_valid_services_array_correct():
             if svc:
                 services.append(svc)
     for svc in services:
-        assert svc.startswith("audiobook-"), (
-            f"Service '{svc}' should start with 'audiobook-' (singular)"
-        )
-        assert not svc.startswith("audiobooks-"), (
-            f"Service '{svc}' uses plural 'audiobooks-' — must be singular"
-        )
+        assert svc.startswith(
+            "audiobook-"
+        ), f"Service '{svc}' should start with 'audiobook-' (singular)"
+        assert not svc.startswith(
+            "audiobooks-"
+        ), f"Service '{svc}' uses plural 'audiobooks-' — must be singular"

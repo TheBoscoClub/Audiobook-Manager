@@ -14,7 +14,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from scanner.metadata_utils import (
     build_genres_list,
     categorize_genre,
@@ -161,33 +160,33 @@ class TestFieldContract:
         """enrich_metadata must produce 'genres' as a list (importer: book.get('genres', []))."""
         enriched = enrich_metadata(sample_metadata.copy())
         assert "genres" in enriched, "Missing 'genres' key in enriched metadata"
-        assert isinstance(enriched["genres"], list), (
-            f"'genres' must be a list, got {type(enriched['genres']).__name__}"
-        )
+        assert isinstance(
+            enriched["genres"], list
+        ), f"'genres' must be a list, got {type(enriched['genres']).__name__}"
 
     def test_eras_key_exists_and_is_list(self, sample_metadata):
         """enrich_metadata must produce 'eras' as a list (importer: book.get('eras', []))."""
         enriched = enrich_metadata(sample_metadata.copy())
         assert "eras" in enriched, "Missing 'eras' key in enriched metadata"
-        assert isinstance(enriched["eras"], list), (
-            f"'eras' must be a list, got {type(enriched['eras']).__name__}"
-        )
+        assert isinstance(
+            enriched["eras"], list
+        ), f"'eras' must be a list, got {type(enriched['eras']).__name__}"
 
     def test_topics_key_exists_and_is_list(self, sample_metadata):
         """enrich_metadata must produce 'topics' as a list (importer: book.get('topics', []))."""
         enriched = enrich_metadata(sample_metadata.copy())
         assert "topics" in enriched, "Missing 'topics' key in enriched metadata"
-        assert isinstance(enriched["topics"], list), (
-            f"'topics' must be a list, got {type(enriched['topics']).__name__}"
-        )
+        assert isinstance(
+            enriched["topics"], list
+        ), f"'topics' must be a list, got {type(enriched['topics']).__name__}"
 
     def test_literary_era_key_exists_and_is_string(self, sample_metadata):
         """enrich_metadata must produce 'literary_era' as a string."""
         enriched = enrich_metadata(sample_metadata.copy())
         assert "literary_era" in enriched, "Missing 'literary_era' key in enriched metadata"
-        assert isinstance(enriched["literary_era"], str), (
-            f"'literary_era' must be a string, got {type(enriched['literary_era']).__name__}"
-        )
+        assert isinstance(
+            enriched["literary_era"], str
+        ), f"'literary_era' must be a string, got {type(enriched['literary_era']).__name__}"
 
     def test_genre_category_fields_present(self, sample_metadata):
         """enrich_metadata must produce genre_category, genre_subcategory, genre_original."""
@@ -201,9 +200,9 @@ class TestFieldContract:
         enriched = enrich_metadata(sample_metadata.copy())
         for field in ("genres", "eras", "topics"):
             for item in enriched[field]:
-                assert isinstance(item, str), (
-                    f"'{field}' contains non-string element: {item!r} ({type(item).__name__})"
-                )
+                assert isinstance(
+                    item, str
+                ), f"'{field}' contains non-string element: {item!r} ({type(item).__name__})"
 
     def test_enriched_output_is_json_serializable(self, sample_metadata):
         """Enriched metadata must be JSON-serializable (scanner writes JSON for importer)."""
@@ -369,16 +368,16 @@ class TestLiteraryEraRegression:
         era_string = enriched["literary_era"]
         era_list = enriched["eras"]
         if era_string:
-            assert era_string in era_list, (
-                f"literary_era '{era_string}' not found in eras list {era_list}"
-            )
+            assert (
+                era_string in era_list
+            ), f"literary_era '{era_string}' not found in eras list {era_list}"
 
     def test_eras_list_not_string(self, sample_metadata):
         """Catch the original bug: if someone accidentally sets eras to a string."""
         enriched = enrich_metadata(sample_metadata.copy())
-        assert not isinstance(enriched["eras"], str), (
-            "eras must be a list, not a string — this was the original bug"
-        )
+        assert not isinstance(
+            enriched["eras"], str
+        ), "eras must be a list, not a string — this was the original bug"
 
     def test_importer_iterates_eras_list(self, sample_metadata, test_db):
         """Verify eras list can be iterated by the importer without error.

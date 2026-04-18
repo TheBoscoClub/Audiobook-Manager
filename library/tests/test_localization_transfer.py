@@ -16,12 +16,10 @@ from pathlib import Path
 
 import pytest
 
-
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
 from localization import transfer  # noqa: E402
-
 
 # ── Schema helpers ─────────────────────────────────────────────────────
 
@@ -29,8 +27,7 @@ from localization import transfer  # noqa: E402
 def _build_db(db_path: Path) -> None:
     """Create a schema that matches the subset transfer touches."""
     conn = sqlite3.connect(str(db_path))
-    conn.executescript(
-        """
+    conn.executescript("""
         CREATE TABLE audiobooks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
@@ -92,8 +89,7 @@ def _build_db(db_path: Path) -> None:
             finished_at TIMESTAMP,
             UNIQUE(audiobook_id, locale)
         );
-        """
-    )
+        """)
     conn.close()
 
 
@@ -294,7 +290,9 @@ class TestBuildManifest:
             "collections": [],
             "strings": [],
             "queue": [],
-            "books": {1: {"title": "x", "file_path": "/tmp/x"}},  # nosec B108 -- DB string fixture, no filesystem write
+            "books": {
+                1: {"title": "x", "file_path": "/tmp/x"}
+            },  # nosec B108 -- DB string fixture, no filesystem write
         }
         manifest = transfer._build_manifest(data)
         assert manifest["version"] == 2

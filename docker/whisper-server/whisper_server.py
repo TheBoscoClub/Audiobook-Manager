@@ -1,12 +1,13 @@
-import tempfile
+import logging
 import os
 import signal
-import time
-import logging
+import tempfile
 import threading
+import time
 import traceback
-from flask import Flask, request, jsonify
+
 from faster_whisper import WhisperModel
+from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -47,18 +48,14 @@ def _deadman_loop():
             idle = time.time() - LAST_REQUEST_TIME
         if idle > IDLE_SHUTDOWN_SEC:
             logging.warning(
-                "Dead-man TTL: idle %ds > %ds — terminating container",
-                int(idle),
-                IDLE_SHUTDOWN_SEC,
+                "Dead-man TTL: idle %ds > %ds — terminating container", int(idle), IDLE_SHUTDOWN_SEC
             )
             # SIGTERM PID 1 (gunicorn master). Gunicorn gracefully shuts down
             # all workers; container exits; RunPod stops billing.
             try:
                 os.kill(1, signal.SIGTERM)
             except Exception as exc:
-                logging.error(
-                    "Failed to SIGTERM PID 1: %s — falling back to os._exit", exc
-                )
+                logging.error("Failed to SIGTERM PID 1: %s — falling back to os._exit", exc)
                 os._exit(0)
             # If PID 1 doesn't exit within 30s, escalate to SIGKILL.
             time.sleep(30)
@@ -72,8 +69,7 @@ def _deadman_loop():
 if IDLE_SHUTDOWN_SEC > 0:
     threading.Thread(target=_deadman_loop, daemon=True).start()
     log.info(
-        "Dead-man TTL enabled: %ds (terminates container via SIGTERM PID 1)",
-        IDLE_SHUTDOWN_SEC,
+        "Dead-man TTL enabled: %ds (terminates container via SIGTERM PID 1)", IDLE_SHUTDOWN_SEC
     )
 else:
     log.info("Dead-man TTL disabled (IDLE_SHUTDOWN_SEC=0)")
@@ -93,9 +89,7 @@ def transcribe():
     log.info("received file=%s bytes lang=%s", size, language)
     try:
         with _model_lock:
-            segments, info = model.transcribe(
-                tmp_path, language=language, word_timestamps=True
-            )
+            segments, info = model.transcribe(tmp_path, language=language, word_timestamps=True)
             words, text_parts = [], []
             for seg in segments:
                 text_parts.append(seg.text)
@@ -139,9 +133,7 @@ def selftest():
     try:
         audio = np.zeros(16000, dtype=np.float32)  # 1 second silence at 16kHz
         with _model_lock:
-            segments, info = model.transcribe(
-                audio, language="en", word_timestamps=False
-            )
+            segments, info = model.transcribe(audio, language="en", word_timestamps=False)
             parts = [s.text for s in segments]
         return jsonify(
             {

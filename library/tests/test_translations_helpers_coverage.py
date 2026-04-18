@@ -21,7 +21,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from backend.api_modular import translations as tr
 
 
@@ -36,8 +35,7 @@ def seeded_db(tmp_path: Path) -> Path:
     db_path = tmp_path / "trans_helpers.db"
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
-    conn.executescript(
-        """
+    conn.executescript("""
         CREATE TABLE audiobooks (
             id INTEGER PRIMARY KEY,
             title TEXT NOT NULL,
@@ -62,8 +60,7 @@ def seeded_db(tmp_path: Path) -> Path:
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             UNIQUE(audiobook_id, locale)
         );
-        """
-    )
+        """)
     conn.executemany(
         "INSERT INTO audiobooks "
         "(id, title, author, series, description, publisher_summary, file_path, format) "
@@ -79,9 +76,36 @@ def seeded_db(tmp_path: Path) -> Path:
                 "/tmp/1.opus",
                 "opus",
             ),  # nosec B108 -- DB string fixture, no filesystem write
-            (2, "The Hobbit", "Tolkien", "Middle-earth", "Prequel", None, "/tmp/2.opus", "opus"),  # nosec B108 -- DB string fixture, no filesystem write
-            (3, "Dune", "Herbert", "", None, "Arrakis sci-fi", "/tmp/3.opus", "opus"),  # nosec B108 -- DB string fixture, no filesystem write
-            (4, "Standalone", "Single Author", None, "A lone book", None, "/tmp/4.opus", "opus"),  # nosec B108 -- DB string fixture, no filesystem write
+            (
+                2,
+                "The Hobbit",
+                "Tolkien",
+                "Middle-earth",
+                "Prequel",
+                None,
+                "/tmp/2.opus",
+                "opus",
+            ),  # nosec B108 -- DB string fixture, no filesystem write
+            (
+                3,
+                "Dune",
+                "Herbert",
+                "",
+                None,
+                "Arrakis sci-fi",
+                "/tmp/3.opus",
+                "opus",
+            ),  # nosec B108 -- DB string fixture, no filesystem write
+            (
+                4,
+                "Standalone",
+                "Single Author",
+                None,
+                "A lone book",
+                None,
+                "/tmp/4.opus",
+                "opus",
+            ),  # nosec B108 -- DB string fixture, no filesystem write
         ],
     )
     conn.commit()
@@ -645,16 +669,14 @@ class TestDeepLKeyShortCircuits:
         conn = sqlite3.connect(str(seeded_db))
         conn.row_factory = sqlite3.Row
         # Create string_translations table for this isolated DB.
-        conn.execute(
-            """CREATE TABLE IF NOT EXISTS string_translations (
+        conn.execute("""CREATE TABLE IF NOT EXISTS string_translations (
                 source_hash TEXT NOT NULL,
                 locale TEXT NOT NULL,
                 source TEXT NOT NULL,
                 translation TEXT NOT NULL,
                 translator TEXT DEFAULT 'deepl',
                 PRIMARY KEY (source_hash, locale)
-            )"""
-        )
+            )""")
         with patch("localization.config.DEEPL_API_KEY", ""):
             result: dict = {}
             tr._translate_and_cache_strings(conn, {"abc123": "hello"}, "zh-Hans", result)
@@ -742,8 +764,7 @@ class TestDoTranslateMissing:
 class TestTranslateMissingCollections:
     def _setup_collection_db(self, db_path: Path):
         conn = sqlite3.connect(str(db_path))
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE IF NOT EXISTS collection_translations (
                 collection_id TEXT NOT NULL,
                 locale TEXT NOT NULL,
@@ -753,8 +774,7 @@ class TestTranslateMissingCollections:
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (collection_id, locale)
             );
-            """
-        )
+            """)
         conn.commit()
         return conn
 
@@ -833,8 +853,7 @@ class TestTranslateMissingCollections:
 class TestTranslateAndCacheStringsHappy:
     def _setup_strings_db(self, db_path: Path):
         conn = sqlite3.connect(str(db_path))
-        conn.execute(
-            """CREATE TABLE IF NOT EXISTS string_translations (
+        conn.execute("""CREATE TABLE IF NOT EXISTS string_translations (
                 source_hash TEXT NOT NULL,
                 locale TEXT NOT NULL,
                 source TEXT NOT NULL,
@@ -842,8 +861,7 @@ class TestTranslateAndCacheStringsHappy:
                 translator TEXT DEFAULT 'deepl',
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (source_hash, locale)
-            )"""
-        )
+            )""")
         conn.commit()
         return conn
 
@@ -861,10 +879,7 @@ class TestTranslateAndCacheStringsHappy:
             ):
                 result: dict = {}
                 tr._translate_and_cache_strings(
-                    conn,
-                    {"hash1": "Hello", "hash2": "Goodbye"},
-                    "zh-Hans",
-                    result,
+                    conn, {"hash1": "Hello", "hash2": "Goodbye"}, "zh-Hans", result
                 )
                 assert result == {"hash1": "你好", "hash2": "再见"}
         finally:

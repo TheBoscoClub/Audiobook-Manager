@@ -6,8 +6,8 @@ import re
 
 from flask import Blueprint, jsonify
 
-from .core import FlaskResponse, get_db
 from .auth import guest_allowed
+from .core import FlaskResponse, get_db
 
 editions_bp = Blueprint("editions", __name__)
 

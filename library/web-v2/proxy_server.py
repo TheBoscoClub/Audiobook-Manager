@@ -305,8 +305,8 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
 
     def _tunnel_websocket(self):
         """Tunnel a WebSocket upgrade request to the API backend via raw TCP."""
-        import socket
         import select
+        import socket
 
         raw_request = self._build_ws_upgrade_request()
 
@@ -400,7 +400,9 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             # URL scheme is always http:// built from fixed API_PORT; path is
             # validated against PROXY_PREFIXES allowlist at line 400 before
             # reaching this point, so urllib cannot be coerced to file://.
-            with urllib.request.urlopen(req, timeout=30) as response:  # nosec B310  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+            with urllib.request.urlopen(
+                req, timeout=30
+            ) as response:  # nosec B310  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
                 self.send_response(response.status)
                 self._forward_response_headers(response.headers)
                 self.end_headers()

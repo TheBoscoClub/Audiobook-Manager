@@ -211,7 +211,9 @@ class AccessRequestRepository:
             for column_name, column_sql in self._MIGRATION_COLUMNS:
                 if column_name not in existing:
                     # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                    conn.execute(f"ALTER TABLE access_requests ADD COLUMN {column_sql}")  # nosec B608
+                    conn.execute(
+                        f"ALTER TABLE access_requests ADD COLUMN {column_sql}"
+                    )  # nosec B608
 
             # Create indexes AFTER columns exist
             for index_sql in self._INDEX_STATEMENTS:

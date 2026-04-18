@@ -16,8 +16,8 @@ Usage:
 import json
 import os
 import re
-import subprocess
 import sqlite3
+import subprocess
 import sys
 from argparse import ArgumentParser
 from collections import Counter

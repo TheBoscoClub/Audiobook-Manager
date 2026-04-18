@@ -3,7 +3,6 @@
 import time
 from unittest.mock import MagicMock
 
-
 from backend.api_modular.websocket import ConnectionManager
 
 

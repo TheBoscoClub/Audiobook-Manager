@@ -6,11 +6,10 @@ admin connections endpoint (line 252), and auth-disabled paths.
 """
 
 import json
-import sys
 import sqlite3
+import sys
 import tempfile
 from pathlib import Path
-
 
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
@@ -173,9 +172,8 @@ class TestModuleExports:
 
     def test_all_exports_importable(self):
         """Verify all items in __all__ are importable."""
-        from backend.api_modular import __all__
-
         import backend.api_modular as mod
+        from backend.api_modular import __all__
 
         for name in __all__:
             assert hasattr(mod, name), f"{name} in __all__ but not importable"

@@ -14,19 +14,18 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
 from scanner.metadata_utils import (  # noqa: E402
-    categorize_genre,
-    is_content_type,
-    extract_asin,
-    get_file_metadata,
-    extract_cover_art,
     _find_standalone_cover,
     build_genres_list,
+    categorize_genre,
     determine_literary_era,
+    extract_asin,
+    extract_cover_art,
+    get_file_metadata,
+    is_content_type,
 )
 
 

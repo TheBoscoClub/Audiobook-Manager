@@ -92,9 +92,9 @@ class TestAuditSectionJS:
                 stripped = line.strip()
                 if "innerHTML" in stripped:
                     # Allow clearing: innerHTML = '' or innerHTML = ""
-                    assert "= ''" in stripped or '= ""' in stripped, (
-                        f"innerHTML with user data found: {stripped}"
-                    )
+                    assert (
+                        "= ''" in stripped or '= ""' in stripped
+                    ), f"innerHTML with user data found: {stripped}"
 
 
 class TestAuditSectionCSS:

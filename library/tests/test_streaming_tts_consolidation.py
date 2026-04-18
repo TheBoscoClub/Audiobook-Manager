@@ -43,9 +43,7 @@ def _load_worker(env_streaming_dir: Path | None = None):
     if str(lib_dir) not in sys.path:
         sys.path.insert(0, str(lib_dir))
 
-    spec = importlib.util.spec_from_file_location(
-        "stream_translate_worker_iso", WORKER_PATH
-    )
+    spec = importlib.util.spec_from_file_location("stream_translate_worker_iso", WORKER_PATH)
     assert spec and spec.loader
     mod = importlib.util.module_from_spec(spec)
     sys.modules["stream_translate_worker_iso"] = mod
@@ -133,11 +131,7 @@ def test_synthesize_segment_audio_happy_path_mocks_edge_tts_and_ffmpeg(tmp_path)
     with patch.object(w, "get_tts_provider", return_value=FakeTTS()):
         with patch.object(w.subprocess, "run", side_effect=fake_run):
             out = w._synthesize_segment_audio(
-                VTT_SAMPLE,
-                audiobook_id=1,
-                chapter_index=0,
-                segment_index=5,
-                locale="zh-Hans",
+                VTT_SAMPLE, audiobook_id=1, chapter_index=0, segment_index=5, locale="zh-Hans"
             )
 
     assert out is not None
@@ -195,33 +189,19 @@ def test_process_segment_tts_failure_degrades_to_text_only(tmp_path):
 
     # Fake generate_subtitles: write a minimal VTT into output_dir and
     # return (source_vtt, translated_vtt).
-    def fake_generate_subtitles(
-        audio_path, output_dir, target_locale, chapter_name, stt_provider
-    ):
+    def fake_generate_subtitles(audio_path, output_dir, target_locale, chapter_name, stt_provider):
         src = _Path(output_dir) / "source.vtt"
         tr = _Path(output_dir) / "translated.vtt"
         src.write_text("WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\nhello\n")
         tr.write_text("WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\n你好\n")
         return src, tr
 
-    segment = {
-        "audiobook_id": 42,
-        "chapter_index": 1,
-        "segment_index": 3,
-        "locale": "zh-Hans",
-    }
+    segment = {"audiobook_id": 42, "chapter_index": 1, "segment_index": 3, "locale": "zh-Hans"}
 
     with (
         patch.object(w, "split_audio_segment", return_value=fake_seg),
-        patch.object(
-            w,
-            "_synthesize_segment_audio",
-            side_effect=RuntimeError("synth failed"),
-        ),
-        patch(
-            "localization.pipeline.generate_subtitles",
-            side_effect=fake_generate_subtitles,
-        ),
+        patch.object(w, "_synthesize_segment_audio", side_effect=RuntimeError("synth failed")),
+        patch("localization.pipeline.generate_subtitles", side_effect=fake_generate_subtitles),
         patch("localization.pipeline.get_stt_provider", return_value=MagicMock()),
         patch("urllib.request.urlopen", side_effect=fake_urlopen),
     ):
@@ -240,8 +220,7 @@ def test_process_segment_tts_failure_degrades_to_text_only(tmp_path):
     # Callback fired with audio_path=None (text-only mode)
     assert "payload" in captured, "segment-complete callback was never invoked"
     assert captured["payload"]["audio_path"] is None, (
-        f"audio_path must be None when TTS fails; got "
-        f"{captured['payload']['audio_path']!r}"
+        f"audio_path must be None when TTS fails; got " f"{captured['payload']['audio_path']!r}"
     )
     # Sanity: VTT still flows through
     assert captured["payload"]["vtt_content"]
@@ -270,8 +249,7 @@ def streaming_db(flask_app, session_temp_dir):
     st._db_path = db_path
     # Pre-create translation_queue (streaming endpoints fall back to it)
     conn = sqlite3.connect(str(db_path))
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS translation_queue (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             audiobook_id INTEGER NOT NULL,
@@ -281,8 +259,7 @@ def streaming_db(flask_app, session_temp_dir):
             total_chapters INTEGER,
             UNIQUE(audiobook_id, locale)
         )
-        """
-    )
+        """)
     conn.commit()
     conn.close()
     yield db_path
@@ -297,9 +274,7 @@ def streaming_db(flask_app, session_temp_dir):
     conn.close()
 
 
-def test_segment_complete_backward_compat_without_audio_path(
-    app_client, streaming_db
-):
+def test_segment_complete_backward_compat_without_audio_path(app_client, streaming_db):
     """v8.3.1 workers send no ``audio_path`` — must still update state + vtt."""
     import sqlite3
 
@@ -337,9 +312,7 @@ def test_segment_complete_backward_compat_without_audio_path(
     assert row[2] is None  # No audio_path was sent → NULL in DB
 
 
-def test_segment_complete_persists_audio_path_when_present(
-    app_client, streaming_db
-):
+def test_segment_complete_persists_audio_path_when_present(app_client, streaming_db):
     """v8.3.2 workers include ``audio_path`` → must land in DB column."""
     import sqlite3
 
@@ -379,9 +352,7 @@ def test_segment_complete_persists_audio_path_when_present(
 # ── Task 10: chapter-level opus consolidation ──
 
 
-def test_consolidate_chapter_produces_audio(
-    app_client, streaming_db, tmp_path, monkeypatch
-):
+def test_consolidate_chapter_produces_audio(app_client, streaming_db, tmp_path, monkeypatch):
     """Per-segment opus files concat into chapter.opus + chapter_translations_audio row.
 
     Mocks ffmpeg/ffprobe so the test does not depend on the host having
@@ -508,10 +479,7 @@ def test_consolidate_chapter_skips_audio_when_any_segment_missing_audio(
         "(audiobook_id, chapter_index, segment_index, locale, state, "
         " priority, vtt_content, audio_path) "
         "VALUES (10, 0, 0, 'zh-Hans', 'completed', 0, ?, ?)",
-        (
-            "WEBVTT\n\n1\n00:00:00.000 --> 00:00:30.000\nHi",
-            "10/ch000/zh-Hans/seg0000.opus",
-        ),
+        ("WEBVTT\n\n1\n00:00:00.000 --> 00:00:30.000\nHi", "10/ch000/zh-Hans/seg0000.opus"),
     )
     conn.execute(
         "INSERT INTO streaming_segments "
@@ -549,6 +517,5 @@ def test_consolidate_chapter_skips_audio_when_any_segment_missing_audio(
     ).fetchone()
     db.close()
     assert row is None, (
-        "chapter_translations_audio must not exist when any segment is "
-        "missing audio_path"
+        "chapter_translations_audio must not exist when any segment is " "missing audio_path"
     )

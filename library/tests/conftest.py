@@ -664,7 +664,7 @@ def _make_session_cookie(auth_db_instance, user_id: int) -> str:
 @pytest.fixture
 def admin_client(auth_app, auth_db):
     """Test client authenticated as an admin user."""
-    from auth.models import User, AuthType, UserRepository
+    from auth.models import AuthType, User, UserRepository
 
     user_repo = UserRepository(auth_db)
     admin = user_repo.get_by_username("testadmin_fix")
@@ -686,7 +686,7 @@ def admin_client(auth_app, auth_db):
 @pytest.fixture
 def test_user(auth_db):
     """A regular (non-admin) TOTP user."""
-    from auth.models import User, AuthType, UserRepository
+    from auth.models import AuthType, User, UserRepository
 
     user_repo = UserRepository(auth_db)
     existing = user_repo.get_by_username("regularuser_fix")
@@ -724,7 +724,7 @@ def sole_admin(auth_db):
     so tests relying on this being the *only* admin must either delete
     that seed user first or query the real admin count.
     """
-    from auth.models import User, AuthType
+    from auth.models import AuthType, User
 
     return User(
         username="soleadmin_fix",
@@ -747,7 +747,7 @@ def sole_admin_client(auth_app, auth_db, sole_admin):
 @pytest.fixture
 def test_magic_link_user(auth_db):
     """A Magic Link user with a recovery email."""
-    from auth.models import User, AuthType, UserRepository
+    from auth.models import AuthType, User, UserRepository
 
     user = User(username="mluser_fix", auth_type=AuthType.MAGIC_LINK, auth_credential=b"").save(
         auth_db
@@ -768,8 +768,9 @@ def magic_link_user_client(auth_app, auth_db, test_magic_link_user):
 @pytest.fixture
 def logged_in_user(auth_db):
     """A user whose last_login is set (not NULL)."""
-    from auth.models import User, AuthType
     from datetime import datetime
+
+    from auth.models import AuthType, User
 
     return User(
         username="loggedinuser_fix",

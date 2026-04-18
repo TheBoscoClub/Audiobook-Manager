@@ -1,8 +1,8 @@
 # library/tests/test_per_user_models.py
 """Tests for per-user state data models."""
 
-import sqlite3
 import os
+import sqlite3
 from datetime import datetime
 from unittest.mock import MagicMock
 
@@ -37,7 +37,7 @@ class TestListeningHistoryModel:
         return mock
 
     def test_create_listening_session(self, mock_auth_db):
-        from auth.models import UserListeningHistory, ListeningHistoryRepository
+        from auth.models import ListeningHistoryRepository, UserListeningHistory
 
         ListeningHistoryRepository(mock_auth_db)  # verify importable
         session = UserListeningHistory(user_id=1, audiobook_id="100", position_start_ms=5000)
@@ -46,7 +46,7 @@ class TestListeningHistoryModel:
         assert saved.started_at is not None
 
     def test_close_listening_session(self, mock_auth_db):
-        from auth.models import UserListeningHistory, ListeningHistoryRepository
+        from auth.models import ListeningHistoryRepository, UserListeningHistory
 
         repo = ListeningHistoryRepository(mock_auth_db)
         session = UserListeningHistory(user_id=1, audiobook_id="100", position_start_ms=5000)
@@ -63,7 +63,7 @@ class TestListeningHistoryModel:
         assert fetched[0].duration_listened_ms == 115000
 
     def test_get_for_user_paginated(self, mock_auth_db):
-        from auth.models import UserListeningHistory, ListeningHistoryRepository
+        from auth.models import ListeningHistoryRepository, UserListeningHistory
 
         repo = ListeningHistoryRepository(mock_auth_db)
         for i in range(5):
@@ -79,7 +79,7 @@ class TestListeningHistoryModel:
 
     def test_get_user_books(self, mock_auth_db):
         """Get distinct audiobook IDs user has interacted with."""
-        from auth.models import UserListeningHistory, ListeningHistoryRepository
+        from auth.models import ListeningHistoryRepository, UserListeningHistory
 
         repo = ListeningHistoryRepository(mock_auth_db)
         for book_id in ["100", "100", "200"]:
@@ -91,7 +91,7 @@ class TestListeningHistoryModel:
 
     def test_brief_session_filter(self, mock_auth_db):
         """Sessions < 5 seconds should be filterable."""
-        from auth.models import UserListeningHistory, ListeningHistoryRepository
+        from auth.models import ListeningHistoryRepository, UserListeningHistory
 
         repo = ListeningHistoryRepository(mock_auth_db)
         brief = UserListeningHistory(
@@ -111,7 +111,7 @@ class TestListeningHistoryModel:
         assert sessions[0].audiobook_id == "200"
 
     def test_get_open_session(self, mock_auth_db):
-        from auth.models import UserListeningHistory, ListeningHistoryRepository
+        from auth.models import ListeningHistoryRepository, UserListeningHistory
 
         repo = ListeningHistoryRepository(mock_auth_db)
         # Create an open session
@@ -158,7 +158,7 @@ class TestDownloadModel:
         return mock
 
     def test_record_download(self, mock_auth_db):
-        from auth.models import UserDownload, DownloadRepository
+        from auth.models import DownloadRepository, UserDownload
 
         DownloadRepository(mock_auth_db)  # verify importable
         dl = UserDownload(user_id=1, audiobook_id="100", file_format="opus")
@@ -167,7 +167,7 @@ class TestDownloadModel:
         assert saved.downloaded_at is not None
 
     def test_get_user_downloads(self, mock_auth_db):
-        from auth.models import UserDownload, DownloadRepository
+        from auth.models import DownloadRepository, UserDownload
 
         repo = DownloadRepository(mock_auth_db)
         UserDownload(user_id=1, audiobook_id="100", file_format="opus").save(mock_auth_db)
@@ -177,7 +177,7 @@ class TestDownloadModel:
         assert len(downloads) == 2
 
     def test_get_download_count_for_book(self, mock_auth_db):
-        from auth.models import UserDownload, DownloadRepository
+        from auth.models import DownloadRepository, UserDownload
 
         repo = DownloadRepository(mock_auth_db)
         UserDownload(user_id=1, audiobook_id="100", file_format="opus").save(mock_auth_db)

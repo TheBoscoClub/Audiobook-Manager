@@ -13,14 +13,13 @@ import sys
 import tempfile
 from pathlib import Path
 
-
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
 from backend.migrations.migrate_to_normalized_authors import (  # noqa: E402
-    _normalize_group_case,
     _find_canonical,
     _name_quality,
+    _normalize_group_case,
     migrate,
 )
 

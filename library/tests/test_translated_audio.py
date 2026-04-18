@@ -18,7 +18,6 @@ import time
 from pathlib import Path
 
 import pytest
-
 from backend.api_modular import translated_audio as ta
 from backend.api_modular.translated_audio import (
     _get_status,
@@ -26,7 +25,6 @@ from backend.api_modular.translated_audio import (
     _set_status,
     _user_requests,
 )
-
 
 # ── Pure helpers (job status registry) ──
 
@@ -448,8 +446,12 @@ class TestLoadTranslatedAudioContext:
 
         with app_client.application.app_context():
             vtt_path, audio_path = ta._load_translated_audio_context(1, "zh-Hans")
-        assert vtt_path == Path("/tmp/x.vtt")  # nosec B108  # asserting DB round-trip of synthetic fixture path; no file I/O
-        assert audio_path == Path("/tmp/test1.opus")  # nosec B108  # asserting DB round-trip of synthetic fixture path; no file I/O
+        assert vtt_path == Path(
+            "/tmp/x.vtt"
+        )  # nosec B108  # asserting DB round-trip of synthetic fixture path; no file I/O
+        assert audio_path == Path(
+            "/tmp/test1.opus"
+        )  # nosec B108  # asserting DB round-trip of synthetic fixture path; no file I/O
 
 
 # ── Admin _generate closure coverage ──
@@ -695,8 +697,7 @@ class TestAdminGenerateClosure:
             raise RuntimeError("network dead")
 
         factory = types.SimpleNamespace(
-            get_tts_provider=lambda *a, **kw: tts,
-            synthesize_with_fallback=_raise_synth,
+            get_tts_provider=lambda *a, **kw: tts, synthesize_with_fallback=_raise_synth
         )
         selection = types.SimpleNamespace(WorkloadHint=types.SimpleNamespace(LONG_FORM="LF"))
         monkeypatch.setitem(sys.modules, "library", types.ModuleType("library"))
@@ -736,8 +737,7 @@ class TestUserRequestClosure:
             out.write_bytes(b"x")
 
         factory = types.SimpleNamespace(
-            get_tts_provider=lambda *a, **kw: tts_obj,
-            synthesize_with_fallback=_synth,
+            get_tts_provider=lambda *a, **kw: tts_obj, synthesize_with_fallback=_synth
         )
         selection = types.SimpleNamespace(WorkloadHint=types.SimpleNamespace(LONG_FORM="LF"))
         monkeypatch.setitem(sys.modules, "library", types.ModuleType("library"))
@@ -768,8 +768,7 @@ class TestUserRequestClosure:
         monkeypatch.setattr(subprocess, "run", _run)
 
         resp = app_client.post(
-            "/api/user/translated-audio/request",
-            json={"audiobook_id": 1, "locale": "zh-Hans"},
+            "/api/user/translated-audio/request", json={"audiobook_id": 1, "locale": "zh-Hans"}
         )
         assert resp.status_code == 200
         threading_capture[0]()
@@ -783,8 +782,7 @@ class TestUserRequestClosure:
         self._stub_tts_imports(monkeypatch, _DummyTTS())
 
         resp = app_client.post(
-            "/api/user/translated-audio/request",
-            json={"audiobook_id": 1, "locale": "zh-Hans"},
+            "/api/user/translated-audio/request", json={"audiobook_id": 1, "locale": "zh-Hans"}
         )
         assert resp.status_code == 200
         threading_capture[0]()
@@ -800,8 +798,7 @@ class TestUserRequestClosure:
         self._stub_tts_imports(monkeypatch, _DummyTTS())
 
         resp = app_client.post(
-            "/api/user/translated-audio/request",
-            json={"audiobook_id": 1, "locale": "zh-Hans"},
+            "/api/user/translated-audio/request", json={"audiobook_id": 1, "locale": "zh-Hans"}
         )
         assert resp.status_code == 200
         threading_capture[0]()
@@ -816,8 +813,7 @@ class TestUserRequestClosure:
         )
 
         resp = app_client.post(
-            "/api/user/translated-audio/request",
-            json={"audiobook_id": 1, "locale": "zh-Hans"},
+            "/api/user/translated-audio/request", json={"audiobook_id": 1, "locale": "zh-Hans"}
         )
         assert resp.status_code == 200
         threading_capture[0]()

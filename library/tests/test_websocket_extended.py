@@ -314,7 +314,9 @@ class TestInitNotificationPoller:
             # Second call should be a no-op
             ws_module.init_notification_poller("/tmp/other.db")  # nosec B108  # test fixture path
             # db_path should still be the first one
-            assert ws_module._db_path_for_poller == "/tmp/fake.db"  # nosec B108  # test fixture path
+            assert (
+                ws_module._db_path_for_poller == "/tmp/fake.db"
+            )  # nosec B108  # test fixture path
 
         # Reset for other tests
         ws_module._poller_started = False
@@ -339,7 +341,9 @@ class TestInitNotificationPoller:
                     return original_import(name, *args, **kwargs)
 
                 with patch("builtins.__import__", side_effect=fake_import):
-                    ws_module.init_notification_poller("/tmp/test.db")  # nosec B108  # test fixture path
+                    ws_module.init_notification_poller(
+                        "/tmp/test.db"
+                    )  # nosec B108  # test fixture path
                     mock_logger.warning.assert_called_once()
 
         ws_module._poller_started = False
@@ -367,17 +371,20 @@ class TestNotificationPollerWithGevent:
 
             with patch("builtins.__import__", side_effect=fake_import):
                 ws_module._poller_started = False
-                ws_module.init_notification_poller("/tmp/test_gevent.db")  # nosec B108  # test fixture path
+                ws_module.init_notification_poller(
+                    "/tmp/test_gevent.db"
+                )  # nosec B108  # test fixture path
                 mock_gevent.spawn.assert_called_once()
 
         ws_module._poller_started = False
 
     def test_poll_loop_processes_notifications(self):
         """Test the poll loop processes and marks notifications delivered."""
-        import backend.api_modular.websocket as ws_module
+        import os
         import sqlite3
         import tempfile
-        import os
+
+        import backend.api_modular.websocket as ws_module
 
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "poll_test.db")
@@ -427,10 +434,11 @@ class TestNotificationPollerWithGevent:
 
     def test_poll_loop_handles_bad_payload(self):
         """Test poll loop handles JSON decode error in payload (line 155-158)."""
-        import backend.api_modular.websocket as ws_module
+        import os
         import sqlite3
         import tempfile
-        import os
+
+        import backend.api_modular.websocket as ws_module
 
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "bad_payload.db")
@@ -480,8 +488,9 @@ class TestNotificationPollerWithGevent:
 
     def test_poll_loop_handles_db_error(self):
         """Test poll loop handles database connection error (lines 162-163)."""
-        import backend.api_modular.websocket as ws_module
         import sqlite3
+
+        import backend.api_modular.websocket as ws_module
 
         ws_module._db_path_for_poller = "/nonexistent/path/db.sqlite"
 

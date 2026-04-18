@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 from unittest.mock import patch
 
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.enrichment.provider_audible import (
@@ -206,8 +205,9 @@ class TestFetchAudibleProduct:
     All urllib calls are mocked so no network traffic occurs."""
 
     def test_fetch_returns_product_on_success(self, monkeypatch):
-        from scripts.enrichment import provider_audible as mod
         import json
+
+        from scripts.enrichment import provider_audible as mod
 
         monkeypatch.setattr(mod, "_rate_limit", lambda: None)
 
@@ -234,8 +234,9 @@ class TestFetchAudibleProduct:
         assert result == {"asin": "B123", "title": "T"}
 
     def test_fetch_returns_none_on_404(self, monkeypatch):
-        from scripts.enrichment import provider_audible as mod
         import urllib.error
+
+        from scripts.enrichment import provider_audible as mod
 
         monkeypatch.setattr(mod, "_rate_limit", lambda: None)
 
@@ -248,9 +249,10 @@ class TestFetchAudibleProduct:
     def test_fetch_retries_once_on_429_then_returns_product(self, monkeypatch):
         """A 429 rate-limit response should trigger a single retry after
         a short sleep, and the retry's successful response is returned."""
-        from scripts.enrichment import provider_audible as mod
-        import urllib.error
         import json
+        import urllib.error
+
+        from scripts.enrichment import provider_audible as mod
 
         monkeypatch.setattr(mod, "_rate_limit", lambda: None)
         monkeypatch.setattr(mod.time, "sleep", lambda s: None)
@@ -279,8 +281,9 @@ class TestFetchAudibleProduct:
         assert calls["count"] == 2
 
     def test_fetch_returns_none_when_429_retry_also_fails(self, monkeypatch):
-        from scripts.enrichment import provider_audible as mod
         import urllib.error
+
+        from scripts.enrichment import provider_audible as mod
 
         monkeypatch.setattr(mod, "_rate_limit", lambda: None)
         monkeypatch.setattr(mod.time, "sleep", lambda s: None)
@@ -296,8 +299,9 @@ class TestFetchAudibleProduct:
         assert calls["count"] == 2
 
     def test_fetch_returns_none_on_url_error(self, monkeypatch):
-        from scripts.enrichment import provider_audible as mod
         import urllib.error
+
+        from scripts.enrichment import provider_audible as mod
 
         monkeypatch.setattr(mod, "_rate_limit", lambda: None)
 
@@ -309,8 +313,9 @@ class TestFetchAudibleProduct:
 
     def test_fetch_returns_none_on_500(self, monkeypatch):
         """Non-404/429 HTTP errors fall through to the generic None path."""
-        from scripts.enrichment import provider_audible as mod
         import urllib.error
+
+        from scripts.enrichment import provider_audible as mod
 
         monkeypatch.setattr(mod, "_rate_limit", lambda: None)
 

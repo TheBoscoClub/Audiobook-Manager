@@ -129,8 +129,7 @@ def update_roadmap_item(item_id):
     params.append(item_id)
 
     conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        f"UPDATE roadmap_items SET {', '.join(fields)} WHERE id = ?",  # nosec B608
-        params,
+        f"UPDATE roadmap_items SET {', '.join(fields)} WHERE id = ?", params  # nosec B608
     )
     conn.commit()
     conn.close()

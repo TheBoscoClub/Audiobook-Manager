@@ -29,7 +29,20 @@ from typing import Optional, Union
 
 from config import API_PORT, DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR
 
+from .admin_activity import admin_activity_bp, init_admin_activity_routes
+from .admin_authors import admin_authors_bp, init_admin_authors_routes
 from .audiobooks import audiobooks_bp, init_audiobooks_routes
+from .auth import (
+    admin_if_enabled,
+    admin_required,
+    auth_bp,
+    auth_if_enabled,
+    download_permission_required,
+    get_current_user,
+    init_auth_routes,
+    localhost_only,
+    login_required,
+)
 from .collections import (
     collections_bp,
     get_collections_lookup,
@@ -40,31 +53,18 @@ from .core import add_cors_headers, add_security_headers
 from .core import get_db as _get_db_with_path
 from .duplicates import duplicates_bp, init_duplicates_routes
 from .editions import editions_bp, has_edition_marker, init_editions_routes, normalize_base_title
-from .position_sync import init_position_routes, position_bp
-from .supplements import init_supplements_routes, supplements_bp
 from .grouped import grouped_bp, init_grouped_routes
-from .admin_activity import admin_activity_bp, init_admin_activity_routes
-from .admin_authors import admin_authors_bp, init_admin_authors_routes
-from .suggestions import suggestions_bp, init_suggestions_routes
 from .i18n_routes import i18n_bp  # uses absolute import for i18n module (sibling to api_modular/)
-from .translations import translations_bp, init_translations_routes
-from .subtitles import subtitles_bp, init_subtitles_routes
-from .translated_audio import translated_audio_bp, init_translated_audio_routes
-from .streaming_translate import streaming_bp, init_streaming_routes
-from .user_state import init_user_state_routes, user_bp
+from .position_sync import init_position_routes, position_bp
 from .preferences import preferences_bp
+from .streaming_translate import init_streaming_routes, streaming_bp
+from .subtitles import init_subtitles_routes, subtitles_bp
+from .suggestions import init_suggestions_routes, suggestions_bp
+from .supplements import init_supplements_routes, supplements_bp
+from .translated_audio import init_translated_audio_routes, translated_audio_bp
+from .translations import init_translations_routes, translations_bp
+from .user_state import init_user_state_routes, user_bp
 from .utilities import init_utilities_routes, utilities_bp
-from .auth import (
-    auth_bp,
-    init_auth_routes,
-    login_required,
-    admin_required,
-    localhost_only,
-    get_current_user,
-    auth_if_enabled,
-    download_permission_required,
-    admin_if_enabled,
-)
 
 FlaskResponse = Union[Response, tuple[Response, int], tuple[str, int]]
 
@@ -160,12 +160,12 @@ def _register_auth_blueprints(flask_app):
 
 def _register_extension_blueprints(flask_app, database_path, project_root=None):
     """Register maintenance, roadmap, suggestions, and localization blueprints."""
-    from .maintenance import maintenance_bp, init_maintenance_routes
+    from .maintenance import init_maintenance_routes, maintenance_bp
 
     init_maintenance_routes(database_path)
     flask_app.register_blueprint(maintenance_bp)
 
-    from .roadmap import roadmap_bp, init_roadmap_routes
+    from .roadmap import init_roadmap_routes, roadmap_bp
 
     init_roadmap_routes(database_path)
     flask_app.register_blueprint(roadmap_bp)
@@ -197,9 +197,11 @@ def _register_extension_blueprints(flask_app, database_path, project_root=None):
 
 def _setup_websocket(flask_app, database_path):
     """Configure WebSocket endpoint and admin connections route."""
-    from flask_sock import Sock
-    from .websocket import connection_manager
     import json as _json
+
+    from flask_sock import Sock
+
+    from .websocket import connection_manager
 
     _ws_logger = logging.getLogger(__name__ + ".websocket")
 
@@ -297,7 +299,11 @@ def create_app(
 
     @flask_app.route("/", defaults={"path": ""}, methods=["OPTIONS"])
     @flask_app.route("/<path:path>", methods=["OPTIONS"])
-    def handle_options(path: str) -> tuple[str, int]:  # pylint: disable=unused-argument  # path captured by Flask route converter but CORS preflight response is path-agnostic
+    def handle_options(
+        path: str,
+    ) -> tuple[
+        str, int
+    ]:  # pylint: disable=unused-argument  # path captured by Flask route converter but CORS preflight response is path-agnostic
         """Handle CORS preflight requests"""
         return "", 204
 

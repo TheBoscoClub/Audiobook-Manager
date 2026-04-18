@@ -164,12 +164,15 @@ def generate_translated_audio():
             (book_id, locale),
         ).fetchone()
         if not sub_row:
-            return jsonify(
-                {
-                    "error": "Translated subtitles not found. "
-                    "Generate subtitles first via POST /api/subtitles/generate"
-                }
-            ), 400
+            return (
+                jsonify(
+                    {
+                        "error": "Translated subtitles not found. "
+                        "Generate subtitles first via POST /api/subtitles/generate"
+                    }
+                ),
+                400,
+            )
 
         # Check if translated audio already exists
         existing = conn.execute(

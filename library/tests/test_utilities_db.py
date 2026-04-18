@@ -454,9 +454,7 @@ class TestParsingEdgeCases:
         import_path.touch()
 
         mock_run.return_value = MagicMock(
-            returncode=0,
-            stdout="Imported many audiobooks done",  # Malformed
-            stderr="",
+            returncode=0, stdout="Imported many audiobooks done", stderr=""  # Malformed
         )
 
         with flask_app.test_client() as client:

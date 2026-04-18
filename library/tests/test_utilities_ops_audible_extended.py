@@ -12,7 +12,6 @@ from unittest.mock import MagicMock, patch
 
 from tests.helpers import wait_for_thread_completion
 
-
 SUBPROCESS_MODULE = "backend.api_modular.utilities_ops._subprocess"
 MODULE = "backend.api_modular.utilities_ops.audible"
 HELPERS_MODULE = "backend.api_modular.utilities_ops._helpers"

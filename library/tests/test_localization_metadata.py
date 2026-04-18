@@ -10,11 +10,9 @@ from __future__ import annotations
 from typing import cast
 
 import requests
-
 from localization.metadata.douban import DOUBAN_API_URL, DoubanClient
 from localization.metadata.lookup import BookMetadata, MetadataLookup
 from localization.translation.deepl_translate import DeepLTranslator
-
 
 # --- DoubanClient.search_by_isbn ---------------------------------------------
 
@@ -182,8 +180,7 @@ class TestMetadataLookup:
 
     def test_douban_title_fallback_when_isbn_misses(self) -> None:
         douban = _StubDouban(
-            isbn_result=None,
-            title_result={"title": "书", "author": "作者"},  # no translator key
+            isbn_result=None, title_result={"title": "书", "author": "作者"}  # no translator key
         )
         lookup = MetadataLookup(douban_client=cast(DoubanClient, douban))
         meta = lookup.lookup("Book", "Author", "zh-Hans", isbn="9780000000001")

@@ -8,7 +8,6 @@ import json
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
-
 # =========================================================================
 # Line 452: check_upgrade — version field with non-github source
 # The existing extended test hits 440 (invalid path) before reaching 452.

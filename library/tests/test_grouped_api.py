@@ -239,9 +239,9 @@ class TestGroupedByAuthor:
 
         for group in data["groups"]:
             titles = [b["title"] for b in group["books"]]
-            assert titles == sorted(titles, key=str.lower), (
-                f"Books in group '{group['key']['name']}' not sorted by title: {titles}"
-            )
+            assert titles == sorted(
+                titles, key=str.lower
+            ), f"Books in group '{group['key']['name']}' not sorted by title: {titles}"
 
     def test_orphan_books_in_unknown_author_group(self, app_client, grouped_db):
         """Books with no junction rows appear in 'Unknown Author' group."""
@@ -326,28 +326,24 @@ class TestGroupedPublicationDateSort:
         king_id = grouped_db["author_ids"]["king"]
 
         # Add two more King books with dates that differ from alpha order
-        cursor.execute(
-            """INSERT INTO audiobooks (title, author, narrator, file_path, format,
+        cursor.execute("""INSERT INTO audiobooks (title, author, narrator, file_path, format,
                 duration_hours, content_type, file_size_mb,
                 published_date, published_year)
             VALUES ('The Stand', 'Stephen King', 'Grover Gardner',
                     '/test/stand.opus', 'opus', 20.0, 'Product', 200.0,
-                    '1978-10-03', 1978)"""
-        )
+                    '1978-10-03', 1978)""")
         stand_id = cursor.lastrowid
         cursor.execute(
             "INSERT INTO book_authors (book_id, author_id, position) VALUES (?, ?, 0)",
             (stand_id, king_id),
         )
 
-        cursor.execute(
-            """INSERT INTO audiobooks (title, author, narrator, file_path, format,
+        cursor.execute("""INSERT INTO audiobooks (title, author, narrator, file_path, format,
                 duration_hours, content_type, file_size_mb,
                 published_date, published_year)
             VALUES ('Carrie', 'Stephen King', 'Sissy Spacek',
                     '/test/carrie.opus', 'opus', 8.0, 'Product', 80.0,
-                    '1974-04-05', 1974)"""
-        )
+                    '1974-04-05', 1974)""")
         carrie_id = cursor.lastrowid
         cursor.execute(
             "INSERT INTO book_authors (book_id, author_id, position) VALUES (?, ?, 0)",

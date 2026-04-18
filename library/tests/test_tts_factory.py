@@ -1,12 +1,12 @@
 """Verify the TTS provider factory selects the right backend by config."""
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from library.localization.tts.factory import get_tts_provider
 from library.localization.tts.edge_tts_provider import EdgeTTSProvider
+from library.localization.tts.factory import get_tts_provider
 from library.localization.tts.vastai_xtts import VastaiXTTSProvider
 
 

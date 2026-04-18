@@ -26,23 +26,21 @@ Covers the largest coverage gaps:
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
-from unittest.mock import patch, MagicMock
-
+from unittest.mock import MagicMock, patch
 
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
 from auth import (  # noqa: E402
     AuthType,
-    UserRepository,
     InboxMessage,
-    ReplyMethod,
-    User,
-    Session,
     PendingRecovery,
+    ReplyMethod,
+    Session,
+    User,
+    UserRepository,
 )
 from auth.totp import TOTPAuthenticator  # noqa: E402
-
 
 # ──────────────────────────────────────────────────────────────────────
 # Helper: create an admin-authenticated client

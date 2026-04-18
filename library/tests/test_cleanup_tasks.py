@@ -11,14 +11,12 @@ import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-
 from backend.api_modular.maintenance_tasks.cleanup import (
+    _BACKUP_RETENTION,
     BackupRetentionTask,
     OrphanedSupplementsTask,
     StagingCleanupTask,
-    _BACKUP_RETENTION,
 )
-
 
 # ============================================================
 # Helper: create a minimal SQLite DB

@@ -20,8 +20,6 @@ from pathlib import Path
 # Add parent directories to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
-from config import DATABASE_PATH
-
 from name_parser import (
     clean_name,
     generate_sort_name,
@@ -30,6 +28,8 @@ from name_parser import (
     normalize_for_dedup,
     parse_names,
 )
+
+from config import DATABASE_PATH
 
 
 def _extract_primary_name_parts(raw_name):

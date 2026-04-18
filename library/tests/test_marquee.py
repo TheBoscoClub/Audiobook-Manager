@@ -2,6 +2,7 @@
 """Tests for new books marquee."""
 
 import os
+
 import pytest
 
 

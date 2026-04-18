@@ -267,7 +267,9 @@ def _apply_book_update(cursor, book_id, book_updates):
     """Execute a single UPDATE for one audiobook's sort fields."""
     set_clauses = ", ".join(f"{k} = ?" for k in book_updates.keys())
     values = list(book_updates.values()) + [book_id]
-    cursor.execute(f"UPDATE audiobooks SET {set_clauses} WHERE id = ?", values)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    cursor.execute(
+        f"UPDATE audiobooks SET {set_clauses} WHERE id = ?", values
+    )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
 
 
 def _print_sort_summary(totals, sample_updates, dry_run):

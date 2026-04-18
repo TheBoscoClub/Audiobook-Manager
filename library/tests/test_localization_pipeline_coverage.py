@@ -480,9 +480,7 @@ class TestHandleNoChapters:
         audio = tmp_path / "book.opus"
         audio.write_bytes(b"x")
         with patch.object(
-            mod,
-            "generate_subtitles",
-            return_value=(tmp_path / "s.vtt", tmp_path / "t.vtt"),
+            mod, "generate_subtitles", return_value=(tmp_path / "s.vtt", tmp_path / "t.vtt")
         ):
             result = mod._handle_no_chapters(audio, tmp_path, "zh-Hans", "en", None, None)
         assert len(result) == 1
@@ -583,14 +581,8 @@ class TestVTTGenerator:
     def test_generate_dual_vtt_stacks_source_and_translation(self, tmp_path):
         from localization.subtitles.vtt_generator import VTTCue, generate_dual_vtt
 
-        source = [
-            VTTCue(0, 1_000, "Hello"),
-            VTTCue(1_500, 2_500, "World"),
-        ]
-        translated = [
-            VTTCue(0, 1_000, "你好"),
-            VTTCue(1_500, 2_500, "世界"),
-        ]
+        source = [VTTCue(0, 1_000, "Hello"), VTTCue(1_500, 2_500, "World")]
+        translated = [VTTCue(0, 1_000, "你好"), VTTCue(1_500, 2_500, "世界")]
         out = tmp_path / "dual.vtt"
         generate_dual_vtt(source, translated, out)
         text = out.read_text(encoding="utf-8")
@@ -661,12 +653,7 @@ class TestGenerateBookSubtitlesOrchestration:
             patch.object(mod, "_process_one_chapter", return_value=(src_vtt, None)),
         ):
             result = mod.generate_book_subtitles(
-                audio,
-                tmp_path,
-                "zh-Hans",
-                "en",
-                on_progress=progress,
-                on_chapter_complete=complete,
+                audio, tmp_path, "zh-Hans", "en", on_progress=progress, on_chapter_complete=complete
             )
         assert len(result) == 2
         assert len(progress_events) == 2
@@ -811,11 +798,7 @@ class TestWhisperSTT:
         status = MagicMock()
         status.json.return_value = {
             "status": "COMPLETED",
-            "output": {
-                "segments": [
-                    {"words": [{"word": "hi", "start": 0, "end": 0.1}]},
-                ],
-            },
+            "output": {"segments": [{"words": [{"word": "hi", "start": 0, "end": 0.1}]}]},
         }
         status.raise_for_status.return_value = None
 
@@ -925,25 +908,14 @@ class TestVastaiWhisperSTT:
     def test_extract_raw_words_prefers_top_level(self):
         from localization.stt.vastai_whisper import _extract_raw_words
 
-        data = {
-            "words": [{"word": "a"}],
-            "segments": [{"words": [{"word": "ignored"}]}],
-        }
+        data = {"words": [{"word": "a"}], "segments": [{"words": [{"word": "ignored"}]}]}
         assert _extract_raw_words(data) == [{"word": "a"}]
 
     def test_extract_raw_words_falls_back_to_segments(self):
         from localization.stt.vastai_whisper import _extract_raw_words
 
-        data = {
-            "segments": [
-                {"words": [{"word": "hello"}]},
-                {"words": [{"word": "world"}]},
-            ]
-        }
-        assert _extract_raw_words(data) == [
-            {"word": "hello"},
-            {"word": "world"},
-        ]
+        data = {"segments": [{"words": [{"word": "hello"}]}, {"words": [{"word": "world"}]}]}
+        assert _extract_raw_words(data) == [{"word": "hello"}, {"word": "world"}]
 
     def test_parse_word_timestamps_drops_empty_words(self):
         from localization.stt.vastai_whisper import _parse_word_timestamps
@@ -968,10 +940,8 @@ class TestVastaiWhisperSTT:
         assert _extract_duration_ms({"duration": 3.5}, []) == 3_500
 
     def test_extract_duration_ms_falls_back_to_last_word(self):
-        from localization.stt.vastai_whisper import (
-            _extract_duration_ms,
-        )
         from localization.stt.base import WordTimestamp
+        from localization.stt.vastai_whisper import _extract_duration_ms
 
         words = [
             WordTimestamp(word="a", start_ms=0, end_ms=500),
@@ -1015,8 +985,7 @@ def _queue_fixture(tmp_path: Path):
 
     db_path = tmp_path / "queue_helpers.db"
     conn = sq.connect(str(db_path))
-    conn.executescript(
-        """
+    conn.executescript("""
         CREATE TABLE audiobooks (
             id INTEGER PRIMARY KEY,
             title TEXT NOT NULL,
@@ -1041,8 +1010,7 @@ def _queue_fixture(tmp_path: Path):
             duration_seconds REAL,
             UNIQUE(audiobook_id, chapter_index, locale)
         );
-        """
-    )
+        """)
     conn.commit()
     conn.close()
 
@@ -1091,8 +1059,7 @@ class TestLoadBookState:
         audio.write_bytes(b"x")
         conn = sq.connect(str(db_path))
         conn.execute(
-            "INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'X', ?)",
-            (str(audio),),
+            "INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'X', ?)", (str(audio),)
         )
         conn.execute(
             "INSERT INTO chapter_subtitles "
@@ -1135,10 +1102,7 @@ class TestRunPhases:
     def test_stt_phase_resumes_when_tr_lags_en(self, _queue_fixture):
         lq, _db, _tmp = _queue_fixture
         book = {"id": 1, "title": "X"}
-        with (
-            patch.object(lq, "_run_stt_and_translate") as runner,
-            patch.object(lq, "_set_current"),
-        ):
+        with patch.object(lq, "_run_stt_and_translate") as runner, patch.object(lq, "_set_current"):
             lq._run_stt_phase(book, "zh-Hans", Path("/a"), {0, 1, 2}, {0}, "stt")
         runner.assert_called_once()
         # Skip set is the existing_en set.
@@ -1162,10 +1126,7 @@ class TestRunPhases:
     def test_tts_phase_runs_when_no_tts(self, _queue_fixture):
         lq, _db, _tmp = _queue_fixture
         book = {"id": 1, "title": "X"}
-        with (
-            patch.object(lq, "_run_tts") as runner,
-            patch.object(lq, "_set_current"),
-        ):
+        with patch.object(lq, "_run_tts") as runner, patch.object(lq, "_set_current"):
             lq._run_tts_phase(book, "zh-Hans", Path("/a"), has_tts=None)
         runner.assert_called_once()
 
@@ -1191,8 +1152,7 @@ class TestProcessJob:
         audio.write_bytes(b"x")
         conn = sq.connect(str(db_path))
         conn.execute(
-            "INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'X', ?)",
-            (str(audio),),
+            "INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'X', ?)", (str(audio),)
         )
         conn.commit()
         conn.close()
@@ -1214,8 +1174,7 @@ class TestProcessJob:
         audio.write_bytes(b"x")
         conn = sq.connect(str(db_path))
         conn.execute(
-            "INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'X', ?)",
-            (str(audio),),
+            "INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'X', ?)", (str(audio),)
         )
         conn.commit()
         conn.close()
@@ -1507,8 +1466,7 @@ class TestRunTts:
         audio.write_bytes(b"x")
         conn = sq.connect(str(db_path))
         conn.execute(
-            "INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'X', ?)",
-            (str(audio),),
+            "INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'X', ?)", (str(audio),)
         )
         conn.execute(
             "INSERT INTO chapter_subtitles "
@@ -1613,8 +1571,7 @@ class TestXTTSProvider:
 
         requests_mock.post("https://api.runpod.ai/v2/ep/run", json={"id": "job-0"})
         requests_mock.get(
-            "https://api.runpod.ai/v2/ep/status/job-0",
-            json={"status": "COMPLETED", "output": {}},
+            "https://api.runpod.ai/v2/ep/status/job-0", json={"status": "COMPLETED", "output": {}}
         )
         with pytest.raises(RuntimeError, match="no audio data"):
             XTTSProvider("key", "ep").synthesize("hi", "zh", "default", tmp_path / "o.wav")
@@ -1649,8 +1606,7 @@ class TestXTTSProvider:
 
         requests_mock.post("https://api.runpod.ai/v2/ep/run", json={"id": "job-slow"})
         requests_mock.get(
-            "https://api.runpod.ai/v2/ep/status/job-slow",
-            json={"status": "IN_PROGRESS"},
+            "https://api.runpod.ai/v2/ep/status/job-slow", json={"status": "IN_PROGRESS"}
         )
         with pytest.raises(TimeoutError):
             XTTSProvider("key", "ep").synthesize("hi", "zh", "default", tmp_path / "o.wav")
@@ -1693,8 +1649,7 @@ class TestDeepLSTT:
         from localization.stt.deepl_stt import DeepLSTT
 
         requests_mock.get(
-            "https://api.deepl.com/v2/usage",
-            json={"character_count": 0, "character_limit": 7500},
+            "https://api.deepl.com/v2/usage", json={"character_count": 0, "character_limit": 7500}
         )
         # 7500 chars / 750 per minute = 10 minutes
         assert DeepLSTT("k").usage_remaining() == 10

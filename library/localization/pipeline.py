@@ -295,11 +295,7 @@ def _process_one_chapter(
         transcript = _transcribe_with_fallback(provider, chapter_file, source_lang)
         source_sentences = transcript.sentence_texts()
         if not source_sentences:
-            logger.warning(
-                "No speech in chapter %d (%s) — skipping",
-                chapter.index,
-                chapter.title,
-            )
+            logger.warning("No speech in chapter %d (%s) — skipping", chapter.index, chapter.title)
             return None
 
         source_cues, _ = align_translations(transcript, source_sentences)

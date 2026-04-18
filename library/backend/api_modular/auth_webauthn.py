@@ -23,29 +23,28 @@ import logging
 import sys
 from pathlib import Path
 
-from flask import jsonify, request
-
 from auth import (
     AuthType,
     PendingRegistrationRepository,
+    Session,
     User,
     UserRepository,
     WebAuthnCredential,
 )
 from auth.backup_codes import BackupCodeRepository
+from flask import jsonify, request
 
 from . import auth as _auth_module
 from .auth import (
+    _extract_recovery_fields,
+    _recovery_warning,
+    _user_allows_multi_session,
+    _validate_webauthn_reg_input,
+    _verify_webauthn_credential,
     auth_bp,
     get_auth_db,
     set_session_cookie,
-    _user_allows_multi_session,
-    _extract_recovery_fields,
-    _validate_webauthn_reg_input,
-    _verify_webauthn_credential,
-    _recovery_warning,
 )
-from auth import Session
 
 logger = logging.getLogger(__name__)
 
@@ -161,11 +160,7 @@ def register_webauthn_begin():
     )
 
     return jsonify(
-        {
-            "options": options_json,
-            "challenge": bytes_to_base64url(challenge),
-            "token": token,
-        }
+        {"options": options_json, "challenge": bytes_to_base64url(challenge), "token": token}
     )
 
 

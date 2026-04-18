@@ -17,13 +17,13 @@ import argparse
 import base64
 import os
 import sys
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 from typing import Optional, Tuple
 
 try:
-    from mutagen.oggopus import OggOpus
     from mutagen.flac import Picture
+    from mutagen.oggopus import OggOpus
 except ImportError:
     print("Error: mutagen is required. Install with: pip3 install mutagen")
     sys.exit(1)
@@ -81,9 +81,7 @@ def get_mime_type(cover_path: Path) -> str:
         return "image/jpeg"  # Default to JPEG
 
 
-def embed_cover(
-    opus_path: Path, cover_path: Path, dry_run: bool = False
-) -> Tuple[bool, str]:
+def embed_cover(opus_path: Path, cover_path: Path, dry_run: bool = False) -> Tuple[bool, str]:
     """
     Embed cover art into opus file using mutagen.
 
@@ -138,25 +136,15 @@ def process_file(opus_path: Path, dry_run: bool = False) -> Tuple[str, bool, str
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Embed cover art into Opus audiobook files"
+    parser = argparse.ArgumentParser(description="Embed cover art into Opus audiobook files")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Show what would be done without making changes"
     )
     parser.add_argument(
-        "--dry-run",
-        action="store_true",
-        help="Show what would be done without making changes",
+        "--parallel", type=int, default=8, help="Number of parallel workers (default: 8)"
     )
     parser.add_argument(
-        "--parallel",
-        type=int,
-        default=8,
-        help="Number of parallel workers (default: 8)",
-    )
-    parser.add_argument(
-        "--limit",
-        type=int,
-        default=0,
-        help="Limit number of files to process (0 = no limit)",
+        "--limit", type=int, default=0, help="Limit number of files to process (0 = no limit)"
     )
     parser.add_argument(
         "--dir",

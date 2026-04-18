@@ -9,9 +9,9 @@ Tests cover:
 - Integration with auth database (via AuthType enum)
 """
 
+import json
 import os
 import sys
-import json
 import tempfile
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -22,29 +22,22 @@ import pytest
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from auth import (  # noqa: E402
-    AuthDatabase,
-    AuthType,
-    User,
-    UserRepository,
-)
-
+from auth import AuthDatabase, AuthType, User, UserRepository  # noqa: E402
 from auth.passkey import (  # noqa: E402
-    WebAuthnCredential,
-    WebAuthnChallenge,
-    create_registration_options,
-    verify_registration,
-    create_authentication_options,
-    verify_authentication,
-    get_pending_challenge,
-    clear_challenge,
-    cleanup_expired_challenges,
-    _pending_challenges,
     CHALLENGE_TIMEOUT_SECONDS,
     DEFAULT_RP_ID,
     DEFAULT_RP_NAME,
+    WebAuthnChallenge,
+    WebAuthnCredential,
+    _pending_challenges,
+    cleanup_expired_challenges,
+    clear_challenge,
+    create_authentication_options,
+    create_registration_options,
+    get_pending_challenge,
+    verify_authentication,
+    verify_registration,
 )
-
 from webauthn.helpers import bytes_to_base64url  # noqa: E402
 
 

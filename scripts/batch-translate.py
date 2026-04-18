@@ -43,7 +43,7 @@ logger = logging.getLogger("batch-translate")
 _shutdown = False
 
 
-def _signal_handler(sig, frame):
+def _signal_handler(_sig, _frame):
     global _shutdown
     logger.info("Shutdown signal received — finishing current book then exiting")
     _shutdown = True
@@ -154,11 +154,7 @@ def process_book_stt(db_path: str, book_id: int, locale: str, audio_path: Path) 
     conn.close()
 
     if existing_en:
-        logger.info(
-            "  Book %d: %d English chapters already transcribed",
-            book_id,
-            len(existing_en),
-        )
+        logger.info("  Book %d: %d English chapters already transcribed", book_id, len(existing_en))
 
     stt = get_stt_provider("", workload=WorkloadHint.LONG_FORM)
     logger.info("  STT provider: %s", stt.name)
@@ -182,9 +178,7 @@ def process_book_stt(db_path: str, book_id: int, locale: str, audio_path: Path) 
             except Exception:
                 pass
 
-        def on_chapter_complete(
-            ch_idx: int, source_vtt: Path, translated_vtt: Path | None
-        ):
+        def on_chapter_complete(ch_idx: int, source_vtt: Path, translated_vtt: Path | None):
             gen_conn.execute(
                 "INSERT OR REPLACE INTO chapter_subtitles "
                 "(audiobook_id, chapter_index, locale, vtt_path, "
@@ -240,9 +234,7 @@ def process_book_tts(db_path: str, book_id: int, locale: str, audio_path: Path) 
     output_dir = audio_path.parent / "translated"
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info(
-        "  TTS provider: %s, voice: %s, chapters: %d", tts.name, voice, len(vtt_rows)
-    )
+    logger.info("  TTS provider: %s, voice: %s, chapters: %d", tts.name, voice, len(vtt_rows))
 
     for row in vtt_rows:
         ch_idx = row["chapter_index"]
@@ -348,18 +340,10 @@ def main():
     parser.add_argument("--db", required=True, help="Path to audiobooks.db")
     parser.add_argument("--library", required=True, help="Path to audiobook library")
     parser.add_argument("--book-id", type=int, help="Process a single book ID")
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Show what would be processed"
-    )
-    parser.add_argument(
-        "--stt-only", action="store_true", help="Only run STT, skip TTS"
-    )
-    parser.add_argument(
-        "--tts-only", action="store_true", help="Only run TTS, skip STT"
-    )
-    parser.add_argument(
-        "--vastai-host", help="Vast.ai Whisper host:port (e.g., 127.0.0.1:8100)"
-    )
+    parser.add_argument("--dry-run", action="store_true", help="Show what would be processed")
+    parser.add_argument("--stt-only", action="store_true", help="Only run STT, skip TTS")
+    parser.add_argument("--tts-only", action="store_true", help="Only run TTS, skip STT")
+    parser.add_argument("--vastai-host", help="Vast.ai Whisper host:port (e.g., 127.0.0.1:8100)")
     args = parser.parse_args()
 
     db_path = args.db
@@ -405,9 +389,7 @@ def main():
     ).fetchone()[0]
     conn.close()
 
-    logger.info(
-        "Queue: %d pending, %d completed, %d failed", pending, completed, failed
-    )
+    logger.info("Queue: %d pending, %d completed, %d failed", pending, completed, failed)
 
     if args.dry_run:
         conn = get_db(db_path)
@@ -417,7 +399,7 @@ def main():
             "JOIN audiobooks a ON a.id = tq.audiobook_id "
             "WHERE tq.state = 'pending' "
             "ORDER BY tq.priority DESC, tq.created_at ASC "
-            "LIMIT 20",
+            "LIMIT 20"
         ).fetchall()
         conn.close()
         logger.info("Next %d books to process:", len(rows))
@@ -442,8 +424,7 @@ def main():
 
         conn = get_db(db_path)
         book = conn.execute(
-            "SELECT id, title, file_path FROM audiobooks WHERE id = ?",
-            (book_id,),
+            "SELECT id, title, file_path FROM audiobooks WHERE id = ?", (book_id,)
         ).fetchone()
         conn.close()
 
@@ -453,12 +434,7 @@ def main():
 
         audio_path = Path(book["file_path"])
         if not audio_path.exists():
-            finish_job(
-                db_path,
-                job["id"],
-                "failed",
-                error=f"Audio file not found: {audio_path}",
-            )
+            finish_job(db_path, job["id"], "failed", error=f"Audio file not found: {audio_path}")
             continue
 
         processed += 1

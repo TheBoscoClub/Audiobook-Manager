@@ -108,9 +108,12 @@ def create_app():
     @app.route("/transcribe", methods=["POST"])
     def transcribe():
         if "file" not in request.files:
-            return jsonify(
-                {"error": "No file uploaded. Send as multipart/form-data with key 'file'."}
-            ), 400
+            return (
+                jsonify(
+                    {"error": "No file uploaded. Send as multipart/form-data with key 'file'."}
+                ),
+                400,
+            )
 
         audio_file = request.files["file"]
         language = request.form.get("language", "en")
@@ -134,7 +137,9 @@ def create_app():
 
 def main():
     parser = argparse.ArgumentParser(description="Whisper GPU transcription service")
-    parser.add_argument("--host", default="0.0.0.0", help="Bind address")  # nosec B104 — GPU cloud instance
+    parser.add_argument(
+        "--host", default="0.0.0.0", help="Bind address"
+    )  # nosec B104 — GPU cloud instance
     parser.add_argument("--port", type=int, default=8765, help="Listen port")
     parser.add_argument("--model", default="large-v3", help="Whisper model size")
     parser.add_argument("--preload", action="store_true", help="Load model at startup")

@@ -21,8 +21,8 @@ import re
 import sqlite3
 import sys
 import time
-import urllib.request
 import urllib.error
+import urllib.request
 from pathlib import Path
 
 # Add parent dirs for config import — optional when --db is provided

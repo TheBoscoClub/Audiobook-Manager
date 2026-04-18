@@ -4,7 +4,6 @@ import os
 import tempfile
 
 import pytest
-
 from auth.database import AuthDatabase
 from auth.models import AuthType, Session, SessionRepository, User
 

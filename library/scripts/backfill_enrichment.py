@@ -89,10 +89,7 @@ def _match_book_ids_by_title(title_map: dict[str, list[int]], title_normalized: 
 
 
 def _apply_asin_recovery(
-    cursor: sqlite3.Cursor,
-    book_ids: list[int],
-    asin: str,
-    dry_run: bool,
+    cursor: sqlite3.Cursor, book_ids: list[int], asin: str, dry_run: bool
 ) -> int:
     """Write the recovered ASIN to each matched book and return the
     count of rows that would be (or were) affected."""

@@ -11,8 +11,9 @@ import sys
 import tempfile
 from pathlib import Path
 
-from config import AUDIOBOOKS_DATABASE
 from flask import Blueprint, request
+
+from config import AUDIOBOOKS_DATABASE
 
 from ..auth import admin_if_enabled
 from ..core import FlaskResponse

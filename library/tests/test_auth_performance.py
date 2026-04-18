@@ -25,13 +25,13 @@ sys.path.insert(0, str(LIBRARY_DIR))
 from auth import (  # noqa: E402
     AuthDatabase,
     AuthType,
-    User,
-    UserRepository,
+    Notification,
+    NotificationRepository,
+    NotificationType,
     Session,
     SessionRepository,
-    Notification,
-    NotificationType,
-    NotificationRepository,
+    User,
+    UserRepository,
     hash_token,
 )
 
@@ -170,7 +170,9 @@ class TestTokenHashingPerformance:
 
     def test_hash_token_consistency(self):
         """Verify same token produces same hash."""
-        token = "consistent_token_test"  # nosec B105 # noqa: S105 — test fixture, not a real credential
+        token = (
+            "consistent_token_test"  # nosec B105 # noqa: S105 — test fixture, not a real credential
+        )
         hashes = [hash_token(token) for _ in range(100)]
 
         # All hashes should be identical

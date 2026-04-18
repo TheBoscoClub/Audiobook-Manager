@@ -14,12 +14,12 @@ from flask import Blueprint, Response, current_app, jsonify, request, send_file,
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from config import COVER_DIR, AUDIOBOOKS_WEBM_CACHE
+from config import AUDIOBOOKS_WEBM_CACHE, COVER_DIR
 
+from .auth import auth_if_enabled, download_permission_required, guest_allowed
 from .collections import get_collections_lookup
 from .core import FlaskResponse, get_db
 from .editions import has_edition_marker, normalize_base_title
-from .auth import auth_if_enabled, guest_allowed, download_permission_required
 from .search_cjk import cjk_bigram_like_clause, contains_cjk
 
 logger = logging.getLogger(__name__)
@@ -34,7 +34,9 @@ audiobooks_bp = Blueprint("audiobooks", __name__)
 AUDIOBOOK_FILTER = "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
 
 
-def init_audiobooks_routes(db_path, project_root, database_path):  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
+def init_audiobooks_routes(
+    db_path, project_root, database_path
+):  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
     """Initialize audiobooks routes (no-op, kept for API compatibility).
 
     Database path is now resolved at request time via current_app.config.
@@ -58,7 +60,9 @@ def get_stats() -> Response:
     cursor = conn.cursor()
 
     # Total audiobooks (audiobooks only)
-    cursor.execute(f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}")  # nosec B608  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    cursor.execute(
+        f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
+    )  # nosec B608  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     total_books = cursor.fetchone()["total"]
 
     # Total hours (audiobooks only)

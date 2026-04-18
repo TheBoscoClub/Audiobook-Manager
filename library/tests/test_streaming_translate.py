@@ -16,17 +16,15 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
 from backend.api_modular import streaming_translate as st
 from backend.api_modular.streaming_translate import (
-    _chapter_segment_count,
     _LOG_SCRUB_RE,
     _SAFE_LOCALE_RE,
+    _chapter_segment_count,
     _safe_log_value,
     _safe_subtitles_path,
     _sanitize_locale,
 )
-
 
 # ── Module-level helpers ──
 
@@ -166,8 +164,7 @@ class TestChapterSegmentCount:
 def _init_translation_queue(db_path: Path) -> None:
     """Create the translation_queue table used by the streaming fallback."""
     conn = sqlite3.connect(str(db_path))
-    conn.execute(
-        """
+    conn.execute("""
         CREATE TABLE IF NOT EXISTS translation_queue (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             audiobook_id INTEGER NOT NULL,
@@ -177,8 +174,7 @@ def _init_translation_queue(db_path: Path) -> None:
             total_chapters INTEGER,
             UNIQUE(audiobook_id, locale)
         )
-        """
-    )
+        """)
     conn.commit()
     conn.close()
 
@@ -562,7 +558,9 @@ class TestChapterComplete:
         assert "zh-Hans" in locales
         assert "en" in locales  # source VTT stored as English
         assert audio is not None
-        assert audio[0] == "/tmp/audio.opus"  # nosec B108 -- assertion against DB string payload, no filesystem access
+        assert (
+            audio[0] == "/tmp/audio.opus"
+        )  # nosec B108 -- assertion against DB string payload, no filesystem access
 
     def test_chapter_complete_minimal_body(self, app_client, streaming_db):
         """Only audiobook_id/chapter_index/locale — worker reported empty chapter."""

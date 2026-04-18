@@ -1,7 +1,7 @@
 """Verify VastaiWhisperSTT parses both faster-whisper and whisper.cpp shapes."""
 
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 

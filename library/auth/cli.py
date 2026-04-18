@@ -17,10 +17,10 @@ Usage:
 """
 
 import argparse
-import sys
-import os
 import base64
+import os
 import secrets
+import sys
 from pathlib import Path
 
 # Add library to path if running directly
@@ -28,9 +28,9 @@ if __name__ == "__main__":
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
-    from library.auth import AuthDatabase, AuthType, User, UserRepository, SessionRepository
+    from library.auth import AuthDatabase, AuthType, SessionRepository, User, UserRepository
 except ModuleNotFoundError:
-    from auth import AuthDatabase, AuthType, User, UserRepository, SessionRepository
+    from auth import AuthDatabase, AuthType, SessionRepository, User, UserRepository
 
 
 def get_db(args) -> AuthDatabase:

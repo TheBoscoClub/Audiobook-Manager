@@ -13,7 +13,7 @@
 FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa
 
 # Read version from VERSION file during build
-ARG APP_VERSION=8.3.1
+ARG APP_VERSION=8.3.2
 
 LABEL maintainer="Audiobooks Project"
 LABEL description="Standalone audiobook library — fully self-contained with all databases and dependencies"

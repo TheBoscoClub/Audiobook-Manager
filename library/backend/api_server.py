@@ -18,6 +18,7 @@ from pathlib import Path  # noqa: E402
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from api_modular import create_app  # noqa: E402
+
 from config import API_PORT, DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR  # noqa: E402
 
 
@@ -52,10 +53,14 @@ if __name__ == "__main__":
     # Direct execution for development/testing only
     debug = os.environ.get("FLASK_DEBUG", "false").lower() in ("true", "1", "yes")
     if debug:
-        app.run(host="127.0.0.1", port=API_PORT, debug=True)  # nosec B201 — dev-only path behind __main__ guard; production uses Gunicorn
+        app.run(
+            host="127.0.0.1", port=API_PORT, debug=True
+        )  # nosec B201 — dev-only path behind __main__ guard; production uses Gunicorn
     else:
         from gevent.pywsgi import WSGIServer
 
-        server = WSGIServer(("0.0.0.0", API_PORT), app)  # nosec B104 — intentional: Caddy reverse proxy connects here
+        server = WSGIServer(
+            ("0.0.0.0", API_PORT), app
+        )  # nosec B104 — intentional: Caddy reverse proxy connects here
         print(f"Serving on http://0.0.0.0:{API_PORT}")
         server.serve_forever()

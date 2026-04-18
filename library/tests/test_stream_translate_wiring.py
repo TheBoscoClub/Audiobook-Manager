@@ -1,7 +1,7 @@
 """Enforces `.claude/rules/upgrade-consistency.md` — no orphan scripts."""
 
-from pathlib import Path
 import re
+from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 

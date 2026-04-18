@@ -46,10 +46,11 @@ from typing import List, Optional
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from common import normalize_title
-from config import DATABASE_PATH
 
 # Import OpenLibrary client
 from utils.openlibrary_client import OpenLibraryClient
+
+from config import DATABASE_PATH
 
 DB_PATH = DATABASE_PATH
 FUZZY_THRESHOLD = 0.85

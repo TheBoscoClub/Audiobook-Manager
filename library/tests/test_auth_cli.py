@@ -13,28 +13,26 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-
-from auth.cli import (
-    validate_username,
-    generate_totp_secret,
-    secret_to_base32,
-    generate_totp_uri,
-    get_db,
-    cmd_init,
-    cmd_list,
-    cmd_add,
-    cmd_delete,
-    cmd_grant,
-    cmd_revoke,
-    cmd_kick,
-    cmd_info,
-    cmd_totp_reset,
-    main,
-)
-
 # Import AuthType from the same module that cli.py resolved it to,
 # so enum identity comparisons work correctly in the code under test.
 import auth.cli as _cli_mod
+from auth.cli import (
+    cmd_add,
+    cmd_delete,
+    cmd_grant,
+    cmd_info,
+    cmd_init,
+    cmd_kick,
+    cmd_list,
+    cmd_revoke,
+    cmd_totp_reset,
+    generate_totp_secret,
+    generate_totp_uri,
+    get_db,
+    main,
+    secret_to_base32,
+    validate_username,
+)
 
 AuthType = _cli_mod.AuthType
 
@@ -203,7 +201,9 @@ class TestCmdInit:
         db.verify.return_value = {"schema_version": 1, "table_count": 8, "user_count": 0}
         mock_get_db.return_value = db
 
-        args = _make_args(database="/tmp/test.db", key_file="/tmp/key")  # nosec B108  # test fixture path
+        args = _make_args(
+            database="/tmp/test.db", key_file="/tmp/key"
+        )  # nosec B108  # test fixture path
         result = cmd_init(args)
 
         assert result == 0
@@ -218,7 +218,9 @@ class TestCmdInit:
         db.verify.return_value = {"schema_version": 1, "table_count": 8, "user_count": 3}
         mock_get_db.return_value = db
 
-        args = _make_args(database="/tmp/test.db", key_file="/tmp/key")  # nosec B108  # test fixture path
+        args = _make_args(
+            database="/tmp/test.db", key_file="/tmp/key"
+        )  # nosec B108  # test fixture path
         result = cmd_init(args)
 
         assert result == 0
@@ -231,7 +233,9 @@ class TestCmdInit:
         db.initialize.side_effect = RuntimeError("disk full")
         mock_get_db.return_value = db
 
-        args = _make_args(database="/tmp/test.db", key_file="/tmp/key")  # nosec B108  # test fixture path
+        args = _make_args(
+            database="/tmp/test.db", key_file="/tmp/key"
+        )  # nosec B108  # test fixture path
         result = cmd_init(args)
 
         assert result == 1

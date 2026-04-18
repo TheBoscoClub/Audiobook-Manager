@@ -21,9 +21,7 @@ Covers:
 
 import pyotp
 import pytest
-
 from auth.models import AuthType, Session, User, UserRepository
-
 
 # ──────────────────────────────────────────────────────────────────────
 # Helpers

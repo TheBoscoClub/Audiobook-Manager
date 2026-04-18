@@ -10,8 +10,8 @@ Provides real-time bidirectional communication for:
 import json
 import logging
 import sqlite3
-import time
 import threading
+import time
 
 logger = logging.getLogger(__name__)
 

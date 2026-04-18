@@ -12,7 +12,6 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from localization.translation.deepl_translate import (
     DEEPL_API_URL,
     DEEPL_FREE_API_URL,
@@ -22,7 +21,6 @@ from localization.translation.deepl_translate import (
 )
 from localization.translation.quota import QuotaExceededError
 
-
 # ── Fixtures ─────────────────────────────────────────────────────────
 
 
@@ -31,8 +29,7 @@ def tm_db(tmp_path: Path) -> Path:
     """Minimal string_translations table so TM paths can exercise the DB."""
     db = tmp_path / "tm.db"
     conn = sqlite3.connect(db)
-    conn.execute(
-        """CREATE TABLE string_translations (
+    conn.execute("""CREATE TABLE string_translations (
              source_hash TEXT NOT NULL,
              locale TEXT NOT NULL,
              source TEXT,
@@ -40,8 +37,7 @@ def tm_db(tmp_path: Path) -> Path:
              translator TEXT,
              updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
              PRIMARY KEY (source_hash, locale)
-           )"""
-    )
+           )""")
     conn.commit()
     conn.close()
     return db

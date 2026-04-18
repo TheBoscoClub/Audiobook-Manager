@@ -14,8 +14,6 @@ logger = logging.getLogger(__name__)
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import COVER_DIR, DATA_DIR, DATABASE_PATH  # noqa: E402
-
 from name_parser import (  # noqa: E402
     clean_name,
     generate_sort_name,
@@ -24,6 +22,8 @@ from name_parser import (  # noqa: E402
     normalize_for_dedup,
     parse_names,
 )
+
+from config import COVER_DIR, DATA_DIR, DATABASE_PATH  # noqa: E402
 
 DB_PATH = DATABASE_PATH
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
@@ -111,8 +111,7 @@ def _ensure_entity(cursor, cleaned, entity_map, table):
     if dedup_key not in entity_map:
         sn = generate_sort_name(cleaned) or cleaned
         cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"INSERT INTO {table} (name, sort_name) VALUES (?, ?)",  # nosec B608
-            (cleaned, sn),
+            f"INSERT INTO {table} (name, sort_name) VALUES (?, ?)", (cleaned, sn)  # nosec B608
         )
         entity_map[dedup_key] = cursor.lastrowid
     return entity_map[dedup_key]
@@ -410,7 +409,9 @@ def _insert_taxonomy_items(cursor, audiobook_id, items, entity_map, table, junct
     id_col = table.rstrip("s") + "_id"
     for item_name in items:
         if item_name not in entity_map:
-            cursor.execute(f"INSERT INTO {table} (name) VALUES (?)", (item_name,))  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+            cursor.execute(
+                f"INSERT INTO {table} (name) VALUES (?)", (item_name,)
+            )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             entity_map[item_name] = cursor.lastrowid
         cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             f"INSERT INTO {junction_table} (audiobook_id, {id_col}) VALUES (?, ?)",  # nosec B608
@@ -458,7 +459,9 @@ def import_audiobooks(conn):
 
     # Clear existing data
     for table in _CLEAR_TABLES:
-        cursor.execute(f"DELETE FROM {table}")  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query,python.lang.security.audit.formatted-sql-query.formatted-sql-query
+        cursor.execute(
+            f"DELETE FROM {table}"
+        )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query,python.lang.security.audit.formatted-sql-query.formatted-sql-query
 
     print("\nImporting audiobooks...")
 

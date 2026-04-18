@@ -342,7 +342,7 @@ class TestUpgradeSafety:
         create_v4_database(v4_db_path, key_path)
 
         from auth.database import AuthDatabase
-        from auth.models import User, AuthType
+        from auth.models import AuthType, User
 
         db = AuthDatabase(db_path=str(v4_db_path), key_path=str(key_path), is_dev=True)
         db.initialize()

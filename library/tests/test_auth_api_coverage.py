@@ -10,7 +10,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
@@ -29,7 +28,6 @@ from auth import (  # noqa: E402
     hash_token,
 )
 from auth.totp import TOTPAuthenticator  # noqa: E402
-
 
 # ──────────────────────────────────────────────────────────────────────
 # Helpers

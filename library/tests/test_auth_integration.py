@@ -691,10 +691,10 @@ def _parse_creation_options(options: dict):
     PublicKeyCredentialCreationOptions."""
     from fido2.webauthn import (
         PublicKeyCredentialCreationOptions,
-        PublicKeyCredentialRpEntity,
-        PublicKeyCredentialUserEntity,
         PublicKeyCredentialParameters,
+        PublicKeyCredentialRpEntity,
         PublicKeyCredentialType,
+        PublicKeyCredentialUserEntity,
     )
 
     rp = PublicKeyCredentialRpEntity(id=options["rp"]["id"], name=options["rp"]["name"])
@@ -727,8 +727,8 @@ def _parse_request_options(options: dict):
     """Convert server JSON options to fido2.webauthn
     PublicKeyCredentialRequestOptions."""
     from fido2.webauthn import (
-        PublicKeyCredentialRequestOptions,
         PublicKeyCredentialDescriptor,
+        PublicKeyCredentialRequestOptions,
         PublicKeyCredentialType,
     )
 

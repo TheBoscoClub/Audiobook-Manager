@@ -17,17 +17,17 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from webauthn import (
-    generate_registration_options,
-    verify_registration_response,
-    generate_authentication_options,
-    verify_authentication_response,
-    options_to_json,
     base64url_to_bytes,
+    generate_authentication_options,
+    generate_registration_options,
+    options_to_json,
+    verify_authentication_response,
+    verify_registration_response,
 )
 from webauthn.helpers import (
     bytes_to_base64url,
-    parse_registration_credential_json,
     parse_authentication_credential_json,
+    parse_registration_credential_json,
 )
 from webauthn.helpers.cose import COSEAlgorithmIdentifier
 from webauthn.helpers.structs import (

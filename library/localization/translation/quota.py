@@ -72,8 +72,7 @@ class QuotaTracker:
         """
         conn = sqlite3.connect(str(self._db_path))
         try:
-            conn.execute(
-                """CREATE TABLE IF NOT EXISTS deepl_quota (
+            conn.execute("""CREATE TABLE IF NOT EXISTS deepl_quota (
                     id TEXT PRIMARY KEY DEFAULT 'default',
                     chars_used INTEGER NOT NULL DEFAULT 0,
                     char_limit INTEGER NOT NULL DEFAULT 1000000000000,
@@ -82,8 +81,7 @@ class QuotaTracker:
                     glossary_id TEXT,
                     glossary_source_hash TEXT,
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )"""
-            )
+                )""")
             conn.execute("INSERT OR IGNORE INTO deepl_quota (id) VALUES ('default')")
             conn.commit()
         finally:

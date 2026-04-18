@@ -9,7 +9,6 @@ genre/topic/era operations.
 
 from unittest.mock import MagicMock, patch
 
-
 # ── Delete with cover file cleanup (line 148) ────────────────────────
 
 
@@ -276,10 +275,7 @@ class TestSetAudiobookTopics:
         """Line 628-629: empty topic names skipped."""
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = [
-            {"id": 1},  # audiobook exists
-            {"id": 20},  # topic id
-        ]
+        mock_cursor.fetchone.side_effect = [{"id": 1}, {"id": 20}]  # audiobook exists  # topic id
         mock_conn.cursor.return_value = mock_cursor
         mock_get_db.return_value = mock_conn
 
@@ -555,10 +551,7 @@ class TestSetAudiobookEras:
         """Lines 755-756: empty era names skipped."""
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
-        mock_cursor.fetchone.side_effect = [
-            {"id": 1},  # audiobook exists
-            {"id": 30},  # era id
-        ]
+        mock_cursor.fetchone.side_effect = [{"id": 1}, {"id": 30}]  # audiobook exists  # era id
         mock_conn.cursor.return_value = mock_cursor
         mock_get_db.return_value = mock_conn
 

@@ -1,7 +1,8 @@
 """Verify preflight check infrastructure exists in upgrade.sh."""
 
-import pytest
 from pathlib import Path
+
+import pytest
 
 UPGRADE_SH = Path(__file__).resolve().parents[2] / "upgrade.sh"
 

@@ -10,6 +10,7 @@ import sqlite3
 import sys
 import tempfile
 from pathlib import Path
+
 import pytest
 
 # Add library directory to path
@@ -30,7 +31,6 @@ from backend.api_modular.collections import (  # noqa: E402
     get_collections_lookup,
     invalidate_collections_cache,
 )
-
 
 # ─── Helper: create a minimal library DB with enrichment tables ──────────────
 
@@ -116,10 +116,7 @@ def create_test_library_db(path: str) -> None:
             )
 
     # Insert eras
-    eras = [
-        ("Jazz Age", [1]),  # Gatsby
-        ("Space Age", [2]),  # Dune
-    ]
+    eras = [("Jazz Age", [1]), ("Space Age", [2])]  # Gatsby  # Dune
     for era_name, book_ids in eras:
         conn.execute("INSERT INTO eras (name) VALUES (?)", (era_name,))
         era_id = conn.execute("SELECT id FROM eras WHERE name = ?", (era_name,)).fetchone()[0]

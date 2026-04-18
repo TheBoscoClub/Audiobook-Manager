@@ -12,9 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
-
-from localization.stt.local_gpu_whisper import LocalGPUWhisperSTT, WHISPER_LANGUAGES
-
+from localization.stt.local_gpu_whisper import WHISPER_LANGUAGES, LocalGPUWhisperSTT
 
 # ── Construction & static helpers ────────────────────────────────────
 
@@ -99,8 +97,7 @@ class TestIsAvailable:
     def test_timeout_returns_false(self):
         provider = LocalGPUWhisperSTT(host="10.0.0.1")
         with patch(
-            "localization.stt.local_gpu_whisper.requests.get",
-            side_effect=requests.Timeout("slow"),
+            "localization.stt.local_gpu_whisper.requests.get", side_effect=requests.Timeout("slow")
         ):
             assert provider.is_available() is False
 
@@ -176,10 +173,7 @@ class TestTranscribe:
         audio = tmp_path / "clip.wav"
         audio.write_bytes(b"x")
         provider = LocalGPUWhisperSTT(host="h")
-        resp = _make_response(
-            [{"word": "Done", "start": 0.0, "end": 3.25}],
-            duration=0,
-        )
+        resp = _make_response([{"word": "Done", "start": 0.0, "end": 3.25}], duration=0)
         with patch("localization.stt.local_gpu_whisper.requests.post", return_value=resp):
             result = provider.transcribe(audio)
         assert result.duration_ms == 3250
@@ -208,10 +202,7 @@ class TestTranscribe:
         audio = tmp_path / "clip.wav"
         audio.write_bytes(b"x")
         provider = LocalGPUWhisperSTT(host="h")
-        resp = _make_response(
-            [{"word": "Hola", "start": 0, "end": 1}],
-            language="es",
-        )
+        resp = _make_response([{"word": "Hola", "start": 0, "end": 1}], language="es")
         with patch("localization.stt.local_gpu_whisper.requests.post", return_value=resp):
             result = provider.transcribe(audio, language="en")
         assert result.language == "es"

@@ -13,7 +13,6 @@ from typing import cast
 
 import pytest
 import requests
-
 from localization.translation.glossary import (
     GLOSSARY_SOURCE_LANG,
     GLOSSARY_TARGET_LANG,
@@ -24,7 +23,6 @@ from localization.translation.glossary import (
     _parse_yaml_glossary,
 )
 from localization.translation.quota import QuotaTracker
-
 
 # --- YAML parsing ------------------------------------------------------------
 

@@ -21,12 +21,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from auth import (
-    InboxStatus,
     InboxRepository,
+    InboxStatus,
     Notification,
     NotificationType,
-    UserRepository,
     ReplyMethod,
+    UserRepository,
 )
 
 

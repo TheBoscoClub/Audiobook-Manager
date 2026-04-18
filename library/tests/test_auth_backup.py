@@ -24,14 +24,14 @@ sys.path.insert(0, str(LIBRARY_DIR))
 from auth import (  # noqa: E402
     AuthDatabase,
     AuthType,
-    User,
-    UserRepository,
-    Notification,
-    NotificationType,
-    NotificationRepository,
     InboxMessage,
     InboxRepository,
+    Notification,
+    NotificationRepository,
+    NotificationType,
     ReplyMethod,
+    User,
+    UserRepository,
 )
 
 

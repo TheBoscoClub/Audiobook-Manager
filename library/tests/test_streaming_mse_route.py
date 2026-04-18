@@ -20,7 +20,6 @@ Exercised invariants:
 from __future__ import annotations
 
 import pytest
-
 from backend.api_modular import streaming_translate as st
 
 

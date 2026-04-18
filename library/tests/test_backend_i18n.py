@@ -12,9 +12,8 @@ import json
 from pathlib import Path
 
 import pytest
-from flask import Flask
-
 from backend import i18n as mod
+from flask import Flask
 
 
 @pytest.fixture
@@ -188,10 +187,6 @@ class TestGetLocale:
     def test_header_priority_over_accept_language(self, tmp_locales, app):
         # X-Locale wins over Accept-Language.
         with app.test_request_context(
-            "/",
-            headers={
-                "X-Locale": "zh-Hans",
-                "Accept-Language": "en-US,en;q=0.9",
-            },
+            "/", headers={"X-Locale": "zh-Hans", "Accept-Language": "en-US,en;q=0.9"}
         ):
             assert mod.get_locale() == "zh-Hans"

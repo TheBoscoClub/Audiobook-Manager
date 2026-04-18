@@ -14,9 +14,7 @@ import types
 from pathlib import Path
 
 import pytest
-
 from localization.stt import whisper_gpu_service as svc
-
 
 # ---------------------------------------------------------------------------
 # Stub helpers
@@ -148,10 +146,7 @@ class TestTranscribeFile:
     def test_language_fallback_to_request_param(
         self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     ) -> None:
-        _install_stubs(
-            monkeypatch,
-            model=_StubModel(result={"segments": []}),  # no 'language' key
-        )
+        _install_stubs(monkeypatch, model=_StubModel(result={"segments": []}))  # no 'language' key
         out = svc.transcribe_file(tmp_path / "x.opus", language="zh")
         # When the model omits 'language' the response carries the requested one.
         assert out["language"] == "zh"

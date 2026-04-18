@@ -455,7 +455,9 @@ def _execute_cf_purge(zone_id: str, api_key: str, auth_email: str) -> FlaskRespo
 
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310 — URL scheme validated above (hardcoded https://api.cloudflare.com)
+        with urllib.request.urlopen(
+            req, timeout=10
+        ) as resp:  # nosec B310 — URL scheme validated above (hardcoded https://api.cloudflare.com)
             result = json.loads(resp.read())
             if result.get("success"):
                 return jsonify({"success": True})

@@ -244,7 +244,9 @@ def _process_single_book(book, cursor, conn, stats):
         update_query = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608
 
         try:
-            cursor.execute(update_query, params)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+            cursor.execute(
+                update_query, params
+            )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             conn.commit()
             print(f"  \u2713 Updated {len(updates)} fields")
         except Exception as sql_err:

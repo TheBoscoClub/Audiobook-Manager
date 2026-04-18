@@ -8,7 +8,7 @@ Covers uncovered lines: 63-65, 73-74, 105-126, 265, 285, 295, 312, 315, 340,
 
 import json
 import pathlib
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 
@@ -339,7 +339,10 @@ class TestStartUpgradeExtended:
         with flask_app.test_client() as client:
             response = client.post(
                 "/api/system/upgrade",
-                json={"source": "project", "project_path": "/tmp/../etc/passwd"},  # nosec B108  # test fixture path
+                json={
+                    "source": "project",
+                    "project_path": "/tmp/../etc/passwd",
+                },  # nosec B108  # test fixture path
             )
 
         assert response.status_code == 400

@@ -147,7 +147,9 @@ class AuthDatabase:
         # (documented limitation). `self.key` is a 64-hex string loaded from
         # auth.key (0600, root:audiobooks), never user-controlled. The only
         # way to set the encryption key is via string interpolation here.
-        conn.execute(f"PRAGMA key = \"x'{self.key}'\"")  # nosec B608  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        conn.execute(
+            f"PRAGMA key = \"x'{self.key}'\""
+        )  # nosec B608  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
 
         # Verify encryption is working
         try:
@@ -390,8 +392,8 @@ class AuthDatabase:
         """
         Migrate schema from v4 to v5: magic_link auth, persistent sessions.
         """
-        import shutil
         import logging
+        import shutil
 
         logger = logging.getLogger("auth.migration")
 

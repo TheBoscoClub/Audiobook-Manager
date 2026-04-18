@@ -34,7 +34,6 @@ if str(_LIBRARY_BACKEND) not in sys.path:
 
 from backend.api_modular import email_templates  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Fixtures providing realistic variables for each template
 # ---------------------------------------------------------------------------

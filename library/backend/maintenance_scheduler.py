@@ -45,7 +45,7 @@ LOCK_PATH = os.environ.get("MAINTENANCE_LOCK", str(Path(_run_dir) / "maintenance
 _shutdown = False
 
 
-def _handle_sigterm(signum, frame):  # pylint: disable=unused-argument  # required by signal.signal() callback signature
+def _handle_sigterm(_signum, _frame):
     global _shutdown
     logger.info("SIGTERM received, finishing current task then exiting...")
     _shutdown = True
@@ -66,13 +66,10 @@ def find_due_windows():
     """Find windows that are due for execution."""
     conn = get_db()
     try:
-        return [
-            dict(r)
-            for r in conn.execute("""SELECT * FROM maintenance_windows
+        return [dict(r) for r in conn.execute("""SELECT * FROM maintenance_windows
                    WHERE next_run_at <= datetime('now')
                      AND status = 'active'
-                   ORDER BY next_run_at ASC""").fetchall()
-        ]
+                   ORDER BY next_run_at ASC""").fetchall()]
     finally:
         conn.close()
 
@@ -202,15 +199,13 @@ def check_announcements():
     """Write announcement notifications for windows within lead time."""
     conn = get_db()
     try:
-        upcoming = conn.execute(
-            """SELECT id, name, description, next_run_at, lead_time_hours
+        upcoming = conn.execute("""SELECT id, name, description, next_run_at, lead_time_hours
                FROM maintenance_windows
                WHERE status = 'active'
                  AND next_run_at IS NOT NULL
                  AND datetime(next_run_at, '-' || lead_time_hours || ' hours')
                      <= datetime('now')
-                 AND next_run_at > datetime('now')"""
-        ).fetchall()
+                 AND next_run_at > datetime('now')""").fetchall()
 
         for window in upcoming:
             # Only announce if not already announced recently

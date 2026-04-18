@@ -11,14 +11,12 @@ from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from backend.api_modular.maintenance_tasks.base import (
     ExecutionResult,
     MaintenanceRegistry,
     MaintenanceTask,
     ValidationResult,
 )
-
 
 # ============================================================
 # Helper: create a minimal SQLite DB for task tests

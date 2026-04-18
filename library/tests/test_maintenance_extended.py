@@ -7,7 +7,7 @@ Covers uncovered lines: 43-44, 70, 76, 79, 98-99, 106-117, 155, 163,
 
 import sqlite3
 from pathlib import Path
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 

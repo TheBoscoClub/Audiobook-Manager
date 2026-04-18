@@ -8,7 +8,6 @@ import sqlite3
 import sys
 from pathlib import Path
 
-
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scripts.enrichment import enrich_book
@@ -206,11 +205,9 @@ class TestGenresFromCategories:
 
         conn = sqlite3.connect(db)
         # After enrichment, the book is linked only to real genres.
-        rows = conn.execute(
-            """SELECT g.name FROM genres g
+        rows = conn.execute("""SELECT g.name FROM genres g
                JOIN audiobook_genres ag ON g.id = ag.genre_id
-               WHERE ag.audiobook_id = 1"""
-        ).fetchall()
+               WHERE ag.audiobook_id = 1""").fetchall()
         conn.close()
         names = {r[0] for r in rows}
         assert names == {"Sci-Fi"}  # 'general' was removed
@@ -271,10 +268,7 @@ class TestTopicsFromSummary:
             "a small coastal town. Suspense builds as detectives uncover secrets."
         )
         enrich_book(
-            1,
-            db_path=db,
-            quiet=True,
-            providers=[StubProvider({"publisher_summary": summary})],
+            1, db_path=db, quiet=True, providers=[StubProvider({"publisher_summary": summary})]
         )
         conn = sqlite3.connect(db)
         count = conn.execute(
@@ -299,21 +293,15 @@ class TestTopicsFromSummary:
         from unittest.mock import patch
 
         with patch(
-            "scripts.enrichment.extract_topics",
-            return_value=["romance", "regency", "historical"],
+            "scripts.enrichment.extract_topics", return_value=["romance", "regency", "historical"]
         ):
             enrich_book(
-                1,
-                db_path=db,
-                quiet=True,
-                providers=[StubProvider({"publisher_summary": "text"})],
+                1, db_path=db, quiet=True, providers=[StubProvider({"publisher_summary": "text"})]
             )
         conn = sqlite3.connect(db)
-        rows = conn.execute(
-            """SELECT t.name FROM topics t
+        rows = conn.execute("""SELECT t.name FROM topics t
                JOIN audiobook_topics at ON t.id = at.topic_id
-               WHERE at.audiobook_id = 1"""
-        ).fetchall()
+               WHERE at.audiobook_id = 1""").fetchall()
         conn.close()
         names = {r[0] for r in rows}
         assert names == {"romance", "regency", "historical"}
@@ -325,10 +313,7 @@ class TestTopicsFromSummary:
 
         with patch("scripts.enrichment.extract_topics", return_value=["general"]):
             enrich_book(
-                1,
-                db_path=db,
-                quiet=True,
-                providers=[StubProvider({"publisher_summary": "text"})],
+                1, db_path=db, quiet=True, providers=[StubProvider({"publisher_summary": "text"})]
             )
         conn = sqlite3.connect(db)
         count = conn.execute(
@@ -344,17 +329,11 @@ class TestTopicsFromSummary:
         with patch("scripts.enrichment.extract_topics", return_value=["space", "aliens"]):
             # First run
             enrich_book(
-                1,
-                db_path=db,
-                quiet=True,
-                providers=[StubProvider({"publisher_summary": "text"})],
+                1, db_path=db, quiet=True, providers=[StubProvider({"publisher_summary": "text"})]
             )
             # Second run with same data — must not duplicate.
             enrich_book(
-                1,
-                db_path=db,
-                quiet=True,
-                providers=[StubProvider({"publisher_summary": "text"})],
+                1, db_path=db, quiet=True, providers=[StubProvider({"publisher_summary": "text"})]
             )
         conn = sqlite3.connect(db)
         count = conn.execute(
@@ -380,18 +359,13 @@ class TestNarratorBackfill:
         db = _create_test_db(tmp_path)
         narrators = [{"name": "Scott Brick"}, {"name": "Jim Dale"}]
         enrich_book(
-            1,
-            db_path=db,
-            quiet=True,
-            providers=[StubProvider({"narrator_list": narrators})],
+            1, db_path=db, quiet=True, providers=[StubProvider({"narrator_list": narrators})]
         )
         conn = sqlite3.connect(db)
-        rows = conn.execute(
-            """SELECT n.name FROM narrators n
+        rows = conn.execute("""SELECT n.name FROM narrators n
                JOIN book_narrators bn ON n.id = bn.narrator_id
                WHERE bn.book_id = 1
-               ORDER BY bn.position"""
-        ).fetchall()
+               ORDER BY bn.position""").fetchall()
         conn.close()
         assert [r[0] for r in rows] == ["Scott Brick", "Jim Dale"]
 
@@ -404,8 +378,7 @@ class TestNarratorBackfill:
         )
         nid = conn.execute("SELECT id FROM narrators WHERE name='Unknown Narrator'").fetchone()[0]
         conn.execute(
-            "INSERT INTO book_narrators (book_id, narrator_id, position) VALUES (1, ?, 0)",
-            (nid,),
+            "INSERT INTO book_narrators (book_id, narrator_id, position) VALUES (1, ?, 0)", (nid,)
         )
         conn.commit()
         conn.close()
@@ -417,11 +390,9 @@ class TestNarratorBackfill:
             providers=[StubProvider({"narrator_list": [{"name": "Ray Porter"}]})],
         )
         conn = sqlite3.connect(db)
-        rows = conn.execute(
-            """SELECT n.name FROM narrators n
+        rows = conn.execute("""SELECT n.name FROM narrators n
                JOIN book_narrators bn ON n.id = bn.narrator_id
-               WHERE bn.book_id = 1"""
-        ).fetchall()
+               WHERE bn.book_id = 1""").fetchall()
         conn.close()
         names = {r[0] for r in rows}
         assert names == {"Ray Porter"}  # Placeholder cleared
@@ -433,8 +404,7 @@ class TestNarratorBackfill:
         conn.execute("INSERT INTO narrators (name, sort_name) VALUES ('Ray Porter', 'porter, ray')")
         nid = conn.execute("SELECT id FROM narrators WHERE name='Ray Porter'").fetchone()[0]
         conn.execute(
-            "INSERT INTO book_narrators (book_id, narrator_id, position) VALUES (1, ?, 0)",
-            (nid,),
+            "INSERT INTO book_narrators (book_id, narrator_id, position) VALUES (1, ?, 0)", (nid,)
         )
         conn.commit()
         conn.close()
@@ -454,17 +424,12 @@ class TestNarratorBackfill:
         db = _create_test_db(tmp_path)
         narrators = [{"name": "  "}, {"name": "Real Name"}]
         enrich_book(
-            1,
-            db_path=db,
-            quiet=True,
-            providers=[StubProvider({"narrator_list": narrators})],
+            1, db_path=db, quiet=True, providers=[StubProvider({"narrator_list": narrators})]
         )
         conn = sqlite3.connect(db)
-        rows = conn.execute(
-            """SELECT n.name FROM narrators n
+        rows = conn.execute("""SELECT n.name FROM narrators n
                JOIN book_narrators bn ON n.id = bn.narrator_id
-               WHERE bn.book_id = 1"""
-        ).fetchall()
+               WHERE bn.book_id = 1""").fetchall()
         conn.close()
         assert {r[0] for r in rows} == {"Real Name"}
 

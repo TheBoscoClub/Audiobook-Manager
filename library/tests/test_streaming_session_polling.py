@@ -21,7 +21,6 @@ from __future__ import annotations
 import sqlite3
 
 import pytest
-
 from backend.api_modular import streaming_translate as st
 
 AUDIOBOOK_ID = 701
@@ -47,9 +46,7 @@ def streaming_db(flask_app, session_temp_dir):
     conn.close()
 
 
-def _insert_session(
-    db_path, state="buffering", gpu_warm=0, active_chapter=CHAPTER_INDEX
-):
+def _insert_session(db_path, state="buffering", gpu_warm=0, active_chapter=CHAPTER_INDEX):
     conn = sqlite3.connect(str(db_path))
     conn.execute(
         "INSERT INTO streaming_sessions "

@@ -10,8 +10,9 @@ import re
 from pathlib import Path
 from typing import Optional
 
-from scripts.enrichment.base import EnrichmentProvider
 from scanner.metadata_utils import extract_asin
+
+from scripts.enrichment.base import EnrichmentProvider
 
 # Title-based series parsing patterns (from populate_series_from_audible.py)
 TITLE_SERIES_PATTERNS = [

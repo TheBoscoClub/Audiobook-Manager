@@ -1,9 +1,10 @@
 # library/tests/test_per_user_schema.py
 """Tests for per-user state schema additions."""
 
-import sqlite3
 import os
+import sqlite3
 from pathlib import Path
+
 import pytest
 
 

@@ -25,10 +25,10 @@ sys.path.insert(0, str(LIBRARY_DIR))
 from auth import (  # noqa: E402
     AuthDatabase,
     AuthType,
-    User,
     Notification,
-    NotificationType,
     NotificationRepository,
+    NotificationType,
+    User,
 )
 
 

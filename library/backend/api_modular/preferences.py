@@ -12,11 +12,10 @@ Endpoints:
     GET   /api/user/preferences/defaults - Get default values (no auth required)
 """
 
+from auth import UserSettingsRepository
 from flask import Blueprint, jsonify, request
 
 from .auth import get_auth_db, login_required, require_current_user
-
-from auth import UserSettingsRepository
 
 preferences_bp = Blueprint("preferences", __name__, url_prefix="/api/user/preferences")
 

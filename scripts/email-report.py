@@ -121,9 +121,7 @@ def main():
         total = data.get("verified", 0)
         coverage = data.get("coverage_pct", 0)
         if fail_count == 0:
-            subject = (
-                f"Translation Complete — {total} books verified, {coverage}% coverage"
-            )
+            subject = f"Translation Complete — {total} books verified, {coverage}% coverage"
         else:
             subject = f"Translation Report — {fail_count} failures, {total} verified"
     else:

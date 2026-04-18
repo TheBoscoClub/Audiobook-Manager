@@ -12,9 +12,7 @@ from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-
 from auth import NotificationType
-
 
 # ---------------------------------------------------------------------------
 # Helpers

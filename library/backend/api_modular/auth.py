@@ -17,40 +17,33 @@ import sys
 import urllib.parse
 from functools import wraps
 from pathlib import Path
-from typing import Optional, Callable, Any
+from typing import Any, Callable, Optional
 
-from flask import Blueprint, Response, jsonify, redirect, request, g, current_app
+from flask import Blueprint, Response, current_app, g, jsonify, redirect, request
 
 # Add parent paths for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from auth import (
+from auth import AccessRequestRepository  # noqa: F401  (re-export for tests)
+from auth import BackupCodeRepository  # noqa: F401  (re-export for tests)
+from auth import webauthn_authentication_options  # noqa: F401  (re-export for tests)
+from auth import webauthn_verify_authentication  # noqa: F401  (re-export for tests)
+from auth import (  # Re-exported for tests that patch.object(auth_mod, "...") or; @patch("api_modular.auth....") — submodules look these up; dynamically via _auth_module so the patch target lives on this module.
     AuthDatabase,
     AuthType,
-    User,
-    UserRepository,
+    InboxMessage,
+    NotificationRepository,
+    ReplyMethod,
     Session,
     SessionRepository,
-    NotificationRepository,
-    InboxMessage,
-    ReplyMethod,
+    User,
+    UserRepository,
     webauthn_registration_options,
     webauthn_verify_registration,
-    # Re-exported for tests that patch.object(auth_mod, "...") or
-    # @patch("api_modular.auth....") — submodules look these up
-    # dynamically via _auth_module so the patch target lives on this module.
-    AccessRequestRepository,  # noqa: F401  (re-export for tests)
-    BackupCodeRepository,  # noqa: F401  (re-export for tests)
-    webauthn_authentication_options,  # noqa: F401  (re-export for tests)
-    webauthn_verify_authentication,  # noqa: F401  (re-export for tests)
 )
 from auth.models import SystemSettingsRepository
-from auth.totp import (
-    setup_totp,
-    verify_code as verify_totp,
-    base32_to_secret,
-    generate_qr_code,
-)
+from auth.totp import base32_to_secret, generate_qr_code, setup_totp
+from auth.totp import verify_code as verify_totp
 
 # Email senders live in auth_email.py; re-exported here so that existing
 # imports (`from backend.api_modular.auth import _send_admin_alert`) and
@@ -58,13 +51,13 @@ from auth.totp import (
 from .auth_email import (  # noqa: F401  (re-export)
     _get_base_url,
     _get_email_config,
-    _send_magic_link_email,
+    _send_activation_email,
+    _send_admin_alert,
     _send_approval_email,
     _send_denial_email,
-    _send_admin_alert,
-    _send_reply_email,
     _send_invitation_email,
-    _send_activation_email,
+    _send_magic_link_email,
+    _send_reply_email,
 )
 
 # Blueprint
@@ -438,9 +431,9 @@ def require_current_session() -> Session:
     or ``@admin_required``. See :func:`require_current_user` for rationale.
     """
     session = get_current_session()
-    assert session is not None, (
-        "require_current_session() called without @login_required/@admin_required"
-    )
+    assert (
+        session is not None
+    ), "require_current_session() called without @login_required/@admin_required"
     return session
 
 
@@ -1346,6 +1339,10 @@ def send_contact_message():
 from . import auth_account  # noqa: F401,E402  — registers /account/* routes
 from . import auth_admin  # noqa: F401,E402  — registers /admin/* routes
 from . import auth_recovery  # noqa: F401,E402  — registers /recover/* and /magic-link/* routes
-from . import auth_registration  # noqa: F401,E402  — registers /register/* + /login/auth-type routes
-from . import auth_webauthn  # noqa: F401,E402  — registers /register/webauthn/* + /login/webauthn/* routes
-from .auth_webauthn import get_webauthn_config  # noqa: F401,E402  — re-export so @patch("api_modular.auth.get_webauthn_config") keeps working
+from . import (  # noqa: F401,E402  — registers /register/* + /login/auth-type routes; noqa: F401,E402  — registers /register/webauthn/* + /login/webauthn/* routes
+    auth_registration,
+    auth_webauthn,
+)
+from .auth_webauthn import (  # noqa: F401,E402  — re-export so @patch("api_modular.auth.get_webauthn_config") keeps working
+    get_webauthn_config,
+)

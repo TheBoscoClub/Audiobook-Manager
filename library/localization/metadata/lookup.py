@@ -9,8 +9,8 @@ Priority order:
 import logging
 from dataclasses import dataclass
 
-from .douban import DoubanClient
 from ..translation.deepl_translate import DeepLTranslator
+from .douban import DoubanClient
 
 logger = logging.getLogger(__name__)
 

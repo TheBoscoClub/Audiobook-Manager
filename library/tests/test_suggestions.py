@@ -8,9 +8,7 @@ Suggestion submission requires login_required; admin endpoints use admin_if_enab
 import sqlite3
 
 import pytest
-
-from backend.api_modular.suggestions import sanitize_message, MAX_MESSAGE_LENGTH
-
+from backend.api_modular.suggestions import MAX_MESSAGE_LENGTH, sanitize_message
 
 # ---------------------------------------------------------------------------
 # Helpers

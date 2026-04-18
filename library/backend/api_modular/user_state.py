@@ -21,10 +21,6 @@ Endpoints:
 import sqlite3
 from datetime import datetime
 
-from flask import Blueprint, jsonify, request
-
-from .auth import get_auth_db, login_required, require_current_user
-
 # Import auth models for per-user state
 from auth import (
     DownloadRepository,
@@ -34,6 +30,9 @@ from auth import (
     PreferencesRepository,
     UserDownload,
 )
+from flask import Blueprint, jsonify, request
+
+from .auth import get_auth_db, login_required, require_current_user
 
 # Blueprint for user state routes
 user_bp = Blueprint("user_state", __name__, url_prefix="/api/user")

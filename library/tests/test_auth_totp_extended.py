@@ -17,14 +17,14 @@ LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
 from auth.totp import (  # noqa: E402
-    generate_secret,
-    secret_to_base32,
+    DEFAULT_ISSUER,
+    TOTPAuthenticator,
     base32_to_secret,
     generate_qr_code,
+    generate_secret,
     get_current_code,
+    secret_to_base32,
     verify_code,
-    TOTPAuthenticator,
-    DEFAULT_ISSUER,
 )
 
 

@@ -6,8 +6,8 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, send_file
 
+from .auth import admin_if_enabled, download_permission_required, guest_allowed
 from .core import FlaskResponse, get_db
-from .auth import guest_allowed, download_permission_required, admin_if_enabled
 
 supplements_bp = Blueprint("supplements", __name__)
 

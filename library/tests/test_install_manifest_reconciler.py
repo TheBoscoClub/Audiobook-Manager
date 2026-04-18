@@ -292,6 +292,6 @@ def test_scripts_have_no_hardcoded_var_lib(script):
         for line in text.splitlines()
         if "/var/lib/audiobooks" in line and not line.strip().startswith("#")
     ]
-    assert not lines, (
-        f"{script.name} contains literal /var/lib/audiobooks outside comments:\n" + "\n".join(lines)
-    )
+    assert (
+        not lines
+    ), f"{script.name} contains literal /var/lib/audiobooks outside comments:\n" + "\n".join(lines)

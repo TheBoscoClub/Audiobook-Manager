@@ -30,9 +30,7 @@ LIB_DIR = PROJECT_DIR / "library"
 sys.path.insert(0, str(LIB_DIR))
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-7s %(message)s",
-    datefmt="%H:%M:%S",
+    level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s", datefmt="%H:%M:%S"
 )
 logger = logging.getLogger("verify-translations")
 
@@ -82,8 +80,7 @@ def validate_vtt(vtt_path: Path) -> tuple[bool, str]:
 def verify_book(conn: sqlite3.Connection, book_id: int, locale: str) -> dict:
     """Verify a single book's translations. Returns verification result."""
     book = conn.execute(
-        "SELECT id, title, file_path FROM audiobooks WHERE id = ?",
-        (book_id,),
+        "SELECT id, title, file_path FROM audiobooks WHERE id = ?", (book_id,)
     ).fetchone()
 
     result = {
@@ -176,9 +173,7 @@ def main():
 
     if not book_ids:
         # Also check books with subtitles but not in queue
-        rows = conn.execute(
-            "SELECT DISTINCT audiobook_id FROM chapter_subtitles"
-        ).fetchall()
+        rows = conn.execute("SELECT DISTINCT audiobook_id FROM chapter_subtitles").fetchall()
         book_ids = [r[0] for r in rows]
 
     total_books = conn.execute("SELECT COUNT(*) FROM audiobooks").fetchone()[0]
@@ -218,10 +213,7 @@ def main():
         elif result["status"] == "WARN":
             warn_count += 1
             logger.warning(
-                "  WARN  [%d] %s — %s",
-                book_id,
-                result["title"][:50],
-                "; ".join(result["issues"]),
+                "  WARN  [%d] %s — %s", book_id, result["title"][:50], "; ".join(result["issues"])
             )
         else:
             fail_count += 1
@@ -238,8 +230,7 @@ def main():
         "SELECT COUNT(*) FROM chapter_subtitles WHERE locale = 'en'"
     ).fetchone()[0]
     total_zh = conn.execute(
-        "SELECT COUNT(*) FROM chapter_subtitles WHERE locale = ?",
-        (args.locale,),
+        "SELECT COUNT(*) FROM chapter_subtitles WHERE locale = ?", (args.locale,)
     ).fetchone()[0]
     total_en_books = conn.execute(
         "SELECT COUNT(DISTINCT audiobook_id) FROM chapter_subtitles WHERE locale = 'en'"
@@ -258,14 +249,9 @@ def main():
     logger.info("  FAIL: %d", fail_count)
     logger.info("")
     logger.info("PROOF — Database counts:")
+    logger.info("  English subtitle chapters: %d (across %d books)", total_en, total_en_books)
     logger.info(
-        "  English subtitle chapters: %d (across %d books)", total_en, total_en_books
-    )
-    logger.info(
-        "  %s subtitle chapters: %d (across %d books)",
-        args.locale,
-        total_zh,
-        total_zh_books,
+        "  %s subtitle chapters: %d (across %d books)", args.locale, total_zh, total_zh_books
     )
     logger.info("")
     logger.info("PROOF — Queue state:")
@@ -305,9 +291,7 @@ def main():
             "zh_chapters": total_zh,
             "en_books": total_en_books,
             "zh_books": total_zh_books,
-            "coverage_pct": round(100 * total_en_books / total_books, 1)
-            if total_books
-            else 0,
+            "coverage_pct": round(100 * total_en_books / total_books, 1) if total_books else 0,
             "details": results,
         }
         report_path = Path(args.db).parent / "translation-verification.json"

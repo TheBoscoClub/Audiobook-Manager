@@ -915,9 +915,7 @@ def verify_deletion_safe() -> FlaskResponse:
     # placeholders is `?,?,?...` literal — only data is bound via params.
     # The f-string only embeds the placeholder count, never user data.
     placeholders = ",".join("?" * len(ids_to_check))
-    _dup_sql = (  # nosemgrep
-        f"SELECT id, sha256_hash, title FROM audiobooks WHERE id IN ({placeholders})"  # nosec B608  # nosemgrep
-    )
+    _dup_sql = f"SELECT id, sha256_hash, title FROM audiobooks WHERE id IN ({placeholders})"  # nosemgrep  # nosec B608  # nosemgrep
     cursor.execute(_dup_sql, ids_to_check)  # nosec B608  # nosemgrep
 
     items = [dict(row) for row in cursor.fetchall()]

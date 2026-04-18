@@ -30,13 +30,10 @@ pytestmark = pytest.mark.integration
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from config import (  # noqa: E402
-    AUDIOBOOKS_DATABASE,
-    AUDIOBOOKS_LIBRARY,
-    AUDIOBOOKS_SOURCES,
-)
 from scanner.metadata_utils import extract_author_from_tags  # noqa: E402
 from scanner.metadata_utils import run_ffprobe  # noqa: E402
+
+from config import AUDIOBOOKS_DATABASE, AUDIOBOOKS_LIBRARY, AUDIOBOOKS_SOURCES  # noqa: E402
 
 # =============================================================================
 # Configuration - Uses config module for path resolution
@@ -251,9 +248,9 @@ class TestFtsIndexConsistency:
         cursor.execute("SELECT COUNT(*) FROM audiobooks_fts")
         fts_count = cursor.fetchone()[0]
 
-        assert fts_count == main_count, (
-            f"FTS index count ({fts_count}) doesn't match main table ({main_count})"
-        )
+        assert (
+            fts_count == main_count
+        ), f"FTS index count ({fts_count}) doesn't match main table ({main_count})"
 
     @staticmethod
     def _build_fts_search_term(title: str) -> str | None:
@@ -485,7 +482,9 @@ class TestHashConsistency:
         # Only test files that have hashes and exist
         files_to_check = [
             b for b in sample_audiobooks if b["sha256_hash"] and Path(b["file_path"]).exists()
-        ][:10]  # Limit to 10 for performance
+        ][
+            :10
+        ]  # Limit to 10 for performance
 
         for book in files_to_check:
             filepath = Path(book["file_path"])

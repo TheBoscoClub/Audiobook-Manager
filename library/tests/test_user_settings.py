@@ -10,7 +10,6 @@ import tempfile
 from pathlib import Path
 
 import pytest
-
 from auth import AuthDatabase, AuthType, User, UserSettingsRepository
 from auth.totp import generate_secret
 

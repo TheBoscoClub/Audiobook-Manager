@@ -334,14 +334,7 @@ class TestGetFileMetadata:
 
         mock_run.return_value = MagicMock(
             returncode=0,
-            stdout=json.dumps(
-                {
-                    "format": {
-                        "duration": "3600",  # 1 hour
-                        "tags": {},  # No tags
-                    }
-                }
-            ),
+            stdout=json.dumps({"format": {"duration": "3600", "tags": {}}}),  # 1 hour  # No tags
         )
         mock_hash.return_value = None
 

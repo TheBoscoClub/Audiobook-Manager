@@ -1,6 +1,6 @@
 """Tests for last-admin deletion guard."""
 
-from auth.models import User, AuthType, UserRepository
+from auth.models import AuthType, User, UserRepository
 
 
 class TestLastAdminGuard:

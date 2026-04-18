@@ -8,11 +8,11 @@ Each user receives 8 backup codes at registration. Each code can only
 be used once to recover access to their account.
 """
 
-import secrets
 import hashlib
-from typing import List, Tuple, Optional
+import secrets
 from dataclasses import dataclass
 from datetime import datetime
+from typing import List, Optional, Tuple
 
 from .database import AuthDatabase
 

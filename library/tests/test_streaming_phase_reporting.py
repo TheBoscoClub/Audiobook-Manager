@@ -28,11 +28,7 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
-from backend.api_modular.streaming_translate import (
-    BUFFER_AHEAD_SEGMENTS,
-    _derive_phase,
-)
+from backend.api_modular.streaming_translate import BUFFER_AHEAD_SEGMENTS, _derive_phase
 
 SCHEMA_PATH = Path(__file__).parent.parent / "backend" / "schema.sql"
 

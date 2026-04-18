@@ -750,8 +750,9 @@ class TestAdminSetupInfo:
 
     def test_setup_info_logged_in_user_returns_404(self, admin_client, auth_db):
         """User who has logged in should not expose setup info."""
-        from auth.models import UserRepository
         from datetime import datetime
+
+        from auth.models import UserRepository
 
         uid, _ = _create_target_user(admin_client, "setup3")
         # Simulate login by setting last_login

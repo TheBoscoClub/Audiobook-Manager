@@ -74,8 +74,7 @@ def db_path(tmp_path):
     """Create a temporary SQLite DB with the required tables."""
     p = tmp_path / "test.db"
     conn = sqlite3.connect(str(p))
-    conn.executescript(
-        """
+    conn.executescript("""
         CREATE TABLE maintenance_windows (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -103,8 +102,7 @@ def db_path(tmp_path):
             payload TEXT,
             created_at TEXT DEFAULT (datetime('now'))
         );
-    """
-    )
+    """)
     conn.close()
     return p
 

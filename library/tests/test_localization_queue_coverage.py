@@ -16,7 +16,6 @@ import time
 from pathlib import Path
 
 import pytest
-
 from localization import queue as lq
 
 
@@ -29,8 +28,7 @@ def audiobooks_db(tmp_path: Path) -> Path:
     """
     db_path = tmp_path / "queue_coverage.db"
     conn = sqlite3.connect(str(db_path))
-    conn.executescript(
-        """
+    conn.executescript("""
         CREATE TABLE audiobooks (
             id INTEGER PRIMARY KEY,
             title TEXT NOT NULL,
@@ -47,8 +45,7 @@ def audiobooks_db(tmp_path: Path) -> Path:
             translation_provider TEXT,
             UNIQUE(audiobook_id, chapter_index, locale)
         );
-        """
-    )
+        """)
     # Seed two books — one that already has an en-locale transcription, and
     # one that does not. The "enqueue_all_books_for_locale" helper filters
     # on whether the book has any en chapter_subtitles rows (those are the
@@ -125,8 +122,7 @@ class TestInitQueue:
         columns should be migrated in place, not re-created."""
         db_path = tmp_path / "legacy.db"
         conn = sqlite3.connect(str(db_path))
-        conn.executescript(
-            """
+        conn.executescript("""
             CREATE TABLE audiobooks (id INTEGER PRIMARY KEY, title TEXT, file_path TEXT);
             CREATE TABLE chapter_subtitles (
                 audiobook_id INTEGER, chapter_index INTEGER,
@@ -147,8 +143,7 @@ class TestInitQueue:
             );
             INSERT INTO translation_queue (audiobook_id, locale, started_at)
             VALUES (7, 'zh-Hans', '2020-01-01 00:00:00');
-            """
-        )
+            """)
         conn.commit()
         conn.close()
 
@@ -613,10 +608,7 @@ class TestRunSttAndTranslate:
         audio_path.write_bytes(b"fake audio")
 
         lq._run_stt_and_translate(
-            book_id=1,
-            locale="zh-Hans",
-            audio_path=audio_path,
-            skip_chapters={3, 7},
+            book_id=1, locale="zh-Hans", audio_path=audio_path, skip_chapters={3, 7}
         )
 
         assert state["audio_path"] == audio_path
@@ -659,8 +651,7 @@ class TestRunSttAndTranslate:
         conn = sqlite3.connect(str(audiobooks_db))
         try:
             row = conn.execute(
-                "SELECT total_chapters FROM translation_queue WHERE id = ?",
-                (job["id"],),
+                "SELECT total_chapters FROM translation_queue WHERE id = ?", (job["id"],)
             ).fetchone()
             assert row is not None
             assert row[0] == 10
@@ -817,4 +808,6 @@ class TestLoadVttRows:
 
         rows = lq._load_vtt_rows(1, "zh-Hans")
         paths = [r[1] if not isinstance(r, sqlite3.Row) else r["vtt_path"] for r in rows]
-        assert paths == ["/tmp/ch0.vtt"]  # nosec B108  # asserting DB round-trip of synthetic string; no file I/O
+        assert paths == [
+            "/tmp/ch0.vtt"
+        ]  # nosec B108  # asserting DB round-trip of synthetic string; no file I/O

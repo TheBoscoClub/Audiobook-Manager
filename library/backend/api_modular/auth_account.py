@@ -14,19 +14,18 @@ import re
 import urllib.parse
 from typing import Any
 
+from auth import AuthType, UserRepository
+from auth.totp import generate_qr_code, setup_totp
 from flask import jsonify, make_response, request
 
-from auth import AuthType, UserRepository
-from auth.totp import setup_totp, generate_qr_code
-
 from .auth import (
-    auth_bp,
-    login_required,
     INVITATION_EXPIRY_HOURS,
-    get_auth_db,
-    require_current_user,
     _switch_auth_method,
     _validate_username,
+    auth_bp,
+    get_auth_db,
+    login_required,
+    require_current_user,
 )
 
 
@@ -152,9 +151,10 @@ def account_switch_auth_method():
     auth_method = data.get("auth_method", "").strip()
 
     if auth_method not in ("totp", "magic_link", "passkey"):
-        return jsonify(
-            {"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}
-        ), 400
+        return (
+            jsonify({"error": "Invalid auth_method. Use 'totp', 'magic_link', or 'passkey'"}),
+            400,
+        )
 
     user = require_current_user()
     db = get_auth_db()

@@ -8,7 +8,6 @@ for the notification/email subsystem and edge cases not covered there.
 import os
 from unittest.mock import MagicMock, patch
 
-
 from auth.audit import (
     CRITICAL_ACTIONS,
     AuditLogRepository,
@@ -16,7 +15,6 @@ from auth.audit import (
     _send_notification_email,
     notify_admins,
 )
-
 
 # ============================================================
 # CRITICAL_ACTIONS constant

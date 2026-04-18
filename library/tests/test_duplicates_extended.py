@@ -183,13 +183,27 @@ class TestDeleteDuplicates:
         cursor.execute(
             "INSERT INTO audiobooks (title, author, file_path, duration_hours, "
             "file_size_mb, format) VALUES (?, ?, ?, ?, ?, ?)",
-            ("Test Book", "Real Author", "/tmp/test_dup1.opus", 5.0, 100.0, "opus"),  # nosec B108  # test fixture path
+            (
+                "Test Book",
+                "Real Author",
+                "/tmp/test_dup1.opus",
+                5.0,
+                100.0,
+                "opus",
+            ),  # nosec B108  # test fixture path
         )
         id1 = cursor.lastrowid
         cursor.execute(
             "INSERT INTO audiobooks (title, author, file_path, duration_hours, "
             "file_size_mb, format) VALUES (?, ?, ?, ?, ?, ?)",
-            ("Test Book", "Real Author", "/tmp/test_dup2.opus", 5.0, 100.0, "opus"),  # nosec B108  # test fixture path
+            (
+                "Test Book",
+                "Real Author",
+                "/tmp/test_dup2.opus",
+                5.0,
+                100.0,
+                "opus",
+            ),  # nosec B108  # test fixture path
         )
         id2 = cursor.lastrowid
         conn.commit()
@@ -217,7 +231,15 @@ class TestDeleteDuplicatesHashMode:
         cursor.execute(
             "INSERT INTO audiobooks (title, author, file_path, sha256_hash, "
             "duration_hours, file_size_mb, format) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("Null Hash Book", "Author", "/tmp/nullhash.opus", None, 5.0, 50.0, "opus"),  # nosec B108  # test fixture path
+            (
+                "Null Hash Book",
+                "Author",
+                "/tmp/nullhash.opus",
+                None,
+                5.0,
+                50.0,
+                "opus",
+            ),  # nosec B108  # test fixture path
         )
         null_id = cursor.lastrowid
         conn.commit()
@@ -245,12 +267,26 @@ class TestDuplicatesByTitleAuthorFallback:
         cursor.execute(
             "INSERT INTO audiobooks (title, author, file_path, duration_hours, "
             "file_size_mb, format) VALUES (?, ?, ?, ?, ?, ?)",
-            ("Fallback Title", "Audiobook", "/tmp/fb1.opus", 3.0, 50.0, "opus"),  # nosec B108  # test fixture path
+            (
+                "Fallback Title",
+                "Audiobook",
+                "/tmp/fb1.opus",
+                3.0,
+                50.0,
+                "opus",
+            ),  # nosec B108  # test fixture path
         )
         cursor.execute(
             "INSERT INTO audiobooks (title, author, file_path, duration_hours, "
             "file_size_mb, format) VALUES (?, ?, ?, ?, ?, ?)",
-            ("Fallback Title", "Audiobook", "/tmp/fb2.opus", 3.0, 50.0, "opus"),  # nosec B108  # test fixture path
+            (
+                "Fallback Title",
+                "Audiobook",
+                "/tmp/fb2.opus",
+                3.0,
+                50.0,
+                "opus",
+            ),  # nosec B108  # test fixture path
         )
         conn.commit()
         conn.close()
@@ -506,7 +542,15 @@ class TestVerifyDeletionSafety:
         cursor.execute(
             "INSERT INTO audiobooks (title, author, file_path, sha256_hash, "
             "duration_hours, file_size_mb, format) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("No Hash", "Author", "/tmp/nohash_verify.opus", None, 5.0, 50.0, "opus"),  # nosec B108  # test fixture path
+            (
+                "No Hash",
+                "Author",
+                "/tmp/nohash_verify.opus",
+                None,
+                5.0,
+                50.0,
+                "opus",
+            ),  # nosec B108  # test fixture path
         )
         verify_id = cursor.lastrowid
         conn.commit()
@@ -529,18 +573,42 @@ class TestVerifyDeletionSafety:
         cursor.execute(
             "INSERT INTO audiobooks (title, author, file_path, sha256_hash, "
             "duration_hours, file_size_mb, format) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("Copy 1", "Author", "/tmp/copy1_v.opus", test_hash, 5.0, 50.0, "opus"),  # nosec B108  # test fixture path
+            (
+                "Copy 1",
+                "Author",
+                "/tmp/copy1_v.opus",
+                test_hash,
+                5.0,
+                50.0,
+                "opus",
+            ),  # nosec B108  # test fixture path
         )
         id1 = cursor.lastrowid
         cursor.execute(
             "INSERT INTO audiobooks (title, author, file_path, sha256_hash, "
             "duration_hours, file_size_mb, format) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("Copy 2", "Author", "/tmp/copy2_v.opus", test_hash, 5.0, 50.0, "opus"),  # nosec B108  # test fixture path
+            (
+                "Copy 2",
+                "Author",
+                "/tmp/copy2_v.opus",
+                test_hash,
+                5.0,
+                50.0,
+                "opus",
+            ),  # nosec B108  # test fixture path
         )
         cursor.execute(
             "INSERT INTO audiobooks (title, author, file_path, sha256_hash, "
             "duration_hours, file_size_mb, format) VALUES (?, ?, ?, ?, ?, ?, ?)",
-            ("Copy 3", "Author", "/tmp/copy3_v.opus", test_hash, 5.0, 50.0, "opus"),  # nosec B108  # test fixture path
+            (
+                "Copy 3",
+                "Author",
+                "/tmp/copy3_v.opus",
+                test_hash,
+                5.0,
+                50.0,
+                "opus",
+            ),  # nosec B108  # test fixture path
         )
         conn.commit()
         conn.close()

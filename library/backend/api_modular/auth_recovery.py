@@ -20,8 +20,6 @@ other module, so no re-exports from auth.py are required.
 
 from datetime import datetime
 
-from flask import current_app, jsonify, request
-
 from auth import (
     AuthType,
     PendingRecovery,
@@ -32,17 +30,17 @@ from auth import (
 )
 from auth.backup_codes import BackupCodeRepository
 from auth.totp import setup_totp
+from flask import current_app, jsonify, request
 
 from .auth import (
+    _user_allows_multi_session,
     auth_bp,
     get_auth_db,
     login_required,
     require_current_user,
     set_session_cookie,
-    _user_allows_multi_session,
 )
 from .auth_email import _send_magic_link_email
-
 
 # =============================================================================
 # Recovery Endpoints

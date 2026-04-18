@@ -56,14 +56,16 @@ def page(browser):
 @pytest.fixture(scope="module")
 def web_available():
     """Check if the web UI is reachable before running tests."""
-    import urllib.request
     import ssl
+    import urllib.request
 
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
     try:
-        urllib.request.urlopen(f"{WEB_BASE_URL}/login.html", timeout=5, context=ctx)  # nosec B310  # test fetches from hardcoded test URL
+        urllib.request.urlopen(
+            f"{WEB_BASE_URL}/login.html", timeout=5, context=ctx
+        )  # nosec B310  # test fetches from hardcoded test URL
         return True
     except Exception:
         pytest.skip(f"Web UI not reachable at {WEB_BASE_URL}")
@@ -253,9 +255,9 @@ class TestResponsiveLayout:
 
         # Verify no horizontal overflow (page body fits viewport)
         body_width = pg.evaluate("document.body.scrollWidth")
-        assert body_width <= width + 20, (
-            f"Login page overflows at {label} ({width}px): body is {body_width}px wide"
-        )
+        assert (
+            body_width <= width + 20
+        ), f"Login page overflows at {label} ({width}px): body is {body_width}px wide"
 
         # Verify the main form container is visible
         form_visible = pg.locator(".auth-container, .login-form, form").first.is_visible()
@@ -275,9 +277,9 @@ class TestResponsiveLayout:
         pg.wait_for_load_state("networkidle")
 
         body_width = pg.evaluate("document.body.scrollWidth")
-        assert body_width <= width + 20, (
-            f"Register page overflows at {label} ({width}px): body is {body_width}px wide"
-        )
+        assert (
+            body_width <= width + 20
+        ), f"Register page overflows at {label} ({width}px): body is {body_width}px wide"
 
         pg.close()
         context.close()

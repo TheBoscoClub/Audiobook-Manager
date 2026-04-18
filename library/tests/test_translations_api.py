@@ -16,7 +16,6 @@ import sqlite3
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from backend.api_modular import translations as tr
 from backend.api_modular.translations import (
     _fetch_cached_string_translations,
@@ -29,7 +28,6 @@ from backend.api_modular.translations import (
     _validate_on_demand_request,
     _validate_translate_strings_request,
 )
-
 
 # ── Pure helpers ──
 

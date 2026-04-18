@@ -17,12 +17,12 @@ sys.path.insert(0, str(LIBRARY_DIR))
 
 from auth.passkey import (  # noqa: E402
     WebAuthnCredential,
-    create_registration_options,
-    verify_registration,
-    create_authentication_options,
-    verify_authentication,
-    get_pending_challenge,
     _pending_challenges,
+    create_authentication_options,
+    create_registration_options,
+    get_pending_challenge,
+    verify_authentication,
+    verify_registration,
 )
 
 

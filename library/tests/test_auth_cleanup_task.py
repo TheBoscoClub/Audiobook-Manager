@@ -9,13 +9,11 @@ from contextlib import contextmanager
 from unittest.mock import MagicMock, call, patch
 
 import pytest
-
 from backend.api_modular.maintenance_tasks.auth_cleanup import (
-    AuthCleanupTask,
     _ACCESS_REQUEST_RETENTION_DAYS,
+    AuthCleanupTask,
     _get_auth_db,
 )
-
 
 # ============================================================
 # Helpers

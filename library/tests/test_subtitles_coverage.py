@@ -14,7 +14,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from backend.api_modular import subtitles as sub
 
 
@@ -350,11 +349,12 @@ def _install_fake_pipeline(monkeypatch, stt, chapters_result=None, raise_on_pipe
             from pathlib import Path as _P
 
             on_complete(0, _P("/tmp/en-0.vtt"), _P("/tmp/zh-0.vtt"))  # nosec B108 -- test fixture
-        return chapters_result or [(0, "/tmp/en-0.vtt", "/tmp/zh-0.vtt")]  # nosec B108 -- test fixture
+        return chapters_result or [
+            (0, "/tmp/en-0.vtt", "/tmp/zh-0.vtt")
+        ]  # nosec B108 -- test fixture
 
     pipeline = types.SimpleNamespace(
-        generate_book_subtitles=_gen_subs,
-        get_stt_provider=lambda *a, **kw: stt,
+        generate_book_subtitles=_gen_subs, get_stt_provider=lambda *a, **kw: stt
     )
     selection = types.SimpleNamespace(WorkloadHint=types.SimpleNamespace(LONG_FORM="LF"))
     # Register fake modules so the in-closure imports resolve.
@@ -363,9 +363,7 @@ def _install_fake_pipeline(monkeypatch, stt, chapters_result=None, raise_on_pipe
     monkeypatch.setitem(sys.modules, "localization.selection", selection)
     monkeypatch.setitem(sys.modules, "library", types.ModuleType("library"))
     monkeypatch.setitem(
-        sys.modules,
-        "library.localization",
-        types.ModuleType("library.localization"),
+        sys.modules, "library.localization", types.ModuleType("library.localization")
     )
     monkeypatch.setitem(sys.modules, "library.localization.pipeline", pipeline)
     monkeypatch.setitem(sys.modules, "library.localization.selection", selection)
@@ -419,11 +417,7 @@ class TestStartGenerationClosure:
         self, app_client, subtitles_db, threading_capture_sub, monkeypatch, tmp_path
     ):
         self._seed_book(subtitles_db, 2)
-        _install_fake_pipeline(
-            monkeypatch,
-            _FakeSTT(),
-            raise_on_pipeline=RuntimeError("gpu dead"),
-        )
+        _install_fake_pipeline(monkeypatch, _FakeSTT(), raise_on_pipeline=RuntimeError("gpu dead"))
         audio = tmp_path / "book.opus"
         audio.write_bytes(b"x")
 

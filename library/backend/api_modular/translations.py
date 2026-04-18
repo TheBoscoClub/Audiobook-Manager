@@ -60,8 +60,7 @@ def _migrate_series_display(conn):
 
 def _migrate_collection_translations(conn):
     """Migration 018: collection_translations cache table."""
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS collection_translations (
+    conn.execute("""CREATE TABLE IF NOT EXISTS collection_translations (
             collection_id TEXT NOT NULL,
             locale TEXT NOT NULL,
             name TEXT NOT NULL,
@@ -69,8 +68,7 @@ def _migrate_collection_translations(conn):
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (collection_id, locale)
-        )"""
-    )
+        )""")
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_collection_translations_locale "
         "ON collection_translations(locale)"
@@ -79,8 +77,7 @@ def _migrate_collection_translations(conn):
 
 def _migrate_string_translations(conn):
     """Migration 019: string_translations generic cache table."""
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS string_translations (
+    conn.execute("""CREATE TABLE IF NOT EXISTS string_translations (
             source_hash TEXT NOT NULL,
             locale TEXT NOT NULL,
             source TEXT NOT NULL,
@@ -89,8 +86,7 @@ def _migrate_string_translations(conn):
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (source_hash, locale)
-        )"""
-    )
+        )""")
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_string_translations_locale ON string_translations(locale)"
     )
@@ -98,8 +94,7 @@ def _migrate_string_translations(conn):
 
 def _migrate_deepl_quota(conn):
     """Migration 020: deepl_quota single-row bookkeeping for quota/glossary."""
-    conn.execute(
-        """CREATE TABLE IF NOT EXISTS deepl_quota (
+    conn.execute("""CREATE TABLE IF NOT EXISTS deepl_quota (
             id TEXT PRIMARY KEY DEFAULT 'default',
             chars_used INTEGER NOT NULL DEFAULT 0,
             char_limit INTEGER NOT NULL DEFAULT 500000,
@@ -108,8 +103,7 @@ def _migrate_deepl_quota(conn):
             glossary_id TEXT,
             glossary_source_hash TEXT,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )"""
-    )
+        )""")
     conn.execute("INSERT OR IGNORE INTO deepl_quota (id) VALUES ('default')")
 
 

@@ -11,9 +11,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from backend.name_parser import generate_sort_name
 from scanner.metadata_utils import extract_topics
 
-from backend.name_parser import generate_sort_name
 from scripts.enrichment.base import EnrichmentProvider
 from scripts.enrichment.provider_audible import AudibleProvider
 from scripts.enrichment.provider_google import GoogleBooksProvider
@@ -125,8 +125,7 @@ def _apply_scalar_updates(
     set_clause = ", ".join(f"{col} = ?" for col in scalar)
     params = list(scalar.values()) + [book_id]
     cursor.execute(  # nosec B608 - columns validated against _SCALAR_COLUMNS allowlist (line 128); values via parameterized `?`  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        f"UPDATE audiobooks SET {set_clause} WHERE id = ?",  # nosec B608  # noqa: S608
-        params,
+        f"UPDATE audiobooks SET {set_clause} WHERE id = ?", params  # nosec B608  # noqa: S608
     )
     return len(scalar) - 2  # Don't count timestamp + source as "fields"
 

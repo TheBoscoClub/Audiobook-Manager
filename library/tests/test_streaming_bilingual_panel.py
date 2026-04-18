@@ -52,11 +52,7 @@ def _run_node(script: str) -> dict:
     if _NODE_BIN is None:
         pytest.skip("node binary not on PATH")
     proc = subprocess.run(  # nosec B603  # _NODE_BIN resolved via shutil.which; script is our controlled JSON-encoded test fixture
-        [_NODE_BIN, "-e", script],
-        capture_output=True,
-        text=True,
-        timeout=15,
-        check=False,
+        [_NODE_BIN, "-e", script], capture_output=True, text=True, timeout=15, check=False
     )
     if proc.returncode != 0:
         raise AssertionError(
@@ -137,11 +133,9 @@ class TestShellHtmlMarkup:
     def test_transcript_panel_has_bilingual_class(self):
         """Panel must carry the .bilingual modifier so CSS can target two-column rules."""
         assert re.search(
-            r'id="transcript-panel"[^>]*class="[^"]*\bbilingual\b',
-            self.html,
+            r'id="transcript-panel"[^>]*class="[^"]*\bbilingual\b', self.html
         ) or re.search(
-            r'class="[^"]*\bbilingual\b[^"]*"[^>]*id="transcript-panel"',
-            self.html,
+            r'class="[^"]*\bbilingual\b[^"]*"[^>]*id="transcript-panel"', self.html
         ), "transcript-panel must carry the 'bilingual' CSS class"
 
     def test_has_two_column_structure(self):
@@ -174,8 +168,7 @@ class TestCssBilingualLayout:
         """A .bilingual .cols rule must use display:flex (side-by-side columns)."""
         # Allow any whitespace between selector and declaration.
         m = re.search(
-            r"\.transcript-panel\.bilingual\s+\.cols\s*{[^}]*display\s*:\s*flex",
-            self.css,
+            r"\.transcript-panel\.bilingual\s+\.cols\s*{[^}]*display\s*:\s*flex", self.css
         )
         assert m is not None, ".transcript-panel.bilingual .cols must use display:flex"
 
@@ -191,18 +184,16 @@ class TestCssBilingualLayout:
         assert mq is not None, "missing @media (max-width: 720px) block"
         body = mq.group(1)
         assert re.search(r"\.cols", body), "720px block must target .cols"
-        assert re.search(r"flex-direction\s*:\s*column", body), (
-            "720px block must set flex-direction:column on the columns container"
-        )
+        assert re.search(
+            r"flex-direction\s*:\s*column", body
+        ), "720px block must set flex-direction:column on the columns container"
 
     def test_current_cue_highlight_rule(self):
         """Active-cue highlight for the bilingual panel must exist."""
         assert re.search(
-            r"\.transcript-panel\.bilingual[^{]*\.(?:cue|current)[^{]*{",
-            self.css,
+            r"\.transcript-panel\.bilingual[^{]*\.(?:cue|current)[^{]*{", self.css
         ) or re.search(
-            r"\.bilingual\s+[^{]*\.current\s*{",
-            self.css,
+            r"\.bilingual\s+[^{]*\.current\s*{", self.css
         ), "bilingual current-cue highlight rule missing"
 
 

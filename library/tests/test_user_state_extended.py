@@ -31,8 +31,8 @@ class TestGetLibraryDbNotInitialized:
     """Test _get_library_db raises when not initialized (line 54)."""
 
     def test_raises_runtime_error(self):
-        from backend.api_modular.user_state import _get_library_db
         import backend.api_modular.user_state as module
+        from backend.api_modular.user_state import _get_library_db
 
         original = module._db_path
         module._db_path = None
@@ -116,7 +116,7 @@ class TestUserLibraryHiddenBooks:
 
     def test_library_empty_ids_returns_empty(self, auth_app, auth_db):
         """Empty all_ids returns empty list (line 259)."""
-        from auth import User, AuthType
+        from auth import AuthType, User
         from auth.models import Session
 
         # Create a user with no activity

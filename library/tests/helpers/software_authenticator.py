@@ -17,10 +17,9 @@ import struct
 from base64 import urlsafe_b64decode, urlsafe_b64encode
 from dataclasses import dataclass, field
 
+import cbor2
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.hashes import SHA256
-
-import cbor2
 
 
 def _b64url_encode(data: bytes) -> str:
