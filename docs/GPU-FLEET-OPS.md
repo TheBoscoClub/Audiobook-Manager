@@ -123,7 +123,7 @@ https://<pod_id>-8000.proxy.runpod.net
 SSH into each Vast.ai instance and install/start the Whisper HTTP server (one-time setup per rental):
 
 ```bash
-ssh -i ~/.claude/ssh/id_ed25519 -p <ssh_port> root@<ssh_host>
+ssh -i ~/.ssh/id_ed25519 -p <ssh_port> root@<ssh_host>
 
 # Inside the instance:
 pip install faster-whisper fastapi uvicorn
