@@ -8,10 +8,8 @@ invoking the real DB or GPU backends.
 import importlib.util
 import os
 import sqlite3
-import sys
-import tempfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -24,10 +22,6 @@ _SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "batch-translate.py"
 def _load():
     spec = importlib.util.spec_from_file_location("batch_translate", _SCRIPT)
     mod = importlib.util.module_from_spec(spec)
-    # Prevent localization imports from failing at load time
-    sys.modules.setdefault("localization", MagicMock())
-    sys.modules.setdefault("localization.tts", MagicMock())
-    sys.modules.setdefault("localization.tts.factory", MagicMock())
     spec.loader.exec_module(mod)
     return mod
 
