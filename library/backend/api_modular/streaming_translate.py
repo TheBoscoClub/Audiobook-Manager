@@ -12,6 +12,7 @@ Endpoints:
     GET  /api/translate/session/<id>/<locale>       — current streaming session state
     POST /api/translate/warmup           — pre-warm GPU on app open
     POST /api/translate/seek             — handle seek to uncached position
+    POST /api/translate/stop             — stop streaming (demote all pending to back-fill)
 """
 
 import logging
@@ -31,7 +32,13 @@ _db_path: Path | None = None
 _library_path: Path | None = None
 
 SEGMENT_DURATION_SEC = 30
-BUFFER_THRESHOLD = 6  # 3 minutes = 6 segments
+# Cursor buffer window: the number of segments at and ahead of the playback
+# cursor that get P0 (highest) priority. 6 × 30s = 3 minutes.
+BUFFER_AHEAD_SEGMENTS = 6
+# Alias preserved for callers that reference the session-level "buffer_threshold"
+# knob (web JS, schema default, broadcast payloads). The two values must stay
+# equal — the web UI thresholds match the cursor-buffer semantic.
+BUFFER_THRESHOLD = BUFFER_AHEAD_SEGMENTS
 
 # Allowed locale patterns for path/log safety
 _SAFE_LOCALE_RE = re.compile(r"^[a-zA-Z]{2}(?:-[a-zA-Z0-9]{1,8})?$")
@@ -288,6 +295,68 @@ def _broadcast_buffer_progress(
     )
 
 
+# ── Pure reprioritization impls (cursor-centric 3-tier queue) ──
+#
+# The priority model:
+#   P0 (0) — cursor buffer: the 6 segments at and just ahead of the seek target
+#   P1 (1) — forward chase: remaining pending segments in the same chapter
+#            with segment_index > t + BUFFER_AHEAD_SEGMENTS - 1
+#   P2 (2) — back-fill: pending segments in the same chapter with
+#            segment_index < t (plus everything on stop())
+#
+# Scope is chapter-local: seek only reshuffles within (audiobook_id, chapter,
+# locale). Processing rows are never touched — the worker has claimed them.
+
+
+def handle_seek_impl(conn, audiobook_id, locale, chapter_index, segment_index):
+    """Reprioritize pending segments around a new cursor position.
+
+    Writes three UPDATEs (all scoped to state='pending') and commits:
+      1. Demote everything pending in this chapter to P2.
+      2. Promote the cursor window [t .. t+BUFFER_AHEAD_SEGMENTS-1] to P0.
+      3. Promote forward-chase (> t+BUFFER_AHEAD_SEGMENTS-1) to P1.
+
+    Segments in state='processing' or 'completed' are never touched.
+    """
+    end = segment_index + BUFFER_AHEAD_SEGMENTS
+    # 1. Demote all pending segments in this chapter → P2
+    conn.execute(
+        "UPDATE streaming_segments SET priority = 2 "
+        "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ? "
+        "AND state = 'pending'",
+        (audiobook_id, chapter_index, locale),
+    )
+    # 2. Promote cursor window [t, t+BUFFER_AHEAD_SEGMENTS) → P0
+    conn.execute(
+        "UPDATE streaming_segments SET priority = 0 "
+        "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ? "
+        "AND segment_index >= ? AND segment_index < ? AND state = 'pending'",
+        (audiobook_id, chapter_index, locale, segment_index, end),
+    )
+    # 3. Promote forward-chase (beyond the cursor window) → P1
+    conn.execute(
+        "UPDATE streaming_segments SET priority = 1 "
+        "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ? "
+        "AND segment_index >= ? AND state = 'pending'",
+        (audiobook_id, chapter_index, locale, end),
+    )
+    conn.commit()
+
+
+def stop_streaming_impl(conn, audiobook_id, locale):
+    """Demote every pending segment for (book, locale) to P2 (back-fill).
+
+    Used when the player stops streaming translation. Processing segments
+    are not touched — let the worker finish what it claimed. No promotion.
+    """
+    conn.execute(
+        "UPDATE streaming_segments SET priority = 2 "
+        "WHERE audiobook_id = ? AND locale = ? AND state = 'pending'",
+        (audiobook_id, locale),
+    )
+    conn.commit()
+
+
 # ── Routes ──
 
 
@@ -540,18 +609,8 @@ def handle_seek():
     if cached and cached["state"] == "completed":
         return jsonify({"state": "cached", "segment_index": segment_index})
 
-    # Reprioritize: segments at and after the seek target get priority 0
-    db.execute(
-        "UPDATE streaming_segments SET priority = 2 "
-        "WHERE audiobook_id = ? AND locale = ? AND state = 'pending'",
-        (audiobook_id, locale),
-    )
-    db.execute(
-        "UPDATE streaming_segments SET priority = 0 "
-        "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ? "
-        "AND segment_index >= ? AND segment_index < ? AND state = 'pending'",
-        (audiobook_id, chapter_index, locale, segment_index, segment_index + BUFFER_THRESHOLD),
-    )
+    # 3-tier cursor-centric reprioritization (scoped to this chapter).
+    handle_seek_impl(db, audiobook_id, locale, chapter_index, segment_index)
 
     # Update session active chapter
     db.execute(
@@ -571,6 +630,55 @@ def handle_seek():
             "segment_index": segment_index,
             "segment_bitmap": bitmap,
             "buffer_threshold": BUFFER_THRESHOLD,
+        }
+    )
+
+
+@streaming_bp.route("/api/translate/stop", methods=["POST"])
+@guest_allowed
+def stop_streaming():
+    """Stop streaming translation for a book+locale.
+
+    Demotes every pending segment for (audiobook_id, locale) to P2
+    (back-fill priority) so the GPU workers stop chasing the cursor for
+    this book. Processing segments are left alone — the worker finishes
+    what it claimed. Any active streaming_sessions row for this pair is
+    marked 'stopped'.
+
+    Body:
+        audiobook_id: int
+        locale: str
+    """
+    data = request.get_json(silent=True) or {}
+    audiobook_id = data.get("audiobook_id")
+    locale = data.get("locale", "zh-Hans")
+
+    if not audiobook_id:
+        return jsonify({"error": "audiobook_id required"}), 400
+
+    try:
+        audiobook_id = int(audiobook_id)
+        locale = _sanitize_locale(locale)
+    except (ValueError, TypeError):
+        return jsonify({"error": "invalid parameters"}), 400
+
+    db = _get_db()
+
+    stop_streaming_impl(db, audiobook_id, locale)
+
+    db.execute(
+        "UPDATE streaming_sessions SET state = 'stopped', "
+        "updated_at = CURRENT_TIMESTAMP "
+        "WHERE audiobook_id = ? AND locale = ? AND state IN ('buffering', 'streaming')",
+        (audiobook_id, locale),
+    )
+    db.commit()
+
+    return jsonify(
+        {
+            "state": "stopped",
+            "audiobook_id": audiobook_id,
+            "locale": locale,
         }
     )
 
