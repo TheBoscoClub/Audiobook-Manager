@@ -412,9 +412,9 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             body = self._read_request_body(method)
             req = urllib.request.Request(api_url, data=body, headers=headers, method=method)  # noqa: S310 — Request for proxied API call; URL validated against internal 127.0.0.1 host only
 
-            with urllib.request.urlopen(  # noqa: S310 — urlopen for proxied localhost API; URL built from internal 127.0.0.1 base
+            with urllib.request.urlopen(  # noqa: S310 — urlopen for proxied localhost API; URL built from internal 127.0.0.1 base  # nosec B310  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
                 req, timeout=30
-            ) as response:  # nosec B310  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+            ) as response:
                 self.send_response(response.status)
                 self._forward_response_headers(response.headers)
                 self.end_headers()

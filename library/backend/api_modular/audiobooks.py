@@ -58,9 +58,10 @@ def get_stats() -> Response:
     cursor = conn.cursor()
 
     # Total audiobooks (audiobooks only)
+    # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     cursor.execute(
         f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}"  # noqa: S608 — AUDIOBOOK_FILTER is a module-level constant, not user input  # nosec B608 — SQL — built from internal constants or allowlisted values; all user values use parameterized ? placeholders
-    )  # nosec B608  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    )
     total_books = cursor.fetchone()["total"]
 
     # Total hours (audiobooks only)
