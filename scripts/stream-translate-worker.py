@@ -34,6 +34,10 @@ PROJECT_DIR = SCRIPT_DIR.parent
 LIB_DIR = PROJECT_DIR / "library"
 sys.path.insert(0, str(LIB_DIR))
 
+# TTS provider factory — imported at module top so tests can patch it
+# (lazy import would change the patch target and break test coverage).
+from localization.tts.factory import get_tts_provider  # noqa: E402
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)-7s [%(name)s] %(message)s",
@@ -54,6 +58,114 @@ signal.signal(signal.SIGINT, _signal_handler)
 signal.signal(signal.SIGTERM, _signal_handler)
 
 SEGMENT_DURATION_SEC = 30
+
+# Streaming TTS audio root is required for v8.3.2+.
+# Resolved from AUDIOBOOKS_STREAMING_AUDIO_DIR (set by stream-translate-daemon.sh
+# which sources lib/audiobook-config.sh, the canonical source of
+# ${AUDIOBOOKS_VAR_DIR}/streaming-audio). The literal fallback below is the
+# hard-coded canonical default used only when unit tests import this module
+# without the env var set.
+_STREAMING_AUDIO_DEFAULT = "/var/lib/audiobooks/streaming-audio"  # default for AUDIOBOOKS_VAR_DIR fallback
+_STREAMING_AUDIO_ROOT = Path(
+    os.environ.get("AUDIOBOOKS_STREAMING_AUDIO_DIR", _STREAMING_AUDIO_DEFAULT)
+)
+
+# Per-locale default edge-tts voice. Conservative picks — can be broadened as
+# more locales come online. Unknown locales fall back to en-US.
+_LOCALE_DEFAULT_VOICE = {
+    "zh-Hans": "zh-CN-XiaoxiaoNeural",
+    "zh-CN": "zh-CN-XiaoxiaoNeural",
+    "zh-Hant": "zh-TW-HsiaoChenNeural",
+    "ja": "ja-JP-NanamiNeural",
+    "ko": "ko-KR-SunHiNeural",
+    "es": "es-ES-ElviraNeural",
+    "fr": "fr-FR-DeniseNeural",
+    "de": "de-DE-KatjaNeural",
+}
+
+
+def _default_voice_for_locale(locale: str) -> str:
+    """Map locale → edge-tts voice. Unknown → en-US fallback."""
+    return _LOCALE_DEFAULT_VOICE.get(locale, "en-US-AriaNeural")
+
+
+def _vtt_to_plain(vtt_text: str) -> str:
+    """Extract spoken text from VTT cues — drop headers, timings, cue indices.
+
+    edge-tts takes plain UTF-8 text. WebVTT cue structure (WEBVTT header,
+    numeric cue IDs, ``HH:MM:SS.mmm --> HH:MM:SS.mmm`` timing lines, and
+    blank separators) would be spoken verbatim and ruin the audio.
+    """
+    lines: list[str] = []
+    for raw in vtt_text.splitlines():
+        ln = raw.strip()
+        if not ln or ln.startswith("WEBVTT") or "-->" in ln or ln.isdigit():
+            continue
+        lines.append(ln)
+    return " ".join(lines)
+
+
+def _synthesize_segment_audio(
+    vtt_content: str,
+    audiobook_id: int,
+    chapter_index: int,
+    segment_index: int,
+    locale: str,
+) -> Path | None:
+    """Generate per-segment opus audio from a translated VTT cue block.
+
+    edge-tts emits MP3 regardless of filename suffix, so we synthesize to a
+    temp MP3 then re-encode to opus via ffmpeg. Task 10's chapter
+    consolidation uses ``ffmpeg -c copy`` which demands a uniform codec
+    across inputs — per-segment files MUST be opus.
+
+    Returns the final opus path, or ``None`` when the VTT has no spoken
+    text (empty cue block, synthesis would produce 0-byte silence).
+    """
+    text = _vtt_to_plain(vtt_content)
+    if not text.strip():
+        return None
+
+    # Short clips → edge-tts (no cold-start, no per-minute billing).
+    tts = get_tts_provider("edge-tts")
+    voice = _default_voice_for_locale(locale)
+
+    out_opus = (
+        _STREAMING_AUDIO_ROOT
+        / str(audiobook_id)
+        / f"ch{chapter_index:03d}"
+        / locale
+        / f"seg{segment_index:04d}.opus"
+    )
+    out_opus.parent.mkdir(parents=True, exist_ok=True)
+
+    # edge-tts → temp MP3
+    with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tf:
+        mp3_tmp = Path(tf.name)
+    try:
+        tts.synthesize(text=text, language=locale, voice=voice, output_path=mp3_tmp)
+        # ffmpeg MP3 → opus (48k, 48kHz — matches rest of the library)
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-y",
+                "-loglevel",
+                "error",
+                "-i",
+                str(mp3_tmp),
+                "-c:a",
+                "libopus",
+                "-b:a",
+                "48k",
+                "-ar",
+                "48000",
+                str(out_opus),
+            ],
+            check=True,
+        )
+    finally:
+        mp3_tmp.unlink(missing_ok=True)
+    return out_opus
 
 
 def get_db(db_path: str) -> sqlite3.Connection:
@@ -214,6 +326,30 @@ def process_segment(
         if offset_ms > 0 and vtt_content:
             vtt_content = _offset_vtt_timestamps(vtt_content, offset_ms)
 
+        # Synthesize per-segment TTS audio (opus). VTT alone is still useful,
+        # so a TTS failure downgrades to "text-only" rather than failing the
+        # whole segment.
+        audio_rel: str | None = None
+        try:
+            seg_audio = _synthesize_segment_audio(
+                vtt_content, audiobook_id, chapter_index, segment_index, locale
+            )
+            if seg_audio is not None:
+                try:
+                    audio_rel = str(seg_audio.relative_to(_STREAMING_AUDIO_ROOT))
+                except ValueError:
+                    audio_rel = None
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.warning(
+                "TTS synthesis failed for seg %d/%d/%d (locale=%s): %s",
+                audiobook_id,
+                chapter_index,
+                segment_index,
+                locale,
+                exc,
+            )
+            audio_rel = None
+
         # Report completion to coordinator API
         import urllib.request
         import json
@@ -225,6 +361,7 @@ def process_segment(
                 "segment_index": segment_index,
                 "locale": locale,
                 "vtt_content": vtt_content,
+                "audio_path": audio_rel,
             }
         ).encode()
 
