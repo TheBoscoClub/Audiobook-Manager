@@ -25,6 +25,13 @@ Thumbs.db
 # Session files
 exit.*
 
+# Defensive: some tools misexpand "$AUDIOBOOKS_RUN_DIR" into a literal
+# double-quoted path — never track that artifact.
+"*"
+*"*
+/var/
+
+
 # Claude Code instructions (local only)
 CLAUDE.md
 
