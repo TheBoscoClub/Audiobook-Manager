@@ -62,10 +62,15 @@ The frontend state machine transitions from `IDLE` to `BUFFERING`:
 
 The coordinator simultaneously:
 
-- Creates `streaming_segments` rows for the active chapter (priority 0)
-- Creates rows for the next chapter (priority 1 = prefetch)
+- Creates `streaming_segments` rows for the **cursor buffer fill** — the first
+  six 30-second segments (≈3 minutes) forward of the cursor, queued at **P0**
+- Creates rows for the remainder of the current chapter at **P1** (forward
+  chase toward end-of-chapter / next logical break)
 - Each row represents one 30-second segment:
   `(audiobook_id, chapter_index, segment_index, locale, state='pending')`
+
+See [Priority Model](#priority-model-cursor-centric) below for the full 3-tier
+semantics.
 
 ### Phase 4 — GPU Worker Processing
 
@@ -82,9 +87,10 @@ order and processes each segment:
 7. POST /api/translate/segment-complete → report inline VTT content
 ```
 
-Active chapters (priority 0) are processed segment-by-segment for low-latency
-streaming. Prefetch chapters (priority 1) can be processed as a single batch
-unit for efficiency.
+P0 cursor-buffer segments are processed first so playback can resume as quickly
+as possible. Once the 3-minute buffer is satisfied, workers drain P1 (forward
+chase) to stay ahead of the cursor, and only then P2 (back-fill) to complete
+the timeline behind the cursor for the side panel and future backward scrubs.
 
 ### Phase 5 — Real-Time Push
 
@@ -111,11 +117,19 @@ from `BUFFERING` to `STREAMING`:
 | Action | Behavior |
 |--------|----------|
 | ±30 seconds within buffer | Instant — segment already cached, no interruption |
-| Jump beyond cached range | `POST /api/translate/seek` → reprioritize from new position → re-enter buffering |
+| Jump beyond cached range | `POST /api/translate/seek` → reprioritize from new cursor → re-enter buffering |
 | Jump to batch-cached chapter | Instant — already in permanent cache |
 
-The seek endpoint deprioritizes all pending segments (priority 2) and promotes
-the 6 segments starting from the seek target to priority 0.
+**On seek-beyond-buffer**: all existing pending segments are downgraded to
+**P2**; the six segments forward of the new cursor are promoted or inserted at
+**P0** (cursor buffer fill); the remainder of the chapter past that buffer is
+queued at **P1** (forward chase); the gap between the prior translated tail
+and the new cursor is queued at **P2** (back-fill) so the side panel and any
+future backward scrub stay continuous.
+
+**On stop**: all pending segments are downgraded to **P2**. Back-fill
+preserves work for future resume and side-panel completeness rather than
+discarding the queue.
 
 ### Phase 8 — Consolidation
 
@@ -155,7 +169,7 @@ one.
 │  GET  /api/translate/segments/…     Segment completion bitmap      │
 │  GET  /api/translate/session/…      Session state                  │
 │  POST /api/translate/segment-complete   Worker callback            │
-│  POST /api/translate/chapter-complete   Worker callback (prefetch) │
+│  POST /api/translate/chapter-complete   Worker callback (chapter)  │
 │                                                                    │
 │  ┌──────────────────────────────────────────────────────────┐     │
 │  │ WebSocket Manager: broadcasts segment_ready,             │     │
@@ -198,10 +212,47 @@ one.
 |-----------|-------|-----------|
 | Segment duration | 30 seconds | L40S processes in ~2-3s; small enough for low latency |
 | Buffer threshold | 6 segments (3 min) | Enough runway for continuous playback while GPU stays ahead |
-| Prefetch ahead | Next chapter | Seamless chapter transitions without re-buffering |
-| Active priority | 0 | Processed first — what the user is hearing now |
-| Prefetch priority | 1 | Processed after active segments complete |
-| Deprioritized | 2 | Segments behind the seek cursor |
+| P0 — cursor buffer fill | 6 segments forward of the cursor | Must flow before playback resumes |
+| P1 — forward chase | Cursor buffer → end of chapter / next break | Keeps GPU ahead of the cursor during playback |
+| P2 — back-fill | Prior translated tail → cursor | Continuous side panel and backward-scrub safety net |
+
+## Priority Model (Cursor-Centric)
+
+The scheduler is **cursor-centric**, not chapter-centric. Segments are queued
+at one of three priority tiers relative to the listener's current playback
+cursor:
+
+```text
+Priority levels (lower = higher urgency):
+  0  P0 — cursor buffer fill. Populates first ~3 minutes (6 segments)
+         forward of the cursor. Must flow before playback resumes.
+  1  P1 — forward chase. Continues producing segments past the cursor
+         buffer toward end-of-chapter / next logical break. Deprioritized
+         only if the user jumps/stops.
+  2  P2 — back-fill. Produces segments between prior translated tail and
+         the cursor. Runs after P0 is satisfied so the side panel and
+         future backward-scrubbing have continuous context.
+
+On seek-beyond-buffer: existing pending segments downgraded to P2; six
+segments forward of the new cursor promoted/inserted at P0; end-of-chapter
+remainder queued at P1; gap between prior tail and new cursor queued at P2.
+
+On stop: all pending segments downgraded to P2 (back-fill preserves work
+for future resume / side-panel completeness).
+```
+
+Worker claim order — `ORDER BY priority, chapter, segment` — is unchanged;
+only the semantics of each tier shifted in v8.3.2 from "chapter role" to
+"relationship to cursor."
+
+### Transition Summary
+
+| Event | P0 (cursor buffer) | P1 (forward chase) | P2 (back-fill) |
+|-------|--------------------|--------------------|----------------|
+| Press play | 6 segments forward of cursor | Rest of current chapter | (empty) |
+| Seek beyond buffer | 6 segments forward of **new** cursor | Remainder after buffer | All prior pending + gap from prior tail to cursor |
+| Stop | (empty) | (empty) | All pending segments |
+| Resume | 6 segments forward of cursor (re-promoted from P2) | Rest of chapter (re-promoted) | Prior tail → cursor remainder |
 
 ## State Machine
 
@@ -297,7 +348,7 @@ CREATE TABLE streaming_segments (
     segment_index   INTEGER NOT NULL,
     locale          TEXT NOT NULL,
     state           TEXT DEFAULT 'pending',      -- pending, processing, completed, failed
-    priority        INTEGER DEFAULT 1,           -- 0=active, 1=prefetch, 2=deprioritized
+    priority        INTEGER DEFAULT 1,           -- 0=P0 cursor buffer, 1=P1 forward chase, 2=P2 back-fill
     worker_id       TEXT,
     vtt_content     TEXT,                         -- inline VTT for completed segments
     audio_path      TEXT,
