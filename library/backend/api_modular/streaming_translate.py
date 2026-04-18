@@ -337,10 +337,111 @@ def _broadcast_chapter_ready(audiobook_id: int, chapter_index: int, locale: str)
     )
 
 
+def _derive_phase(conn, audiobook_id: int, locale: str) -> str:
+    """Derive the current streaming-pipeline phase for (audiobook_id, locale).
+
+    The phase is surfaced to the player via both the REST
+    ``POST /api/translate/stream`` response and the WebSocket
+    ``buffer_progress`` broadcast so the UI can render a distinct label
+    for each pipeline stage (e.g. Qing's monolingual zh-Hans player).
+
+    Precedence (first match wins):
+        1. failed > 0                                 → "error"
+        2. completed >= BUFFER_AHEAD_SEGMENTS         → "streaming"
+        3. processing > 0                             → "buffering"
+        4. session warm + pending > 0                 → "gpu_provisioning"
+        5. session warm + pending=0 + processing=0    → "warmup"
+        6. no warm session + pending > 0              → "warmup"
+        7. otherwise                                  → "idle"
+
+    Schema-drift note vs the v8.3.2 plan text: the plan referenced a
+    ``requested_at`` column (real column is ``created_at``) and a session
+    state ``'warmup'`` (no row ever writes that; warmup is modelled via
+    ``gpu_warm=1``). This helper follows the real schema.
+    """
+    counts_row = conn.execute(
+        "SELECT "
+        "SUM(CASE WHEN state = 'pending' THEN 1 ELSE 0 END) AS pending, "
+        "SUM(CASE WHEN state = 'processing' THEN 1 ELSE 0 END) AS processing, "
+        "SUM(CASE WHEN state = 'completed' THEN 1 ELSE 0 END) AS completed, "
+        "SUM(CASE WHEN state = 'failed' THEN 1 ELSE 0 END) AS failed "
+        "FROM streaming_segments "
+        "WHERE audiobook_id = ? AND locale = ?",
+        (audiobook_id, locale),
+    ).fetchone()
+
+    # SUM over an empty set returns NULL → None in Python.
+    pending = (counts_row["pending"] or 0) if counts_row else 0
+    processing = (counts_row["processing"] or 0) if counts_row else 0
+    completed = (counts_row["completed"] or 0) if counts_row else 0
+    failed = (counts_row["failed"] or 0) if counts_row else 0
+
+    session = conn.execute(
+        "SELECT state, gpu_warm FROM streaming_sessions "
+        "WHERE audiobook_id = ? AND locale = ? "
+        "ORDER BY created_at DESC, id DESC LIMIT 1",
+        (audiobook_id, locale),
+    ).fetchone()
+    gpu_warm = bool(session["gpu_warm"]) if session is not None else False
+
+    if failed > 0:
+        return "error"
+    if completed >= BUFFER_AHEAD_SEGMENTS:
+        return "streaming"
+    if processing > 0:
+        return "buffering"
+    if gpu_warm and pending > 0:
+        return "gpu_provisioning"
+    if gpu_warm and pending == 0 and processing == 0:
+        return "warmup"
+    if pending > 0:
+        return "warmup"
+    return "idle"
+
+
+def _get_current_segment(
+    conn, audiobook_id: int, chapter_index: int, locale: str
+) -> int:
+    """Return the next-to-play segment index for the active chapter.
+
+    Defined as the lowest ``segment_index`` in state ``'processing'`` or
+    ``'pending'`` for this (audiobook_id, chapter_index, locale). If no
+    such row exists (all completed or none created yet), returns the count
+    of completed segments — i.e. the next index to fill.
+    """
+    row = conn.execute(
+        "SELECT MIN(segment_index) AS cur FROM streaming_segments "
+        "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ? "
+        "AND state IN ('processing', 'pending')",
+        (audiobook_id, chapter_index, locale),
+    ).fetchone()
+    if row is not None and row["cur"] is not None:
+        return int(row["cur"])
+
+    completed_row = conn.execute(
+        "SELECT COUNT(*) AS n FROM streaming_segments "
+        "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ? "
+        "AND state = 'completed'",
+        (audiobook_id, chapter_index, locale),
+    ).fetchone()
+    return int(completed_row["n"]) if completed_row else 0
+
+
 def _broadcast_buffer_progress(
-    audiobook_id: int, chapter_index: int, locale: str, completed: int, total: int
+    audiobook_id: int,
+    chapter_index: int,
+    locale: str,
+    completed: int,
+    total: int,
+    phase: str,
 ):
-    """Push buffer progress update to connected clients."""
+    """Push buffer progress update to connected clients.
+
+    ``phase`` is computed by the caller (the caller already holds the DB
+    connection needed by :func:`_derive_phase`) and is forwarded verbatim
+    to the WebSocket payload so the player can render the stage label in
+    the same tick as the progress update.
+    """
     connection_manager.broadcast(
         {
             "type": "buffer_progress",
@@ -350,6 +451,7 @@ def _broadcast_buffer_progress(
             "completed": completed,
             "total": total,
             "threshold": BUFFER_THRESHOLD,
+            "phase": phase,
         }
     )
 
@@ -465,6 +567,9 @@ def _fully_cached_response(db, audiobook_id, chapter_index, locale):
             "cached_chapters": cached_chapters,
             "total_chapters": chapter_count,
             "all_cached": all_cached,
+            # Fully-cached chapters are effectively already streaming — the
+            # player can immediately play from the permanent cache.
+            "phase": "streaming",
         }
     )
 
@@ -544,6 +649,10 @@ def request_streaming_translation():
             "locale": locale,
             "buffer_threshold": BUFFER_THRESHOLD,
             "segment_bitmap": _get_segment_bitmap(db, audiobook_id, chapter_index, locale),
+            "phase": _derive_phase(db, audiobook_id, locale),
+            "current_segment": _get_current_segment(
+                db, audiobook_id, chapter_index, locale
+            ),
         }
     )
 
@@ -796,8 +905,9 @@ def segment_complete():
     # Check buffer progress for the active chapter
     bitmap = _get_segment_bitmap(db, audiobook_id, chapter_index, locale)
     completed_count = len(bitmap["completed"]) if isinstance(bitmap["completed"], list) else 0
+    phase = _derive_phase(db, audiobook_id, locale)
     _broadcast_buffer_progress(
-        audiobook_id, chapter_index, locale, completed_count, bitmap["total"]
+        audiobook_id, chapter_index, locale, completed_count, bitmap["total"], phase
     )
 
     # If this chapter is fully done, broadcast chapter_ready
