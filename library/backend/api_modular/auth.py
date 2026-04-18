@@ -1187,12 +1187,12 @@ def dismiss_notification(notification_id: int):
         200: {"success": true}
         400: {"error": "..."}
     """
-    user = require_current_user()
-    # require_current_user() raises RuntimeError if called outside @login_required
+    user_id = require_current_user_id()
+    # require_current_user_id() raises RuntimeError if called outside @login_required
     db = get_auth_db()
     notif_repo = NotificationRepository(db)
 
-    if notif_repo.dismiss(notification_id, user.id):
+    if notif_repo.dismiss(notification_id, user_id):
         return jsonify({"success": True})
     return jsonify({"error": "Notification not found or already dismissed"}), 400
 

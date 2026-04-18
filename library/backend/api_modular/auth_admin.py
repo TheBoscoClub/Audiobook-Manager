@@ -1516,7 +1516,7 @@ def _passkey_setup_data(db: AuthDatabase, username: str) -> dict[str, str | None
 
         pending = PR.from_row(row)
         return {
-            "claim_token": "pending",
+            "claim_token": "pending",  # noqa: S105  # nosec B105 — sentinel status value, not a credential
             "expires_at": pending.expires_at.isoformat() if pending.expires_at else None,
         }
 
