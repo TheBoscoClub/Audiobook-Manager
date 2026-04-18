@@ -104,8 +104,14 @@ log() { echo "$(date +%H:%M:%S) [fleet-watchdog-test] $*"; }
 # Eval the extracted function definition into the current shell
 eval "$FUNC_BODY"
 
-# Invoke the function against the fixture DB
-reclaim_stuck_streaming_segments
+# Invoke the function against the fixture DB and capture log output.
+# The contract is: log fires exactly when reclaimed > 0, silent otherwise.
+# Capturing stdout+stderr lets us assert both sides of that contract.
+RECLAIM_LOG_1="$(reclaim_stuck_streaming_segments 2>&1)"
+
+# Second invocation: with Row A already reclaimed, nothing is stuck anymore.
+# The function must run cleanly with zero log output (silent-on-zero contract).
+RECLAIM_LOG_2="$(reclaim_stuck_streaming_segments 2>&1)"
 
 # ── Assertions ────────────────────────────────────────────────────────────────
 PASS=0
@@ -166,6 +172,14 @@ ROW_E_STATE="$(sqlite3 "$DB_PATH" \
     "SELECT state FROM streaming_segments WHERE audiobook_id=1 AND segment_index=4;")"
 
 assert_eq "Row E state" "$ROW_E_STATE" "failed"
+
+# ── Log-output contract ───────────────────────────────────────────────────────
+# First invocation reclaimed Row A — must log "Reclaimed 1 streaming_segment(s)"
+LOG_1_HITS="$(echo "$RECLAIM_LOG_1" | grep -c "Reclaimed 1 streaming_segment" || true)"
+assert_eq "First call logs reclaim count" "$LOG_1_HITS" "1"
+
+# Second invocation had no stuck rows — must be completely silent
+assert_eq "Silent on zero reclaimed" "$RECLAIM_LOG_2" ""
 
 # ── Summary ────────────────────────────────────────────────────────────────────
 echo ""

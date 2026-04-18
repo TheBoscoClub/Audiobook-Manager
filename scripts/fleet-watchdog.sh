@@ -35,15 +35,21 @@ log() { echo "$(date +%H:%M:%S) [fleet-watchdog] $*"; }
 # This function therefore runs unconditionally, before any batch-watchdog gates.
 #
 # Reclaimed rows re-enter at priority=1 (forward chase tier in the 3-tier model).
+#
+# The UPDATE and SELECT changes() MUST share a single sqlite3 invocation —
+# changes() is per-connection, so splitting them into two sqlite3 calls would
+# always return 0 (the second connection has made no modifications).
 reclaim_stuck_streaming_segments() {
-    sqlite3 "$DB_PATH" <<'SQL'
+    local reclaimed
+    reclaimed="$(
+        sqlite3 "$DB_PATH" <<'SQL'
 UPDATE streaming_segments
   SET state='pending', worker_id=NULL, started_at=NULL, priority=1
   WHERE state='processing'
     AND datetime(started_at, '+10 minutes') < datetime('now');
+SELECT changes();
 SQL
-    local reclaimed
-    reclaimed="$(sqlite3 "$DB_PATH" 'SELECT changes();' 2>/dev/null)"
+    )"
     if [[ "${reclaimed:-0}" -gt 0 ]]; then
         log "Reclaimed $reclaimed streaming_segment(s) stuck in 'processing' > 10 min"
     fi
