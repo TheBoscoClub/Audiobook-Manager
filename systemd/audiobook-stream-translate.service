@@ -1,0 +1,67 @@
+[Unit]
+Description=Audiobook streaming translation worker
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
+After=network-online.target audiobook-api.service
+Wants=network-online.target
+PartOf=audiobook.target
+# Ensure application tree and data directory are mounted (RAID arrays can be
+# slow at boot). Matches audiobook-api.service convention.
+RequiresMountsFor=/opt/audiobooks /srv/audiobooks
+# Generous interval caps restart storms if the worker is persistently broken
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=audiobooks
+Group=audiobooks
+
+# Load configuration. Task 4 ensures AUDIOBOOKS_DATABASE and AUDIOBOOKS_LIBRARY
+# are uncommented in this file by install.sh/upgrade.sh (they default to
+# commented-out in the template — systemd's EnvironmentFile parses KEY=VALUE
+# only, no shell ${X:-default} syntax).
+EnvironmentFile=/etc/audiobooks/audiobooks.conf
+# Optional overrides for translation / GPU endpoints (DeepL, RunPod, Vast.ai).
+# Location matches translation-daemon.sh / translation-check.sh / install.sh.
+EnvironmentFile=-/etc/audiobooks/scripts/translation-env.sh
+
+WorkingDirectory=/opt/audiobooks
+
+# Worker polls streaming_segments table and processes segment-by-segment.
+# CLI signature confirmed in scripts/stream-translate-worker.py:
+#   --db PATH --library PATH --api-base URL
+ExecStart=/opt/audiobooks/venv/bin/python /opt/audiobooks/scripts/stream-translate-worker.py --db ${AUDIOBOOKS_DATABASE} --library ${AUDIOBOOKS_LIBRARY} --api-base http://127.0.0.1:5001
+
+# Restart on failure; StartLimit* caps (in [Unit]) bound restart storms
+Restart=on-failure
+RestartSec=5
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audiobook-stream-translate
+
+# Security hardening — matches house style used by audiobook-translate.service
+# and audiobook-converter.service. ProtectSystem=full write-protects /usr,
+# /boot, /etc but leaves /var, /srv, and /tmp writable by default, which is
+# what the worker needs for the DB, the audiobook library, and per-segment
+# opus audio under AUDIOBOOKS_STREAMING_AUDIO_DIR. We deliberately do NOT use
+# ProtectSystem=strict because it requires an explicit ReadWritePaths list,
+# and systemd does not expand EnvironmentFile vars in ReadWritePaths — any
+# user override of AUDIOBOOKS_VAR_DIR or AUDIOBOOKS_LIBRARY would silently
+# break the sandbox.
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=audiobook.target
