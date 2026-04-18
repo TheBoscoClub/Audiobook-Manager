@@ -335,7 +335,8 @@ def process_book_tts(db_path: str, book_id: int, locale: str, audio_path: Path) 
     return True
 
 
-def main():
+def _parse_args():
+    """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="Batch translation processor")
     parser.add_argument("--db", required=True, help="Path to audiobooks.db")
     parser.add_argument("--library", required=True, help="Path to audiobook library")
@@ -344,14 +345,11 @@ def main():
     parser.add_argument("--stt-only", action="store_true", help="Only run STT, skip TTS")
     parser.add_argument("--tts-only", action="store_true", help="Only run TTS, skip STT")
     parser.add_argument("--vastai-host", help="Vast.ai Whisper host:port (e.g., 127.0.0.1:8100)")
-    args = parser.parse_args()
+    return parser.parse_args()
 
-    db_path = args.db
 
-    if not Path(db_path).exists():
-        logger.error("Database not found: %s", db_path)
-        sys.exit(1)
-
+def _configure_env(args):
+    """Set environment variables for localization modules from args and audiobooks.conf."""
     # Set environment for the localization modules
     os.environ.setdefault("AUDIOBOOKS_WHISPER_GPU_HOST", "127.0.0.1")
     os.environ.setdefault("AUDIOBOOKS_WHISPER_GPU_PORT", "8765")
@@ -374,9 +372,9 @@ def main():
                 key, _, val = line.partition("=")
                 os.environ.setdefault(key.strip(), val.strip())
 
-    ensure_tables(db_path)
 
-    # Count pending
+def _get_queue_stats(db_path):
+    """Return (pending, completed, failed) counts from the translation queue."""
     conn = get_db(db_path)
     pending = conn.execute(
         "SELECT COUNT(*) FROM translation_queue WHERE state = 'pending'"
@@ -388,26 +386,92 @@ def main():
         "SELECT COUNT(*) FROM translation_queue WHERE state = 'failed'"
     ).fetchone()[0]
     conn.close()
+    return pending, completed, failed
 
-    logger.info("Queue: %d pending, %d completed, %d failed", pending, completed, failed)
 
-    if args.dry_run:
-        conn = get_db(db_path)
-        rows = conn.execute(
-            "SELECT tq.audiobook_id, a.title, tq.locale, tq.priority "
-            "FROM translation_queue tq "
-            "JOIN audiobooks a ON a.id = tq.audiobook_id "
-            "WHERE tq.state = 'pending' "
-            "ORDER BY tq.priority DESC, tq.created_at ASC "
-            "LIMIT 20"
-        ).fetchall()
-        conn.close()
-        logger.info("Next %d books to process:", len(rows))
-        for r in rows:
-            logger.info("  [%d] %s (locale=%s, priority=%d)", r[0], r[1], r[2], r[3])
-        return
+def _dry_run_preview(db_path):
+    """Log the next 20 pending books without processing them."""
+    conn = get_db(db_path)
+    rows = conn.execute(
+        "SELECT tq.audiobook_id, a.title, tq.locale, tq.priority "
+        "FROM translation_queue tq "
+        "JOIN audiobooks a ON a.id = tq.audiobook_id "
+        "WHERE tq.state = 'pending' "
+        "ORDER BY tq.priority DESC, tq.created_at ASC "
+        "LIMIT 20"
+    ).fetchall()
+    conn.close()
+    logger.info("Next %d books to process:", len(rows))
+    for r in rows:
+        logger.info("  [%d] %s (locale=%s, priority=%d)", r[0], r[1], r[2], r[3])
 
+
+def _process_job(db_path, job, args, pending, start_time, processed):
+    """Validate and process a single translation job.
+
+    Returns the updated pending count, or None if the job was skipped
+    (book/file not found — caller should continue to next job).
+    """
+    book_id = job["audiobook_id"]
+    locale = job["locale"]
+
+    conn = get_db(db_path)
+    book = conn.execute(
+        "SELECT id, title, file_path FROM audiobooks WHERE id = ?", (book_id,)
+    ).fetchone()
+    conn.close()
+
+    if not book:
+        finish_job(db_path, job["id"], "failed", error="Book not found in DB")
+        return None
+
+    audio_path = Path(book["file_path"])
+    if not audio_path.exists():
+        finish_job(db_path, job["id"], "failed", error=f"Audio file not found: {audio_path}")
+        return None
+
+    elapsed = time.monotonic() - start_time
+    rate = processed / (elapsed / 3600) if elapsed > 0 else 0
+
+    logger.info(
+        "=== [%d/%d] Book %d: %s (locale=%s) === [%.1f books/hr]",
+        processed,
+        processed + pending - 1,
+        book_id,
+        book["title"],
+        locale,
+        rate,
+    )
+
+    try:
+        if not args.tts_only:
+            logger.info("  Step 1: STT + subtitle translation")
+            process_book_stt(db_path, book_id, locale, audio_path)
+
+        if not args.stt_only:
+            logger.info("  Step 2: TTS narration")
+            process_book_tts(db_path, book_id, locale, audio_path)
+
+        finish_job(db_path, job["id"], "completed")
+        logger.info("  DONE: %s", book["title"])
+
+    except Exception as e:
+        logger.exception("  FAILED: %s — %s", book["title"], e)
+        finish_job(db_path, job["id"], "failed", error=str(e))
+
+    # Update pending count after processing
+    conn = get_db(db_path)
+    new_pending = conn.execute(
+        "SELECT COUNT(*) FROM translation_queue WHERE state = 'pending'"
+    ).fetchone()[0]
+    conn.close()
+    return new_pending
+
+
+def _run_batch(db_path, args):
+    """Drain the translation queue, processing one job at a time."""
     processed = 0
+    pending = 0
     start_time = time.monotonic()
 
     while not _shutdown:
@@ -419,60 +483,13 @@ def main():
                 logger.info("Queue empty — all jobs processed")
             break
 
-        book_id = job["audiobook_id"]
-        locale = job["locale"]
-
-        conn = get_db(db_path)
-        book = conn.execute(
-            "SELECT id, title, file_path FROM audiobooks WHERE id = ?", (book_id,)
-        ).fetchone()
-        conn.close()
-
-        if not book:
-            finish_job(db_path, job["id"], "failed", error="Book not found in DB")
-            continue
-
-        audio_path = Path(book["file_path"])
-        if not audio_path.exists():
-            finish_job(db_path, job["id"], "failed", error=f"Audio file not found: {audio_path}")
-            continue
-
         processed += 1
-        elapsed = time.monotonic() - start_time
-        rate = processed / (elapsed / 3600) if elapsed > 0 else 0
-
-        logger.info(
-            "=== [%d/%d] Book %d: %s (locale=%s) === [%.1f books/hr]",
-            processed,
-            processed + pending - 1,
-            book_id,
-            book["title"],
-            locale,
-            rate,
-        )
-
-        try:
-            if not args.tts_only:
-                logger.info("  Step 1: STT + subtitle translation")
-                process_book_stt(db_path, book_id, locale, audio_path)
-
-            if not args.stt_only:
-                logger.info("  Step 2: TTS narration")
-                process_book_tts(db_path, book_id, locale, audio_path)
-
-            finish_job(db_path, job["id"], "completed")
-            logger.info("  DONE: %s", book["title"])
-
-        except Exception as e:
-            logger.exception("  FAILED: %s — %s", book["title"], e)
-            finish_job(db_path, job["id"], "failed", error=str(e))
-
-        # Update pending count
-        conn = get_db(db_path)
-        pending = conn.execute(
-            "SELECT COUNT(*) FROM translation_queue WHERE state = 'pending'"
-        ).fetchone()[0]
-        conn.close()
+        new_pending = _process_job(db_path, job, args, pending, start_time, processed)
+        if new_pending is None:
+            # Job was skipped (book/file not found); don't count it
+            processed -= 1
+        else:
+            pending = new_pending
 
     total_elapsed = time.monotonic() - start_time
     logger.info(
@@ -481,6 +498,27 @@ def main():
         total_elapsed / 60,
         processed / (total_elapsed / 3600) if total_elapsed > 0 else 0,
     )
+
+
+def main():
+    args = _parse_args()
+    db_path = args.db
+
+    if not Path(db_path).exists():
+        logger.error("Database not found: %s", db_path)
+        sys.exit(1)
+
+    _configure_env(args)
+    ensure_tables(db_path)
+
+    pending, completed, failed = _get_queue_stats(db_path)
+    logger.info("Queue: %d pending, %d completed, %d failed", pending, completed, failed)
+
+    if args.dry_run:
+        _dry_run_preview(db_path)
+        return
+
+    _run_batch(db_path, args)
 
 
 if __name__ == "__main__":
