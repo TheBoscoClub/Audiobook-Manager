@@ -371,7 +371,7 @@ def show_stats(conn: sqlite3.Connection):
             id_list = [int(i) for i in ids.split(",")]
             placeholders = ",".join("?" * len(id_list))
             query = (
-                "SELECT id, title, file_path"  # nosec B608
+                "SELECT id, title, file_path"  # nosec B608  # noqa: S608
                 " FROM audiobooks"
                 f" WHERE id IN ({placeholders})"
             )

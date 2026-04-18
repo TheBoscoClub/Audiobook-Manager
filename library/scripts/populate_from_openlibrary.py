@@ -98,7 +98,7 @@ def _build_candidate_query(
     limit_clause = f"LIMIT {limit}" if limit else ""
 
     query = (
-        "SELECT a.id, a.title, a.author, a.asin, a.isbn, a.published_year"  # nosec B608
+        "SELECT a.id, a.title, a.author, a.asin, a.isbn, a.published_year"  # nosec B608  # noqa: S608
         " FROM audiobooks a"
         f" {where_clause}"
         " ORDER BY a.title"

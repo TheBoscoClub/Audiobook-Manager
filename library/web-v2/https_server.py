@@ -185,9 +185,9 @@ def run_http_redirect_server():
     try:
         server = http.server.HTTPServer(
             (
-                "0.0.0.0",
+                "0.0.0.0",  # noqa: S104 — HTTP redirect server listens on all interfaces; redirects to HTTPS only
                 HTTP_PORT,
-            ),  # nosec B104 - HTTP redirect server, intentional all-interfaces bind
+            ),  # nosec B104
             HTTPToHTTPSRedirectHandler,
         )
         print(f"HTTP redirect server on http://0.0.0.0:{HTTP_PORT}/ -> https://...:{HTTPS_PORT}/")
@@ -221,8 +221,9 @@ def main():
 
     # Create HTTPS server
     server = http.server.HTTPServer(
-        ("0.0.0.0", HTTPS_PORT), handler
-    )  # nosec B104 — HTTPS server, intentional
+        ("0.0.0.0", HTTPS_PORT),  # noqa: S104 — HTTPS server, all-interface bind intentional for multi-NIC deployments  # nosec B104 — bind 0.0.0.0 — intentional; service is fronted by Caddy/TLS reverse proxy, not exposed directly
+        handler,
+    )  # nosec B104
     server.socket = context.wrap_socket(server.socket, server_side=True)
 
     print(f"Serving HTTPS on https://0.0.0.0:{HTTPS_PORT}/ ...")

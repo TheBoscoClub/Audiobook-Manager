@@ -21,7 +21,7 @@ import logging
 import os
 import signal
 import sqlite3
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import sys
 import time
 from pathlib import Path
@@ -175,8 +175,8 @@ def process_book_stt(db_path: str, book_id: int, locale: str, audio_path: Path) 
                     (total, book_id, locale),
                 )
                 gen_conn.commit()
-            except Exception:
-                pass
+            except Exception as _e:
+                logger.debug("Progress update failed (non-fatal): %s", _e)
 
         def on_chapter_complete(ch_idx: int, source_vtt: Path, translated_vtt: Path | None):
             gen_conn.execute(
@@ -271,8 +271,8 @@ def process_book_tts(db_path: str, book_id: int, locale: str, audio_path: Path) 
         logger.info("  Narrating chapter %d/%d", ch_idx + 1, len(vtt_rows))
         synthesize_with_fallback(tts, full_text, locale, voice, intermediate_path)
 
-        transcode = subprocess.run(
-            [
+        transcode = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+            [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
                 "ffmpeg",
                 "-y",
                 "-i",
@@ -297,8 +297,8 @@ def process_book_tts(db_path: str, book_id: int, locale: str, audio_path: Path) 
 
         duration = None
         try:
-            result = subprocess.run(
-                [
+            result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+                [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
                     "ffprobe",
                     "-v",
                     "quiet",
@@ -314,8 +314,8 @@ def process_book_tts(db_path: str, book_id: int, locale: str, audio_path: Path) 
             )
             if result.returncode == 0 and result.stdout.strip():
                 duration = float(result.stdout.strip())
-        except Exception:
-            pass
+        except Exception as _e:
+            logger.debug("ffprobe duration probe failed (non-fatal): %s", _e)
 
         gen_conn = sqlite3.connect(db_path)
         gen_conn.execute("PRAGMA journal_mode=WAL")

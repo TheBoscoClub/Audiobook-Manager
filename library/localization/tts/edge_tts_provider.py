@@ -6,7 +6,7 @@ Synthesis runs as a subprocess via the edge-tts CLI to isolate it.
 """
 
 import logging
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import sys
 import tempfile
 from pathlib import Path
@@ -65,7 +65,7 @@ class EdgeTTSProvider(TTSProvider):
             text_path = tf.name
 
         try:
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
                 [
                     sys.executable,
                     "-m",

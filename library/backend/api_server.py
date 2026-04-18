@@ -60,7 +60,7 @@ if __name__ == "__main__":
         from gevent.pywsgi import WSGIServer
 
         server = WSGIServer(
-            ("0.0.0.0", API_PORT), app
-        )  # nosec B104 — intentional: Caddy reverse proxy connects here
+            ("0.0.0.0", API_PORT), app  # noqa: S104 — intentional: Caddy reverse proxy connects here; not exposed directly  # nosec B104 — bind 0.0.0.0 — intentional; service is fronted by Caddy/TLS reverse proxy, not exposed directly
+        )  # nosec B104
         print(f"Serving on http://0.0.0.0:{API_PORT}")
         server.serve_forever()

@@ -158,7 +158,8 @@ class User:
         Authentication decorators guarantee the current user is persisted,
         and .save() always sets .id after insert.
         """
-        assert self.id is not None, "User.ensured_id accessed before .save()"
+        if self.id is None:
+            raise RuntimeError("User.ensured_id accessed before .save()")
         return self.id
 
     def save(self, db: AuthDatabase) -> "User":
@@ -730,7 +731,7 @@ class ListeningHistoryRepository:
         with self.db.connection() as conn:
             if min_duration_ms is not None:
                 query = (
-                    f"SELECT {cols} FROM user_listening_history"  # nosec B608
+                    f"SELECT {cols} FROM user_listening_history"  # nosec B608  # noqa: S608
                     " WHERE user_id = ?"
                     " AND duration_listened_ms IS NOT NULL"
                     " AND duration_listened_ms >= ?"
@@ -740,7 +741,7 @@ class ListeningHistoryRepository:
                 cursor = conn.execute(query, (user_id, min_duration_ms, limit, offset))
             else:
                 query = (
-                    f"SELECT {cols} FROM user_listening_history"  # nosec B608
+                    f"SELECT {cols} FROM user_listening_history"  # nosec B608  # noqa: S608
                     " WHERE user_id = ?"
                     " ORDER BY started_at DESC"
                     " LIMIT ? OFFSET ?"
@@ -770,7 +771,7 @@ class ListeningHistoryRepository:
                 WHERE user_id = ? AND audiobook_id = ? AND ended_at IS NULL
                 ORDER BY started_at DESC
                 LIMIT 1
-                """,  # nosec B608
+                """,  # nosec B608  # noqa: S608
                 (user_id, audiobook_id),
             )
             row = cursor.fetchone()
@@ -845,7 +846,7 @@ class DownloadRepository:
                 WHERE user_id = ?
                 ORDER BY downloaded_at DESC
                 LIMIT ? OFFSET ?
-                """,  # nosec B608
+                """,  # nosec B608  # noqa: S608
                 (user_id, limit, offset),
             )
             return [UserDownload.from_row(row) for row in cursor.fetchall()]
@@ -990,7 +991,7 @@ class HiddenBookRepository:
         with self.db.connection() as conn:
             placeholders = ",".join("?" * len(audiobook_ids))
             cursor = conn.execute(
-                "DELETE FROM user_hidden_books WHERE user_id = ?"  # nosec B608
+                "DELETE FROM user_hidden_books WHERE user_id = ?"  # nosec B608  # noqa: S608
                 f" AND audiobook_id IN ({placeholders})",
                 [user_id] + list(audiobook_ids),
             )

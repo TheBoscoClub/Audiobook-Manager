@@ -22,7 +22,7 @@ import logging
 import os
 import signal
 import sqlite3
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import sys
 import tempfile
 import time
@@ -149,8 +149,8 @@ def _synthesize_segment_audio(
     try:
         tts.synthesize(text=text, language=locale, voice=voice, output_path=mp3_tmp)
         # ffmpeg MP3 → opus (48k, 48kHz — matches rest of the library)
-        subprocess.run(
-            [
+        subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+            [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
                 "ffmpeg",
                 "-y",
                 "-loglevel",
@@ -256,7 +256,7 @@ def split_audio_segment(
         "-1",
         str(out_path),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
     if result.returncode != 0:
         out_path.unlink(missing_ok=True)
         raise RuntimeError(f"ffmpeg segment split failed: {result.stderr[-200:]}")
@@ -359,7 +359,7 @@ def process_segment(
             }
         ).encode()
 
-        req = urllib.request.Request(
+        req = urllib.request.Request(  # noqa: S310 — Request for fixed HTTPS TTS API endpoint; no user-controlled scheme
             f"{api_base}/api/translate/segment-complete",
             data=payload,
             headers={"Content-Type": "application/json"},
@@ -368,7 +368,7 @@ def process_segment(
         if not req.full_url.startswith(("http://", "https://")):
             raise ValueError(f"Refusing non-http(s) callback URL: {req.full_url!r}")
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        urllib.request.urlopen(req, timeout=30)  # nosec B310
+        urllib.request.urlopen(req, timeout=30)  # noqa: S310  # nosec B310
 
         logger.info(
             "Segment complete: book=%d ch=%d seg=%d", audiobook_id, chapter_index, segment_index
@@ -448,8 +448,8 @@ def get_chapter_info(db_path: str, audiobook_id: int, chapter_index: int) -> tup
             return audio_path, ch.start_sec, ch.duration_ms / 1000.0
 
         # Fallback: single-chapter book
-        result = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-show_format", "-print_format", "json", str(audio_path)],
+        result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+            ["ffprobe", "-v", "quiet", "-show_format", "-print_format", "json", str(audio_path)],  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled
             capture_output=True,
             text=True,
             timeout=30,

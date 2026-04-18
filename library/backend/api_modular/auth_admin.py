@@ -321,7 +321,7 @@ def reply_to_message(message_id: int):
     else:
         # Create in-app notification
         admin_user = require_current_user()
-        assert admin_user is not None  # guaranteed by @admin_required
+        # require_current_user() raises RuntimeError if called outside @admin_required
         notification = Notification(
             message=f"Reply from {admin_user.username}: {reply_text}",
             type=NotificationType.PERSONAL,
@@ -879,7 +879,7 @@ def toggle_user_admin(user_id: int):
 
     # Prevent self-demotion
     current_user = require_current_user()
-    assert current_user is not None  # guaranteed by @admin_required
+    # require_current_user() raises RuntimeError if called outside @admin_required
     if current_user.id == user_id and target_user.is_admin:
         return jsonify({"error": "Cannot demote yourself"}), 400
 
@@ -1006,7 +1006,8 @@ def update_user(user_id: int):
         return jsonify(err[0]), err[1]
 
     updated_user = user_repo.get_by_id(user_id)
-    assert updated_user is not None
+    if updated_user is None:
+        return jsonify({"error": "User not found after update"}), 404
     return jsonify({"success": True, "user": _user_dict(updated_user)})
 
 
@@ -1100,7 +1101,7 @@ def admin_change_username(user_id: int):
         return jsonify({"error": "Username already taken"}), 409
 
     admin_user = require_current_user()
-    assert admin_user is not None
+    # require_current_user() raises RuntimeError if called outside @admin_required
     details = {
         "old": old_username,
         "new": new_username,
@@ -1113,7 +1114,8 @@ def admin_change_username(user_id: int):
     notify_admins("change_username", details, db)
 
     updated = user_repo.get_by_id(user_id)
-    assert updated is not None
+    if updated is None:
+        return jsonify({"error": "User not found after update"}), 404
     return jsonify({"success": True, "user": _user_dict(updated)})
 
 
@@ -1152,7 +1154,7 @@ def admin_change_email(user_id: int):
 
     # Audit log
     admin_user = require_current_user()
-    assert admin_user is not None  # guaranteed by @admin_required
+    # require_current_user() raises RuntimeError if called outside @admin_required
     audit_repo = AuditLogRepository(db)
     audit_repo.log(
         actor_id=admin_user.id,
@@ -1167,7 +1169,8 @@ def admin_change_email(user_id: int):
     )
 
     updated = user_repo.get_by_id(user_id)
-    assert updated is not None  # just updated this user
+    if updated is None:
+        return jsonify({"error": "User not found after update"}), 404
     return jsonify(
         {
             "success": True,
@@ -1230,9 +1233,10 @@ def admin_change_roles(user_id: int):
         return jsonify(err[0]), err[1]
 
     admin_user = require_current_user()
-    assert admin_user is not None
+    # require_current_user() raises RuntimeError if called outside @admin_required
     updated = user_repo.get_by_id(user_id)
-    assert updated is not None
+    if updated is None:
+        return jsonify({"error": "User not found after role update"}), 404
     new_roles = {"is_admin": updated.is_admin, "can_download": updated.can_download}
     AuditLogRepository(db).log(
         actor_id=admin_user.id,
@@ -1312,7 +1316,7 @@ def admin_change_auth_method(user_id: int):
         return err
 
     admin_user = require_current_user()
-    assert admin_user is not None
+    # require_current_user() raises RuntimeError if called outside @admin_required
     details = {
         "old": old_method,
         "new": auth_method,
@@ -1348,7 +1352,7 @@ def admin_reset_credentials(user_id: int):
         return jsonify({"error": "User not found"}), 404
 
     admin_user = require_current_user()
-    assert admin_user is not None  # guaranteed by @admin_required
+    # require_current_user() raises RuntimeError if called outside @admin_required
     setup_data: dict[str, str | None] = {}
 
     if target_user.auth_type == AuthType.TOTP:
@@ -1418,7 +1422,7 @@ def admin_delete_user_v2(user_id: int):
 
     # Prevent self-deletion
     admin_user = require_current_user()
-    assert admin_user is not None  # guaranteed by @admin_required
+    # require_current_user() raises RuntimeError if called outside @admin_required
     if admin_user.id == user_id:
         return jsonify({"error": "Cannot delete yourself"}), 400
 

@@ -51,7 +51,7 @@ import os
 import re
 import shutil
 import sqlite3
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import sys
 import tempfile
 import zipfile
@@ -498,7 +498,7 @@ class GooglePlayProcessor:
             if self.verbose:
                 print(f"Running: {' '.join(cmd[:10])}...")
 
-            result = subprocess.run(
+            result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
                 cmd, capture_output=True, text=True, preexec_fn=_set_low_priority
             )
 
@@ -788,7 +788,7 @@ def main():
 
     # Check for FFmpeg
     try:
-        subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)
+        subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
     except subprocess.CalledProcessError, FileNotFoundError:
         print("Error: FFmpeg not found. Please install FFmpeg.")
         sys.exit(1)

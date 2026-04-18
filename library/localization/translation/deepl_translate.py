@@ -98,7 +98,7 @@ class DeepLTranslator:
         try:
             conn.row_factory = sqlite3.Row
             rows = conn.execute(
-                f"SELECT source_hash, translation FROM string_translations "  # nosec B608
+                f"SELECT source_hash, translation FROM string_translations "  # nosec B608  # noqa: S608
                 f"WHERE locale = ? AND source_hash IN ({placeholders})",
                 (locale, *hashes),
             ).fetchall()

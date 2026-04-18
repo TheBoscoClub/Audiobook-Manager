@@ -138,8 +138,10 @@ def create_app():
 def main():
     parser = argparse.ArgumentParser(description="Whisper GPU transcription service")
     parser.add_argument(
-        "--host", default="0.0.0.0", help="Bind address"
-    )  # nosec B104 — GPU cloud instance
+        "--host",
+        default="0.0.0.0",  # noqa: S104 — GPU cloud instances require all-interface binding; not a local service  # nosec B104 — bind 0.0.0.0 — intentional; service is fronted by Caddy/TLS reverse proxy, not exposed directly
+        help="Bind address",
+    )  # nosec B104
     parser.add_argument("--port", type=int, default=8765, help="Listen port")
     parser.add_argument("--model", default="large-v3", help="Whisper model size")
     parser.add_argument("--preload", action="store_true", help="Load model at startup")

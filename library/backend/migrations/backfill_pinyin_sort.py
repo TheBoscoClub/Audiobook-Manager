@@ -38,7 +38,8 @@ sys.path.insert(0, str(_THIS.parent.parent.parent))  # library/
 # imports i18n — a module only resolved at Flask app init time).
 _SEARCH_CJK_PATH = _THIS.parent.parent / "api_modular" / "search_cjk.py"
 _spec = importlib.util.spec_from_file_location("_search_cjk_backfill", _SEARCH_CJK_PATH)
-assert _spec and _spec.loader
+if _spec is None or _spec.loader is None:
+    raise ImportError(f"Cannot load search_cjk module spec from {_SEARCH_CJK_PATH}")
 _search_cjk = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_search_cjk)
 pinyin_sort_key = _search_cjk.pinyin_sort_key

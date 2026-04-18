@@ -14,7 +14,7 @@ steps), and processes one book at a time to manage GPU costs.
 
 import logging
 import sqlite3
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import threading
 import time
 from pathlib import Path
@@ -552,8 +552,8 @@ def _transcode_to_opus(intermediate_path: Path, output_path: Path) -> Path:
     """Transcode a TTS intermediate file to Opus. On failure, return the
     original intermediate path (so we still have playable audio).
     """
-    transcode = subprocess.run(
-        [
+    transcode = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+        [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
             "ffmpeg",
             "-y",
             "-i",
@@ -581,8 +581,8 @@ def _transcode_to_opus(intermediate_path: Path, output_path: Path) -> Path:
 def _probe_duration(audio_path: Path) -> float | None:
     """Return the duration of an audio file in seconds, or None on error."""
     try:
-        result = subprocess.run(
-            [
+        result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+            [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
                 "ffprobe",
                 "-v",
                 "quiet",

@@ -43,10 +43,10 @@ def _search_google_books(title: str, author: str) -> dict | None:
         {"q": "+".join(query_parts), "maxResults": "3", "printType": "books"}
     )
     url = f"{_GOOGLE_API}?{params}"
-    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})  # noqa: S310 — Request for fixed HTTPS Google Books API; no user-controlled scheme
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        with urllib.request.urlopen(  # nosec B310 - fixed HTTPS API URLs (Google Books); no user-controlled scheme
+        with urllib.request.urlopen(  # noqa: S310  # nosec B310 - fixed HTTPS API URLs (Google Books); no user-controlled scheme
             req, timeout=10
         ) as resp:
             data = json.loads(resp.read())

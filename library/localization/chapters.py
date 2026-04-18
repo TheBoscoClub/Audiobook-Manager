@@ -7,7 +7,7 @@ temporary files using ffmpeg stream copy (no re-encoding).
 
 import json
 import logging
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -57,8 +57,8 @@ def extract_chapters(audio_path: Path) -> list[Chapter]:
 
 def _chapters_from_ffprobe(audio_path: Path) -> list[Chapter]:
     try:
-        result = subprocess.run(
-            ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_chapters", str(audio_path)],
+        result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+            ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_chapters", str(audio_path)],  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled
             capture_output=True,
             text=True,
             timeout=30,
@@ -141,7 +141,7 @@ def split_chapter(audio_path: Path, chapter: Chapter, output_dir: Path | None = 
     ]
     chunk_seconds = chapter.end_sec - chapter.start_sec
     timeout_s = max(120, int(chunk_seconds * 0.05) + 60)
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
     if result.returncode != 0:
         logger.error("ffmpeg chapter split failed: %s", result.stderr[-500:])
         raise RuntimeError(f"Failed to extract chapter {chapter.index}: {result.stderr[-200:]}")

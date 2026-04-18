@@ -56,7 +56,7 @@ def _genre_query(genre_name: str) -> str:
         SELECT ag.audiobook_id FROM audiobook_genres ag
         JOIN genres g ON ag.genre_id = g.id
         WHERE g.name = '{safe}'
-    )"""  # nosec B608
+    )"""  # nosec B608  # noqa: S608
 
 
 def _multi_genre_query(genre_names: list[str]) -> str:
@@ -66,7 +66,7 @@ def _multi_genre_query(genre_names: list[str]) -> str:
         SELECT DISTINCT ag.audiobook_id FROM audiobook_genres ag
         JOIN genres g ON ag.genre_id = g.id
         WHERE {conditions}
-    )"""  # nosec B608
+    )"""  # nosec B608  # noqa: S608
 
 
 def _era_query(era_name: str) -> str:
@@ -76,7 +76,7 @@ def _era_query(era_name: str) -> str:
         SELECT ae.audiobook_id FROM audiobook_eras ae
         JOIN eras e ON ae.era_id = e.id
         WHERE e.name = '{safe}'
-    )"""  # nosec B608
+    )"""  # nosec B608  # noqa: S608
 
 
 def _topic_query(topic_name: str) -> str:
@@ -86,7 +86,7 @@ def _topic_query(topic_name: str) -> str:
         SELECT at.audiobook_id FROM audiobook_topics at
         JOIN topics t ON at.topic_id = t.id
         WHERE t.name = '{safe}'
-    )"""  # nosec B608
+    )"""  # nosec B608  # noqa: S608
 
 
 def _series_query(series_name: str) -> str:
@@ -441,7 +441,7 @@ def init_collections_routes(db_path):
             if not isinstance(query, str) or ";" in query or "--" in query:
                 raise ValueError("rejected unsafe collection WHERE fragment")
             # nosec B608 below: WHERE fragments are internal-only (see comment above), validated for ; and --
-            sql = "SELECT COUNT(*) as count FROM audiobooks WHERE " + query  # nosec B608
+            sql = "SELECT COUNT(*) as count FROM audiobooks WHERE " + query  # nosec B608  # noqa: S608
             cursor.execute(
                 sql
             )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query

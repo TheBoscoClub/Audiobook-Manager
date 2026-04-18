@@ -133,7 +133,7 @@ def _build_union_sql(type_filter, listen_wheres, listen_params, download_wheres,
     if type_filter is None or type_filter == "listen":
         where = (" AND " + " AND ".join(listen_wheres)) if listen_wheres else ""
         subqueries.append(
-            "SELECT 'listen' AS type, h.id, h.user_id, u.username, "  # nosec B608
+            "SELECT 'listen' AS type, h.id, h.user_id, u.username, "  # nosec B608  # noqa: S608
             "h.audiobook_id, h.title AS stored_title, h.started_at AS timestamp, "
             "h.duration_listened_ms, NULL AS file_format "
             "FROM user_listening_history h "
@@ -145,7 +145,7 @@ def _build_union_sql(type_filter, listen_wheres, listen_params, download_wheres,
     if type_filter is None or type_filter == "download":
         where = (" AND " + " AND ".join(download_wheres)) if download_wheres else ""
         subqueries.append(
-            "SELECT 'download' AS type, d.id, d.user_id, u.username, "  # nosec B608
+            "SELECT 'download' AS type, d.id, d.user_id, u.username, "  # nosec B608  # noqa: S608
             "d.audiobook_id, d.title AS stored_title, d.downloaded_at AS timestamp, "
             "NULL AS duration_listened_ms, d.file_format "
             "FROM user_downloads d "
@@ -219,7 +219,7 @@ def get_activity():
 
     data_sql = f"{union_sql} ORDER BY timestamp DESC LIMIT ? OFFSET ?"
     data_params = all_params + [limit, offset]
-    count_sql = f"SELECT COUNT(*) FROM ({union_sql})"  # nosec B608  # nosemgrep: python.lang.security.audit.tainted-sql-string.tainted-sql-string,python.django.security.injection.tainted-sql-string.tainted-sql-string,python.flask.security.injection.tainted-sql-string.tainted-sql-string
+    count_sql = f"SELECT COUNT(*) FROM ({union_sql})"  # nosec B608  # nosemgrep: python.lang.security.audit.tainted-sql-string.tainted-sql-string,python.django.security.injection.tainted-sql-string.tainted-sql-string,python.flask.security.injection.tainted-sql-string.tainted-sql-string  # noqa: S608
 
     auth_db = get_auth_db()
     with auth_db.connection() as conn:
@@ -367,7 +367,7 @@ def _get_book_titles(audiobook_ids: set) -> dict[str, str | None]:
     try:
         placeholders = ",".join("?" * len(int_ids))
         cursor = conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"SELECT id, title FROM audiobooks WHERE id IN ({placeholders})", int_ids  # nosec B608
+            f"SELECT id, title FROM audiobooks WHERE id IN ({placeholders})", int_ids  # nosec B608  # noqa: S608
         )
         return {str(row["id"]): row["title"] for row in cursor.fetchall()}
     except sqlite3.Error:

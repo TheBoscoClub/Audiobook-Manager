@@ -155,8 +155,8 @@ AUDIOBOOKS_WEBM_CACHE = Path(
     get_config("AUDIOBOOKS_WEBM_CACHE", str(AUDIOBOOKS_DATA / ".webm-cache"))
 )
 AUDIOBOOKS_STAGING = Path(
-    get_config("AUDIOBOOKS_STAGING", "/tmp/audiobook-staging")
-)  # nosec B108 - default only; production overrides via audiobooks.conf; dir created 0700 by service user
+    get_config("AUDIOBOOKS_STAGING", "/tmp/audiobook-staging")  # noqa: S108 — default only; users override via audiobooks.conf; service creates dir 0700  # nosec B108 — tmp path — config default only; production overrides via audiobooks.conf; service creates dir 0700
+)  # nosec B108
 AUDIOBOOKS_VENV = Path(get_config("AUDIOBOOKS_VENV", str(AUDIOBOOKS_HOME / "library" / "venv")))
 AUDIOBOOKS_CONVERTER = Path(
     get_config("AUDIOBOOKS_CONVERTER", str(AUDIOBOOKS_HOME / "converter" / "AAXtoMP3"))
@@ -172,8 +172,9 @@ AUDIOBOOKS_HTTP_REDIRECT_PORT = int(
 )  # Default 8080 (matches audiobook-config.sh and .env.example)
 # Also checks Docker legacy env var HTTP_REDIRECT_PORT
 AUDIOBOOKS_BIND_ADDRESS = get_config(
-    "AUDIOBOOKS_BIND_ADDRESS", "0.0.0.0"
-)  # nosec B104 - intentional; Flask API is fronted by Caddy/HTTPS proxy, not exposed directly
+    "AUDIOBOOKS_BIND_ADDRESS",
+    "0.0.0.0",  # noqa: S104 — configurable default; fronted by Caddy/HTTPS proxy, not exposed directly
+)  # nosec B104
 AUDIOBOOKS_HTTPS_ENABLED = get_config("AUDIOBOOKS_HTTPS_ENABLED", "true").lower() in (
     "true",
     "1",

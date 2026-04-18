@@ -17,7 +17,7 @@ import json
 import os
 import re
 import sqlite3
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import sys
 from argparse import ArgumentParser
 from collections import Counter
@@ -66,7 +66,7 @@ def fetch_audible_library() -> list[dict]:
             "-p",
             f"page={page}",
         ]
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
             cmd,
             capture_output=True,
             text=True,
@@ -99,7 +99,7 @@ def fetch_catalog_content_type(asin: str) -> dict | None:
     """
     cmd = ["audible", "api", f"1.0/catalog/products/{asin}", "-p", "response_groups=product_attrs"]
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
             cmd,
             capture_output=True,
             text=True,

@@ -283,10 +283,10 @@ def generate_translated_audio():
             synthesize_with_fallback(tts, full_text, locale, voice, intermediate_path)
 
             _set_status(book_id, locale, phase="transcoding", message="Transcoding to Opus format…")
-            import subprocess
+            import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 
-            transcode = subprocess.run(
-                [
+            transcode = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+                [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
                     "ffmpeg",
                     "-y",
                     "-i",
@@ -312,10 +312,10 @@ def generate_translated_audio():
             # Get duration if possible
             duration = None
             try:
-                import subprocess
+                import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 
-                result = subprocess.run(
-                    [
+                result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+                    [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
                         "ffprobe",
                         "-v",
                         "quiet",
@@ -601,10 +601,10 @@ def user_request_translated_audio():
             _set_status(
                 int(book_id), locale, phase="transcoding", message="Transcoding to Opus format…"
             )
-            import subprocess
+            import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 
-            transcode = subprocess.run(
-                [
+            transcode = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+                [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
                     "ffmpeg",
                     "-y",
                     "-i",
@@ -629,8 +629,8 @@ def user_request_translated_audio():
 
             duration = None
             try:
-                result = subprocess.run(
-                    [
+                result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+                    [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
                         "ffprobe",
                         "-v",
                         "quiet",

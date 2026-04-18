@@ -6,7 +6,7 @@ Handles queue rebuilding, index cleanup, sort field population, and duplicate de
 
 import os
 import re
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import sys
 import tempfile
 from pathlib import Path
@@ -353,7 +353,7 @@ def _export_audible_library(library_export):
     """
     _audible_home = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
     try:
-        export_result = subprocess.run(
+        export_result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
             [
                 sys.executable,
                 "-m",

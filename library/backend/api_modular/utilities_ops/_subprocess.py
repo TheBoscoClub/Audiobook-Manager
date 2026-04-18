@@ -13,7 +13,7 @@ Why this exists:
 """
 
 import select
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import time
 from typing import Any
 
@@ -120,9 +120,10 @@ def run_with_progress(cmd, *, line_callback, timeout_secs, operation_name="Opera
     if env is not None:
         popen_kwargs["env"] = env
 
-    process = subprocess.Popen(cmd, **popen_kwargs)
+    process = subprocess.Popen(cmd, **popen_kwargs)  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
     # stdout/stderr are guaranteed non-None because popen_kwargs sets them to PIPE.
-    assert process.stdout is not None and process.stderr is not None
+    if process.stdout is None or process.stderr is None:
+        raise RuntimeError("Popen stdout/stderr unexpectedly None despite PIPE configuration")
     output_lines: list[str] = []
 
     try:

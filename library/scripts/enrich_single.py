@@ -73,10 +73,10 @@ OPENLIBRARY_API = "https://openlibrary.org"
 def _fetch_audible_product(asin: str) -> dict | None:
     """Query Audible API for full product data."""
     url = f"{AUDIBLE_API}/{asin}?response_groups={ALL_RESPONSE_GROUPS}&marketplace={MARKETPLACE}"
-    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})  # noqa: S310 — Request for fixed HTTPS API; URL built from trusted HTTPS constant
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (AUDIBLE_API) + validated ASIN from internal DB; not user-controlled scheme
-        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310
+        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310  # nosec B310
             data = json.loads(resp.read())
             return data.get("product")
     except urllib.error.HTTPError as e:
@@ -86,7 +86,7 @@ def _fetch_audible_product(asin: str) -> dict | None:
             time.sleep(5)
             try:
                 # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: retry of same trusted-URL request after HTTP 429 backoff
-                with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310
+                with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310  # nosec B310
                     data = json.loads(resp.read())
                     return data.get("product")
             except Exception:
@@ -186,10 +186,10 @@ def _query_google_books(
         return None
 
     url = f"{GOOGLE_BOOKS_API}?q={urllib.parse.quote(q)}&maxResults=1"
-    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})  # noqa: S310 — Request for fixed HTTPS API; URL built from trusted HTTPS constant
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310  # nosec B310
             data = json.loads(resp.read())
             items = data.get("items", [])
             if items:
@@ -204,10 +204,10 @@ def _query_openlibrary_search(title: str, author: str | None = None) -> dict | N
     if author:
         params["author"] = author
     url = f"{OPENLIBRARY_API}/search.json?{urllib.parse.urlencode(params)}"
-    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})  # noqa: S310 — Request for fixed HTTPS API; URL built from trusted HTTPS constant
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310  # nosec B310
             data = json.loads(resp.read())
             docs = data.get("docs", [])
             return docs[0] if docs else None
@@ -309,7 +309,7 @@ def _apply_audible_enrichment(
     fields_updated = 0
     if updates:
         params.append(book_id)
-        sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608
+        sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608  # noqa: S608
         # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         cursor.execute(sql, params)
         fields_updated = len(updates) - 1  # exclude timestamp
@@ -504,7 +504,7 @@ def _apply_isbn_enrichment(
     isbn_updates.append("isbn_enriched_at = ?")
     isbn_params.append(now)
     isbn_params.append(book_id)
-    sql = f"UPDATE audiobooks SET {', '.join(isbn_updates)} WHERE id = ?"  # nosec B608
+    sql = f"UPDATE audiobooks SET {', '.join(isbn_updates)} WHERE id = ?"  # nosec B608  # noqa: S608
     # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     cursor.execute(sql, isbn_params)
 

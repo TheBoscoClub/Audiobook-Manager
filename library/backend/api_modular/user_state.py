@@ -279,7 +279,7 @@ def _fetch_library_metadata(
         placeholders = ",".join("?" * len(int_ids))
         cursor = conn.cursor()
         cursor.execute(
-            f"SELECT id, title, author, duration_hours, cover_path, format "  # nosec B608
+            f"SELECT id, title, author, duration_hours, cover_path, format "  # nosec B608  # noqa: S608
             f"FROM audiobooks WHERE id IN ({placeholders})",
             int_ids,
         )

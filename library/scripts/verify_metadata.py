@@ -28,7 +28,7 @@ Usage:
 
 import json
 import sqlite3
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import sys
 from difflib import SequenceMatcher
 from pathlib import Path
@@ -93,7 +93,7 @@ def get_embedded_tags(file_path: str) -> dict | None:
         str(file_path),
     ]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
         if result.returncode != 0:
             return None
         data = json.loads(result.stdout)
@@ -115,7 +115,7 @@ def compute_duration_hours(file_path: str) -> float | None:
     """Get actual audio duration in hours from ffprobe."""
     cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", str(file_path)]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
         if result.returncode != 0:
             return None
         data = json.loads(result.stdout)
@@ -502,7 +502,7 @@ def apply_fixes(conn: sqlite3.Connection, issues: list[MetadataIssue], quiet: bo
             and issue.field in fixable_fields
         ):
             cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                f"UPDATE audiobooks SET {issue.field} = ? WHERE id = ?",  # nosec B608
+                f"UPDATE audiobooks SET {issue.field} = ? WHERE id = ?",  # nosec B608  # noqa: S608
                 (issue.recommended_value, issue.book_id),
             )
             fixes_applied += 1

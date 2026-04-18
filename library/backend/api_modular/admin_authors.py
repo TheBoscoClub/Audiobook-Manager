@@ -244,7 +244,7 @@ def _merge_entities(
 
     for sid in source_ids:
         links = conn.execute(
-            f"SELECT book_id, position FROM {junction_table} "  # nosec B608
+            f"SELECT book_id, position FROM {junction_table} "  # nosec B608  # noqa: S608
             f"WHERE {entity_id_col} = ?",
             (sid,),
         ).fetchall()
@@ -254,27 +254,27 @@ def _merge_entities(
             affected_book_ids.add(bid)
 
             existing = conn.execute(
-                f"SELECT 1 FROM {junction_table} "  # nosec B608
+                f"SELECT 1 FROM {junction_table} "  # nosec B608  # noqa: S608
                 f"WHERE book_id = ? AND {entity_id_col} = ?",
                 (bid, target_id),
             ).fetchone()
 
             if existing:
                 conn.execute(
-                    f"DELETE FROM {junction_table} "  # nosec B608
+                    f"DELETE FROM {junction_table} "  # nosec B608  # noqa: S608
                     f"WHERE book_id = ? AND {entity_id_col} = ?",
                     (bid, sid),
                 )
             else:
                 conn.execute(
-                    f"UPDATE {junction_table} SET {entity_id_col} = ? "  # nosec B608
+                    f"UPDATE {junction_table} SET {entity_id_col} = ? "  # nosec B608  # noqa: S608
                     f"WHERE book_id = ? AND {entity_id_col} = ?",
                     (target_id, bid, sid),
                 )
             books_reassigned += 1
 
         conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"DELETE FROM {entity_table} WHERE id = ?", (sid,)  # nosec B608
+            f"DELETE FROM {entity_table} WHERE id = ?", (sid,)  # nosec B608  # noqa: S608
         )
 
     for bid in affected_book_ids:
@@ -317,14 +317,14 @@ def _validate_merge_request(data, entity_label):
 def _verify_entities_exist(conn, entity_table, target_id, source_ids, label):
     """Verify target and all source entities exist. Returns error response or None."""
     target = conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        f"SELECT * FROM {entity_table} WHERE id = ?", (target_id,)  # nosec B608
+        f"SELECT * FROM {entity_table} WHERE id = ?", (target_id,)  # nosec B608  # noqa: S608
     ).fetchone()
     if not target:
         return jsonify({"error": f"Target {label} not found"}), 404
 
     for sid in source_ids:
         src = conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"SELECT id FROM {entity_table} WHERE id = ?", (sid,)  # nosec B608
+            f"SELECT id FROM {entity_table} WHERE id = ?", (sid,)  # nosec B608  # noqa: S608
         ).fetchone()
         if not src:
             return jsonify({"error": f"Source {label} {sid} not found"}), 404

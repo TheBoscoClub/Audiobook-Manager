@@ -52,10 +52,10 @@ def _fetch_audible_product(asin: str) -> dict | None:
     """Query Audible API for full product data. Retries once on 429."""
     _rate_limit()
     url = f"{AUDIBLE_API}/{asin}?response_groups={ALL_RESPONSE_GROUPS}&marketplace={MARKETPLACE}"
-    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})  # noqa: S310 — Request for fixed HTTPS Audible API; no user-controlled scheme
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        with urllib.request.urlopen(  # nosec B310 - fixed HTTPS Audible API; no user-controlled scheme
+        with urllib.request.urlopen(  # noqa: S310  # nosec B310 - fixed HTTPS Audible API; no user-controlled scheme
             req, timeout=15
         ) as resp:
             data = json.loads(resp.read())
@@ -67,7 +67,7 @@ def _fetch_audible_product(asin: str) -> dict | None:
             time.sleep(5)
             try:
                 # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-                with urllib.request.urlopen(  # nosec B310 - fixed HTTPS Audible API; no user-controlled scheme
+                with urllib.request.urlopen(  # noqa: S310  # nosec B310 - fixed HTTPS Audible API; no user-controlled scheme
                     req, timeout=15
                 ) as resp:
                     data = json.loads(resp.read())

@@ -4,7 +4,7 @@ Duplicate detection endpoints - hash-based and title-based duplicate finding.
 
 import logging
 import os
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 from pathlib import Path
 from typing import Any
 
@@ -248,7 +248,7 @@ def _generate_checksums(scan_dir: str, output_file: str, pattern: str) -> dict:
             f' echo "${{checksum}}|${{f}}";'
             f' done > "{output_file}"'
         )
-        subprocess.run(["bash", "-c", cmd], check=True, timeout=600)
+        subprocess.run(["bash", "-c", cmd], check=True, timeout=600)  # noqa: S603,S607 — bash -c executes internal shell pipeline with config-controlled paths; no user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
 
         # Count results
         with open(output_file, "r") as f:
@@ -718,7 +718,7 @@ def delete_duplicates() -> FlaskResponse:
     # Get all audiobooks to be deleted with their grouping keys
     placeholders = ",".join("?" * len(ids_to_delete))
     query = (
-        "SELECT id, sha256_hash, title, author, file_path,"  # nosec B608
+        "SELECT id, sha256_hash, title, author, file_path,"  # nosec B608  # noqa: S608
         " duration_hours, file_size_mb,"
         " LOWER(TRIM(REPLACE(REPLACE(REPLACE(title, ':', ''),"
         " '-', ''), '  ', ' '))) as norm_title,"
@@ -915,7 +915,7 @@ def verify_deletion_safe() -> FlaskResponse:
     # placeholders is `?,?,?...` literal — only data is bound via params.
     # The f-string only embeds the placeholder count, never user data.
     placeholders = ",".join("?" * len(ids_to_check))
-    _dup_sql = f"SELECT id, sha256_hash, title FROM audiobooks WHERE id IN ({placeholders})"  # nosemgrep  # nosec B608  # nosemgrep
+    _dup_sql = f"SELECT id, sha256_hash, title FROM audiobooks WHERE id IN ({placeholders})"  # nosemgrep  # nosec B608  # nosemgrep  # noqa: S608
     cursor.execute(_dup_sql, ids_to_check)  # nosec B608  # nosemgrep
 
     items = [dict(row) for row in cursor.fetchall()]

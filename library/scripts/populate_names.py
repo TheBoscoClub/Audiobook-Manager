@@ -107,7 +107,7 @@ def _process_person_names(raw_name, person_map, cursor, table_name):
         if dedup_key not in person_map:
             sort_name = generate_sort_name(cleaned) or cleaned
             cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                f"INSERT INTO {table_name} (name, sort_name) VALUES (?, ?)",  # nosec B608
+                f"INSERT INTO {table_name} (name, sort_name) VALUES (?, ?)",  # nosec B608  # noqa: S608
                 (cleaned, sort_name),
             )
             person_map[dedup_key] = cursor.lastrowid
@@ -130,7 +130,7 @@ def _link_book_persons(cursor, book_id, person_entries, junction_table):
     for person_id, position in person_entries:
         try:
             cursor.execute(
-                f"INSERT INTO {junction_table} (book_id, {id_col}, position) "  # nosec B608
+                f"INSERT INTO {junction_table} (book_id, {id_col}, position) "  # nosec B608  # noqa: S608
                 "VALUES (?, ?, ?)",
                 (book_id, person_id, position),
             )
@@ -151,7 +151,7 @@ def rebuild_junction_tables(conn: sqlite3.Connection) -> tuple[int, int]:
     # identifiers as bound parameters, so this f-string is the only correct form.
     for table in ("book_authors", "book_narrators", "authors", "narrators"):
         # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query,python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        cursor.execute(f"DELETE FROM {table}")  # nosec B608
+        cursor.execute(f"DELETE FROM {table}")  # nosec B608  # noqa: S608
 
     cursor.execute("SELECT id, author, narrator FROM audiobooks")
     rows = cursor.fetchall()

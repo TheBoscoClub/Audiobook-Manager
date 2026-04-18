@@ -77,11 +77,11 @@ def fetch_audible_product(asin: str) -> dict | None:
     Returns the product dict or None on failure.
     """
     url = f"{AUDIBLE_API}/{asin}?response_groups={ALL_RESPONSE_GROUPS}&marketplace={MARKETPLACE}"
-    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})  # noqa: S310 — Request for fixed HTTPS Audible API endpoint; no user-controlled URL scheme
 
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (AUDIBLE_API) + validated ASIN from internal DB; not user-controlled scheme
-        with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310
+        with urllib.request.urlopen(req, timeout=15) as resp:  # noqa: S310  # nosec B310
             data = json.loads(resp.read())
             return data.get("product")
     except urllib.error.HTTPError as e:
@@ -497,7 +497,7 @@ def _execute_book_update(cursor, book_id: int, updates: list, params: list, now:
         return True
 
     params.append(book_id)
-    sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608
+    sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608  # noqa: S608
     try:
         cursor.execute(
             sql, params

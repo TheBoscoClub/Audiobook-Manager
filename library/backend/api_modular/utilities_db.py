@@ -4,7 +4,7 @@ Handles rescan, reimport, hash generation, vacuum, and export operations.
 """
 
 import logging
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import sys
 from pathlib import Path
 
@@ -38,14 +38,14 @@ def _subprocess_result_payload(result, count_key: str, count_value: int) -> dict
 
 def _run_script(script_path, timeout: int):
     """Run a Python script as a subprocess with the given timeout."""
-    return subprocess.run(
+    return subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
         [sys.executable, str(script_path)], capture_output=True, text=True, timeout=timeout
     )
 
 
 def _run_script_with_args(script_path, args: list, timeout: int):
     """Run a Python script with extra arguments."""
-    return subprocess.run(
+    return subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
         [sys.executable, str(script_path)] + args, capture_output=True, text=True, timeout=timeout
     )
 

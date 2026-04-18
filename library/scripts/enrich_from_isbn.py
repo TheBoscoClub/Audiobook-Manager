@@ -73,11 +73,11 @@ def query_google_books(
         return None
 
     url = f"{GOOGLE_BOOKS_API}?q={urllib.parse.quote(q)}&maxResults=1"
-    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})  # noqa: S310 — Request for fixed HTTPS API; URL built from trusted HTTPS constant
 
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (GOOGLE_BOOKS_API) + urllib.parse.quote'd search query; not user-controlled scheme
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310  # nosec B310
             data = json.loads(resp.read())
             items = data.get("items", [])
             if items:
@@ -90,11 +90,11 @@ def query_google_books(
 def query_openlibrary_isbn(isbn: str) -> dict | None:
     """Query Open Library by ISBN."""
     url = f"{OPENLIBRARY_API}/isbn/{isbn}.json"
-    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})  # noqa: S310 — Request for fixed HTTPS Open Library API endpoint
 
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (OPENLIBRARY_API) + validated ISBN from internal DB; not user-controlled scheme
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310  # nosec B310
             return json.loads(resp.read())
     except urllib.error.HTTPError, urllib.error.URLError, TimeoutError:
         return None
@@ -106,11 +106,11 @@ def query_openlibrary_search(title: str, author: str | None = None) -> dict | No
     if author:
         params["author"] = author
     url = f"{OPENLIBRARY_API}/search.json?{urllib.parse.urlencode(params)}"
-    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
+    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})  # noqa: S310 — Request for fixed HTTPS Google Books API endpoint
 
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (OPENLIBRARY_API) + urlencode-escaped search params; not user-controlled scheme
-        with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
+        with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310  # nosec B310
             data = json.loads(resp.read())
             docs = data.get("docs", [])
             return docs[0] if docs else None
@@ -303,7 +303,7 @@ def _enrich_one_book(cursor, book: dict, now: str, dry_run: bool, delay: float) 
         updates.append("isbn_enriched_at = ?")
         params.append(now)
         params.append(book_id)
-        sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608
+        sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608  # noqa: S608
         cursor.execute(
             sql, params
         )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query

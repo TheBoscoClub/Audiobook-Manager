@@ -567,7 +567,7 @@ def _fetch_cached_string_translations(conn, locale, seen):
     """Fetch cached translations for given hashes. Returns {hash: translation}."""
     placeholders = ",".join("?" * len(seen))
     rows = conn.execute(
-        f"SELECT source_hash, translation FROM string_translations "  # nosec B608
+        f"SELECT source_hash, translation FROM string_translations "  # nosec B608  # noqa: S608
         f"WHERE locale = ? AND source_hash IN ({placeholders})",
         (locale, *seen.keys()),
     ).fetchall()

@@ -269,7 +269,8 @@ def _get_or_create_narrator_id(cursor: sqlite3.Cursor, name: str) -> int:
     sort_name = generate_sort_name(name) or name
     cursor.execute("INSERT INTO narrators (name, sort_name) VALUES (?, ?)", (name, sort_name))
     row_id = cursor.lastrowid
-    assert row_id is not None  # sqlite3 guarantees non-None after successful INSERT
+    if row_id is None:
+        raise RuntimeError("sqlite3 lastrowid is None after successful INSERT into narrators")
     return row_id
 
 

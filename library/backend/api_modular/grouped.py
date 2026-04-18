@@ -160,7 +160,7 @@ def _group_by_author(
         sort_params = []
 
     query = (
-        f"SELECT {book_cols}, auth.id AS group_id, auth.name AS group_name,"  # nosec B608
+        f"SELECT {book_cols}, auth.id AS group_id, auth.name AS group_name,"  # nosec B608  # noqa: S608
         " auth.sort_name AS group_sort_name"
         " FROM audiobooks a"
         " JOIN book_authors ba ON a.id = ba.book_id"
@@ -198,7 +198,7 @@ def _group_by_author(
     # Find orphan books (no junction rows) — "Unknown Author" group
     # AUDIOBOOK_FILTER is a hardcoded constant
     query = (
-        f"SELECT {book_cols}"  # nosec B608
+        f"SELECT {book_cols}"  # nosec B608  # noqa: S608
         " FROM audiobooks a"
         f"{join_clause}"
         f" WHERE {AUDIOBOOK_FILTER}"
@@ -251,7 +251,7 @@ def _group_by_narrator(
 
     # AUDIOBOOK_FILTER and book_cols are hardcoded constants, not user input
     query = (
-        f"SELECT {book_cols}, narr.id AS group_id, narr.name AS group_name,"  # nosec B608
+        f"SELECT {book_cols}, narr.id AS group_id, narr.name AS group_name,"  # nosec B608  # noqa: S608
         " narr.sort_name AS group_sort_name"
         " FROM audiobooks a"
         " JOIN book_narrators bn ON a.id = bn.book_id"
@@ -288,7 +288,7 @@ def _group_by_narrator(
     # Orphan books — "Unknown Narrator"
     # AUDIOBOOK_FILTER is a hardcoded constant
     query = (
-        f"SELECT {book_cols}"  # nosec B608
+        f"SELECT {book_cols}"  # nosec B608  # noqa: S608
         " FROM audiobooks a"
         f"{join_clause}"
         f" WHERE {AUDIOBOOK_FILTER}"

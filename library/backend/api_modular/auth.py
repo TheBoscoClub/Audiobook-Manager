@@ -397,11 +397,14 @@ def require_current_user() -> User:
     with no runtime behavior change in decorated routes.
 
     Raises:
-        AssertionError: if called outside a protected route (bug — use
+        RuntimeError: if called outside a protected route (bug — use
         ``get_current_user()`` and handle None explicitly instead).
     """
     user = get_current_user()
-    assert user is not None, "require_current_user() called without @login_required/@admin_required"
+    if user is None:
+        raise RuntimeError(
+            "require_current_user() called without @login_required/@admin_required"
+        )
     return user
 
 
@@ -415,25 +418,27 @@ def require_current_user_id() -> int:
     functions typed ``int``.
 
     Raises:
-        AssertionError: if called outside a protected route, or if the
+        RuntimeError: if called outside a protected route, or if the
         resolved User somehow has ``id is None`` (would indicate a
         data-integrity bug in session / user persistence).
     """
     user = require_current_user()
-    assert user.id is not None, "persisted User must have non-None id"
+    if user.id is None:
+        raise RuntimeError("persisted User must have non-None id")
     return user.id
 
 
 def require_current_session() -> Session:
-    """Return the current authenticated session or raise assertion error.
+    """Return the current authenticated session or raise RuntimeError.
 
     ONLY call this inside route handlers decorated with ``@login_required``
     or ``@admin_required``. See :func:`require_current_user` for rationale.
     """
     session = get_current_session()
-    assert (
-        session is not None
-    ), "require_current_session() called without @login_required/@admin_required"
+    if session is None:
+        raise RuntimeError(
+            "require_current_session() called without @login_required/@admin_required"
+        )
     return session
 
 
@@ -1185,8 +1190,7 @@ def dismiss_notification(notification_id: int):
         400: {"error": "..."}
     """
     user = require_current_user()
-    assert user is not None  # guaranteed by @login_required
-    assert user.id is not None  # persisted user always has id
+    # require_current_user() raises RuntimeError if called outside @login_required
     db = get_auth_db()
     notif_repo = NotificationRepository(db)
 

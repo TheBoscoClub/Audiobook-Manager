@@ -268,7 +268,7 @@ def _apply_book_update(cursor, book_id, book_updates):
     set_clauses = ", ".join(f"{k} = ?" for k in book_updates.keys())
     values = list(book_updates.values()) + [book_id]
     cursor.execute(
-        f"UPDATE audiobooks SET {set_clauses} WHERE id = ?", values
+        f"UPDATE audiobooks SET {set_clauses} WHERE id = ?", values  # noqa: S608 — SQL built from internal constants and allowlisted values; no user-controlled string injection  # nosec B608 — SQL — built from internal constants or allowlisted values; all user values use parameterized ? placeholders
     )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
 
 

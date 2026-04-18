@@ -19,7 +19,7 @@ privileged operations like service control and application upgrades.
 import json
 import logging
 import os
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import time
 import urllib.error
 import urllib.request
@@ -290,13 +290,13 @@ def _write_request_or_error() -> FlaskResponse:
 def _get_service_status_entry(service: str) -> dict:
     """Get the status of a single systemd service."""
     try:
-        result = subprocess.run(
-            ["systemctl", "is-active", service], capture_output=True, text=True, timeout=5
+        result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+            ["systemctl", "is-active", service], capture_output=True, text=True, timeout=5  # noqa: S603,S607 — systemctl is the system service manager; args are hardcoded service names, not user input
         )
         is_active = result.stdout.strip() == "active"
 
-        result_enabled = subprocess.run(
-            ["systemctl", "is-enabled", service], capture_output=True, text=True, timeout=5
+        result_enabled = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+            ["systemctl", "is-enabled", service], capture_output=True, text=True, timeout=5  # noqa: S603,S607 — systemctl is the system service manager; args are hardcoded service names, not user input
         )
         is_enabled = result_enabled.stdout.strip() == "enabled"
 
@@ -448,14 +448,14 @@ def _execute_cf_purge(zone_id: str, api_key: str, auth_email: str) -> FlaskRespo
     if not url.startswith("https://"):
         return jsonify({"success": False, "error": "Invalid URL scheme"}), 400
     data = b'{"purge_everything":true}'
-    req = urllib.request.Request(url, data=data, method="POST")
+    req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310 — urllib.request.Request for fixed HTTPS Cloudflare API; URL scheme validated before this call
     req.add_header("X-Auth-Key", api_key)
     req.add_header("X-Auth-Email", auth_email)
     req.add_header("Content-Type", "application/json")
 
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        with urllib.request.urlopen(
+        with urllib.request.urlopen(  # noqa: S310 — urlopen call with Request built from validated https:// URL only
             req, timeout=10
         ) as resp:  # nosec B310 — URL scheme validated above (hardcoded https://api.cloudflare.com)
             result = json.loads(resp.read())

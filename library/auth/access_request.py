@@ -57,7 +57,8 @@ class AccessRequest:
     @property
     def ensured_id(self) -> int:
         """Return self.id narrowed to int. Panics if record was never saved."""
-        assert self.id is not None, "AccessRequest.ensured_id accessed before save"
+        if self.id is None:
+            raise RuntimeError("AccessRequest.ensured_id accessed before save")
         return self.id
 
     @staticmethod

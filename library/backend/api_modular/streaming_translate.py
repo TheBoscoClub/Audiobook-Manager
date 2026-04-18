@@ -19,7 +19,7 @@ import logging
 import os
 import re
 import sqlite3
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import tempfile
 from pathlib import Path
 
@@ -80,8 +80,8 @@ def _probe_audio_duration(audio_path: Path) -> float | None:
         except (ValueError, OSError):
             return None
     try:
-        result = subprocess.run(
-            [
+        result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+            [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
                 "ffprobe",
                 "-v",
                 "quiet",
@@ -1146,8 +1146,8 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
         with tempfile.TemporaryDirectory() as tmp_dir:
             concat_list = Path(tmp_dir) / "concat.txt"
             concat_list.write_text("\n".join(f"file '{p}'" for p in segment_paths) + "\n")
-            subprocess.run(
-                [
+            subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+                [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
                     "ffmpeg",
                     "-y",
                     "-loglevel",

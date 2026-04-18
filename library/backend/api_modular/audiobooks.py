@@ -6,7 +6,7 @@ Note: All queries filter by content_type to exclude non-audiobook content
 """
 
 import logging
-import subprocess
+import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import sys
 from pathlib import Path
 
@@ -61,20 +61,20 @@ def get_stats() -> Response:
 
     # Total audiobooks (audiobooks only)
     cursor.execute(
-        f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
+        f"SELECT COUNT(*) as total FROM audiobooks WHERE {AUDIOBOOK_FILTER}"  # noqa: S608 — AUDIOBOOK_FILTER is a module-level constant, not user input  # nosec B608 — SQL — built from internal constants or allowlisted values; all user values use parameterized ? placeholders
     )  # nosec B608  # nosemgrep: python.lang.security.audit.formatted-sql-query.formatted-sql-query, python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
     total_books = cursor.fetchone()["total"]
 
     # Total hours (audiobooks only)
     cursor.execute(
-        "SELECT SUM(duration_hours) as total_hours FROM audiobooks"  # nosec B608
+        "SELECT SUM(duration_hours) as total_hours FROM audiobooks"  # nosec B608  # noqa: S608
         f" WHERE {AUDIOBOOK_FILTER}"
     )
     total_hours = cursor.fetchone()["total_hours"] or 0
 
     # Total storage used (sum of file sizes in MB, convert to GB)
     cursor.execute(
-        "SELECT SUM(file_size_mb) as total_size FROM audiobooks"  # nosec B608
+        "SELECT SUM(file_size_mb) as total_size FROM audiobooks"  # nosec B608  # noqa: S608
         f" WHERE {AUDIOBOOK_FILTER}"
     )
     total_size_mb = cursor.fetchone()["total_size"] or 0
@@ -82,7 +82,7 @@ def get_stats() -> Response:
 
     # Unique counts (excluding placeholder values like "Audiobook" and "Unknown")
     query = (
-        f"SELECT COUNT(DISTINCT author) as count FROM audiobooks"  # nosec B608
+        f"SELECT COUNT(DISTINCT author) as count FROM audiobooks"  # nosec B608  # noqa: S608
         f" WHERE {AUDIOBOOK_FILTER}"
         " AND author IS NOT NULL"
         " AND LOWER(TRIM(author)) != 'audiobook'"
@@ -92,7 +92,7 @@ def get_stats() -> Response:
     unique_authors = cursor.fetchone()["count"]
 
     query = (
-        f"SELECT COUNT(DISTINCT narrator) as count FROM audiobooks"  # nosec B608
+        f"SELECT COUNT(DISTINCT narrator) as count FROM audiobooks"  # nosec B608  # noqa: S608
         f" WHERE {AUDIOBOOK_FILTER}"
         " AND narrator IS NOT NULL"
         " AND LOWER(TRIM(narrator)) != 'unknown narrator'"
@@ -102,7 +102,7 @@ def get_stats() -> Response:
     unique_narrators = cursor.fetchone()["count"]
 
     cursor.execute(
-        "SELECT COUNT(DISTINCT publisher) as count FROM audiobooks"  # nosec B608
+        "SELECT COUNT(DISTINCT publisher) as count FROM audiobooks"  # nosec B608  # noqa: S608
         f" WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL"
     )
     unique_publishers = cursor.fetchone()["count"]
@@ -223,7 +223,8 @@ def _build_sort_clause(sort_field: str, sort_order: str) -> tuple[str, str]:
         return f"series COLLATE NOCASE {sort_order}, series_sequence ASC", ""
 
     # After series handling, sort_sql is always str (default is "title")
-    assert sort_sql is not None
+    if sort_sql is None:
+        raise RuntimeError("sort_sql is None after exhausting all sort_field branches")
 
     if sort_sql in _NULLABLE_SORTS:
         if sort_sql in _NAME_SORTS:
@@ -315,7 +316,7 @@ def _build_cjk_search_clause(query: str) -> tuple[str, list[str]]:
     # (locale LIKE 'zh%' covers zh-Hans, zh-Hant, zh-CN, etc.).
     trans_frag, trans_params = cjk_bigram_like_clause("at.title", query)
     clauses.append(
-        " OR audiobooks.id IN (SELECT at.audiobook_id FROM audiobook_translations at"  # nosec B608
+        " OR audiobooks.id IN (SELECT at.audiobook_id FROM audiobook_translations at"  # nosec B608  # noqa: S608
         f" WHERE at.locale LIKE 'zh%' AND {trans_frag}))"
     )
     params.extend(trans_params)
@@ -381,7 +382,7 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
         SELECT ag.audiobook_id, g.name FROM genres g
         JOIN audiobook_genres ag ON g.id = ag.genre_id
         WHERE ag.audiobook_id IN ({placeholders})
-        """,  # nosec B608
+        """,  # nosec B608  # noqa: S608
         book_ids,
     )
     genres_map: dict[int, list[str]] = {}
@@ -394,7 +395,7 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
         SELECT ae.audiobook_id, e.name FROM eras e
         JOIN audiobook_eras ae ON e.id = ae.era_id
         WHERE ae.audiobook_id IN ({placeholders})
-        """,  # nosec B608
+        """,  # nosec B608  # noqa: S608
         book_ids,
     )
     eras_map: dict[int, list[str]] = {}
@@ -407,7 +408,7 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
         SELECT at.audiobook_id, t.name FROM topics t
         JOIN audiobook_topics at ON t.id = at.topic_id
         WHERE at.audiobook_id IN ({placeholders})
-        """,  # nosec B608
+        """,  # nosec B608  # noqa: S608
         book_ids,
     )
     topics_map: dict[int, list[str]] = {}
@@ -420,7 +421,7 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
         SELECT audiobook_id, COUNT(*) as count FROM supplements
         WHERE audiobook_id IN ({placeholders})
         GROUP BY audiobook_id
-        """,  # nosec B608
+        """,  # nosec B608  # noqa: S608
         book_ids,
     )
     supplements_map = {r["audiobook_id"]: r["count"] for r in cursor.fetchall()}
@@ -429,7 +430,7 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
     authors_map: dict[int, list[dict]] = {}
     try:
         query = (
-            "SELECT ba.book_id, a.id, a.name, a.sort_name, ba.position"  # nosec B608
+            "SELECT ba.book_id, a.id, a.name, a.sort_name, ba.position"  # nosec B608  # noqa: S608
             " FROM book_authors ba"
             " JOIN authors a ON ba.author_id = a.id"
             f" WHERE ba.book_id IN ({placeholders})"
@@ -453,7 +454,7 @@ def _batch_load_metadata(cursor, book_ids: list[int]) -> dict:
     narrators_map: dict[int, list[dict]] = {}
     try:
         query = (
-            "SELECT bn.book_id, n.id, n.name, n.sort_name, bn.position"  # nosec B608
+            "SELECT bn.book_id, n.id, n.name, n.sort_name, bn.position"  # nosec B608  # noqa: S608
             " FROM book_narrators bn"
             " JOIN narrators n ON bn.narrator_id = n.id"
             f" WHERE bn.book_id IN ({placeholders})"
@@ -493,7 +494,7 @@ def _fetch_titles_by_author(cursor, audiobooks: list[dict]) -> dict[str, list[st
         f"""
         SELECT author, title FROM audiobooks
         WHERE author IN ({author_placeholders})
-        """,  # nosec B608
+        """,  # nosec B608  # noqa: S608
         authors,
     )
     result: dict[str, list[str]] = {}
@@ -592,7 +593,7 @@ def get_audiobooks() -> Response:
 
     # Count total matching audiobooks
     # where_sql is built from validated allowlists (filter specs + AUDIOBOOK_FILTER const), not user input.
-    count_query = f"SELECT COUNT(*) as total FROM audiobooks{join_sql} {where_sql}"  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    count_query = f"SELECT COUNT(*) as total FROM audiobooks{join_sql} {where_sql}"  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query  # noqa: S608
     cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         count_query, join_params + params
     )
@@ -606,7 +607,7 @@ def get_audiobooks() -> Response:
     # CodeQL: sort_sql from allowlist (_SORT_MAPPINGS), sort_order validated
     # where_sql/sort_sql built from validated allowlists, not user input
     query = (
-        "SELECT audiobooks.id, audiobooks.title, audiobooks.author,"  # nosec B608
+        "SELECT audiobooks.id, audiobooks.title, audiobooks.author,"  # nosec B608  # noqa: S608
         " audiobooks.narrator, audiobooks.publisher, audiobooks.series,"
         " audiobooks.series_sequence, audiobooks.edition, audiobooks.asin,"
         " audiobooks.acquired_date, audiobooks.published_year,"
@@ -673,7 +674,7 @@ def get_filters() -> Response:
     # Return objects with name + sort_name so frontend can display "Last, First"
     _filter_ab = AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")
     query = (
-        "SELECT DISTINCT a.name, a.sort_name FROM authors a"  # nosec B608
+        "SELECT DISTINCT a.name, a.sort_name FROM authors a"  # nosec B608  # noqa: S608
         " JOIN book_authors ba ON ba.author_id = a.id"
         " JOIN audiobooks ab ON ab.id = ba.book_id"
         f" WHERE {_filter_ab}"
@@ -684,7 +685,7 @@ def get_filters() -> Response:
 
     # Get unique narrators from normalized table
     query = (
-        "SELECT DISTINCT n.name FROM narrators n"  # nosec B608
+        "SELECT DISTINCT n.name FROM narrators n"  # nosec B608  # noqa: S608
         " JOIN book_narrators bn ON bn.narrator_id = n.id"
         " JOIN audiobooks ab ON ab.id = bn.book_id"
         f" WHERE {_filter_ab}"
@@ -697,7 +698,7 @@ def get_filters() -> Response:
     cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query, python.lang.security.audit.formatted-sql-query.formatted-sql-query
         f"""SELECT DISTINCT publisher FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND publisher IS NOT NULL
-        ORDER BY publisher COLLATE NOCASE"""  # nosec B608
+        ORDER BY publisher COLLATE NOCASE"""  # nosec B608  # noqa: S608
     )
     publishers = [row["publisher"] for row in cursor.fetchall()]
 
@@ -717,7 +718,7 @@ def get_filters() -> Response:
     cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query, python.lang.security.audit.formatted-sql-query.formatted-sql-query
         f"""SELECT DISTINCT format FROM audiobooks
         WHERE {AUDIOBOOK_FILTER} AND format IS NOT NULL
-        ORDER BY format COLLATE NOCASE"""  # nosec B608
+        ORDER BY format COLLATE NOCASE"""  # nosec B608  # noqa: S608
     )
     formats = [row["format"] for row in cursor.fetchall()]
 
@@ -745,7 +746,7 @@ def get_narrator_counts() -> Response:
 
     _filter_ab = AUDIOBOOK_FILTER.replace("content_type", "ab.content_type")
     query = (
-        "SELECT n.name as narrator, COUNT(DISTINCT bn.book_id) as count"  # nosec B608
+        "SELECT n.name as narrator, COUNT(DISTINCT bn.book_id) as count"  # nosec B608  # noqa: S608
         " FROM narrators n"
         " JOIN book_narrators bn ON bn.narrator_id = n.id"
         " JOIN audiobooks ab ON ab.id = bn.book_id"
@@ -843,9 +844,9 @@ def _remux_to_webm(source: Path, webm_path: Path, audiobook_id: int) -> str | No
     """Remux an Opus/Ogg file to WebM container. Returns error message or None."""
     AUDIOBOOKS_WEBM_CACHE.mkdir(parents=True, exist_ok=True)
     tmp_path = webm_path.with_suffix(".webm.tmp")
-    try:
-        result = subprocess.run(  # nosec B603
-            ["ffmpeg", "-y", "-i", str(source), "-c:a", "copy", "-f", "webm", str(tmp_path)],
+    try:  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
+        result = subprocess.run(  # noqa: S603,S607  # nosec B603,B607
+            ["ffmpeg", "-y", "-i", str(source), "-c:a", "copy", "-f", "webm", str(tmp_path)],  # noqa: S607
             capture_output=True,
             timeout=300,
         )
