@@ -22,6 +22,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import cast
 
 from auth import (
     AuthType,
@@ -32,7 +33,7 @@ from auth import (
     WebAuthnCredential,
 )
 from auth.backup_codes import BackupCodeRepository
-from flask import jsonify, request
+from flask import Blueprint, jsonify, request
 
 from . import auth as _auth_module
 from .auth import (
@@ -41,10 +42,12 @@ from .auth import (
     _user_allows_multi_session,
     _validate_webauthn_reg_input,
     _verify_webauthn_credential,
-    auth_bp,
     get_auth_db,
     set_session_cookie,
 )
+
+# Re-bind auth_bp with explicit type so mypy can resolve @auth_bp.route decorators.
+auth_bp: Blueprint = cast(Blueprint, _auth_module.auth_bp)  # type: ignore[has-type]
 
 logger = logging.getLogger(__name__)
 

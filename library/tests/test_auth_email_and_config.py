@@ -20,11 +20,11 @@ def _decode_email_body(raw_msg: str) -> str:
     if msg.is_multipart():
         for part in msg.walk():
             payload = part.get_payload(decode=True)
-            if payload:
+            if isinstance(payload, bytes):
                 parts.append(payload.decode("utf-8", errors="replace"))
     else:
         payload = msg.get_payload(decode=True)
-        if payload:
+        if isinstance(payload, bytes):
             parts.append(payload.decode("utf-8", errors="replace"))
     return "\n".join(parts) if parts else raw_msg
 

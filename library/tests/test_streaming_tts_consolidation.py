@@ -176,13 +176,13 @@ def test_process_segment_tts_failure_degrades_to_text_only(tmp_path):
         captured["payload"] = _json.loads(req.data.decode())
 
         class _Resp:
-            def __enter__(self_inner):
-                return self_inner
+            def __enter__(self):
+                return self
 
-            def __exit__(self_inner, *a):
+            def __exit__(self, *a):
                 return False
 
-            def read(self_inner):
+            def read(self):
                 return b""
 
         return _Resp()
@@ -400,27 +400,27 @@ def test_consolidate_chapter_produces_audio(app_client, streaming_db, tmp_path, 
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_bytes(b"fake-chapter-opus")
 
-            class R:
+            class _RFfmpeg:
                 returncode = 0
                 stdout = ""
                 stderr = ""
 
-            return R()
+            return _RFfmpeg()
         if cmd and cmd[0] == "ffprobe":
 
-            class R:
+            class _RFfprobe:
                 returncode = 0
                 stdout = "90.0\n"
                 stderr = ""
 
-            return R()
+            return _RFfprobe()
 
-        class R:
+        class _ROther:
             returncode = 0
             stdout = ""
             stderr = ""
 
-        return R()
+        return _ROther()
 
     monkeypatch.setattr(st.subprocess, "run", fake_run)
 

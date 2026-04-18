@@ -72,7 +72,7 @@ def _populate_fake_user_install(home: Path) -> dict[str, Path]:
 
 
 @pytest.fixture()
-def fake_home(tmp_path: Path) -> Path:
+def fake_home(tmp_path: Path):  # Generator[Path, None, None]
     home = tmp_path / "home"
     home.mkdir()
     yield home

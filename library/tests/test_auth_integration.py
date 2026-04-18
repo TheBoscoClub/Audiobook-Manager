@@ -245,13 +245,16 @@ def register_and_approve(admin_session: requests.Session, username: str) -> str:
 
 @pytest.fixture(scope="module")
 def api_available():
-    """Skip the entire module if the VM API is unreachable."""
+    """Skip the entire module if VM_HOST is unset or the VM API is unreachable."""
+    if not VM_HOST:
+        pytest.skip("VM_HOST not set; skipping integration tests")
     try:
         resp = requests.get(api("/api/system/version"), timeout=5)
         # 200 = OK, 401/403 = auth required but API is up
         if resp.status_code not in (200, 401, 403):
             pytest.skip(f"VM API returned {resp.status_code}")
-    except requests.exceptions.ConnectionError:
+    except (requests.exceptions.ConnectionError, requests.exceptions.MissingSchema,
+            requests.exceptions.InvalidURL):
         pytest.skip("VM API unreachable")
 
 

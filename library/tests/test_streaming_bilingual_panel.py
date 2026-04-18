@@ -30,6 +30,7 @@ import re
 import shutil
 import subprocess  # nosec B404  # test runner invokes a hardcoded `node` path with JSON-encoded fixed inputs
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -42,7 +43,7 @@ I18N_CSS = WEB / "css" / "i18n.css"
 _NODE_BIN = shutil.which("node")
 
 
-def _run_node(script: str) -> dict:
+def _run_node(script: str) -> Any:
     """Execute a Node snippet that prints one JSON line and returns the parsed object.
 
     The snippet is expected to build a `result` object and then

@@ -37,6 +37,7 @@ def insert_test_book(db_path: Path, **overrides) -> int:
         (defaults["title"], defaults["author"], defaults["file_path"]),
     )
     book_id = cursor.lastrowid
+    assert book_id is not None, "INSERT failed to return a rowid"
     conn.commit()
     conn.close()
     return book_id

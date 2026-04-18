@@ -23,6 +23,7 @@ import sqlite3
 import sys
 import time
 from pathlib import Path
+from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = SCRIPT_DIR.parent
@@ -83,7 +84,7 @@ def verify_book(conn: sqlite3.Connection, book_id: int, locale: str) -> dict:
         "SELECT id, title, file_path FROM audiobooks WHERE id = ?", (book_id,)
     ).fetchone()
 
-    result = {
+    result: dict[str, Any] = {
         "book_id": book_id,
         "title": book["title"] if book else "UNKNOWN",
         "status": "PASS",

@@ -589,11 +589,11 @@ class TestRunSttAndTranslate:
             SHORT_FORM = "short_form"
 
         pipeline_mod = types.ModuleType("localization.pipeline")
-        pipeline_mod.generate_book_subtitles = _generate_book_subtitles
-        pipeline_mod.get_stt_provider = _get_stt_provider
+        pipeline_mod.generate_book_subtitles = _generate_book_subtitles  # type: ignore[attr-defined]
+        pipeline_mod.get_stt_provider = _get_stt_provider  # type: ignore[attr-defined]
 
         selection_mod = types.ModuleType("localization.selection")
-        selection_mod.WorkloadHint = _WorkloadHint
+        selection_mod.WorkloadHint = _WorkloadHint  # type: ignore[attr-defined]
 
         monkeypatch.setitem(sys.modules, "localization.pipeline", pipeline_mod)
         monkeypatch.setitem(sys.modules, "localization.selection", selection_mod)

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -39,7 +40,7 @@ from backend.api_modular import email_templates  # noqa: E402
 # ---------------------------------------------------------------------------
 
 
-_TEMPLATE_VARS = {
+_TEMPLATE_VARS: dict[str, dict[str, Any]] = {
     "magic_link": {
         "username": "alice",
         "link": "https://library.example.com/verify.html?token=abc123",

@@ -14,7 +14,7 @@ import sqlite3
 
 import pytest
 
-from library.backend.api_modular.streaming_translate import handle_seek_impl, stop_streaming_impl
+from backend.api_modular.streaming_translate import handle_seek_impl, stop_streaming_impl
 
 BUFFER_AHEAD = 6
 SEG_SEC = 30
