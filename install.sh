@@ -1325,9 +1325,14 @@ do_system_install() {
     sudo mkdir -p "/var/lib/audiobooks"
     sudo mkdir -p "/var/lib/audiobooks/data"
     sudo mkdir -p "/var/lib/audiobooks/db"
+    # Streaming translation audio buffer — per-segment opus files staged by
+    # the stream-translate worker. Matches AUDIOBOOKS_STREAMING_AUDIO_DIR
+    # default in lib/audiobook-config.sh and library/config.py.
+    sudo mkdir -p "/var/lib/audiobooks/streaming-audio"
     sudo mkdir -p "/var/log/audiobooks"
     sudo mkdir -p "${data_dir}/.index"
     sudo chown -R audiobooks:audiobooks "/var/lib/audiobooks"
+    sudo chmod 0750 "/var/lib/audiobooks/streaming-audio"
     sudo chown audiobooks:audiobooks "/var/log/audiobooks"
     sudo chown audiobooks:audiobooks "${data_dir}"
     sudo chown audiobooks:audiobooks "${data_dir}/Library"
@@ -1727,7 +1732,7 @@ EOF
 
         # Enable the target and all individual services
         sudo systemctl enable audiobook.target 2>/dev/null || true
-        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer audiobook-translate-check.timer audiobook-fleet-watchdog.timer; do
+        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer audiobook-translate-check.timer audiobook-stream-translate audiobook-fleet-watchdog.timer; do
             sudo systemctl enable "$svc" 2>/dev/null || true
         done
 

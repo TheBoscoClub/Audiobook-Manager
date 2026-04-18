@@ -1499,10 +1499,12 @@ do_upgrade() {
                     # Fallback: create directories manually if tmpfiles fails
                     local var_dir="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
                     local staging="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
-                    sudo mkdir -p "${var_dir}/.control" "${var_dir}/.run" "$staging"
-                    sudo chown audiobooks:audiobooks "${var_dir}/.control" "${var_dir}/.run" "$staging"
+                    local stream_audio="${AUDIOBOOKS_STREAMING_AUDIO_DIR:-${var_dir}/streaming-audio}"
+                    sudo mkdir -p "${var_dir}/.control" "${var_dir}/.run" "$staging" "$stream_audio"
+                    sudo chown audiobooks:audiobooks "${var_dir}/.control" "${var_dir}/.run" "$staging" "$stream_audio"
                     sudo chmod 755 "${var_dir}/.control"
                     sudo chmod 775 "${var_dir}/.run" "$staging"
+                    sudo chmod 750 "$stream_audio"
                 }
                 echo "  Updated: tmpfiles.d/audiobooks.conf"
             fi

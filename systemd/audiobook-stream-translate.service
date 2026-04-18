@@ -16,21 +16,23 @@ Type=simple
 User=audiobooks
 Group=audiobooks
 
-# Load configuration. Task 4 ensures AUDIOBOOKS_DATABASE and AUDIOBOOKS_LIBRARY
-# are uncommented in this file by install.sh/upgrade.sh (they default to
-# commented-out in the template — systemd's EnvironmentFile parses KEY=VALUE
-# only, no shell ${X:-default} syntax).
+# Load configuration. The wrapper script (stream-translate-daemon.sh) also
+# sources lib/audiobook-config.sh directly, so the wrapper works even if this
+# EnvironmentFile line is absent. Kept here to match the translate.service
+# pattern and to expose the KEY=VALUE pairs to the process environment (e.g.
+# for any child commands the worker may spawn). Do NOT add the legacy
+# EnvironmentFile=-/etc/audiobooks/scripts/translation-env.sh here — the
+# wrapper sources it directly and can consume shell-assignment syntax that
+# systemd cannot.
 EnvironmentFile=/etc/audiobooks/audiobooks.conf
-# Optional overrides for translation / GPU endpoints (DeepL, RunPod, Vast.ai).
-# Location matches translation-daemon.sh / translation-check.sh / install.sh.
-EnvironmentFile=-/etc/audiobooks/scripts/translation-env.sh
 
 WorkingDirectory=/opt/audiobooks
 
-# Worker polls streaming_segments table and processes segment-by-segment.
-# CLI signature confirmed in scripts/stream-translate-worker.py:
-#   --db PATH --library PATH --api-base URL
-ExecStart=/opt/audiobooks/venv/bin/python /opt/audiobooks/scripts/stream-translate-worker.py --db ${AUDIOBOOKS_DATABASE} --library ${AUDIOBOOKS_LIBRARY} --api-base http://127.0.0.1:5001
+# Wrapper resolves AUDIOBOOKS_DATABASE / AUDIOBOOKS_LIBRARY / AUDIOBOOKS_VENV
+# from the canonical bash config loader (not from systemd env expansion) and
+# execs scripts/stream-translate-worker.py. Same pattern as
+# scripts/translation-daemon.sh and scripts/fleet-watchdog.sh.
+ExecStart=/opt/audiobooks/scripts/stream-translate-daemon.sh
 
 # Restart on failure; StartLimit* caps (in [Unit]) bound restart storms
 Restart=on-failure

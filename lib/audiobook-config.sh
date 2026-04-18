@@ -124,6 +124,13 @@ _load_config_file "${HOME}/.config/audiobooks/audiobooks.conf"
 : "${AUDIOBOOKS_RUN_DIR:=/var/lib/audiobooks/.run}" # Runtime data (locks, temp) - NOT /run due to ProtectSystem=strict
 : "${AUDIOBOOKS_VAR_DIR:=/var/lib/audiobooks}"      # Persistent state data
 
+# Streaming translation audio buffer — per-segment opus files staged for the
+# streaming pipeline. Short-lived (tens of seconds to a few minutes per book),
+# but needs a stable path across service restarts. Default lives under
+# AUDIOBOOKS_VAR_DIR so it picks up the same ownership and backup policy as
+# other persistent state. MUST stay in sync with library/config.py.
+: "${AUDIOBOOKS_STREAMING_AUDIO_DIR:=${AUDIOBOOKS_VAR_DIR}/streaming-audio}"
+
 # Data directory for scan results and intermediate files
 : "${DATA_DIR:=${AUDIOBOOKS_VAR_DIR}/data}"
 : "${AUDIOBOOKS_TRIGGERS:=/tmp/audiobook-triggers}" # Trigger files for service coordination
@@ -157,6 +164,7 @@ export AUDIOBOOKS_STAGING AUDIOBOOKS_PARALLEL_JOBS AUDIOBOOKS_SCAN_INTERVAL
 export AUDIOBOOKS_TMPFS_THRESHOLD AUDIOBOOKS_OPUS_LEVEL AUDIOBOOKS_DOWNLOAD_DELAY
 export AUDIOBOOKS_WEBM_CACHE DATA_DIR
 export AUDIOBOOKS_RUN_DIR AUDIOBOOKS_VAR_DIR AUDIOBOOKS_TRIGGERS AUDIOBOOKS_DOWNLOADER_LOCK
+export AUDIOBOOKS_STREAMING_AUDIO_DIR
 export AUDIOBOOKS_AUDIBLE_VENV AUDIOBOOKS_AUDIBLE_CMD
 export CF_ZONE_ID AUDIOBOOKS_PROJECT_DIR
 export AUDIOBOOKS_DEFAULT_LOCALE AUDIOBOOKS_SUPPORTED_LOCALES
@@ -194,6 +202,7 @@ audiobooks_print_config() {
     echo "AUDIOBOOKS_LOGS:        ${AUDIOBOOKS_LOGS}"
     echo "AUDIOBOOKS_VENV:        ${AUDIOBOOKS_VENV}"
     echo "AUDIOBOOKS_AUDIBLE_VENV: ${AUDIOBOOKS_AUDIBLE_VENV}"
+    echo "AUDIOBOOKS_STREAMING_AUDIO_DIR: ${AUDIOBOOKS_STREAMING_AUDIO_DIR}"
     echo "AUDIOBOOKS_CONVERTER:   ${AUDIOBOOKS_CONVERTER}"
     echo "AUDIOBOOKS_API_PORT:    ${AUDIOBOOKS_API_PORT}"
     echo "AUDIOBOOKS_WEB_PORT:    ${AUDIOBOOKS_WEB_PORT} (HTTPS)"
