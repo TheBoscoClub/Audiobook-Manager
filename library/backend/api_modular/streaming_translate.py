@@ -1317,9 +1317,9 @@ def init_streaming_routes(database_path, library_path=None, streaming_audio_dir=
         library_path: Library root (for VTT subtitle writes); defaults
             to the DB file's parent directory.
         streaming_audio_dir: Root directory holding per-segment opus
-            files (used by Task 10 chapter audio consolidation).
-            Defaults to $AUDIOBOOKS_STREAMING_AUDIO_DIR or the canonical
-            default /var/lib/audiobooks/streaming-audio path.
+            files (used by chapter audio consolidation). Defaults to
+            $AUDIOBOOKS_STREAMING_AUDIO_DIR, falling back to
+            $AUDIOBOOKS_VAR_DIR/streaming-audio.
     """
     global _db_path, _library_path, _streaming_audio_root
     _db_path = Path(database_path) if database_path else None
