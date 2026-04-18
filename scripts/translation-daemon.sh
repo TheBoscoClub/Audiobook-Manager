@@ -298,8 +298,34 @@ start_worker() {
 
 # ── Queue Status ─────────────────────────────────────────────────────────────
 get_queue_status() {
-    sqlite3 "$DB_PATH" \
-        "SELECT state, COUNT(*) FROM translation_queue GROUP BY state;" 2>/dev/null
+    local batch streaming warmup
+    batch=$(sqlite3 "$DB_PATH" \
+        "SELECT state||'='||COUNT(*) FROM translation_queue GROUP BY state;" 2>/dev/null | tr '\n' ' ')
+    streaming=$(sqlite3 "$DB_PATH" \
+        "SELECT COUNT(*) FROM streaming_segments WHERE state='pending';" 2>/dev/null)
+    warmup=$(sqlite3 "$DB_PATH" \
+        "SELECT COUNT(*) FROM streaming_sessions
+         WHERE gpu_warm=1 AND state='buffering'
+           AND datetime(created_at, '+15 minutes') > datetime('now');" 2>/dev/null)
+    echo "batch=[${batch% }] streaming=${streaming:-0} warmup=${warmup:-0}"
+}
+
+# get_total_pending — count all pending work across batch queue, streaming
+# segments, and active warmup sessions. The monitoring loop uses this to decide
+# whether to auto-stop; it must not stop while streaming work is in flight.
+#
+# Schema deviation from plan (Task 11):
+#   - streaming_sessions.created_at (plan used requested_at — column does not exist)
+#   - state='buffering' (plan used 'warmup' — not a valid state; warmup phase = buffering+gpu_warm=1)
+get_total_pending() {
+    sqlite3 "$DB_PATH" <<SQL
+SELECT
+  (SELECT COUNT(*) FROM translation_queue WHERE state='pending') +
+  (SELECT COUNT(*) FROM streaming_segments WHERE state='pending') +
+  (SELECT COUNT(*) FROM streaming_sessions
+     WHERE gpu_warm=1 AND state='buffering'
+       AND datetime(created_at, '+15 minutes') > datetime('now'));
+SQL
 }
 
 get_subtitle_counts() {
@@ -386,21 +412,31 @@ main() {
         sleep "$HEALTH_CHECK_INTERVAL"
         $SHUTDOWN && break
 
-        # Check queue
-        local pending processing completed failed
+        # Collect per-source counts for observability log
+        local pending processing completed failed streaming_pending warmup_sessions
         pending=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
         processing=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='processing';" 2>/dev/null)
         completed=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='completed';" 2>/dev/null)
         failed=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM translation_queue WHERE state='failed';" 2>/dev/null)
+        streaming_pending=$(sqlite3 "$DB_PATH" "SELECT COUNT(*) FROM streaming_segments WHERE state='pending';" 2>/dev/null)
+        warmup_sessions=$(sqlite3 "$DB_PATH" \
+            "SELECT COUNT(*) FROM streaming_sessions
+             WHERE gpu_warm=1 AND state='buffering'
+               AND datetime(created_at, '+15 minutes') > datetime('now');" 2>/dev/null)
 
-        log "Queue: ${pending:-0} pending, ${processing:-0} processing, ${completed:-0} completed, ${failed:-0} failed | $(get_subtitle_counts)"
+        log "Queue: batch=${pending:-0}p/${processing:-0}r/${completed:-0}c/${failed:-0}f streaming=${streaming_pending:-0} warmup=${warmup_sessions:-0} | $(get_subtitle_counts)"
 
-        # Check if queue is empty
-        if [ "${pending:-0}" -eq 0 ] && [ "${processing:-0}" -eq 0 ]; then
+        # Auto-stop only when ALL pending-work sources are drained:
+        #   batch queue (pending + processing), streaming segments, and active
+        #   warmup sessions. Checking only translation_queue would tear down GPUs
+        #   mid-stream when a user opens an untranslated chapter.
+        local total_pending
+        total_pending=$(get_total_pending)
+        if [ "${processing:-0}" -eq 0 ] && [ "${total_pending:-0}" -eq 0 ]; then
             ((EMPTY_COUNT++))
-            log "Queue empty (check $EMPTY_COUNT/$EMPTY_QUEUE_CHECKS)"
+            log "All queues empty (check $EMPTY_COUNT/$EMPTY_QUEUE_CHECKS)"
             if [ "$EMPTY_COUNT" -ge "$EMPTY_QUEUE_CHECKS" ]; then
-                log "Queue confirmed empty — auto-stopping"
+                log "All queues confirmed empty — auto-stopping"
                 break
             fi
         else

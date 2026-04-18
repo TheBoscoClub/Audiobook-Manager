@@ -52,9 +52,24 @@ if systemctl is-active --quiet audiobook-translate.service; then
     exit 0
 fi
 
-# Count pending translations
-pending=$(sqlite3 "$DB_PATH" \
-    "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
+# Count pending work across all three sources:
+#   - translation_queue (batch pipeline)
+#   - streaming_segments (on-demand streaming pipeline)
+#   - streaming_sessions in warmup phase (gpu_warm=1 AND state='buffering' AND within 15-min window)
+#
+# NOTE: Keep this query in sync with get_total_pending() in translation-daemon.sh.
+# Schema deviation from original plan (Task 11): streaming_sessions uses
+# created_at (not requested_at) and state='buffering' (not 'warmup').
+pending=$(
+    sqlite3 "$DB_PATH" <<'SQL' 2>/dev/null
+SELECT
+  (SELECT COUNT(*) FROM translation_queue WHERE state='pending') +
+  (SELECT COUNT(*) FROM streaming_segments WHERE state='pending') +
+  (SELECT COUNT(*) FROM streaming_sessions
+     WHERE gpu_warm=1 AND state='buffering'
+       AND datetime(created_at, '+15 minutes') > datetime('now'));
+SQL
+)
 
 if [ "${pending:-0}" -eq 0 ]; then
     log "No pending translations — nothing to do"
@@ -69,7 +84,7 @@ if [[ ! -f "$TRANSLATION_ENV" ]]; then
     exit 0
 fi
 
-log "Found $pending pending translations — starting translation daemon"
+log "Found $pending pending translations/streaming segments — starting translation daemon"
 systemctl start audiobook-translate.service
 
 # Verify it started
