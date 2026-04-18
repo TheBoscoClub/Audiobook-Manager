@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Streaming translation module never imported**: 6 `except ValueError, TypeError:` sites in `library/backend/api_modular/streaming_translate.py` used Py2 tuple syntax and raised `SyntaxError` at module load. Every `/api/translate/*` endpoint silently 404'd. All sites rewritten to `except (ValueError, TypeError):` with a regression test that asserts the module imports AND that no Py2 except-tuple syntax exists anywhere in the file
+- **Streaming translation module never imported**: 7 `except ValueError, TypeError:` sites in `library/backend/api_modular/streaming_translate.py` used Py2 tuple syntax and raised `SyntaxError` at module load. Every `/api/translate/*` endpoint silently 404'd. All sites rewritten to `except (ValueError, TypeError):` with a regression test that asserts the module imports AND that no Py2 except-tuple syntax exists anywhere in the file
 
 ### Added
 
@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bilingual navigable side panel**: source (en) + target (zh-Hans) cue pairs side-by-side; click-to-seek; current cue highlighted on `timeupdate`. Panel evolved from the existing `#transcript-panel` into a two-column layout; pairs cues by monotonic time-window overlap (`pairVttCues`) to handle 1:1, 1:n, and n:1 translation merges/splits
 - **GPU wake-on-demand union**: `translation-daemon.sh` unions batch + streaming + warmup counts (warmup rows expire after 15 min); `fleet-watchdog.sh` reclaims `streaming_segments` stuck in `processing` for more than 10 min
 - **i18n keys** for `streaming.phase.*` and `streaming.bilingual.*` in the two targeted locales (`en`, `zh-Hans`)
-- **DB migration `005_streaming_audio.sql`**: `ALTER TABLE streaming_segments ADD COLUMN audio_path TEXT`
+- **`streaming_segments.audio_path` consumed end-to-end**: the column was added by migration `data-migrations/003_streaming_segments.sh` in v8.3.1 but had no writer or reader; v8.3.2 is the first release where the worker writes per-segment opus paths and the `/streaming-audio` route reads them
 
 ### Security
 
