@@ -317,8 +317,14 @@ get_queue_status() {
 # Schema deviation from plan (Task 11):
 #   - streaming_sessions.created_at (plan used requested_at — column does not exist)
 #   - state='buffering' (plan used 'warmup' — not a valid state; warmup phase = buffering+gpu_warm=1)
+#
+# Quoted heredoc label (<<'SQL') disables shell expansion inside the body so
+# future maintainers can add $vars without risking silent split-brain with
+# translation-check.sh (which uses the same idiom). Stderr is intentionally
+# NOT suppressed here — sqlite errors on this critical path should surface in
+# the daemon log rather than being swallowed.
 get_total_pending() {
-    sqlite3 "$DB_PATH" <<SQL
+    sqlite3 "$DB_PATH" <<'SQL'
 SELECT
   (SELECT COUNT(*) FROM translation_queue WHERE state='pending') +
   (SELECT COUNT(*) FROM streaming_segments WHERE state='pending') +

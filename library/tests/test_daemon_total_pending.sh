@@ -131,6 +131,10 @@ SQL
 
 # Extract the function body from the daemon script.
 # The function spans from "get_total_pending() {" to its closing "}".
+# This sed range relies on the function's closing brace being a lone "}" at
+# column 0 (the "/^}/" terminator). If a future refactor introduces any other
+# line starting with "}" inside the function (e.g., brace-expansion blocks),
+# the extraction will truncate silently — adjust the terminator pattern then.
 FUNC_BODY="$(sed -n '/^get_total_pending()/,/^}/p' "$DAEMON_SCRIPT")"
 
 if [[ -z "$FUNC_BODY" ]]; then
