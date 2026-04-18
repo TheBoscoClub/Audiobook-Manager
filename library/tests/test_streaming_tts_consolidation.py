@@ -151,6 +151,105 @@ def test_synthesize_segment_audio_happy_path_mocks_edge_tts_and_ffmpeg(tmp_path)
     assert out.is_relative_to(tmp_path)
 
 
+# ── process_segment: graceful degrade on TTS failure ──
+
+
+def test_process_segment_tts_failure_degrades_to_text_only(tmp_path):
+    """TTS synthesis failure must NOT fail the segment — payload carries
+    ``audio_path=None`` and the segment still reports completion.
+
+    Regression guard for the Task 9 review bug: if TTS raises, the worker
+    must still POST the callback with ``audio_path=None``, AND must never
+    unlink the permanent TTS opus (since none was produced here, the
+    stricter invariant is verified in the variable-split review — this
+    test locks in the degrade behavior).
+    """
+    import json as _json
+    from pathlib import Path as _Path
+    from unittest.mock import MagicMock
+
+    w = _load_worker(env_streaming_dir=tmp_path)
+
+    # Fake extracted-segment path: a real temp file so the finally-block
+    # cleanup has something to operate on without erroring.
+    fake_seg = tmp_path / "fake_seg.opus"
+    fake_seg.write_bytes(b"fake-slice")
+
+    captured: dict = {}
+
+    def fake_urlopen(req, timeout=None):
+        # urllib.request.Request carries its body in .data
+        captured["payload"] = _json.loads(req.data.decode())
+
+        class _Resp:
+            def __enter__(self_inner):
+                return self_inner
+
+            def __exit__(self_inner, *a):
+                return False
+
+            def read(self_inner):
+                return b""
+
+        return _Resp()
+
+    # Fake generate_subtitles: write a minimal VTT into output_dir and
+    # return (source_vtt, translated_vtt).
+    def fake_generate_subtitles(
+        audio_path, output_dir, target_locale, chapter_name, stt_provider
+    ):
+        src = _Path(output_dir) / "source.vtt"
+        tr = _Path(output_dir) / "translated.vtt"
+        src.write_text("WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\nhello\n")
+        tr.write_text("WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\n你好\n")
+        return src, tr
+
+    segment = {
+        "audiobook_id": 42,
+        "chapter_index": 1,
+        "segment_index": 3,
+        "locale": "zh-Hans",
+    }
+
+    with (
+        patch.object(w, "split_audio_segment", return_value=fake_seg),
+        patch.object(
+            w,
+            "_synthesize_segment_audio",
+            side_effect=RuntimeError("synth failed"),
+        ),
+        patch(
+            "localization.pipeline.generate_subtitles",
+            side_effect=fake_generate_subtitles,
+        ),
+        patch("localization.pipeline.get_stt_provider", return_value=MagicMock()),
+        patch("urllib.request.urlopen", side_effect=fake_urlopen),
+    ):
+        result = w.process_segment(
+            db_path=str(tmp_path / "unused.db"),
+            segment=segment,
+            audio_path=_Path("/nonexistent/book.opus"),
+            chapter_start_sec=0.0,
+            chapter_duration_sec=600.0,
+            api_base="http://localhost:5001",
+        )
+
+    # Segment succeeds despite TTS raising
+    assert result is True, "TTS failure must not fail the segment"
+
+    # Callback fired with audio_path=None (text-only mode)
+    assert "payload" in captured, "segment-complete callback was never invoked"
+    assert captured["payload"]["audio_path"] is None, (
+        f"audio_path must be None when TTS fails; got "
+        f"{captured['payload']['audio_path']!r}"
+    )
+    # Sanity: VTT still flows through
+    assert captured["payload"]["vtt_content"]
+    assert captured["payload"]["audiobook_id"] == 42
+    assert captured["payload"]["chapter_index"] == 1
+    assert captured["payload"]["segment_index"] == 3
+
+
 # ── segment-complete callback backward-compat ──
 
 

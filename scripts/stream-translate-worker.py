@@ -95,6 +95,12 @@ def _vtt_to_plain(vtt_text: str) -> str:
     edge-tts takes plain UTF-8 text. WebVTT cue structure (WEBVTT header,
     numeric cue IDs, ``HH:MM:SS.mmm --> HH:MM:SS.mmm`` timing lines, and
     blank separators) would be spoken verbatim and ruin the audio.
+
+    Note: only numeric cue IDs are filtered. WebVTT allows alphanumeric cue
+    identifiers, but this pipeline's VTT is exclusively Whisper-generated
+    and only emits numeric IDs. If a non-Whisper VTT source is introduced
+    upstream, extend this filter to detect cue IDs as non-timing lines that
+    precede a timing line.
     """
     lines: list[str] = []
     for raw in vtt_text.splitlines():
@@ -293,7 +299,8 @@ def process_segment(
         locale,
     )
 
-    seg_audio = None
+    seg_audio: Path | None = None  # extracted temp 30-sec slice (cleanup target)
+    tts_opus: Path | None = None  # permanent synthesized opus (DO NOT delete)
     try:
         # Extract the 30-second audio segment
         seg_audio = split_audio_segment(
@@ -331,12 +338,12 @@ def process_segment(
         # whole segment.
         audio_rel: str | None = None
         try:
-            seg_audio = _synthesize_segment_audio(
+            tts_opus = _synthesize_segment_audio(
                 vtt_content, audiobook_id, chapter_index, segment_index, locale
             )
-            if seg_audio is not None:
+            if tts_opus is not None:
                 try:
-                    audio_rel = str(seg_audio.relative_to(_STREAMING_AUDIO_ROOT))
+                    audio_rel = str(tts_opus.relative_to(_STREAMING_AUDIO_ROOT))
                 except ValueError:
                     audio_rel = None
         except Exception as exc:  # pylint: disable=broad-except
@@ -411,6 +418,9 @@ def process_segment(
         return False
 
     finally:
+        # Only the extracted temp slice is disposable. Never unlink tts_opus —
+        # it is referenced by streaming_segments.audio_path and is the input to
+        # Task 10's ffmpeg -c copy chapter consolidation.
         if seg_audio and seg_audio.exists():
             seg_audio.unlink(missing_ok=True)
 
