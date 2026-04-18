@@ -84,7 +84,7 @@ class TestLoadKey:
         with tempfile.TemporaryDirectory() as tmpdir:
             key_path = Path(tmpdir) / "bad.key"
             key_path.write_text("a" * 64)
-            os.chmod(key_path, 0o644)  # Insecure
+            os.chmod(key_path, 0o644)  # nosec B103 — intentionally insecure to test rejection
 
             db = AuthDatabase(
                 db_path=os.path.join(tmpdir, "test.db"), key_path=str(key_path), is_dev=False

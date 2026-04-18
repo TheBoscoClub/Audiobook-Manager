@@ -788,6 +788,50 @@ class TestSsrfPrevention:
         handler.proxy_to_api("GET")
         handler.send_error.assert_called_once_with(403, "Forbidden - Invalid path")
 
+    def test_crlf_stripped_from_path_before_url_construction(self):
+        """CR/LF in path are stripped to prevent HTTP request splitting."""
+        # A path with embedded CRLF — after stripping, it must land on a valid
+        # /api/ prefix path and succeed (or fail at urlopen, not at sanitisation).
+        handler = _make_handler(path="/api/books\r\nX-Injected: evil")
+        handler._send_json_error = MagicMock()
+
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.headers = __import__("email.message", fromlist=["Message"]).Message()
+        mock_response.read.side_effect = [b"ok", b""]
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+
+        with patch("urllib.request.urlopen", return_value=mock_response) as mock_open:
+            handler.proxy_to_api("GET")
+            # CR and LF must not appear in the URL passed to urlopen
+            req = mock_open.call_args[0][0]
+            assert "\r" not in req.full_url, "CR must be stripped from proxy URL"
+            assert "\n" not in req.full_url, "LF must be stripped from proxy URL"
+
+    def test_host_always_loopback(self):
+        """Constructed proxy URL must always target 127.0.0.1:{API_PORT}."""
+        handler = _make_handler(path="/api/books")
+        handler._send_json_error = MagicMock()
+
+        mock_response = MagicMock()
+        mock_response.status = 200
+        mock_response.headers = __import__("email.message", fromlist=["Message"]).Message()
+        mock_response.read.side_effect = [b"ok", b""]
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+
+        with patch("urllib.request.urlopen", return_value=mock_response) as mock_open:
+            handler.proxy_to_api("GET")
+            req = mock_open.call_args[0][0]
+            import urllib.parse as _up
+            parsed = _up.urlparse(req.full_url)
+            assert parsed.scheme == "http", f"Expected http scheme, got {parsed.scheme!r}"
+            assert parsed.hostname == "127.0.0.1", f"Expected loopback host, got {parsed.hostname!r}"
+            assert parsed.port == proxy_server.API_PORT, (
+                f"Expected port {proxy_server.API_PORT}, got {parsed.port!r}"
+            )
+
 
 # ============================================================
 # 13. Module-level constants

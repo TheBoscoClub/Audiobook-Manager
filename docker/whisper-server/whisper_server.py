@@ -1,10 +1,12 @@
 import logging
 import os
+import re
 import signal
 import tempfile
 import threading
 import time
 import traceback
+import uuid
 
 from faster_whisper import WhisperModel
 from flask import Flask, jsonify, request
@@ -80,7 +82,10 @@ def transcribe():
     audio_file = request.files.get("file")
     if not audio_file:
         return jsonify({"error": "No file"}), 400
-    language = request.form.get("language", "en")
+    raw_language = request.form.get("language", "en")
+    # Sanitize language tag: allow only alphanumeric chars and hyphens
+    # (BCP-47 language tags use this charset). Reject log-injection characters.
+    language = re.sub(r"[^a-zA-Z0-9\-]", "", raw_language)[:16] or "en"
     t0 = time.time()
     with tempfile.NamedTemporaryFile(suffix=".opus", delete=False) as tmp:
         audio_file.save(tmp.name)
@@ -110,8 +115,9 @@ def transcribe():
             }
         )
     except Exception as e:
-        log.error("transcribe failed: %s\n%s", e, traceback.format_exc())
-        return jsonify({"error": str(e), "type": type(e).__name__}), 500
+        req_id = str(uuid.uuid4())
+        log.error("transcribe failed [%s]: %s\n%s", req_id, e, traceback.format_exc())
+        return jsonify({"error": "transcription failed", "request_id": req_id}), 500
     finally:
         try:
             os.unlink(tmp_path)
@@ -144,5 +150,6 @@ def selftest():
             }
         )
     except Exception as e:
-        log.error("selftest failed: %s\n%s", e, traceback.format_exc())
-        return jsonify({"ok": False, "error": str(e), "type": type(e).__name__}), 500
+        req_id = str(uuid.uuid4())
+        log.error("selftest failed [%s]: %s\n%s", req_id, e, traceback.format_exc())
+        return jsonify({"ok": False, "error": "selftest failed", "request_id": req_id}), 500

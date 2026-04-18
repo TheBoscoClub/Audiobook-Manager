@@ -16,6 +16,7 @@ import os
 import ssl
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -389,17 +390,28 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(403, "Forbidden - Invalid path")
             return
 
-        path = path.replace("\x00", "")
+        # Strip HTTP request-splitting characters (null bytes, CR, LF) that
+        # could manipulate headers in the forwarded request.  The host is always
+        # the loopback address 127.0.0.1 with a fixed port from config — it is
+        # never derived from user input — so SSRF to external hosts is
+        # structurally impossible here (py/partial-ssrf mitigation).
+        path = path.replace("\x00", "").replace("\r", "").replace("\n", "")
         api_url = f"http://127.0.0.1:{API_PORT}{path}"
+
+        # Belt-and-suspenders: verify the constructed URL targets only the
+        # loopback API backend.  This catches any future refactor that
+        # accidentally makes the host dynamic.
+        _parsed = urllib.parse.urlparse(api_url)
+        _expected_netloc = f"127.0.0.1:{API_PORT}"
+        if _parsed.scheme != "http" or _parsed.netloc != _expected_netloc:
+            self._send_json_error(403, "Forbidden", "Proxy target validation failed")
+            return
 
         try:
             headers = self._collect_proxy_headers()
             body = self._read_request_body(method)
             req = urllib.request.Request(api_url, data=body, headers=headers, method=method)
 
-            # URL scheme is always http:// built from fixed API_PORT; path is
-            # validated against PROXY_PREFIXES allowlist at line 400 before
-            # reaching this point, so urllib cannot be coerced to file://.
             with urllib.request.urlopen(
                 req, timeout=30
             ) as response:  # nosec B310  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
