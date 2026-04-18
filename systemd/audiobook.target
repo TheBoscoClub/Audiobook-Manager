@@ -12,6 +12,7 @@ Wants=audiobook-redirect.service
 # Background workers - conversion and file moving
 Wants=audiobook-converter.service
 Wants=audiobook-mover.service
+Wants=audiobook-stream-translate.service
 
 # Scheduled tasks - timers trigger their corresponding .service units
 Wants=audiobook-downloader.timer
