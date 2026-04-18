@@ -251,13 +251,24 @@
         <audio id="audio-element"></audio>
     </div>
 
-    <!-- Transcript side panel -->
-    <div id="transcript-panel" class="transcript-panel" style="display:none;">
+    <!-- Transcript side panel (bilingual two-column) -->
+    <div id="transcript-panel" class="transcript-panel bilingual" style="display:none;">
         <div class="transcript-header">
-            <h3 data-i18n="player.transcript">Transcript</h3>
+            <h3 data-i18n="streaming.bilingual.title">Bilingual transcript</h3>
             <button class="transcript-close" id="transcript-close" title="Close transcript" data-i18n-title="a11y.close">&times;</button>
         </div>
-        <div id="transcript-content" class="transcript-content"></div>
+        <div id="transcript-content" class="transcript-content">
+            <div class="cols">
+                <div class="col col-source">
+                    <h4 class="col-header" data-i18n="streaming.bilingual.sourceHeader">Original</h4>
+                    <ol class="cues source-cues"></ol>
+                </div>
+                <div class="col col-target">
+                    <h4 class="col-header" data-i18n="streaming.bilingual.targetHeader"></h4>
+                    <ol class="cues target-cues"></ol>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- My Account Modal -->

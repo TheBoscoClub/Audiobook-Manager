@@ -472,3 +472,120 @@ html.cjk .transcript-cue.active .transcript-cue-translated {
     width: 100%;
   }
 }
+
+/* ── Bilingual two-column transcript ─────────────────────────────────
+ * The bilingual panel is wider than the legacy single-column transcript
+ * and lays out source + target cues side-by-side. Below 720px (phones,
+ * narrow tablets) the two columns stack vertically so neither is
+ * squeezed unreadably narrow.
+ */
+
+.transcript-panel.bilingual {
+  width: 640px;
+}
+
+.transcript-panel.bilingual .transcript-content {
+  padding: 8px 12px;
+}
+
+.transcript-panel.bilingual .cols {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.transcript-panel.bilingual .col {
+  flex: 1 1 50%;
+  min-width: 0; /* allow children to shrink inside flex */
+  display: flex;
+  flex-direction: column;
+}
+
+.transcript-panel.bilingual .col-header {
+  color: var(--deco-gold, #c5a55a);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 8px 0;
+  opacity: 0.85;
+  border-bottom: 1px solid rgba(197, 165, 90, 0.25);
+  padding-bottom: 4px;
+}
+
+.transcript-panel.bilingual .cues {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.transcript-panel.bilingual .cues .transcript-cue {
+  display: block;
+  padding: 6px 8px;
+  margin-bottom: 3px;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.45;
+  transition: opacity 0.4s ease, background 0.3s ease;
+  word-break: break-word;
+}
+
+.transcript-panel.bilingual .cues .transcript-cue .transcript-cue-time {
+  display: inline-block;
+  margin-right: 6px;
+  font-size: 0.7rem;
+  color: var(--deco-gold, #c5a55a);
+  opacity: 0.8;
+}
+
+.transcript-panel.bilingual .cues .transcript-cue .transcript-cue-text {
+  color: inherit;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.transcript-panel.bilingual .col-source .transcript-cue {
+  color: var(--parchment, #f4e8c1);
+}
+
+.transcript-panel.bilingual .col-target .transcript-cue {
+  color: var(--deco-gold, #c5a55a);
+}
+
+html.cjk .transcript-panel.bilingual .col-target .transcript-cue .transcript-cue-text {
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+
+/* Soft "nearby" highlight — cues within CURRENT_CUE_WINDOW_MS of playhead */
+.transcript-panel.bilingual .cues .transcript-cue.current {
+  opacity: 0.75;
+  background: rgba(197, 165, 90, 0.06);
+}
+
+/* Exact-hit highlight — the active cue at the current playback time */
+.transcript-panel.bilingual .cues .transcript-cue.active {
+  opacity: 1;
+  background: rgba(197, 165, 90, 0.18);
+  border-left: 3px solid var(--deco-gold, #c5a55a);
+  font-weight: 600;
+}
+
+.transcript-panel.bilingual .cues .transcript-cue:hover {
+  opacity: 0.85;
+  background: rgba(197, 165, 90, 0.1);
+}
+
+/* Stack columns vertically on narrow viewports */
+@media (max-width: 720px) {
+  .transcript-panel.bilingual {
+    width: 100%;
+  }
+  .transcript-panel.bilingual .cols {
+    flex-direction: column;
+  }
+  .transcript-panel.bilingual .col {
+    flex: 1 1 auto;
+  }
+}

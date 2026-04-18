@@ -201,6 +201,7 @@
     checkTranslatedAudio(bookId, chapterIndex, locale);
 
     if (hasSubtitles) {
+      setTargetHeaderLabel(locale);
       buildTranscriptPanel();
       hideGenBanner();
     } else if (locale !== "en") {
@@ -208,6 +209,32 @@
     } else {
       hideGenBanner();
     }
+  }
+
+  // Known locale display names. Keep in sync with supported locales
+  // (see project_locale_optin_model — currently en + zh-Hans).
+  var LOCALE_DISPLAY_NAMES = {
+    "en": "English",
+    "zh-Hans": "\u4e2d\u6587", // 中文
+  };
+
+  /**
+   * Populate the bilingual panel's target-column header with the runtime
+   * locale name. The i18n catalog entry is `"{localeName}"` — a pure
+   * placeholder — so we resolve it here using i18n.t() with a params object.
+   * Falls back to the raw locale code if i18n is unavailable.
+   */
+  function setTargetHeaderLabel(locale) {
+    if (!transcriptContent) return;
+    var hdr = transcriptContent.querySelector(".col-target .col-header");
+    if (!hdr) return;
+    var localeName = LOCALE_DISPLAY_NAMES[locale] || locale;
+    if (typeof t === "function") {
+      hdr.textContent = t("streaming.bilingual.targetHeader", { localeName: localeName });
+    } else {
+      hdr.textContent = localeName;
+    }
+    hdr.setAttribute("data-i18n-locale", locale);
   }
 
   var _waitPositionMs = 0;
@@ -722,84 +749,170 @@
     highlightTranscriptCue(newIndex);
   }
 
-  // ── Transcript Panel ──
+  // ── Transcript Panel (bilingual two-column) ──
 
   // Gap threshold (ms) — insert a break divider when consecutive cues
   // are separated by more than this. 2s catches speaker changes, paragraph
   // breaks, and scene transitions in typical audiobook narration.
   var GAP_THRESHOLD_MS = 2000;
 
+  // Current-cue highlight threshold (ms). Matches the streaming plan (30s
+  // window); adapted from the plan's `< 30` seconds to milliseconds.
+  var CURRENT_CUE_WINDOW_MS = 30000;
+
+  /**
+   * Pair source and target cues by time-window overlap.
+   *
+   * Translation can merge or split cues (1:1, 1:n, n:1), so strict
+   * index pairing drifts as soon as the translator changes cadence. We
+   * iterate source cues and, for each one, collect any target cues whose
+   * start time falls before the source cue's end time.
+   *
+   * The algorithm is a single forward pass — O(n+m) — because both input
+   * lists are pre-sorted by startMs in mergeCues().
+   *
+   * Orphan target cues (no overlapping source cue ahead of them) are not
+   * surfaced; the renderer decides how to handle them.
+   *
+   * @param {Array<{startMs:number,endMs:number,text:string}>} src
+   * @param {Array<{startMs:number,endMs:number,text:string}>} tgt
+   * @returns {Array<[object, Array<object>]>} pairs of (srcCue, [tgtCues])
+   */
+  function pairVttCues(src, tgt) {
+    var out = [];
+    var j = 0;
+    for (var i = 0; i < src.length; i++) {
+      var s = src[i];
+      var ts = [];
+      while (j < tgt.length && tgt[j].startMs < s.endMs) {
+        ts.push(tgt[j]);
+        j += 1;
+      }
+      out.push([s, ts]);
+    }
+    return out;
+  }
+
+  /**
+   * Build the two-column bilingual transcript.
+   *
+   * Left column: source cues, one <li> per cue.
+   * Right column: translated cues, one <li> per source cue, showing the
+   * concatenation of all translated cues that overlap that source cue's
+   * time window. Both <li> in a pair share the same data-start so clicking
+   * either seeks to the source cue's start.
+   *
+   * Large gaps between consecutive source cues inject a decorative break
+   * divider (diamond) in both columns — matches the old single-column
+   * behaviour users are used to.
+   */
   function buildTranscriptPanel() {
     if (!transcriptContent) return;
-    transcriptContent.textContent = "";
+    var sourceOl = transcriptContent.querySelector(".source-cues");
+    var targetOl = transcriptContent.querySelector(".target-cues");
+    if (!sourceOl || !targetOl) return;
+    sourceOl.textContent = "";
+    targetOl.textContent = "";
 
-    var cues = sourceCues.length >= translatedCues.length ? sourceCues : translatedCues;
+    var pairs = pairVttCues(sourceCues, translatedCues);
+    var prevEnd = null;
 
-    for (var i = 0; i < cues.length; i++) {
-      // Insert a break divider when there's a significant time gap
-      if (i > 0) {
-        var gap = cues[i].startMs - cues[i - 1].endMs;
-        if (gap >= GAP_THRESHOLD_MS) {
-          var divider = document.createElement("div");
-          divider.className = "transcript-break";
-          divider.setAttribute("aria-hidden", "true");
-          divider.textContent = "\u25C6"; // ◆ diamond
-          transcriptContent.appendChild(divider);
-        }
+    for (var i = 0; i < pairs.length; i++) {
+      var pair = pairs[i];
+      var s = pair[0];
+      var ts = pair[1];
+
+      // Break divider for significant time gaps (mirror in both columns).
+      if (prevEnd !== null && s.startMs - prevEnd >= GAP_THRESHOLD_MS) {
+        sourceOl.appendChild(makeBreakDivider());
+        targetOl.appendChild(makeBreakDivider());
       }
+      prevEnd = s.endMs;
 
-      var cueEl = document.createElement("div");
-      cueEl.className = "transcript-cue";
-      cueEl.setAttribute("data-cue-index", i);
+      // Source cue <li>
+      var srcLi = document.createElement("li");
+      srcLi.className = "transcript-cue transcript-cue-source";
+      srcLi.setAttribute("data-cue-index", i);
+      srcLi.dataset.startMs = String(s.startMs);
 
-      var timeEl = document.createElement("div");
-      timeEl.className = "transcript-cue-time";
-      timeEl.textContent = formatTime(cues[i].startMs);
-      cueEl.appendChild(timeEl);
+      var srcTimeEl = document.createElement("span");
+      srcTimeEl.className = "transcript-cue-time";
+      srcTimeEl.textContent = formatTime(s.startMs);
+      srcLi.appendChild(srcTimeEl);
 
-      if (sourceCues[i]) {
-        var srcEl = document.createElement("div");
-        srcEl.className = "transcript-cue-source";
-        srcEl.textContent = sourceCues[i].text;
-        cueEl.appendChild(srcEl);
-      }
+      var srcTextEl = document.createElement("span");
+      srcTextEl.className = "transcript-cue-text";
+      srcTextEl.textContent = s.text;
+      srcLi.appendChild(srcTextEl);
 
-      if (translatedCues[i]) {
-        var trEl = document.createElement("div");
-        trEl.className = "transcript-cue-translated";
-        trEl.textContent = translatedCues[i].text;
-        cueEl.appendChild(trEl);
-      }
+      attachSeek(srcLi, s.startMs);
+      sourceOl.appendChild(srcLi);
 
-      // Click to seek
-      (function (startMs) {
-        cueEl.addEventListener("click", function () {
-          var audio = document.getElementById("audio-element");
-          if (audio) {
-            audio.currentTime = startMs / 1000;
-          }
-        });
-      })(cues[i].startMs);
+      // Target cue <li> — concatenation of overlapping translated cues.
+      var tgtLi = document.createElement("li");
+      tgtLi.className = "transcript-cue transcript-cue-translated";
+      tgtLi.setAttribute("data-cue-index", i);
+      tgtLi.dataset.startMs = String(s.startMs);
 
-      transcriptContent.appendChild(cueEl);
+      var tgtTextEl = document.createElement("span");
+      tgtTextEl.className = "transcript-cue-text";
+      tgtTextEl.textContent = ts.map(function (t) { return t.text; }).join(" ");
+      tgtLi.appendChild(tgtTextEl);
+
+      attachSeek(tgtLi, s.startMs);
+      targetOl.appendChild(tgtLi);
     }
+  }
+
+  function makeBreakDivider() {
+    var divider = document.createElement("li");
+    divider.className = "transcript-break";
+    divider.setAttribute("aria-hidden", "true");
+    divider.textContent = "\u25C6"; // ◆ diamond
+    return divider;
+  }
+
+  function attachSeek(el, startMs) {
+    el.addEventListener("click", function () {
+      var audio = document.getElementById("audio-element");
+      if (audio) {
+        audio.currentTime = startMs / 1000;
+      }
+    });
   }
 
   function highlightTranscriptCue(index) {
     if (!transcriptContent) return;
-    var prev = transcriptContent.querySelector(".transcript-cue.active");
-    if (prev) prev.classList.remove("active");
+    var prevs = transcriptContent.querySelectorAll(".transcript-cue.active");
+    for (var p = 0; p < prevs.length; p++) prevs[p].classList.remove("active");
 
     if (index >= 0) {
-      var el = transcriptContent.querySelector(
+      var els = transcriptContent.querySelectorAll(
         '[data-cue-index="' + index + '"]'
       );
-      if (el) {
-        el.classList.add("active");
+      if (els.length) {
+        for (var i = 0; i < els.length; i++) els[i].classList.add("active");
         if (transcriptVisible) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          els[0].scrollIntoView({ behavior: "smooth", block: "center" });
         }
       }
+    }
+  }
+
+  /**
+   * Apply a soft "within proximity window" class to every cue <li> whose
+   * startMs is within CURRENT_CUE_WINDOW_MS of the current playback time.
+   * This complements the exact-hit `.active` highlight with a wider context
+   * halo — matches the streaming plan's `.current` class behaviour.
+   */
+  function applyCurrentWindow(currentTimeMs) {
+    if (!transcriptContent) return;
+    var lis = transcriptContent.querySelectorAll(".transcript-cue");
+    for (var i = 0; i < lis.length; i++) {
+      var li = lis[i];
+      var startMs = parseFloat(li.dataset.startMs || "0");
+      var near = Math.abs(startMs - currentTimeMs) < CURRENT_CUE_WINDOW_MS;
+      li.classList.toggle("current", near);
     }
   }
 
@@ -873,7 +986,9 @@
     var audio = document.getElementById("audio-element");
     if (audio) {
       audio.addEventListener("timeupdate", function () {
-        updateSubtitleDisplay(Math.floor(audio.currentTime * 1000));
+        var tMs = Math.floor(audio.currentTime * 1000);
+        updateSubtitleDisplay(tMs);
+        if (transcriptVisible) applyCurrentWindow(tMs);
       });
     }
   });
@@ -891,5 +1006,8 @@
     waitForSubtitlesAt: waitForSubtitlesAt,
     hasSubtitlesAtPosition: hasSubtitlesAtPosition,
     isGenerationActive: isGenerationActive,
+    // Exposed for bilingual panel diagnostics + unit tests. Pure function:
+    // pairs source cues with overlapping translated cues.
+    pairVttCues: pairVttCues,
   };
 })();
