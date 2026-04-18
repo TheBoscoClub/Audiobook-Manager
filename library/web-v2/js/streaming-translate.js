@@ -49,6 +49,11 @@
     self.sourceBuffer = null;
     self.objectUrl = null;
     self.closed = false;
+    // URLs already handed to enqueueSegment. Guards against a duplicate
+    // append when the same segment is seen by both the enterStreaming
+    // replay loop and a racing segment_ready WS event (e.g. reconnect
+    // replay, or a late-arriving duplicate from the server).
+    self.enqueuedUrls = {};
 
     if (typeof MediaSource === "undefined") {
       // Browser lacks MSE (rare on Chromium/Firefox). Chain is inert; the
@@ -83,6 +88,10 @@
   MseAudioChain.prototype.enqueueSegment = function (url) {
     var self = this;
     if (self.closed) return;
+    // Dedup: if we've already kicked off a fetch for this URL, skip.
+    // Prevents double-append when replay loop + WS event race.
+    if (self.enqueuedUrls[url]) return;
+    self.enqueuedUrls[url] = true;
     // Even if .ready rejected (no MSE), we skip silently.
     return self.ready
       .then(function () {
@@ -129,6 +138,14 @@
   MseAudioChain.prototype.teardown = function () {
     this.closed = true;
     this.queue = [];
+    this.enqueuedUrls = {};
+    // Transition the MediaSource to 'ended' before dropping references.
+    // Revoking the ObjectURL alone leaves the MSE in 'open' state —
+    // the audio element still holds it via the blob URL, leaking it
+    // across book-switches over long sessions.
+    if (this.mediaSource && this.mediaSource.readyState === "open") {
+      try { this.mediaSource.endOfStream(); } catch (e) {}
+    }
     if (this.objectUrl) {
       try { URL.revokeObjectURL(this.objectUrl); } catch (e) {}
       this.objectUrl = null;

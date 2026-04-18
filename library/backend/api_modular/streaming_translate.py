@@ -1186,13 +1186,15 @@ def init_streaming_routes(database_path, library_path=None, streaming_audio_dir=
     if streaming_audio_dir:
         _streaming_audio_root = Path(streaming_audio_dir)
     else:
-        # Canonical default (AUDIOBOOKS_VAR_DIR/streaming-audio) — only used
-        # when env var is unset, mirroring the worker's fallback.
-        _streaming_audio_default = "/var/lib/audiobooks/streaming-audio"  # default
+        # Derive from AUDIOBOOKS_VAR_DIR to match library/config.py's canonical
+        # chain (library/config.py:143-150). Direct env reads are used here
+        # because this module is imported early by the API factory, before
+        # library.config loading completes.
+        _var_dir = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
         _streaming_audio_root = Path(
             os.environ.get(
                 "AUDIOBOOKS_STREAMING_AUDIO_DIR",
-                _streaming_audio_default,
+                f"{_var_dir}/streaming-audio",
             )
         )
 
