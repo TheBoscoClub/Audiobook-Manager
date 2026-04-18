@@ -164,6 +164,87 @@
   var notificationPlayed = false;
   var mseChain = null; // MseAudioChain for translated audio playback
 
+  // ── Polling fallback when WS is silent (Task 15, v8.3.2) ──
+  //
+  // If the WebSocket disconnects (mobile network change, laptop sleep,
+  // Caddy restart) or stops delivering events mid-chapter, the overlay
+  // freezes because nothing else feeds progress data. We arm a 5 s stall
+  // timer whenever we're in BUFFERING/STREAMING; if no WS event resets
+  // it, we start polling GET /api/translate/session/<id>/<locale> every
+  // 3 s and synthesize a buffer_progress event from each response so the
+  // existing onBufferProgress handler runs — DRY.
+  //
+  // TODO(task-22): add Playwright e2e coverage for polling fallback.
+
+  var STALL_TIMEOUT_MS = 5000;   // no WS event for this long → start polling
+  var POLL_INTERVAL_MS = 3000;   // poll cadence while in fallback
+
+  var stallTimer = null;         // fires when no WS event seen for STALL_TIMEOUT_MS
+  var pollTimer = null;          // recurring poll while in fallback
+  var pollingActive = false;
+
+  function armStallTimer() {
+    if (stallTimer) {
+      clearTimeout(stallTimer);
+      stallTimer = null;
+    }
+    if (state === State.BUFFERING || state === State.STREAMING) {
+      stallTimer = setTimeout(startStreamingPolling, STALL_TIMEOUT_MS);
+    }
+  }
+
+  function onAnyStreamingEvent() {
+    // Called when any streaming-related signal (WS event, state
+    // transition, ws-connected) arrives. Resets the stall clock and
+    // exits polling if we were in it.
+    if (pollingActive) stopStreamingPolling();
+    armStallTimer();
+  }
+
+  function startStreamingPolling() {
+    if (pollingActive) return;
+    if (!currentBookId || !currentLocale) return;
+    pollingActive = true;
+    pollOnce();
+    pollTimer = setInterval(pollOnce, POLL_INTERVAL_MS);
+  }
+
+  function stopStreamingPolling() {
+    pollingActive = false;
+    if (pollTimer) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  function pollOnce() {
+    if (!currentBookId || !currentLocale) return;
+    var url = API_BASE + "/translate/session/" + currentBookId +
+              "/" + encodeURIComponent(currentLocale);
+    fetch(url, { credentials: "same-origin" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || data.state === "none") return;
+        // Synthesize a buffer_progress event from the polled payload so the
+        // existing onBufferProgress handler handles the UI update — DRY.
+        var synthesized = {
+          type: "buffer_progress",
+          audiobook_id: currentBookId,
+          chapter_index: data.active_chapter,
+          locale: currentLocale,
+          completed: data.completed || 0,
+          total: data.total || 0,
+          threshold: data.buffer_threshold || BUFFER_THRESHOLD,
+          phase: data.phase || "idle",
+          // Marks this event as poll-originated so onBufferProgress
+          // doesn't stop the polling loop that just produced it.
+          _synthesized: true,
+        };
+        onBufferProgress(synthesized);
+      })
+      .catch(function () { /* ignore; next poll will retry */ });
+  }
+
   // DOM references
   var overlay = null;
   var overlayMessage = null;
@@ -273,6 +354,10 @@
     if (audio && !audio.paused) {
       audio.pause();
     }
+
+    // Arm the stall timer so we kick over to polling if the WS stays
+    // silent for STALL_TIMEOUT_MS.
+    armStallTimer();
   }
 
   function enterStreaming() {
@@ -305,9 +390,23 @@
     if (audio && audio.paused && currentBookId) {
       audio.play().catch(function () {});
     }
+
+    // Arm the stall timer — entering STREAMING means we should start
+    // expecting a steady cadence of WS events; if they stop, kick over
+    // to polling after STALL_TIMEOUT_MS.
+    armStallTimer();
   }
 
   function enterIdle() {
+    // Tear down the polling fallback before we null out book/locale —
+    // pollOnce() guards against missing currentBookId but it's cleaner
+    // to stop the timers up front.
+    stopStreamingPolling();
+    if (stallTimer) {
+      clearTimeout(stallTimer);
+      stallTimer = null;
+    }
+
     state = State.IDLE;
     hideOverlay();
     stopNotification();
@@ -326,6 +425,9 @@
 
   function onSegmentReady(data) {
     if (data.audiobook_id !== currentBookId || data.locale !== currentLocale) return;
+
+    // Every genuine WS event resets the stall timer + exits polling.
+    onAnyStreamingEvent();
 
     var ch = data.chapter_index;
     var seg = data.segment_index;
@@ -348,6 +450,11 @@
     if (data.audiobook_id !== currentBookId || data.locale !== currentLocale) return;
     if (data.chapter_index !== currentChapter) return;
 
+    // Genuine WS-delivered buffer_progress events reset the stall timer +
+    // exit polling. Synthesized events that originate from the polling
+    // loop carry ``_synthesized=true`` so we don't stop our own poller.
+    if (!data._synthesized) onAnyStreamingEvent();
+
     var completed = data.completed || 0;
     var total = data.total || 0;
     var threshold = data.threshold || BUFFER_THRESHOLD;
@@ -361,6 +468,9 @@
 
   function onChapterReady(data) {
     if (data.audiobook_id !== currentBookId || data.locale !== currentLocale) return;
+
+    // Every genuine WS event resets the stall timer + exits polling.
+    onAnyStreamingEvent();
 
     var ch = data.chapter_index;
     segmentBitmap[ch] = "all"; // Mark entire chapter as cached
@@ -481,6 +591,16 @@
     });
     document.addEventListener("chapter-ready", function (e) {
       onChapterReady(e.detail);
+    });
+
+    // When the WebSocket reconnects (see websocket.js dispatch on open),
+    // tear down any active polling fallback and re-arm the stall timer.
+    // The companion ws-disconnected event does not exist today — the 5 s
+    // stall timer is the only disconnect-detection signal the player
+    // needs, so don't listen for it.
+    document.addEventListener("ws-connected", function () {
+      if (pollingActive) stopStreamingPolling();
+      armStallTimer();
     });
 
     // Fire GPU warm-up on load (for non-English locales)

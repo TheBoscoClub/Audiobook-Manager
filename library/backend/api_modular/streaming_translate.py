@@ -678,7 +678,17 @@ def get_segment_bitmap(audiobook_id, chapter_index, locale):
 @streaming_bp.route("/api/translate/session/<int:audiobook_id>/<locale>")
 @guest_allowed
 def get_session_state(audiobook_id, locale):
-    """Get current streaming session state."""
+    """Get current streaming session state.
+
+    Extended in Task 15 (v8.3.2) so the client's polling fallback can keep
+    the overlay progress bar fresh when the WebSocket stalls or disconnects.
+    When a session exists, the response mirrors the fields carried by the
+    ``buffer_progress`` WS broadcast — ``phase``, ``completed``, ``total``,
+    ``current_segment``, ``segment_bitmap`` — letting the client synthesize
+    a ``buffer_progress`` event from a plain HTTP response and reuse its
+    existing WS event handler (DRY). When no session exists, the response
+    remains ``{"state": "none"}`` so the client knows to stop polling.
+    """
     try:
         locale = _sanitize_locale(locale)
     except (ValueError, TypeError):
@@ -695,13 +705,38 @@ def get_session_state(audiobook_id, locale):
     if not session:
         return jsonify({"state": "none"})
 
+    active_chapter = session["active_chapter"]
+
+    # Count completed/total segments for the active chapter. Using a single
+    # aggregate query rather than two round-trips keeps the polling endpoint
+    # cheap (client hits it every 3 s per book during WS-down windows).
+    counts_row = db.execute(
+        "SELECT "
+        "SUM(CASE WHEN state = 'completed' THEN 1 ELSE 0 END) AS completed, "
+        "COUNT(*) AS total "
+        "FROM streaming_segments "
+        "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ?",
+        (audiobook_id, active_chapter, locale),
+    ).fetchone()
+    completed = (counts_row["completed"] or 0) if counts_row else 0
+    total = (counts_row["total"] or 0) if counts_row else 0
+
     return jsonify(
         {
             "session_id": session["id"],
             "state": session["state"],
-            "active_chapter": session["active_chapter"],
+            "active_chapter": active_chapter,
             "buffer_threshold": session["buffer_threshold"],
             "gpu_warm": bool(session["gpu_warm"]),
+            "phase": _derive_phase(db, audiobook_id, locale),
+            "completed": completed,
+            "total": total,
+            "current_segment": _get_current_segment(
+                db, audiobook_id, active_chapter, locale
+            ),
+            "segment_bitmap": _get_segment_bitmap(
+                db, audiobook_id, active_chapter, locale
+            ),
         }
     )
 
