@@ -253,8 +253,11 @@ def api_available():
         # 200 = OK, 401/403 = auth required but API is up
         if resp.status_code not in (200, 401, 403):
             pytest.skip(f"VM API returned {resp.status_code}")
-    except (requests.exceptions.ConnectionError, requests.exceptions.MissingSchema,
-            requests.exceptions.InvalidURL):
+    except (
+        requests.exceptions.ConnectionError,
+        requests.exceptions.MissingSchema,
+        requests.exceptions.InvalidURL,
+    ):
         pytest.skip("VM API unreachable")
 
 

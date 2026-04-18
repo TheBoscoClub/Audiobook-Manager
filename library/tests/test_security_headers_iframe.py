@@ -11,9 +11,9 @@ class TestSecurityHeadersForIframe:
     def test_x_frame_options_sameorigin(self):
         content = CORE_PY.read_text()
         # Must have SAMEORIGIN
-        assert (
-            '"SAMEORIGIN"' in content
-        ), "X-Frame-Options must be SAMEORIGIN (not DENY) for iframe shell"
+        assert '"SAMEORIGIN"' in content, (
+            "X-Frame-Options must be SAMEORIGIN (not DENY) for iframe shell"
+        )
         # Must NOT have DENY for X-Frame-Options
         lines = content.split("\n")
         for line in lines:
@@ -22,16 +22,16 @@ class TestSecurityHeadersForIframe:
 
     def test_csp_frame_ancestors_self(self):
         content = CORE_PY.read_text()
-        assert (
-            "frame-ancestors 'self'" in content
-        ), "CSP frame-ancestors must be 'self' (not 'none')"
+        assert "frame-ancestors 'self'" in content, (
+            "CSP frame-ancestors must be 'self' (not 'none')"
+        )
         assert "frame-ancestors 'none'" not in content, "CSP frame-ancestors must not be 'none'"
 
     def test_csp_frame_src_self(self):
         content = CORE_PY.read_text()
-        assert (
-            "frame-src 'self'" in content
-        ), "CSP must include frame-src 'self' to permit iframe element"
+        assert "frame-src 'self'" in content, (
+            "CSP must include frame-src 'self' to permit iframe element"
+        )
 
     def test_other_security_headers_unchanged(self):
         """Verify we didn't accidentally remove other security headers."""

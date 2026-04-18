@@ -25,9 +25,9 @@ class TestTutorialJS:
         content = (JS_DIR / "tutorial.js").read_text()
         # Check for property access pattern, not just the word in comments
         unsafe_prop = ".inner" + "HTML"
-        assert (
-            unsafe_prop not in content
-        ), "tutorial.js must not use unsafe HTML property — use safe DOM methods"
+        assert unsafe_prop not in content, (
+            "tutorial.js must not use unsafe HTML property — use safe DOM methods"
+        )
 
     def test_class_defined(self):
         """tutorial.js must define a LibraryTutorial class."""
@@ -70,16 +70,16 @@ class TestTutorialJS:
     def test_optional_steps_supported(self):
         """Tutorial must support optional steps (skipped if target not found)."""
         content = (JS_DIR / "tutorial.js").read_text()
-        assert (
-            "optional:" in content or "optional :" in content
-        ), "Should support optional: true pattern for skippable steps"
+        assert "optional:" in content or "optional :" in content, (
+            "Should support optional: true pattern for skippable steps"
+        )
 
     def test_fallback_text_supported(self):
         """Tutorial must support fallback text for hidden elements."""
         content = (JS_DIR / "tutorial.js").read_text()
-        assert (
-            "fallback:" in content or "fallback :" in content
-        ), "Should support fallback: text for elements not visible"
+        assert "fallback:" in content or "fallback :" in content, (
+            "Should support fallback: text for elements not visible"
+        )
 
 
 class TestTutorialCSS:

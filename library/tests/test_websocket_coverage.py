@@ -247,7 +247,8 @@ class TestPollLoopProcessesNotifications:
         """Only processes delivered=0 rows."""
         db_path = tmp_path / "delivered.db"
         _create_notification_db(
-            db_path, rows=[("announce", '{"msg": "already done"}', 1)]  # already delivered
+            db_path,
+            rows=[("announce", '{"msg": "already done"}', 1)],  # already delivered
         )
 
         poll_fn, _ = _capture_poll_loop(db_path)

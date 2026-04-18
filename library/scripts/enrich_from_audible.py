@@ -499,9 +499,7 @@ def _execute_book_update(cursor, book_id: int, updates: list, params: list, now:
     params.append(book_id)
     sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608  # noqa: S608
     try:
-        cursor.execute(
-            sql, params
-        )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        cursor.execute(sql, params)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         return True
     except sqlite3.DatabaseError as e:
         print(f"  DB ERROR on book_id={book_id}: {e}")

@@ -381,9 +381,9 @@ class TestConfigVariablesUsed:
 
         content = module_path.read_text()
         assert "from config import" in content, "maintenance.py should import from config module"
-        assert (
-            "AUDIOBOOKS_DATABASE" in content
-        ), "maintenance.py should use AUDIOBOOKS_DATABASE config variable"
+        assert "AUDIOBOOKS_DATABASE" in content, (
+            "maintenance.py should use AUDIOBOOKS_DATABASE config variable"
+        )
 
 
 class TestInstalledAppConfig:
@@ -402,9 +402,9 @@ class TestInstalledAppConfig:
 
             pytest.skip("Production installation not found at /opt/audiobooks")
 
-        assert (
-            self.PRODUCTION_PATH / "library"
-        ).exists(), "Production installation missing library directory"
+        assert (self.PRODUCTION_PATH / "library").exists(), (
+            "Production installation missing library directory"
+        )
 
     def test_installed_config_module_exists(self):
         """Test that config.py exists in production."""
@@ -426,9 +426,9 @@ class TestInstalledAppConfig:
 
         for py_file in rnd_path.glob("populate_asins*.py"):
             content = py_file.read_text()
-            assert (
-                "from config import" in content
-            ), f"Installed {py_file.name} should import from config module"
+            assert "from config import" in content, (
+                f"Installed {py_file.name} should import from config module"
+            )
 
     def test_installed_maintenance_uses_config(self):
         """Test that installed maintenance.py imports config module."""
@@ -446,6 +446,6 @@ class TestInstalledAppConfig:
             pytest.skip("Production maintenance.py not found")
 
         content = maint_path.read_text()
-        assert (
-            "from config import" in content
-        ), "Installed maintenance.py should import from config module"
+        assert "from config import" in content, (
+            "Installed maintenance.py should import from config module"
+        )

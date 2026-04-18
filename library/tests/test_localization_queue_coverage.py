@@ -808,6 +808,4 @@ class TestLoadVttRows:
 
         rows = lq._load_vtt_rows(1, "zh-Hans")
         paths = [r[1] if not isinstance(r, sqlite3.Row) else r["vtt_path"] for r in rows]
-        assert paths == [
-            "/tmp/ch0.vtt"
-        ]  # nosec B108  # asserting DB round-trip of synthetic string; no file I/O
+        assert paths == ["/tmp/ch0.vtt"]  # nosec B108  # asserting DB round-trip of synthetic string; no file I/O

@@ -349,7 +349,11 @@ class TestDoOptions:
 
         assert handler._response_code == 204
         header_dict = dict(handler._sent_headers)
-        assert header_dict["Access-Control-Allow-Origin"] == "*"
+        # CORS_ORIGIN is captured at module import time from the environment
+        # (default "*"). In polluted full-suite runs it may be the real prod
+        # value, so we assert against the imported module's value rather than
+        # a hardcoded literal.
+        assert header_dict["Access-Control-Allow-Origin"] == proxy_server.CORS_ORIGIN
         assert "GET" in header_dict["Access-Control-Allow-Methods"]
         assert "POST" in header_dict["Access-Control-Allow-Methods"]
         assert "Content-Type" in header_dict["Access-Control-Allow-Headers"]
@@ -825,9 +829,12 @@ class TestSsrfPrevention:
             handler.proxy_to_api("GET")
             req = mock_open.call_args[0][0]
             import urllib.parse as _up
+
             parsed = _up.urlparse(req.full_url)
             assert parsed.scheme == "http", f"Expected http scheme, got {parsed.scheme!r}"
-            assert parsed.hostname == "127.0.0.1", f"Expected loopback host, got {parsed.hostname!r}"
+            assert parsed.hostname == "127.0.0.1", (
+                f"Expected loopback host, got {parsed.hostname!r}"
+            )
             assert parsed.port == proxy_server.API_PORT, (
                 f"Expected port {proxy_server.API_PORT}, got {parsed.port!r}"
             )

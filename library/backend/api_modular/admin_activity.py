@@ -223,12 +223,8 @@ def get_activity():
 
     auth_db = get_auth_db()
     with auth_db.connection() as conn:
-        rows = _rows_to_dicts(
-            conn.execute(data_sql, data_params)
-        )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        total = conn.execute(count_sql, list(all_params)).fetchone()[
-            0
-        ]  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        rows = _rows_to_dicts(conn.execute(data_sql, data_params))  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        total = conn.execute(count_sql, list(all_params)).fetchone()[0]  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
 
     # Resolve titles from library DB
     book_ids = {str(row["audiobook_id"]) for row in rows}
@@ -367,7 +363,8 @@ def _get_book_titles(audiobook_ids: set) -> dict[str, str | None]:
     try:
         placeholders = ",".join("?" * len(int_ids))
         cursor = conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"SELECT id, title FROM audiobooks WHERE id IN ({placeholders})", int_ids  # nosec B608  # noqa: S608
+            f"SELECT id, title FROM audiobooks WHERE id IN ({placeholders})",
+            int_ids,  # nosec B608  # noqa: S608
         )
         return {str(row["id"]): row["title"] for row in cursor.fetchall()}
     except sqlite3.Error:

@@ -290,9 +290,7 @@ class TestBuildManifest:
             "collections": [],
             "strings": [],
             "queue": [],
-            "books": {
-                1: {"title": "x", "file_path": "/tmp/x"}
-            },  # nosec B108 -- DB string fixture, no filesystem write
+            "books": {1: {"title": "x", "file_path": "/tmp/x"}},  # nosec B108 -- DB string fixture, no filesystem write
         }
         manifest = transfer._build_manifest(data)
         assert manifest["version"] == 2

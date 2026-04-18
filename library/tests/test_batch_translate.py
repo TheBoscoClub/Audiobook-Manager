@@ -33,6 +33,7 @@ bt = _load()
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_db(tmp_path):
     """Create a minimal translation_queue + audiobooks DB."""
     db_path = str(tmp_path / "audiobooks.db")
@@ -64,6 +65,7 @@ def _make_db(tmp_path):
 # _parse_args
 # ---------------------------------------------------------------------------
 
+
 class TestParseArgs:
     def test_required_flags(self, tmp_path):
         with patch("sys.argv", ["bt", "--db", "/tmp/x.db", "--library", "/tmp/lib"]):
@@ -77,11 +79,23 @@ class TestParseArgs:
         assert args.vastai_host is None
 
     def test_all_optional_flags(self):
-        with patch("sys.argv", [
-            "bt", "--db", "/x.db", "--library", "/lib",
-            "--book-id", "42", "--dry-run", "--stt-only", "--tts-only",
-            "--vastai-host", "10.0.0.1:8100",
-        ]):
+        with patch(
+            "sys.argv",
+            [
+                "bt",
+                "--db",
+                "/x.db",
+                "--library",
+                "/lib",
+                "--book-id",
+                "42",
+                "--dry-run",
+                "--stt-only",
+                "--tts-only",
+                "--vastai-host",
+                "10.0.0.1:8100",
+            ],
+        ):
             args = bt._parse_args()
         assert args.book_id == 42
         assert args.dry_run
@@ -94,14 +108,17 @@ class TestParseArgs:
 # _configure_env
 # ---------------------------------------------------------------------------
 
+
 class TestConfigureEnv:
     def test_vastai_host_sets_env(self, monkeypatch):
         # Clear keys so setdefault behaves predictably
         for k in ["AUDIOBOOKS_VASTAI_WHISPER_HOST", "AUDIOBOOKS_VASTAI_WHISPER_PORT"]:
             monkeypatch.delenv(k, raising=False)
 
-        with patch("sys.argv", ["bt", "--db", "/x.db", "--library", "/lib",
-                                "--vastai-host", "1.2.3.4:9000"]):
+        with patch(
+            "sys.argv",
+            ["bt", "--db", "/x.db", "--library", "/lib", "--vastai-host", "1.2.3.4:9000"],
+        ):
             args = bt._parse_args()
         bt._configure_env(args)
         assert os.environ["AUDIOBOOKS_VASTAI_WHISPER_HOST"] == "1.2.3.4"
@@ -121,6 +138,7 @@ class TestConfigureEnv:
 # ---------------------------------------------------------------------------
 # _get_queue_stats
 # ---------------------------------------------------------------------------
+
 
 class TestGetQueueStats:
     def test_empty_db(self, tmp_path):
@@ -151,13 +169,17 @@ class TestGetQueueStats:
 # _dry_run_preview
 # ---------------------------------------------------------------------------
 
+
 class TestDryRunPreview:
     def test_logs_rows(self, tmp_path, caplog):
         import logging
+
         db_path = _make_db(tmp_path)
         bt.ensure_tables(db_path)
         conn = sqlite3.connect(db_path)
-        conn.execute("INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'Book A', '/a.opus')")
+        conn.execute(
+            "INSERT INTO audiobooks (id, title, file_path) VALUES (1, 'Book A', '/a.opus')"
+        )
         conn.execute(
             "INSERT INTO translation_queue (audiobook_id, locale, state, priority) VALUES (1, 'zh-Hans', 'pending', 5)"
         )
@@ -173,6 +195,7 @@ class TestDryRunPreview:
 # ---------------------------------------------------------------------------
 # main() — DB missing → exit(1)
 # ---------------------------------------------------------------------------
+
 
 class TestMain:
     def test_missing_db_exits(self, tmp_path):

@@ -301,9 +301,7 @@ def create_app(
     @flask_app.route("/<path:path>", methods=["OPTIONS"])
     def handle_options(
         path: str,
-    ) -> tuple[
-        str, int
-    ]:  # pylint: disable=unused-argument  # path captured by Flask route converter but CORS preflight response is path-agnostic
+    ) -> tuple[str, int]:  # pylint: disable=unused-argument  # path captured by Flask route converter but CORS preflight response is path-agnostic
         """Handle CORS preflight requests"""
         return "", 204
 

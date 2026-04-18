@@ -77,7 +77,7 @@ def _probe_audio_duration(audio_path: Path) -> float | None:
             audio_path.resolve(strict=False).relative_to(
                 _streaming_audio_root.resolve(strict=False)
             )
-        except (ValueError, OSError):
+        except ValueError, OSError:
             return None
     try:
         result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
@@ -98,7 +98,7 @@ def _probe_audio_duration(audio_path: Path) -> float | None:
         )
         if result.returncode == 0 and result.stdout.strip():
             return float(result.stdout.strip())
-    except (OSError, ValueError, subprocess.TimeoutExpired):
+    except OSError, ValueError, subprocess.TimeoutExpired:
         return None
     return None
 
@@ -192,7 +192,7 @@ def _validate_audio_path(audio_path) -> Path | None:
         audio_root = _streaming_audio_root.resolve(strict=False)
         resolved.relative_to(audio_root)  # raises ValueError if outside
         return resolved
-    except (ValueError, OSError):
+    except ValueError, OSError:
         return None
 
 
@@ -270,11 +270,7 @@ def _chapter_segment_count(duration_sec: float) -> int:
     return math.ceil(duration_sec / SEGMENT_DURATION_SEC)
 
 
-def _get_chapter_duration_sec(
-    db, audiobook_id: int, chapter_index: int
-) -> (
-    float
-):  # pylint: disable=unused-argument  # chapter_index reserved for future per-chapter duration lookup; current impl returns average
+def _get_chapter_duration_sec(db, audiobook_id: int, chapter_index: int) -> float:  # pylint: disable=unused-argument  # chapter_index reserved for future per-chapter duration lookup; current impl returns average
     """Estimate chapter duration from book duration and chapter count.
 
     For more accurate results, the streaming worker uses ffprobe chapter
@@ -579,7 +575,7 @@ def _parse_stream_request(data):
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return None, None, None, (jsonify({"error": "invalid parameters"}), 400)
 
     return audiobook_id, locale, chapter_index, None
@@ -707,7 +703,7 @@ def get_segment_bitmap(audiobook_id, chapter_index, locale):
     """
     try:
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -731,7 +727,7 @@ def get_session_state(audiobook_id, locale):
     """
     try:
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -830,7 +826,7 @@ def handle_seek():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -898,7 +894,7 @@ def stop_streaming():
     try:
         audiobook_id = int(audiobook_id)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -946,7 +942,7 @@ def segment_complete():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     # Validate audio_path is within the allowed streaming audio root
@@ -1020,7 +1016,7 @@ def chapter_complete():
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except ValueError, TypeError:
         return jsonify({"error": "invalid parameters"}), 400
 
     # Validate audio_path is within the allowed streaming audio root
@@ -1112,7 +1108,7 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
         try:
             p_resolved = p.resolve(strict=False)
             p_resolved.relative_to(audio_root_resolved)  # raises ValueError if outside
-        except (ValueError, OSError):
+        except ValueError, OSError:
             logger.warning(
                 "Rejecting audio_path that escapes streaming root — "
                 "skipping chapter audio consolidation: book=%d ch=%d seg=%d path=%s",
@@ -1274,9 +1270,7 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
     # leaves the VTT-side cache intact.
     try:
         _consolidate_chapter_audio(db, audiobook_id, chapter_index, locale)
-    except (
-        Exception
-    ) as exc:  # pylint: disable=broad-except  # defense in depth — audio side must never break VTT path
+    except Exception as exc:  # pylint: disable=broad-except  # defense in depth — audio side must never break VTT path
         logger.warning(
             "Chapter audio consolidation raised unexpected exception: "
             "book=%d ch=%d locale=%s err=%s",
@@ -1331,7 +1325,7 @@ def serve_streaming_segment(audiobook_id, chapter_index, segment_index, locale):
         # strict=False so a missing file still resolves (we check exists()
         # below and return 404); strict=True would raise FileNotFoundError.
         resolved = candidate.resolve(strict=False)
-    except (OSError, RuntimeError):
+    except OSError, RuntimeError:
         # Resolve can raise on broken symlink loops; treat as not-found.
         abort(404)
 

@@ -30,9 +30,9 @@ class TestContentPageLinks:
                 # Find <a> tags linking to auth pages
                 links = re.findall(rf'<a[^>]*href="{auth_page}"[^>]*>', content)
                 for link in links:
-                    assert (
-                        'target="_top"' in link
-                    ), f"{page_name}: link to {auth_page} must have target='_top': {link}"
+                    assert 'target="_top"' in link, (
+                        f"{page_name}: link to {auth_page} must have target='_top': {link}"
+                    )
 
     def test_js_redirects_to_auth_use_top(self):
         """JS redirects to login.html should use window.top.location."""

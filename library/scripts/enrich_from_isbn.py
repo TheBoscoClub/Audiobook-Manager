@@ -304,9 +304,7 @@ def _enrich_one_book(cursor, book: dict, now: str, dry_run: bool, delay: float) 
         params.append(now)
         params.append(book_id)
         sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608  # noqa: S608
-        cursor.execute(
-            sql, params
-        )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        cursor.execute(sql, params)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         return "enriched", isbn_found
 
     # No data found but mark as attempted

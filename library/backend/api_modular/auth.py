@@ -402,9 +402,7 @@ def require_current_user() -> User:
     """
     user = get_current_user()
     if user is None:
-        raise RuntimeError(
-            "require_current_user() called without @login_required/@admin_required"
-        )
+        raise RuntimeError("require_current_user() called without @login_required/@admin_required")
     return user
 
 

@@ -98,7 +98,8 @@ def _delete_related_records(cursor, ids, placeholders):
     """Delete all related records for given audiobook IDs across junction tables."""
     for table, col in _RELATED_TABLES.items():
         cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"DELETE FROM {table} WHERE {col} IN ({placeholders})", ids  # nosec B608  # noqa: S608
+            f"DELETE FROM {table} WHERE {col} IN ({placeholders})",
+            ids,  # nosec B608  # noqa: S608
         )
 
 
@@ -192,10 +193,12 @@ def _bulk_add_tags(cursor, ids, names, table, id_column, entity_table):
         if not name:
             continue
         cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"INSERT OR IGNORE INTO {entity_table} (name) VALUES (?)", (name,)  # nosec B608  # noqa: S608
+            f"INSERT OR IGNORE INTO {entity_table} (name) VALUES (?)",
+            (name,),  # nosec B608  # noqa: S608
         )
         cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"SELECT id FROM {entity_table} WHERE name = ?", (name,)  # nosec B608  # noqa: S608
+            f"SELECT id FROM {entity_table} WHERE name = ?",
+            (name,),  # nosec B608  # noqa: S608
         )
         tag_id = cursor.fetchone()["id"]
         for book_id in ids:
@@ -217,7 +220,8 @@ def _bulk_remove_tags(cursor, ids, names, table, id_column, entity_table):
         if not name:
             continue
         cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"SELECT id FROM {entity_table} WHERE name = ?", (name,)  # nosec B608  # noqa: S608
+            f"SELECT id FROM {entity_table} WHERE name = ?",
+            (name,),  # nosec B608  # noqa: S608
         )
         row = cursor.fetchone()
         if not row:
@@ -235,17 +239,20 @@ def _bulk_remove_tags(cursor, ids, names, table, id_column, entity_table):
 def _set_tags_for_audiobook(cursor, audiobook_id, names, junction_table, id_column, entity_table):
     """Replace all tag associations for a single audiobook."""
     cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        f"DELETE FROM {junction_table} WHERE audiobook_id = ?", (audiobook_id,)  # nosec B608  # noqa: S608
+        f"DELETE FROM {junction_table} WHERE audiobook_id = ?",
+        (audiobook_id,),  # nosec B608  # noqa: S608
     )
     for name in names:
         name = name.strip()
         if not name:
             continue
         cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"INSERT OR IGNORE INTO {entity_table} (name) VALUES (?)", (name,)  # nosec B608  # noqa: S608
+            f"INSERT OR IGNORE INTO {entity_table} (name) VALUES (?)",
+            (name,),  # nosec B608  # noqa: S608
         )
         cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"SELECT id FROM {entity_table} WHERE name = ?", (name,)  # nosec B608  # noqa: S608
+            f"SELECT id FROM {entity_table} WHERE name = ?",
+            (name,),  # nosec B608  # noqa: S608
         )
         tag_id = cursor.fetchone()["id"]
         cursor.execute(
@@ -283,9 +290,7 @@ def update_audiobook(id: int) -> FlaskResponse:
     query = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608  # noqa: S608
 
     try:
-        cursor.execute(
-            query, values
-        )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        cursor.execute(query, values)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         conn.commit()
         rows_affected = cursor.rowcount
         conn.close()
@@ -374,9 +379,7 @@ def bulk_update_audiobooks() -> FlaskResponse:
         placeholders = ",".join("?" * len(ids))
         # CodeQL: field is validated against allowed_fields allowlist above
         query = f"UPDATE audiobooks SET {field} = ? WHERE id IN ({placeholders})"  # nosec B608  # nosemgrep: python.django.security.injection.tainted-sql-string.tainted-sql-string,python.flask.security.injection.tainted-sql-string.tainted-sql-string  # noqa: S608
-        cursor.execute(
-            query, [value] + ids
-        )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        cursor.execute(query, [value] + ids)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         conn.commit()
         updated_count = cursor.rowcount
         conn.close()
@@ -425,7 +428,8 @@ def bulk_delete_audiobooks() -> FlaskResponse:
 
         # Delete audiobooks
         cursor.execute(
-            f"DELETE FROM audiobooks WHERE id IN ({placeholders})", ids  # noqa: S608 — placeholders built via '?'*len(ids); parameterized — no string injection  # nosec B608 — SQL — built from internal constants or allowlisted values; all user values use parameterized ? placeholders
+            f"DELETE FROM audiobooks WHERE id IN ({placeholders})",
+            ids,  # noqa: S608 — placeholders built via '?'*len(ids); parameterized — no string injection  # nosec B608 — SQL — built from internal constants or allowlisted values; all user values use parameterized ? placeholders
         )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query,python.django.security.injection.tainted-sql-string.tainted-sql-string,python.flask.security.injection.tainted-sql-string.tainted-sql-string
         deleted_count = cursor.rowcount
 

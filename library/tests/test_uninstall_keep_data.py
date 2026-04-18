@@ -31,6 +31,12 @@ UNINSTALL = PROJECT_ROOT / "uninstall.sh"
 
 def _run_uninstall(fake_home: Path, *extra_args: str) -> subprocess.CompletedProcess:
     env = os.environ.copy()
+    # Scrub any AUDIOBOOKS_* vars that may have been set during test-suite
+    # runs; they would leak into uninstall.sh and cause it to touch real
+    # host paths. User-mode uninstall must be hermetic under $HOME.
+    for key in list(env):
+        if key.startswith("AUDIOBOOKS_"):
+            del env[key]
     env["HOME"] = str(fake_home)
     return subprocess.run(
         ["bash", str(UNINSTALL), "--user", "--force", *extra_args],
@@ -90,9 +96,9 @@ def test_keep_data_preserves_db_auth_covers_config(fake_home: Path) -> None:
     )
 
     # The app directory SHOULD have been wiped
-    assert not paths[
-        "applib_marker"
-    ].exists(), "applib marker should have been removed (it's installed code, not state)"
+    assert not paths["applib_marker"].exists(), (
+        "applib marker should have been removed (it's installed code, not state)"
+    )
 
     # Every preserved item must still exist with the same content
     missing = [k for k, p in paths.items() if k != "applib_marker" and not p.exists()]

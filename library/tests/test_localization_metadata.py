@@ -180,7 +180,8 @@ class TestMetadataLookup:
 
     def test_douban_title_fallback_when_isbn_misses(self) -> None:
         douban = _StubDouban(
-            isbn_result=None, title_result={"title": "书", "author": "作者"}  # no translator key
+            isbn_result=None,
+            title_result={"title": "书", "author": "作者"},  # no translator key
         )
         lookup = MetadataLookup(douban_client=cast(DoubanClient, douban))
         meta = lookup.lookup("Book", "Author", "zh-Hans", isbn="9780000000001")

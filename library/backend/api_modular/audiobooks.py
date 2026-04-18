@@ -34,9 +34,7 @@ audiobooks_bp = Blueprint("audiobooks", __name__)
 AUDIOBOOK_FILTER = "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
 
 
-def init_audiobooks_routes(
-    db_path, project_root, database_path
-):  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
+def init_audiobooks_routes(db_path, project_root, database_path):  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
     """Initialize audiobooks routes (no-op, kept for API compatibility).
 
     Database path is now resolved at request time via current_app.config.

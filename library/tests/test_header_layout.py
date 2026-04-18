@@ -24,29 +24,29 @@ class TestHiddenAttributeFix:
     def test_layout_css_not_hidden_utilities_link(self):
         """.utilities-link:not([hidden]) must be in layout.css."""
         content = (CSS_DIR / "layout.css").read_text()
-        assert (
-            ".utilities-link:not([hidden])" in content
-        ), "layout.css should use .utilities-link:not([hidden])"
+        assert ".utilities-link:not([hidden])" in content, (
+            "layout.css should use .utilities-link:not([hidden])"
+        )
 
     def test_layout_css_hover_not_hidden(self):
         """Hover rules must include :not([hidden]) to avoid styling hidden elements."""
         content = (CSS_DIR / "layout.css").read_text()
-        assert (
-            ".nav-link:not([hidden]):hover" in content
-        ), "layout.css hover rule should include :not([hidden])"
-        assert (
-            ".utilities-link:not([hidden]):hover" in content
-        ), "layout.css hover rule should include :not([hidden])"
+        assert ".nav-link:not([hidden]):hover" in content, (
+            "layout.css hover rule should include :not([hidden])"
+        )
+        assert ".utilities-link:not([hidden]):hover" in content, (
+            "layout.css hover rule should include :not([hidden])"
+        )
 
     def test_responsive_css_not_hidden(self):
         """responsive.css touch rules must include :not([hidden])."""
         content = (CSS_DIR / "responsive.css").read_text()
-        assert (
-            ".nav-link:not([hidden])" in content
-        ), "responsive.css should use .nav-link:not([hidden])"
-        assert (
-            ".utilities-link:not([hidden])" in content
-        ), "responsive.css should use .utilities-link:not([hidden])"
+        assert ".nav-link:not([hidden])" in content, (
+            "responsive.css should use .nav-link:not([hidden])"
+        )
+        assert ".utilities-link:not([hidden])" in content, (
+            "responsive.css should use .utilities-link:not([hidden])"
+        )
 
 
 class TestHeaderStructure:
@@ -55,12 +55,12 @@ class TestHeaderStructure:
     def test_index_hero_has_no_nav_buttons(self):
         """v8: index.html hero should only have title and stats, no nav buttons."""
         content = (WEB_DIR / "index.html").read_text()
-        assert (
-            "header-nav-left" not in content
-        ), "v8: hero nav groups removed — auth handled by shell header"
-        assert (
-            "header-nav-right" not in content
-        ), "v8: hero nav groups removed — auth handled by shell header"
+        assert "header-nav-left" not in content, (
+            "v8: hero nav groups removed — auth handled by shell header"
+        )
+        assert "header-nav-right" not in content, (
+            "v8: hero nav groups removed — auth handled by shell header"
+        )
 
     def test_account_button_in_shell_header(self):
         """Account button must be in shell.html header."""
@@ -72,9 +72,9 @@ class TestHeaderStructure:
     def test_account_button_not_in_index(self):
         """v8: account button only in shell header, not duplicated in index.html."""
         content = (WEB_DIR / "index.html").read_text()
-        assert (
-            'id="my-account-btn"' not in content
-        ), "v8: account button should only be in shell.html, not index.html"
+        assert 'id="my-account-btn"' not in content, (
+            "v8: account button should only be in shell.html, not index.html"
+        )
 
     def test_shell_header_has_accessibility_btn(self):
         """Shell header should have accessibility panel toggle."""

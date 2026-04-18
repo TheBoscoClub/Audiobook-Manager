@@ -220,7 +220,7 @@ def test_process_segment_tts_failure_degrades_to_text_only(tmp_path):
     # Callback fired with audio_path=None (text-only mode)
     assert "payload" in captured, "segment-complete callback was never invoked"
     assert captured["payload"]["audio_path"] is None, (
-        f"audio_path must be None when TTS fails; got " f"{captured['payload']['audio_path']!r}"
+        f"audio_path must be None when TTS fails; got {captured['payload']['audio_path']!r}"
     )
     # Sanity: VTT still flows through
     assert captured["payload"]["vtt_content"]
@@ -520,5 +520,5 @@ def test_consolidate_chapter_skips_audio_when_any_segment_missing_audio(
     ).fetchone()
     db.close()
     assert row is None, (
-        "chapter_translations_audio must not exist when any segment is " "missing audio_path"
+        "chapter_translations_audio must not exist when any segment is missing audio_path"
     )

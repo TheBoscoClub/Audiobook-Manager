@@ -57,9 +57,9 @@ class TestGenreManagementJS:
         for line in lines:
             if "innerHTML" in line and "genre" in line.lower():
                 # Allow innerHTML with static HTML only (no variable interpolation)
-                assert (
-                    "${" not in line and "+" not in line
-                ), f"innerHTML with dynamic genre data: {line.strip()}"
+                assert "${" not in line and "+" not in line, (
+                    f"innerHTML with dynamic genre data: {line.strip()}"
+                )
 
 
 class TestGenreManagementCSS:

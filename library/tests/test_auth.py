@@ -23,7 +23,7 @@ import pytest
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
-from auth import (  # noqa: E402; Backup codes
+from auth import (  # noqa: E402
     NUM_BACKUP_CODES,
     AuthDatabase,
     AuthType,

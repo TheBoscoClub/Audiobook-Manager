@@ -66,9 +66,9 @@ class TestHelpPageStructure:
         # Find all anchor hrefs like href="#some-id"
         anchors = re.findall(r'href="#([a-z][\w-]*)"', content)
         for anchor in anchors:
-            assert (
-                f'id="{anchor}"' in content
-            ), f"Anchor href='#{anchor}' has no matching id='{anchor}'"
+            assert f'id="{anchor}"' in content, (
+                f"Anchor href='#{anchor}' has no matching id='{anchor}'"
+            )
 
     def test_accessibility_lang_attr(self):
         """help.html must have lang='en' on the html element."""

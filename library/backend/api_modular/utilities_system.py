@@ -291,12 +291,18 @@ def _get_service_status_entry(service: str) -> dict:
     """Get the status of a single systemd service."""
     try:
         result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-            ["systemctl", "is-active", service], capture_output=True, text=True, timeout=5  # noqa: S603,S607 — systemctl is the system service manager; args are hardcoded service names, not user input
+            ["systemctl", "is-active", service],
+            capture_output=True,
+            text=True,
+            timeout=5,  # noqa: S603,S607 — systemctl is the system service manager; args are hardcoded service names, not user input
         )
         is_active = result.stdout.strip() == "active"
 
         result_enabled = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-            ["systemctl", "is-enabled", service], capture_output=True, text=True, timeout=5  # noqa: S603,S607 — systemctl is the system service manager; args are hardcoded service names, not user input
+            ["systemctl", "is-enabled", service],
+            capture_output=True,
+            text=True,
+            timeout=5,  # noqa: S603,S607 — systemctl is the system service manager; args are hardcoded service names, not user input
         )
         is_enabled = result_enabled.stdout.strip() == "enabled"
 

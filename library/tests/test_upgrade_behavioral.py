@@ -121,9 +121,9 @@ class TestSkipServiceLifecycleFlag:
         # The script may fail because the target doesn't exist, but the error
         # should NOT be about an unknown option.
         combined = result.stdout + result.stderr
-        assert (
-            "Unknown option" not in combined
-        ), "--skip-service-lifecycle should be accepted by the argument parser"
+        assert "Unknown option" not in combined, (
+            "--skip-service-lifecycle should be accepted by the argument parser"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -155,9 +155,9 @@ class TestDryRun:
             "--yes",
             "--force",
         )
-        assert (
-            result.returncode == 0
-        ), f"--dry-run should exit 0; stderr:\n{result.stderr}\nstdout:\n{result.stdout}"
+        assert result.returncode == 0, (
+            f"--dry-run should exit 0; stderr:\n{result.stderr}\nstdout:\n{result.stdout}"
+        )
 
     def test_dry_run_shows_dry_run_label(self, mock_target):
         result = run_upgrade(
@@ -230,9 +230,9 @@ class TestCheckMode:
             "--from-project", str(PROJECT_ROOT), "--target", str(target), "--check"
         )
         combined = result.stdout + result.stderr
-        assert (
-            "identical" in combined.lower() or "no upgrade needed" in combined.lower()
-        ), f"Identical versions should report no upgrade needed. Output:\n{combined}"
+        assert "identical" in combined.lower() or "no upgrade needed" in combined.lower(), (
+            f"Identical versions should report no upgrade needed. Output:\n{combined}"
+        )
 
     def test_check_detects_downgrade(self, target_with_version):
         """When target version > project version, a warning about downgrade is shown."""
@@ -241,9 +241,9 @@ class TestCheckMode:
             "--from-project", str(PROJECT_ROOT), "--target", str(target), "--check"
         )
         combined = result.stdout + result.stderr
-        assert (
-            "newer" in combined.lower() or "warning" in combined.lower()
-        ), f"Downgrade should produce a warning. Output:\n{combined}"
+        assert "newer" in combined.lower() or "warning" in combined.lower(), (
+            f"Downgrade should produce a warning. Output:\n{combined}"
+        )
 
     def test_check_shows_version_comparison(self, target_with_version):
         """--check must print both source and target versions."""
@@ -332,9 +332,9 @@ class TestInvalidProject:
         empty.mkdir()
         result = run_upgrade("--from-project", str(empty), "--target", str(tmp_path), "--dry-run")
         combined = result.stdout + result.stderr
-        assert (
-            "invalid" in combined.lower() or "error" in combined.lower()
-        ), f"Should print an error about invalid project. Output:\n{combined}"
+        assert "invalid" in combined.lower() or "error" in combined.lower(), (
+            f"Should print an error about invalid project. Output:\n{combined}"
+        )
 
 
 # ---------------------------------------------------------------------------

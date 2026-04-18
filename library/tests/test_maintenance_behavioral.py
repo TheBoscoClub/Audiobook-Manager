@@ -87,9 +87,9 @@ class TestVacuumBehavioral:
         assert result.success is True
 
         pages_after = _page_count(db)
-        assert (
-            pages_after < pages_before
-        ), f"VACUUM should reduce pages: before={pages_before}, after={pages_after}"
+        assert pages_after < pages_before, (
+            f"VACUUM should reduce pages: before={pages_before}, after={pages_after}"
+        )
 
     def test_vacuum_preserves_data_integrity(self, tmp_path):
         """After VACUUM, the database should pass integrity check."""
