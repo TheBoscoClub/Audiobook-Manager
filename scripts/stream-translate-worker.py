@@ -67,8 +67,15 @@ def get_db(db_path: str) -> sqlite3.Connection:
 def claim_next_segment(db_path: str) -> dict | None:
     """Atomically claim the next pending streaming segment.
 
-    Prioritizes lower priority numbers (0 = active playback,
-    1 = default, 2 = deprioritized after seek).
+    Prioritizes lower priority numbers using the 3-tier cursor-centric model:
+
+    - ``0`` = P0 cursor buffer fill (6 segments forward of cursor — drained first)
+    - ``1`` = P1 forward chase (segments past buffer toward end-of-chapter)
+    - ``2`` = P2 back-fill (segments behind cursor — side panel / resume completeness)
+
+    The authoritative source of priority semantics (promotion/demotion on
+    play/seek/stop) lives in
+    ``library/backend/api_modular/streaming_translate.py::handle_seek_impl``.
     """
     conn = get_db(db_path)
     try:
@@ -83,6 +90,21 @@ def claim_next_segment(db_path: str) -> dict | None:
             "RETURNING *",
             (f"worker-{os.getpid()}", now),
         ).fetchone()
+        if row:
+            counts = conn.execute(
+                "SELECT priority, COUNT(*) FROM streaming_segments "
+                "WHERE state='pending' GROUP BY priority"
+            ).fetchall()
+            depths = {p: c for p, c in counts}
+            logger.info(
+                "claimed segment p=%s ch=%s seg=%s (pending: p0=%s p1=%s p2=%s)",
+                row["priority"],
+                row["chapter_index"],
+                row["segment_index"],
+                depths.get(0, 0),
+                depths.get(1, 0),
+                depths.get(2, 0),
+            )
         conn.commit()
         return dict(row) if row else None
     finally:
