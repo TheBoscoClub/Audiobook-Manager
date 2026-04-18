@@ -16,8 +16,11 @@ Endpoints:
 """
 
 import logging
+import os
 import re
 import sqlite3
+import subprocess
+import tempfile
 from pathlib import Path
 
 from flask import Blueprint, g, jsonify, request
@@ -30,6 +33,60 @@ logger = logging.getLogger(__name__)
 
 _db_path: Path | None = None
 _library_path: Path | None = None
+# Root directory where per-segment opus files are stored — set by
+# `init_streaming_routes`. Task 10 concatenates per-segment files from here
+# into chapter-level opus consolidation output.
+_streaming_audio_root: Path | None = None
+
+# Per-locale default edge-tts voice. MUST be kept in sync with the worker's
+# `_LOCALE_DEFAULT_VOICE` mapping in scripts/stream-translate-worker.py — the
+# worker selects the voice at synthesis time, but the server records it on the
+# consolidated chapter row. Inlined rather than imported because the worker
+# lives at a hyphenated script path that is not a valid Python module name.
+_LOCALE_DEFAULT_VOICE = {
+    "zh-Hans": "zh-CN-XiaoxiaoNeural",
+    "zh-CN": "zh-CN-XiaoxiaoNeural",
+    "zh-Hant": "zh-TW-HsiaoChenNeural",
+    "ja": "ja-JP-NanamiNeural",
+    "ko": "ko-KR-SunHiNeural",
+    "es": "es-ES-ElviraNeural",
+    "fr": "fr-FR-DeniseNeural",
+    "de": "de-DE-KatjaNeural",
+}
+
+
+def _default_voice_for_locale(locale: str) -> str:
+    """Map locale → edge-tts voice. Unknown → en-US fallback.
+
+    Must match the worker's `_default_voice_for_locale` semantics.
+    """
+    return _LOCALE_DEFAULT_VOICE.get(locale, "en-US-AriaNeural")
+
+
+def _probe_audio_duration(audio_path: Path) -> float | None:
+    """Return the duration of an audio file in seconds, or None on error."""
+    try:
+        result = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "csv=p=0",
+                str(audio_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            return float(result.stdout.strip())
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return None
+    return None
 
 SEGMENT_DURATION_SEC = 30
 # Cursor buffer window: the number of segments at and ahead of the playback
@@ -816,12 +873,162 @@ def chapter_complete():
     return jsonify({"status": "ok"})
 
 
+def _consolidate_chapter_audio(
+    db,
+    audiobook_id: int,
+    chapter_index: int,
+    locale: str,
+    rows,
+) -> None:
+    """Concatenate per-segment opus files into chapter.opus and persist a row.
+
+    All completed segments must have `audio_path` set (Task 9's TTS may
+    degrade to text-only on failure — those chapters produce no consolidated
+    audio). On any error, logs and returns without raising; VTT
+    consolidation continues unaffected in the caller.
+    """
+    if _streaming_audio_root is None:
+        logger.warning(
+            "Cannot consolidate chapter audio — _streaming_audio_root not configured"
+        )
+        return
+
+    # Pull (segment_index, audio_path) for all completed segments to confirm
+    # every one has audio before we attempt to concat.
+    audio_rows = db.execute(
+        "SELECT segment_index, audio_path FROM streaming_segments "
+        "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ? "
+        "AND state = 'completed' "
+        "ORDER BY segment_index",
+        (audiobook_id, chapter_index, locale),
+    ).fetchall()
+
+    if not audio_rows:
+        return
+
+    if any(r["audio_path"] is None for r in audio_rows):
+        logger.info(
+            "Skipping chapter audio consolidation — at least one segment "
+            "has no audio_path (TTS degraded to text-only): "
+            "book=%d ch=%d locale=%s",
+            audiobook_id,
+            chapter_index,
+            _safe_log_value(locale),
+        )
+        return
+
+    # Resolve each per-segment relative path to an absolute path under the
+    # streaming audio root, and verify the file exists on disk.
+    segment_paths: list[Path] = []
+    for r in audio_rows:
+        rel = r["audio_path"]
+        p = _streaming_audio_root / rel if not os.path.isabs(rel) else Path(rel)
+        if not p.exists():
+            logger.warning(
+                "Missing per-segment opus on disk — skipping chapter audio "
+                "consolidation: book=%d ch=%d seg=%d path=%s",
+                audiobook_id,
+                chapter_index,
+                r["segment_index"],
+                _safe_log_value(p),
+            )
+            return
+        segment_paths.append(p)
+
+    # Output: <root>/<book_id>/ch<NNN>/<locale>/chapter.opus
+    chapter_dir = (
+        _streaming_audio_root / str(audiobook_id) / f"ch{chapter_index:03d}" / locale
+    )
+    chapter_dir.mkdir(parents=True, exist_ok=True)
+    out_path = chapter_dir / "chapter.opus"
+
+    # ffmpeg concat demuxer with -c copy. All per-segment opus files are
+    # uniform 48k/48kHz libopus (enforced by Task 9), so no re-encode is
+    # needed — sub-second latency.
+    try:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            concat_list = Path(tmp_dir) / "concat.txt"
+            concat_list.write_text(
+                "\n".join(f"file '{p}'" for p in segment_paths) + "\n"
+            )
+            subprocess.run(
+                [
+                    "ffmpeg",
+                    "-y",
+                    "-loglevel",
+                    "error",
+                    "-f",
+                    "concat",
+                    "-safe",
+                    "0",
+                    "-i",
+                    str(concat_list),
+                    "-c",
+                    "copy",
+                    str(out_path),
+                ],
+                check=True,
+                capture_output=True,
+            )
+    except (subprocess.CalledProcessError, OSError) as exc:
+        logger.warning(
+            "ffmpeg concat failed for chapter audio: book=%d ch=%d locale=%s err=%s",
+            audiobook_id,
+            chapter_index,
+            _safe_log_value(locale),
+            _safe_log_value(exc),
+        )
+        return
+
+    duration = _probe_audio_duration(out_path)
+    voice = _default_voice_for_locale(locale)
+
+    try:
+        db.execute(
+            "INSERT OR REPLACE INTO chapter_translations_audio "
+            "(audiobook_id, chapter_index, locale, audio_path, "
+            " tts_provider, tts_voice, duration_seconds) "
+            "VALUES (?, ?, ?, ?, 'streaming', ?, ?)",
+            (
+                audiobook_id,
+                chapter_index,
+                locale,
+                str(out_path),
+                voice,
+                duration,
+            ),
+        )
+        db.commit()
+    except sqlite3.DatabaseError as exc:
+        logger.warning(
+            "Failed to persist chapter audio row: book=%d ch=%d locale=%s err=%s",
+            audiobook_id,
+            chapter_index,
+            _safe_log_value(locale),
+            _safe_log_value(exc),
+        )
+        return
+
+    logger.info(
+        "Consolidated streaming segments into chapter.opus: "
+        "book=%d ch=%d locale=%s segments=%d duration=%s",
+        audiobook_id,
+        chapter_index,
+        _safe_log_value(locale),
+        len(segment_paths),
+        duration,
+    )
+
+
 def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str):
     """Merge streaming segments into a permanent chapter_subtitles entry.
 
     After all segments for a chapter are done, consolidate the VTT
     content into a single file and write to the permanent cache so
-    future plays don't need the streaming pipeline.
+    future plays don't need the streaming pipeline. If every segment
+    also has a per-segment opus audio file (Task 9), concatenate them
+    into a single chapter.opus and register a chapter_translations_audio
+    row so `_has_cached_audio` returns True on next play.
     """
     rows = db.execute(
         "SELECT segment_index, vtt_content FROM streaming_segments "
@@ -875,16 +1082,52 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
         _safe_log_value(locale),
     )
 
+    # Audio consolidation is a best-effort addition — any failure logs and
+    # leaves the VTT-side cache intact.
+    try:
+        _consolidate_chapter_audio(db, audiobook_id, chapter_index, locale, rows)
+    except Exception as exc:  # pylint: disable=broad-except  # defense in depth — audio side must never break VTT path
+        logger.warning(
+            "Chapter audio consolidation raised unexpected exception: "
+            "book=%d ch=%d locale=%s err=%s",
+            audiobook_id,
+            chapter_index,
+            _safe_log_value(locale),
+            _safe_log_value(exc),
+        )
 
-def init_streaming_routes(database_path, library_path=None):
-    """Initialize the streaming translation blueprint."""
-    global _db_path, _library_path
+
+def init_streaming_routes(database_path, library_path=None, streaming_audio_dir=None):
+    """Initialize the streaming translation blueprint.
+
+    Args:
+        database_path: Path to the main audiobooks SQLite database.
+        library_path: Library root (for VTT subtitle writes); defaults
+            to the DB file's parent directory.
+        streaming_audio_dir: Root directory holding per-segment opus
+            files (used by Task 10 chapter audio consolidation).
+            Defaults to $AUDIOBOOKS_STREAMING_AUDIO_DIR or the canonical
+            default /var/lib/audiobooks/streaming-audio path.
+    """
+    global _db_path, _library_path, _streaming_audio_root
     _db_path = Path(database_path) if database_path else None
     if library_path:
         _library_path = Path(library_path)
     else:
         # Default to the parent of the DB path
         _library_path = Path(database_path).parent if database_path else None
+    if streaming_audio_dir:
+        _streaming_audio_root = Path(streaming_audio_dir)
+    else:
+        # Canonical default (AUDIOBOOKS_VAR_DIR/streaming-audio) — only used
+        # when env var is unset, mirroring the worker's fallback.
+        _streaming_audio_default = "/var/lib/audiobooks/streaming-audio"  # default
+        _streaming_audio_root = Path(
+            os.environ.get(
+                "AUDIOBOOKS_STREAMING_AUDIO_DIR",
+                _streaming_audio_default,
+            )
+        )
 
 
 @streaming_bp.teardown_app_request

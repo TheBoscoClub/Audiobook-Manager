@@ -374,3 +374,181 @@ def test_segment_complete_persists_audio_path_when_present(
     assert row is not None
     assert row[0] == "completed"
     assert row[1] == "8/ch000/zh-Hans/seg0000.opus"
+
+
+# ── Task 10: chapter-level opus consolidation ──
+
+
+def test_consolidate_chapter_produces_audio(
+    app_client, streaming_db, tmp_path, monkeypatch
+):
+    """Per-segment opus files concat into chapter.opus + chapter_translations_audio row.
+
+    Mocks ffmpeg/ffprobe so the test does not depend on the host having
+    a working libopus or real audio tooling. Verifies:
+      - chapter.opus is written under the expected path layout
+      - chapter_translations_audio row is inserted with tts_provider='streaming',
+        the locale-mapped voice, and the probed duration
+      - audio_path stored is absolute (matching batch pipeline convention)
+    """
+    import sqlite3
+
+    from backend.api_modular import streaming_translate as st
+
+    # Point the streaming audio root at a scratch dir
+    streaming_root = tmp_path / "streaming-audio"
+    seg_dir = streaming_root / "9" / "ch000" / "zh-Hans"
+    seg_dir.mkdir(parents=True)
+    monkeypatch.setattr(st, "_streaming_audio_root", streaming_root)
+
+    # Write 3 fake per-segment opus files with known bytes and seed DB rows
+    seg_paths = []
+    for i in range(3):
+        p = seg_dir / f"seg{i:04d}.opus"
+        p.write_bytes(b"fake-opus-seg-" + str(i).encode())
+        seg_paths.append(p)
+
+    conn = sqlite3.connect(str(streaming_db))
+    for i, p in enumerate(seg_paths):
+        rel = p.relative_to(streaming_root)
+        conn.execute(
+            "INSERT INTO streaming_segments "
+            "(audiobook_id, chapter_index, segment_index, locale, state, "
+            " priority, vtt_content, audio_path) "
+            "VALUES (9, 0, ?, 'zh-Hans', 'completed', 0, ?, ?)",
+            (i, f"WEBVTT\n\n1\n00:00:00.000 --> 00:00:30.000\nseg{i}", str(rel)),
+        )
+    conn.commit()
+    conn.close()
+
+    # Stub subprocess.run to emulate both ffmpeg (write fake chapter.opus)
+    # and ffprobe (return fixed duration).
+    def fake_run(cmd, **kwargs):
+        if cmd and cmd[0] == "ffmpeg":
+            out = Path(cmd[-1])
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(b"fake-chapter-opus")
+
+            class R:
+                returncode = 0
+                stdout = ""
+                stderr = ""
+
+            return R()
+        if cmd and cmd[0] == "ffprobe":
+
+            class R:
+                returncode = 0
+                stdout = "90.0\n"
+                stderr = ""
+
+            return R()
+
+        class R:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return R()
+
+    monkeypatch.setattr(st.subprocess, "run", fake_run)
+
+    # Drive consolidation directly — the module-level _library_path is already
+    # wired by init_streaming_routes during Flask app setup, so VTT
+    # consolidation will succeed too.
+    db = sqlite3.connect(str(streaming_db))
+    db.row_factory = sqlite3.Row
+    st._consolidate_chapter(db, 9, 0, "zh-Hans")
+    db.commit()
+
+    # Verify chapter_translations_audio row
+    row = db.execute(
+        "SELECT audio_path, tts_provider, tts_voice, duration_seconds "
+        "FROM chapter_translations_audio "
+        "WHERE audiobook_id = 9 AND chapter_index = 0 AND locale = 'zh-Hans'"
+    ).fetchone()
+    db.close()
+    assert row is not None, "chapter_translations_audio row not inserted"
+    assert row["tts_provider"] == "streaming"
+    assert row["tts_voice"] == "zh-CN-XiaoxiaoNeural"
+    assert row["duration_seconds"] == 90.0
+    audio_p = Path(row["audio_path"])
+    assert audio_p.is_absolute()
+    assert audio_p.exists()
+    assert audio_p.read_bytes() == b"fake-chapter-opus"
+    assert audio_p.name == "chapter.opus"
+    # Path layout: <root>/<book>/ch<NNN>/<locale>/chapter.opus
+    assert audio_p.parent.name == "zh-Hans"
+    assert audio_p.parent.parent.name == "ch000"
+    assert audio_p.parent.parent.parent.name == "9"
+
+
+def test_consolidate_chapter_skips_audio_when_any_segment_missing_audio(
+    app_client, streaming_db, tmp_path, monkeypatch
+):
+    """If any completed segment lacks audio_path, chapter audio is not generated.
+
+    Guards against shipping a chapter.opus with silent gaps: when the TTS
+    pipeline degrades to text-only for any segment (Task 9 regression guard),
+    the chapter-level audio row MUST NOT be inserted. VTT consolidation is
+    unaffected and still writes the chapter_subtitles row.
+    """
+    import sqlite3
+
+    from backend.api_modular import streaming_translate as st
+
+    streaming_root = tmp_path / "streaming-audio"
+    streaming_root.mkdir()
+    monkeypatch.setattr(st, "_streaming_audio_root", streaming_root)
+
+    conn = sqlite3.connect(str(streaming_db))
+    # 2 segments: first has audio_path, second does NOT (TTS degraded)
+    conn.execute(
+        "INSERT INTO streaming_segments "
+        "(audiobook_id, chapter_index, segment_index, locale, state, "
+        " priority, vtt_content, audio_path) "
+        "VALUES (10, 0, 0, 'zh-Hans', 'completed', 0, ?, ?)",
+        (
+            "WEBVTT\n\n1\n00:00:00.000 --> 00:00:30.000\nHi",
+            "10/ch000/zh-Hans/seg0000.opus",
+        ),
+    )
+    conn.execute(
+        "INSERT INTO streaming_segments "
+        "(audiobook_id, chapter_index, segment_index, locale, state, "
+        " priority, vtt_content, audio_path) "
+        "VALUES (10, 0, 1, 'zh-Hans', 'completed', 0, ?, NULL)",
+        ("WEBVTT\n\n1\n00:00:00.000 --> 00:00:30.000\nBye",),
+    )
+    conn.commit()
+    conn.close()
+
+    # ffmpeg must NOT be called when any segment is missing audio_path.
+    # ffprobe is not expected either.
+    def forbidden(cmd, **kwargs):
+        if cmd and cmd[0] in ("ffmpeg", "ffprobe"):
+            raise AssertionError(f"{cmd[0]} unexpectedly called: {cmd}")
+
+        class R:
+            returncode = 0
+            stdout = ""
+            stderr = ""
+
+        return R()
+
+    monkeypatch.setattr(st.subprocess, "run", forbidden)
+
+    db = sqlite3.connect(str(streaming_db))
+    db.row_factory = sqlite3.Row
+    st._consolidate_chapter(db, 10, 0, "zh-Hans")
+    db.commit()
+
+    row = db.execute(
+        "SELECT 1 FROM chapter_translations_audio "
+        "WHERE audiobook_id = 10 AND chapter_index = 0 AND locale = 'zh-Hans'"
+    ).fetchone()
+    db.close()
+    assert row is None, (
+        "chapter_translations_audio must not exist when any segment is "
+        "missing audio_path"
+    )
