@@ -13,6 +13,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.2] - 2026-04-18
+
+### Fixed
+
+- **Streaming translation module never imported**: 6 `except ValueError, TypeError:` sites in `library/backend/api_modular/streaming_translate.py` used Py2 tuple syntax and raised `SyntaxError` at module load. Every `/api/translate/*` endpoint silently 404'd. All sites rewritten to `except (ValueError, TypeError):` with a regression test that asserts the module imports AND that no Py2 except-tuple syntax exists anywhere in the file
+
+### Added
+
+- **Streaming translation worker systemd unit**: new `audiobook-stream-translate.service` runs `scripts/stream-translate-worker.py` continuously as `audiobooks:audiobooks`. Wired into `audiobook.target`, `scripts/install-manifest.sh`, `install.sh`, and `upgrade.sh`. Enforced by `library/tests/test_stream_translate_wiring.py` per `.claude/rules/upgrade-consistency.md`
+- **Three-tier priority queue for seek-beyond-buffer**: P0 fills ~3 min forward of cursor, P1 continues forward chase to chapter end, P2 back-fills the gap between prior translated tail and cursor. `handle_seek_impl` and `stop_streaming_impl` implement the model; worker claim order already orders by priority
+- **Per-segment Chinese TTS** (edge-tts, `zh-CN-XiaoxiaoNeural`, CPU): worker produces `streaming-audio/<book>/ch<NNN>/<locale>/seg<NNNN>.opus` per segment; chapter-level consolidation concatenates segments into `chapter_translations_audio` via ffmpeg concat demuxer
+- **MSE-based player audio swap**: `MediaSource` + `SourceBuffer` chain feeds per-segment opus audio for seamless playback; English `<audio>` element pauses when the Chinese pipeline is live
+- **`/streaming-audio/<book>/<ch>/<seg>/<locale>` API route** with path-traversal guard, locale whitelist, and `Range` request support
+- **Phase reporting**: `_derive_phase()` returns `idle|warmup|gpu_provisioning|buffering|streaming|error`; included in session response and `buffer_progress` WebSocket events
+- **Polling fallback** when WebSocket disconnects or misses events (3 s cadence)
+- **Bilingual navigable side panel**: source (en) + target (zh-Hans) cue pairs side-by-side; click-to-seek; current cue highlighted on `timeupdate`. Panel evolved from the existing `#transcript-panel` into a two-column layout; pairs cues by monotonic time-window overlap (`pairVttCues`) to handle 1:1, 1:n, and n:1 translation merges/splits
+- **GPU wake-on-demand union**: `translation-daemon.sh` unions batch + streaming + warmup counts (warmup rows expire after 15 min); `fleet-watchdog.sh` reclaims `streaming_segments` stuck in `processing` for more than 10 min
+- **i18n keys** for `streaming.phase.*` and `streaming.bilingual.*` in the two targeted locales (`en`, `zh-Hans`)
+- **DB migration `005_streaming_audio.sql`**: `ALTER TABLE streaming_segments ADD COLUMN audio_path TEXT`
+
+### Security
+
+- **`/streaming-audio` path-traversal guard**: resolve candidate via `Path.resolve()`, require the configured audio root to appear in `candidate.parents` or return `403`
+
 ## [8.3.1] - 2026-04-16
 
 ### Added
@@ -3135,7 +3159,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.2...HEAD
+[8.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.1...v8.3.2
 [8.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.0.1...v8.3.1
 [8.3.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.0...v8.3.0.1
 [8.3.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.6...v8.3.0
