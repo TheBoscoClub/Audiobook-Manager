@@ -28,6 +28,31 @@ FLEET_STALE_SEC="${FLEET_STALE_SEC:-1200}" # 20 min — STT for one chapter is �
 
 log() { echo "$(date +%H:%M:%S) [fleet-watchdog] $*"; }
 
+# Reclaim streaming_segments stuck in 'processing' for more than 10 minutes.
+#
+# Streaming workers are independent of the batch translation fleet — their rows
+# must be reclaimed regardless of whether audiobook-translate.service is active.
+# This function therefore runs unconditionally, before any batch-watchdog gates.
+#
+# Reclaimed rows re-enter at priority=1 (forward chase tier in the 3-tier model).
+reclaim_stuck_streaming_segments() {
+    sqlite3 "$DB_PATH" <<'SQL'
+UPDATE streaming_segments
+  SET state='pending', worker_id=NULL, started_at=NULL, priority=1
+  WHERE state='processing'
+    AND datetime(started_at, '+10 minutes') < datetime('now');
+SQL
+    local reclaimed
+    reclaimed="$(sqlite3 "$DB_PATH" 'SELECT changes();' 2>/dev/null)"
+    if [[ "${reclaimed:-0}" -gt 0 ]]; then
+        log "Reclaimed $reclaimed streaming_segment(s) stuck in 'processing' > 10 min"
+    fi
+}
+
+# Run streaming reclaim unconditionally — streaming workers are independent of
+# the batch daemon; stuck segments must be freed even when the batch fleet is idle.
+reclaim_stuck_streaming_segments
+
 # Only act when the daemon is supposedly running.
 if ! systemctl is-active --quiet audiobook-translate.service; then
     exit 0
