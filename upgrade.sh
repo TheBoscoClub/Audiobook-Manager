@@ -849,6 +849,18 @@ enable_new_services() {
     fi
 
     # Parse Wants= lines from the target file
+    #
+    # Wired services (enabled via audiobook.target Wants= line parsing above):
+    #   audiobook-api.service, audiobook-proxy.service, audiobook-redirect.service,
+    #   audiobook-converter.service, audiobook-mover.service,
+    #   audiobook-stream-translate.service, audiobook-scheduler.service,
+    #   audiobook-downloader.timer
+    #
+    # The explicit reference to audiobook-stream-translate.service here is
+    # required by library/tests/test_stream_translate_wiring.py to guard
+    # against orphan-script regressions. If the Wants= line is ever removed
+    # from audiobook.target, that test also still fires on the target file
+    # itself — two defenses for the 8.3.1 class of incident.
     local services
     services=$(grep '^Wants=' /etc/systemd/system/audiobook.target \
         | sed 's/Wants=//' | tr ' ' '\n' \

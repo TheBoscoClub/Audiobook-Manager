@@ -81,6 +81,22 @@ CANONICAL_UNITS=(
 )
 
 # ---------------------------------------------------------------------------
+# Worker scripts under scripts/ that systemd units invoke (directly or via a
+# wrapper). These MUST be copied into /opt/audiobooks/scripts/ by install.sh
+# and upgrade.sh. Test guard: library/tests/test_stream_translate_wiring.py
+# greps this file for each worker name to catch orphan-script regressions
+# (see 8.3.1 stream-translate-worker.py incident).
+#
+# Format: <relative-path-in-scripts-dir>|<invoking-unit>
+# ---------------------------------------------------------------------------
+CANONICAL_WORKERS=(
+    "stream-translate-worker.py|audiobook-stream-translate.service (via stream-translate-daemon.sh)"
+    "translation-daemon.sh|audiobook-translate.service"
+    "fleet-watchdog.sh|audiobook-fleet-watchdog.service"
+    "stream-translate-daemon.sh|audiobook-stream-translate.service"
+)
+
+# ---------------------------------------------------------------------------
 # Wrapper scripts that MUST be present in /usr/local/bin (system) or
 # ~/.local/bin (user). These are the user-facing CLI entry points.
 # ---------------------------------------------------------------------------

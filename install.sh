@@ -1735,6 +1735,12 @@ EOF
         for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer audiobook-translate-check.timer audiobook-stream-translate audiobook-fleet-watchdog.timer; do
             sudo systemctl enable "$svc" 2>/dev/null || true
         done
+        # Explicit enable for streaming translation worker (belt-and-suspenders
+        # alongside the loop above). The literal reference is required by
+        # library/tests/test_stream_translate_wiring.py to guard against
+        # orphan-script regressions (see 8.3.1 stream-translate-worker.py
+        # incident where the script shipped without any wiring).
+        sudo systemctl enable audiobook-stream-translate.service 2>/dev/null || true
 
         echo -e "${BLUE}Starting services...${NC}"
         # Start the target (which starts all wanted services)
