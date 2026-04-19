@@ -90,6 +90,22 @@ def _migrate_series_display(conn):
         logger.info("Added series_display column to audiobook_translations")
 
 
+def _migrate_pinyin_sort(conn):
+    """Migration 017b: ensure pinyin_sort column and its composite index exist.
+
+    INSERTs at lines 239/387/765 already reference pinyin_sort; upgrades from
+    DBs predating canonical schema.sql migration 017 must get the column via
+    ALTER TABLE or those zh-* INSERTs raise 'no such column' at first use."""
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(audiobook_translations)")}
+    if "pinyin_sort" not in cols:
+        conn.execute("ALTER TABLE audiobook_translations ADD COLUMN pinyin_sort TEXT")
+        logger.info("Added pinyin_sort column to audiobook_translations")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_audiobook_translations_pinyin_sort "
+        "ON audiobook_translations(locale, pinyin_sort)"
+    )
+
+
 def _migrate_collection_translations(conn):
     """Migration 018: collection_translations cache table."""
     conn.execute("""CREATE TABLE IF NOT EXISTS collection_translations (
@@ -145,6 +161,7 @@ def _migrate_deepl_quota(conn):
 _MIGRATIONS: tuple[tuple[str, object], ...] = (
     ("Failed to ensure audiobook_translations table", _migrate_audiobook_translations),
     ("Failed to ensure audiobook_translations.series_display column", _migrate_series_display),
+    ("Failed to ensure audiobook_translations.pinyin_sort column", _migrate_pinyin_sort),
     ("Failed to ensure collection_translations table", _migrate_collection_translations),
     ("Failed to ensure string_translations table", _migrate_string_translations),
     ("Failed to ensure deepl_quota table", _migrate_deepl_quota),

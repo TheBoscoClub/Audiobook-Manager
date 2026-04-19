@@ -1458,6 +1458,36 @@ do_upgrade() {
         fi
     fi
 
+    # Sync /etc/audiobooks/scripts/translation-env.sh from the project's
+    # example if it's missing on the target. This closes the QA/prod drift
+    # where audiobook-translate.service could not start because the GPU
+    # provider token file was never provisioned by install.sh (it only
+    # shipped translation-env.sh.example) nor by earlier upgrade.sh (which
+    # didn't touch /etc/audiobooks at all).
+    #
+    # Never overwrite an existing translation-env.sh — operator credentials
+    # must be preserved across upgrades.
+    local _etc_scripts_dir="${AUDIOBOOKS_CONFIG_DIR:-/etc/audiobooks}/scripts"
+    local _tenv_example="${project}/etc/translation-env.sh.example"
+    if [[ -f "$_tenv_example" && -d "$_etc_scripts_dir" ]]; then
+        if [[ "$DRY_RUN" == "true" ]]; then
+            if [[ ! -f "$_etc_scripts_dir/translation-env.sh" ]]; then
+                echo "  [DRY-RUN] Would seed $_etc_scripts_dir/translation-env.sh from example"
+            fi
+            echo "  [DRY-RUN] Would refresh $_etc_scripts_dir/translation-env.sh.example"
+        else
+            $use_sudo install -m 0644 -o root -g root \
+                "$_tenv_example" \
+                "$_etc_scripts_dir/translation-env.sh.example"
+            if [[ ! -f "$_etc_scripts_dir/translation-env.sh" ]]; then
+                $use_sudo install -m 0640 -o audiobooks -g audiobooks \
+                    "$_tenv_example" \
+                    "$_etc_scripts_dir/translation-env.sh"
+                echo -e "${YELLOW}  Seeded $_etc_scripts_dir/translation-env.sh from example — edit with GPU provider tokens${NC}"
+            fi
+        fi
+    fi
+
     # Upgrade systemd templates (stored in installation)
     if [[ -d "$target/systemd" ]]; then
         echo -e "${BLUE}Upgrading systemd templates...${NC}"
