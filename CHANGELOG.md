@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Phase reporting**: `_derive_phase()` returns `idle|warmup|gpu_provisioning|buffering|streaming|error`; included in session response and `buffer_progress` WebSocket events
 - **Polling fallback** when WebSocket disconnects or misses events (3 s cadence)
 - **Bilingual navigable side panel**: source (en) + target (zh-Hans) cue pairs side-by-side; click-to-seek; current cue highlighted on `timeupdate`. Panel evolved from the existing `#transcript-panel` into a two-column layout; pairs cues by monotonic time-window overlap (`pairVttCues`) to handle 1:1, 1:n, and n:1 translation merges/splits
-- **GPU wake-on-demand union**: `translation-daemon.sh` unions batch + streaming + warmup counts (warmup rows expire after 15 min); `fleet-watchdog.sh` reclaims `streaming_segments` stuck in `processing` for more than 10 min
+- **GPU wake-on-demand union (dual-provider)**: `translation-daemon.sh` unions batch + streaming + warmup counts (warmup rows expire after 15 min) to drive Whisper STT provisioning across Vast.ai and RunPod (either or both — providers are peers, selected per availability/price, not a primary+fallback); `fleet-watchdog.sh` reclaims `streaming_segments` stuck in `processing` for more than 10 min regardless of which provider hosted the worker
 - **i18n keys** for `streaming.phase.*` and `streaming.bilingual.*` in the two targeted locales (`en`, `zh-Hans`)
 - **`streaming_segments.audio_path` consumed end-to-end**: the column was added by migration `data-migrations/003_streaming_segments.sh` in v8.3.1 but had no writer or reader; v8.3.2 is the first release where the worker writes per-segment opus paths and the `/streaming-audio` route reads them
 

@@ -1,5 +1,23 @@
 {
   "enabledPlugins": {
     "frontend-design@claude-plugins-official": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(journalctl *)",
+      "Bash(bandit *)",
+      "Bash(ruff check *)",
+      "Bash(scrub-promo check *)",
+      "Bash(audiobook-translations status)",
+      "Bash(radon mi *)",
+      "Bash(radon cc *)",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_screenshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__navigate_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__new_page",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__take_snapshot",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_pages",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__close_page",
+      "mcp__plugin_playwright_playwright__browser_snapshot"
+    ]
   }
 }

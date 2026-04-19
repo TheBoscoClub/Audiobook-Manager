@@ -178,7 +178,7 @@ Timers and service:
 |------|------|
 | `audiobook-translate.service` | Long-running daemon that manages SSH tunnels, dispatches jobs, tracks progress |
 | `audiobook-translate-check.timer` | Periodic liveness check (every 5 min) — restarts daemon if its heartbeat is stale |
-| `audiobook-fleet-watchdog.timer` | Detects fleets where the local daemon is healthy but remote GPUs are dead (zero new `chapter_subtitles` in 20 min while rows are `processing`). Restarts the daemon, which re-provisions tunnels. |
+| `audiobook-fleet-watchdog.timer` | Detects fleets where the local daemon is healthy but remote GPUs are dead (zero new `chapter_subtitles` in 20 min while rows are `processing`). Restarts the daemon, which re-provisions tunnels against Vast.ai and RunPod peers. **v8.3.2+**: also reclaims `streaming_segments` stuck in `processing` for more than 10 min (applies to both providers). |
 
 ### 6. Resume the queue (if paused)
 
@@ -356,5 +356,5 @@ sudo /usr/local/bin/audiobook-translations resume   # if queue was paused
 
 ---
 
-*Document Version: 8.2.3.6*
-*Last Updated: 2026-04-15*
+*Document Version: 8.3.2*
+*Last Updated: 2026-04-19*

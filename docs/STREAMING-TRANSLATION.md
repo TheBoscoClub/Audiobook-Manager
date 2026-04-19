@@ -32,8 +32,12 @@ gradually fill the cache, and batch fills the rest during idle time.
 
 When the app opens and the user's locale is not English, the frontend sends
 `POST /api/translate/warmup`. This writes a hint to the database so the
-translation daemon can proactively spin up a GPU instance, reducing cold-start
-latency from ~60 seconds to near-zero.
+translation daemon can proactively provision a Whisper STT GPU worker on one
+of the peer GPU providers (Vast.ai or RunPod — selected per availability and
+price, not a primary/fallback pair), reducing cold-start latency from ~60
+seconds to near-zero. See `docs/GPU-FLEET-OPS.md` for the dual-provider
+topology and the warmup-expiry (15 min) / stuck-segment-reclaim (10 min)
+contracts that govern the fleet.
 
 ### Phase 2 — Press Play
 
@@ -202,7 +206,7 @@ one.
 │  │  → POST /api/translate/segment-complete                 │      │
 │  └─────────────────────────────────────────────────────────┘      │
 │                                                                    │
-│  Runs on: Vast.ai L40S, RunPod instances, or self-hosted GPU       │
+│  Runs on: Vast.ai AND/OR RunPod (peer providers) — or self-hosted  │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
