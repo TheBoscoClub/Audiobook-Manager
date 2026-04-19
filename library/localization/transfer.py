@@ -66,7 +66,22 @@ _EXPORT_QUERIES: dict[str, tuple[str, str]] = {
         "SELECT * FROM translation_queue WHERE state = 'completed'",
         "SELECT * FROM translation_queue WHERE state = 'completed' AND locale = ?",
     ),
+    "streaming": (
+        "SELECT * FROM streaming_segments WHERE state = 'completed'",
+        "SELECT * FROM streaming_segments WHERE state = 'completed' AND locale = ?",
+    ),
 }
+
+
+def _streaming_audio_dir() -> Path:
+    """Target-env streaming audio directory (flat, shared across books).
+
+    Derives from AUDIOBOOKS_VAR_DIR to match the canonical chain in
+    library/config.py and lib/audiobook-config.sh. Mirrors the pattern used
+    in library/backend/api_modular/streaming_translate.py:1368-1375.
+    """
+    var_dir = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
+    return Path(os.environ.get("AUDIOBOOKS_STREAMING_AUDIO_DIR", f"{var_dir}/streaming-audio"))
 
 
 def _fetch_locale(conn: sqlite3.Connection, key: str, locale: str | None) -> list[sqlite3.Row]:
@@ -95,6 +110,7 @@ def _load_export_data(conn: sqlite3.Connection, locale: str | None) -> dict:
     collections = _fetch_optional(conn, "collection_translations", "collections", locale)
     strings = _fetch_optional(conn, "string_translations", "strings", locale)
     queue = _fetch_locale(conn, "queue", locale)
+    streaming = _fetch_optional(conn, "streaming_segments", "streaming", locale)
 
     books: dict = {}
     for row in conn.execute("SELECT id, title, file_path FROM audiobooks").fetchall():
@@ -108,6 +124,7 @@ def _load_export_data(conn: sqlite3.Connection, locale: str | None) -> dict:
         "collections": collections,
         "strings": strings,
         "queue": queue,
+        "streaming": streaming,
         "books": books,
     }
 
@@ -115,13 +132,14 @@ def _load_export_data(conn: sqlite3.Connection, locale: str | None) -> dict:
 def _build_manifest(data: dict) -> dict:
     """Build the manifest dict written into the tarball."""
     return {
-        "version": 2,
+        "version": 3,
         "subtitles": [dict(r) for r in data["en_subs"]] + [dict(r) for r in data["subs"]],
         "translated_audio": [dict(r) for r in data["audio"]],
         "audiobook_translations": [dict(r) for r in data["meta"]],
         "collection_translations": [dict(r) for r in data["collections"]],
         "string_translations": [dict(r) for r in data["strings"]],
         "queue_completed": [dict(r) for r in data["queue"]],
+        "streaming_segments": [dict(r) for r in data["streaming"]],
         "books": data["books"],
     }
 
@@ -148,6 +166,12 @@ def _write_tarball(output: str, manifest: dict, data: dict) -> None:
                     tar.add(ap, arcname=f"audio/{Path(ap).name}")
                     seen_files.add(ap)
 
+            for row in data["streaming"]:
+                sp = row["audio_path"]
+                if sp and Path(sp).exists() and sp not in seen_files:
+                    tar.add(sp, arcname=f"audio/streaming/{Path(sp).name}")
+                    seen_files.add(sp)
+
 
 def _print_export_summary(summary: dict, data: dict, output: str) -> None:
     """Emit the two human-readable lines + archive path."""
@@ -160,6 +184,7 @@ def _print_export_summary(summary: dict, data: dict, output: str) -> None:
         f"  {len(data['en_subs'])} EN subtitles, {len(data['subs'])} translated subtitles, "
         f"{len(data['audio'])} audio files from {len(data['books'])} books"
     )
+    print(f"  {len(data['streaming'])} streaming segments (on-demand pipeline)")
     print(f"  Archive: {output}")
 
 
@@ -182,6 +207,7 @@ def export_translations(db_path: str, output: str, locale: str | None = None) ->
         "metadata": len(data["meta"]),
         "collections": len(data["collections"]),
         "strings": len(data["strings"]),
+        "streaming_segments": len(data["streaming"]),
         "books": len(data["books"]),
         "output": output,
     }
@@ -221,6 +247,12 @@ _INSERT_QUEUE = (
     "INSERT OR IGNORE INTO translation_queue "
     "(audiobook_id, locale, priority, state, step, finished_at) "
     "VALUES (?, ?, 0, 'completed', 'tts', CURRENT_TIMESTAMP)"
+)
+_INSERT_STREAMING_SEGMENT = (
+    "INSERT OR REPLACE INTO streaming_segments "
+    "(audiobook_id, chapter_index, segment_index, locale, state, priority, "
+    " worker_id, vtt_content, audio_path, completed_at) "
+    "VALUES (?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?)"
 )
 
 
@@ -337,6 +369,66 @@ def _import_audio(
     return count
 
 
+def _extract_streaming_audio(
+    tar: tarfile.TarFile,
+    members: dict,
+    arc_key: str | None,
+    filename: str | None,
+    default_path: str,
+) -> str:
+    """Extract a streaming-audio file to the shared flat streaming-audio dir."""
+    if not (arc_key and arc_key in members and filename):
+        return default_path
+    dest_dir = _streaming_audio_dir()
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_path = dest_dir / filename
+    tar_member = members[arc_key]
+    tar_member.name = filename
+    tar.extract(tar_member, path=str(dest_dir))
+    return str(dest_path)
+
+
+def _import_streaming_segments(
+    conn: sqlite3.Connection,
+    tar: tarfile.TarFile,
+    members: dict,
+    manifest: dict,
+    id_map: dict[int, int],
+) -> int:
+    """Import streaming_segments rows + their opus files.
+
+    Skipped (without warning) when the target DB lacks the table — pre-v8.3
+    databases don't have it.
+    """
+    if not _table_exists(conn, "streaming_segments"):
+        return 0
+    count = 0
+    for seg in manifest.get("streaming_segments", []):
+        new_id = id_map.get(seg["audiobook_id"])
+        if not new_id:
+            continue
+        old_path = seg.get("audio_path")
+        audio_name = Path(old_path).name if old_path else None
+        arc_key = f"audio/streaming/{audio_name}" if audio_name else None
+        new_audio_path = _extract_streaming_audio(tar, members, arc_key, audio_name, old_path or "")
+        conn.execute(
+            _INSERT_STREAMING_SEGMENT,
+            (
+                new_id,
+                seg["chapter_index"],
+                seg["segment_index"],
+                seg["locale"],
+                seg.get("priority", 2),
+                seg.get("worker_id"),
+                seg.get("vtt_content"),
+                new_audio_path,
+                seg.get("completed_at"),
+            ),
+        )
+        count += 1
+    return count
+
+
 def _import_metadata(conn: sqlite3.Connection, manifest: dict, id_map: dict[int, int]) -> int:
     count = 0
     for meta in manifest.get("audiobook_translations", []):
@@ -404,7 +496,7 @@ def _print_import_summary(summary: dict) -> None:
     print(
         f"Imported: {summary['subtitles']} subtitles, {summary['audio']} audio files, "
         f"{summary['metadata']} metadata, {summary['collections']} collections, "
-        f"{summary['strings']} strings"
+        f"{summary['strings']} strings, {summary['streaming']} streaming segments"
     )
     print(f"Matched {summary['matched']}/{summary['total_books']} books by title")
     if summary["matched"] < summary["total_books"]:
@@ -449,6 +541,7 @@ def import_translations(db_path: str, archive: str) -> dict:
             imported_meta = _import_metadata(conn, manifest, id_map)
             imported_collections = _import_collections(conn, manifest)
             imported_strings = _import_strings(conn, manifest)
+            imported_streaming = _import_streaming_segments(conn, tar, members, manifest, id_map)
             _mark_queue_completed(conn, manifest, id_map)
 
         conn.commit()
@@ -463,6 +556,7 @@ def import_translations(db_path: str, archive: str) -> dict:
         "metadata": imported_meta,
         "collections": imported_collections,
         "strings": imported_strings,
+        "streaming": imported_streaming,
     }
     _print_import_summary(summary)
     return summary

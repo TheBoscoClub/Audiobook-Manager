@@ -89,11 +89,33 @@ def _build_db(db_path: Path) -> None:
             finished_at TIMESTAMP,
             UNIQUE(audiobook_id, locale)
         );
+        CREATE TABLE streaming_segments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            audiobook_id INTEGER NOT NULL,
+            chapter_index INTEGER NOT NULL,
+            segment_index INTEGER NOT NULL,
+            locale TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'pending',
+            priority INTEGER NOT NULL DEFAULT 2,
+            worker_id TEXT,
+            vtt_content TEXT,
+            audio_path TEXT,
+            error TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            started_at TIMESTAMP,
+            completed_at TIMESTAMP,
+            UNIQUE(audiobook_id, chapter_index, segment_index, locale)
+        );
         """)
     conn.close()
 
 
-def _populate_source(db_path: Path, vtt_dir: Path, audio_dir: Path) -> None:
+def _populate_source(
+    db_path: Path,
+    vtt_dir: Path,
+    audio_dir: Path,
+    streaming_audio_dir: Path | None = None,
+) -> None:
     """Seed the source DB + produce the VTT/audio files it references."""
     vtt_dir.mkdir(parents=True, exist_ok=True)
     audio_dir.mkdir(parents=True, exist_ok=True)
@@ -104,6 +126,13 @@ def _populate_source(db_path: Path, vtt_dir: Path, audio_dir: Path) -> None:
     vtt_en.write_text("WEBVTT\n\n00:00:00.000 --> 00:00:02.000\nHello\n")
     vtt_zh.write_text("WEBVTT\n\n00:00:00.000 --> 00:00:02.000\n你好\n")
     audio_zh.write_bytes(b"OggS-fake-opus-body")
+
+    # Optional streaming-audio fixture (shared flat dir)
+    streaming_opus: Path | None = None
+    if streaming_audio_dir is not None:
+        streaming_audio_dir.mkdir(parents=True, exist_ok=True)
+        streaming_opus = streaming_audio_dir / "1_ch0_seg0_zh-Hans.opus"
+        streaming_opus.write_bytes(b"OggS-fake-streaming-opus")
 
     conn = sqlite3.connect(str(db_path))
     conn.execute(
@@ -157,6 +186,23 @@ def _populate_source(db_path: Path, vtt_dir: Path, audio_dir: Path) -> None:
         "VALUES (?, ?, 'completed', 'tts', CURRENT_TIMESTAMP)",
         (1, "zh-Hans"),
     )
+    if streaming_opus is not None:
+        conn.execute(
+            "INSERT INTO streaming_segments "
+            "(audiobook_id, chapter_index, segment_index, locale, state, "
+            " priority, worker_id, vtt_content, audio_path, completed_at) "
+            "VALUES (?, ?, ?, ?, 'completed', ?, ?, ?, ?, CURRENT_TIMESTAMP)",
+            (
+                1,
+                0,
+                0,
+                "zh-Hans",
+                0,
+                "runpod-worker-abc",
+                "WEBVTT\n\n00:00:00.000 --> 00:00:30.000\n你好世界\n",
+                str(streaming_opus),
+            ),
+        )
     conn.commit()
     conn.close()
 
@@ -290,10 +336,11 @@ class TestBuildManifest:
             "collections": [],
             "strings": [],
             "queue": [],
+            "streaming": [],
             "books": {1: {"title": "x", "file_path": "/tmp/x"}},  # nosec B108 -- DB string fixture, no filesystem write
         }
         manifest = transfer._build_manifest(data)
-        assert manifest["version"] == 2
+        assert manifest["version"] == 3
         assert set(manifest.keys()) >= {
             "version",
             "subtitles",
@@ -302,6 +349,7 @@ class TestBuildManifest:
             "collection_translations",
             "string_translations",
             "queue_completed",
+            "streaming_segments",
             "books",
         }
 
@@ -477,6 +525,98 @@ class TestImportTranslations:
         assert summary["matched"] == 0
         err = capsys.readouterr().err
         assert "No matching books" in err
+
+
+# ── Streaming segments round-trip ──────────────────────────────────────
+
+
+class TestStreamingSegmentsRoundTrip:
+    """Guards the D+C portability constraint: every paid streaming inference
+    produced on one environment (QA) must be transferable to another (prod)
+    via the same transfer pipeline that handles batch-pipeline artifacts."""
+
+    def test_streaming_segments_roundtrip(self, tmp_path, monkeypatch):
+        # Point the target env's streaming-audio dir at a tmp path so import
+        # doesn't try to write to /var/lib/audiobooks.
+        target_streaming_dir = tmp_path / "tgt_streaming"
+        monkeypatch.setenv("AUDIOBOOKS_STREAMING_AUDIO_DIR", str(target_streaming_dir))
+
+        src_db = tmp_path / "src.db"
+        _build_db(src_db)
+        _populate_source(
+            src_db,
+            tmp_path / "src_vtt",
+            tmp_path / "src_audio",
+            streaming_audio_dir=tmp_path / "src_streaming",
+        )
+
+        archive = tmp_path / "bundle.tar.gz"
+        export_summary = transfer.export_translations(str(src_db), str(archive))
+        assert export_summary["streaming_segments"] == 1
+
+        # Archive contains the streaming opus under audio/streaming/
+        with tarfile.open(str(archive), "r:gz") as tar:
+            names = [m.name for m in tar.getmembers()]
+        assert any(n.startswith("audio/streaming/") for n in names)
+
+        # Fresh target DB with matching titles, different IDs
+        tgt_db = tmp_path / "tgt.db"
+        _build_db(tgt_db)
+        _populate_target(tgt_db, tmp_path / "tgt_audio")
+
+        import_summary = transfer.import_translations(str(tgt_db), str(archive))
+        assert import_summary["streaming"] == 1
+
+        # Row is under the remapped audiobook_id (101), audio_path points at
+        # the target env's streaming-audio dir, vtt_content is inline.
+        conn = sqlite3.connect(str(tgt_db))
+        row = conn.execute(
+            "SELECT audiobook_id, chapter_index, segment_index, locale, "
+            "       state, worker_id, vtt_content, audio_path "
+            "FROM streaming_segments"
+        ).fetchone()
+        conn.close()
+        assert row is not None
+        (book_id, ch, seg, locale, state, worker, vtt, audio_path) = row
+        assert book_id == 101
+        assert (ch, seg) == (0, 0)
+        assert locale == "zh-Hans"
+        assert state == "completed"
+        assert worker == "runpod-worker-abc"
+        assert "你好世界" in vtt
+        assert audio_path.startswith(str(target_streaming_dir))
+        assert Path(audio_path).exists()
+        assert Path(audio_path).read_bytes() == b"OggS-fake-streaming-opus"
+
+    def test_streaming_segments_skipped_when_target_table_missing(self, tmp_path, monkeypatch):
+        """Pre-v8.3 target DBs lack the table — import must skip silently."""
+        monkeypatch.setenv("AUDIOBOOKS_STREAMING_AUDIO_DIR", str(tmp_path / "tgt_streaming"))
+
+        src_db = tmp_path / "src.db"
+        _build_db(src_db)
+        _populate_source(
+            src_db,
+            tmp_path / "src_vtt",
+            tmp_path / "src_audio",
+            streaming_audio_dir=tmp_path / "src_streaming",
+        )
+        archive = tmp_path / "bundle.tar.gz"
+        transfer.export_translations(str(src_db), str(archive))
+
+        # Build a target DB WITHOUT streaming_segments (simulates old prod)
+        tgt_db = tmp_path / "tgt.db"
+        _build_db(tgt_db)
+        conn = sqlite3.connect(str(tgt_db))
+        conn.execute("DROP TABLE streaming_segments")
+        conn.execute(
+            "INSERT INTO audiobooks (id, title, file_path) VALUES (?, ?, ?)",
+            (101, "The Fellowship of the Ring", "/tmp/fellowship.opus"),  # nosec B108 -- DB string fixture, not a filesystem write
+        )
+        conn.commit()
+        conn.close()
+
+        summary = transfer.import_translations(str(tgt_db), str(archive))
+        assert summary["streaming"] == 0  # silently skipped, no crash
 
 
 # ── CLI ────────────────────────────────────────────────────────────────
