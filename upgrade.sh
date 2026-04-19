@@ -1640,10 +1640,23 @@ do_upgrade() {
                     # into the two-site template (:8084 native, :8085 docker).
                     local src_content
                     if [[ "$caddy_file" == "audiobooks.conf" ]]; then
-                        # Defaults match lib/audiobook-config.sh (8443). Dual-stack
-                        # hosts override AUDIOBOOKS_WEB_PORT for native (e.g., 8090).
-                        local native_port="${AUDIOBOOKS_WEB_PORT:-8443}"
-                        local docker_port="${AUDIOBOOKS_DOCKER_PORT:-8443}"
+                        # Read ports directly from the installed conf file —
+                        # upgrade.sh does not source it (can't safely eval
+                        # arbitrary shell from a config). Shell env is a
+                        # secondary override, defaults match lib/audiobook-config.sh.
+                        # v8.3.2 QA drift: without this, dual-stack hosts like
+                        # QA (WEB_PORT=8090) silently fell through to 8443 and
+                        # Caddy :8084 proxied into the void, producing 502.
+                        local native_port=""
+                        local docker_port=""
+                        if [[ -f "/etc/audiobooks/audiobooks.conf" ]]; then
+                            native_port=$(grep -oP '^AUDIOBOOKS_WEB_PORT="?\K[^"]*' \
+                                /etc/audiobooks/audiobooks.conf 2>/dev/null | head -1)
+                            docker_port=$(grep -oP '^AUDIOBOOKS_DOCKER_PORT="?\K[^"]*' \
+                                /etc/audiobooks/audiobooks.conf 2>/dev/null | head -1)
+                        fi
+                        native_port="${native_port:-${AUDIOBOOKS_WEB_PORT:-8443}}"
+                        docker_port="${docker_port:-${AUDIOBOOKS_DOCKER_PORT:-8443}}"
                         src_content=$(sed -e "s|__NATIVE_PORT__|${native_port}|g" \
                             -e "s|__DOCKER_PORT__|${docker_port}|g" "$src")
                     else
