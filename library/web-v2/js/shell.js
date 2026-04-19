@@ -310,7 +310,12 @@ class ShellPlayer {
       }
     }
 
-    if (!useTranslatedAudio) {
+    // When non-English locale has no fully-translated audio yet, on-demand
+    // streaming will provide audio via MSE — do NOT load the English stream
+    // (would play audibly for ~500ms before streaming check pauses it).
+    const streamingNeeded = locale !== "en" && !useTranslatedAudio;
+
+    if (!useTranslatedAudio && !streamingNeeded) {
       const needsWebm = !this.audio.canPlayType("audio/ogg; codecs=opus");
       this.audio.src = `${API_BASE}/stream/${bookId}${needsWebm ? "?format=webm" : ""}`;
     }
@@ -360,13 +365,27 @@ class ShellPlayer {
       );
     }
 
+    // Kick off the streaming check FIRST so the overlay appears and any
+    // English playback is suppressed before audio.play() can fire. This
+    // synchronously sets BUFFERING state + shows the overlay; the fetch
+    // for /translate/stream resolves later and either keeps us buffering
+    // or reverts to IDLE if the book is fully cached.
+    if (streamingNeeded && typeof window.streamingTranslate !== "undefined") {
+      window.streamingTranslate.check(bookId, locale);
+    }
+
     // Start playback — must happen within user gesture window.
     // Cross-frame calls (iframe → parent) lose gesture activation if async
     // operations (like API fetch) run first.
-    try {
-      await this.audio.play();
-    } catch (error) {
-      console.error("Failed to play audio:", error);
+    // When streaming is needed we skip play() here; MseAudioChain in
+    // streaming-translate.js calls audio.play() once enough segments are
+    // buffered. Skipping the English play() avoids audible bleed-through.
+    if (!streamingNeeded) {
+      try {
+        await this.audio.play();
+      } catch (error) {
+        console.error("Failed to play audio:", error);
+      }
     }
 
     // Check API for a further-ahead position (async, adjusts after play starts)
@@ -384,11 +403,6 @@ class ShellPlayer {
     }
 
     // Subtitles appear as they become available — no playback blocking
-
-    // Check if streaming translation is needed for non-English locales
-    if (locale !== "en" && typeof window.streamingTranslate !== "undefined") {
-      window.streamingTranslate.check(bookId, locale);
-    }
   }
 
   togglePlayPause() {

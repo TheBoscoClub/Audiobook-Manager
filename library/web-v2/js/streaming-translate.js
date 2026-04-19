@@ -536,6 +536,20 @@
       return;
     }
 
+    // Show overlay + pause audio SYNCHRONOUSLY so the user sees feedback
+    // before /translate/stream resolves. Without this the overlay appears
+    // ~200-500ms late and any English audio that started can play audibly
+    // through the gap. enterBuffering / enterIdle below will reconcile.
+    currentBookId = bookId;
+    currentLocale = locale;
+    state = State.BUFFERING;
+    setMessage(typeof t === "function" ? t("streaming.preparing") : "Preparing translation...");
+    showOverlay(0, 0);
+    var audio = document.getElementById("audio-element");
+    if (audio && !audio.paused) {
+      audio.pause();
+    }
+
     // Ask the coordinator if this book needs streaming
     fetch(API_BASE + "/translate/stream", {
       method: "POST",
