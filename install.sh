@@ -1747,9 +1747,12 @@ EOF
         # Enable and start services
         echo -e "${BLUE}Enabling services for automatic start at boot...${NC}"
 
-        # Enable the target and all individual services
+        # Enable the target and all individual services.
+        # This list MUST stay in sync with upgrade.sh::enable_new_services().
+        # audiobook-shutdown-saver.service hooks halt/reboot/shutdown targets
+        # and must be enabled so tmpfs staging is flushed on clean shutdown.
         sudo systemctl enable audiobook.target 2>/dev/null || true
-        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer audiobook-translate-check.timer audiobook-stream-translate audiobook-fleet-watchdog.timer; do
+        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer audiobook-translate-check.timer audiobook-stream-translate audiobook-fleet-watchdog.timer audiobook-shutdown-saver.service; do
             sudo systemctl enable "$svc" 2>/dev/null || true
         done
         # Explicit enable for streaming translation worker (belt-and-suspenders

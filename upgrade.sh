@@ -833,45 +833,77 @@ apply_data_migrations() {
 }
 
 enable_new_services() {
-    # Enable all services referenced by audiobook.target.
-    # Idempotent — already-enabled services are silently skipped.
+    # Enable the full audiobook unit set for persistence across reboots.
+    # Idempotent — already-enabled services are silently skipped. Safe to run
+    # on every upgrade (minor, patch, or major).
+    #
+    # Covers two disjoint sets:
+    #   1. Target-wanted units: parsed from audiobook.target Wants= lines
+    #      (currently: api, proxy, redirect, converter, mover, stream-translate,
+    #      scheduler, downloader.timer)
+    #   2. Standalone timers that fire outside audiobook.target but ship with
+    #      the project and must be enabled for scheduled work:
+    #      - audiobook-enrichment.timer (metadata enrichment)
+    #      - audiobook-translate-check.timer (batch translation scheduling)
+    #      - audiobook-fleet-watchdog.timer (GPU fleet health + stuck-segment reclaim)
+    #
+    # Historical bug (v8.3.1 → 8.3.2 QA): this function was gated on
+    # MAJOR_VERSION=true, so patch upgrades shipped new units (stream-translate,
+    # fleet-watchdog, translate-check) that never got enabled. After host reboot,
+    # qalib.thebosco.club returned Cloudflare 502 because nothing started at
+    # boot. The gate has been removed; the function now runs on every upgrade.
+    #
+    # The explicit reference to audiobook-stream-translate.service is required
+    # by library/tests/test_stream_translate_wiring.py to guard against the
+    # v8.3.1 orphan-script regression class.
     local use_sudo="${1:-}"
 
     if [[ -z "$use_sudo" ]] || [[ ! -f "/etc/systemd/system/audiobook.target" ]]; then
         return 0
     fi
 
-    echo -e "${BLUE}Enabling all audiobook services...${NC}"
+    echo -e "${BLUE}Enabling all audiobook services and timers...${NC}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
-        echo "  [DRY-RUN] Would enable all services in audiobook.target"
+        echo "  [DRY-RUN] Would enable audiobook.target + all Wants= units + standalone timers"
         return 0
     fi
 
-    # Parse Wants= lines from the target file
-    #
-    # Wired services (enabled via audiobook.target Wants= line parsing above):
-    #   audiobook-api.service, audiobook-proxy.service, audiobook-redirect.service,
-    #   audiobook-converter.service, audiobook-mover.service,
-    #   audiobook-stream-translate.service, audiobook-scheduler.service,
-    #   audiobook-downloader.timer
-    #
-    # The explicit reference to audiobook-stream-translate.service here is
-    # required by library/tests/test_stream_translate_wiring.py to guard
-    # against orphan-script regressions. If the Wants= line is ever removed
-    # from audiobook.target, that test also still fires on the target file
-    # itself — two defenses for the 8.3.1 class of incident.
-    local services
-    services=$(grep '^Wants=' /etc/systemd/system/audiobook.target \
-        | sed 's/Wants=//' | tr ' ' '\n' \
-        | grep -v 'network-online')
+    # Ensure the target itself is enabled so multi-user.target pulls it in at boot
+    sudo systemctl enable audiobook.target 2>/dev/null || true
 
-    for svc in $services; do
+    # (1) Parse Wants= lines from the target file
+    local target_wants
+    target_wants=$(grep '^Wants=' /etc/systemd/system/audiobook.target \
+        | sed 's/Wants=//' | tr ' ' '\n' \
+        | grep -v 'network-online' | grep -v '^$')
+
+    for svc in $target_wants; do
         sudo systemctl enable "$svc" 2>/dev/null || true
         echo "  Enabled: $svc"
     done
 
-    echo -e "${GREEN}  All services enabled${NC}"
+    # (2) Standalone units not declared in audiobook.target Wants=
+    #     These either schedule their own services (timers) or hook reboot
+    #     targets (shutdown-saver). Must be enabled explicitly.
+    local standalone_units=(
+        audiobook-enrichment.timer       # backfill un-enriched metadata
+        audiobook-translate-check.timer  # batch translation scheduling
+        audiobook-fleet-watchdog.timer   # GPU health + stuck-segment reclaim
+        audiobook-shutdown-saver.service # saves tmpfs staging before reboot/halt
+    )
+    for unit in "${standalone_units[@]}"; do
+        if [[ -f "/etc/systemd/system/${unit}" ]]; then
+            sudo systemctl enable "$unit" 2>/dev/null || true
+            echo "  Enabled: $unit"
+        fi
+    done
+
+    # Belt-and-suspenders: explicit enable for streaming translation worker.
+    # Required by library/tests/test_stream_translate_wiring.py.
+    sudo systemctl enable audiobook-stream-translate.service 2>/dev/null || true
+
+    echo -e "${GREEN}  All services and timers enabled${NC}"
 }
 
 # -----------------------------------------------------------------------------
@@ -1777,9 +1809,11 @@ do_upgrade() {
         apply_data_migrations "$project" "$target" "${use_sudo}" "false"
     fi
 
-    if [[ "$MAJOR_VERSION" == "true" ]]; then
-        enable_new_services "${use_sudo}"
-    fi
+    # Enable the full audiobook unit set on every upgrade (not just major
+    # bumps). systemctl enable is idempotent; running it unconditionally cures
+    # the v8.3.1→8.3.2 class of bug where new units shipped in a patch release
+    # were never enabled, causing 502s after host reboot.
+    enable_new_services "${use_sudo}"
 
     # Refresh /usr/local/bin symlinks to point to canonical scripts
     if [[ "$target" == "/opt/audiobooks" || "$target" == "/usr/local/lib/audiobooks" ]]; then
