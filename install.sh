@@ -1823,7 +1823,10 @@ EOF
     # Verify permissions after installation
     verify_installation_permissions "system"
 
-    # Reconcile filesystem against install manifest (report-only for now)
+    # Reconcile filesystem against install manifest. Enforce by default — the
+    # acted-on items (PHANTOM_PATHS, legacy config keys, stale __pycache__)
+    # are explicitly marked obsolete in the manifest. Override with
+    # RECONCILE_MODE=report to audit without mutating.
     local _conf_file="${CONFIG_DIR}/audiobooks.conf"
     PROJECT_DIR="$SCRIPT_DIR" \
         LIB_DIR="$APP_DIR" \
@@ -1834,7 +1837,7 @@ EOF
         USE_SUDO="sudo" \
         SYSTEMD_DIR="/etc/systemd/system" \
         BIN_DIR="/usr/local/bin" \
-        RECONCILE_MODE="${RECONCILE_MODE:-report}" \
+        RECONCILE_MODE="${RECONCILE_MODE:-enforce}" \
         bash "${SCRIPT_DIR}/scripts/reconcile-filesystem.sh" || true
 }
 
@@ -2364,7 +2367,10 @@ EOF
     # Verify permissions after installation
     verify_installation_permissions "user"
 
-    # Reconcile filesystem against install manifest (report-only for now)
+    # Reconcile filesystem against install manifest. Enforce by default — the
+    # acted-on items (PHANTOM_PATHS, legacy config keys, stale __pycache__)
+    # are explicitly marked obsolete in the manifest. Override with
+    # RECONCILE_MODE=report to audit without mutating.
     local _conf_file="${CONFIG_DIR}/audiobooks.conf"
     PROJECT_DIR="$SCRIPT_DIR" \
         LIB_DIR="$LIB_DIR" \
@@ -2375,7 +2381,7 @@ EOF
         USE_SUDO="" \
         SYSTEMD_DIR="${HOME}/.config/systemd/user" \
         BIN_DIR="${HOME}/.local/bin" \
-        RECONCILE_MODE="${RECONCILE_MODE:-report}" \
+        RECONCILE_MODE="${RECONCILE_MODE:-enforce}" \
         bash "${SCRIPT_DIR}/scripts/reconcile-filesystem.sh" || true
 }
 

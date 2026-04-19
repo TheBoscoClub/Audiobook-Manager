@@ -2,10 +2,12 @@
 # Idempotent filesystem reconciler — brings an audiobooks install into
 # agreement with scripts/install-manifest.sh.
 #
-# Runs at the end of install.sh and upgrade.sh. Report-only by default in
-# this release (RECONCILE_MODE=report). Set RECONCILE_MODE=enforce to delete
-# phantoms, create missing dirs/venvs, etc. The flip to enforce-by-default
-# will happen in a subsequent release after users have seen the reports.
+# Runs at the end of install.sh and upgrade.sh. Enforce by default when
+# invoked from install.sh/upgrade.sh — the items actually acted on
+# (PHANTOM_PATHS, legacy config keys listed in CONFIG_CANONICAL_DEFAULTS,
+# stale __pycache__) are explicitly marked as obsolete in the manifest.
+# The script itself defaults to `report` when invoked directly for debugging
+# so ad-hoc runs don't surprise; callers override to `enforce`.
 #
 # Required environment (set by caller):
 #   LIB_DIR      — application directory (/opt/audiobooks or ~/.local/share/audiobooks)

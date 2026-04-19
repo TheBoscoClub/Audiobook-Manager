@@ -295,3 +295,35 @@ def test_scripts_have_no_hardcoded_var_lib(script):
     assert not lines, (
         f"{script.name} contains literal /var/lib/audiobooks outside comments:\n" + "\n".join(lines)
     )
+
+
+# ---------------------------------------------------------------------------
+# Regression guard: install.sh and upgrade.sh default RECONCILE_MODE=enforce
+# so documented-legacy items (PHANTOM_PATHS, legacy config keys, __pycache__)
+# are cleaned automatically. Previously both defaulted to `report`, which meant
+# drift accumulated release after release — two empty phantom cover dirs
+# survived on QA from the v8.1.0.1 drift incident until 8.3.2 because the
+# reconciler reported them on every upgrade but never touched them.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "script_name",
+    ["install.sh", "upgrade.sh"],
+)
+def test_invoker_defaults_to_enforce_mode(script_name):
+    """Every RECONCILE_MODE invocation in install.sh / upgrade.sh must default
+    to `enforce`. If someone regresses this back to `report`, drift starts
+    accumulating silently again.
+    """
+    text = (PROJECT_ROOT / script_name).read_text()
+    # Every occurrence of RECONCILE_MODE="${RECONCILE_MODE:-...}" must resolve
+    # to enforce. We search for the pattern and assert no `:-report}` form.
+    default_spec = re.findall(r'RECONCILE_MODE="\$\{RECONCILE_MODE:-(\w+)\}"', text)
+    assert default_spec, f"{script_name} sets RECONCILE_MODE but no default was found"
+    for mode in default_spec:
+        assert mode == "enforce", (
+            f"{script_name} invokes the reconciler with default "
+            f"RECONCILE_MODE={mode}; must be 'enforce' so phantom paths and "
+            f"legacy config drift are cleaned on every install/upgrade"
+        )

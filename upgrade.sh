@@ -1864,7 +1864,12 @@ do_upgrade() {
     # Run audit & cleanup (every upgrade)
     audit_and_cleanup "$target" "$use_sudo"
 
-    # Reconcile filesystem against install manifest (report-only for now)
+    # Reconcile filesystem against install manifest. Default is enforce: the
+    # items the reconciler acts on (PHANTOM_PATHS, legacy config keys listed
+    # in CONFIG_CANONICAL_DEFAULTS, stale __pycache__) are explicitly marked
+    # as obsolete in the manifest — the whole point of those arrays is "this
+    # must not survive." Report-only meant drift accumulated release after
+    # release. Users can still opt into report mode via `RECONCILE_MODE=report`.
     if [[ -f "${project}/scripts/reconcile-filesystem.sh" ]]; then
         local recon_lib_dir="$target"
         local recon_state="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
@@ -1889,7 +1894,7 @@ do_upgrade() {
             USE_SUDO="$use_sudo" \
             SYSTEMD_DIR="$recon_systemd" \
             BIN_DIR="$recon_bin" \
-            RECONCILE_MODE="${RECONCILE_MODE:-report}" \
+            RECONCILE_MODE="${RECONCILE_MODE:-enforce}" \
             DRY_RUN="$DRY_RUN" \
             bash "${project}/scripts/reconcile-filesystem.sh" || true
     fi
