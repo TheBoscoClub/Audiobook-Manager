@@ -59,6 +59,7 @@ COPY library/common.py /app/common.py
 # Copy application components
 COPY library/auth /app/auth
 COPY library/backend /app/backend
+COPY library/localization /app/localization
 COPY library/scanner /app/scanner
 COPY library/scripts /app/scripts
 COPY library/web-v2 /app/web

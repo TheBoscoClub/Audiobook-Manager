@@ -55,13 +55,19 @@ if [[ -z "${AUDIOBOOKS_HOME:-}" ]]; then
         _script_dir="$(cd "$(dirname "$0")" && pwd)"
     fi
     if [[ -n "${_script_dir:-}" ]]; then
-        # If we're in lib/, go up one level
-        if [[ "$(basename "$_script_dir")" == "lib" ]]; then
+        # System install: /usr/local/lib/audiobooks/audiobook-config.sh is a
+        # shared config loader, NOT inside the application tree. The actual
+        # app lives at /opt/audiobooks (or wherever AUDIOBOOKS_HOME was set
+        # at install time). Fall through to the hardcoded default below.
+        if [[ "$_script_dir" == "/usr/local/lib/audiobooks" ]]; then
+            : # leave AUDIOBOOKS_HOME unset so the default at line ~105 applies
+        # Project working tree: lib/ is inside the project; HOME = parent dir
+        elif [[ "$(basename "$_script_dir")" == "lib" ]]; then
             AUDIOBOOKS_HOME="$(dirname "$_script_dir")"
         else
             AUDIOBOOKS_HOME="$_script_dir"
         fi
-        export AUDIOBOOKS_HOME
+        [[ -n "${AUDIOBOOKS_HOME:-}" ]] && export AUDIOBOOKS_HOME
         unset _script_dir
     fi
 fi

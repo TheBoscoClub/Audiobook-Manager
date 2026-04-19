@@ -16,15 +16,21 @@ Type=simple
 User=audiobooks
 Group=audiobooks
 
-# Load configuration. The wrapper script (stream-translate-daemon.sh) also
-# sources lib/audiobook-config.sh directly, so the wrapper works even if this
-# EnvironmentFile line is absent. Kept here to match the translate.service
-# pattern and to expose the KEY=VALUE pairs to the process environment (e.g.
-# for any child commands the worker may spawn). Do NOT add the legacy
-# EnvironmentFile=-/etc/audiobooks/scripts/translation-env.sh here — the
-# wrapper sources it directly and can consume shell-assignment syntax that
-# systemd cannot.
-EnvironmentFile=/etc/audiobooks/audiobooks.conf
+# Do NOT set EnvironmentFile=/etc/audiobooks/audiobooks.conf here.
+#
+# audiobooks.conf uses shell-assignment syntax with ${var} references — e.g.
+# AUDIOBOOKS_LIBRARY="${AUDIOBOOKS_DATA}/Library". systemd's EnvironmentFile
+# parser reads key=value only: it does NOT perform shell expansion, so
+# AUDIOBOOKS_LIBRARY would be injected into the child environment as the
+# literal string "${AUDIOBOOKS_DATA}/Library". Our wrapper then sources
+# audiobook-config.sh which uses `: "${VAR:=default}"` (assign-only-if-unset),
+# so the pre-set literal wins and the worker fails with "library directory
+# not found: ${AUDIOBOOKS_DATA}/Library".
+#
+# The wrapper (stream-translate-daemon.sh) sources lib/audiobook-config.sh
+# directly, which does do shell expansion correctly — that is the canonical
+# path. Matches scripts/translation-daemon.sh + audiobook-translate.service
+# which also omit EnvironmentFile for this reason.
 
 WorkingDirectory=/opt/audiobooks
 
