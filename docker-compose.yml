@@ -41,6 +41,15 @@ services:
       # Persist cover art cache
       - audiobooks_covers:/app/covers
 
+      # Authentication state — only mounted when AUTH_ENABLED=true.
+      # On fresh/standalone Docker installs these volumes start empty; run
+      # `docker exec audiobooks-docker audiobooks-auth init` (or equivalent)
+      # to seed `auth.db` + `auth.key`. On QA/prod-mirror hosts bind-mount the
+      # host paths instead:
+      #   - /var/lib/audiobooks/auth.db:/app/auth/auth.db
+      #   - /etc/audiobooks/auth.key:/app/auth/auth.key:ro
+      - audiobooks_auth:/app/auth
+
     environment:
       # Path to audiobooks inside container
       - AUDIOBOOK_DIR=/audiobooks
@@ -61,8 +70,14 @@ services:
       # Gunicorn+geventwebsocket is used automatically (migrated from Waitress in v7.2)
       - HTTP_REDIRECT_ENABLED=true
 
-      # Authentication (disabled by default for Docker standalone mode)
-      - AUTH_ENABLED=false
+      # Authentication — set AUTH_ENABLED=true for QA/prod-mirror deployments.
+      # When true, api_server.py requires AUTH_DATABASE and AUTH_KEY_FILE to
+      # point at a valid SQLCipher auth.db and matching 64-hex-char key file;
+      # without both, Flask silently falls back to AUTH_ENABLED=False and no
+      # /auth/* blueprints register (all /auth/login POSTs return 405).
+      - AUTH_ENABLED=${AUTH_ENABLED:-false}
+      - AUTH_DATABASE=/app/auth/auth.db
+      - AUTH_KEY_FILE=/app/auth/auth.key
 
     restart: unless-stopped
 
@@ -89,6 +104,9 @@ volumes:
     driver: local
   audiobooks_covers:
     name: audiobooks_covers
+    driver: local
+  audiobooks_auth:
+    name: audiobooks_auth
     driver: local
 
 # Network configuration (optional)
