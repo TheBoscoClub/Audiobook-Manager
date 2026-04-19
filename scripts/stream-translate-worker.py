@@ -302,8 +302,9 @@ def process_segment(
             audio_path, chapter_start_sec, segment_index, chapter_duration_sec
         )
 
-        # Run STT + translation on the segment
-        stt = get_stt_provider("", workload=WorkloadHint.SHORT_CLIP)
+        # Run STT + translation on the segment — D+C streaming path
+        # routes to the warm-pool endpoint for sub-second first-segment latency.
+        stt = get_stt_provider("", workload=WorkloadHint.STREAMING)
         output_dir = Path(tempfile.mkdtemp(prefix="stream-seg-"))
 
         source_vtt, translated_vtt = generate_subtitles(

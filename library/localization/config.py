@@ -23,7 +23,23 @@ RUNPOD_API_KEY = os.environ.get("AUDIOBOOKS_RUNPOD_API_KEY", "")
 RUNPOD_WHISPER_ENDPOINT = os.environ.get("AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT", "")
 RUNPOD_XTTS_ENDPOINT = os.environ.get("AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT", "")
 
-# Vast.ai Whisper server (alternative to RunPod)
+# D+C dual-provider serverless endpoints (asymmetric min_workers).
+# Streaming endpoints keep min_workers=1 (warm) for latency-critical per-segment
+# inference; backlog endpoints keep min_workers=0 (cold) for cheap batch work.
+# Either provider may be unset — the pipeline falls back to the other.
+RUNPOD_STREAMING_WHISPER_ENDPOINT = os.environ.get(
+    "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT", ""
+)
+RUNPOD_BACKLOG_WHISPER_ENDPOINT = os.environ.get("AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT", "")
+VASTAI_SERVERLESS_API_KEY = os.environ.get("AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY", "")
+VASTAI_SERVERLESS_STREAMING_ENDPOINT = os.environ.get(
+    "AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT", ""
+)
+VASTAI_SERVERLESS_BACKLOG_ENDPOINT = os.environ.get(
+    "AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT", ""
+)
+
+# Vast.ai Whisper server (legacy dedicated-instance path — retired in Phase 3)
 VASTAI_WHISPER_HOST = os.environ.get("AUDIOBOOKS_VASTAI_WHISPER_HOST", "")
 VASTAI_WHISPER_PORT = int(os.environ.get("AUDIOBOOKS_VASTAI_WHISPER_PORT", "8000"))
 

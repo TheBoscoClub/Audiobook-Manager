@@ -381,6 +381,109 @@ class TestStemAndProviders:
                 result = mod._remote_stt_candidates()
         assert result == []
 
+    def test_remote_stt_candidates_streaming_routes_to_streaming_endpoints(self):
+        """D+C routing: STREAMING hint → RunPod streaming + Vast.ai streaming."""
+        from localization import pipeline as mod
+        from localization.selection import WorkloadHint
+
+        with (
+            patch.object(mod, "RUNPOD_API_KEY", "k"),
+            patch.object(mod, "RUNPOD_STREAMING_WHISPER_ENDPOINT", "stream-ep"),
+            patch.object(mod, "RUNPOD_BACKLOG_WHISPER_ENDPOINT", "backlog-ep"),
+            patch.object(mod, "VASTAI_SERVERLESS_API_KEY", "vk"),
+            patch.object(mod, "VASTAI_SERVERLESS_STREAMING_ENDPOINT", "vast-stream"),
+            patch.object(mod, "VASTAI_SERVERLESS_BACKLOG_ENDPOINT", "vast-backlog"),
+            patch.object(mod, "VASTAI_WHISPER_HOST", ""),
+            patch.object(mod, "RUNPOD_WHISPER_ENDPOINT", ""),
+            patch.object(mod, "WHISPER_GPU_HOST", ""),
+        ):
+            result = mod._remote_stt_candidates(WorkloadHint.STREAMING)
+
+        # RunPod streaming first (warm pool wins), Vast.ai streaming second.
+        assert len(result) == 2
+        assert result[0].name == "whisper"
+        assert result[0]._endpoint_id == "stream-ep"
+        assert result[1].name == "vastai-serverless:vast-stream"
+
+    def test_remote_stt_candidates_long_form_routes_to_backlog_endpoints(self):
+        """D+C routing: LONG_FORM hint → backlog endpoints (cold pool, cheap)."""
+        from localization import pipeline as mod
+        from localization.selection import WorkloadHint
+
+        with (
+            patch.object(mod, "RUNPOD_API_KEY", "k"),
+            patch.object(mod, "RUNPOD_STREAMING_WHISPER_ENDPOINT", "stream-ep"),
+            patch.object(mod, "RUNPOD_BACKLOG_WHISPER_ENDPOINT", "backlog-ep"),
+            patch.object(mod, "VASTAI_SERVERLESS_API_KEY", "vk"),
+            patch.object(mod, "VASTAI_SERVERLESS_STREAMING_ENDPOINT", "vast-stream"),
+            patch.object(mod, "VASTAI_SERVERLESS_BACKLOG_ENDPOINT", "vast-backlog"),
+            patch.object(mod, "VASTAI_WHISPER_HOST", ""),
+            patch.object(mod, "RUNPOD_WHISPER_ENDPOINT", ""),
+            patch.object(mod, "WHISPER_GPU_HOST", ""),
+        ):
+            result = mod._remote_stt_candidates(WorkloadHint.LONG_FORM)
+
+        assert len(result) == 2
+        assert result[0].name == "whisper"
+        assert result[0]._endpoint_id == "backlog-ep"
+        assert result[1].name == "vastai-serverless:vast-backlog"
+
+    def test_remote_stt_candidates_any_defaults_to_backlog(self):
+        """Default (ANY) hint behaves like LONG_FORM — backlog endpoints."""
+        from localization import pipeline as mod
+
+        with (
+            patch.object(mod, "RUNPOD_API_KEY", "k"),
+            patch.object(mod, "RUNPOD_STREAMING_WHISPER_ENDPOINT", "stream-ep"),
+            patch.object(mod, "RUNPOD_BACKLOG_WHISPER_ENDPOINT", "backlog-ep"),
+            patch.object(mod, "VASTAI_SERVERLESS_API_KEY", ""),
+            patch.object(mod, "VASTAI_WHISPER_HOST", ""),
+            patch.object(mod, "RUNPOD_WHISPER_ENDPOINT", ""),
+            patch.object(mod, "WHISPER_GPU_HOST", ""),
+        ):
+            # No workload arg → WorkloadHint.ANY → backlog path.
+            result = mod._remote_stt_candidates()
+
+        assert len(result) == 1
+        assert result[0]._endpoint_id == "backlog-ep"
+
+    def test_stt_by_explicit_name_vastai_serverless_prefers_streaming(self):
+        """`vastai-serverless` override picks streaming endpoint when both set."""
+        from localization import pipeline as mod
+
+        with (
+            patch.object(mod, "VASTAI_SERVERLESS_API_KEY", "vk"),
+            patch.object(mod, "VASTAI_SERVERLESS_STREAMING_ENDPOINT", "stream-ep"),
+            patch.object(mod, "VASTAI_SERVERLESS_BACKLOG_ENDPOINT", "backlog-ep"),
+        ):
+            provider = mod._stt_by_explicit_name("vastai-serverless")
+        assert provider is not None
+        assert provider.name == "vastai-serverless:stream-ep"
+
+    def test_stt_by_explicit_name_vastai_serverless_falls_back_to_backlog(self):
+        """Only backlog configured → fall back to backlog endpoint."""
+        from localization import pipeline as mod
+
+        with (
+            patch.object(mod, "VASTAI_SERVERLESS_API_KEY", "vk"),
+            patch.object(mod, "VASTAI_SERVERLESS_STREAMING_ENDPOINT", ""),
+            patch.object(mod, "VASTAI_SERVERLESS_BACKLOG_ENDPOINT", "backlog-ep"),
+        ):
+            provider = mod._stt_by_explicit_name("vastai-serverless")
+        assert provider is not None
+        assert provider.name == "vastai-serverless:backlog-ep"
+
+    def test_stt_by_explicit_name_vastai_serverless_unconfigured_raises(self):
+        from localization import pipeline as mod
+
+        with (
+            patch.object(mod, "VASTAI_SERVERLESS_API_KEY", ""),
+            patch.object(mod, "VASTAI_SERVERLESS_STREAMING_ENDPOINT", ""),
+            patch.object(mod, "VASTAI_SERVERLESS_BACKLOG_ENDPOINT", ""),
+        ):
+            with pytest.raises(ValueError, match="Vast.ai serverless requested"):
+                mod._stt_by_explicit_name("vastai-serverless")
+
 
 class TestProcessOneChapter:
     """Cover ``_process_one_chapter`` — happy path, empty speech, and cleanup."""
@@ -969,6 +1072,175 @@ class TestVastaiWhisperSTT:
         assert transcript.language == "en"
         assert [w.word for w in transcript.words] == ["hi", "there"]
         assert transcript.duration_ms == 1_000
+
+
+class TestVastaiServerlessSTT:
+    """Cover the D+C Vast.ai serverless client — routing + worker POST.
+
+    Vast.ai serverless is a two-step dispatch: caller POSTs to the router,
+    the router returns a live worker URL, caller POSTs audio to the worker.
+    This differs from RunPod's /run + /status polling pattern.
+    """
+
+    def test_api_key_required(self):
+        from localization.stt.vastai_serverless import VastaiServerlessSTT
+
+        with pytest.raises(ValueError, match="API key is required"):
+            VastaiServerlessSTT(api_key="", endpoint_name="ep")
+
+    def test_endpoint_name_required(self):
+        from localization.stt.vastai_serverless import VastaiServerlessSTT
+
+        with pytest.raises(ValueError, match="endpoint name is required"):
+            VastaiServerlessSTT(api_key="k", endpoint_name="")
+
+    def test_name_includes_endpoint(self):
+        from localization.stt.vastai_serverless import VastaiServerlessSTT
+
+        provider = VastaiServerlessSTT(api_key="k", endpoint_name="whisper-stream")
+        assert provider.name == "vastai-serverless:whisper-stream"
+
+    def test_supports_language_strips_region(self):
+        from localization.stt.vastai_serverless import VastaiServerlessSTT
+
+        provider = VastaiServerlessSTT(api_key="k", endpoint_name="ep")
+        assert provider.supports_language("zh-Hans") is True
+        assert provider.supports_language("klingon") is False
+
+    def test_usage_remaining_returns_none(self):
+        from localization.stt.vastai_serverless import VastaiServerlessSTT
+
+        assert VastaiServerlessSTT(api_key="k", endpoint_name="ep").usage_remaining() is None
+
+    def test_transcribe_missing_file_raises_fnf(self, tmp_path):
+        from localization.stt.vastai_serverless import VastaiServerlessSTT
+
+        provider = VastaiServerlessSTT(api_key="k", endpoint_name="ep")
+        with pytest.raises(FileNotFoundError):
+            provider.transcribe(tmp_path / "nope.opus")
+
+    def test_transcribe_unsupported_language_raises(self, tmp_path):
+        from localization.stt.vastai_serverless import VastaiServerlessSTT
+
+        audio = tmp_path / "a.opus"
+        audio.write_bytes(b"x")
+        provider = VastaiServerlessSTT(api_key="k", endpoint_name="ep")
+        with pytest.raises(ValueError, match="not supported"):
+            provider.transcribe(audio, language="klingon")
+
+    def test_route_raises_when_worker_url_missing(self, tmp_path):
+        from localization.stt import vastai_serverless as mod
+
+        audio = tmp_path / "a.opus"
+        audio.write_bytes(b"x")
+        # Router returns a payload with no worker URL field → RuntimeError.
+        fake = MagicMock()
+        fake.raise_for_status.return_value = None
+        fake.json.return_value = {"status": "queued"}  # no url/worker_url/endpoint_url
+        with patch.object(mod.requests, "post", return_value=fake):
+            with pytest.raises(RuntimeError, match="no worker URL"):
+                mod.VastaiServerlessSTT(api_key="k", endpoint_name="ep").transcribe(audio)
+
+    def test_transcribe_roundtrip_two_step_dispatch(self, tmp_path):
+        """Full roundtrip: route call → worker POST → parsed Transcript."""
+        from localization.stt import vastai_serverless as mod
+
+        audio = tmp_path / "a.opus"
+        audio.write_bytes(b"abc")
+
+        route_resp = MagicMock()
+        route_resp.raise_for_status.return_value = None
+        route_resp.json.return_value = {"url": "https://worker-42.vast.ai/"}
+
+        worker_resp = MagicMock()
+        worker_resp.raise_for_status.return_value = None
+        worker_resp.json.return_value = {
+            "words": [
+                {"word": "hi", "start": 0, "end": 0.5},
+                {"word": "there", "start": 0.5, "end": 1.1},
+            ],
+            "duration": 1.1,
+            "language": "en",
+        }
+
+        # requests.post is called twice: once to router, once to worker.
+        with patch.object(mod.requests, "post", side_effect=[route_resp, worker_resp]) as post:
+            transcript = mod.VastaiServerlessSTT(api_key="k", endpoint_name="ep").transcribe(
+                audio, language="en"
+            )
+
+        # Router call: VAST_ROUTE_URL with {endpoint, cost} body.
+        router_call = post.call_args_list[0]
+        assert router_call.args[0] == mod.VAST_ROUTE_URL
+        assert router_call.kwargs["json"]["endpoint"] == "ep"
+
+        # Worker call: stripped-trailing-slash URL + transcriptions path.
+        worker_call = post.call_args_list[1]
+        assert worker_call.args[0] == "https://worker-42.vast.ai/v1/audio/transcriptions"
+
+        assert transcript.language == "en"
+        assert transcript.provider == "vastai-serverless-ep"
+        assert [w.word for w in transcript.words] == ["hi", "there"]
+        assert transcript.duration_ms == 1_100
+
+    def test_route_accepts_alternate_url_keys(self, tmp_path):
+        """Router may return the URL under ``worker_url`` or ``endpoint_url``."""
+        from localization.stt import vastai_serverless as mod
+
+        audio = tmp_path / "a.opus"
+        audio.write_bytes(b"x")
+
+        route_resp = MagicMock()
+        route_resp.raise_for_status.return_value = None
+        route_resp.json.return_value = {"worker_url": "https://w.example"}
+        worker_resp = MagicMock()
+        worker_resp.raise_for_status.return_value = None
+        worker_resp.json.return_value = {"words": [], "duration": 0, "language": "en"}
+
+        with patch.object(mod.requests, "post", side_effect=[route_resp, worker_resp]):
+            # Should not raise despite missing top-level "url" key.
+            mod.VastaiServerlessSTT(api_key="k", endpoint_name="ep").transcribe(audio)
+
+    def test_extract_raw_words_prefers_top_level(self):
+        from localization.stt.vastai_serverless import _extract_raw_words
+
+        data = {"words": [{"word": "a"}], "segments": [{"words": [{"word": "ignored"}]}]}
+        assert _extract_raw_words(data) == [{"word": "a"}]
+
+    def test_extract_raw_words_falls_back_to_segments(self):
+        from localization.stt.vastai_serverless import _extract_raw_words
+
+        data = {"segments": [{"words": [{"word": "hello"}]}, {"words": [{"word": "world"}]}]}
+        assert _extract_raw_words(data) == [{"word": "hello"}, {"word": "world"}]
+
+    def test_parse_word_timestamps_drops_empty_words(self):
+        from localization.stt.vastai_serverless import _parse_word_timestamps
+
+        payload = {
+            "words": [
+                {"word": " "},
+                {"word": "keep", "start": 1.0, "end": 2.0},
+            ]
+        }
+        parsed = _parse_word_timestamps(payload)
+        assert len(parsed) == 1
+        assert parsed[0].word == "keep"
+        assert parsed[0].start_ms == 1_000
+
+    def test_extract_duration_ms_uses_response_field_when_set(self):
+        from localization.stt.vastai_serverless import _extract_duration_ms
+
+        assert _extract_duration_ms({"duration": 3.5}, []) == 3_500
+
+    def test_extract_duration_ms_falls_back_to_last_word(self):
+        from localization.stt.base import WordTimestamp
+        from localization.stt.vastai_serverless import _extract_duration_ms
+
+        words = [
+            WordTimestamp(word="a", start_ms=0, end_ms=500),
+            WordTimestamp(word="b", start_ms=500, end_ms=1_200),
+        ]
+        assert _extract_duration_ms({}, words) == 1_200
 
 
 # ---------------------------------------------------------------------------
