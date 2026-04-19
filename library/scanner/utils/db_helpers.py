@@ -61,11 +61,11 @@ def insert_audiobook(
         """
         INSERT INTO audiobooks (
             title, author, narrator, publisher, series,
-            duration_hours, duration_formatted, file_size_mb,
+            duration_hours, duration_formatted, chapter_count, file_size_mb,
             file_path, cover_path, format, description,
             sha256_hash, hash_verified_at, asin,
             published_year, published_date, acquired_date
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """,
         (
             metadata.get("title"),
@@ -75,6 +75,7 @@ def insert_audiobook(
             metadata.get("series"),
             metadata.get("duration_hours"),
             metadata.get("duration_formatted"),
+            metadata.get("chapter_count"),
             metadata.get("file_size_mb"),
             metadata.get("file_path"),
             cover_path,

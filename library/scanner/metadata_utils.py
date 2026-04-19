@@ -247,6 +247,7 @@ def run_ffprobe(filepath: Path, timeout: int = 30) -> dict | None:
         "json",
         "-show_format",
         "-show_streams",
+        "-show_chapters",
         str(filepath),
     ]
 
@@ -430,10 +431,12 @@ def _build_metadata_dict(
     format_data: dict,
     audiobook_dir: Path,
     calculate_hash: bool,
+    chapters: list | None = None,
 ) -> dict:
     """Build the final metadata dictionary from normalized tags and format data."""
     duration_sec = float(format_data.get("duration", 0))
     duration_hours = duration_sec / 3600
+    chapter_count = len(chapters) if chapters else None
 
     author_from_path = extract_author_from_path(filepath)
     author = extract_author_from_tags(tags_normalized, author_from_path)
@@ -459,6 +462,7 @@ def _build_metadata_dict(
         "description": tags_normalized.get("comment", tags_normalized.get("description", "")),
         "duration_hours": round(duration_hours, 2),
         "duration_formatted": (f"{int(duration_hours)}h {int((duration_hours % 1) * 60)}m"),
+        "chapter_count": chapter_count,
         "file_size_mb": round(filepath.stat().st_size / (1024 * 1024), 2),
         "file_path": str(filepath),
         "series": tags_normalized.get("series", ""),
@@ -499,9 +503,15 @@ def get_file_metadata(
         tags = _merge_tags(data)
         tags_normalized = {k.lower(): v for k, v in tags.items()}
         format_data = data.get("format", {})
+        chapters = data.get("chapters", [])
 
         return _build_metadata_dict(
-            filepath, tags_normalized, format_data, audiobook_dir, calculate_hash
+            filepath,
+            tags_normalized,
+            format_data,
+            audiobook_dir,
+            calculate_hash,
+            chapters=chapters,
         )
 
     except Exception as e:

@@ -15,6 +15,7 @@ Endpoints:
     POST /api/translate/stop             — stop streaming (demote all pending to back-fill)
 """
 
+import json
 import logging
 import os
 import re
@@ -234,21 +235,97 @@ def _has_cached_audio(db, audiobook_id: int, chapter_index: int, locale: str) ->
     return row is not None
 
 
-def _get_chapter_count(db, audiobook_id: int) -> int:
-    """Get total number of chapters for a book from existing subtitles or audio data."""
+# In-process memo to coalesce concurrent first-hit ffprobe calls for the same
+# audiobook_id. Populated by _resolve_chapter_count; value is always a positive
+# int. Not locked — ffprobe is idempotent and a few redundant calls during a
+# first-hit race are cheaper than a contention point on every resolution.
+_chapter_count_memo: dict[int, int] = {}
+
+
+def _probe_chapter_count(audio_path: Path) -> int:
+    """Run ffprobe on a file and return its chapter count, or 0 on failure.
+
+    Uses ``-show_chapters`` which emits chapters at the top-level of the JSON
+    output (NOT under ``format``). Returns 0 on any error — the caller decides
+    whether to treat that as fatal. No network, no side effects.
+    """
+    try:
+        result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are hardcoded  # nosec B607,B603 — partial path — system tools must be on PATH
+            [  # noqa: S603,S607
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_chapters",
+                str(audio_path),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if result.returncode != 0 or not result.stdout.strip():
+            return 0
+        data = json.loads(result.stdout)
+        chapters = data.get("chapters", [])
+        return len(chapters) if isinstance(chapters, list) else 0
+    except (OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError):
+        return 0
+
+
+def _resolve_chapter_count(db, audiobook_id: int) -> int:
+    """Return the chapter count for a book, populating the column lazily.
+
+    Resolution order:
+      1. In-process memo (fast-path for repeated calls in the same process).
+      2. ``audiobooks.chapter_count`` column if populated.
+      3. ffprobe ``-show_chapters`` on ``audiobooks.file_path``; UPDATE the
+         column on success so later calls skip the probe.
+
+    Raises:
+        ValueError: if the book row is missing, ``file_path`` is missing/empty,
+            or ffprobe reports zero chapters. Callers at request boundaries
+            catch this and return HTTP 500.
+    """
+    memoed = _chapter_count_memo.get(audiobook_id)
+    if memoed is not None:
+        return memoed
+
     row = db.execute(
-        "SELECT MAX(chapter_index) + 1 as cnt FROM chapter_subtitles WHERE audiobook_id = ?",
+        "SELECT chapter_count, file_path FROM audiobooks WHERE id = ?",
         (audiobook_id,),
     ).fetchone()
-    if row and row["cnt"]:
-        return row["cnt"]
-    # Fallback: check translation queue for chapter count
-    row = db.execute(
-        "SELECT total_chapters FROM translation_queue WHERE audiobook_id = ?", (audiobook_id,)
-    ).fetchone()
-    if row and row["total_chapters"]:
-        return row["total_chapters"]
-    return 0
+    if row is None:
+        raise ValueError(f"audiobook {audiobook_id} not found")
+
+    stored = row["chapter_count"]
+    if stored and stored > 0:
+        _chapter_count_memo[audiobook_id] = int(stored)
+        return int(stored)
+
+    file_path = row["file_path"]
+    if not file_path:
+        raise ValueError(f"audiobook {audiobook_id} has no file_path")
+
+    count = _probe_chapter_count(Path(file_path))
+    if count <= 0:
+        raise ValueError(
+            f"ffprobe reported no chapters for audiobook {audiobook_id} ({file_path!r})"
+        )
+
+    db.execute(
+        "UPDATE audiobooks SET chapter_count = ? WHERE id = ?",
+        (count, audiobook_id),
+    )
+    db.commit()
+    _chapter_count_memo[audiobook_id] = count
+    logger.info(
+        "Backfilled chapter_count=%d for audiobook %d via ffprobe",
+        count,
+        audiobook_id,
+    )
+    return count
 
 
 def _get_book_duration_sec(db, audiobook_id: int) -> float:
@@ -275,9 +352,12 @@ def _get_chapter_duration_sec(db, audiobook_id: int, chapter_index: int) -> floa
 
     For more accurate results, the streaming worker uses ffprobe chapter
     metadata directly. This estimate is used to pre-populate segment rows.
+
+    May raise ``ValueError`` via ``_resolve_chapter_count`` if the chapter
+    count cannot be established from DB or ffprobe.
     """
     book_dur = _get_book_duration_sec(db, audiobook_id)
-    chapter_count = _get_chapter_count(db, audiobook_id) or 1
+    chapter_count = _resolve_chapter_count(db, audiobook_id)
     return book_dur / chapter_count
 
 
@@ -301,10 +381,12 @@ def _ensure_chapter_segments(
     seg_count = _chapter_segment_count(ch_duration)
 
     if seg_count <= 0:
-        # Fallback: at least estimate from total book duration / 30s
-        book_dur = _get_book_duration_sec(db, audiobook_id)
-        chapter_count = _get_chapter_count(db, audiobook_id) or 1
-        seg_count = max(1, _chapter_segment_count(book_dur / chapter_count))
+        # Fallback: with chapter_count now guaranteed >0 by
+        # _resolve_chapter_count, seg_count can only reach 0 when book
+        # duration is missing/zero. We still seed at least one pending
+        # segment so the worker has something to claim; the worker derives
+        # the real per-segment bounds from ffprobe chapter timings.
+        seg_count = 1
 
     for seg_idx in range(seg_count):
         db.execute(
@@ -585,7 +667,7 @@ def _fully_cached_response(db, audiobook_id, chapter_index, locale):
     """Build the response when the active chapter is cached. Enumerates
     all chapters to report which others are cached.
     """
-    chapter_count = _get_chapter_count(db, audiobook_id)
+    chapter_count = _resolve_chapter_count(db, audiobook_id)
     all_cached = True
     cached_chapters = []
     for ch in range(chapter_count):
@@ -663,34 +745,48 @@ def request_streaming_translation():
 
     db = _get_db()
 
-    if _has_cached_subtitles(db, audiobook_id, chapter_index, locale) and _has_cached_audio(
-        db, audiobook_id, chapter_index, locale
-    ):
-        return _fully_cached_response(db, audiobook_id, chapter_index, locale)
+    try:
+        if _has_cached_subtitles(db, audiobook_id, chapter_index, locale) and _has_cached_audio(
+            db, audiobook_id, chapter_index, locale
+        ):
+            return _fully_cached_response(db, audiobook_id, chapter_index, locale)
 
-    session_id = _get_or_create_streaming_session(db, audiobook_id, locale, chapter_index)
+        session_id = _get_or_create_streaming_session(db, audiobook_id, locale, chapter_index)
 
-    # Ensure segment rows exist for the active chapter (priority 0 = active playback)
-    _ensure_chapter_segments(db, audiobook_id, chapter_index, locale, priority=0)
+        # Ensure segment rows exist for the active chapter (priority 0 = active playback)
+        _ensure_chapter_segments(db, audiobook_id, chapter_index, locale, priority=0)
 
-    # Also pre-create segments for the next chapter (priority 1 = prefetch)
-    chapter_count = _get_chapter_count(db, audiobook_id)
-    if chapter_count and chapter_index + 1 < chapter_count:
-        _ensure_chapter_segments(db, audiobook_id, chapter_index + 1, locale, priority=1)
+        # Also pre-create segments for the next chapter (priority 1 = prefetch)
+        chapter_count = _resolve_chapter_count(db, audiobook_id)
+        if chapter_count and chapter_index + 1 < chapter_count:
+            _ensure_chapter_segments(db, audiobook_id, chapter_index + 1, locale, priority=1)
 
-    return jsonify(
-        {
-            "state": "buffering",
-            "session_id": session_id,
-            "audiobook_id": audiobook_id,
-            "chapter_index": chapter_index,
-            "locale": locale,
-            "buffer_threshold": BUFFER_THRESHOLD,
-            "segment_bitmap": _get_segment_bitmap(db, audiobook_id, chapter_index, locale),
-            "phase": _derive_phase(db, audiobook_id, locale),
-            "current_segment": _get_current_segment(db, audiobook_id, chapter_index, locale),
-        }
-    )
+        return jsonify(
+            {
+                "state": "buffering",
+                "session_id": session_id,
+                "audiobook_id": audiobook_id,
+                "chapter_index": chapter_index,
+                "locale": locale,
+                "buffer_threshold": BUFFER_THRESHOLD,
+                "segment_bitmap": _get_segment_bitmap(db, audiobook_id, chapter_index, locale),
+                "phase": _derive_phase(db, audiobook_id, locale),
+                "current_segment": _get_current_segment(db, audiobook_id, chapter_index, locale),
+            }
+        )
+    except ValueError as exc:
+        # Raised when chapter_count cannot be established from DB or ffprobe —
+        # e.g. missing file_path, unreadable audio, or a book with zero chapters.
+        # Surface as 500 so the player overlay can show a clear error instead
+        # of spinning forever; log enough context for ops to diagnose.
+        logger.error(
+            "chapter_count unavailable for book=%d locale=%s chapter=%d: %s",
+            audiobook_id,
+            _safe_log_value(locale),
+            chapter_index,
+            _safe_log_value(exc),
+        )
+        return jsonify({"error": "chapter count unavailable"}), 500
 
 
 @streaming_bp.route("/api/translate/segments/<int:audiobook_id>/<int:chapter_index>/<locale>")
@@ -831,8 +927,19 @@ def handle_seek():
 
     db = _get_db()
 
-    # Ensure segments exist for this chapter
-    _ensure_chapter_segments(db, audiobook_id, chapter_index, locale, priority=0)
+    try:
+        # Ensure segments exist for this chapter (may raise ValueError if
+        # chapter_count cannot be resolved from DB or ffprobe).
+        _ensure_chapter_segments(db, audiobook_id, chapter_index, locale, priority=0)
+    except ValueError as exc:
+        logger.error(
+            "chapter_count unavailable on seek for book=%d locale=%s chapter=%d: %s",
+            audiobook_id,
+            _safe_log_value(locale),
+            chapter_index,
+            _safe_log_value(exc),
+        )
+        return jsonify({"error": "chapter count unavailable"}), 500
 
     # Check if the target segment is already cached
     cached = db.execute(

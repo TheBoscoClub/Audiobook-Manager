@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS audiobooks (
     source_asin TEXT,             -- Original Audible ASIN for cross-referencing
     duration_hours REAL,
     duration_formatted TEXT,
+    chapter_count INTEGER,        -- Populated by scanner at ingest; lazy-backfilled on first streaming request
     file_size_mb REAL,
     file_path TEXT UNIQUE NOT NULL,
     cover_path TEXT,

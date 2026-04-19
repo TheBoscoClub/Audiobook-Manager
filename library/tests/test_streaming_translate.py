@@ -161,36 +161,42 @@ class TestChapterSegmentCount:
 # ── HTTP endpoint tests ──
 
 
-def _init_translation_queue(db_path: Path) -> None:
-    """Create the translation_queue table used by the streaming fallback."""
+# Book IDs and their chapter counts seeded by the streaming_db fixture.
+# _resolve_chapter_count reads audiobooks.chapter_count directly; seeding it
+# avoids triggering the ffprobe backfill path (which would fail on these
+# synthetic file_paths).
+_SEEDED_BOOKS = {1: 3, 2: 3, 3: 2, 4: 3}
+
+
+def _seed_audiobooks(db_path: Path) -> None:
+    """Seed audiobooks rows with chapter_count for streaming tests."""
     conn = sqlite3.connect(str(db_path))
-    conn.execute("""
-        CREATE TABLE IF NOT EXISTS translation_queue (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            audiobook_id INTEGER NOT NULL,
-            locale TEXT NOT NULL,
-            priority INTEGER DEFAULT 0,
-            state TEXT DEFAULT 'pending',
-            total_chapters INTEGER,
-            UNIQUE(audiobook_id, locale)
+    for book_id, ch_count in _SEEDED_BOOKS.items():
+        conn.execute(
+            "INSERT OR REPLACE INTO audiobooks "
+            "(id, title, file_path, format, duration_hours, chapter_count) "
+            "VALUES (?, ?, ?, 'opus', 1.0, ?)",
+            (book_id, f"Test Book {book_id}", f"/nonexistent/book{book_id}.opus", ch_count),
         )
-        """)
     conn.commit()
     conn.close()
 
 
 @pytest.fixture
 def streaming_db(flask_app, session_temp_dir):
-    """Provide the session DB path and pre-create the translation_queue table.
+    """Provide the session DB path with seeded audiobooks rows.
 
     Re-binds ``st._db_path`` to the session DB because other test modules
     (e.g. ``test_enriched_api.py``) spin up their own Flask app with a
-    different DB and overwrite the module-level global.
+    different DB and overwrite the module-level global. Also clears the
+    process-wide chapter-count memo so stale entries from earlier tests
+    can't mask a DB miss.
     """
     db_path = session_temp_dir / "test_audiobooks.db"
     assert db_path.exists(), f"session DB missing: {db_path}"
     st._db_path = db_path
-    _init_translation_queue(db_path)
+    st._chapter_count_memo.clear()
+    _seed_audiobooks(db_path)
     yield db_path
     # Clean up rows we created so we don't pollute other tests
     conn = sqlite3.connect(str(db_path))
@@ -198,9 +204,13 @@ def streaming_db(flask_app, session_temp_dir):
     conn.execute("DELETE FROM streaming_sessions")
     conn.execute("DELETE FROM chapter_subtitles")
     conn.execute("DELETE FROM chapter_translations_audio")
-    conn.execute("DELETE FROM translation_queue")
+    conn.executemany(
+        "DELETE FROM audiobooks WHERE id = ?",
+        [(bid,) for bid in _SEEDED_BOOKS],
+    )
     conn.commit()
     conn.close()
+    st._chapter_count_memo.clear()
 
 
 class TestRequestStreamingTranslation:
@@ -225,15 +235,7 @@ class TestRequestStreamingTranslation:
         assert resp.status_code == 400
 
     def test_new_session_buffering_state(self, app_client, streaming_db):
-        # Insert a translation_queue hint so _get_chapter_count returns >0
-        conn = sqlite3.connect(str(streaming_db))
-        conn.execute(
-            "INSERT OR REPLACE INTO translation_queue "
-            "(audiobook_id, locale, total_chapters) VALUES (1, 'zh-Hans', 3)"
-        )
-        conn.commit()
-        conn.close()
-
+        # Book 1 is seeded by the fixture with chapter_count=3
         resp = app_client.post(
             "/api/translate/stream",
             json={"audiobook_id": 1, "locale": "zh-Hans", "chapter_index": 0},
@@ -264,12 +266,8 @@ class TestRequestStreamingTranslation:
         assert session_id_1 == session_id_2
 
     def test_all_cached_returns_cached_state(self, app_client, streaming_db):
-        # Pre-insert cached subtitles and audio for all chapters of book 3
+        # Book 3 is seeded by the fixture with chapter_count=2
         conn = sqlite3.connect(str(streaming_db))
-        conn.execute(
-            "INSERT INTO translation_queue (audiobook_id, locale, total_chapters) "
-            "VALUES (3, 'zh-Hans', 2)"
-        )
         for ch in range(2):
             conn.execute(
                 "INSERT INTO chapter_subtitles "

@@ -485,11 +485,11 @@ def import_audiobooks(conn):
             """
             INSERT INTO audiobooks (
                 title, author, narrator, publisher, series,
-                duration_hours, duration_formatted, file_size_mb,
+                duration_hours, duration_formatted, chapter_count, file_size_mb,
                 file_path, cover_path, format, quality, description,
                 sha256_hash, hash_verified_at, asin,
                 published_year, published_date, acquired_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             (
                 book.get("title"),
@@ -499,6 +499,7 @@ def import_audiobooks(conn):
                 book.get("series"),
                 book.get("duration_hours"),
                 book.get("duration_formatted"),
+                book.get("chapter_count"),
                 book.get("file_size_mb"),
                 file_path,
                 book.get("cover_path"),
