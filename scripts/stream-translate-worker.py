@@ -173,8 +173,13 @@ def _synthesize_segment_audio(
 
 
 def get_db(db_path: str) -> sqlite3.Connection:
-    conn = sqlite3.connect(db_path)
+    # 30s busy_timeout: absorbs transient lock contention at startup when the
+    # API server and this worker race to initialize WAL mode on the shared DB.
+    # Without this, the worker crashes on "database is locked" during a normal
+    # cold start, relying on systemd's Restart=on-failure for recovery.
+    conn = sqlite3.connect(db_path, timeout=30.0)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA busy_timeout=30000")
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
     return conn
