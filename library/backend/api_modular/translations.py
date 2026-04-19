@@ -49,6 +49,38 @@ def _run_migration(label: str, body):
             conn.close()
 
 
+def _migrate_audiobook_translations(conn):
+    """Migration 016: ensure the base audiobook_translations table exists.
+
+    New installs get this from schema.sql; older installs that predate
+    schema.sql migration 016 (or whose DB wasn't reinitialized) need this
+    idempotent CREATE to avoid downstream "no such table" failures from
+    subsequent column migrations like _migrate_series_display.
+    """
+    conn.execute("""CREATE TABLE IF NOT EXISTS audiobook_translations (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            audiobook_id INTEGER NOT NULL,
+            locale TEXT NOT NULL,
+            title TEXT,
+            author_display TEXT,
+            series_display TEXT,
+            description TEXT,
+            translator TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(audiobook_id, locale),
+            FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
+        )""")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_audiobook_translations_locale "
+        "ON audiobook_translations(locale)"
+    )
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_audiobook_translations_book "
+        "ON audiobook_translations(audiobook_id)"
+    )
+
+
 def _migrate_series_display(conn):
     """Older installs lack series_display column. SQLite has no
     ADD COLUMN IF NOT EXISTS, so we check pragma first."""
@@ -108,7 +140,10 @@ def _migrate_deepl_quota(conn):
 
 
 # Each entry: (error log label, migration callable taking a live conn).
+# Order matters — the base table must be ensured before column/index migrations
+# against it run.
 _MIGRATIONS: tuple[tuple[str, object], ...] = (
+    ("Failed to ensure audiobook_translations table", _migrate_audiobook_translations),
     ("Failed to ensure audiobook_translations.series_display column", _migrate_series_display),
     ("Failed to ensure collection_translations table", _migrate_collection_translations),
     ("Failed to ensure string_translations table", _migrate_string_translations),

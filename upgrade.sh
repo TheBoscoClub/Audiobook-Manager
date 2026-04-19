@@ -981,6 +981,41 @@ audit_and_cleanup() {
         echo -e "  ${GREEN}No orphaned systemd units found${NC}"
     fi
 
+    # --- (c2) Orphaned drop-in fragments referencing removed services ---
+    # When an orphan unit (e.g. audiobook-secrets.service) is removed in (c),
+    # any drop-in fragment under /etc/systemd/system/*.service.d/*.conf that
+    # references it via Requires=/After= will make the parent service fail to
+    # start with "Unit audiobook-secrets.service not found". Sweep drop-in
+    # dirs for any .conf that points at a removed audiobook-* unit.
+    local dropin_found=0
+    while IFS= read -r _conf; do
+        [[ -z "$_conf" ]] && continue
+        # Extract every audiobook-*.service referenced by this drop-in
+        while IFS= read -r _ref; do
+            [[ -z "$_ref" ]] && continue
+            # If the referenced unit doesn't ship in the project, the drop-in is orphaned
+            if [[ ! -f "${project_systemd_dir}/${_ref}" ]] \
+                && [[ ! -f "/etc/systemd/system/${_ref}" ]]; then
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    echo -e "  ${YELLOW}[DRY-RUN] Would remove orphan drop-in: $_conf (ref to $_ref)${NC}"
+                else
+                    $use_sudo rm -f "$_conf"
+                    echo -e "  ${GREEN}Removed orphan drop-in: $(basename "$_conf") (referenced missing $_ref)${NC}"
+                    # Best-effort: if the drop-in dir is now empty, drop it.
+                    $use_sudo rmdir "$(dirname "$_conf")" 2>/dev/null || true
+                fi
+                dropin_found=$((dropin_found + 1))
+                issues=$((issues + 1))
+                break
+            fi
+        done < <(grep -hoE 'audiobook-[a-zA-Z0-9_-]+\.service' "$_conf" 2>/dev/null | sort -u)
+    done < <(find /etc/systemd/system -maxdepth 3 -path '*.service.d/*.conf' -type f 2>/dev/null)
+    if [[ $dropin_found -eq 0 ]]; then
+        echo -e "  ${GREEN}No orphan drop-ins found${NC}"
+    else
+        $use_sudo systemctl daemon-reload 2>/dev/null || true
+    fi
+
     # --- (d) Legacy files in the app directory ---
     echo -e "${BLUE}Checking for legacy files in ${target}...${NC}"
     local legacy_files=(
@@ -2089,6 +2124,16 @@ verify_installation_permissions() {
         [[ -f "$_cert_dir/server.key" ]] && sudo chmod 640 "$_cert_dir/server.key"
         [[ -f "$_var_dir/auth.key" ]] && sudo chmod 600 "$_var_dir/auth.key"
         [[ -f "$_var_dir/auth.db" ]] && sudo chmod 640 "$_var_dir/auth.db"
+        # DB directory must be owned by audiobooks so the service can create
+        # SQLite WAL/SHM sidecar files. Without this, a drifted db/ owned by
+        # root:root under $AUDIOBOOKS_VAR_DIR silently blocks API startup with
+        # "readonly database" the first time a new migration tries to
+        # ALTER/INSERT. See QA VM 2026-04-18.
+        if [[ -d "$_var_dir/db" ]]; then
+            sudo chown audiobooks:audiobooks "$_var_dir/db"
+            sudo chmod 0750 "$_var_dir/db"
+            sudo find "$_var_dir/db" -maxdepth 1 -type f -exec chown audiobooks:audiobooks {} +
+        fi
         echo -e "${GREEN}OK${NC}"
     fi
 
