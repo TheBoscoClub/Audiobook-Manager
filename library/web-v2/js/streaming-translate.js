@@ -282,18 +282,15 @@
     if (notificationPlayed) return;
     notificationPlayed = true;
 
-    // Determine which notification clip to play
+    // Play only the locale-specific clip. No English fallback — overlapping
+    // zh-Hans + EN playback was confusing users on QA (2026-04-19). If the
+    // locale clip fails to decode or autoplay is blocked, the visual overlay
+    // already communicates "preparing translation…" — silent audio is fine.
     var audioFile = "/audio/translation-buffering-" + locale + ".mp3";
-    // Fallback to English if locale-specific file doesn't exist
     notificationAudio = new Audio(audioFile);
     notificationAudio.volume = 0.7;
     notificationAudio.play().catch(function () {
-      // Try English fallback
-      notificationAudio = new Audio("/audio/translation-buffering-en.mp3");
-      notificationAudio.volume = 0.7;
-      notificationAudio.play().catch(function () {
-        // Audio autoplay blocked — that's OK, visual overlay is enough
-      });
+      // Autoplay blocked or file unavailable — visual overlay is enough.
     });
   }
 
