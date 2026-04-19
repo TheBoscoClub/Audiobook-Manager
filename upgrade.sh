@@ -1114,6 +1114,52 @@ audit_and_cleanup() {
         echo -e "  ${GREEN}No legacy install directory found${NC}"
     fi
 
+    # --- (g) Orphaned scripts in target/scripts/ ---
+    # Mirror of section (c) for systemd units: scripts retired from the
+    # project must not survive on installed systems. Added 2026-04-19 after
+    # v8.3.2 retirement (fleet-watchdog.sh, translation-check.sh,
+    # translation-daemon.sh) left 3 files on QA because the scripts/ copy
+    # loop above uses per-file `cp` (no rsync --delete) and the legacy_files
+    # list in (d) is a hand-maintained allowlist, not a diff.
+    echo -e "${BLUE}Checking for orphaned scripts in ${target}/scripts/...${NC}"
+    local orphan_scripts=0
+    local project_scripts_dir="${PROJECT_DIR:-${SCRIPT_DIR}}/scripts"
+    # Scripts copied into target/scripts/ from project root (see
+    # "Upgrade root-level management scripts" block above). They live at
+    # PROJECT_DIR, not PROJECT_DIR/scripts, so without this allowlist the
+    # diff below would flag them as orphans on every upgrade.
+    local root_level_scripts=(upgrade.sh migrate-api.sh)
+    if [[ -d "${target}/scripts" ]] && [[ -d "${project_scripts_dir}" ]]; then
+        while IFS= read -r installed_script; do
+            [[ -z "$installed_script" ]] && continue
+            local script_name
+            script_name=$(basename "$installed_script")
+            # Allowlist scripts sourced from the project root rather than scripts/
+            local is_allowlisted=0
+            for root_script in "${root_level_scripts[@]}"; do
+                if [[ "$script_name" == "$root_script" ]]; then
+                    is_allowlisted=1
+                    break
+                fi
+            done
+            [[ $is_allowlisted -eq 1 ]] && continue
+            # If the script still ships in the project, it's current — keep it
+            if [[ ! -f "${project_scripts_dir}/${script_name}" ]]; then
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    echo -e "  ${YELLOW}[DRY-RUN] Would remove orphan script: $script_name${NC}"
+                else
+                    $use_sudo rm -f "$installed_script"
+                    echo -e "  ${GREEN}Removed orphan script: $script_name${NC}"
+                fi
+                orphan_scripts=$((orphan_scripts + 1))
+                issues=$((issues + 1))
+            fi
+        done < <(find "${target}/scripts" -maxdepth 1 -type f 2>/dev/null)
+    fi
+    if [[ $orphan_scripts -eq 0 ]]; then
+        echo -e "  ${GREEN}No orphaned scripts found${NC}"
+    fi
+
     # Summary
     echo ""
     if [[ $issues -gt 0 ]]; then
