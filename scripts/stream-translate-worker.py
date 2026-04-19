@@ -3,8 +3,10 @@
 
 Polls the streaming_segments table for pending work, processes each
 segment through STT → Translation → VTT, and reports completion back
-to the coordinator API via HTTP callbacks. Designed to run on GPU
-instances managed by translation-daemon.sh.
+to the coordinator API via HTTP callbacks. Designed to run under the
+audiobook-stream-translate.service systemd unit; inference is dispatched
+to serverless STT providers (RunPod + Vast.ai serverless) — no dedicated
+GPU host lifecycle to manage.
 
 Active chapters stream segment-by-segment (30s each) for low-latency
 playback. Prefetch chapters process as a single unit via the batch

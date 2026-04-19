@@ -29,15 +29,13 @@ Group=audiobooks
 #
 # The wrapper (stream-translate-daemon.sh) sources lib/audiobook-config.sh
 # directly, which does do shell expansion correctly — that is the canonical
-# path. Matches scripts/translation-daemon.sh + audiobook-translate.service
-# which also omit EnvironmentFile for this reason.
+# path.
 
 WorkingDirectory=/opt/audiobooks
 
 # Wrapper resolves AUDIOBOOKS_DATABASE / AUDIOBOOKS_LIBRARY / AUDIOBOOKS_VENV
 # from the canonical bash config loader (not from systemd env expansion) and
-# execs scripts/stream-translate-worker.py. Same pattern as
-# scripts/translation-daemon.sh and scripts/fleet-watchdog.sh.
+# execs scripts/stream-translate-worker.py.
 ExecStart=/opt/audiobooks/scripts/stream-translate-daemon.sh
 
 # Restart on failure; StartLimit* caps (in [Unit]) bound restart storms
@@ -49,8 +47,8 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=audiobook-stream-translate
 
-# Security hardening — matches house style used by audiobook-translate.service
-# and audiobook-converter.service. ProtectSystem=full write-protects /usr,
+# Security hardening — matches house style used by audiobook-converter.service.
+# ProtectSystem=full write-protects /usr,
 # /boot, /etc but leaves /var, /srv, and /tmp writable by default, which is
 # what the worker needs for the DB, the audiobook library, and per-segment
 # opus audio under AUDIOBOOKS_STREAMING_AUDIO_DIR. We deliberately do NOT use

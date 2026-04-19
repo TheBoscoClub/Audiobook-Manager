@@ -1,20 +1,24 @@
 #!/bin/bash
 # Audiobook Translation Management
 #
-# Unified CLI for translation pipeline control and asset transfer.
+# Unified CLI for translation queue control and asset transfer.
 #
 # Queue control:
-#   audiobook-translations status              # Show queue state + daemon status
+#   audiobook-translations status              # Show queue state + stream-translate service
 #   audiobook-translations pause               # Pause queue (finish in-progress, stop new)
 #   audiobook-translations resume              # Resume paused queue
-#   audiobook-translations start               # Start translation daemon
-#   audiobook-translations stop                # Stop translation daemon (graceful)
-#   audiobook-translations check               # Run liveness check now (don't wait for 5-min timer)
 #   audiobook-translations report [options]    # On-demand report of all completed translations
 #
 # Asset transfer:
 #   audiobook-translations export -o translations.tar.gz [--locale zh-Hans]
 #   audiobook-translations import -a translations.tar.gz
+#
+# Backlog translation work is dispatched on-demand via `scripts/batch-translate.py`
+# against serverless STT endpoints (RunPod + Vast.ai serverless) — there is no
+# dedicated translation daemon to start/stop; the queue is drained by whichever
+# process invokes batch-translate.py.
+#
+# Streaming translation runs as audiobook-stream-translate.service (always-on).
 #
 # The --db flag defaults to $AUDIOBOOKS_DATABASE from audiobooks.conf.
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
@@ -41,16 +45,10 @@ usage() {
     echo "Usage: audiobook-translations <command> [options]"
     echo ""
     echo "Queue control:"
-    echo "  status              Show translation queue state and daemon status"
-    echo "  status --watch [N]  Auto-refresh every N seconds (default 5); Ctrl+C exits"
-    echo "         --no-ensure  With --watch: don't auto-start the daemon if it's inactive"
-    echo "         --aggressive With --watch: fire the liveness check EVERY tick (override 5-min)"
-    echo "                      Interactive keys: +/- adjust interval, a toggle aggressive, q quit"
+    echo "  status              Show translation queue state and stream-translate service status"
+    echo "  status --watch [N]  Auto-refresh every N seconds (default 5); interactive keys +/-/q"
     echo "  pause     Pause queue (in-progress books finish, no new ones start)"
     echo "  resume    Resume paused translations"
-    echo "  start     Start the translation daemon"
-    echo "  stop      Stop the translation daemon gracefully"
-    echo "  check     Run the liveness check now (equivalent to firing the 5-min timer early)"
     echo "  report    On-demand report of all completed translations"
     echo "            Options: --locale LOCALE  --since DATE  --csv  --no-summary"
     echo ""
@@ -196,40 +194,23 @@ cmd_status() {
     echo "  English:  ${en_chapters:-0} chapters across ${en_books:-0} books"
     echo "  zh-Hans:  ${zh_chapters:-0} chapters across ${zh_books:-0} books"
 
-    # Daemon status
+    # Stream-translate service status (streaming playback pipeline)
     echo ""
-    echo "Daemon:"
-    if systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
+    echo "Streaming translation service:"
+    if systemctl is-active --quiet audiobook-stream-translate.service 2>/dev/null; then
         echo -e "  Service: ${GREEN}active${NC}"
         local pid
-        pid=$(systemctl show audiobook-translate.service --property=MainPID --value 2>/dev/null)
+        pid=$(systemctl show audiobook-stream-translate.service --property=MainPID --value 2>/dev/null)
         [[ -n "$pid" && "$pid" != "0" ]] && echo "  PID: $pid"
     else
         echo -e "  Service: ${YELLOW}inactive${NC}"
     fi
 
-    # Timer status. When cmd_status is called from cmd_status_watch, the env
-    # vars WATCH_TICK_INTERVAL and WATCH_MODE are set so we can annotate that
-    # --watch is short-circuiting the 5-minute systemd timer cadence.
-    if systemctl is-active --quiet audiobook-translate-check.timer 2>/dev/null; then
-        local next
-        next=$(systemctl show audiobook-translate-check.timer --property=NextElapseUSecRealtime --value 2>/dev/null)
-        echo -e "  Timer: ${GREEN}active${NC} (next scheduled: ${next:-unknown})"
-        if [[ -n "${WATCH_TICK_INTERVAL:-}" ]]; then
-            case "${WATCH_MODE:-}" in
-                aggressive)
-                    echo -e "         ${GREEN}--watch override${NC}: firing liveness check EVERY ${WATCH_TICK_INTERVAL}s (5-min timer is moot)"
-                    ;;
-                auto-ensure)
-                    echo -e "         ${GREEN}--watch override${NC}: will fire liveness check within ${WATCH_TICK_INTERVAL}s if daemon goes inactive"
-                    ;;
-                read-only)
-                    echo -e "         ${YELLOW}--watch${NC}: read-only display refresh every ${WATCH_TICK_INTERVAL}s — 5-min timer cadence unchanged"
-                    ;;
-            esac
-        fi
-    else
-        echo -e "  Timer: ${YELLOW}inactive${NC}"
+    # Note: backlog queue drainage is on-demand (scripts/batch-translate.py) —
+    # there is no always-on translation daemon to poll. WATCH_TICK_INTERVAL is
+    # informational only (display refresh cadence).
+    if [[ -n "${WATCH_TICK_INTERVAL:-}" ]]; then
+        echo -e "  ${YELLOW}--watch${NC}: display refresh every ${WATCH_TICK_INTERVAL}s"
     fi
 }
 
@@ -279,107 +260,21 @@ cmd_resume() {
 
     sq "UPDATE translation_queue SET state = 'pending' WHERE state = 'paused';"
     echo -e "${GREEN}Resumed ${paused} translations.${NC}"
-
-    # Start daemon if not running and timer is active
-    if ! systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
-        local env_file="${AUDIOBOOKS_TRANSLATION_ENV:-/etc/audiobooks/scripts/translation-env.sh}"
-        if [[ -f "$env_file" ]]; then
-            echo "Starting translation daemon..."
-            sudo systemctl start audiobook-translate.service 2>/dev/null
-            if systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
-                echo -e "${GREEN}Daemon started.${NC}"
-            else
-                echo -e "${YELLOW}Daemon not started — the 5-minute timer will pick it up, or run: audiobook-translations start${NC}"
-            fi
-        else
-            echo -e "${YELLOW}No translation config at ${env_file} — configure GPU instances first.${NC}"
-        fi
-    else
-        echo "Daemon is already running — it will pick up resumed jobs."
-    fi
-}
-
-cmd_start() {
-    if systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
-        echo "Translation daemon is already running."
-        return 0
-    fi
-
-    local env_file="${AUDIOBOOKS_TRANSLATION_ENV:-/etc/audiobooks/scripts/translation-env.sh}"
-    if [[ ! -f "$env_file" ]]; then
-        echo -e "${RED}No translation config at ${env_file}${NC}"
-        echo "Copy the example and configure your GPU instances:"
-        echo "  sudo cp ${AUDIOBOOKS_HOME}/etc/translation-env.sh.example ${env_file}"
-        exit 1
-    fi
-
-    echo "Starting translation daemon..."
-    sudo systemctl start audiobook-translate.service
-    sleep 2
-    if systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
-        echo -e "${GREEN}Translation daemon started.${NC}"
-        echo "Monitor with: journalctl -fu audiobook-translate"
-    else
-        echo -e "${RED}Failed to start translation daemon.${NC}"
-        echo "Check logs: journalctl -u audiobook-translate --no-pager -n 20"
-        exit 1
-    fi
-}
-
-cmd_stop() {
-    if ! systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
-        echo "Translation daemon is not running."
-        return 0
-    fi
-
-    echo "Stopping translation daemon (workers finish current chapter, then exit)..."
-    sudo systemctl stop audiobook-translate.service
-    echo -e "${GREEN}Translation daemon stopped.${NC}"
-
-    # Show if anything was reset
-    local pending
-    pending=$(sq "SELECT COUNT(*) FROM translation_queue WHERE state='pending';" 2>/dev/null)
-    [[ "${pending:-0}" -gt 0 ]] && echo "${pending} jobs reset to pending (will resume on next start)."
-}
-
-# Fire the liveness check service. Same codepath the 5-minute timer runs,
-# but on demand — skips the wait when you know the daemon should be moving.
-cmd_check() {
-    echo "Running translation liveness check..."
-    if sudo systemctl start audiobook-translate-check.service 2>/dev/null; then
-        if systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
-            echo -e "${GREEN}Daemon is active.${NC}"
-        else
-            echo -e "${YELLOW}Check ran but daemon is still inactive — see: journalctl -u audiobook-translate-check -n 20${NC}"
-        fi
-    else
-        echo -e "${RED}Failed to start liveness check service.${NC}"
-        exit 1
-    fi
+    echo "Run: sudo /opt/audiobooks/library/venv/bin/python /opt/audiobooks/scripts/batch-translate.py"
+    echo "     to drain pending jobs against serverless STT endpoints."
 }
 
 # Run cmd_status in a refresh loop until SIGINT. Default interval 5s; override
 # via --watch=N or -wN. Clears the screen each tick so the display doesn't
 # grow without bound; trap SIGINT so Ctrl+C exits cleanly without a traceback.
 #
-# ensure_running (default: 1): on each tick, if the daemon is inactive, fire
-# the liveness-check service so --watch self-heals a stopped daemon instead
-# of silently displaying a frozen queue. Pass 0 to opt out.
-#
-# aggressive (default: 0): fire the liveness-check on EVERY tick regardless
-# of service state. Useful when the daemon reports active but appears stalled.
-# Idempotent (oneshot) — harmless when the daemon is healthy.
-#
 # Interactive keys (via `read -t` instead of sleep):
 #   +/= : increase refresh interval by STEP seconds
 #   -/_ : decrease refresh interval by STEP seconds (floor 1s)
-#   a   : toggle aggressive mode
 #   r   : refresh immediately
 #   q   : quit
 cmd_status_watch() {
     local interval="${1:-5}"
-    local ensure_running="${2:-1}"
-    local aggressive="${3:-0}"
     local step=5
     local tick=0
     local last_ts=0
@@ -390,7 +285,7 @@ cmd_status_watch() {
         exit 1
     fi
     # Hold the controlling tty in non-canonical (cbreak) mode for the life of
-    # the loop so +/-/a/r/q are delivered to read() immediately. Bash's
+    # the loop so +/-/r/q are delivered to read() immediately. Bash's
     # `read -n1` only flips the tty while blocked in read(); keys typed during
     # the cmd_status render window sit in the line-discipline buffer and are
     # dropped. Holding cbreak across the whole loop fixes that.
@@ -411,30 +306,15 @@ cmd_status_watch() {
             observed=0
         fi
         last_ts=$now_ts
-        if [[ "$aggressive" == "1" ]]; then
-            sudo systemctl start audiobook-translate-check.service </dev/null 2>/dev/null || true
-        elif [[ "$ensure_running" == "1" ]]; then
-            if ! systemctl is-active --quiet audiobook-translate.service 2>/dev/null; then
-                sudo systemctl start audiobook-translate-check.service </dev/null 2>/dev/null || true
-            fi
-        fi
-        local mode_label
-        if [[ "$aggressive" == "1" ]]; then
-            mode_label="aggressive"
-        elif [[ "$ensure_running" == "1" ]]; then
-            mode_label="auto-ensure"
-        else
-            mode_label="read-only"
-        fi
         tput clear 2>/dev/null || clear
-        WATCH_TICK_INTERVAL="$interval" WATCH_MODE="$mode_label" cmd_status
+        WATCH_TICK_INTERVAL="$interval" cmd_status
         echo ""
         local observed_label=""
         if [[ "$observed" -gt 0 ]]; then
             observed_label=" (last tick ${observed}s ago)"
         fi
-        echo -e "${BLUE}Tick #${tick} @ $(date '+%H:%M:%S')  interval=${interval}s${observed_label}  [${mode_label}]${NC}"
-        echo -e "${BLUE}keys: +/- (±${step}s)  a=toggle aggressive  r=refresh now  q=quit${NC}"
+        echo -e "${BLUE}Tick #${tick} @ $(date '+%H:%M:%S')  interval=${interval}s${observed_label}${NC}"
+        echo -e "${BLUE}keys: +/- (±${step}s)  r=refresh now  q=quit${NC}"
         local key=""
         if read -rsn1 -t "$interval" key 2>/dev/null; then
             case "$key" in
@@ -443,7 +323,6 @@ cmd_status_watch() {
                     interval=$((interval - step))
                     [[ "$interval" -lt 1 ]] && interval=1
                     ;;
-                a | A) if [[ "$aggressive" == "1" ]]; then aggressive=0; else aggressive=1; fi ;;
                 r | R) : ;;
                 q | Q)
                     printf "\n"
@@ -604,11 +483,8 @@ EOF
 case "${1:-}" in
     status)
         shift
-        # Parse status flags: --watch [N] and --no-ensure can appear in any order.
         watch_mode=0
         watch_interval=5
-        ensure_running=1
-        aggressive=0
         while [[ $# -gt 0 ]]; do
             case "$1" in
                 -w | --watch)
@@ -622,22 +498,16 @@ case "${1:-}" in
                     watch_mode=1
                     watch_interval="${1#*=}"
                     ;;
-                --no-ensure)
-                    ensure_running=0
-                    ;;
-                --aggressive)
-                    aggressive=1
-                    ;;
                 *)
                     echo -e "${RED}Unknown option for status: $1${NC}" >&2
-                    echo "Usage: audiobook-translations status [--watch [SECONDS]] [--no-ensure] [--aggressive]"
+                    echo "Usage: audiobook-translations status [--watch [SECONDS]]"
                     exit 1
                     ;;
             esac
             shift
         done
         if [[ "$watch_mode" == "1" ]]; then
-            cmd_status_watch "$watch_interval" "$ensure_running" "$aggressive"
+            cmd_status_watch "$watch_interval"
         else
             cmd_status
         fi
@@ -647,15 +517,6 @@ case "${1:-}" in
         ;;
     resume)
         cmd_resume
-        ;;
-    start)
-        cmd_start
-        ;;
-    stop)
-        cmd_stop
-        ;;
-    check)
-        cmd_check
         ;;
     report)
         shift

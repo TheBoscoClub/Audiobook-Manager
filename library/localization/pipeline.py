@@ -27,8 +27,6 @@ from .config import (
     VASTAI_SERVERLESS_API_KEY,
     VASTAI_SERVERLESS_BACKLOG_ENDPOINT,
     VASTAI_SERVERLESS_STREAMING_ENDPOINT,
-    VASTAI_WHISPER_HOST,
-    VASTAI_WHISPER_PORT,
     WHISPER_GPU_HOST,
     WHISPER_GPU_PORT,
 )
@@ -37,7 +35,6 @@ from .selection import WorkloadHint
 from .stt.base import STTProvider, Transcript
 from .stt.local_gpu_whisper import LocalGPUWhisperSTT
 from .stt.vastai_serverless import VastaiServerlessSTT
-from .stt.vastai_whisper import VastaiWhisperSTT
 from .stt.whisper_stt import WhisperSTT
 from .subtitles.sync import align_translations
 from .subtitles.vtt_generator import VTTCue, generate_vtt
@@ -71,9 +68,10 @@ def _remote_stt_candidates(workload: WorkloadHint = WorkloadHint.ANY) -> list[ST
       (cold pool, min_workers=0) → Vast.ai serverless backlog endpoint.
       Batch work where the user isn't waiting on first-segment latency.
 
-    Legacy fallbacks (dedicated Vast.ai host, single RunPod endpoint,
-    local GPU) are appended last for deployments that haven't yet
-    migrated to the D+C endpoint pair.
+    Transitional fallbacks (single RunPod endpoint, local GPU service)
+    are appended last for deployments that haven't yet migrated to the
+    D+C endpoint pair. The dedicated Vast.ai instance path was retired
+    in v8.3.2 — serverless only.
     """
     providers: list[STTProvider] = []
 
@@ -94,11 +92,9 @@ def _remote_stt_candidates(workload: WorkloadHint = WorkloadHint.ANY) -> list[ST
                 VastaiServerlessSTT(VASTAI_SERVERLESS_API_KEY, VASTAI_SERVERLESS_BACKLOG_ENDPOINT)
             )
 
-    # Legacy fallbacks — dedicated Vast.ai host and single RunPod endpoint.
-    # These paths are retired in Phase 3 once D+C endpoints are in place on
-    # all environments, but remain callable for transition deployments.
-    if VASTAI_WHISPER_HOST:
-        providers.append(VastaiWhisperSTT(VASTAI_WHISPER_HOST, VASTAI_WHISPER_PORT))
+    # Transitional fallback — single RunPod endpoint, still serverless but
+    # non-D+C. Kept callable for deployments where only RUNPOD_WHISPER_ENDPOINT
+    # is configured.
     if RUNPOD_API_KEY and RUNPOD_WHISPER_ENDPOINT:
         providers.append(WhisperSTT(RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT))
     if WHISPER_GPU_HOST:
@@ -134,8 +130,8 @@ def get_stt_provider(
 
     Args:
         provider_name: Override — ``"local-gpu"``, ``"whisper"`` (RunPod
-            legacy), ``"vastai"`` (legacy dedicated host),
-            ``"vastai-serverless"``, ``"deepl"``, or empty for auto mode.
+            single-endpoint), ``"vastai-serverless"``, ``"deepl"``, or
+            empty for auto mode.
         workload: Hint describing the work shape. Defaults to ``ANY``.
 
     Returns:
@@ -171,8 +167,14 @@ def _stt_by_explicit_name(name: str) -> STTProvider | None:
         return None
     if name == "local":
         raise ValueError(
-            "Local CPU Whisper has been removed. Use a GPU provider "
-            "(vastai, whisper/runpod, local-gpu) or auto mode."
+            "Local CPU Whisper has been removed. Use a serverless GPU provider "
+            "(vastai-serverless, whisper/runpod, local-gpu) or auto mode."
+        )
+    if name == "vastai":
+        raise ValueError(
+            "Dedicated Vast.ai Whisper instances were retired in v8.3.2. "
+            "Use 'vastai-serverless' instead and configure "
+            "AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY + a STREAMING/BACKLOG endpoint."
         )
     if name == "local-gpu":
         return LocalGPUWhisperSTT(WHISPER_GPU_HOST, WHISPER_GPU_PORT)
@@ -182,12 +184,6 @@ def _stt_by_explicit_name(name: str) -> STTProvider | None:
         raise ValueError(
             "RunPod Whisper requested but AUDIOBOOKS_RUNPOD_API_KEY / "
             "AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT not configured"
-        )
-    if name == "vastai":
-        if VASTAI_WHISPER_HOST:
-            return VastaiWhisperSTT(VASTAI_WHISPER_HOST, VASTAI_WHISPER_PORT)
-        raise ValueError(
-            "Vast.ai Whisper requested but AUDIOBOOKS_VASTAI_WHISPER_HOST not configured"
         )
     if name == "vastai-serverless":
         # Prefer streaming endpoint when both are set; fall back to backlog.

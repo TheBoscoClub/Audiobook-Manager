@@ -161,30 +161,51 @@ DeepL handles all text translation (UI strings, book metadata, subtitle text).
 
 **Note**: DeepL also offers an STT service, but it is NOT recommended for audiobooks because it rejects audio files larger than 100 MB. Most audiobook chapters exceed this limit.
 
-### Vast.ai (GPU for Whisper STT and XTTS TTS)
+### Serverless Whisper STT (RunPod and Vast.ai — peer providers)
 
-Vast.ai is a peer-to-peer GPU marketplace where you rent dedicated GPU instances. It provides the most reliable throughput for long-form audiobook transcription and voice-cloned narration.
+STT runs through serverless Whisper endpoints at RunPod and/or Vast.ai. Either (or both) may be configured — they are peers, not primary+fallback. Endpoints scale to zero automatically, so idle cost on cold pools is $0. For the full operator reference, see `docs/SERVERLESS-OPS.md`.
 
-1. **Sign up** at [vast.ai](https://vast.ai/) and add credits ($5-10 minimum to start).
+The pipeline uses a **D+C endpoint split**: a STREAMING pool (warm, `min_workers>=1`) for per-segment playback translation, and a BACKLOG pool (cold, `min_workers=0`) for batch chapter translation. Create both per provider in the provider dashboard.
 
-2. **Find and rent a GPU instance**:
-   - Search the marketplace for instances with a Whisper-compatible Docker image
-   - Look for GPUs with at least 8 GB VRAM (RTX 3090, A100, A40, etc.)
-   - Typical cost: $0.20-0.50/hour depending on GPU model
+1. **Sign up** at [runpod.io](https://www.runpod.io/) and/or [vast.ai](https://vast.ai/) and add credits.
 
-3. **Configure Whisper (STT)**:
+2. **Deploy the endpoint pairs** (Whisper / `faster-whisper` template, `large-v3` model):
+   - **STREAMING**: `min_workers=1` — always-warm worker for live playback
+   - **BACKLOG**: `min_workers=0` — scale-to-zero for chapter batch runs
 
-   Once your instance is running, note its IP address and port, then add to `~/.config/api-keys.env` or `/etc/audiobooks/audiobooks.conf`:
+3. **Configure API keys** in `~/.config/api-keys.env`:
 
    ```bash
-   # Vast.ai — Whisper STT GPU instance
-   AUDIOBOOKS_VASTAI_WHISPER_HOST=203.0.113.42
-   AUDIOBOOKS_VASTAI_WHISPER_PORT=8000
+   # RunPod — serverless API key
+   AUDIOBOOKS_RUNPOD_API_KEY=your-runpod-api-key
+
+   # Vast.ai — serverless (NOT console) API key
+   AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY=your-vastai-serverless-api-key
    ```
 
-4. **Configure XTTS (TTS, optional)**:
+4. **Configure endpoint IDs** in `~/.config/api-keys.env` or `/etc/audiobooks/audiobooks.conf`:
 
-   If you want voice-cloned narration (preserves the original narrator's voice), deploy an XTTS instance:
+   ```bash
+   # RunPod serverless Whisper endpoints
+   AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT=your-streaming-endpoint-id
+   AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT=your-backlog-endpoint-id
+
+   # Vast.ai serverless Whisper endpoints
+   AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT=your-streaming-endpoint-id
+   AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT=your-backlog-endpoint-id
+   ```
+
+   Configure one provider, the other, or both. The pipeline tries configured providers in order and falls through on transient failure.
+
+5. **Cost**: Approximately $0.00026/second of GPU time on RunPod; Vast.ai pricing is comparable. STREAMING pools at `min_workers=1` incur a small ongoing hourly cost for the resident worker; BACKLOG pools at `min_workers=0` are $0 while idle. Cold starts on BACKLOG add 10-30 seconds of latency on the first request after a period of inactivity — acceptable for batch work, which is why streaming uses a warm pool.
+
+### Vast.ai XTTS (Voice-Cloning TTS)
+
+Voice-cloned narration via XTTS remains on a dedicated Vast.ai GPU instance (this is a separate, self-hosted TTS server and is unrelated to the retired dedicated-Whisper path).
+
+1. **Rent an XTTS-capable GPU** on [vast.ai](https://vast.ai/) and note its IP/port.
+
+2. **Configure**:
 
    ```bash
    # Vast.ai — XTTS voice cloning GPU instance
@@ -192,31 +213,15 @@ Vast.ai is a peer-to-peer GPU marketplace where you rent dedicated GPU instances
    AUDIOBOOKS_VASTAI_XTTS_PORT=8020
    ```
 
-5. **IMPORTANT: Shut down instances when not in use.** GPU rental is per-hour. An idle RTX 3090 at $0.30/hour costs $7.20/day or $216/month if left running. Start instances before a translation batch, shut them down when done.
+3. **IMPORTANT: Shut down the XTTS instance when not in use.** GPU rental is per-hour. An idle RTX 3090 at $0.30/hour costs $7.20/day or $216/month if left running.
 
-### RunPod (Serverless GPU)
+### Optional RunPod XTTS endpoint
 
-RunPod offers serverless GPU endpoints that scale to zero -- you only pay for actual compute time, with no idle charges. Good for burst or occasional workloads.
+RunPod also offers a serverless XTTS path for voice cloning:
 
-1. **Sign up** at [runpod.io](https://www.runpod.io/) and add credits.
-
-2. **Deploy a Whisper serverless endpoint** from the RunPod template marketplace.
-
-3. **Configure**:
-
-   ```bash
-   # RunPod — API key and serverless endpoint IDs
-   AUDIOBOOKS_RUNPOD_API_KEY=your-runpod-api-key
-   AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT=your-whisper-endpoint-id
-   ```
-
-4. **Optional XTTS endpoint** (for voice-cloned narration):
-
-   ```bash
-   AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT=your-xtts-endpoint-id
-   ```
-
-5. **Cost**: Approximately $0.00026/second of GPU time. Serverless cold starts add 10-30 seconds of latency on the first request after a period of inactivity.
+```bash
+AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT=your-xtts-endpoint-id
+```
 
 ### Local GPU (Optional)
 
@@ -289,7 +294,7 @@ All localization settings are environment variables, read from `/etc/audiobooks/
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AUDIOBOOKS_STT_PROVIDER` | `auto` | Provider selection: `auto`, `whisper`, or `deepl`. Auto selects based on workload and provider availability. |
+| `AUDIOBOOKS_STT_PROVIDER` | `auto` | Provider selection: `auto`, `whisper` (RunPod single-endpoint transitional path), `vastai-serverless`, `local-gpu`, or `deepl`. Auto is the default and dispatches via workload hint (STREAMING vs BACKLOG) across configured serverless providers. |
 
 ### TTS (Text-to-Speech)
 
@@ -311,16 +316,19 @@ edge-tts --list-voices
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AUDIOBOOKS_DEEPL_API_KEY` | (none) | DeepL API authentication key |
-| `AUDIOBOOKS_RUNPOD_API_KEY` | (none) | RunPod API key |
+| `AUDIOBOOKS_RUNPOD_API_KEY` | (none) | RunPod serverless API key |
+| `AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY` | (none) | Vast.ai serverless API key |
 
 ### Provider Endpoints
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT` | (none) | RunPod serverless Whisper endpoint ID |
+| `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT` | (none) | RunPod warm (`min_workers>=1`) Whisper endpoint — streaming playback |
+| `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT` | (none) | RunPod cold (`min_workers=0`) Whisper endpoint — batch backfill |
+| `AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT` | (none) | Vast.ai warm Whisper endpoint — streaming playback |
+| `AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT` | (none) | Vast.ai cold Whisper endpoint — batch backfill |
+| `AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT` | (none) | Transitional single-endpoint RunPod fallback — unset once D+C pair is configured |
 | `AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT` | (none) | RunPod serverless XTTS endpoint ID |
-| `AUDIOBOOKS_VASTAI_WHISPER_HOST` | (none) | Vast.ai Whisper instance IP/hostname |
-| `AUDIOBOOKS_VASTAI_WHISPER_PORT` | `8000` | Vast.ai Whisper instance port |
 | `AUDIOBOOKS_VASTAI_XTTS_HOST` | (none) | Vast.ai XTTS instance IP/hostname |
 | `AUDIOBOOKS_VASTAI_XTTS_PORT` | `8020` | Vast.ai XTTS instance port |
 | `AUDIOBOOKS_WHISPER_GPU_HOST` | (none) | Local GPU Whisper service host (unset disables local-GPU path) |

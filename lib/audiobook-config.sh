@@ -80,7 +80,9 @@ fi
 _load_config_file "/etc/audiobooks/audiobooks.conf"
 
 # User config second (overrides system)
-_load_config_file "${HOME}/.config/audiobooks/audiobooks.conf"
+# HOME may be unset in system-context systemd services; guard against set -u.
+# If HOME is empty, _load_config_file returns 0 on missing path — harmless.
+_load_config_file "${HOME:-}/.config/audiobooks/audiobooks.conf"
 
 # Legacy config.env in project root (for backwards compatibility)
 [[ -n "${AUDIOBOOKS_HOME:-}" ]] && _load_config_file "${AUDIOBOOKS_HOME}/config.env"

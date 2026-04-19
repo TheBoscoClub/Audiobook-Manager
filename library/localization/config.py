@@ -39,10 +39,6 @@ VASTAI_SERVERLESS_BACKLOG_ENDPOINT = os.environ.get(
     "AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT", ""
 )
 
-# Vast.ai Whisper server (legacy dedicated-instance path — retired in Phase 3)
-VASTAI_WHISPER_HOST = os.environ.get("AUDIOBOOKS_VASTAI_WHISPER_HOST", "")
-VASTAI_WHISPER_PORT = int(os.environ.get("AUDIOBOOKS_VASTAI_WHISPER_PORT", "8000"))
-
 # Local GPU Whisper service — host and port of the optional whisper-gpu
 # systemd service (see extras/whisper-gpu/). Unset by default; installers
 # who set up the service configure the reachable host/port themselves.

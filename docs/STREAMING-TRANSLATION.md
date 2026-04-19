@@ -32,12 +32,13 @@ gradually fill the cache, and batch fills the rest during idle time.
 
 When the app opens and the user's locale is not English, the frontend sends
 `POST /api/translate/warmup`. This writes a hint to the database so the
-translation daemon can proactively provision a Whisper STT GPU worker on one
-of the peer GPU providers (Vast.ai or RunPod — selected per availability and
-price, not a primary/fallback pair), reducing cold-start latency from ~60
-seconds to near-zero. See `docs/GPU-FLEET-OPS.md` for the dual-provider
-topology and the warmup-expiry (15 min) / stuck-segment-reclaim (10 min)
-contracts that govern the fleet.
+streaming worker can dispatch a priming request to the STREAMING serverless
+endpoint pool (RunPod and/or Vast.ai — peer providers, selected per
+availability and price, not a primary/fallback pair). STREAMING endpoints run
+with `min_workers>=1`, so a worker is already resident; the warmup ping
+verifies connectivity and reduces first-segment latency further. See
+`docs/SERVERLESS-OPS.md` for the dual-provider D+C topology and the
+warmup-expiry (15 min) / stuck-segment-reclaim (10 min) contracts.
 
 ### Phase 2 — Press Play
 
@@ -206,7 +207,8 @@ one.
 │  │  → POST /api/translate/segment-complete                 │      │
 │  └─────────────────────────────────────────────────────────┘      │
 │                                                                    │
-│  Runs on: Vast.ai AND/OR RunPod (peer providers) — or self-hosted  │
+│  Dispatches to: RunPod AND/OR Vast.ai serverless STREAMING         │
+│  endpoints (peer providers) — or self-hosted whisper-gpu service   │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -286,32 +288,24 @@ only the semantics of each tier shifted in v8.3.2 from "chapter role" to
 
 ## Controlling Batch Translation
 
-The batch pipeline is independent and controllable:
-
-**Automatic mode** (default): The `audiobook-translate-check.timer` fires every
-5 minutes. It queries `translation_queue` for pending rows. If any exist and the
-daemon is not running, it starts `audiobook-translate.service`, which provisions
-GPU instances, processes the queue, tears down GPUs, and exits.
-
-**Manual mode**: Disable the timer to stop auto-processing:
+The batch pipeline is independent and runs against the BACKLOG serverless
+endpoint pool (cold, `min_workers=0`). Dispatch happens inline from the API
+and via `scripts/batch-translate.py`, which reads `translation_queue` and
+processes pending rows chapter-at-a-time.
 
 ```bash
-# Stop automatic batch translation
-sudo systemctl stop audiobook-translate-check.timer
-
-# Start a batch run at any time
-sudo systemctl start audiobook-translate.service
-
-# Re-enable automatic mode
-sudo systemctl start audiobook-translate-check.timer
+# Run a one-shot batch pass over pending queue rows
+sudo -u audiobooks /opt/audiobooks/library/venv/bin/python \
+    /opt/audiobooks/scripts/batch-translate.py
 ```
 
-The daemon manages the full GPU lifecycle — instances spin up on start and tear
-down when the queue empties. You are billed only for GPU hours consumed.
+No GPU lifecycle to manage — serverless endpoints scale to zero on their own,
+so you are billed only for chapters actually translated. Idle cost is $0 on
+BACKLOG pools.
 
-**Wedge detection**: If a worker stops making progress for 60 minutes (e.g.,
-crashed SSH tunnel), `translation-check.sh` detects the stale heartbeat, restarts
-the daemon, and resets stuck rows to `pending`.
+**Wedge detection**: `streaming_segments` rows stuck in `processing` for more
+than 10 minutes are reclaimed by the streaming worker on its next poll.
+Batch-side stuck rows are reset to `pending` by the API reconcile loop.
 
 ## Files
 
@@ -321,13 +315,11 @@ the daemon, and resets stuck rows to `pending`.
 | `library/web-v2/js/streaming-translate.js` | Frontend state machine |
 | `library/web-v2/css/shell.css` | Buffering overlay styles |
 | `library/web-v2/shell.html` | Overlay markup |
-| `scripts/stream-translate-worker.py` | GPU worker (segment processing) |
-| `scripts/translation-daemon.sh` | Batch daemon (GPU lifecycle) |
-| `scripts/batch-translate.py` | Batch worker (chapter processing) |
-| `scripts/translation-check.sh` | Timer-driven batch starter |
-| `systemd/audiobook-translate.service` | Batch daemon service unit |
-| `systemd/audiobook-translate-check.timer` | 5-minute batch check timer |
-| `library/localization/pipeline.py` | Shared STT → translate → VTT pipeline |
+| `scripts/stream-translate-worker.py` | Streaming GPU worker (segment processing, STREAMING endpoint pool) |
+| `scripts/stream-translate-daemon.sh` | Long-running wrapper for the streaming worker |
+| `scripts/batch-translate.py` | Batch worker (chapter processing, BACKLOG endpoint pool) |
+| `systemd/audiobook-stream-translate.service` | Streaming worker service unit |
+| `library/localization/pipeline.py` | Shared STT → translate → VTT pipeline (`_remote_stt_candidates` dispatches STREAMING vs BACKLOG) |
 | `library/web-v2/audio/translation-buffering-*.mp3` | Localized notification clips |
 
 ## Database Schema (Migration 004)

@@ -42,7 +42,7 @@ See `VERSION` file. User/group: `audiobooks:audiobooks`
 | MULTI-LANGUAGE-SETUP.md | `./docs/MULTI-LANGUAGE-SETUP.md` |
 | STREAMING-TRANSLATION.md | `./docs/STREAMING-TRANSLATION.md` |
 | STREAMING-TRANSLATION.zh-Hans.md | `./docs/STREAMING-TRANSLATION.zh-Hans.md` |
-| GPU-FLEET-OPS.md | `./docs/GPU-FLEET-OPS.md` |
+| SERVERLESS-OPS.md | `./docs/SERVERLESS-OPS.md` |
 | CONTRIBUTING.md | `./CONTRIBUTING.md` |
 
 ## Future Improvements

@@ -72,12 +72,7 @@ CANONICAL_UNITS=(
     "audiobook-shutdown-saver.service"
     "audiobook-upgrade-helper.service"
     "audiobook-upgrade-helper.path"
-    "audiobook-translate.service"
-    "audiobook-translate-check.service"
-    "audiobook-translate-check.timer"
     "audiobook-stream-translate.service"
-    "audiobook-fleet-watchdog.service"
-    "audiobook-fleet-watchdog.timer"
 )
 
 # ---------------------------------------------------------------------------
@@ -91,8 +86,6 @@ CANONICAL_UNITS=(
 # ---------------------------------------------------------------------------
 CANONICAL_WORKERS=(
     "stream-translate-worker.py|audiobook-stream-translate.service (via stream-translate-daemon.sh)"
-    "translation-daemon.sh|audiobook-translate.service"
-    "fleet-watchdog.sh|audiobook-fleet-watchdog.service"
     "stream-translate-daemon.sh|audiobook-stream-translate.service"
 )
 

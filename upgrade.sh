@@ -844,14 +844,12 @@ enable_new_services() {
     #   2. Standalone timers that fire outside audiobook.target but ship with
     #      the project and must be enabled for scheduled work:
     #      - audiobook-enrichment.timer (metadata enrichment)
-    #      - audiobook-translate-check.timer (batch translation scheduling)
-    #      - audiobook-fleet-watchdog.timer (GPU fleet health + stuck-segment reclaim)
     #
     # Historical bug (v8.3.1 → 8.3.2 QA): this function was gated on
-    # MAJOR_VERSION=true, so patch upgrades shipped new units (stream-translate,
-    # fleet-watchdog, translate-check) that never got enabled. After host reboot,
-    # qalib.thebosco.club returned Cloudflare 502 because nothing started at
-    # boot. The gate has been removed; the function now runs on every upgrade.
+    # MAJOR_VERSION=true, so patch upgrades shipped new units (stream-translate)
+    # that never got enabled. After host reboot, qalib.thebosco.club returned
+    # Cloudflare 502 because nothing started at boot. The gate has been
+    # removed; the function now runs on every upgrade.
     #
     # The explicit reference to audiobook-stream-translate.service is required
     # by library/tests/test_stream_translate_wiring.py to guard against the
@@ -892,8 +890,6 @@ enable_new_services() {
     #     targets (shutdown-saver). Must be enabled explicitly.
     local standalone_units=(
         audiobook-enrichment.timer       # backfill un-enriched metadata
-        audiobook-translate-check.timer  # batch translation scheduling
-        audiobook-fleet-watchdog.timer   # GPU health + stuck-segment reclaim
         audiobook-shutdown-saver.service # saves tmpfs staging before reboot/halt
     )
     for unit in "${standalone_units[@]}"; do
@@ -1490,36 +1486,6 @@ do_upgrade() {
                 sudo rsync "${rsync_args[@]}" "${project}/converter/" "$target/converter/"
             else
                 rsync "${rsync_args[@]}" "${project}/converter/" "$target/converter/"
-            fi
-        fi
-    fi
-
-    # Sync /etc/audiobooks/scripts/translation-env.sh from the project's
-    # example if it's missing on the target. This closes the QA/prod drift
-    # where audiobook-translate.service could not start because the GPU
-    # provider token file was never provisioned by install.sh (it only
-    # shipped translation-env.sh.example) nor by earlier upgrade.sh (which
-    # didn't touch /etc/audiobooks at all).
-    #
-    # Never overwrite an existing translation-env.sh — operator credentials
-    # must be preserved across upgrades.
-    local _etc_scripts_dir="${AUDIOBOOKS_CONFIG_DIR:-/etc/audiobooks}/scripts"
-    local _tenv_example="${project}/etc/translation-env.sh.example"
-    if [[ -f "$_tenv_example" && -d "$_etc_scripts_dir" ]]; then
-        if [[ "$DRY_RUN" == "true" ]]; then
-            if [[ ! -f "$_etc_scripts_dir/translation-env.sh" ]]; then
-                echo "  [DRY-RUN] Would seed $_etc_scripts_dir/translation-env.sh from example"
-            fi
-            echo "  [DRY-RUN] Would refresh $_etc_scripts_dir/translation-env.sh.example"
-        else
-            $use_sudo install -m 0644 -o root -g root \
-                "$_tenv_example" \
-                "$_etc_scripts_dir/translation-env.sh.example"
-            if [[ ! -f "$_etc_scripts_dir/translation-env.sh" ]]; then
-                $use_sudo install -m 0640 -o audiobooks -g audiobooks \
-                    "$_tenv_example" \
-                    "$_etc_scripts_dir/translation-env.sh"
-                echo -e "${YELLOW}  Seeded $_etc_scripts_dir/translation-env.sh from example — edit with GPU provider tokens${NC}"
             fi
         fi
     fi

@@ -76,7 +76,6 @@ class TestParseArgs:
         assert not args.stt_only
         assert not args.tts_only
         assert args.book_id is None
-        assert args.vastai_host is None
 
     def test_all_optional_flags(self):
         with patch(
@@ -92,8 +91,6 @@ class TestParseArgs:
                 "--dry-run",
                 "--stt-only",
                 "--tts-only",
-                "--vastai-host",
-                "10.0.0.1:8100",
             ],
         ):
             args = bt._parse_args()
@@ -101,7 +98,6 @@ class TestParseArgs:
         assert args.dry_run
         assert args.stt_only
         assert args.tts_only
-        assert args.vastai_host == "10.0.0.1:8100"
 
 
 # ---------------------------------------------------------------------------
@@ -110,29 +106,16 @@ class TestParseArgs:
 
 
 class TestConfigureEnv:
-    def test_vastai_host_sets_env(self, monkeypatch):
-        # Clear keys so setdefault behaves predictably
-        for k in ["AUDIOBOOKS_VASTAI_WHISPER_HOST", "AUDIOBOOKS_VASTAI_WHISPER_PORT"]:
-            monkeypatch.delenv(k, raising=False)
-
-        with patch(
-            "sys.argv",
-            ["bt", "--db", "/x.db", "--library", "/lib", "--vastai-host", "1.2.3.4:9000"],
-        ):
-            args = bt._parse_args()
-        bt._configure_env(args)
-        assert os.environ["AUDIOBOOKS_VASTAI_WHISPER_HOST"] == "1.2.3.4"
-        assert os.environ["AUDIOBOOKS_VASTAI_WHISPER_PORT"] == "9000"
-
-    def test_default_env_without_vastai(self, monkeypatch):
-        for k in ["AUDIOBOOKS_VASTAI_WHISPER_HOST", "AUDIOBOOKS_VASTAI_WHISPER_PORT"]:
+    def test_default_env_sets_whisper_gpu_defaults(self, monkeypatch):
+        """_configure_env sets defaults for AUDIOBOOKS_WHISPER_GPU_* vars."""
+        for k in ["AUDIOBOOKS_WHISPER_GPU_HOST", "AUDIOBOOKS_WHISPER_GPU_PORT"]:
             monkeypatch.delenv(k, raising=False)
 
         with patch("sys.argv", ["bt", "--db", "/x.db", "--library", "/lib"]):
             args = bt._parse_args()
         bt._configure_env(args)
-        assert os.environ.get("AUDIOBOOKS_VASTAI_WHISPER_HOST") == "127.0.0.1"
-        assert os.environ.get("AUDIOBOOKS_VASTAI_WHISPER_PORT") == "8100"
+        assert os.environ.get("AUDIOBOOKS_WHISPER_GPU_HOST") == "127.0.0.1"
+        assert os.environ.get("AUDIOBOOKS_WHISPER_GPU_PORT") == "8765"
 
 
 # ---------------------------------------------------------------------------

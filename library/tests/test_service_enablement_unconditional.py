@@ -2,18 +2,17 @@
 
 Root cause: ``upgrade.sh`` gated ``enable_new_services()`` on
 ``MAJOR_VERSION=true`` so patch upgrades (8.3.1 -> 8.3.2) shipped new
-systemd units (stream-translate, fleet-watchdog, translate-check) that
-were never enabled. After host reboot, ``qalib.thebosco.club`` returned
-Cloudflare 502 because nothing started at boot.
+systemd units (stream-translate) that were never enabled. After host
+reboot, ``qalib.thebosco.club`` returned Cloudflare 502 because nothing
+started at boot.
 
 These tests enforce two invariants going forward:
 
 1. ``upgrade.sh::enable_new_services`` is invoked unconditionally
    (no MAJOR_VERSION / is_major conditional guarding the call).
 2. Both ``install.sh`` and ``upgrade.sh`` enable the full canonical
-   audiobook unit set, including standalone timers (enrichment,
-   translate-check, fleet-watchdog) that are NOT declared in
-   ``audiobook.target``'s ``Wants=`` lines.
+   audiobook unit set, including standalone timers (enrichment) that
+   are NOT declared in ``audiobook.target``'s ``Wants=`` lines.
 """
 
 import re
@@ -37,8 +36,6 @@ TARGET_WANTED_SERVICES = (
 
 STANDALONE_UNITS = (
     "audiobook-enrichment.timer",
-    "audiobook-translate-check.timer",
-    "audiobook-fleet-watchdog.timer",
     "audiobook-shutdown-saver.service",
 )
 

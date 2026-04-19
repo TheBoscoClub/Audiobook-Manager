@@ -1390,23 +1390,6 @@ do_system_install() {
     sudo ln -sfn "${APP_DIR}/lib" "/usr/local/lib/audiobooks"
     sudo cp "${SCRIPT_DIR}/etc/audiobooks.conf.example" "${CONFIG_DIR}/"
 
-    # Install translation environment — keep the example for reference, and
-    # seed the actual translation-env.sh (0640 audiobooks:audiobooks) from it
-    # if missing, so audiobook-translate.service / streaming workers can source
-    # GPU provider tokens. Never overwrite an existing translation-env.sh.
-    if [[ -f "${SCRIPT_DIR}/etc/translation-env.sh.example" ]]; then
-        sudo install -m 0644 -o root -g root \
-            "${SCRIPT_DIR}/etc/translation-env.sh.example" \
-            "${CONFIG_DIR}/scripts/translation-env.sh.example"
-        if [[ ! -f "${CONFIG_DIR}/scripts/translation-env.sh" ]]; then
-            sudo install -m 0640 -o audiobooks -g audiobooks \
-                "${SCRIPT_DIR}/etc/translation-env.sh.example" \
-                "${CONFIG_DIR}/scripts/translation-env.sh"
-            echo -e "${YELLOW}Installed ${CONFIG_DIR}/scripts/translation-env.sh from example.${NC}"
-            echo -e "${YELLOW}Edit it with your Vast.ai / RunPod API tokens before starting audiobook-translate.service.${NC}"
-        fi
-    fi
-
     # Create config file if it doesn't exist
     if [[ ! -f "${CONFIG_DIR}/audiobooks.conf" ]]; then
         echo -e "${BLUE}Creating configuration file...${NC}"
@@ -1752,7 +1735,7 @@ EOF
         # audiobook-shutdown-saver.service hooks halt/reboot/shutdown targets
         # and must be enabled so tmpfs staging is flushed on clean shutdown.
         sudo systemctl enable audiobook.target 2>/dev/null || true
-        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer audiobook-translate-check.timer audiobook-stream-translate audiobook-fleet-watchdog.timer audiobook-shutdown-saver.service; do
+        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer audiobook-stream-translate audiobook-shutdown-saver.service; do
             sudo systemctl enable "$svc" 2>/dev/null || true
         done
         # Explicit enable for streaming translation worker (belt-and-suspenders
@@ -1948,22 +1931,6 @@ do_user_install() {
     cp -r "${SCRIPT_DIR}/lib" "${LIB_DIR}/"
     [[ -d "${SCRIPT_DIR}/converter" ]] && cp -r "${SCRIPT_DIR}/converter" "${LIB_DIR}/"
     cp "${SCRIPT_DIR}/etc/audiobooks.conf.example" "${CONFIG_DIR}/"
-
-    # Install translation environment — example for reference + real file
-    # seeded from it if missing. Real file is 0640 audiobooks:audiobooks so
-    # the service account can source GPU provider tokens. Never overwrite an
-    # existing translation-env.sh.
-    if [[ -f "${SCRIPT_DIR}/etc/translation-env.sh.example" ]]; then
-        install -m 0644 -o root -g root \
-            "${SCRIPT_DIR}/etc/translation-env.sh.example" \
-            "${CONFIG_DIR}/scripts/translation-env.sh.example"
-        if [[ ! -f "${CONFIG_DIR}/scripts/translation-env.sh" ]]; then
-            install -m 0640 -o audiobooks -g audiobooks \
-                "${SCRIPT_DIR}/etc/translation-env.sh.example" \
-                "${CONFIG_DIR}/scripts/translation-env.sh"
-            echo "  Seeded ${CONFIG_DIR}/scripts/translation-env.sh (edit with your GPU provider tokens)"
-        fi
-    fi
 
     # Install VERSION file
     if [[ -f "${SCRIPT_DIR}/VERSION" ]]; then

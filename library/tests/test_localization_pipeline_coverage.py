@@ -11,8 +11,9 @@ Intent:
   sidecar-fallback paths, plus ``split_chapter`` success and failure.
 - Cover ``whisper_stt.WhisperSTT`` construction, supports_language, and the
   RunPod submit → poll → parse flow using mocked HTTP.
-- Cover ``vastai_whisper.VastaiWhisperSTT`` parse helpers + the URL-vs-host
-  constructor branching.
+- Cover ``vastai_serverless.VastaiServerlessSTT`` two-step dispatch (router
+  POST → worker POST) and parse helpers. The legacy dedicated-instance
+  ``vastai_whisper`` module was retired in v8.3.2.
 
 Everything here is network-free — each test patches subprocess / requests
 before invoking the module under test.
@@ -294,12 +295,12 @@ class TestStemAndProviders:
                 with pytest.raises(ValueError, match="RunPod Whisper requested"):
                     mod._stt_by_explicit_name("whisper")
 
-    def test_stt_by_explicit_name_vastai_missing_host_raises(self):
+    def test_stt_by_explicit_name_vastai_raises_retirement_error(self):
+        """`vastai` (dedicated instance) is retired — always raises, regardless of config."""
         from localization import pipeline as mod
 
-        with patch.object(mod, "VASTAI_WHISPER_HOST", ""):
-            with pytest.raises(ValueError, match="Vast.ai Whisper requested"):
-                mod._stt_by_explicit_name("vastai")
+        with pytest.raises(ValueError, match="retired in v8.3.2"):
+            mod._stt_by_explicit_name("vastai")
 
     def test_stt_by_explicit_name_local_gpu_returns_provider(self):
         from localization import pipeline as mod
@@ -319,7 +320,6 @@ class TestStemAndProviders:
         from localization import pipeline as mod
 
         with (
-            patch.object(mod, "VASTAI_WHISPER_HOST", ""),
             patch.object(mod, "RUNPOD_API_KEY", ""),
             patch.object(mod, "RUNPOD_WHISPER_ENDPOINT", ""),
             patch.object(mod, "WHISPER_GPU_HOST", ""),
@@ -340,25 +340,10 @@ class TestStemAndProviders:
             chosen = mod.get_stt_provider()
         assert chosen is fake
 
-    def test_remote_stt_candidates_vastai_only(self):
-        from localization import pipeline as mod
-
-        with (
-            patch.object(mod, "VASTAI_WHISPER_HOST", "vastai.example"),
-            patch.object(mod, "VASTAI_WHISPER_PORT", 8000),
-            patch.object(mod, "RUNPOD_API_KEY", ""),
-            patch.object(mod, "RUNPOD_WHISPER_ENDPOINT", ""),
-            patch.object(mod, "WHISPER_GPU_HOST", ""),
-        ):
-            result = mod._remote_stt_candidates()
-        assert len(result) == 1
-        assert result[0].name == "vastai-whisper"
-
     def test_remote_stt_candidates_runpod_only(self):
         from localization import pipeline as mod
 
         with (
-            patch.object(mod, "VASTAI_WHISPER_HOST", ""),
             patch.object(mod, "RUNPOD_API_KEY", "k"),
             patch.object(mod, "RUNPOD_WHISPER_ENDPOINT", "e"),
             patch.object(mod, "WHISPER_GPU_HOST", ""),
@@ -371,7 +356,6 @@ class TestStemAndProviders:
         from localization import pipeline as mod
 
         with (
-            patch.object(mod, "VASTAI_WHISPER_HOST", ""),
             patch.object(mod, "RUNPOD_API_KEY", ""),
             patch.object(mod, "RUNPOD_WHISPER_ENDPOINT", ""),
             patch.object(mod, "WHISPER_GPU_HOST", "gpu.local"),
@@ -393,7 +377,6 @@ class TestStemAndProviders:
             patch.object(mod, "VASTAI_SERVERLESS_API_KEY", "vk"),
             patch.object(mod, "VASTAI_SERVERLESS_STREAMING_ENDPOINT", "vast-stream"),
             patch.object(mod, "VASTAI_SERVERLESS_BACKLOG_ENDPOINT", "vast-backlog"),
-            patch.object(mod, "VASTAI_WHISPER_HOST", ""),
             patch.object(mod, "RUNPOD_WHISPER_ENDPOINT", ""),
             patch.object(mod, "WHISPER_GPU_HOST", ""),
         ):
@@ -417,7 +400,6 @@ class TestStemAndProviders:
             patch.object(mod, "VASTAI_SERVERLESS_API_KEY", "vk"),
             patch.object(mod, "VASTAI_SERVERLESS_STREAMING_ENDPOINT", "vast-stream"),
             patch.object(mod, "VASTAI_SERVERLESS_BACKLOG_ENDPOINT", "vast-backlog"),
-            patch.object(mod, "VASTAI_WHISPER_HOST", ""),
             patch.object(mod, "RUNPOD_WHISPER_ENDPOINT", ""),
             patch.object(mod, "WHISPER_GPU_HOST", ""),
         ):
@@ -437,7 +419,6 @@ class TestStemAndProviders:
             patch.object(mod, "RUNPOD_STREAMING_WHISPER_ENDPOINT", "stream-ep"),
             patch.object(mod, "RUNPOD_BACKLOG_WHISPER_ENDPOINT", "backlog-ep"),
             patch.object(mod, "VASTAI_SERVERLESS_API_KEY", ""),
-            patch.object(mod, "VASTAI_WHISPER_HOST", ""),
             patch.object(mod, "RUNPOD_WHISPER_ENDPOINT", ""),
             patch.object(mod, "WHISPER_GPU_HOST", ""),
         ):
@@ -955,123 +936,6 @@ class TestWhisperSTT:
         ):
             with pytest.raises(TimeoutError, match="did not complete"):
                 mod.WhisperSTT("k", "e").transcribe(audio, language="en")
-
-
-# ---------------------------------------------------------------------------
-# vastai_whisper.py
-# ---------------------------------------------------------------------------
-
-
-class TestVastaiWhisperSTT:
-    """Cover the vast.ai whisper client's constructor + parse helpers."""
-
-    def test_host_requires_non_empty_value(self):
-        from localization.stt.vastai_whisper import VastaiWhisperSTT
-
-        with pytest.raises(ValueError, match="host address is required"):
-            VastaiWhisperSTT(host="")
-
-    def test_full_url_host_used_verbatim(self):
-        from localization.stt.vastai_whisper import VastaiWhisperSTT
-
-        provider = VastaiWhisperSTT(host="https://pod-8000.proxy.runpod.net/")
-        assert provider._base_url == "https://pod-8000.proxy.runpod.net"
-
-    def test_plain_host_gets_http_prefix_and_port(self):
-        from localization.stt.vastai_whisper import VastaiWhisperSTT
-
-        provider = VastaiWhisperSTT(host="vast.example", port=9000)
-        assert provider._base_url == "http://vast.example:9000"
-
-    def test_supports_language_strips_region(self):
-        from localization.stt.vastai_whisper import VastaiWhisperSTT
-
-        provider = VastaiWhisperSTT(host="x")
-        assert provider.supports_language("zh-Hans") is True
-
-    def test_usage_remaining_returns_none(self):
-        from localization.stt.vastai_whisper import VastaiWhisperSTT
-
-        assert VastaiWhisperSTT(host="x").usage_remaining() is None
-
-    def test_transcribe_missing_file_raises_fnf(self, tmp_path):
-        from localization.stt.vastai_whisper import VastaiWhisperSTT
-
-        with pytest.raises(FileNotFoundError):
-            VastaiWhisperSTT(host="x").transcribe(tmp_path / "nope.opus")
-
-    def test_transcribe_unsupported_language_raises(self, tmp_path):
-        from localization.stt.vastai_whisper import VastaiWhisperSTT
-
-        audio = tmp_path / "a.opus"
-        audio.write_bytes(b"x")
-        with pytest.raises(ValueError, match="not supported"):
-            VastaiWhisperSTT(host="x").transcribe(audio, language="klingon")
-
-    def test_extract_raw_words_prefers_top_level(self):
-        from localization.stt.vastai_whisper import _extract_raw_words
-
-        data = {"words": [{"word": "a"}], "segments": [{"words": [{"word": "ignored"}]}]}
-        assert _extract_raw_words(data) == [{"word": "a"}]
-
-    def test_extract_raw_words_falls_back_to_segments(self):
-        from localization.stt.vastai_whisper import _extract_raw_words
-
-        data = {"segments": [{"words": [{"word": "hello"}]}, {"words": [{"word": "world"}]}]}
-        assert _extract_raw_words(data) == [{"word": "hello"}, {"word": "world"}]
-
-    def test_parse_word_timestamps_drops_empty_words(self):
-        from localization.stt.vastai_whisper import _parse_word_timestamps
-
-        # _parse_word_timestamps takes the full API-response dict; it delegates
-        # to _extract_raw_words to find either a top-level "words" array or
-        # nested "segments[].words[]".
-        payload = {
-            "words": [
-                {"word": " "},  # whitespace-only stripped to empty → dropped.
-                {"word": "keep", "start": 1.0, "end": 2.0},
-            ]
-        }
-        parsed = _parse_word_timestamps(payload)
-        assert len(parsed) == 1
-        assert parsed[0].word == "keep"
-        assert parsed[0].start_ms == 1_000
-
-    def test_extract_duration_ms_uses_response_field_when_set(self):
-        from localization.stt.vastai_whisper import _extract_duration_ms
-
-        assert _extract_duration_ms({"duration": 3.5}, []) == 3_500
-
-    def test_extract_duration_ms_falls_back_to_last_word(self):
-        from localization.stt.base import WordTimestamp
-        from localization.stt.vastai_whisper import _extract_duration_ms
-
-        words = [
-            WordTimestamp(word="a", start_ms=0, end_ms=500),
-            WordTimestamp(word="b", start_ms=500, end_ms=1_200),
-        ]
-        assert _extract_duration_ms({}, words) == 1_200
-
-    def test_transcribe_roundtrip(self, tmp_path):
-        from localization.stt import vastai_whisper as mod
-
-        audio = tmp_path / "a.opus"
-        audio.write_bytes(b"abc")
-        fake = MagicMock()
-        fake.raise_for_status.return_value = None
-        fake.json.return_value = {
-            "words": [
-                {"word": "hi", "start": 0, "end": 0.5},
-                {"word": "there", "start": 0.5, "end": 1.0},
-            ],
-            "duration": 1.0,
-            "language": "en",
-        }
-        with patch.object(mod.requests, "post", return_value=fake):
-            transcript = mod.VastaiWhisperSTT(host="vast.local").transcribe(audio, language="en")
-        assert transcript.language == "en"
-        assert [w.word for w in transcript.words] == ["hi", "there"]
-        assert transcript.duration_ms == 1_000
 
 
 class TestVastaiServerlessSTT:

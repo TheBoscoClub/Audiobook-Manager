@@ -344,24 +344,14 @@ def _parse_args():
     parser.add_argument("--dry-run", action="store_true", help="Show what would be processed")
     parser.add_argument("--stt-only", action="store_true", help="Only run STT, skip TTS")
     parser.add_argument("--tts-only", action="store_true", help="Only run TTS, skip STT")
-    parser.add_argument("--vastai-host", help="Vast.ai Whisper host:port (e.g., 127.0.0.1:8100)")
     return parser.parse_args()
 
 
 def _configure_env(args):
-    """Set environment variables for localization modules from args and audiobooks.conf."""
+    """Set environment variables for localization modules from audiobooks.conf."""
     # Set environment for the localization modules
     os.environ.setdefault("AUDIOBOOKS_WHISPER_GPU_HOST", "127.0.0.1")
     os.environ.setdefault("AUDIOBOOKS_WHISPER_GPU_PORT", "8765")
-
-    # Vast.ai GPU Whisper via SSH tunnel (preferred for batch workloads)
-    if args.vastai_host:
-        host, _, port = args.vastai_host.partition(":")
-        os.environ["AUDIOBOOKS_VASTAI_WHISPER_HOST"] = host
-        os.environ["AUDIOBOOKS_VASTAI_WHISPER_PORT"] = port or "8100"
-    else:
-        os.environ.setdefault("AUDIOBOOKS_VASTAI_WHISPER_HOST", "127.0.0.1")
-        os.environ.setdefault("AUDIOBOOKS_VASTAI_WHISPER_PORT", "8100")
 
     # Load config from audiobooks.conf
     conf_path = Path("/etc/audiobooks/audiobooks.conf")

@@ -817,12 +817,12 @@ Audio Chapter ──► STT (Whisper) ──► Translation (DeepL) ──► TT
 
 | Provider | Class | Config Key | Use Case |
 |----------|-------|------------|----------|
-| Vast.ai Whisper | `VastaiWhisperSTT` | `AUDIOBOOKS_VASTAI_WHISPER_HOST` | Preferred: dedicated GPU instance |
-| RunPod Whisper | `RunPodWhisperSTT` | `AUDIOBOOKS_RUNPOD_API_KEY` | Serverless GPU (cold-start latency) |
-| Local GPU | `LocalWhisperSTT` | `AUDIOBOOKS_STT_PROVIDER=local` | Self-hosted on known-good AI hardware (NVIDIA CUDA or enterprise AMD Instinct/ROCm); consumer Radeon RDNA 2/3 is unsupported — see docs/MULTI-LANGUAGE-SETUP.md#local-gpu-optional |
+| RunPod serverless Whisper | `WhisperSTT` | `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT` / `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT` | Peer serverless provider — warm pool for streaming, cold pool for backlog |
+| Vast.ai serverless Whisper | `VastaiServerlessSTT` | `AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT` / `AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT` | Peer serverless provider — warm pool for streaming, cold pool for backlog |
+| Local GPU | `LocalGPUWhisperSTT` | `AUDIOBOOKS_WHISPER_GPU_HOST` | Self-hosted on known-good AI hardware (NVIDIA CUDA or enterprise AMD Instinct/ROCm); consumer Radeon RDNA 2/3 is unsupported — see docs/MULTI-LANGUAGE-SETUP.md#local-gpu-optional |
 | DeepL Transcription | `DeepLSTT` | `DEEPL_API_KEY` | Legacy fallback (100 MB limit) |
 
-Auto mode (`AUDIOBOOKS_STT_PROVIDER=auto`) selects: Vast.ai → RunPod → Local GPU → DeepL. Runtime fallback retries once against local Whisper on network errors.
+Auto mode (`AUDIOBOOKS_STT_PROVIDER=auto`) dispatches via `_remote_stt_candidates(workload)` in `library/localization/pipeline.py`: `WorkloadHint.STREAMING` → STREAMING endpoint pool (warm, `min_workers>=1`); `WorkloadHint.LONG_FORM` / `ANY` → BACKLOG endpoint pool (cold, `min_workers=0`). Either provider (RunPod, Vast.ai) may be configured — they are peers, not primary+fallback. Dedicated-instance Vast.ai Whisper was retired in v8.3.2; see `docs/SERVERLESS-OPS.md`.
 
 #### TTS Provider Factory (`library/localization/tts/factory.py`)
 

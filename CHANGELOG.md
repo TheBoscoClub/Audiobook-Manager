@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+### Removed
+
+- **Retired dedicated-instance Vast.ai Whisper path**: Removed `library/localization/stt/vastai_whisper.py` (`VastaiWhisperSTT`), `AUDIOBOOKS_VASTAI_WHISPER_HOST`/`PORT` env vars, `scripts/translation-daemon.sh`, `scripts/fleet-watchdog.sh`, `scripts/translation-check.sh`, `scripts/teardown-gpu.sh`, `systemd/audiobook-translate.service`, `systemd/audiobook-translate-check.{service,timer}`, `systemd/audiobook-fleet-watchdog.{service,timer}`, `etc/translation-env.sh.example`, and the `--vastai-host` flag on `scripts/batch-translate.py`. STT now runs exclusively through the dual-provider D+C serverless pipeline (RunPod + Vast.ai serverless endpoints). Operators migrating from dedicated instances should configure `AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY` + STREAMING/BACKLOG endpoint pairs. The explicit `STT_PROVIDER=vastai` config now raises a migration error pointing to `vastai-serverless`. See `docs/SERVERLESS-OPS.md`
+
 ## [8.3.2] - 2026-04-18
 
 ### Fixed

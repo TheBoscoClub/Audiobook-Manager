@@ -3,8 +3,7 @@
 #
 # Sources lib/audiobook-config.sh (the single canonical source of bash
 # defaults), then execs scripts/stream-translate-worker.py with resolved
-# --db / --library / --api-base arguments. Same wrapper pattern used by
-# translation-daemon.sh and fleet-watchdog.sh.
+# --db / --library / --api-base arguments.
 #
 # Why a wrapper and not a direct ExecStart=python ...:
 #   systemd's EnvironmentFile parses KEY=VALUE only and does not expand
@@ -20,7 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Source canonical config — sets AUDIOBOOKS_DATABASE, AUDIOBOOKS_LIBRARY,
 # AUDIOBOOKS_VENV, etc. Prefer the installed copy, fall back to the in-tree
-# lib/ when running from the project working tree (matches translation-daemon.sh).
+# lib/ when running from the project working tree.
 # shellcheck source=/dev/null
 if [[ -f /usr/local/lib/audiobooks/audiobook-config.sh ]]; then
     source /usr/local/lib/audiobooks/audiobook-config.sh
@@ -30,13 +29,6 @@ else
     echo "ERROR: audiobook-config.sh not found in canonical locations" >&2
     exit 1
 fi
-
-# Optional site-local GPU/translation overrides. Not required by this worker
-# today, but future-proofs parity with translation-daemon.sh (e.g. if the
-# streaming path ever offloads STT to a GPU endpoint).
-TRANSLATION_ENV="${AUDIOBOOKS_TRANSLATION_ENV:-/etc/audiobooks/scripts/translation-env.sh}"
-# shellcheck source=/dev/null
-[[ -f "$TRANSLATION_ENV" ]] && source "$TRANSLATION_ENV"
 
 DB_PATH="${AUDIOBOOKS_DATABASE}"
 LIBRARY_PATH="${AUDIOBOOKS_LIBRARY}"
