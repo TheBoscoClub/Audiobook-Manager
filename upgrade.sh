@@ -1600,11 +1600,16 @@ do_upgrade() {
                     dst="/etc/caddy/${caddy_file}"
                 fi
                 if [[ -f "$src" ]]; then
-                    # For audiobooks.conf, substitute the actual app port
+                    # For audiobooks.conf, substitute native + docker upstream ports
+                    # into the two-site template (:8084 native, :8085 docker).
                     local src_content
                     if [[ "$caddy_file" == "audiobooks.conf" ]]; then
-                        local web_port="${AUDIOBOOKS_WEB_PORT:-8443}"
-                        src_content=$(sed "s|https://localhost:8443|https://localhost:${web_port}|" "$src")
+                        # Defaults match lib/audiobook-config.sh (8443). Dual-stack
+                        # hosts override AUDIOBOOKS_WEB_PORT for native (e.g., 8090).
+                        local native_port="${AUDIOBOOKS_WEB_PORT:-8443}"
+                        local docker_port="${AUDIOBOOKS_DOCKER_PORT:-8443}"
+                        src_content=$(sed -e "s|__NATIVE_PORT__|${native_port}|g" \
+                            -e "s|__DOCKER_PORT__|${docker_port}|g" "$src")
                     else
                         src_content=$(cat "$src")
                     fi

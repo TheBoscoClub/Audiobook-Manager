@@ -1715,13 +1715,18 @@ EOF
         if command -v caddy &>/dev/null; then
             echo -e "${BLUE}Installing Caddy maintenance page configuration...${NC}"
             sudo mkdir -p /etc/caddy/conf.d
-            # Substitute the actual app port into the Caddy config template
-            local web_port="${AUDIOBOOKS_WEB_PORT:-8443}"
-            sed "s|https://localhost:8443|https://localhost:${web_port}|" \
+            # Two sites: :8084 -> native app, :8085 -> Docker app.
+            # Defaults match the canonical lib/audiobook-config.sh value (8443).
+            # Dual-stack hosts (e.g., QA) override AUDIOBOOKS_WEB_PORT (native)
+            # to something non-colliding (e.g., 8090) so both stacks coexist.
+            local native_port="${AUDIOBOOKS_WEB_PORT:-8443}"
+            local docker_port="${AUDIOBOOKS_DOCKER_PORT:-8443}"
+            sed -e "s|__NATIVE_PORT__|${native_port}|g" \
+                -e "s|__DOCKER_PORT__|${docker_port}|g" \
                 "${SCRIPT_DIR}/caddy/audiobooks.conf" | sudo tee /etc/caddy/conf.d/audiobooks.conf >/dev/null
             sudo cp -f "${SCRIPT_DIR}/caddy/maintenance.html" /etc/caddy/maintenance.html
             sudo systemctl reload caddy 2>/dev/null || true
-            echo "  Installed: Caddy reverse proxy config and maintenance page (port ${web_port})"
+            echo "  Installed: Caddy reverse proxy (:8084->native:${native_port}, :8085->docker:${docker_port})"
         fi
 
         # Enable the upgrade helper path unit (monitors for privileged operation requests)
