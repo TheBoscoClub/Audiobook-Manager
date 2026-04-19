@@ -858,7 +858,11 @@ enable_new_services() {
     # v8.3.1 orphan-script regression class.
     local use_sudo="${1:-}"
 
-    if [[ -z "$use_sudo" ]] || [[ ! -f "/etc/systemd/system/audiobook.target" ]]; then
+    # Skip only if the target file hasn't been installed yet (bare system).
+    # Note: use_sudo may legitimately be empty when upgrade.sh runs as root
+    # (--remote mode sudos once at the boundary and then everything inside is
+    # already privileged). Do NOT gate on use_sudo — an empty value is valid.
+    if [[ ! -f "/etc/systemd/system/audiobook.target" ]]; then
         return 0
     fi
 
@@ -870,7 +874,7 @@ enable_new_services() {
     fi
 
     # Ensure the target itself is enabled so multi-user.target pulls it in at boot
-    sudo systemctl enable audiobook.target 2>/dev/null || true
+    $use_sudo systemctl enable audiobook.target 2>/dev/null || true
 
     # (1) Parse Wants= lines from the target file
     local target_wants
@@ -879,7 +883,7 @@ enable_new_services() {
         | grep -v 'network-online' | grep -v '^$')
 
     for svc in $target_wants; do
-        sudo systemctl enable "$svc" 2>/dev/null || true
+        $use_sudo systemctl enable "$svc" 2>/dev/null || true
         echo "  Enabled: $svc"
     done
 
@@ -894,14 +898,14 @@ enable_new_services() {
     )
     for unit in "${standalone_units[@]}"; do
         if [[ -f "/etc/systemd/system/${unit}" ]]; then
-            sudo systemctl enable "$unit" 2>/dev/null || true
+            $use_sudo systemctl enable "$unit" 2>/dev/null || true
             echo "  Enabled: $unit"
         fi
     done
 
     # Belt-and-suspenders: explicit enable for streaming translation worker.
     # Required by library/tests/test_stream_translate_wiring.py.
-    sudo systemctl enable audiobook-stream-translate.service 2>/dev/null || true
+    $use_sudo systemctl enable audiobook-stream-translate.service 2>/dev/null || true
 
     echo -e "${GREEN}  All services and timers enabled${NC}"
 }
