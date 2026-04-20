@@ -413,3 +413,13 @@ test-*-[0-9][0-9].md
 
 # Local CodeQL database (never commit — contains full code + binary analysis data)
 .codeql-db/
+
+# Diagnostic harness ephemera — screenshots, console logs, meta.json, per-run
+# venvs. The harness sources (browserstack_ios_repro.py, playwright_ios_repro.py)
+# are tracked; everything they emit is not.
+.claude/diagnostics/browserstack-venv/
+.claude/diagnostics/bs-*.txt
+.claude/diagnostics/bs-*.meta.json
+.claude/diagnostics/repro-*.console.log
+.claude/diagnostics/repro-*.json
+.claude/diagnostics/repro-*.txt
