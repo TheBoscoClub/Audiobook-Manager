@@ -444,6 +444,19 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                 503, "Service Unavailable", f"API server not reachable: {str(e.reason)}"
             )
 
+        except (BrokenPipeError, ConnectionResetError) as e:
+            # Client closed the TCP socket mid-response (page nav, tab close,
+            # mobile backgrounding). The response was already partially sent;
+            # nothing more we can or should write. Log at info level without
+            # a traceback — this is expected client-driven behavior, not an
+            # internal error.
+            self.log_message(
+                "client disconnected while proxying %s %s: %s",
+                method,
+                api_url,
+                type(e).__name__,
+            )
+
         except Exception as e:
             self.log_message(
                 "Unhandled exception proxying %s %s: %s\n%s",
