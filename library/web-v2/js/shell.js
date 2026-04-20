@@ -142,8 +142,37 @@ class ShellPlayer {
       this.onMetadataLoaded(),
     );
 
-    this.audio.addEventListener("ended", () => {
+    this.audio.addEventListener("ended", async () => {
       this.setPlayPauseIcon(false);
+
+      // Cached translated audio is delivered one chapter per URL. Advance to
+      // the next chapter in the sorted list before declaring the book done —
+      // otherwise multi-chapter translated playback halts after chapter 0.
+      // The streaming MSE path is unaffected: streamingTranslate owns its
+      // own end-of-stream signaling and never sets translatedEntries.
+      if (
+        this.translatedEntries &&
+        this.translatedChapterIdx < this.translatedEntries.length - 1 &&
+        this.currentBook
+      ) {
+        this.translatedChapterIdx += 1;
+        const entry = this.translatedEntries[this.translatedChapterIdx];
+        const chapterIdx = entry.chapter_index ?? this.translatedChapterIdx;
+        const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
+        const bookId = this.currentBook.bookId || this.currentBook.id;
+        this.audio.src = `${API_BASE}/audiobooks/${bookId}/translated-audio/${chapterIdx}/${encodeURIComponent(locale)}`;
+        if (typeof window.subtitles !== "undefined" && window.subtitles.load) {
+          window.subtitles.load(bookId, chapterIdx);
+        }
+        this._lastSaveTime = Date.now();
+        try {
+          await this.audio.play();
+        } catch (error) {
+          console.error("Failed to play next translated chapter:", error);
+        }
+        return;
+      }
+
       if (this.currentBook) this.clearPosition(this.currentBook.id);
     });
 
@@ -286,6 +315,10 @@ class ShellPlayer {
     // Determine locale and check for translated audio
     const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
     let useTranslatedAudio = false;
+    // Reset chained-chapter state on every playBook — old book's chapter
+    // list must not leak into the new book's ended handler.
+    this.translatedEntries = null;
+    this.translatedChapterIdx = 0;
 
     if (locale !== "en") {
       try {
@@ -294,7 +327,13 @@ class ShellPlayer {
           const entries = await taResp.json();
           if (entries.length > 0) {
             useTranslatedAudio = true;
-            const entry = entries[0];
+            // Sort by chapter_index so the ended handler walks chapters
+            // in playback order regardless of API response ordering.
+            this.translatedEntries = [...entries].sort(
+              (a, b) => (a.chapter_index ?? 0) - (b.chapter_index ?? 0),
+            );
+            this.translatedChapterIdx = 0;
+            const entry = this.translatedEntries[0];
             this.audio.src = `${API_BASE}/audiobooks/${bookId}/translated-audio/${entry.chapter_index || 0}/${encodeURIComponent(locale)}`;
           }
         }
@@ -337,7 +376,12 @@ class ShellPlayer {
 
     // Load subtitles and auto-enable for non-English locales
     if (typeof window.subtitles !== "undefined" && window.subtitles.load) {
-      window.subtitles.load(bookId, 0);
+      // Use the first translated entry's chapter index when chained playback
+      // is active so subtitles align with audio from the very first chapter.
+      const initialChapter = this.translatedEntries
+        ? (this.translatedEntries[0].chapter_index ?? 0)
+        : 0;
+      window.subtitles.load(bookId, initialChapter);
       if (locale !== "en") {
         window.subtitles.show();
       }

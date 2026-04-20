@@ -325,16 +325,28 @@ def process_segment(
             stt_provider=stt,
         )
 
-        # Read VTT content for inline storage
+        # Read VTT content for inline storage. Persist BOTH the translated
+        # cues (vtt_content) AND the English source cues (source_vtt_content)
+        # so the bilingual transcript panel has data to render once the
+        # chapter consolidates. v8.3.2 and earlier discarded source_vtt here,
+        # which left chapter_subtitles with only the translated locale row.
         vtt_content = ""
-        vtt_file = translated_vtt or source_vtt
-        if vtt_file and vtt_file.exists():
-            vtt_content = vtt_file.read_text(encoding="utf-8")
+        if translated_vtt and translated_vtt.exists():
+            vtt_content = translated_vtt.read_text(encoding="utf-8")
 
-        # Offset cue timestamps to account for segment position in chapter
+        source_vtt_content = ""
+        if source_vtt and source_vtt.exists():
+            source_vtt_content = source_vtt.read_text(encoding="utf-8")
+
+        # Offset cue timestamps to account for segment position in chapter.
+        # Both VTTs share the same time base (the source audio slice), so
+        # they get the same offset.
         offset_ms = segment_index * SEGMENT_DURATION_SEC * 1000
-        if offset_ms > 0 and vtt_content:
-            vtt_content = _offset_vtt_timestamps(vtt_content, offset_ms)
+        if offset_ms > 0:
+            if vtt_content:
+                vtt_content = _offset_vtt_timestamps(vtt_content, offset_ms)
+            if source_vtt_content:
+                source_vtt_content = _offset_vtt_timestamps(source_vtt_content, offset_ms)
 
         # Synthesize per-segment TTS audio (opus). VTT alone is still useful,
         # so a TTS failure downgrades to "text-only" rather than failing the
@@ -371,6 +383,7 @@ def process_segment(
                 "segment_index": segment_index,
                 "locale": locale,
                 "vtt_content": vtt_content,
+                "source_vtt_content": source_vtt_content,
                 "audio_path": audio_rel,
             }
         ).encode()

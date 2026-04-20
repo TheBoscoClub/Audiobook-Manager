@@ -468,14 +468,20 @@ def _ensure_chapter_segments(
 def _get_segment_bitmap(db, audiobook_id: int, chapter_index: int, locale: str) -> dict:
     """Get segment completion bitmap for a chapter.
 
-    Returns:
-        dict with 'completed' (list of segment indices),
-        'total' (total segments), 'all_cached' (bool).
-    """
-    # Check if the full chapter is already cached from batch pipeline
-    if _has_cached_subtitles(db, audiobook_id, chapter_index, locale):
-        return {"completed": "all", "total": 0, "all_cached": True}
+    The response decouples "what segments exist" from "is the chapter
+    cached" so callers never see the contradictory shape that the older
+    short-circuit produced (``all_cached: true`` alongside ``total: 0``):
 
+    - ``completed`` — list of completed streaming segment indices (always a
+      list; empty when no streaming has occurred for this chapter)
+    - ``total`` — number of streaming segments rows for this chapter (0 if
+      the chapter was cached entirely via the batch pipeline)
+    - ``all_cached`` — true iff the chapter is fully playable: either every
+      streaming segment is completed, or a batch-cached VTT is present
+    - ``cache_source`` — diagnostic string: ``"streaming"`` (all segments
+      done), ``"batch"`` (chapter_subtitles row exists), ``"none"``
+      (in-progress), or ``"both"`` (rare: batch + streaming both present)
+    """
     rows = db.execute(
         "SELECT segment_index, state FROM streaming_segments "
         "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ? "
@@ -485,10 +491,23 @@ def _get_segment_bitmap(db, audiobook_id: int, chapter_index: int, locale: str) 
 
     completed = [r["segment_index"] for r in rows if r["state"] == "completed"]
     total = len(rows)
+    streaming_done = total > 0 and len(completed) == total
+    batch_cached = _has_cached_subtitles(db, audiobook_id, chapter_index, locale)
+
+    if batch_cached and streaming_done:
+        cache_source = "both"
+    elif batch_cached:
+        cache_source = "batch"
+    elif streaming_done:
+        cache_source = "streaming"
+    else:
+        cache_source = "none"
+
     return {
         "completed": completed,
         "total": total,
-        "all_cached": len(completed) == total and total > 0,
+        "all_cached": batch_cached or streaming_done,
+        "cache_source": cache_source,
     }
 
 
@@ -714,7 +733,7 @@ def _parse_stream_request(data):
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return None, None, None, (jsonify({"error": "invalid parameters"}), 400)
 
     return audiobook_id, locale, chapter_index, None
@@ -856,7 +875,7 @@ def get_segment_bitmap(audiobook_id, chapter_index, locale):
     """
     try:
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -880,7 +899,7 @@ def get_session_state(audiobook_id, locale):
     """
     try:
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -979,7 +998,7 @@ def handle_seek():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -1058,7 +1077,7 @@ def stop_streaming():
     try:
         audiobook_id = int(audiobook_id)
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -1097,7 +1116,8 @@ def segment_complete():
         chapter_index: int
         segment_index: int
         locale: str
-        vtt_content: str (optional — inline VTT cues)
+        vtt_content: str (optional — translated VTT cues)
+        source_vtt_content: str (optional — English source VTT cues; v8.3.3+)
         audio_path: str (optional — path to TTS audio segment)
     """
     data = request.get_json(silent=True) or {}
@@ -1114,7 +1134,7 @@ def segment_complete():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return jsonify({"error": "invalid parameters"}), 400
 
     # Validate audio_path is within the allowed streaming audio root
@@ -1126,10 +1146,12 @@ def segment_complete():
     db = _get_db()
     db.execute(
         "UPDATE streaming_segments SET state = 'completed', "
-        "vtt_content = ?, audio_path = ?, completed_at = CURRENT_TIMESTAMP "
+        "vtt_content = ?, source_vtt_content = ?, audio_path = ?, "
+        "completed_at = CURRENT_TIMESTAMP "
         "WHERE audiobook_id = ? AND chapter_index = ? AND segment_index = ? AND locale = ?",
         (
             data.get("vtt_content"),
+            data.get("source_vtt_content"),
             str(safe_audio_path) if safe_audio_path is not None else None,
             audiobook_id,
             chapter_index,
@@ -1192,7 +1214,7 @@ def chapter_complete():
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
-    except ValueError, TypeError:
+    except (ValueError, TypeError):
         return jsonify({"error": "invalid parameters"}), 400
 
     # Validate audio_path is within the allowed streaming audio root
@@ -1401,7 +1423,7 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
     row so `_has_cached_audio` returns True on next play.
     """
     rows = db.execute(
-        "SELECT segment_index, vtt_content FROM streaming_segments "
+        "SELECT segment_index, vtt_content, source_vtt_content FROM streaming_segments "
         "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ? AND state = 'completed' "
         "ORDER BY segment_index",
         (audiobook_id, chapter_index, locale),
@@ -1410,18 +1432,22 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
     if not rows:
         return
 
-    # Merge VTT content from all segments
-    all_vtt = "WEBVTT\n\n"
-    for row in rows:
-        if row["vtt_content"]:
-            # Strip WEBVTT header from individual segments
-            content = row["vtt_content"]
+    def _merge_segment_vtts(column: str) -> str:
+        merged = "WEBVTT\n\n"
+        for row in rows:
+            content = row[column] if column in row.keys() else None
+            if not content:
+                continue
             if content.startswith("WEBVTT"):
                 content = content.split("\n\n", 1)[-1] if "\n\n" in content else ""
             if content.strip():
-                all_vtt += content.strip() + "\n\n"
+                merged += content.strip() + "\n\n"
+        return merged
 
-    if len(all_vtt.strip()) <= len("WEBVTT"):
+    all_translated_vtt = _merge_segment_vtts("vtt_content")
+    all_source_vtt = _merge_segment_vtts("source_vtt_content")
+
+    if len(all_translated_vtt.strip()) <= len("WEBVTT"):
         return
 
     # Write consolidated VTT file — validated to live inside the writable
@@ -1434,29 +1460,57 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
         )
         return
     try:
-        vtt_path = _safe_subtitles_path(
+        translated_vtt_path = _safe_subtitles_path(
             _streaming_subtitles_root, audiobook_id, chapter_index, locale
         )
     except ValueError as exc:
         logger.error("Rejected unsafe consolidated VTT path: %s", _safe_log_value(exc))
         return
-    vtt_path.parent.mkdir(parents=True, exist_ok=True)
-    vtt_path.write_text(all_vtt)
+    translated_vtt_path.parent.mkdir(parents=True, exist_ok=True)
+    translated_vtt_path.write_text(all_translated_vtt)
 
-    # Insert into permanent cache
+    source_vtt_path = None
+    if len(all_source_vtt.strip()) > len("WEBVTT"):
+        try:
+            source_vtt_path = _safe_subtitles_path(
+                _streaming_subtitles_root, audiobook_id, chapter_index, "en"
+            )
+            source_vtt_path.parent.mkdir(parents=True, exist_ok=True)
+            source_vtt_path.write_text(all_source_vtt)
+        except ValueError as exc:
+            # Source-side write is best-effort — translated row still goes in.
+            logger.warning(
+                "Rejected unsafe consolidated source VTT path: %s",
+                _safe_log_value(exc),
+            )
+            source_vtt_path = None
+
+    # Insert translated locale row into permanent cache
     db.execute(
         "INSERT OR REPLACE INTO chapter_subtitles "
         "(audiobook_id, chapter_index, locale, vtt_path, stt_provider, translation_provider) "
         "VALUES (?, ?, ?, ?, 'streaming', 'deepl')",
-        (audiobook_id, chapter_index, locale, str(vtt_path)),
+        (audiobook_id, chapter_index, locale, str(translated_vtt_path)),
     )
+    # Insert English source row so the bilingual transcript panel
+    # (双语文字记录) can render after consolidation. Mirrors the
+    # chapter-complete (prefetch) path at lines 1217-1223.
+    if source_vtt_path is not None:
+        db.execute(
+            "INSERT OR REPLACE INTO chapter_subtitles "
+            "(audiobook_id, chapter_index, locale, vtt_path, stt_provider) "
+            "VALUES (?, ?, 'en', ?, 'streaming')",
+            (audiobook_id, chapter_index, str(source_vtt_path)),
+        )
     db.commit()
 
     logger.info(
-        "Consolidated streaming segments into permanent VTT: book=%d ch=%d locale=%s",
+        "Consolidated streaming segments into permanent VTT: "
+        "book=%d ch=%d locale=%s bilingual=%s",
         audiobook_id,
         chapter_index,
         _safe_log_value(locale),
+        "yes" if source_vtt_path is not None else "no",
     )
 
     # Audio consolidation is a best-effort addition — any failure logs and

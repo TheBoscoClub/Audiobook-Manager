@@ -342,6 +342,47 @@ class TestGetSegmentBitmap:
         assert resp.status_code == 200
         body = resp.get_json()
         assert body["all_cached"] is True
+        # v8.3.3: bitmap shape stays self-consistent — completed is always a
+        # list and cache_source identifies the cache origin so progress UIs
+        # never see the contradictory total:0 + all_cached:true sentinel.
+        assert body["completed"] == []
+        assert body["total"] == 0
+        assert body["cache_source"] == "batch"
+
+    def test_cache_source_streaming(self, app_client, streaming_db):
+        # All streaming segments completed and no batch-cached chapter row →
+        # cache_source must be 'streaming'.
+        conn = sqlite3.connect(str(streaming_db))
+        for idx in range(2):
+            conn.execute(
+                "INSERT INTO streaming_segments "
+                "(audiobook_id, chapter_index, segment_index, locale, state, priority) "
+                "VALUES (5, 0, ?, 'zh-Hans', 'completed', 1)",
+                (idx,),
+            )
+        conn.commit()
+        conn.close()
+        resp = app_client.get("/api/translate/segments/5/0/zh-Hans")
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body["all_cached"] is True
+        assert body["total"] == 2
+        assert body["cache_source"] == "streaming"
+
+    def test_cache_source_none_when_in_progress(self, app_client, streaming_db):
+        conn = sqlite3.connect(str(streaming_db))
+        conn.execute(
+            "INSERT INTO streaming_segments "
+            "(audiobook_id, chapter_index, segment_index, locale, state, priority) "
+            "VALUES (6, 0, 0, 'zh-Hans', 'pending', 1)"
+        )
+        conn.commit()
+        conn.close()
+        resp = app_client.get("/api/translate/segments/6/0/zh-Hans")
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body["all_cached"] is False
+        assert body["cache_source"] == "none"
 
 
 class TestGetSessionState:

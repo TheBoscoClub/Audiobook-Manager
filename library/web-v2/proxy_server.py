@@ -15,6 +15,7 @@ import logging
 import os
 import ssl
 import sys
+import traceback
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -436,11 +437,21 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(error_body)
 
         except urllib.error.URLError as e:
+            self.log_message(
+                "URLError proxying %s %s: %s", method, api_url, e.reason
+            )
             self._send_json_error(
                 503, "Service Unavailable", f"API server not reachable: {str(e.reason)}"
             )
 
         except Exception as e:
+            self.log_message(
+                "Unhandled exception proxying %s %s: %s\n%s",
+                method,
+                api_url,
+                e,
+                traceback.format_exc(),
+            )
             self._send_json_error(500, "Internal Server Error", str(e))
 
     def log_message(self, format, *args):

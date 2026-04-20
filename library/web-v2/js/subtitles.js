@@ -791,6 +791,22 @@
    */
   function pairVttCues(src, tgt) {
     var out = [];
+    // Defensive: when source VTT is missing — pre-v8.3.3 chapters whose
+    // streaming_segments.source_vtt_content was never persisted, or any
+    // future chapter where source upload fails — synthesize source stubs
+    // from target cues so the 双语文字记录 panel still renders. The source
+    // column shows the timestamp and empty text; the target column shows
+    // the translation. Click-to-seek still works on both columns.
+    if (src.length === 0 && tgt.length > 0) {
+      for (var k = 0; k < tgt.length; k++) {
+        var t = tgt[k];
+        out.push([
+          { startMs: t.startMs, endMs: t.endMs, text: "" },
+          [t],
+        ]);
+      }
+      return out;
+    }
     var j = 0;
     for (var i = 0; i < src.length; i++) {
       var s = src[i];

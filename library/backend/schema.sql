@@ -482,7 +482,8 @@ CREATE TABLE IF NOT EXISTS streaming_segments (
     state TEXT NOT NULL DEFAULT 'pending',   -- pending, processing, completed, failed
     priority INTEGER NOT NULL DEFAULT 2,     -- 0=P0 cursor buffer, 1=P1 forward chase, 2=P2 back-fill
     worker_id TEXT,                          -- GPU worker identifier
-    vtt_content TEXT,                        -- Inline VTT cues for this segment
+    vtt_content TEXT,                        -- Translated VTT cues for this segment
+    source_vtt_content TEXT,                 -- English (source) VTT cues for this segment
     audio_path TEXT,                         -- Path to TTS audio for this segment
     error TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
