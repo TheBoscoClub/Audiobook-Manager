@@ -285,12 +285,29 @@ class AudiobookLibraryV2 {
         if (bookId) visibleIds.push(bookId);
       });
 
-      // Single GET request: returns cached + auto-translates missing via DeepL
-      const idsParam = visibleIds.length > 0 ? "&ids=" + visibleIds.join(",") : "";
-      const translations = await api.get(
-        `${API_BASE}/translations/by-locale/${encodeURIComponent(locale)}?t=1${idsParam}`,
-        { toast: false }
-      );
+      // Backend caps ?ids= at 60 per call; long URLs (grouped view, full
+      // library load) also 400 at Cloudflare/Caddy. Chunk into batches of
+      // 50 so every visible card — not just the first 60 — gets the
+      // on-demand DeepL overlay, and no URL overflows.
+      const CHUNK = 50;
+      const base = `${API_BASE}/translations/by-locale/${encodeURIComponent(locale)}?t=1`;
+      let translations = {};
+      if (visibleIds.length === 0) {
+        translations = await api.get(base, { toast: false });
+      } else {
+        const chunks = [];
+        for (let i = 0; i < visibleIds.length; i += CHUNK) {
+          chunks.push(visibleIds.slice(i, i + CHUNK));
+        }
+        const parts = await Promise.all(
+          chunks.map((ids) =>
+            api.get(`${base}&ids=${ids.join(",")}`, { toast: false }).catch(() => ({}))
+          )
+        );
+        for (const part of parts) {
+          if (part && typeof part === "object") Object.assign(translations, part);
+        }
+      }
 
       // Apply translations to book cards
       this._overlayTranslations(allCards, translations);
