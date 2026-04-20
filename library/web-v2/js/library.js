@@ -3027,7 +3027,13 @@ class AudiobookLibraryV2 {
     const _refreshingVal = (typeof t === "function" && t("library.refreshing") !== "library.refreshing")
       ? t("library.refreshing")
       : "Refreshing...";
-    refreshBtn.textContent = "\u21BB " + _refreshingVal;
+    // Update only the inner span so the ↻ glyph persists across locale changes.
+    const refreshLabel = refreshBtn.querySelector("span[data-i18n]");
+    if (refreshLabel) {
+      refreshLabel.textContent = _refreshingVal;
+    } else {
+      refreshBtn.textContent = "\u21BB " + _refreshingVal;
+    }
 
     try {
       // Purge browser caches (CSS/JS/image cache and service worker)
@@ -3063,7 +3069,12 @@ class AudiobookLibraryV2 {
       const _refreshVal = (typeof t === "function" && t("library.refresh") !== "library.refresh")
         ? t("library.refresh")
         : "Refresh";
-      refreshBtn.textContent = "\u21BB " + _refreshVal;
+      const refreshLabel = refreshBtn.querySelector("span[data-i18n]");
+      if (refreshLabel) {
+        refreshLabel.textContent = _refreshVal;
+      } else {
+        refreshBtn.textContent = "\u21BB " + _refreshVal;
+      }
     }
   }
 
