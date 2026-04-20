@@ -58,7 +58,7 @@ class TestGenerateHashesWorkerThread:
             resp = client.post("/api/utilities/generate-hashes-async")
         assert resp.status_code == 200
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         mock_tracker.complete_operation.assert_called_once()
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["hashes_generated"] == 100
@@ -120,7 +120,7 @@ class TestGenerateHashesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/generate-hashes-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_tracker.fail_operation.assert_called_once()
         assert "Permission denied" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -139,7 +139,7 @@ class TestGenerateHashesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/generate-hashes-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "Hash generation failed" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.subprocess.Popen")
@@ -158,7 +158,7 @@ class TestGenerateHashesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/generate-hashes-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_proc.kill.assert_called_once()
         error_msg = mock_tracker.fail_operation.call_args[0][1]
         assert "did not exit cleanly" in error_msg or "timed out" in error_msg
@@ -177,7 +177,7 @@ class TestGenerateHashesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/generate-hashes-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_tracker.fail_operation.assert_called_once()
         assert "script not found" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -227,7 +227,7 @@ class TestGenerateChecksumsWorkerThread:
         try:
             with flask_app.test_client() as client:
                 client.post("/api/utilities/generate-checksums-async")
-            wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker, expect="complete")
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val
@@ -264,7 +264,7 @@ class TestGenerateChecksumsWorkerThread:
         try:
             with flask_app.test_client() as client:
                 client.post("/api/utilities/generate-checksums-async")
-            wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker, expect="complete")
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val
@@ -304,7 +304,7 @@ class TestGenerateChecksumsWorkerThread:
         try:
             with flask_app.test_client() as client:
                 client.post("/api/utilities/generate-checksums-async")
-            wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker, expect="complete")
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val
@@ -375,7 +375,7 @@ class TestGenerateChecksumsWorkerThread:
         try:
             with flask_app.test_client() as client:
                 client.post("/api/utilities/generate-checksums-async")
-            wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker, expect="complete")
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val
@@ -404,7 +404,7 @@ class TestGenerateChecksumsWorkerThread:
             with flask_app.test_client() as client:
                 with patch("pathlib.Path.mkdir", side_effect=PermissionError("denied")):
                     client.post("/api/utilities/generate-checksums-async")
-            wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker, expect="fail")
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val
@@ -466,7 +466,7 @@ class TestGenerateChecksumsWorkerThread:
         try:
             with flask_app.test_client() as client:
                 client.post("/api/utilities/generate-checksums-async")
-            wait_for_thread_completion(mock_tracker)
+            wait_for_thread_completion(mock_tracker, expect="complete")
         finally:
             if old_val is not None:
                 os.environ["AUDIOBOOKS_DATA"] = old_val

@@ -71,7 +71,7 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         mock_tracker.complete_operation.assert_called_once()
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["downloaded_count"] == 2
@@ -97,7 +97,7 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["downloaded_count"] == 0
         assert result["failed_count"] == 0
@@ -118,7 +118,7 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "Authentication failed" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
@@ -139,7 +139,7 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "Download failed" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
@@ -159,7 +159,7 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_proc.kill.assert_called_once()
         # run_with_progress returns "did not exit cleanly" for wait() TimeoutExpired
         error_msg = mock_tracker.fail_operation.call_args[0][1].lower()
@@ -179,7 +179,7 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "Script not found" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
@@ -201,7 +201,7 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
@@ -225,7 +225,7 @@ class TestDownloadAudiobooksWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/download-audiobooks-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         mock_tracker.complete_operation.assert_called_once()
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
@@ -285,7 +285,7 @@ class TestSyncGenresWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-genres-async", json={"dry_run": False})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["genres_updated"] == 45
         assert result["dry_run"] is False
@@ -310,7 +310,7 @@ class TestSyncGenresWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-genres-async", json={"dry_run": True})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["genres_updated"] == 12
         assert result["dry_run"] is True
@@ -333,7 +333,7 @@ class TestSyncGenresWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-genres-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "Metadata file not found" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
@@ -354,7 +354,7 @@ class TestSyncGenresWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-genres-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "Genre sync failed" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
@@ -374,7 +374,7 @@ class TestSyncGenresWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-genres-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_proc.kill.assert_called_once()
         error_msg = mock_tracker.fail_operation.call_args[0][1].lower()
         assert "timed out" in error_msg or "did not exit cleanly" in error_msg
@@ -415,7 +415,7 @@ class TestSyncGenresWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-genres-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "unexpected" in mock_tracker.fail_operation.call_args[0][1]
 
 
@@ -446,7 +446,7 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={"dry_run": False})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["narrators_updated"] == 80
         assert result["dry_run"] is False
@@ -469,7 +469,7 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={"dry_run": True})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["narrators_updated"] == 15
 
@@ -489,7 +489,7 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "DB connection error" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
@@ -510,7 +510,7 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "Narrator sync failed" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
@@ -530,7 +530,7 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_proc.kill.assert_called_once()
         error_msg = mock_tracker.fail_operation.call_args[0][1].lower()
         assert "timed out" in error_msg or "did not exit cleanly" in error_msg
@@ -571,7 +571,7 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "bad args" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", return_value=([True], [], []))
@@ -593,7 +593,7 @@ class TestSyncNarratorsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/sync-narrators-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 

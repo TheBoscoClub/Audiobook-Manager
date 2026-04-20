@@ -168,7 +168,7 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         mock_tracker.complete_operation.assert_called_once()
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["files_found"] == 1800
@@ -190,7 +190,7 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["files_found"] == 1000
 
@@ -210,7 +210,7 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_tracker.fail_operation.assert_called_once()
         assert "Scanner crashed" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -232,7 +232,7 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "failed" in mock_tracker.fail_operation.call_args[0][1].lower()
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", side_effect=_mock_select_ready)
@@ -252,7 +252,7 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_proc.kill.assert_called_once()
         assert "did not exit cleanly" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -270,7 +270,7 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_tracker.fail_operation.assert_called_once()
         assert "scanner not found" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -291,7 +291,7 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
@@ -314,7 +314,7 @@ class TestRescanLibraryWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rescan-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         # Should still complete without crashing
         mock_tracker.complete_operation.assert_called_once()
 
@@ -346,7 +346,7 @@ class TestReimportDatabaseWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["imported_count"] == 500
         assert result["total_audiobooks"] == 500
@@ -395,7 +395,7 @@ class TestReimportDatabaseWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "Database error" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
@@ -414,7 +414,7 @@ class TestReimportDatabaseWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "Import failed" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
@@ -434,7 +434,7 @@ class TestReimportDatabaseWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_proc.kill.assert_called_once()
         error_msg = mock_tracker.fail_operation.call_args[0][1]
         assert "timed out" in error_msg or "did not exit cleanly" in error_msg
@@ -453,7 +453,7 @@ class TestReimportDatabaseWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "access denied" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{SUBPROCESS_MODULE}.select.select", _mock_select_ready)
@@ -473,7 +473,7 @@ class TestReimportDatabaseWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/reimport-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 

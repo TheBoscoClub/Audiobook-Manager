@@ -77,7 +77,7 @@ class TestRebuildQueueWorkerThread:
             resp = client.post("/api/utilities/rebuild-queue-async")
         assert resp.status_code == 200
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         mock_tracker.complete_operation.assert_called_once()
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["queue_size"] == 42
@@ -96,7 +96,7 @@ class TestRebuildQueueWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rebuild-queue-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_tracker.fail_operation.assert_called_once()
         assert "Script error" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -114,7 +114,7 @@ class TestRebuildQueueWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rebuild-queue-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_tracker.fail_operation.assert_called_once()
         assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -132,7 +132,7 @@ class TestRebuildQueueWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rebuild-queue-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_tracker.fail_operation.assert_called_once()
         assert "No such file" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -172,7 +172,7 @@ class TestRebuildQueueWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rebuild-queue-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert len(result["output"]) <= 2000
 
@@ -190,7 +190,7 @@ class TestRebuildQueueWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/rebuild-queue-async")
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "Queue rebuild failed" in mock_tracker.fail_operation.call_args[0][1]
 
 
@@ -219,7 +219,7 @@ class TestCleanupIndexesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/cleanup-indexes-async", json={"dry_run": True})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["entries_removed"] == 5
         assert result["dry_run"] is True
@@ -240,7 +240,7 @@ class TestCleanupIndexesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/cleanup-indexes-async", json={"dry_run": True})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["entries_removed"] == 3
 
@@ -258,7 +258,7 @@ class TestCleanupIndexesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/cleanup-indexes-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_tracker.fail_operation.assert_called_once()
         assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -306,7 +306,7 @@ class TestPopulateSortFieldsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/populate-sort-fields-async", json={"dry_run": False})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["fields_updated"] == 42
         assert result["dry_run"] is False
@@ -327,7 +327,7 @@ class TestPopulateSortFieldsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/populate-sort-fields-async", json={"dry_run": True})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["fields_updated"] == 25
 
@@ -345,7 +345,7 @@ class TestPopulateSortFieldsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/populate-sort-fields-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "DB locked" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{MODULE}.run_with_progress")
@@ -362,7 +362,7 @@ class TestPopulateSortFieldsWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/populate-sort-fields-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_tracker.fail_operation.assert_called_once()
         assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -440,7 +440,7 @@ class TestPopulateAsinsWorkerThread:
                         )
 
         assert resp.status_code == 200
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         if mock_tracker.complete_operation.called:
             result = mock_tracker.complete_operation.call_args[0][1]
             assert result["asins_matched"] == 30
@@ -465,7 +465,7 @@ class TestPopulateAsinsWorkerThread:
                 with patch(f"{MODULE}.os.close"):
                     client.post("/api/utilities/populate-asins-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_tracker.fail_operation.assert_called_once()
         assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -492,7 +492,7 @@ class TestPopulateAsinsWorkerThread:
                 with patch(f"{MODULE}.os.close"):
                     client.post("/api/utilities/populate-asins-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_tracker.fail_operation.assert_called_once()
         assert "Auth failed" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -519,7 +519,7 @@ class TestPopulateAsinsWorkerThread:
                 with patch(f"{MODULE}.os.close"):
                     client.post("/api/utilities/populate-asins-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_tracker.fail_operation.assert_called_once()
         assert "not found" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -557,7 +557,7 @@ class TestFindSourceDuplicatesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/find-source-duplicates-async", json={"dry_run": True})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="complete")
         result = mock_tracker.complete_operation.call_args[0][1]
         assert result["duplicates_found"] == 5
         assert result["dry_run"] is True
@@ -595,7 +595,7 @@ class TestFindSourceDuplicatesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/find-source-duplicates-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "Permission denied" in mock_tracker.fail_operation.call_args[0][1]
 
     @patch(f"{MODULE}.run_with_progress")
@@ -612,7 +612,7 @@ class TestFindSourceDuplicatesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/find-source-duplicates-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         mock_tracker.fail_operation.assert_called_once()
         assert "timed out" in mock_tracker.fail_operation.call_args[0][1]
 
@@ -668,7 +668,7 @@ class TestFindSourceDuplicatesWorkerThread:
         with flask_app.test_client() as client:
             client.post("/api/utilities/find-source-duplicates-async", json={})
 
-        wait_for_thread_completion(mock_tracker)
+        wait_for_thread_completion(mock_tracker, expect="fail")
         assert "Duplicate scan failed" in mock_tracker.fail_operation.call_args[0][1]
 
 
