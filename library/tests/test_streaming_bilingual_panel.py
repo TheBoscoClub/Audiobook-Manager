@@ -284,15 +284,34 @@ console.log(JSON.stringify(out));
         assert pairs[0][1] == []
         assert pairs[1][1] == []
 
-    def test_target_only_is_dropped(self):
-        """When src is empty, pairs list is empty regardless of target cues.
+    def test_target_only_synthesizes_source_stubs(self):
+        """When src is empty but tgt has cues, synthesize empty-text source
+        stubs so the 双语文字记录 panel still renders.
 
-        This matches the plan's algorithm: the outer loop iterates source cues.
-        Orphan target cues are not surfaced by this pairing (upstream code
-        decides whether to render them separately).
+        This is the v8.3.3 defensive pairing added for pre-v8.3.2 chapters
+        whose streaming_segments.source_vtt_content was never persisted,
+        and any future chapter where source upload fails. Without this,
+        the bilingual panel appeared empty (Bug 2 from the zh-Hans QA run).
+        Behavior: one pair per target cue, source stub has empty text and
+        the target cue's time window.
         """
-        tgt = [{"startMs": 0, "endMs": 1000, "text": "orphan"}]
-        assert self._call([], tgt) == []
+        tgt = [
+            {"startMs": 0, "endMs": 1000, "text": "orphan"},
+            {"startMs": 1000, "endMs": 2000, "text": "orphan2"},
+        ]
+        pairs = self._call([], tgt)
+        assert len(pairs) == 2
+        # Each pair: [synthesized src stub, [tgt cue]]
+        assert pairs[0][0]["text"] == ""
+        assert pairs[0][0]["startMs"] == 0
+        assert pairs[0][0]["endMs"] == 1000
+        assert pairs[0][1] == [{"startMs": 0, "endMs": 1000, "text": "orphan"}]
+        assert pairs[1][0]["text"] == ""
+        assert pairs[1][1] == [{"startMs": 1000, "endMs": 2000, "text": "orphan2"}]
+
+    def test_both_empty_still_empty(self):
+        """When both source and target are empty, the result is empty."""
+        assert self._call([], []) == []
 
     def test_all_targets_under_first_source(self):
         """All target cues fall within the first source cue's time window."""
