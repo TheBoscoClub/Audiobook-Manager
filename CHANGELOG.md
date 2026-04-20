@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.6] - 2026-04-20
+
+### Added
+
+- **On-device debug overlay for Chrome iOS / Safari iOS diagnostics**: `library/web-v2/js/debug-overlay.js` surfaces a fixed-position QA panel (activated by `?debug=1`, persists in `localStorage.debugOverlay`) that mirrors DevTools signals end users on iOS cannot see otherwise — MSE codec support matrix, `window.streamingTranslate` state snapshot, `<audio>` element readyState/networkState/currentSrc, and the tail of a rolling event log fed by `window.__debugLog(kind, payload)`. Carries `translate="no"` so Chrome iOS's Google Translate overlay doesn't mangle the snapshot text on Qing's screenshots. Loaded from `shell.html` with `data-cfasync="false"` so Cloudflare Rocket Loader can't defer it past the moments we need to capture
+
+### Fixed
+
+- **Streaming stuck on spinner for chapters with fewer than 6 segments**: `library/web-v2/js/streaming-translate.js::onBufferProgress` compared `completed >= threshold` using an uncapped `threshold` (`data.threshold || BUFFER_THRESHOLD` where `BUFFER_THRESHOLD = 6`). For any chapter whose segment count is less than 6 (e.g. a short opener at ~150 s yielding `total: 5`), the condition `completed >= 6` can never be true — the BUFFERING → STREAMING transition only fires via `onChapterReady` (full consolidation), and until then the user sees 排队中 / "queueing" for the full chapter. Capped `threshold = total > 0 ? Math.min(rawThreshold, total) : rawThreshold` to match the cap pattern already in place at `updateProgress()` and the phase/message branch. Surfaced on Qing's zh-Hans prod demo (Book with `total=5, threshold=6` → 5-minute spinner before consolidation kicked it loose)
+- **Cachebust stamps bumped** on `shell.html`/`index.html`/`utilities.html` `?v=` query strings so the patched `streaming-translate.js` and new `debug-overlay.js` bypass browser/CDN caches on upgrade. Manual bump pending Task #51 (automated bump in `upgrade.sh`/`install.sh`)
+
 ## [8.3.2] - 2026-04-20
 
 ### Added

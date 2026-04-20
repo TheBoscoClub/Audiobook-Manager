@@ -524,7 +524,14 @@
 
     var completed = data.completed || 0;
     var total = data.total || 0;
-    var threshold = data.threshold || BUFFER_THRESHOLD;
+    // Cap threshold to total: a chapter with fewer segments than
+    // BUFFER_THRESHOLD must still be able to complete warmup — otherwise
+    // the BUFFERING → STREAMING transition can never fire via segment
+    // progress, leaving the user stuck on the spinner until the chapter
+    // fully consolidates (onChapterReady). Matches the same cap in
+    // updateProgress() and the phase/message logic below.
+    var rawThreshold = data.threshold || BUFFER_THRESHOLD;
+    var threshold = total > 0 ? Math.min(rawThreshold, total) : rawThreshold;
 
     updateProgress(completed, total);
 
