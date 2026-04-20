@@ -211,12 +211,30 @@ def claim_next_segment(db_path: str) -> dict | None:
     conn = get_db(db_path)
     try:
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+        # Skip segments whose session has been stopped/cancelled/errored —
+        # otherwise /api/translate/stop would demote rows the worker then
+        # still claims and processes (Bug E). Back-fill work (no session,
+        # or session.state='completed') is still eligible because
+        # stop_streaming_impl DELETEs rows, not demotes, so anything left
+        # is genuinely wanted work. The LEFT JOIN picks the most recent
+        # session for (book, locale) by id DESC so a user's latest
+        # Stop/abort wins over any stale row.
         row = conn.execute(
             "UPDATE streaming_segments "
             "SET state = 'processing', worker_id = ?, started_at = ? "
-            "WHERE id = (SELECT id FROM streaming_segments "
-            "            WHERE state = 'pending' "
-            "            ORDER BY priority ASC, chapter_index ASC, segment_index ASC "
+            "WHERE id = (SELECT s.id FROM streaming_segments s "
+            "            LEFT JOIN streaming_sessions sess "
+            "              ON sess.id = (SELECT id FROM streaming_sessions "
+            "                            WHERE audiobook_id = s.audiobook_id "
+            "                              AND locale = s.locale "
+            "                            ORDER BY id DESC LIMIT 1) "
+            "            WHERE s.state = 'pending' "
+            "              AND COALESCE(s.retry_count, 0) < 3 "
+            "              AND (sess.state IS NULL "
+            "                   OR sess.state NOT IN "
+            "                      ('stopped','cancelled','error')) "
+            "            ORDER BY s.priority ASC, s.chapter_index ASC, "
+            "                     s.segment_index ASC "
             "            LIMIT 1) "
             "RETURNING *",
             (f"worker-{os.getpid()}", now),
@@ -418,14 +436,28 @@ def process_segment(
             segment_index,
             e,
         )
-        # Mark segment as failed in DB
+        # Bounded retry: increment retry_count and requeue (state='pending')
+        # until the budget (cap = 3) is exhausted, then flip to 'failed'.
+        # The exception string is persisted in `error` so operators don't
+        # have to correlate worker logs to DB rows — `error` was previously
+        # never populated (Bug B). claim_next_segment skips rows where
+        # retry_count >= 3, so there is no infinite-loop risk.
         conn = get_db(db_path)
         try:
+            err_msg = f"{type(e).__name__}: {e}"[:500]
             conn.execute(
-                "UPDATE streaming_segments SET state = 'failed' "
+                "UPDATE streaming_segments SET "
+                "  retry_count = COALESCE(retry_count, 0) + 1, "
+                "  error = ?, "
+                "  state = CASE "
+                "    WHEN COALESCE(retry_count, 0) + 1 >= 3 THEN 'failed' "
+                "    ELSE 'pending' "
+                "  END, "
+                "  worker_id = NULL, "
+                "  started_at = NULL "
                 "WHERE audiobook_id = ? AND chapter_index = ? "
                 "AND segment_index = ? AND locale = ?",
-                (audiobook_id, chapter_index, segment_index, locale),
+                (err_msg, audiobook_id, chapter_index, segment_index, locale),
             )
             conn.commit()
         finally:

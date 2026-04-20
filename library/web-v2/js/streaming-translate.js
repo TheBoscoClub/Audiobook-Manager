@@ -422,6 +422,56 @@
     notificationPlayed = false;
   }
 
+  // ── Drain on player-close / tab-close (v8.3.4 Bug D) ──
+  //
+  // Graceful drain signals:
+  //   1. Player frame closed
+  //   2. Click X on player (sp-close) — shell.js::close()
+  //   3. MediaSession Stop — shell.js wires to close()
+  //   4. Tab/browser close — pagehide listener below
+  //
+  // "Drain" means: stop queueing new segments for this session (backend
+  // DELETEs any pending rows and flips state='stopped'; worker's LEFT
+  // JOIN filter blocks further claims even if a row slips the race).
+  // In-flight processing rows complete naturally — we don't kill them.
+  //
+  // Book-switch (event 5 in the spec) is abort + pivot: playBook() in
+  // shell.js calls drain() before streamingTranslate.check() starts the
+  // new session, so the old book's pipeline stops before the new one
+  // begins.
+  function drainStreaming(useBeacon) {
+    if (state === State.IDLE) return;
+    var bookId = currentBookId;
+    var locale = currentLocale;
+    if (!bookId || !locale) {
+      enterIdle();
+      return;
+    }
+    var body = JSON.stringify({
+      audiobook_id: bookId,
+      locale: locale,
+    });
+    // navigator.sendBeacon is the only reliable transport once the page
+    // is unloading — fetch() gets cancelled by most browsers mid-unload.
+    // keepalive on fetch helps for close() but not pagehide/beforeunload.
+    if (useBeacon && typeof navigator !== "undefined" &&
+        typeof navigator.sendBeacon === "function") {
+      try {
+        var blob = new Blob([body], { type: "application/json" });
+        navigator.sendBeacon(API_BASE + "/translate/stop", blob);
+      } catch (e) { /* swallow — beacon is best-effort by design */ }
+    } else {
+      fetch(API_BASE + "/translate/stop", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: body,
+        credentials: "same-origin",
+        keepalive: true,
+      }).catch(function () { /* best-effort */ });
+    }
+    enterIdle();
+  }
+
   // ── Segment tracking ──
 
   function onSegmentReady(data) {
@@ -455,6 +505,22 @@
     // exit polling. Synthesized events that originate from the polling
     // loop carry ``_synthesized=true`` so we don't stop our own poller.
     if (!data._synthesized) onAnyStreamingEvent();
+
+    // v8.3.4 Bug C: when the backend phase resolves to "error" (any
+    // streaming_segments row for this session reached state='failed'
+    // after retry_count>=3), the spinner must not keep turning. Surface
+    // the error on the overlay and collapse to IDLE so the user isn't
+    // trapped behind a perpetual "Preparing…". Fresh playback attempt is
+    // the path to retry — the pipeline does not self-heal.
+    if (data.phase === "error") {
+      var errMsg = typeof t === "function"
+        ? t("streaming.phase.error")
+        : "Translation error — please try again";
+      setMessage(errMsg);
+      updateProgress(data.completed || 0, data.total || 0);
+      setTimeout(function () { enterIdle(); }, 3000);
+      return;
+    }
 
     var completed = data.completed || 0;
     var total = data.total || 0;
@@ -623,6 +689,18 @@
     if (locale !== "en") {
       warmupGPU();
     }
+
+    // Tab/browser close drain. pagehide fires on all modern browsers for
+    // back-forward cache and genuine unload alike; beforeunload is the
+    // desktop-Chrome safety net. Either triggers a sendBeacon drain so
+    // the backend sees state='stopped' and deletes pending rows even if
+    // the user never clicked the X or Stop.
+    window.addEventListener("pagehide", function () {
+      if (state !== State.IDLE) drainStreaming(true);
+    });
+    window.addEventListener("beforeunload", function () {
+      if (state !== State.IDLE) drainStreaming(true);
+    });
   });
 
   // ── Public API ──
@@ -636,5 +714,6 @@
     isIdle: function () { return state === State.IDLE; },
     isSegmentCached: isSegmentCached,
     enterIdle: enterIdle,
+    drain: drainStreaming,
   };
 })();

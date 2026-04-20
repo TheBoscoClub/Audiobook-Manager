@@ -61,20 +61,29 @@ def test_seek_promotes_p0_and_demotes_others(db):
     assert [r[0] for r in p2] == list(range(10))
 
 
-def test_stop_demotes_all_to_p2(db):
+def test_stop_deletes_pending_leaves_in_flight(db):
+    """v8.3.4: Stop actually stops — pending rows are DELETEd from the claim
+    pool. In-flight (processing) rows are untouched so the worker can finish
+    or fail them organically (retry_count cap handles the fail case)."""
     for s in range(10):
-        _insert(db, 0, s, priority=0)
+        _insert(db, 0, s, state="pending", priority=0)
     for s in range(10, 20):
-        _insert(db, 0, s, priority=1)
+        _insert(db, 0, s, state="pending", priority=1)
+    _insert(db, 0, 99, state="processing", priority=0)
+    _insert(db, 0, 98, state="completed", priority=0)
     stop_streaming_impl(db, audiobook_id=1, locale="zh-Hans")
-    p2 = db.execute(
-        "SELECT COUNT(*) FROM streaming_segments WHERE priority=2 AND state='pending'"
+    pending_left = db.execute(
+        "SELECT COUNT(*) FROM streaming_segments WHERE state='pending'"
     ).fetchone()[0]
-    p_other = db.execute(
-        "SELECT COUNT(*) FROM streaming_segments WHERE priority!=2 AND state='pending'"
+    processing_left = db.execute(
+        "SELECT COUNT(*) FROM streaming_segments WHERE state='processing'"
     ).fetchone()[0]
-    assert p2 == 20
-    assert p_other == 0
+    completed_left = db.execute(
+        "SELECT COUNT(*) FROM streaming_segments WHERE state='completed'"
+    ).fetchone()[0]
+    assert pending_left == 0, "pending rows must be deleted"
+    assert processing_left == 1, "in-flight row must remain"
+    assert completed_left == 1, "completed row must remain"
 
 
 def test_seek_does_not_touch_processing_segments(db):

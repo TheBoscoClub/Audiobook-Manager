@@ -291,6 +291,19 @@ class ShellPlayer {
       this.flushToAPI(this.currentBook.id, this.audio.currentTime);
     }
 
+    // v8.3.4 Bug D (abort+pivot): switching to a different book must stop
+    // the previous book's streaming translation pipeline before the new
+    // one's streamingTranslate.check() kicks off — otherwise two GPU
+    // sessions race and the old book's pending rows stay queued.
+    if (
+      this.currentBook &&
+      this.currentBook.bookId !== bookId &&
+      typeof window.streamingTranslate !== "undefined" &&
+      typeof window.streamingTranslate.drain === "function"
+    ) {
+      window.streamingTranslate.drain(false);
+    }
+
     this.currentBook = { ...book, bookId, coverUrl };
 
     // Reset save timer so auto-save doesn't fire immediately with a stale
@@ -500,6 +513,16 @@ class ShellPlayer {
   }
 
   close() {
+    // v8.3.4 Bug D: drain any in-flight streaming translation session so
+    // the backend stops queueing new GPU work for this book. Covers the
+    // "click X on player", "MediaSession Stop" (wired to close()) and
+    // programmatic close paths — the pagehide listener in
+    // streaming-translate.js handles tab/browser close.
+    if (typeof window.streamingTranslate !== "undefined" &&
+        typeof window.streamingTranslate.drain === "function") {
+      window.streamingTranslate.drain(false);
+    }
+
     // Save position before closing (> 5s threshold prevents saving near-zero)
     if (this.currentBook && this.audio.currentTime > 5 && this.audio.duration) {
       this.savePosition(

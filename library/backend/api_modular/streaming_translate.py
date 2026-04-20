@@ -701,13 +701,21 @@ def handle_seek_impl(conn, audiobook_id, locale, chapter_index, segment_index):
 
 
 def stop_streaming_impl(conn, audiobook_id, locale):
-    """Demote every pending segment for (book, locale) to P2 (back-fill).
+    """Drain every pending segment for (book, locale).
 
-    Used when the player stops streaming translation. Processing segments
-    are not touched — let the worker finish what it claimed. No promotion.
+    Used when the player stops streaming translation. DELETEs all
+    ``state='pending'`` rows so the worker can't claim them after the
+    user's Stop event. Processing segments (already claimed) are left
+    alone — the worker finishes what it has and the segment-complete
+    callback still lands normally. No demotion/promotion.
+
+    Pre-v8.3.4 this demoted pending rows to priority=2 (back-fill) on the
+    theory that the worker would deprioritize them; in practice the
+    worker drained p0/p1 and then started chewing through the demoted
+    p2 rows, meaning Stop never really stopped. v8.3.4 makes Stop stop.
     """
     conn.execute(
-        "UPDATE streaming_segments SET priority = 2 "
+        "DELETE FROM streaming_segments "
         "WHERE audiobook_id = ? AND locale = ? AND state = 'pending'",
         (audiobook_id, locale),
     )
@@ -1057,11 +1065,12 @@ def handle_seek():
 def stop_streaming():
     """Stop streaming translation for a book+locale.
 
-    Demotes every pending segment for (audiobook_id, locale) to P2
-    (back-fill priority) so the GPU workers stop chasing the cursor for
-    this book. Processing segments are left alone — the worker finishes
-    what it claimed. Any active streaming_sessions row for this pair is
-    marked 'stopped'.
+    DELETEs every pending segment for (audiobook_id, locale) so the GPU
+    workers have no further work for this book. Processing segments are
+    left alone — the worker finishes what it claimed. Any active
+    streaming_sessions row for this pair is marked 'stopped'; the worker
+    reads that row via LEFT JOIN in ``claim_next_segment`` and will
+    skip any pending rows that survive a race with this endpoint.
 
     Body:
         audiobook_id: int

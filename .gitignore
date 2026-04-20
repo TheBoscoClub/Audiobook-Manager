@@ -373,6 +373,9 @@ SESSION_RECORD*.md.lock
 test-report.md
 audit-*.log
 
+# Proof artifacts (QA streaming exports, screenshots — may contain licensed content)
+.claude/proof-artifacts/
+
 # VM credentials and configuration
 vm-credentials*
 *-vm-config*

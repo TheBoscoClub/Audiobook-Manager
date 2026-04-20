@@ -949,7 +949,7 @@
   "streaming.bilingual.targetHeader": "{localeName}",
   "streaming.bilingual.title": "Bilingual transcript",
   "streaming.phase.buffering": "Translating — segment {current} of {total}",
-  "streaming.phase.error": "Translation failed — retrying…",
+  "streaming.phase.error": "Translation error — please try again",
   "streaming.phase.gpu_provisioning": "Starting translation engine…",
   "streaming.phase.idle": "Ready",
   "streaming.phase.streaming": "Playing",

@@ -486,6 +486,7 @@ CREATE TABLE IF NOT EXISTS streaming_segments (
     source_vtt_content TEXT,                 -- English (source) VTT cues for this segment
     audio_path TEXT,                         -- Path to TTS audio for this segment
     error TEXT,
+    retry_count INTEGER NOT NULL DEFAULT 0,  -- Bounded retry budget (cap = 3)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     started_at TIMESTAMP,
     completed_at TIMESTAMP,
@@ -505,7 +506,7 @@ CREATE TABLE IF NOT EXISTS streaming_sessions (
     locale TEXT NOT NULL,
     active_chapter INTEGER NOT NULL DEFAULT 0,
     buffer_threshold INTEGER NOT NULL DEFAULT 6,  -- segments before playback starts
-    state TEXT NOT NULL DEFAULT 'buffering',       -- buffering, streaming, completed, cancelled
+    state TEXT NOT NULL DEFAULT 'buffering',       -- buffering, streaming, completed, cancelled, stopped, error
     gpu_warm INTEGER NOT NULL DEFAULT 0,           -- 1 if GPU is warmed up
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
