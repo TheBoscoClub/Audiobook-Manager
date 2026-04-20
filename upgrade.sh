@@ -796,15 +796,22 @@ apply_data_migrations() {
             continue
         fi
 
-        # Version gate: skip if installed version already includes this fix.
+        # Version gate: skip only if installed version is STRICTLY past the
+        # boundary. When installed == MIN_VERSION, still run — the migration
+        # may have been added mid-cycle (e.g., 8.3.2-A shipped without it,
+        # 8.3.2-B added it, both report version "8.3.2"). Migrations are
+        # required to be idempotent (PRAGMA / IF NOT EXISTS guards), so
+        # running them again on the boundary is a safe no-op.
         # "unknown" (fresh install) always qualifies — run everything.
         if [[ "$installed_version" != "unknown" ]]; then
             set +e
             compare_versions "$installed_version" "$min_ver"
             local cmp=$?
             set -e
-            # cmp=0: equal (already at min), cmp=1: installed > min (past it)
-            if [[ $cmp -eq 0 ]] || [[ $cmp -eq 1 ]]; then
+            # cmp=0: equal (boundary — run, idempotent guard handles no-op)
+            # cmp=1: installed > min (past it — skip)
+            # cmp=2: installed < min (below boundary — run)
+            if [[ $cmp -eq 1 ]]; then
                 continue
             fi
         fi
@@ -1625,11 +1632,13 @@ do_upgrade() {
                     local var_dir="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
                     local staging="${AUDIOBOOKS_STAGING:-/tmp/audiobook-staging}"
                     local stream_audio="${AUDIOBOOKS_STREAMING_AUDIO_DIR:-${var_dir}/streaming-audio}"
-                    sudo mkdir -p "${var_dir}/.control" "${var_dir}/.run" "$staging" "$stream_audio"
-                    sudo chown audiobooks:audiobooks "${var_dir}/.control" "${var_dir}/.run" "$staging" "$stream_audio"
+                    local stream_subtitles="${AUDIOBOOKS_STREAMING_SUBTITLES_DIR:-${var_dir}/streaming-subtitles}"
+                    sudo mkdir -p "${var_dir}/.control" "${var_dir}/.run" "$staging" "$stream_audio" "$stream_subtitles"
+                    sudo chown audiobooks:audiobooks "${var_dir}/.control" "${var_dir}/.run" "$staging" "$stream_audio" "$stream_subtitles"
                     sudo chmod 755 "${var_dir}/.control"
                     sudo chmod 775 "${var_dir}/.run" "$staging"
                     sudo chmod 750 "$stream_audio"
+                    sudo chmod 755 "$stream_subtitles"
                 }
                 echo "  Updated: tmpfiles.d/audiobooks.conf"
             fi

@@ -27,7 +27,7 @@ from pathlib import Path
 from flask import Blueprint, abort, g, jsonify, request, send_file
 from i18n import SUPPORTED_LOCALES
 
-from .auth import admin_or_localhost, guest_allowed
+from .auth import guest_allowed, localhost_only
 from .websocket import connection_manager
 
 streaming_bp = Blueprint("streaming_translate", __name__)
@@ -35,10 +35,15 @@ logger = logging.getLogger(__name__)
 
 _db_path: Path | None = None
 _library_path: Path | None = None
-# Root directory where per-segment opus files are stored — set by
+# Root directory where per-segment WebM-Opus files are stored — set by
 # `init_streaming_routes`. Task 10 concatenates per-segment files from here
-# into chapter-level opus consolidation output.
+# into chapter-level WebM-Opus consolidation output.
 _streaming_audio_root: Path | None = None
+# Root directory where consolidated per-chapter VTT files are written. Lives
+# under AUDIOBOOKS_VAR_DIR (writable runtime state) — NOT under the install
+# tree at /opt/audiobooks/library, which systemd mounts read-only via
+# ProtectSystem=strict. Set by `init_streaming_routes`.
+_streaming_subtitles_root: Path | None = None
 
 # Per-locale default edge-tts voice. MUST be kept in sync with the worker's
 # `_LOCALE_DEFAULT_VOICE` mapping in scripts/stream-translate-worker.py — the
@@ -141,14 +146,18 @@ def _sanitize_locale(locale: str) -> str:
 
 
 def _safe_subtitles_path(
-    library_root: Path, audiobook_id: int, chapter_index: int, locale: str
+    subtitles_root: Path, audiobook_id: int, chapter_index: int, locale: str
 ) -> Path:
-    """Build a VTT subtitle path and confirm it is inside `library_root`.
+    """Build a VTT subtitle path and confirm it is inside `subtitles_root`.
+
+    `subtitles_root` is the runtime root for streaming-generated VTT files
+    (defaults to ``${AUDIOBOOKS_VAR_DIR}/streaming-subtitles``). The resolved
+    path is ``<subtitles_root>/<audiobook_id>/ch<NNN>.<locale>.vtt``.
 
     `audiobook_id` and `chapter_index` must be ints; `locale` must already
     have been validated by `_sanitize_locale`. This function raises
-    `ValueError` if the resolved path escapes the library root (defense in
-    depth against path injection — CodeQL py/path-injection).
+    `ValueError` if the resolved path escapes the subtitles root (defense
+    in depth against path injection — CodeQL py/path-injection).
     """
     if not isinstance(audiobook_id, int) or audiobook_id < 0:
         raise ValueError(f"invalid audiobook_id: {audiobook_id!r}")
@@ -157,15 +166,15 @@ def _safe_subtitles_path(
     # Re-validate locale (belt-and-suspenders) to ensure no traversal chars
     _sanitize_locale(locale)
 
-    root = library_root.resolve()
-    subtitles_dir = (root / "subtitles" / str(audiobook_id)).resolve()
+    root = subtitles_root.resolve()
+    book_dir = (root / str(audiobook_id)).resolve()
     # Python 3.9+: Path.is_relative_to
-    if not subtitles_dir.is_relative_to(root):
-        raise ValueError("resolved subtitles dir escapes library root")
+    if not book_dir.is_relative_to(root):
+        raise ValueError("resolved subtitles dir escapes subtitles root")
 
-    vtt_path = (subtitles_dir / f"ch{chapter_index:03d}.{locale}.vtt").resolve()
+    vtt_path = (book_dir / f"ch{chapter_index:03d}.{locale}.vtt").resolve()
     if not vtt_path.is_relative_to(root):
-        raise ValueError("resolved VTT path escapes library root")
+        raise ValueError("resolved VTT path escapes subtitles root")
     return vtt_path
 
 
@@ -240,6 +249,12 @@ def _has_cached_audio(db, audiobook_id: int, chapter_index: int, locale: str) ->
 # int. Not locked — ffprobe is idempotent and a few redundant calls during a
 # first-hit race are cheaper than a contention point on every resolution.
 _chapter_count_memo: dict[int, int] = {}
+
+# Per-book cache of [(start_sec, duration_sec), ...] for each chapter, populated
+# by _resolve_chapters via ffprobe. Empty list = no chapter metadata in file
+# (callers fall back to uniform-average duration). Same locking rationale as
+# _chapter_count_memo: idempotent ffprobe, race-free in practice.
+_chapters_memo: dict[int, list[tuple[float, float]]] = {}
 
 
 def _probe_chapter_count(audio_path: Path) -> int:
@@ -347,15 +362,57 @@ def _chapter_segment_count(duration_sec: float) -> int:
     return math.ceil(duration_sec / SEGMENT_DURATION_SEC)
 
 
-def _get_chapter_duration_sec(db, audiobook_id: int, chapter_index: int) -> float:  # pylint: disable=unused-argument  # chapter_index reserved for future per-chapter duration lookup; current impl returns average
-    """Estimate chapter duration from book duration and chapter count.
+def _resolve_chapters(db, audiobook_id: int) -> list[tuple[float, float]]:
+    """Return [(start_sec, duration_sec), ...] for the book's chapters.
 
-    For more accurate results, the streaming worker uses ffprobe chapter
-    metadata directly. This estimate is used to pre-populate segment rows.
+    Memoized in ``_chapters_memo``. Uses ffprobe via
+    ``localization.chapters.extract_chapters``. Returns ``[]`` when the file
+    has no chapter metadata — callers must fall back to a uniform average.
 
-    May raise ``ValueError`` via ``_resolve_chapter_count`` if the chapter
-    count cannot be established from DB or ffprobe.
+    Why this matters: real audiobooks frequently have wildly non-uniform
+    chapters (a 24-second intro, a 3936-second main body, a 55-second outro).
+    Allocating segments by averaging book_duration/chapter_count produces
+    bogus segment slices for the short chapters — ffmpeg gets a negative
+    `-t` duration and silently emits a zero-byte Opus file, which crashes
+    Whisper's PyAV decoder with EOFError.
     """
+    cached = _chapters_memo.get(audiobook_id)
+    if cached is not None:
+        return cached
+
+    row = db.execute(
+        "SELECT file_path FROM audiobooks WHERE id = ?",
+        (audiobook_id,),
+    ).fetchone()
+    if row is None or not row["file_path"]:
+        _chapters_memo[audiobook_id] = []
+        return []
+
+    from localization.chapters import extract_chapters
+
+    chapters = extract_chapters(Path(row["file_path"]))
+    bounds = [(c.start_sec, c.duration_ms / 1000.0) for c in chapters]
+    _chapters_memo[audiobook_id] = bounds
+    return bounds
+
+
+def _get_chapter_duration_sec(db, audiobook_id: int, chapter_index: int) -> float:
+    """Return the actual duration (seconds) of a specific chapter.
+
+    Resolution order:
+      1. ffprobe chapter metadata for the requested ``chapter_index`` (memoized).
+      2. Uniform average ``book_duration / chapter_count`` if the file lacks
+         chapter metadata or ``chapter_index`` is out of bounds.
+
+    May raise ``ValueError`` via ``_resolve_chapter_count`` (fallback path)
+    if the chapter count cannot be established from DB or ffprobe.
+    """
+    chapters = _resolve_chapters(db, audiobook_id)
+    if chapters and 0 <= chapter_index < len(chapters):
+        _, dur_sec = chapters[chapter_index]
+        if dur_sec > 0:
+            return dur_sec
+
     book_dur = _get_book_duration_sec(db, audiobook_id)
     chapter_count = _resolve_chapter_count(db, audiobook_id)
     return book_dur / chapter_count
@@ -1023,9 +1080,17 @@ def stop_streaming():
 
 
 @streaming_bp.route("/api/translate/segment-complete", methods=["POST"])
-@admin_or_localhost
+@localhost_only
 def segment_complete():
     """GPU worker reports a segment is done.
+
+    Authentication: ``@localhost_only`` (not ``@admin_or_localhost``). The
+    streaming worker is a co-located systemd service that POSTs to
+    ``http://127.0.0.1:5001`` with no session — in AUTH_ENABLED=true
+    deployments (QA, prod), ``admin_or_localhost`` would reject the worker
+    with 401. Pure localhost gating is correct here because the endpoint
+    is only ever called by the local worker, never by users.
+
 
     Body:
         audiobook_id: int
@@ -1096,9 +1161,13 @@ def segment_complete():
 
 
 @streaming_bp.route("/api/translate/chapter-complete", methods=["POST"])
-@admin_or_localhost
+@localhost_only
 def chapter_complete():
     """GPU worker reports an entire chapter is done (prefetch chapters).
+
+    Authentication: ``@localhost_only`` (not ``@admin_or_localhost``). Same
+    rationale as ``segment_complete`` — the streaming worker is a co-located
+    systemd service POSTing to ``http://127.0.0.1:5001`` with no session.
 
     For prefetch chapters, the worker sends the complete VTT directly
     rather than segment-by-segment.
@@ -1168,12 +1237,16 @@ def chapter_complete():
 
 
 def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale: str) -> None:
-    """Concatenate per-segment opus files into chapter.opus and persist a row.
+    """Concatenate per-segment WebM-Opus files into chapter.webm and persist a row.
 
     All completed segments must have `audio_path` set (Task 9's TTS may
     degrade to text-only on failure — those chapters produce no consolidated
     audio). On any error, logs and returns without raising; VTT
     consolidation continues unaffected in the caller.
+
+    Container is WebM-Opus to match the per-segment files served via MSE
+    (Chromium MSE rejects Ogg-Opus). ffmpeg ``-c copy`` does not transcode;
+    it just concatenates the same opus codec inside a single WebM container.
     """
     if _streaming_audio_root is None:
         logger.warning("Cannot consolidate chapter audio — _streaming_audio_root not configured")
@@ -1215,7 +1288,10 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
         try:
             p_resolved = p.resolve(strict=False)
             p_resolved.relative_to(audio_root_resolved)  # raises ValueError if outside
-        except ValueError, OSError:
+        except (ValueError, OSError):
+            # Parenthesised tuple — prior ``except ValueError, OSError:``
+            # was silently parsed as "catch ValueError as OSError" (Py2-style
+            # binding), which would let real OSErrors escape.
             logger.warning(
                 "Rejecting audio_path that escapes streaming root — "
                 "skipping chapter audio consolidation: book=%d ch=%d seg=%d path=%s",
@@ -1227,7 +1303,7 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
             return
         if not p_resolved.exists():
             logger.warning(
-                "Missing per-segment opus on disk — skipping chapter audio "
+                "Missing per-segment WebM on disk — skipping chapter audio "
                 "consolidation: book=%d ch=%d seg=%d path=%s",
                 audiobook_id,
                 chapter_index,
@@ -1237,14 +1313,15 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
             return
         segment_paths.append(p_resolved)
 
-    # Output: <root>/<book_id>/ch<NNN>/<locale>/chapter.opus
+    # Output: <root>/<book_id>/ch<NNN>/<locale>/chapter.webm
     chapter_dir = _streaming_audio_root / str(audiobook_id) / f"ch{chapter_index:03d}" / locale
     chapter_dir.mkdir(parents=True, exist_ok=True)
-    out_path = chapter_dir / "chapter.opus"
+    out_path = chapter_dir / "chapter.webm"
 
-    # ffmpeg concat demuxer with -c copy. All per-segment opus files are
-    # uniform 48k/48kHz libopus (enforced by Task 9), so no re-encode is
-    # needed — sub-second latency.
+    # ffmpeg concat demuxer with -c copy. All per-segment WebM-Opus files
+    # are uniform 48k/48kHz libopus (enforced by Task 9), so no re-encode
+    # is needed — sub-second latency. ``-f webm`` makes the output container
+    # explicit even though the .webm extension also implies it.
     try:
         with tempfile.TemporaryDirectory() as tmp_dir:
             concat_list = Path(tmp_dir) / "concat.txt"
@@ -1263,6 +1340,8 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
                     str(concat_list),
                     "-c",
                     "copy",
+                    "-f",
+                    "webm",
                     str(out_path),
                 ],
                 check=True,
@@ -1301,7 +1380,7 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
         return
 
     logger.info(
-        "Consolidated streaming segments into chapter.opus: "
+        "Consolidated streaming segments into chapter.webm: "
         "book=%d ch=%d locale=%s segments=%d duration=%s",
         audiobook_id,
         chapter_index,
@@ -1317,8 +1396,8 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
     After all segments for a chapter are done, consolidate the VTT
     content into a single file and write to the permanent cache so
     future plays don't need the streaming pipeline. If every segment
-    also has a per-segment opus audio file (Task 9), concatenate them
-    into a single chapter.opus and register a chapter_translations_audio
+    also has a per-segment WebM-Opus audio file (Task 9), concatenate them
+    into a single chapter.webm and register a chapter_translations_audio
     row so `_has_cached_audio` returns True on next play.
     """
     rows = db.execute(
@@ -1345,12 +1424,19 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
     if len(all_vtt.strip()) <= len("WEBVTT"):
         return
 
-    # Write consolidated VTT file — validated to live inside library root
-    if _library_path is None:
-        logger.error("Cannot consolidate streaming chapter — library path not configured")
+    # Write consolidated VTT file — validated to live inside the writable
+    # streaming-subtitles runtime root. Must NOT use _library_path because the
+    # install tree at /opt/audiobooks/library is read-only at runtime
+    # (systemd ProtectSystem=strict).
+    if _streaming_subtitles_root is None:
+        logger.error(
+            "Cannot consolidate streaming chapter — streaming subtitles root not configured"
+        )
         return
     try:
-        vtt_path = _safe_subtitles_path(_library_path, audiobook_id, chapter_index, locale)
+        vtt_path = _safe_subtitles_path(
+            _streaming_subtitles_root, audiobook_id, chapter_index, locale
+        )
     except ValueError as exc:
         logger.error("Rejected unsafe consolidated VTT path: %s", _safe_log_value(exc))
         return
@@ -1393,10 +1479,15 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
 )
 @guest_allowed
 def serve_streaming_segment(audiobook_id, chapter_index, segment_index, locale):
-    """Serve a per-segment opus file to the client MSE chain.
+    """Serve a per-segment WebM-Opus file to the client MSE chain.
 
     Path layout (owned by the streaming worker):
-        ``<_streaming_audio_root>/<book>/ch<NNN>/<locale>/seg<NNNN>.opus``
+        ``<_streaming_audio_root>/<book>/ch<NNN>/<locale>/seg<NNNN>.webm``
+
+    Container is WebM-Opus (not Ogg-Opus): Chromium-based browsers reject
+    ``audio/ogg; codecs=opus`` in MediaSource.addSourceBuffer. The frontend
+    MseAudioChain uses ``addSourceBuffer('audio/webm; codecs="opus"')`` so
+    we serve a matching MIME and matching container.
 
     Defense in depth:
     - Reject locales not in ``SUPPORTED_LOCALES`` (whitelist).
@@ -1427,13 +1518,16 @@ def serve_streaming_segment(audiobook_id, chapter_index, segment_index, locale):
             / str(audiobook_id)
             / f"ch{chapter_index:03d}"
             / locale
-            / f"seg{segment_index:04d}.opus"
+            / f"seg{segment_index:04d}.webm"
         )
         # strict=False so a missing file still resolves (we check exists()
         # below and return 404); strict=True would raise FileNotFoundError.
         resolved = candidate.resolve(strict=False)
-    except OSError, RuntimeError:
+    except (OSError, RuntimeError):
         # Resolve can raise on broken symlink loops; treat as not-found.
+        # Parenthesised tuple: prior ``except OSError, RuntimeError:`` was
+        # silently parsed as "catch OSError as RuntimeError" (Py2-style
+        # binding), which would let real RuntimeErrors escape.
         abort(404)
 
     # Containment: the resolved candidate must live under the resolved
@@ -1447,38 +1541,57 @@ def serve_streaming_segment(audiobook_id, chapter_index, segment_index, locale):
 
     # conditional=True enables HTTP Range/If-Modified-Since handling,
     # which MSE SourceBuffer.appendBuffer relies on for resumable fetches.
-    return send_file(resolved, mimetype="audio/ogg; codecs=opus", conditional=True)
+    return send_file(resolved, mimetype="audio/webm", conditional=True)
 
 
-def init_streaming_routes(database_path, library_path=None, streaming_audio_dir=None):
+def init_streaming_routes(
+    database_path,
+    library_path=None,
+    streaming_audio_dir=None,
+    streaming_subtitles_dir=None,
+):
     """Initialize the streaming translation blueprint.
 
     Args:
         database_path: Path to the main audiobooks SQLite database.
-        library_path: Library root (for VTT subtitle writes); defaults
-            to the DB file's parent directory.
-        streaming_audio_dir: Root directory holding per-segment opus
+        library_path: Project library root (used only for resolving
+            cached static assets, not for writing). Defaults to the DB
+            file's parent directory.
+        streaming_audio_dir: Root directory holding per-segment WebM-Opus
             files (used by chapter audio consolidation). Defaults to
             $AUDIOBOOKS_STREAMING_AUDIO_DIR, falling back to
             $AUDIOBOOKS_VAR_DIR/streaming-audio.
+        streaming_subtitles_dir: Root directory holding consolidated
+            per-chapter VTT files. Defaults to
+            $AUDIOBOOKS_STREAMING_SUBTITLES_DIR, falling back to
+            $AUDIOBOOKS_VAR_DIR/streaming-subtitles. MUST be writable —
+            this is the canonical writable location for streaming-
+            generated VTT output (the install tree is read-only at
+            runtime under systemd ProtectSystem=strict).
     """
-    global _db_path, _library_path, _streaming_audio_root
+    global _db_path, _library_path, _streaming_audio_root, _streaming_subtitles_root
     _db_path = Path(database_path) if database_path else None
     if library_path:
         _library_path = Path(library_path)
     else:
         # Default to the parent of the DB path
         _library_path = Path(database_path).parent if database_path else None
+    # Direct env reads (rather than importing library.config) keep this module
+    # safe to import before the API factory completes config loading.
+    _var_dir = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
     if streaming_audio_dir:
         _streaming_audio_root = Path(streaming_audio_dir)
     else:
-        # Derive from AUDIOBOOKS_VAR_DIR to match library/config.py's canonical
-        # chain (library/config.py:143-150). Direct env reads are used here
-        # because this module is imported early by the API factory, before
-        # library.config loading completes.
-        _var_dir = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
         _streaming_audio_root = Path(
             os.environ.get("AUDIOBOOKS_STREAMING_AUDIO_DIR", f"{_var_dir}/streaming-audio")
+        )
+    if streaming_subtitles_dir:
+        _streaming_subtitles_root = Path(streaming_subtitles_dir)
+    else:
+        _streaming_subtitles_root = Path(
+            os.environ.get(
+                "AUDIOBOOKS_STREAMING_SUBTITLES_DIR", f"{_var_dir}/streaming-subtitles"
+            )
         )
 
 

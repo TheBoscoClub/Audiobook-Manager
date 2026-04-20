@@ -1329,10 +1329,17 @@ do_system_install() {
     # the stream-translate worker. Matches AUDIOBOOKS_STREAMING_AUDIO_DIR
     # default in lib/audiobook-config.sh and library/config.py.
     sudo mkdir -p "/var/lib/audiobooks/streaming-audio"
+    # Streaming translation subtitles cache — consolidated per-chapter VTT
+    # files written by the streaming pipeline. Lives here (writable under
+    # /var/lib) rather than the read-only install tree at /opt/audiobooks/
+    # library, which systemd ProtectSystem=strict makes immutable at runtime.
+    # Matches AUDIOBOOKS_STREAMING_SUBTITLES_DIR default.
+    sudo mkdir -p "/var/lib/audiobooks/streaming-subtitles"
     sudo mkdir -p "/var/log/audiobooks"
     sudo mkdir -p "${data_dir}/.index"
     sudo chown -R audiobooks:audiobooks "/var/lib/audiobooks"
     sudo chmod 0750 "/var/lib/audiobooks/streaming-audio"
+    sudo chmod 0755 "/var/lib/audiobooks/streaming-subtitles"
     sudo chown audiobooks:audiobooks "/var/log/audiobooks"
     sudo chown audiobooks:audiobooks "${data_dir}"
     sudo chown audiobooks:audiobooks "${data_dir}/Library"

@@ -232,9 +232,34 @@ def get_queue_status() -> dict:
 
 
 def get_book_translation_status(audiobook_id: int, locale: str) -> dict | None:
-    """Return translation status for a specific book+locale."""
+    """Return translation status for a specific book+locale.
+
+    Streaming pipeline supersedes legacy pretranslation: if the book has
+    streaming_segments rows for this locale, return state="streaming" so
+    the UI defers to the streaming overlay instead of the legacy banner.
+    """
     conn = _get_db()
     try:
+        # Streaming-first: if the on-demand pipeline has segments for this
+        # book+locale, the legacy translation_queue row (if any) is stale.
+        seg_row = conn.execute(
+            "SELECT COUNT(*) AS total, "
+            "SUM(CASE WHEN state='completed' THEN 1 ELSE 0 END) AS done "
+            "FROM streaming_segments WHERE audiobook_id = ? AND locale = ?",
+            (audiobook_id, locale),
+        ).fetchone()
+        if seg_row and (seg_row["total"] or 0) > 0:
+            total = int(seg_row["total"] or 0)
+            done = int(seg_row["done"] or 0)
+            return {
+                "state": "streaming",
+                "phase": "streaming",
+                "audiobook_id": audiobook_id,
+                "locale": locale,
+                "total": total,
+                "completed": done,
+            }
+
         row = conn.execute(
             "SELECT * FROM translation_queue WHERE audiobook_id = ? AND locale = ?",
             (audiobook_id, locale),

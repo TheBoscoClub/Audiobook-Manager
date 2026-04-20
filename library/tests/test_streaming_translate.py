@@ -278,7 +278,7 @@ class TestRequestStreamingTranslation:
             conn.execute(
                 "INSERT INTO chapter_translations_audio "
                 "(audiobook_id, chapter_index, locale, audio_path, tts_provider) "
-                "VALUES (3, ?, 'zh-Hans', '/tmp/x.opus', 'test')",
+                "VALUES (3, ?, 'zh-Hans', '/tmp/x.webm', 'test')",
                 (ch,),
             )
         conn.commit()
@@ -531,7 +531,7 @@ class TestChapterComplete:
     def test_chapter_insert_writes_subtitles_and_audio(self, app_client, streaming_db):
         # Use a relative path within the streaming audio root so _validate_audio_path accepts it.
         # Absolute /tmp paths are now rejected as path-injection defense (Phase 6c).
-        audio_rel = "1/ch000/zh-Hans/chapter.opus"
+        audio_rel = "1/ch000/zh-Hans/chapter.webm"
         resp = app_client.post(
             "/api/translate/chapter-complete",
             json={

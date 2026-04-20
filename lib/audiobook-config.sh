@@ -139,6 +139,13 @@ _load_config_file "${HOME:-}/.config/audiobooks/audiobooks.conf"
 # other persistent state. MUST stay in sync with library/config.py.
 : "${AUDIOBOOKS_STREAMING_AUDIO_DIR:=${AUDIOBOOKS_VAR_DIR}/streaming-audio}"
 
+# Streaming translation subtitles cache — consolidated per-chapter VTT files
+# produced by the streaming pipeline (rolled up from per-segment vtt_content
+# in the streaming_segments table). MUST be writable at runtime, so it lives
+# under AUDIOBOOKS_VAR_DIR rather than the read-only install tree at
+# /opt/audiobooks/library. MUST stay in sync with library/config.py.
+: "${AUDIOBOOKS_STREAMING_SUBTITLES_DIR:=${AUDIOBOOKS_VAR_DIR}/streaming-subtitles}"
+
 # Data directory for scan results and intermediate files
 : "${DATA_DIR:=${AUDIOBOOKS_VAR_DIR}/data}"
 : "${AUDIOBOOKS_TRIGGERS:=/tmp/audiobook-triggers}" # Trigger files for service coordination
@@ -172,7 +179,7 @@ export AUDIOBOOKS_STAGING AUDIOBOOKS_PARALLEL_JOBS AUDIOBOOKS_SCAN_INTERVAL
 export AUDIOBOOKS_TMPFS_THRESHOLD AUDIOBOOKS_OPUS_LEVEL AUDIOBOOKS_DOWNLOAD_DELAY
 export AUDIOBOOKS_WEBM_CACHE DATA_DIR
 export AUDIOBOOKS_RUN_DIR AUDIOBOOKS_VAR_DIR AUDIOBOOKS_TRIGGERS AUDIOBOOKS_DOWNLOADER_LOCK
-export AUDIOBOOKS_STREAMING_AUDIO_DIR
+export AUDIOBOOKS_STREAMING_AUDIO_DIR AUDIOBOOKS_STREAMING_SUBTITLES_DIR
 export AUDIOBOOKS_AUDIBLE_VENV AUDIOBOOKS_AUDIBLE_CMD
 export CF_ZONE_ID AUDIOBOOKS_PROJECT_DIR
 export AUDIOBOOKS_DEFAULT_LOCALE AUDIOBOOKS_SUPPORTED_LOCALES
@@ -210,7 +217,8 @@ audiobooks_print_config() {
     echo "AUDIOBOOKS_LOGS:        ${AUDIOBOOKS_LOGS}"
     echo "AUDIOBOOKS_VENV:        ${AUDIOBOOKS_VENV}"
     echo "AUDIOBOOKS_AUDIBLE_VENV: ${AUDIOBOOKS_AUDIBLE_VENV}"
-    echo "AUDIOBOOKS_STREAMING_AUDIO_DIR: ${AUDIOBOOKS_STREAMING_AUDIO_DIR}"
+    echo "AUDIOBOOKS_STREAMING_AUDIO_DIR:     ${AUDIOBOOKS_STREAMING_AUDIO_DIR}"
+    echo "AUDIOBOOKS_STREAMING_SUBTITLES_DIR: ${AUDIOBOOKS_STREAMING_SUBTITLES_DIR}"
     echo "AUDIOBOOKS_CONVERTER:   ${AUDIOBOOKS_CONVERTER}"
     echo "AUDIOBOOKS_API_PORT:    ${AUDIOBOOKS_API_PORT}"
     echo "AUDIOBOOKS_WEB_PORT:    ${AUDIOBOOKS_WEB_PORT} (HTTPS)"

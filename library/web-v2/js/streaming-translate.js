@@ -69,8 +69,12 @@
     self.ready = new Promise(function (resolve, reject) {
       function onOpen() {
         try {
+          // WebM-Opus container — Chromium-based browsers (including Brave)
+          // do NOT support Ogg-Opus in MSE, only WebM-Opus and MP4-Opus.
+          // Backend serves Opus inside a WebM container (no transcoding,
+          // just a container repackage of the same codec).
           self.sourceBuffer = self.mediaSource.addSourceBuffer(
-            'audio/ogg; codecs=opus'
+            'audio/webm; codecs="opus"'
           );
           self.sourceBuffer.mode = "sequence";
           self.sourceBuffer.addEventListener("updateend", function () {
@@ -340,8 +344,8 @@
 
     // Show overlay and play notification
     var msg = typeof t === "function"
-      ? t("streaming.preparing")
-      : "Preparing translation...";
+      ? t("streaming.phase.warmup")
+      : "Preparing…";
     setMessage(msg);
     showOverlay(completed, total);
     playNotification(locale);
@@ -543,7 +547,7 @@
     currentBookId = bookId;
     currentLocale = locale;
     state = State.BUFFERING;
-    setMessage(typeof t === "function" ? t("streaming.preparing") : "Preparing translation...");
+    setMessage(typeof t === "function" ? t("streaming.phase.warmup") : "Preparing…");
     showOverlay(0, 0);
     var audio = document.getElementById("audio-element");
     if (audio && !audio.paused) {

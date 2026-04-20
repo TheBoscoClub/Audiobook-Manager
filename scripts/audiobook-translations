@@ -260,7 +260,7 @@ cmd_resume() {
 
     sq "UPDATE translation_queue SET state = 'pending' WHERE state = 'paused';"
     echo -e "${GREEN}Resumed ${paused} translations.${NC}"
-    echo "Run: sudo /opt/audiobooks/library/venv/bin/python /opt/audiobooks/scripts/batch-translate.py"
+    echo "Run: sudo ${AUDIOBOOKS_HOME}/library/venv/bin/python ${AUDIOBOOKS_HOME}/scripts/batch-translate.py"
     echo "     to drain pending jobs against serverless STT endpoints."
 }
 

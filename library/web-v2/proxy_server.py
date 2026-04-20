@@ -64,7 +64,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     """Handler that proxies API requests and serves static files."""
 
     # Paths that get proxied to the Flask API backend
-    PROXY_PREFIXES = ("/api/", "/auth/")
+    PROXY_PREFIXES = ("/api/", "/auth/", "/streaming-audio/")
 
     # Static asset extensions that get 1-day cache
     _ASSET_EXTENSIONS = (

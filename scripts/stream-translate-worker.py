@@ -118,14 +118,19 @@ def _vtt_to_plain(vtt_text: str) -> str:
 def _synthesize_segment_audio(
     vtt_content: str, audiobook_id: int, chapter_index: int, segment_index: int, locale: str
 ) -> Path | None:
-    """Generate per-segment opus audio from a translated VTT cue block.
+    """Generate per-segment WebM-Opus audio from a translated VTT cue block.
 
     edge-tts emits MP3 regardless of filename suffix, so we synthesize to a
-    temp MP3 then re-encode to opus via ffmpeg. Task 10's chapter
+    temp MP3 then re-encode to Opus inside a WebM container via ffmpeg.
+    WebM (not Ogg) because Chromium-based browsers (Brave, Chrome, Edge)
+    do NOT support Ogg-Opus in MediaSource Extensions — only WebM-Opus
+    and MP4-Opus play through MSE. The frontend's MseAudioChain calls
+    ``addSourceBuffer('audio/webm; codecs="opus"')`` and the backend serves
+    these segments with ``mimetype="audio/webm"``. Task 10's chapter
     consolidation uses ``ffmpeg -c copy`` which demands a uniform codec
-    across inputs — per-segment files MUST be opus.
+    AND container across inputs — per-segment files MUST be WebM-Opus.
 
-    Returns the final opus path, or ``None`` when the VTT has no spoken
+    Returns the final .webm path, or ``None`` when the VTT has no spoken
     text (empty cue block, synthesis would produce 0-byte silence).
     """
     text = _vtt_to_plain(vtt_content)
@@ -136,21 +141,22 @@ def _synthesize_segment_audio(
     tts = get_tts_provider("edge-tts")
     voice = _default_voice_for_locale(locale)
 
-    out_opus = (
+    out_webm = (
         _STREAMING_AUDIO_ROOT
         / str(audiobook_id)
         / f"ch{chapter_index:03d}"
         / locale
-        / f"seg{segment_index:04d}.opus"
+        / f"seg{segment_index:04d}.webm"
     )
-    out_opus.parent.mkdir(parents=True, exist_ok=True)
+    out_webm.parent.mkdir(parents=True, exist_ok=True)
 
     # edge-tts → temp MP3
     with tempfile.NamedTemporaryFile(suffix=".mp3", delete=False) as tf:
         mp3_tmp = Path(tf.name)
     try:
         tts.synthesize(text=text, language=locale, voice=voice, output_path=mp3_tmp)
-        # ffmpeg MP3 → opus (48k, 48kHz — matches rest of the library)
+        # ffmpeg MP3 → WebM-Opus (48k, 48kHz). Explicit ``-f webm`` so the
+        # container is unambiguous regardless of the output extension.
         subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
             [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
                 "ffmpeg",
@@ -165,13 +171,15 @@ def _synthesize_segment_audio(
                 "48k",
                 "-ar",
                 "48000",
-                str(out_opus),
+                "-f",
+                "webm",
+                str(out_webm),
             ],
             check=True,
         )
     finally:
         mp3_tmp.unlink(missing_ok=True)
-    return out_opus
+    return out_webm
 
 
 def get_db(db_path: str) -> sqlite3.Connection:

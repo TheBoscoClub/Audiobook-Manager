@@ -321,6 +321,19 @@ def flask_app(session_temp_dir):
     supplements_dir = session_temp_dir / "supplements"
     supplements_dir.mkdir(exist_ok=True)
 
+    # Streaming pipeline writes per-segment opus and consolidated VTT files
+    # to AUDIOBOOKS_STREAMING_AUDIO_DIR / AUDIOBOOKS_STREAMING_SUBTITLES_DIR.
+    # In production these default to /var/lib/audiobooks/streaming-{audio,
+    # subtitles} via systemd EnvironmentFile. For tests we redirect them
+    # under session_temp_dir so endpoint-level tests (segment-complete,
+    # chapter-complete) don't try to write into the real /var/lib path.
+    streaming_audio_dir = session_temp_dir / "streaming-audio"
+    streaming_audio_dir.mkdir(exist_ok=True)
+    streaming_subtitles_dir = session_temp_dir / "streaming-subtitles"
+    streaming_subtitles_dir.mkdir(exist_ok=True)
+    os.environ["AUDIOBOOKS_STREAMING_AUDIO_DIR"] = str(streaming_audio_dir)
+    os.environ["AUDIOBOOKS_STREAMING_SUBTITLES_DIR"] = str(streaming_subtitles_dir)
+
     app = create_app(
         database_path=test_db,
         project_dir=session_temp_dir,

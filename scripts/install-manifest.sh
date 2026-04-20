@@ -48,6 +48,7 @@ REQUIRED_DIRS=(
     "${STATE_DIR}/.run|audiobooks:audiobooks|0755"
     "${STATE_DIR}/.control|audiobooks:audiobooks|0755"
     "${STATE_DIR}/streaming-audio|audiobooks:audiobooks|0750"
+    "${STATE_DIR}/streaming-subtitles|audiobooks:audiobooks|0755"
     "${LOG_DIR}|audiobooks:audiobooks|0755"
     "${LOG_DIR}/translate|audiobooks:audiobooks|0775"
 )

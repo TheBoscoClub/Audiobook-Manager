@@ -45,6 +45,24 @@ def audiobooks_db(tmp_path: Path) -> Path:
             translation_provider TEXT,
             UNIQUE(audiobook_id, chapter_index, locale)
         );
+
+        CREATE TABLE streaming_segments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            audiobook_id INTEGER NOT NULL,
+            chapter_index INTEGER NOT NULL,
+            segment_index INTEGER NOT NULL,
+            locale TEXT NOT NULL,
+            state TEXT NOT NULL DEFAULT 'pending',
+            priority INTEGER NOT NULL DEFAULT 2,
+            worker_id TEXT,
+            vtt_content TEXT,
+            audio_path TEXT,
+            error TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            started_at TIMESTAMP,
+            completed_at TIMESTAMP,
+            UNIQUE(audiobook_id, chapter_index, segment_index, locale)
+        );
         """)
     # Seed two books — one that already has an en-locale transcription, and
     # one that does not. The "enqueue_all_books_for_locale" helper filters

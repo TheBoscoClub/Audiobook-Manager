@@ -321,6 +321,9 @@
           }).catch(function () {});
         } else if (s.state === "completed") {
           hideGenBanner();
+        } else if (s.state === "streaming") {
+          // Streaming pipeline owns this book+locale; legacy banner has nothing to say.
+          hideGenBanner();
         } else if (s.state === "failed") {
           renderGenStatus({ phase: "error", message: s.error || "Translation failed" });
         }
@@ -377,6 +380,10 @@
             stopGenPoll();
             hideGenBanner();
             setTimeout(function () { loadSubtitles(bookId, currentChapterIndex); }, 500);
+          } else if (s.state === "streaming") {
+            // Streaming pipeline owns this book+locale; stop polling and clear banner.
+            stopGenPoll();
+            hideGenBanner();
           } else if (s.state === "failed") {
             stopGenPoll();
           }

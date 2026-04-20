@@ -101,11 +101,19 @@ class TestProxyPrefixes:
             del sys.modules["config"]
 
     def test_proxy_prefixes_defined(self):
-        """/api/ and /auth/ must be in PROXY_PREFIXES."""
+        """/api/, /auth/, and /streaming-audio/ must be in PROXY_PREFIXES."""
         handler_cls = self._get_handler_class()
         prefixes = handler_cls.PROXY_PREFIXES
         assert "/api/" in prefixes, "Missing /api/ prefix"
         assert "/auth/" in prefixes, "Missing /auth/ prefix"
+        assert "/streaming-audio/" in prefixes, "Missing /streaming-audio/ prefix"
+
+    def test_is_proxy_path_true_for_streaming_audio(self):
+        """_is_proxy_path returns True for /streaming-audio/* paths (MSE WebM segments)."""
+        handler_cls = self._get_handler_class()
+        instance = object.__new__(handler_cls)
+        instance.path = "/streaming-audio/117908/0/0/zh-Hans"
+        assert instance._is_proxy_path() is True
 
     def test_is_proxy_path_true_for_api(self):
         """_is_proxy_path returns True for /api/foo paths."""

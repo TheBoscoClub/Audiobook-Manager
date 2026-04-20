@@ -149,6 +149,13 @@ AUDIOBOOKS_COVERS = Path(get_config("AUDIOBOOKS_COVERS", f"{_var_dir}/covers"))
 AUDIOBOOKS_STREAMING_AUDIO_DIR = Path(
     get_config("AUDIOBOOKS_STREAMING_AUDIO_DIR", f"{_var_dir}/streaming-audio")
 )
+# Streaming translation subtitles cache — consolidated per-chapter VTT files
+# from the streaming pipeline. Lives under AUDIOBOOKS_VAR_DIR (writable runtime
+# state) rather than the read-only install tree at /opt/audiobooks/library.
+# MUST match lib/audiobook-config.sh.
+AUDIOBOOKS_STREAMING_SUBTITLES_DIR = Path(
+    get_config("AUDIOBOOKS_STREAMING_SUBTITLES_DIR", f"{_var_dir}/streaming-subtitles")
+)
 AUDIOBOOKS_CERTS = Path(get_config("AUDIOBOOKS_CERTS", str(AUDIOBOOKS_HOME / "library" / "certs")))
 AUDIOBOOKS_LOGS = Path(get_config("AUDIOBOOKS_LOGS", str(AUDIOBOOKS_DATA / "logs")))
 AUDIOBOOKS_WEBM_CACHE = Path(
@@ -228,7 +235,8 @@ def print_config() -> None:
     print(f"AUDIOBOOKS_SUPPLEMENTS: {AUDIOBOOKS_SUPPLEMENTS}")
     print(f"AUDIOBOOKS_DATABASE:    {AUDIOBOOKS_DATABASE}")
     print(f"AUDIOBOOKS_COVERS:      {AUDIOBOOKS_COVERS}")
-    print(f"AUDIOBOOKS_STREAMING_AUDIO_DIR: {AUDIOBOOKS_STREAMING_AUDIO_DIR}")
+    print(f"AUDIOBOOKS_STREAMING_AUDIO_DIR:     {AUDIOBOOKS_STREAMING_AUDIO_DIR}")
+    print(f"AUDIOBOOKS_STREAMING_SUBTITLES_DIR: {AUDIOBOOKS_STREAMING_SUBTITLES_DIR}")
     print(f"AUDIOBOOKS_CERTS:       {AUDIOBOOKS_CERTS}")
     print(f"AUDIOBOOKS_LOGS:        {AUDIOBOOKS_LOGS}")
     print(f"AUDIOBOOKS_VENV:        {AUDIOBOOKS_VENV}")

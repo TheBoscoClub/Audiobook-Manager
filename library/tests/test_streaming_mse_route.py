@@ -1,18 +1,19 @@
 """
 Tests for the /streaming-audio route (Task 13, v8.3.2).
 
-The route serves per-segment opus files produced by the streaming
+The route serves per-segment WebM-Opus files produced by the streaming
 translation worker. Because the segment files live on disk (rather than
 in the DB), the route is the MSE client's fetch target — one HTTP GET
-per 30-second opus segment, range-aware for ``appendBuffer``.
+per 30-second WebM-Opus segment, range-aware for ``appendBuffer``.
 
 Exercised invariants:
 - Locale must be in ``backend.i18n.SUPPORTED_LOCALES`` (reject unknown)
 - Path must resolve strictly under ``_streaming_audio_root`` (defense in
   depth vs ``..`` traversal)
 - Missing files return 404 cleanly (no stack leak)
-- Served files carry ``Content-Type: audio/ogg; codecs=opus`` so MSE
-  ``SourceBuffer.appendBuffer`` accepts the frames
+- Served files carry ``Content-Type: audio/webm`` so Chromium MSE
+  ``SourceBuffer.appendBuffer`` accepts the frames (Chromium rejects
+  ``audio/ogg; codecs=opus`` in MSE — only WebM and MP4 containers work)
 - Flask's ``conditional=True`` serves HTTP 206 on Range requests, which
   is what MSE uses to resume after backgrounded tabs.
 """
@@ -35,18 +36,18 @@ def streaming_audio_tmpdir(tmp_path, monkeypatch):
 
 @pytest.fixture
 def seeded_segment(streaming_audio_tmpdir):
-    """Write a fake opus file at the canonical segment path."""
+    """Write a fake WebM-Opus file at the canonical segment path."""
     book_id = 42
     ch = 0
     seg = 0
     locale = "zh-Hans"
     seg_dir = streaming_audio_tmpdir / str(book_id) / f"ch{ch:03d}" / locale
     seg_dir.mkdir(parents=True, exist_ok=True)
-    seg_path = seg_dir / f"seg{seg:04d}.opus"
-    # OggS magic + a few bytes — enough to confirm send_file serves the
-    # actual bytes. We don't need a valid opus container for the route
-    # contract.
-    seg_path.write_bytes(b"OggS\x00\x02" + b"\x00" * 26 + b"fakeopus")
+    seg_path = seg_dir / f"seg{seg:04d}.webm"
+    # EBML header magic (\x1a\x45\xdf\xa3) + a few bytes — enough to
+    # confirm send_file serves the actual bytes. We don't need a valid
+    # Matroska/WebM container for the route contract.
+    seg_path.write_bytes(b"\x1a\x45\xdf\xa3" + b"\x00" * 26 + b"fakewebm")
     return {
         "root": streaming_audio_tmpdir,
         "book_id": book_id,
@@ -105,11 +106,17 @@ def test_streaming_audio_route_404_on_invalid_locale(app_client, streaming_audio
     assert r.status_code == 404
 
 
-# ── Happy path: serves opus bytes ──
+# ── Happy path: serves WebM-Opus bytes ──
 
 
-def test_streaming_audio_route_serves_opus(app_client, seeded_segment):
-    """GET an existing segment returns 200 + audio/ogg opus Content-Type."""
+def test_streaming_audio_route_serves_webm(app_client, seeded_segment):
+    """GET an existing segment returns 200 + audio/webm Content-Type.
+
+    Chromium MSE requires WebM (or MP4) for Opus — it rejects
+    ``audio/ogg; codecs=opus`` in ``addSourceBuffer``. The route must
+    serve ``.webm`` files and advertise ``audio/webm`` so the browser's
+    MSE parser accepts the frames.
+    """
     r = app_client.get(
         f"/streaming-audio/{seeded_segment['book_id']}"
         f"/{seeded_segment['ch']}"
@@ -117,9 +124,9 @@ def test_streaming_audio_route_serves_opus(app_client, seeded_segment):
         f"/{seeded_segment['locale']}"
     )
     assert r.status_code == 200
-    assert "audio/ogg" in r.headers["Content-Type"]
-    # Body starts with the OggS magic we wrote
-    assert r.data.startswith(b"OggS")
+    assert "audio/webm" in r.headers["Content-Type"]
+    # Body starts with the EBML header magic we wrote
+    assert r.data.startswith(b"\x1a\x45\xdf\xa3")
 
 
 # ── Range request support (MSE requirement) ──
@@ -169,7 +176,7 @@ def test_streaming_audio_route_rejects_resolved_escape(
     still fails the containment check.
     """
     outside = tmp_path_factory.mktemp("outside")
-    outside_file = outside / "not-opus.opus"
+    outside_file = outside / "not-webm.webm"
     outside_file.write_bytes(b"outside")
 
     # Seed the canonical directory tree but make the seg file a symlink
@@ -180,7 +187,7 @@ def test_streaming_audio_route_rejects_resolved_escape(
     seg = 0
     seg_dir = streaming_audio_tmpdir / str(book_id) / f"ch{ch:03d}" / locale
     seg_dir.mkdir(parents=True, exist_ok=True)
-    (seg_dir / f"seg{seg:04d}.opus").symlink_to(outside_file)
+    (seg_dir / f"seg{seg:04d}.webm").symlink_to(outside_file)
 
     r = app_client.get(f"/streaming-audio/{book_id}/{ch}/{seg}/{locale}")
     # Resolve escape must be 403; we forbid symlink escape explicitly.

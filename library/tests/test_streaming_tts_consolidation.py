@@ -137,7 +137,7 @@ def test_synthesize_segment_audio_happy_path_mocks_edge_tts_and_ffmpeg(tmp_path)
     assert out is not None
     assert out.exists()
     assert out.read_bytes() == b"fake-opus"
-    assert out.name == "seg0005.opus"
+    assert out.name == "seg0005.webm"
     assert out.parent.name == "zh-Hans"
     assert out.parent.parent.name == "ch000"
     assert out.parent.parent.parent.name == "1"  # audiobook_id subdir
@@ -333,7 +333,7 @@ def test_segment_complete_persists_audio_path_when_present(app_client, streaming
             "segment_index": 0,
             "locale": "zh-Hans",
             "vtt_content": "WEBVTT\n\n1\n00:00:00.000 --> 00:00:30.000\nHi",
-            "audio_path": "8/ch000/zh-Hans/seg0000.opus",
+            "audio_path": "8/ch000/zh-Hans/seg0000.webm",
         },
     )
     assert resp.status_code == 200
@@ -349,18 +349,18 @@ def test_segment_complete_persists_audio_path_when_present(app_client, streaming
     # Path validation resolves relative paths to absolute under the streaming audio root;
     # verify the relative segment path components are preserved in the stored absolute path.
     assert row[1] is not None
-    assert "8/ch000/zh-Hans/seg0000.opus" in row[1]
+    assert "8/ch000/zh-Hans/seg0000.webm" in row[1]
 
 
-# ── Task 10: chapter-level opus consolidation ──
+# ── Task 10: chapter-level WebM-Opus consolidation ──
 
 
 def test_consolidate_chapter_produces_audio(app_client, streaming_db, tmp_path, monkeypatch):
-    """Per-segment opus files concat into chapter.opus + chapter_translations_audio row.
+    """Per-segment WebM-Opus files concat into chapter.webm + chapter_translations_audio row.
 
     Mocks ffmpeg/ffprobe so the test does not depend on the host having
     a working libopus or real audio tooling. Verifies:
-      - chapter.opus is written under the expected path layout
+      - chapter.webm is written under the expected path layout
       - chapter_translations_audio row is inserted with tts_provider='streaming',
         the locale-mapped voice, and the probed duration
       - audio_path stored is absolute (matching batch pipeline convention)
@@ -374,11 +374,17 @@ def test_consolidate_chapter_produces_audio(app_client, streaming_db, tmp_path, 
     seg_dir = streaming_root / "9" / "ch000" / "zh-Hans"
     seg_dir.mkdir(parents=True)
     monkeypatch.setattr(st, "_streaming_audio_root", streaming_root)
+    # VTT consolidation writes outside the install tree (ProtectSystem=strict);
+    # point that root at a scratch dir too so the test does not need
+    # /var/lib/audiobooks to exist.
+    subtitles_root = tmp_path / "streaming-subtitles"
+    subtitles_root.mkdir()
+    monkeypatch.setattr(st, "_streaming_subtitles_root", subtitles_root)
 
-    # Write 3 fake per-segment opus files with known bytes and seed DB rows
+    # Write 3 fake per-segment WebM-Opus files with known bytes and seed DB rows
     seg_paths = []
     for i in range(3):
-        p = seg_dir / f"seg{i:04d}.opus"
+        p = seg_dir / f"seg{i:04d}.webm"
         p.write_bytes(b"fake-opus-seg-" + str(i).encode())
         seg_paths.append(p)
 
@@ -395,7 +401,7 @@ def test_consolidate_chapter_produces_audio(app_client, streaming_db, tmp_path, 
     conn.commit()
     conn.close()
 
-    # Stub subprocess.run to emulate both ffmpeg (write fake chapter.opus)
+    # Stub subprocess.run to emulate both ffmpeg (write fake chapter.webm)
     # and ffprobe (return fixed duration).
     def fake_run(cmd, **kwargs):
         if cmd and cmd[0] == "ffmpeg":
@@ -450,8 +456,8 @@ def test_consolidate_chapter_produces_audio(app_client, streaming_db, tmp_path, 
     assert audio_p.is_absolute()
     assert audio_p.exists()
     assert audio_p.read_bytes() == b"fake-chapter-opus"
-    assert audio_p.name == "chapter.opus"
-    # Path layout: <root>/<book>/ch<NNN>/<locale>/chapter.opus
+    assert audio_p.name == "chapter.webm"
+    # Path layout: <root>/<book>/ch<NNN>/<locale>/chapter.webm
     assert audio_p.parent.name == "zh-Hans"
     assert audio_p.parent.parent.name == "ch000"
     assert audio_p.parent.parent.parent.name == "9"
@@ -462,7 +468,7 @@ def test_consolidate_chapter_skips_audio_when_any_segment_missing_audio(
 ):
     """If any completed segment lacks audio_path, chapter audio is not generated.
 
-    Guards against shipping a chapter.opus with silent gaps: when the TTS
+    Guards against shipping a chapter.webm with silent gaps: when the TTS
     pipeline degrades to text-only for any segment (Task 9 regression guard),
     the chapter-level audio row MUST NOT be inserted. VTT consolidation is
     unaffected and still writes the chapter_subtitles row.
@@ -474,6 +480,9 @@ def test_consolidate_chapter_skips_audio_when_any_segment_missing_audio(
     streaming_root = tmp_path / "streaming-audio"
     streaming_root.mkdir()
     monkeypatch.setattr(st, "_streaming_audio_root", streaming_root)
+    subtitles_root = tmp_path / "streaming-subtitles"
+    subtitles_root.mkdir()
+    monkeypatch.setattr(st, "_streaming_subtitles_root", subtitles_root)
 
     conn = sqlite3.connect(str(streaming_db))
     # 2 segments: first has audio_path, second does NOT (TTS degraded)
@@ -482,7 +491,7 @@ def test_consolidate_chapter_skips_audio_when_any_segment_missing_audio(
         "(audiobook_id, chapter_index, segment_index, locale, state, "
         " priority, vtt_content, audio_path) "
         "VALUES (10, 0, 0, 'zh-Hans', 'completed', 0, ?, ?)",
-        ("WEBVTT\n\n1\n00:00:00.000 --> 00:00:30.000\nHi", "10/ch000/zh-Hans/seg0000.opus"),
+        ("WEBVTT\n\n1\n00:00:00.000 --> 00:00:30.000\nHi", "10/ch000/zh-Hans/seg0000.webm"),
     )
     conn.execute(
         "INSERT INTO streaming_segments "

@@ -863,5 +863,7 @@ class TestModuleConstants:
     def test_proxy_prefixes(self):
         assert "/api/" in proxy_server.ReverseProxyHandler.PROXY_PREFIXES
         assert "/auth/" in proxy_server.ReverseProxyHandler.PROXY_PREFIXES
+        # Streaming translation WebM-Opus segments live on the API backend (v8.3.2)
+        assert "/streaming-audio/" in proxy_server.ReverseProxyHandler.PROXY_PREFIXES
         # /covers/ is served directly from COVER_DIR, not proxied
         assert "/covers/" not in proxy_server.ReverseProxyHandler.PROXY_PREFIXES

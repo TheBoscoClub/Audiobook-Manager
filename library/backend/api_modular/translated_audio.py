@@ -113,7 +113,12 @@ def stream_translated_chapter(book_id, chapter_index, locale):
             return jsonify({"error": "Audio file missing from disk"}), 404
 
         suffix = audio_path.suffix.lower()
-        mime_map = {".opus": "audio/opus", ".mp3": "audio/mpeg", ".ogg": "audio/ogg"}
+        mime_map = {
+            ".opus": "audio/opus",
+            ".mp3": "audio/mpeg",
+            ".ogg": "audio/ogg",
+            ".webm": "audio/webm",
+        }
         mimetype = mime_map.get(suffix, "audio/opus")
         return send_file(audio_path, mimetype=mimetype, as_attachment=False)
     finally:
