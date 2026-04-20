@@ -1524,7 +1524,22 @@ CFEOF
                 export USE_SUDO="sudo"
                 export DRY_RUN="false"
                 export INTERACTIVE="false"
+                # Support two migration styles:
+                #   (a) top-level commands: work is done during `source`
+                #   (b) function-pattern: script defines `run_migration` and
+                #       expects the caller to invoke it after sourcing
+                # Always source; if `run_migration` is defined, invoke and
+                # unset it so it can't leak into the next iteration. This
+                # mirrors upgrade.sh::apply_data_migrations — both paths MUST
+                # stay in sync or fresh installs will silently drift from
+                # upgraded installs.
                 source "$migration"
+                if declare -F run_migration >/dev/null 2>&1; then
+                    if ! run_migration; then
+                        echo -e "${YELLOW}  Migration $(basename "$migration") reported non-zero exit${NC}"
+                    fi
+                    unset -f run_migration
+                fi
             done
         fi
     fi

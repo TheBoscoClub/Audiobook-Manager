@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.5] - 2026-04-20
+
+### Fixed
+
+- **`data-migrations/*.sh` function-pattern scripts silently no-op'd during upgrade and fresh install**: migrations 003 (`streaming_segments`), 006 (`streaming_source_vtt`), and 007 (`streaming_retry_count`) each define a `run_migration()` bash function and rely on the dispatcher to invoke it after sourcing. Both `upgrade.sh::apply_data_migrations` and `install.sh`'s data-migration loop did `source "$migration"` without calling the function — `source` runs top-level commands but does NOT call defined functions. Result: QA upgrades from <8.3.4 to 8.3.4 ran the dispatcher, logged "Applied: N/N migrations", and left the `streaming_segments` table missing the `retry_count` column the worker expected. First streaming request after the upgrade crashed the worker with `sqlite3.OperationalError: no such column: s.retry_count`, dead-lettering the entire session. Both dispatchers now `declare -F run_migration` after sourcing; if the function exists they invoke it and `unset -f run_migration` to prevent cross-migration contamination (if migration N defines the function but N+1 doesn't, N+1 must not inherit N's logic). Idempotent: migrations already use `PRAGMA table_info` guards, so re-running a successful migration is a no-op. Also supports the legacy top-level-command pattern (migrations 001, 002, 004, 005) unchanged — if `run_migration` isn't defined, only the `source` side runs
+- **`upgrade.sh` no-updates branch did not run data migrations**: when `check_for_updates` reported "already at target version", the early-exit path ran `apply_schema_migrations` but skipped `apply_data_migrations`, so a re-run upgrade couldn't recover from a prior silent no-op. Early-exit path now runs both dispatchers — re-running `./upgrade.sh` against the same version is now a recovery mechanism that brings the DB fully into spec
+- **Test harnesses couldn't source `upgrade.sh` without triggering arg-parsing**: added `UPGRADE_SH_SOURCE_ONLY=1` guard that returns (when sourced) or exits 0 (if invoked directly) before the arg-parser runs, enabling white-box testing of individual functions. Used by the new regression test `library/tests/test_upgrade_data_migration_dispatch.py` which forges a pre-v8.3.4 `streaming_segments` shape, invokes `apply_data_migrations`, and asserts `retry_count` is actually added. Mutation-proven: the test fails on a pre-fix snapshot of the dispatcher and passes on the current code
+- **`apply_data_migrations` now honors `DB_PATH` env var**: precedence is explicit `DB_PATH` > `/etc/audiobooks/audiobooks.conf::AUDIOBOOKS_DATABASE` > `${AUDIOBOOKS_VAR_DIR}/db/audiobooks.db` fallback. Lets test harnesses and operators target a specific DB without editing the host conf
+
 ## [8.3.4] - 2026-04-20
 
 ### Fixed

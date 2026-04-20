@@ -762,9 +762,12 @@ apply_data_migrations() {
         return 0
     fi
 
-    # Locate the database
-    local db_path=""
-    if [[ -f "/etc/audiobooks/audiobooks.conf" ]]; then
+    # Locate the database. Precedence: explicit DB_PATH env > conf file >
+    # AUDIOBOOKS_VAR_DIR fallback. Letting DB_PATH win enables test harnesses
+    # and operators to point the dispatcher at a specific DB without editing
+    # /etc/audiobooks/audiobooks.conf.
+    local db_path="${DB_PATH:-}"
+    if [[ -z "$db_path" ]] && [[ -f "/etc/audiobooks/audiobooks.conf" ]]; then
         db_path=$(grep -oP '^AUDIOBOOKS_DATABASE=\K.*' /etc/audiobooks/audiobooks.conf 2>/dev/null)
         db_path="${db_path%\"}"
         db_path="${db_path#\"}"
@@ -828,7 +831,19 @@ apply_data_migrations() {
         export DRY_RUN
         export INTERACTIVE="$interactive"
 
+        # Support two migration styles:
+        #   (a) top-level commands: work is done during `source`
+        #   (b) function-pattern: script defines `run_migration` and expects
+        #       the dispatcher to invoke it after sourcing
+        # We always source; then if `run_migration` is defined we invoke it
+        # and unset it so it can't leak into the next iteration.
         source "$migration"
+        if declare -F run_migration >/dev/null 2>&1; then
+            if ! run_migration; then
+                echo -e "${YELLOW}  Migration ${migration_name} reported non-zero exit${NC}"
+            fi
+            unset -f run_migration
+        fi
         applied_count=$((applied_count + 1))
     done
 
@@ -2707,6 +2722,14 @@ do_github_upgrade() {
 # Parse Command Line Arguments
 # -----------------------------------------------------------------------------
 
+# Source-only guard: allow test harnesses to `source upgrade.sh` to exercise
+# individual functions without triggering arg-parsing or main execution.
+# Activate with `UPGRADE_SH_SOURCE_ONLY=1 source upgrade.sh`.
+if [[ "${UPGRADE_SH_SOURCE_ONLY:-0}" == "1" ]]; then
+    # shellcheck disable=SC2317  # `exit 0` is the executed-directly fallback
+    return 0 2>/dev/null || exit 0
+fi
+
 # Show usage and exit if no arguments provided
 if [[ $# -eq 0 ]]; then
     show_usage
@@ -2898,11 +2921,14 @@ fi
 
 # Check for updates
 if ! check_for_updates "$PROJECT_DIR" "$TARGET_DIR"; then
-    # No upgrade needed — but still ensure schema migrations are applied
-    # (handles cases where code was deployed but migration didn't run)
+    # No upgrade needed — but still ensure schema + data migrations are applied
+    # (handles cases where code was deployed but migrations didn't run, or
+    # where a prior upgrade silently no-op'd a data migration and we need a
+    # re-apply sweep to bring the DB into spec).
     local_use_sudo=""
     [[ ! -w "$TARGET_DIR" ]] && local_use_sudo="true"
     apply_schema_migrations "$TARGET_DIR" "$local_use_sudo"
+    apply_data_migrations "$PROJECT_DIR" "$TARGET_DIR" "$local_use_sudo" "false"
     exit 0
 fi
 
