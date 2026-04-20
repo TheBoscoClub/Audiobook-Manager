@@ -1,12 +1,12 @@
 #!/bin/bash
-# Data migration 006: add source_vtt_content column to streaming_segments (v8.3.3)
+# Data migration 006: add source_vtt_content column to streaming_segments (v8.3.2)
 #
 # Mirrors library/backend/migrations/022_streaming_source_vtt.sql for
 # environments that won't re-run schema.sql on upgrade. Persists the
 # English (source) VTT alongside the translated VTT so the bilingual
 # transcript panel (双语文字记录) can render after a chapter consolidates.
 #
-# Required after upgrades from any version < 8.3.3 to >= 8.3.3.
+# Required after upgrades from any version < 8.3.2 to >= 8.3.2.
 # Idempotent: ALTER TABLE ADD COLUMN raises "duplicate column name" on
 # re-run; we detect the column first and skip.
 #
@@ -17,7 +17,7 @@
 
 # shellcheck disable=SC2154
 
-MIN_VERSION="8.3.3"
+MIN_VERSION="8.3.2"
 
 _dm006_sqlite() {
     if [[ -n "$USE_SUDO" ]]; then

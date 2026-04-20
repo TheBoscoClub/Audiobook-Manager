@@ -791,7 +791,7 @@
    */
   function pairVttCues(src, tgt) {
     var out = [];
-    // Defensive: when source VTT is missing — pre-v8.3.3 chapters whose
+    // Defensive: when source VTT is missing — pre-v8.3.2 chapters whose
     // streaming_segments.source_vtt_content was never persisted, or any
     // future chapter where source upload fails — synthesize source stubs
     // from target cues so the 双语文字记录 panel still renders. The source

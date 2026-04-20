@@ -422,7 +422,7 @@
     notificationPlayed = false;
   }
 
-  // ── Drain on player-close / tab-close (v8.3.4 Bug D) ──
+  // ── Drain on player-close / tab-close (v8.3.2 Bug D) ──
   //
   // Graceful drain signals:
   //   1. Player frame closed
@@ -506,7 +506,7 @@
     // loop carry ``_synthesized=true`` so we don't stop our own poller.
     if (!data._synthesized) onAnyStreamingEvent();
 
-    // v8.3.4 Bug C: when the backend phase resolves to "error" (any
+    // v8.3.2 Bug C: when the backend phase resolves to "error" (any
     // streaming_segments row for this session reached state='failed'
     // after retry_count>=3), the spinner must not keep turning. Surface
     // the error on the overlay and collapse to IDLE so the user isn't

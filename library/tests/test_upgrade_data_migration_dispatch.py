@@ -1,6 +1,6 @@
 """Regression test: upgrade.sh data-migration dispatcher invokes run_migration.
 
-Root cause of the v8.3.4 QA regression: migrations 003/006/007 define a
+Root cause of the v8.3.2 QA regression: migrations 003/006/007 define a
 `run_migration` bash function but the dispatcher only did `source "$migration"`,
 which runs top-level commands but does NOT call a defined function. So the
 migration silently no-op'd and the streaming worker crashed on first request
@@ -22,7 +22,7 @@ UPGRADE_SH = PROJECT_ROOT / "upgrade.sh"
 
 
 def _make_prior_schema_db(db_path: Path) -> None:
-    """Create a DB with pre-v8.3.4 streaming_segments shape (no retry_count)."""
+    """Create a DB with pre-v8.3.2 streaming_segments shape (no retry_count)."""
     conn = sqlite3.connect(str(db_path))
     conn.executescript(
         """
@@ -76,10 +76,10 @@ def test_data_migration_dispatcher_invokes_function_pattern(tmp_path):
         "test setup: prior-schema DB should NOT have retry_count"
     )
 
-    # Minimal fake "installed" target at v8.3.3 so the 8.3.4 boundary triggers
+    # Minimal fake "installed" target at v8.3.1 so the 8.3.2 boundary triggers
     target_dir = tmp_path / "installed"
     (target_dir / "library").mkdir(parents=True)
-    (target_dir / "VERSION").write_text("8.3.3\n")
+    (target_dir / "VERSION").write_text("8.3.1\n")
 
     # Source upgrade.sh in source-only mode, then invoke the dispatcher
     # with DB_PATH pointing at our forged DB (takes precedence over any

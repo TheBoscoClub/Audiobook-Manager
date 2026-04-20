@@ -709,10 +709,10 @@ def stop_streaming_impl(conn, audiobook_id, locale):
     alone — the worker finishes what it has and the segment-complete
     callback still lands normally. No demotion/promotion.
 
-    Pre-v8.3.4 this demoted pending rows to priority=2 (back-fill) on the
+    Pre-v8.3.2 this demoted pending rows to priority=2 (back-fill) on the
     theory that the worker would deprioritize them; in practice the
     worker drained p0/p1 and then started chewing through the demoted
-    p2 rows, meaning Stop never really stopped. v8.3.4 makes Stop stop.
+    p2 rows, meaning Stop never really stopped. v8.3.2 makes Stop stop.
     """
     conn.execute(
         "DELETE FROM streaming_segments "
@@ -1126,7 +1126,7 @@ def segment_complete():
         segment_index: int
         locale: str
         vtt_content: str (optional — translated VTT cues)
-        source_vtt_content: str (optional — English source VTT cues; v8.3.3+)
+        source_vtt_content: str (optional — English source VTT cues; v8.3.2+)
         audio_path: str (optional — path to TTS audio segment)
     """
     data = request.get_json(silent=True) or {}

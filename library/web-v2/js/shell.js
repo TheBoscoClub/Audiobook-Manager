@@ -291,7 +291,7 @@ class ShellPlayer {
       this.flushToAPI(this.currentBook.id, this.audio.currentTime);
     }
 
-    // v8.3.4 Bug D (abort+pivot): switching to a different book must stop
+    // v8.3.2 Bug D (abort+pivot): switching to a different book must stop
     // the previous book's streaming translation pipeline before the new
     // one's streamingTranslate.check() kicks off — otherwise two GPU
     // sessions race and the old book's pending rows stay queued.
@@ -513,7 +513,7 @@ class ShellPlayer {
   }
 
   close() {
-    // v8.3.4 Bug D: drain any in-flight streaming translation session so
+    // v8.3.2 Bug D: drain any in-flight streaming translation session so
     // the backend stops queueing new GPU work for this book. Covers the
     // "click X on player", "MediaSession Stop" (wired to close()) and
     // programmatic close paths — the pagehide listener in

@@ -1,4 +1,4 @@
-"""v8.3.4 regression tests: retry policy + session-aware claim filter.
+"""v8.3.2 regression tests: retry policy + session-aware claim filter.
 
 Covers:
 
@@ -169,7 +169,7 @@ def test_claim_uses_latest_session_by_id(db_path):
 
 
 def test_stop_impl_deletes_pending(db_path):
-    """Bug E fix: /api/translate/stop DELETEs pending rows (v8.3.4 semantics)."""
+    """Bug E fix: /api/translate/stop DELETEs pending rows (v8.3.2 semantics)."""
     sys.path.insert(0, str(PROJECT_ROOT / "library"))
     from backend.api_modular.streaming_translate import stop_streaming_impl
 

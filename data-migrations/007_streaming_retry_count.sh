@@ -1,5 +1,5 @@
 #!/bin/bash
-# Data migration 007: add retry_count column to streaming_segments (v8.3.4)
+# Data migration 007: add retry_count column to streaming_segments (v8.3.2)
 #
 # Mirrors library/backend/migrations/023_streaming_retry_count.sql for
 # environments that won't re-run schema.sql on upgrade. Enables bounded
@@ -7,7 +7,7 @@
 # worker increments retry_count and requeues (state='pending'), flipping
 # to state='failed' only after retry_count >= 3.
 #
-# Required after upgrades from any version < 8.3.4 to >= 8.3.4.
+# Required after upgrades from any version < 8.3.2 to >= 8.3.2.
 # Idempotent: ALTER TABLE ADD COLUMN raises "duplicate column name" on
 # re-run; we detect the column first and skip.
 #
@@ -18,7 +18,7 @@
 
 # shellcheck disable=SC2154
 
-MIN_VERSION="8.3.4"
+MIN_VERSION="8.3.2"
 
 _dm007_sqlite() {
     if [[ -n "$USE_SUDO" ]]; then

@@ -342,7 +342,7 @@ class TestGetSegmentBitmap:
         assert resp.status_code == 200
         body = resp.get_json()
         assert body["all_cached"] is True
-        # v8.3.3: bitmap shape stays self-consistent — completed is always a
+        # v8.3.2: bitmap shape stays self-consistent — completed is always a
         # list and cache_source identifies the cache origin so progress UIs
         # never see the contradictory total:0 + all_cached:true sentinel.
         assert body["completed"] == []

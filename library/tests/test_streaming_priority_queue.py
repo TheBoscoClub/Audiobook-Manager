@@ -62,7 +62,7 @@ def test_seek_promotes_p0_and_demotes_others(db):
 
 
 def test_stop_deletes_pending_leaves_in_flight(db):
-    """v8.3.4: Stop actually stops — pending rows are DELETEd from the claim
+    """v8.3.2: Stop actually stops — pending rows are DELETEd from the claim
     pool. In-flight (processing) rows are untouched so the worker can finish
     or fail them organically (retry_count cap handles the fail case)."""
     for s in range(10):
