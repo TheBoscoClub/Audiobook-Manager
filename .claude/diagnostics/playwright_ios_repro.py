@@ -129,7 +129,7 @@ def run(browser_name: str, headless: bool) -> int:
             # Wait for TOTP field to unhide
             page.wait_for_selector("#totp-group:not([hidden])", timeout=15_000)
             code = pyotp.TOTP(secret).now()
-            log(f"TOTP generated (rotates every 30s)")
+            log("TOTP generated (rotates every 30s)")
             page.fill("#code", code)
             page.click("#login-button")
 
