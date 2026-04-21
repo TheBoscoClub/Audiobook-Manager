@@ -117,24 +117,30 @@ class ShellPlayer {
   setupAudioEvents() {
     this.audio.addEventListener("error", () => {
       const error = this.audio.error;
-      let message = "Unknown error";
+      let diag = "Unknown error";
+      let i18nKey = "player.error.unknown";
       if (error) {
         switch (error.code) {
           case 1:
-            message = "MEDIA_ERR_ABORTED";
+            diag = "MEDIA_ERR_ABORTED";
+            i18nKey = "player.error.aborted";
             break;
           case 2:
-            message = "MEDIA_ERR_NETWORK";
+            diag = "MEDIA_ERR_NETWORK";
+            i18nKey = "player.error.networkFailed";
             break;
           case 3:
-            message = "MEDIA_ERR_DECODE";
+            diag = "MEDIA_ERR_DECODE";
+            i18nKey = "player.error.decode";
             break;
           case 4:
-            message = "MEDIA_ERR_SRC_NOT_SUPPORTED";
+            diag = "MEDIA_ERR_SRC_NOT_SUPPORTED";
+            i18nKey = "player.error.codecUnsupported";
             break;
         }
       }
-      console.error("Audio error:", message, error);
+      console.error("Audio error:", diag, error);
+      this.showPlayerError(i18nKey);
     });
 
     this.audio.addEventListener("timeupdate", () => this.onTimeUpdate());
@@ -169,6 +175,7 @@ class ShellPlayer {
           await this.audio.play();
         } catch (error) {
           console.error("Failed to play next translated chapter:", error);
+          this.showPlayerError(this._errorKeyForPlayRejection(error));
         }
         return;
       }
@@ -178,6 +185,7 @@ class ShellPlayer {
 
     this.audio.addEventListener("play", () => {
       this.setPlayPauseIcon(true);
+      this.clearPlayerError();
     });
 
     this.audio.addEventListener("pause", () => {
@@ -205,6 +213,38 @@ class ShellPlayer {
     // Use textContent with Unicode characters (safe, no innerHTML needed)
     const btn = document.getElementById("sp-play-pause");
     btn.textContent = isPlaying ? "\u23F8" : "\u25B6";
+  }
+
+  // Surface a user-visible playback error in the player bar. Without this,
+  // audio.play() rejections (NotAllowedError on iOS gesture loss,
+  // NotSupportedError on missing Opus/WebM codecs, decode errors) were
+  // silently console.error'd — the player bar stayed visible with no
+  // audio and no explanation. See bug #65.
+  showPlayerError(messageKey, params) {
+    const el = document.getElementById("sp-error");
+    if (!el) return;
+    const msg = (typeof t === "function") ? t(messageKey, params) : messageKey;
+    el.textContent = msg;
+    el.hidden = false;
+  }
+
+  clearPlayerError() {
+    const el = document.getElementById("sp-error");
+    if (!el) return;
+    el.textContent = "";
+    el.hidden = true;
+  }
+
+  // Map a DOMException from audio.play() to an i18n key. NotAllowedError
+  // means the browser blocked autoplay — on iOS Safari this happens when
+  // the user gesture was lost across the iframe→parent postMessage boundary
+  // or by an intervening await. NotSupportedError means the source cannot
+  // be decoded (typically missing codec).
+  _errorKeyForPlayRejection(error) {
+    if (!error) return "player.error.playbackFailed";
+    if (error.name === "NotAllowedError") return "player.error.gestureLost";
+    if (error.name === "NotSupportedError") return "player.error.codecUnsupported";
+    return "player.error.playbackFailed";
   }
 
   onTimeUpdate() {
@@ -256,6 +296,9 @@ class ShellPlayer {
   // ═══════════════════════════════════════════
 
   async playBook(book, resume = true) {
+    // Clear any lingering error from a prior book — a fresh play attempt
+    // shouldn't inherit the previous failure's red banner.
+    this.clearPlayerError();
     // Normalize property names — API returns id/cover_path, not bookId/coverUrl
     const bookId = book.bookId || book.id;
     const coverUrl =
@@ -272,6 +315,7 @@ class ShellPlayer {
         await this.audio.play();
       } catch (error) {
         console.error("Failed to resume audio:", error);
+        this.showPlayerError(this._errorKeyForPlayRejection(error));
       }
       return;
     }
@@ -442,6 +486,7 @@ class ShellPlayer {
         await this.audio.play();
       } catch (error) {
         console.error("Failed to play audio:", error);
+        this.showPlayerError(this._errorKeyForPlayRejection(error));
       }
     }
 

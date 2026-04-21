@@ -11,7 +11,7 @@
     <link rel="icon" type="image/png" href="/favicon-16x16.png" sizes="16x16">
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180">
     <link rel="manifest" href="/site.webmanifest">
-    <link rel="stylesheet" href="css/shell.css?v=1776702766">
+    <link rel="stylesheet" href="css/shell.css?v=1776743877">
     <link rel="stylesheet" href="css/maintenance-banner.css?v=1776702766">
     <link rel="stylesheet" href="css/theme-art-deco.css?v=1776702766">
     <link rel="stylesheet" href="css/modals.css?v=1776702766">
@@ -224,6 +224,7 @@
         <div class="player-info-bar">
             <div class="sp-title" id="sp-title">-</div>
             <div class="sp-author" id="sp-author">-</div>
+            <div class="sp-error" id="sp-error" role="alert" aria-live="polite" hidden></div>
         </div>
         <div class="player-controls-bar">
             <button class="sp-btn" id="sp-rewind" title="Back 30 seconds" data-i18n="player.backSeconds" data-i18n-title="player.back30">-30s</button>
@@ -246,7 +247,7 @@
             <button class="sp-btn sp-btn-sm" id="sp-speed" title="Click: faster · Right-click/Shift+click: slower" data-i18n-title="player.title.speedControl" data-i18n="player.speed">Speed</button>
             <button class="sp-btn sp-btn-sm" id="sp-subtitle-toggle" title="Toggle subtitles (CC)" data-i18n-title="player.toggleSubtitles" style="display:none;">CC</button>
             <button class="sp-btn sp-btn-sm" id="sp-transcript-toggle" title="Toggle transcript panel" data-i18n-title="player.toggleTranscript" style="display:none;">&#9776;</button>
-            <button class="sp-btn sp-btn-sm" id="sp-lang-toggle" title="Switch audio language" data-i18n-title="player.switchLanguage" style="display:none;">&#127760;</button>
+            <button class="sp-btn sp-btn-sm" id="sp-lang-toggle" title="Switch narrator" data-i18n-title="player.switchLanguage" style="display:none;">&#127908;</button>
             <button class="sp-btn sp-btn-sm sp-close" id="sp-close" title="Close player" data-i18n-title="player.close">&times;</button>
         </div>
         <audio id="audio-element"></audio>
@@ -437,7 +438,7 @@
     <script data-cfasync="false" src="js/websocket.js?v=1776702766"></script>
     <script data-cfasync="false" src="js/maintenance-banner.js?v=1775884500"></script>
     <script data-cfasync="false" src="js/session-persistence.js?v=1776702766"></script>
-    <script data-cfasync="false" src="js/shell.js?v=1776702766"></script>
+    <script data-cfasync="false" src="js/shell.js?v=1776743877"></script>
     <script data-cfasync="false" src="js/subtitles.js?v=1776702766"></script>
     <script data-cfasync="false" src="js/streaming-translate.js?v=1776702766"></script>
     <script data-cfasync="false" src="js/account.js?v=1776702766"></script>

@@ -42,7 +42,6 @@ from __future__ import annotations
 import argparse
 import base64
 import json
-import os
 import re
 import sys
 import time
@@ -186,6 +185,7 @@ def run(
     os_version: str,
     browser: str,
     book_id: str | None,
+    search: str | None,
 ) -> int:
     bs_user, bs_key = read_browserstack_creds()
     totp_secret = read_qa_totp_secret()
@@ -298,14 +298,38 @@ def run(
         )
         log("library rendered")
 
-        # 5. Pick the book — specific id if provided, else first card
-        if book_id:
-            card = driver.find_element(
-                By.CSS_SELECTOR, f".book-card[data-id='{book_id}']"
+        # 5. Pick the book — specific id if provided, else first card.
+        # Lazy-render defense: the library grid virtualizes rows, so a book
+        # that's below the fold won't have a DOM node. Search-input filters
+        # by title/author/narrator (not id), so `--search` narrows the grid
+        # before we look for the target data-id. Both flags are paired:
+        # `--search` surfaces the card, `--book-id` confirms we clicked the
+        # right one.
+        if search:
+            driver.execute_script(
+                "var si = document.getElementById('search-input');"
+                " if (!si) throw new Error('search-input not found');"
+                " si.focus();"
+                " si.value = arguments[0];"
+                " si.dispatchEvent(new Event('input', {bubbles: true}));",
+                search,
             )
+            time.sleep(1.5)
+            log(f"search filter applied: {search!r}")
+
+        if book_id:
+            iframe_wait.until(
+                lambda d: d.execute_script(
+                    "return !!document.querySelector("
+                    "  '.book-card[data-id=\"' + arguments[0] + '\"]'"
+                    ");",
+                    book_id,
+                )
+            )
+            target_id = book_id
         else:
             card = driver.find_element(By.CSS_SELECTOR, ".book-card[data-id]")
-        target_id = card.get_attribute("data-id")
+            target_id = card.get_attribute("data-id")
         meta["book_id"] = target_id
         log(f"opening book id={target_id}")
 
@@ -440,12 +464,17 @@ def main() -> int:
                     help="Mobile browser (default: safari)")
     ap.add_argument("--book-id", default=None,
                     help="Specific book data-id to open; default = first card")
+    ap.add_argument("--search", default=None,
+                    help="Text to type into the library search box (title/author) "
+                         "to surface a lazy-rendered card; pair with --book-id "
+                         "to confirm the target")
     args = ap.parse_args()
     return run(
         device=args.device,
         os_version=args.os_version,
         browser=args.browser,
         book_id=args.book_id,
+        search=args.search,
     )
 
 

@@ -96,6 +96,31 @@ body {
     text-overflow: ellipsis;
 }
 
+/* Playback error banner — surfaces silent audio.play() rejections
+   (NotAllowedError, NotSupportedError, decode errors) that would
+   otherwise leave the player bar visible with no audio and no
+   explanation. Lives inside .player-info-bar so it inherits the
+   flex layout and responsive wrap. */
+.sp-error {
+    font-size: 0.8rem;
+    color: #ff6b6b;
+    margin-top: 2px;
+    line-height: 1.3;
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+@media (max-width: 768px) {
+    .sp-error {
+        font-size: 0.75rem;
+        -webkit-line-clamp: 3;
+    }
+}
+
 /* Controls */
 .player-controls-bar {
     display: flex;
@@ -191,6 +216,13 @@ body {
         flex-wrap: wrap;
         padding: 6px 10px calc(6px + env(safe-area-inset-bottom, 0px));
         gap: 4px;
+        /* Mobile: let wrapped rows determine height. Fixed 100px cannot fit
+           info+controls+extras+progress when streaming CC/transcript/globe
+           buttons are visible — extras and progress paint below the viewport
+           and get clipped by body overflow:hidden. `flex: 1` on
+           #content-frame shrinks the iframe to absorb the change. */
+        height: auto;
+        min-height: calc(var(--player-height) + env(safe-area-inset-bottom, 0px));
     }
 
     .sp-cover { width: 44px; height: 44px; }

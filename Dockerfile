@@ -60,6 +60,7 @@ COPY library/common.py /app/common.py
 COPY library/auth /app/auth
 COPY library/backend /app/backend
 COPY library/localization /app/localization
+COPY library/locales /app/locales
 COPY library/scanner /app/scanner
 COPY library/scripts /app/scripts
 COPY library/web-v2 /app/web
