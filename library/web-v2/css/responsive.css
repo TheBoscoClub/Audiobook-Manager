@@ -618,6 +618,35 @@ body {
         min-width: 28px;
     }
 
+    /* Phone portrait: collapse author/narrator filter pickers to save ~130px.
+       Letter-group A-E/F-J pills barely fit 412px wide and clutter the view;
+       the search input remains fully functional. The always-expanded
+       autocompletes were the main offender — pushing book cards off-screen.
+       Tapping into the search input still shows the dropdown. */
+    .author-autocomplete .author-controls,
+    .narrator-autocomplete .narrator-controls {
+        display: none;
+    }
+
+    /* Stack author + narrator search rows side-by-side to save another row */
+    .filters-container {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .author-autocomplete,
+    .narrator-autocomplete {
+        flex: 1 1 calc(50% - var(--spacing-sm) / 2);
+        min-width: 0;
+    }
+
+    /* Shrink search-row inputs to fit the halved column width */
+    .author-search-row .author-input,
+    .narrator-search-row .narrator-input {
+        font-size: 0.7rem;
+        padding: 4px 8px;
+    }
+
     /* Prevent pagination from overflowing */
     .pagination-section {
         padding: 0 var(--spacing-sm);
@@ -634,6 +663,23 @@ body {
         flex-direction: column;
         align-items: flex-start;
         gap: var(--spacing-sm);
+    }
+
+    /* Compact top pagination: show only prev, current page, next on phone
+       portrait. Full page-number nav remains at the bottom pagination after
+       the grid. The top 9-button row (prev, 1-5, ..., 24, next) wrapped to
+       two rows — ~86px — eating vertical space between filters and grid.
+       Collapsing to 3 buttons on one row recovers ~47px. */
+    #top-pagination .pagination-btn:not(:first-child):not(:last-child):not(.active) {
+        display: none;
+    }
+    #top-pagination > span {
+        /* hide the "…" ellipsis span between middle pages and last page */
+        display: none;
+    }
+    #top-pagination {
+        gap: var(--spacing-sm);
+        flex-wrap: nowrap;
     }
 }
 

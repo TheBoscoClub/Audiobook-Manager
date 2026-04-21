@@ -158,3 +158,55 @@
         gap: 1rem;
     }
 }
+
+/* Mobile compact mode (<=768px): collapse to headlines + dismiss only.
+   At 412px wide the full banner eats ~570px — almost a full viewport — and
+   pushes book cards below two full scrolls. Reducing to a one-line greeting
+   (EN + ZH headlines) plus the dismiss X recovers ~430-490px so the
+   library grid is reachable within the first viewport after header+marquee. */
+@media (max-width: 768px) {
+    .feature-announce {
+        margin: 0 0.5rem 0.5rem;
+        padding: 0.5rem 2rem 0.5rem 0.75rem;
+        text-align: left;
+        animation: none;
+    }
+
+    /* Remove decorative gold rule lines and vertical dividers on mobile */
+    .feature-announce::before,
+    .feature-announce::after,
+    .announce-divider {
+        display: none;
+    }
+
+    /* Compact headlines — tight line height, tiny margin */
+    .announce-headline {
+        font-size: 0.85rem;
+        margin-bottom: 0;
+        line-height: 1.2;
+        letter-spacing: 0.02em;
+        text-shadow: none;
+    }
+    .announce-headline-zh {
+        font-size: 0.95rem;
+        margin-bottom: 0;
+        line-height: 1.2;
+        text-shadow: none;
+    }
+
+    /* Hide bilingual bodies and feature icons — purely decorative on phones */
+    .announce-body,
+    .announce-body-zh,
+    .announce-features {
+        display: none;
+    }
+
+    /* Dismiss button: larger tap target, same top-right anchor */
+    .announce-dismiss {
+        top: 0.25rem;
+        right: 0.25rem;
+        padding: 6px 10px;
+        font-size: 1rem;
+        opacity: 0.7;
+    }
+}
