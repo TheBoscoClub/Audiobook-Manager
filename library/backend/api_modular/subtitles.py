@@ -201,10 +201,115 @@ def _get_db():
     return conn
 
 
+def _streaming_subtitle_index(conn, book_id: int, locale_filter: str | None) -> list[dict]:
+    """
+    List (chapter_index, locale) pairs for which streaming_segments holds
+    completed VTT content. "en" is synthesized from source_vtt_content on
+    rows keyed by any target locale (English transcript is locale-agnostic);
+    other locales come from vtt_content where streaming_segments.locale matches.
+
+    Existence test only — one completed segment with non-NULL VTT is enough
+    to advertise the chapter so subtitles.js starts polling it. Stitching
+    happens in _stitch_streaming_vtt when the chapter VTT is fetched.
+    """
+    entries: list[dict] = []
+
+    if locale_filter is None or locale_filter == "en":
+        rows = conn.execute(
+            "SELECT DISTINCT chapter_index FROM streaming_segments "
+            "WHERE audiobook_id = ? AND state = 'completed' "
+            "AND source_vtt_content IS NOT NULL AND length(source_vtt_content) > 0 "
+            "ORDER BY chapter_index",
+            (book_id,),
+        ).fetchall()
+        for r in rows:
+            entries.append({"chapter_index": r["chapter_index"], "locale": "en"})
+
+    if locale_filter is None:
+        rows = conn.execute(
+            "SELECT DISTINCT chapter_index, locale FROM streaming_segments "
+            "WHERE audiobook_id = ? AND state = 'completed' "
+            "AND vtt_content IS NOT NULL AND length(vtt_content) > 0 "
+            "ORDER BY chapter_index, locale",
+            (book_id,),
+        ).fetchall()
+        for r in rows:
+            entries.append({"chapter_index": r["chapter_index"], "locale": r["locale"]})
+    elif locale_filter != "en":
+        rows = conn.execute(
+            "SELECT DISTINCT chapter_index FROM streaming_segments "
+            "WHERE audiobook_id = ? AND locale = ? AND state = 'completed' "
+            "AND vtt_content IS NOT NULL AND length(vtt_content) > 0 "
+            "ORDER BY chapter_index",
+            (book_id, locale_filter),
+        ).fetchall()
+        for r in rows:
+            entries.append({"chapter_index": r["chapter_index"], "locale": locale_filter})
+
+    return entries
+
+
+def _stitch_streaming_vtt(
+    conn, book_id: int, chapter_index: int, locale: str
+) -> str | None:
+    """
+    Stitch per-segment VTT from streaming_segments into a single chapter VTT.
+
+    Each segment row carries its own cue block with absolute chapter-relative
+    timestamps (worker emits them that way), so we just emit one WEBVTT
+    header and concat cue bodies in segment_index order. Returns None when no
+    completed segments with VTT content exist for the chapter+locale.
+
+    For locale='en', we pull source_vtt_content from any target locale's
+    segments (DISTINCT by segment_index) — Whisper output is locale-agnostic.
+    For other locales, we pull vtt_content from rows where locale matches.
+    """
+    if locale == "en":
+        rows = conn.execute(
+            "SELECT segment_index, source_vtt_content AS vtt "
+            "FROM streaming_segments "
+            "WHERE audiobook_id = ? AND chapter_index = ? "
+            "AND state = 'completed' "
+            "AND source_vtt_content IS NOT NULL AND length(source_vtt_content) > 0 "
+            "GROUP BY segment_index "
+            "ORDER BY segment_index",
+            (book_id, chapter_index),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT segment_index, vtt_content AS vtt "
+            "FROM streaming_segments "
+            "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ? "
+            "AND state = 'completed' "
+            "AND vtt_content IS NOT NULL AND length(vtt_content) > 0 "
+            "ORDER BY segment_index",
+            (book_id, chapter_index, locale),
+        ).fetchall()
+
+    if not rows:
+        return None
+
+    bodies: list[str] = []
+    for r in rows:
+        body = (r["vtt"] or "").strip()
+        if not body:
+            continue
+        if body.upper().startswith("WEBVTT"):
+            lines = body.split("\n", 1)
+            body = lines[1].lstrip("\n") if len(lines) > 1 else ""
+        if body:
+            bodies.append(body)
+
+    if not bodies:
+        return None
+
+    return "WEBVTT\n\n" + "\n\n".join(bodies) + "\n"
+
+
 @subtitles_bp.route("/api/audiobooks/<int:book_id>/subtitles", methods=["GET"])
 @guest_allowed
 def get_book_subtitles(book_id):
-    """List all subtitle entries for a book."""
+    """List all subtitle entries for a book (cached + streaming)."""
     locale = request.args.get("locale")
     conn = _get_db()
     try:
@@ -221,7 +326,18 @@ def get_book_subtitles(book_id):
                 "WHERE audiobook_id = ? ORDER BY chapter_index, locale",
                 (book_id,),
             ).fetchall()
-        return jsonify([dict(r) for r in rows])
+
+        cached = [dict(r) for r in rows]
+        seen = {(e["chapter_index"], e["locale"]) for e in cached}
+
+        for s in _streaming_subtitle_index(conn, book_id, locale):
+            key = (s["chapter_index"], s["locale"])
+            if key not in seen:
+                cached.append(s)
+                seen.add(key)
+
+        cached.sort(key=lambda e: (e["chapter_index"], e["locale"]))
+        return jsonify(cached)
     finally:
         conn.close()
 
@@ -231,7 +347,12 @@ def get_book_subtitles(book_id):
 )
 @guest_allowed
 def get_chapter_subtitle(book_id, chapter_index, locale):
-    """Get or serve the VTT file for a specific chapter and locale."""
+    """Get or serve the VTT for a specific chapter and locale.
+
+    Cached chapter_subtitles row wins; otherwise stitch partial VTT from
+    streaming_segments so in-flight streaming sessions expose live subtitles
+    as segments complete (subtitles.js polls this endpoint every 5 s).
+    """
     conn = _get_db()
     try:
         row = conn.execute(
@@ -239,17 +360,29 @@ def get_chapter_subtitle(book_id, chapter_index, locale):
             "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ?",
             (book_id, chapter_index, locale),
         ).fetchone()
-        if not row:
-            return jsonify({"error": "Subtitle not found"}), 404
 
-        vtt_path = Path(row["vtt_path"])
-        if not vtt_path.is_absolute() and _library_path:
-            vtt_path = _library_path / vtt_path
+        cached_file_missing = False
+        if row:
+            vtt_path = Path(row["vtt_path"])
+            if not vtt_path.is_absolute() and _library_path:
+                vtt_path = _library_path / vtt_path
+            if vtt_path.exists():
+                return send_file(
+                    vtt_path, mimetype="text/vtt; charset=utf-8", as_attachment=False
+                )
+            cached_file_missing = True
 
-        if not vtt_path.exists():
-            return jsonify({"error": "VTT file missing from disk"}), 404
+        stitched = _stitch_streaming_vtt(conn, book_id, chapter_index, locale)
+        if stitched:
+            return (
+                stitched,
+                200,
+                {"Content-Type": "text/vtt; charset=utf-8"},
+            )
 
-        return send_file(vtt_path, mimetype="text/vtt; charset=utf-8", as_attachment=False)
+        if cached_file_missing:
+            return jsonify({"error": "VTT file missing on disk"}), 404
+        return jsonify({"error": "Subtitle not found"}), 404
     finally:
         conn.close()
 
