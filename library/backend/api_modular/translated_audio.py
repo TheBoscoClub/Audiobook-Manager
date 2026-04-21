@@ -221,7 +221,7 @@ def generate_translated_audio():
                     locale,
                     state="running",
                     phase="gpu_spinup",
-                    message=("Waking up the GPU server. Cold starts can take a minute or two…"),
+                    message="Starting voice synthesis…",
                 )
                 tts = get_tts_provider(provider_override, workload=WorkloadHint.LONG_FORM)
             except ValueError:
@@ -540,7 +540,7 @@ def user_request_translated_audio():
                 locale,
                 state="running",
                 phase="gpu_spinup",
-                message=("Waking up the GPU server. Cold starts can take a minute or two…"),
+                message="Starting voice synthesis…",
             )
             tts = get_tts_provider(None, workload=WorkloadHint.LONG_FORM)
 
