@@ -1668,9 +1668,11 @@ EOF
 
         # Install services from systemd/ directory (includes proxy, redirect, converter, etc.)
         # Note: audiobook-proxy.service replaces the old audiobook-web.service for system installs
+        # Filter to unit types only — audiobooks-tmpfiles.conf is a tmpfiles.d config
+        # and MUST NOT land in ${SYSTEMD_DIR}; it's handled separately below.
         if [[ -d "${SCRIPT_DIR}/systemd" ]]; then
             echo -e "${BLUE}Installing conversion and management services...${NC}"
-            for service_file in "${SCRIPT_DIR}/systemd/"*; do
+            for service_file in "${SCRIPT_DIR}/systemd/"*.service "${SCRIPT_DIR}/systemd/"*.timer "${SCRIPT_DIR}/systemd/"*.path "${SCRIPT_DIR}/systemd/"*.target; do
                 if [[ -f "$service_file" ]]; then
                     local service_name=$(basename "$service_file")
                     # Skip the target file - we handle that specially
