@@ -31,6 +31,13 @@
   var _chapterPollTimer = null;
   var _waitResolve = null;
 
+  // Auto-scroll pause — when the reader manually scrolls the transcript
+  // (touch, wheel, pointer drag) we stop yanking them back to the current
+  // cue for USER_SCROLL_PAUSE_MS. Without this, reading ahead or looking
+  // back is impossible on a playing book.
+  var _userScrolledAt = 0;
+  var USER_SCROLL_PAUSE_MS = 4000;
+
   // ── VTT Parsing ──
 
   function parseVTT(text) {
@@ -918,9 +925,21 @@
         '[data-cue-index="' + index + '"]'
       );
       if (els.length) {
-        for (var i = 0; i < els.length; i++) els[i].classList.add("active");
-        if (transcriptVisible) {
-          els[0].scrollIntoView({ behavior: "smooth", block: "center" });
+        // Prefer the target-column cue as the scroll anchor. On desktop
+        // both cues share the same Y offset so either works; on mobile the
+        // target column renders visually above the source (column-reverse
+        // in i18n.css), and the reader's primary language is the target.
+        var anchor = null;
+        for (var i = 0; i < els.length; i++) {
+          els[i].classList.add("active");
+          if (els[i].closest(".col-target")) anchor = els[i];
+        }
+        if (transcriptVisible &&
+            Date.now() - _userScrolledAt >= USER_SCROLL_PAUSE_MS) {
+          (anchor || els[0]).scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
         }
       }
     }
@@ -990,6 +1009,21 @@
     subtitleTranslated = document.getElementById("subtitle-translated");
     transcriptPanel = document.getElementById("transcript-panel");
     transcriptContent = document.getElementById("transcript-content");
+
+    // Detect user-initiated scroll so we can pause auto-scroll follow.
+    // `scroll` events fire for both programmatic scrollIntoView and user
+    // input, so we watch the touch/wheel/pointer inputs that only the user
+    // generates. Passive listeners keep the scroller responsive.
+    if (transcriptContent) {
+      var markUserScroll = function () {
+        _userScrolledAt = Date.now();
+      };
+      ["touchstart", "wheel", "pointerdown"].forEach(function (evt) {
+        transcriptContent.addEventListener(evt, markUserScroll, {
+          passive: true,
+        });
+      });
+    }
 
     var ccBtn = document.getElementById("sp-subtitle-toggle");
     if (ccBtn) ccBtn.addEventListener("click", toggleSubtitles);

@@ -577,13 +577,21 @@ html.cjk .transcript-panel.bilingual .col-target .transcript-cue .transcript-cue
   background: rgba(197, 165, 90, 0.1);
 }
 
-/* Stack columns vertically on narrow viewports */
+/* Stack columns vertically on narrow viewports.
+ *
+ * `column-reverse` renders the target (translation) column ABOVE the source
+ * column without changing DOM order. On desktop both columns share the same
+ * Y-offset so left/right order is what matters; on mobile the column that
+ * appears first (top) is what the reader actually follows, so the target
+ * language must lead. JS in subtitles.js anchors auto-scroll on the target
+ * cue as well (see `highlightTranscriptCue`).
+ */
 @media (max-width: 720px) {
   .transcript-panel.bilingual {
     width: 100%;
   }
   .transcript-panel.bilingual .cols {
-    flex-direction: column;
+    flex-direction: column-reverse;
   }
   .transcript-panel.bilingual .col {
     flex: 1 1 auto;
