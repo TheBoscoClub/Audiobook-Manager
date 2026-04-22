@@ -22,9 +22,11 @@ from backend.api_modular.streaming_translate import (
     _LOG_SCRUB_RE,
     _SAFE_LOCALE_RE,
     _chapter_segment_count,
+    _safe_join_under,
     _safe_log_value,
     _safe_subtitles_path,
     _sanitize_locale,
+    _validate_audio_path,
 )
 
 # ── Module-level helpers ──
@@ -135,6 +137,105 @@ class TestSafeSubtitlesPath:
     def test_rejects_bad_locale(self, tmp_path):
         with pytest.raises(ValueError):
             _safe_subtitles_path(tmp_path, 1, 0, "../etc")
+
+
+class TestSafeJoinUnder:
+    """_safe_join_under — defense-in-depth path-injection guard (CodeQL py/path-injection).
+
+    This helper is the only generic base+parts join used by the streaming
+    translate module for chapter audio consolidation and chapter-subtitle
+    validation. The happy path must resolve under ``base``; every traversal
+    or null-byte form must raise ``ValueError`` before any filesystem I/O.
+    """
+
+    def test_happy_path_single_component(self, tmp_path):
+        p = _safe_join_under(tmp_path, "good.txt")
+        assert p == (tmp_path.resolve() / "good.txt").resolve()
+        assert p.is_relative_to(tmp_path.resolve())
+
+    def test_happy_path_multi_component(self, tmp_path):
+        p = _safe_join_under(tmp_path, "sub", "dir", "file.vtt")
+        assert p.is_relative_to(tmp_path.resolve())
+        assert p.name == "file.vtt"
+
+    def test_happy_path_numeric_component_coerced(self, tmp_path):
+        # ints are valid parts — coerced via str()
+        p = _safe_join_under(tmp_path, 42, "ch001.vtt")
+        assert p.is_relative_to(tmp_path.resolve())
+        assert "42" in str(p)
+
+    def test_rejects_parent_traversal(self, tmp_path):
+        with pytest.raises(ValueError, match="path traversal rejected"):
+            _safe_join_under(tmp_path, "..", "etc", "passwd")
+
+    def test_rejects_nested_parent_traversal(self, tmp_path):
+        with pytest.raises(ValueError, match="path traversal rejected"):
+            _safe_join_under(tmp_path, "sub", "..", "..", "etc")
+
+    def test_rejects_absolute_path_component(self, tmp_path):
+        # An absolute component would reset the join; must not escape base
+        with pytest.raises(ValueError, match="path traversal rejected"):
+            _safe_join_under(tmp_path, "/etc/passwd")
+
+    def test_rejects_null_byte_in_component(self, tmp_path):
+        with pytest.raises(ValueError, match="null byte"):
+            _safe_join_under(tmp_path, "good\x00bad.txt")
+
+    def test_rejects_null_byte_in_later_component(self, tmp_path):
+        with pytest.raises(ValueError, match="null byte"):
+            _safe_join_under(tmp_path, "sub", "ok", "bad\x00.txt")
+
+    def test_happy_path_with_dot_in_filename(self, tmp_path):
+        # Legitimate filenames contain dots — must NOT be rejected
+        p = _safe_join_under(tmp_path, "ch000.zh-Hans.vtt")
+        assert p.is_relative_to(tmp_path.resolve())
+        assert p.name == "ch000.zh-Hans.vtt"
+
+    def test_result_resolves_symlink_free_relative(self, tmp_path):
+        # The returned path must be the resolved form (no symlinks, no ..)
+        nested = tmp_path / "a" / "b"
+        nested.mkdir(parents=True)
+        p = _safe_join_under(tmp_path, "a", "b", "c.vtt")
+        assert p == (tmp_path.resolve() / "a" / "b" / "c.vtt").resolve()
+
+
+class TestValidateAudioPath:
+    """_validate_audio_path — worker-callback audio_path containment guard.
+
+    Exercises the branches added in phase 6 security hardening: None input,
+    missing root, relative-path resolution against the configured root, and
+    traversal rejection.
+    """
+
+    def test_none_returns_none(self):
+        """None audio_path is a legitimate no-audio signal — pass through."""
+        assert _validate_audio_path(None) is None
+
+    def test_returns_none_when_root_unconfigured(self, monkeypatch):
+        """If _streaming_audio_root is None, every path is rejected."""
+        monkeypatch.setattr(st, "_streaming_audio_root", None)
+        assert _validate_audio_path("anything.webm") is None
+
+    def test_rejects_absolute_path_outside_root(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(st, "_streaming_audio_root", tmp_path)
+        assert _validate_audio_path("/etc/passwd") is None
+
+    def test_accepts_relative_path_resolves_under_root(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(st, "_streaming_audio_root", tmp_path)
+        result = _validate_audio_path("1/ch000/zh-Hans/chapter.webm")
+        assert result is not None
+        assert result.is_relative_to(tmp_path.resolve())
+
+    def test_accepts_absolute_path_inside_root(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(st, "_streaming_audio_root", tmp_path)
+        inside = tmp_path / "good" / "path.webm"
+        result = _validate_audio_path(str(inside))
+        assert result is not None
+        assert result.is_relative_to(tmp_path.resolve())
+
+    def test_rejects_traversal_in_relative_path(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(st, "_streaming_audio_root", tmp_path)
+        assert _validate_audio_path("../../etc/passwd") is None
 
 
 class TestChapterSegmentCount:
@@ -616,3 +717,59 @@ class TestChapterComplete:
         )
         assert resp.status_code == 200
         assert resp.get_json()["status"] == "ok"
+
+    def test_chapter_complete_rejects_audio_path_outside_root(self, app_client, streaming_db):
+        """audio_path that escapes streaming audio root → 400 (py/path-injection defense)."""
+        resp = app_client.post(
+            "/api/translate/chapter-complete",
+            json={
+                "audiobook_id": 1,
+                "chapter_index": 0,
+                "locale": "zh-Hans",
+                "audio_path": "/etc/passwd",
+            },
+        )
+        assert resp.status_code == 400
+        assert "audio_path" in resp.get_json()["error"]
+
+    def test_chapter_complete_rejects_translated_vtt_outside_root(self, app_client, streaming_db):
+        """translated_vtt_path outside subtitles root → 400."""
+        resp = app_client.post(
+            "/api/translate/chapter-complete",
+            json={
+                "audiobook_id": 1,
+                "chapter_index": 0,
+                "locale": "zh-Hans",
+                "translated_vtt_path": "/etc/shadow",
+            },
+        )
+        assert resp.status_code == 400
+        assert "translated_vtt_path" in resp.get_json()["error"]
+
+    def test_chapter_complete_rejects_source_vtt_outside_root(self, app_client, streaming_db):
+        """source_vtt_path outside subtitles root → 400."""
+        resp = app_client.post(
+            "/api/translate/chapter-complete",
+            json={
+                "audiobook_id": 1,
+                "chapter_index": 0,
+                "locale": "zh-Hans",
+                "source_vtt_path": "/tmp/../etc/hosts",
+            },
+        )
+        assert resp.status_code == 400
+        assert "source_vtt_path" in resp.get_json()["error"]
+
+    def test_chapter_complete_rejects_null_byte_in_vtt_path(self, app_client, streaming_db):
+        """VTT path with null byte → 400 (OSError from Path resolution)."""
+        resp = app_client.post(
+            "/api/translate/chapter-complete",
+            json={
+                "audiobook_id": 1,
+                "chapter_index": 0,
+                "locale": "zh-Hans",
+                "translated_vtt_path": "/var/lib/audiobooks/streaming-subtitles/bad\x00.vtt",
+            },
+        )
+        assert resp.status_code == 400
+        assert "translated_vtt_path" in resp.get_json()["error"]
