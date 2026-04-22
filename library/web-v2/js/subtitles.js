@@ -331,6 +331,11 @@
         } else if (s.state === "streaming") {
           // Streaming pipeline owns this book+locale; legacy banner has nothing to say.
           hideGenBanner();
+        } else if (s.state === "deferred") {
+          // Server reports legacy translation_queue row is stale and superseded
+          // by the streaming pipeline (see queue.py::get_book_translation_status).
+          // No polling, no auto-queue — streaming-overlay.js is the source of truth.
+          hideGenBanner();
         } else if (s.state === "failed") {
           renderGenStatus({ phase: "error", message: s.error || "Translation failed" });
         }
@@ -379,6 +384,12 @@
               stopGenPoll();
               hideGenBanner();
             }
+            return;
+          }
+          if (s.state === "deferred" || s.state === "streaming") {
+            // Streaming pipeline took over mid-poll; stop polling legacy.
+            stopGenPoll();
+            hideGenBanner();
             return;
           }
           _genIdleCount = 0;

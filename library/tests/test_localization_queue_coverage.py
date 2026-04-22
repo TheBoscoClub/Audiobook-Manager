@@ -373,35 +373,123 @@ class TestPriorityAndStatus:
         assert lq.get_book_translation_status(999, "zh-Hans") is None
 
     def test_get_book_translation_status_returns_row(self, audiobooks_db: Path):
-        lq.enqueue(1, "zh-Hans", priority=10)
-        result = lq.get_book_translation_status(1, "zh-Hans")
+        """Row fields pass through unchanged. Uses 'en' locale because
+        pending non-en rows now short-circuit to 'deferred' to mask stale
+        pre-streaming batch queue entries (see *_defers_* tests)."""
+        lq.enqueue(1, "en", priority=10)
+        result = lq.get_book_translation_status(1, "en")
         assert result is not None
         assert result["audiobook_id"] == 1
-        assert result["locale"] == "zh-Hans"
+        assert result["locale"] == "en"
         assert result["state"] == "pending"
         assert result["priority"] == 10
 
+    def test_get_book_translation_status_defers_stale_failed_non_en(
+        self, audiobooks_db: Path
+    ):
+        """Legacy translation_queue failures for non-en locales must not surface
+        as current status — they sit in the DB from the pre-streaming batch era
+        (1,844 rows stamped 'No STT provider configured' on 2026-04-19 QA) and
+        were being rendered as "字幕生成失败" toasts on every first book-open.
+        get_book_translation_status now returns state='deferred' so the UI hides
+        the legacy banner and defers to streaming-overlay.
+        """
+        conn = sqlite3.connect(str(audiobooks_db))
+        conn.execute(
+            "INSERT INTO translation_queue "
+            "(audiobook_id, locale, state, error) "
+            "VALUES (1, 'zh-Hans', 'failed', 'No STT provider configured.')"
+        )
+        conn.commit()
+        conn.close()
+
+        result = lq.get_book_translation_status(1, "zh-Hans")
+        assert result is not None
+        assert result["state"] == "deferred"
+        assert result["reason"] == "streaming_pipeline"
+        # No stale 'failed'/'error' field surfaces to the caller.
+        assert "error" not in result
+
+    def test_get_book_translation_status_defers_stale_pending_non_en(
+        self, audiobooks_db: Path
+    ):
+        """Same deferral applies to stale 'pending'/'processing' rows on non-en
+        locales — no active worker drains the legacy queue, so leaving them as
+        visible 'pending' would keep the UI polling forever."""
+        conn = sqlite3.connect(str(audiobooks_db))
+        conn.execute(
+            "INSERT INTO translation_queue "
+            "(audiobook_id, locale, state) VALUES (1, 'zh-Hans', 'pending')"
+        )
+        conn.commit()
+        conn.close()
+
+        result = lq.get_book_translation_status(1, "zh-Hans")
+        assert result is not None
+        assert result["state"] == "deferred"
+
+    def test_get_book_translation_status_passes_failed_en_unchanged(
+        self, audiobooks_db: Path
+    ):
+        """English-locale failures are *not* deferred — there's no streaming
+        replacement for the en pipeline (en subtitles come from Whisper STT
+        direct, not translation), so surfacing the real failure is correct."""
+        conn = sqlite3.connect(str(audiobooks_db))
+        conn.execute(
+            "INSERT INTO translation_queue "
+            "(audiobook_id, locale, state, error) "
+            "VALUES (1, 'en', 'failed', 'Whisper STT crashed')"
+        )
+        conn.commit()
+        conn.close()
+
+        result = lq.get_book_translation_status(1, "en")
+        assert result is not None
+        assert result["state"] == "failed"
+        assert result["error"] == "Whisper STT crashed"
+
+    def test_get_book_translation_status_completed_non_en_passes_through(
+        self, audiobooks_db: Path
+    ):
+        """A legitimately-completed legacy row (e.g. VTT files exist on disk
+        from a successful batch run) must still pass through — the UI reads it
+        to hide the banner, not to show an error."""
+        conn = sqlite3.connect(str(audiobooks_db))
+        conn.execute(
+            "INSERT INTO translation_queue "
+            "(audiobook_id, locale, state) VALUES (1, 'zh-Hans', 'completed')"
+        )
+        conn.commit()
+        conn.close()
+
+        result = lq.get_book_translation_status(1, "zh-Hans")
+        assert result is not None
+        assert result["state"] == "completed"
+
     def test_get_book_translation_status_merges_current(self, audiobooks_db: Path):
         """When the row is in 'processing' state and matches _current_status,
-        the live status dict is overlaid onto the DB row."""
+        the live status dict is overlaid onto the DB row. Uses 'en' locale
+        because non-en processing rows now short-circuit to 'deferred' (they
+        sit in the DB forever on QA/prod since no legacy worker drains them).
+        """
         conn = sqlite3.connect(str(audiobooks_db))
         conn.execute(
             "INSERT INTO translation_queue "
             "(audiobook_id, locale, state) "
-            "VALUES (1, 'zh-Hans', 'processing')"
+            "VALUES (1, 'en', 'processing')"
         )
         conn.commit()
         conn.close()
 
         lq._current_status = {
             "audiobook_id": 1,
-            "locale": "zh-Hans",
+            "locale": "en",
             "phase": "transcribing",
             "message": "Chapter 5/42",
             "chapter_index": 4,
             "chapter_total": 42,
         }
-        result = lq.get_book_translation_status(1, "zh-Hans")
+        result = lq.get_book_translation_status(1, "en")
         assert result is not None
         assert result["phase"] == "transcribing"
         assert result["message"] == "Chapter 5/42"

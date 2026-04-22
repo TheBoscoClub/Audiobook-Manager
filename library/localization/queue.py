@@ -267,6 +267,24 @@ def get_book_translation_status(audiobook_id: int, locale: str) -> dict | None:
         if not row:
             return None
         result = dict(row)
+        # Legacy translation_queue is superseded by the streaming pipeline
+        # for all non-English locales. Pending / processing / failed rows
+        # from the pre-streaming batch era still sit in the DB (no worker
+        # drains them), so surfacing them as current status reports stale
+        # state to the UI — most visibly "字幕生成失败" toasts on every
+        # first-open of any untranslated book, originating from a single
+        # 2026-04-19 "No STT provider configured" crash that marked 1,844
+        # rows failed. Collapse all three to a `deferred` signal; the
+        # frontend hides the legacy banner and defers to the streaming
+        # overlay. Completed rows still pass through — they mean VTT files
+        # exist on disk from a successful legacy run and are legitimate.
+        if locale != "en" and result["state"] in ("failed", "pending", "processing"):
+            return {
+                "state": "deferred",
+                "reason": "streaming_pipeline",
+                "audiobook_id": audiobook_id,
+                "locale": locale,
+            }
         if (
             result["state"] == "processing"
             and _current_status.get("audiobook_id") == audiobook_id
