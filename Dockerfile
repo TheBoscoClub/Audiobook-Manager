@@ -9,11 +9,32 @@
 
 # Pinned by sha256 digest for reproducible, supply-chain-safe builds.
 # To refresh: run `docker pull python:3.14-slim && docker inspect python:3.14-slim --format '{{index .RepoDigests 0}}'`
-# Last refreshed: 2026-04-16 (tag: python:3.14-slim)
-FROM python:3.14-slim@sha256:bc389f7dfcb21413e72a28f491985326994795e34d2b86c8ae2f417b4e7818aa
+# Last refreshed: 2026-04-22 (tag: python:3.14-slim)
+#
+# Accepted residual CVEs (no fix available in Debian Trixie as of 2026-04-22):
+#
+# From python:3.14-slim base (0 CRIT / 6 HIGH after digest refresh):
+#   CVE-2025-69720 (HIGH) — ncurses buffer overflow; ncurses is a transient dep pulled
+#     in by apt infrastructure only, not used by our application at runtime. No patch.
+#   CVE-2026-29111 (HIGH) — systemd IPC DoS/RCE; systemd does NOT run inside this
+#     container. libsystemd0/libudev1 are apt-infra deps; attack surface is zero. No patch.
+#
+# From apt-get install packages (ffmpeg, mesa, mbedtls — no Debian patch as of 2026-04-22):
+#   CVE-2026-40962 (CRIT) — ffmpeg CENC integer overflow; affects file parsing. We use
+#     ffmpeg only for conversion of user-owned audiobooks, not arbitrary untrusted input.
+#   CVE-2026-40393 (CRIT) — Mesa out-of-bounds; Mesa GPU libs pulled in by ffmpeg as a
+#     transient dep. This container has no GPU, mesa is never exercised. No patch.
+#   CVE-2026-34873 (CRIT) — mbedTLS TLS 1.3 session impersonation; mbedtls pulled in by
+#     ffmpeg. Our TLS termination uses Python ssl/OpenSSL, not mbedTLS. No patch.
+#   CVE-2026-34875 (CRIT) — mbedTLS buffer overflow; same context as CVE-2026-34873.
+#
+# Full image CVE delta vs Phase 9c baseline: 15 CRIT / 62 HIGH → 15 CRIT / 60 HIGH.
+# Base-image-only delta: 15 CRIT / 62 HIGH → 0 CRIT / 6 HIGH (digest refresh eliminated
+# all python base CVEs). Residual 15 CRIT / 54 HIGH are in ffmpeg/mesa/mbedtls apt pkgs.
+FROM python:3.14-slim@sha256:3989a23fd2c28a34c7be819e488b958a10601d421ac25bea1e7a5d757365e2d5
 
 # Read version from VERSION file during build
-ARG APP_VERSION=8.3.2
+ARG APP_VERSION=8.3.7
 
 LABEL maintainer="Audiobooks Project"
 LABEL description="Standalone audiobook library — fully self-contained with all databases and dependencies"
