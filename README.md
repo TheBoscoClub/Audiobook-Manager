@@ -16,7 +16,9 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![8](https://img.shields.io/badge/8-brightgreen)![3](https://img.shields.io/badge/3-darkgreen)![2](https://img.shields.io/badge/2-green) | Latest patch | [v8.3.2](../../releases/tag/v8.3.2) |
+| ![8](https://img.shields.io/badge/8-brightgreen)![3](https://img.shields.io/badge/3-darkgreen)![7](https://img.shields.io/badge/7-green) | Latest patch | [v8.3.7](../../releases/tag/v8.3.7) |
+| ![8](https://img.shields.io/badge/8-brightred)![3](https://img.shields.io/badge/3-darkred)![6](https://img.shields.io/badge/6-red) | Prior patch | [v8.3.6](../../releases/tag/v8.3.6) |
+| ![8](https://img.shields.io/badge/8-brightred)![3](https://img.shields.io/badge/3-darkred)![2](https://img.shields.io/badge/2-red) | Prior patch | [v8.3.2](../../releases/tag/v8.3.2) |
 | ![8](https://img.shields.io/badge/8-brightred)![3](https://img.shields.io/badge/3-darkred)![1](https://img.shields.io/badge/1-red) | Prior patch | [v8.3.1](../../releases/tag/v8.3.1) |
 | ![8](https://img.shields.io/badge/8-brightred)![3](https://img.shields.io/badge/3-darkred)![0](https://img.shields.io/badge/0-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v8.3.0.1](../../releases/tag/v8.3.0.1) |
 | ![8](https://img.shields.io/badge/8-brightred)![3](https://img.shields.io/badge/3-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v8.3.0](../../releases/tag/v8.3.0) |

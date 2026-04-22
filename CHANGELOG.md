@@ -3225,7 +3225,9 @@ sudo /opt/audiobooks/upgrade.sh
 - JSON metadata export
 
 [Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.7...HEAD
-[8.3.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.1...v8.3.7
+[8.3.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.6...v8.3.7
+[8.3.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.2...v8.3.6
+[8.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.1...v8.3.2
 [8.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.0.1...v8.3.1
 [8.3.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.0...v8.3.0.1
 [8.3.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.2.3.6...v8.3.0
