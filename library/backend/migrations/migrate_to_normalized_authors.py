@@ -157,9 +157,9 @@ def _upsert_entity(conn, name, seen, stats, table, dry_run):
         f"INSERT OR IGNORE INTO {table} (name, sort_name) VALUES (?, ?)",  # nosec B608  # noqa: S608
         (name, sort_name),
     )
-    return conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        f"SELECT id FROM {table} WHERE name = ?",
-        (name,),  # nosec B608  # noqa: S608
+    return conn.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        f"SELECT id FROM {table} WHERE name = ?",  # nosec B608 — table is code-defined literal "authors"/"narrators" from callers; name is parameter-bound
+        (name,),  # noqa: S608
     ).fetchone()["id"]
 
 

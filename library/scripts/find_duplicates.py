@@ -304,10 +304,10 @@ def _verify_safe_deletions(cursor, files_to_remove):
 def _delete_audiobook_entry(cursor, file_id):
     """Delete an audiobook and its related junction table rows."""
     for table in ("audiobook_topics", "audiobook_eras", "audiobook_genres"):
-        cursor.execute(
-            f"DELETE FROM {table} WHERE audiobook_id = ?",
-            (file_id,),  # noqa: S608 — SQL built from internal constants and allowlisted values; no user-controlled string injection  # nosec B608 — SQL — built from internal constants or allowlisted values; all user values use parameterized ? placeholders
-        )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+            f"DELETE FROM {table} WHERE audiobook_id = ?",  # nosec B608 — table from code-defined tuple literal at L306; file_id is parameter-bound
+            (file_id,),  # noqa: S608
+        )
     cursor.execute("DELETE FROM audiobooks WHERE id = ?", (file_id,))
 
 

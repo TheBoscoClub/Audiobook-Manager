@@ -110,9 +110,9 @@ def _ensure_entity(cursor, cleaned, entity_map, table):
     dedup_key = normalize_for_dedup(cleaned)
     if dedup_key not in entity_map:
         sn = generate_sort_name(cleaned) or cleaned
-        cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"INSERT INTO {table} (name, sort_name) VALUES (?, ?)",
-            (cleaned, sn),  # nosec B608  # noqa: S608
+        cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+            f"INSERT INTO {table} (name, sort_name) VALUES (?, ?)",  # nosec B608 — table is code-defined literal ("authors"/"narrators"/etc.) from callers in _populate_names_and_junctions; cleaned+sn are parameter-bound
+            (cleaned, sn),  # noqa: S608
         )
         entity_map[dedup_key] = cursor.lastrowid
     return entity_map[dedup_key]
@@ -410,10 +410,10 @@ def _insert_taxonomy_items(cursor, audiobook_id, items, entity_map, table, junct
     id_col = table.rstrip("s") + "_id"
     for item_name in items:
         if item_name not in entity_map:
-            cursor.execute(
-                f"INSERT INTO {table} (name) VALUES (?)",
-                (item_name,),  # noqa: S608 — SQL built from internal constants and allowlisted values; no user-controlled string injection  # nosec B608 — SQL — built from internal constants or allowlisted values; all user values use parameterized ? placeholders
-            )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+            cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                f"INSERT INTO {table} (name) VALUES (?)",  # nosec B608 — table is code-defined literal ("genres"/"eras"/"topics") from _insert_taxonomy_items callers at L538/541/544; item_name is parameter-bound
+                (item_name,),  # noqa: S608
+            )
             entity_map[item_name] = cursor.lastrowid
         cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             f"INSERT INTO {junction_table} (audiobook_id, {id_col}) VALUES (?, ?)",  # nosec B608  # noqa: S608

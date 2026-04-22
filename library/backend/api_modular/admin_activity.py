@@ -362,9 +362,9 @@ def _get_book_titles(audiobook_ids: set) -> dict[str, str | None]:
 
     try:
         placeholders = ",".join("?" * len(int_ids))
-        cursor = conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"SELECT id, title FROM audiobooks WHERE id IN ({placeholders})",
-            int_ids,  # nosec B608  # noqa: S608
+        cursor = conn.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+            f"SELECT id, title FROM audiobooks WHERE id IN ({placeholders})",  # nosec B608 — placeholders = ",".join("?"*N) of only `?` chars; int_ids is a list of ints; no user-controlled string interpolation
+            int_ids,  # noqa: S608
         )
         return {str(row["id"]): row["title"] for row in cursor.fetchall()}
     except sqlite3.Error:

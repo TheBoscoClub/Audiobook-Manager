@@ -267,10 +267,10 @@ def _apply_book_update(cursor, book_id, book_updates):
     """Execute a single UPDATE for one audiobook's sort fields."""
     set_clauses = ", ".join(f"{k} = ?" for k in book_updates.keys())
     values = list(book_updates.values()) + [book_id]
-    cursor.execute(
-        f"UPDATE audiobooks SET {set_clauses} WHERE id = ?",
-        values,  # noqa: S608 — SQL built from internal constants and allowlisted values; no user-controlled string injection  # nosec B608 — SQL — built from internal constants or allowlisted values; all user values use parameterized ? placeholders
-    )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        f"UPDATE audiobooks SET {set_clauses} WHERE id = ?",  # nosec B608 — book_updates keys are code-defined literals from _compute_book_updates (author_last_name/narrator_last_name/series_sequence/edition/acquired_date); values+book_id parameter-bound
+        values,  # noqa: S608
+    )
 
 
 def _print_sort_summary(totals, sample_updates, dry_run):
