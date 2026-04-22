@@ -91,7 +91,8 @@ def transcribe():
         audio_file.save(tmp.name)
         tmp_path = tmp.name
     size = os.path.getsize(tmp_path)
-    log.info("received file=%s bytes lang=%s", size, language)
+    # Cast to int + already-sanitized language (regex above); defensive for CodeQL py/log-injection.
+    log.info("received file=%d bytes lang=%s", int(size), language)
     try:
         with _model_lock:
             segments, info = model.transcribe(tmp_path, language=language, word_timestamps=True)

@@ -12,6 +12,7 @@ without requiring a real worker.
 
 from __future__ import annotations
 
+import os
 import sqlite3
 from pathlib import Path
 
@@ -570,17 +571,20 @@ class TestChapterComplete:
         assert resp.status_code == 400
 
     def test_chapter_insert_writes_subtitles_and_audio(self, app_client, streaming_db):
-        # Use a relative path within the streaming audio root so _validate_audio_path accepts it.
-        # Absolute /tmp paths are now rejected as path-injection defense (Phase 6c).
+        # Use paths within the streaming roots — absolute paths outside the allowed
+        # roots are rejected as path-injection defense (Phase 6c).
         audio_rel = "1/ch000/zh-Hans/chapter.webm"
+        subtitles_root = Path(os.environ["AUDIOBOOKS_STREAMING_SUBTITLES_DIR"])
+        source_vtt_path = subtitles_root / "1" / "ch000.en.vtt"
+        translated_vtt_path = subtitles_root / "1" / "ch000.zh-Hans.vtt"
         resp = app_client.post(
             "/api/translate/chapter-complete",
             json={
                 "audiobook_id": 1,
                 "chapter_index": 0,
                 "locale": "zh-Hans",
-                "source_vtt_path": "/tmp/source.vtt",  # nosec B108 -- DB row payload string, never written to disk
-                "translated_vtt_path": "/tmp/translated.vtt",  # nosec B108 -- DB row payload string, never written to disk
+                "source_vtt_path": str(source_vtt_path),
+                "translated_vtt_path": str(translated_vtt_path),
                 "audio_path": audio_rel,
             },
         )

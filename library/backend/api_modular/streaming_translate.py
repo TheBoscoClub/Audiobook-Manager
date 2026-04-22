@@ -83,7 +83,7 @@ def _probe_audio_duration(audio_path: Path) -> float | None:
             audio_path.resolve(strict=False).relative_to(
                 _streaming_audio_root.resolve(strict=False)
             )
-        except ValueError, OSError:
+        except (ValueError, OSError):
             return None
     try:
         result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
@@ -104,7 +104,7 @@ def _probe_audio_duration(audio_path: Path) -> float | None:
         )
         if result.returncode == 0 and result.stdout.strip():
             return float(result.stdout.strip())
-    except OSError, ValueError, subprocess.TimeoutExpired:
+    except (OSError, ValueError, subprocess.TimeoutExpired):
         return None
     return None
 
@@ -143,6 +143,25 @@ def _sanitize_locale(locale: str) -> str:
     if not isinstance(locale, str) or not _SAFE_LOCALE_RE.match(locale):
         raise ValueError(f"invalid locale: {locale!r}")
     return locale
+
+
+def _safe_join_under(base: Path, *parts: str) -> Path:
+    """Join ``parts`` under ``base`` and verify the resolved result is contained.
+
+    Raises ``ValueError`` if the resulting path escapes ``base`` (py/path-injection
+    mitigation — defense in depth when any component could be tainted, even after
+    upstream validation). Each ``parts`` element is coerced to ``str`` and must not
+    contain traversal sequences or nulls.
+    """
+    base_resolved = base.resolve(strict=False)
+    for p in parts:
+        s = str(p)
+        if "\x00" in s:
+            raise ValueError("null byte in path component")
+    target = (base_resolved.joinpath(*(str(p) for p in parts))).resolve(strict=False)
+    if not target.is_relative_to(base_resolved):
+        raise ValueError(f"path traversal rejected: {parts!r}")
+    return target
 
 
 def _safe_subtitles_path(
@@ -202,7 +221,7 @@ def _validate_audio_path(audio_path) -> Path | None:
         audio_root = _streaming_audio_root.resolve(strict=False)
         resolved.relative_to(audio_root)  # raises ValueError if outside
         return resolved
-    except ValueError, OSError:
+    except (ValueError, OSError):
         return None
 
 
@@ -337,8 +356,8 @@ def _resolve_chapter_count(db, audiobook_id: int) -> int:
     _chapter_count_memo[audiobook_id] = count
     logger.info(
         "Backfilled chapter_count=%d for audiobook %d via ffprobe",
-        count,
-        audiobook_id,
+        int(count),
+        int(audiobook_id),
     )
     return count
 
@@ -865,9 +884,9 @@ def request_streaming_translation():
         # of spinning forever; log enough context for ops to diagnose.
         logger.error(
             "chapter_count unavailable for book=%d locale=%s chapter=%d: %s",
-            audiobook_id,
+            int(audiobook_id),
             _safe_log_value(locale),
-            chapter_index,
+            int(chapter_index),
             _safe_log_value(exc),
         )
         return jsonify({"error": "chapter count unavailable"}), 500
@@ -1018,9 +1037,9 @@ def handle_seek():
     except ValueError as exc:
         logger.error(
             "chapter_count unavailable on seek for book=%d locale=%s chapter=%d: %s",
-            audiobook_id,
+            int(audiobook_id),
             _safe_log_value(locale),
-            chapter_index,
+            int(chapter_index),
             _safe_log_value(exc),
         )
         return jsonify({"error": "chapter count unavailable"}), 500
@@ -1232,22 +1251,49 @@ def chapter_complete():
     if raw_audio_path is not None and safe_audio_path is None:
         return jsonify({"error": "audio_path outside allowed root"}), 400
 
+    # Validate VTT paths live under the streaming-subtitles root before
+    # we record them in the DB — py/path-injection mitigation even though
+    # the caller is the trusted worker (defense in depth).
+    def _validate_vtt_path(raw) -> str | None:
+        if raw is None:
+            return None
+        if _streaming_subtitles_root is None:
+            return None
+        try:
+            candidate = Path(raw).resolve(strict=False)
+            root = _streaming_subtitles_root.resolve(strict=False)
+            if not candidate.is_relative_to(root):
+                return None
+            return str(candidate)
+        except (ValueError, OSError):
+            return None
+
+    raw_translated_vtt = data.get("translated_vtt_path")
+    safe_translated_vtt = _validate_vtt_path(raw_translated_vtt)
+    if raw_translated_vtt is not None and safe_translated_vtt is None:
+        return jsonify({"error": "translated_vtt_path outside allowed root"}), 400
+
+    raw_source_vtt = data.get("source_vtt_path")
+    safe_source_vtt = _validate_vtt_path(raw_source_vtt)
+    if raw_source_vtt is not None and safe_source_vtt is None:
+        return jsonify({"error": "source_vtt_path outside allowed root"}), 400
+
     db = _get_db()
 
     # Insert into chapter_subtitles (permanent cache)
-    if data.get("translated_vtt_path"):
+    if safe_translated_vtt:
         db.execute(
             "INSERT OR REPLACE INTO chapter_subtitles "
             "(audiobook_id, chapter_index, locale, vtt_path, stt_provider, translation_provider) "
             "VALUES (?, ?, ?, ?, 'streaming', 'deepl')",
-            (audiobook_id, chapter_index, locale, data["translated_vtt_path"]),
+            (audiobook_id, chapter_index, locale, safe_translated_vtt),
         )
-    if data.get("source_vtt_path"):
+    if safe_source_vtt:
         db.execute(
             "INSERT OR REPLACE INTO chapter_subtitles "
             "(audiobook_id, chapter_index, locale, vtt_path, stt_provider) "
             "VALUES (?, ?, 'en', ?, 'streaming')",
-            (audiobook_id, chapter_index, data["source_vtt_path"]),
+            (audiobook_id, chapter_index, safe_source_vtt),
         )
 
     # Insert into chapter_translations_audio if audio was generated
@@ -1301,8 +1347,8 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
             "Skipping chapter audio consolidation — at least one segment "
             "has no audio_path (TTS degraded to text-only): "
             "book=%d ch=%d locale=%s",
-            audiobook_id,
-            chapter_index,
+            int(audiobook_id),
+            int(chapter_index),
             _safe_log_value(locale),
         )
         return
@@ -1344,8 +1390,20 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
             return
         segment_paths.append(p_resolved)
 
-    # Output: <root>/<book_id>/ch<NNN>/<locale>/chapter.webm
-    chapter_dir = _streaming_audio_root / str(audiobook_id) / f"ch{chapter_index:03d}" / locale
+    # Output: <root>/<book_id>/ch<NNN>/<locale>/chapter.webm.
+    # `_safe_join_under` defends against path injection even though the three
+    # components are already validated (audiobook_id int, chapter_index int,
+    # locale regex-validated upstream) — required by CodeQL py/path-injection.
+    try:
+        chapter_dir = _safe_join_under(
+            _streaming_audio_root,
+            str(int(audiobook_id)),
+            f"ch{int(chapter_index):03d}",
+            _sanitize_locale(locale),
+        )
+    except ValueError as exc:
+        logger.error("Rejected unsafe chapter_dir path: %s", _safe_log_value(exc))
+        return
     chapter_dir.mkdir(parents=True, exist_ok=True)
     out_path = chapter_dir / "chapter.webm"
 
@@ -1381,8 +1439,8 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
     except (subprocess.CalledProcessError, OSError) as exc:
         logger.warning(
             "ffmpeg concat failed for chapter audio: book=%d ch=%d locale=%s err=%s",
-            audiobook_id,
-            chapter_index,
+            int(audiobook_id),
+            int(chapter_index),
             _safe_log_value(locale),
             _safe_log_value(exc),
         )
@@ -1403,8 +1461,8 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
     except sqlite3.DatabaseError as exc:
         logger.warning(
             "Failed to persist chapter audio row: book=%d ch=%d locale=%s err=%s",
-            audiobook_id,
-            chapter_index,
+            int(audiobook_id),
+            int(chapter_index),
             _safe_log_value(locale),
             _safe_log_value(exc),
         )
@@ -1413,11 +1471,11 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
     logger.info(
         "Consolidated streaming segments into chapter.webm: "
         "book=%d ch=%d locale=%s segments=%d duration=%s",
-        audiobook_id,
-        chapter_index,
+        int(audiobook_id),
+        int(chapter_index),
         _safe_log_value(locale),
         len(segment_paths),
-        duration,
+        _safe_log_value(duration),
     )
 
 
@@ -1516,8 +1574,8 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
     logger.info(
         "Consolidated streaming segments into permanent VTT: "
         "book=%d ch=%d locale=%s bilingual=%s",
-        audiobook_id,
-        chapter_index,
+        int(audiobook_id),
+        int(chapter_index),
         _safe_log_value(locale),
         "yes" if source_vtt_path is not None else "no",
     )
@@ -1530,8 +1588,8 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
         logger.warning(
             "Chapter audio consolidation raised unexpected exception: "
             "book=%d ch=%d locale=%s err=%s",
-            audiobook_id,
-            chapter_index,
+            int(audiobook_id),
+            int(chapter_index),
             _safe_log_value(locale),
             _safe_log_value(exc),
         )

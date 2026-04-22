@@ -11,6 +11,7 @@ Already-processing segments are never touched.
 """
 
 import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -19,13 +20,15 @@ from backend.api_modular.streaming_translate import handle_seek_impl, stop_strea
 BUFFER_AHEAD = 6
 SEG_SEC = 30
 
+SCHEMA_PATH = Path(__file__).parent.parent / "backend" / "schema.sql"
+
 
 @pytest.fixture
 def db(tmp_path):
     p = tmp_path / "t.db"
     conn = sqlite3.connect(str(p))
     conn.row_factory = sqlite3.Row
-    conn.executescript(open("library/backend/schema.sql").read())
+    conn.executescript(SCHEMA_PATH.read_text())
     yield conn
     conn.close()
 
