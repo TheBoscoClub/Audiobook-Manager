@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8.2] - 2026-04-23
+
+### Fixed
+
+- **`sampler-burst.sh` spawned workers with no provider credentials**: the script sourced `/usr/local/lib/audiobooks/audiobook-config.sh` (canonical DEFAULTS) but never sourced `/etc/audiobooks/audiobooks.conf` (operator OVERRIDES + STT/DeepL keys). Workers inherited a bare-defaults environment — on any deployment with a library path override (e.g. `AUDIOBOOKS_LIBRARY=/hddRaid1/Audiobooks/Library`), every segment failed at file resolution; without `AUDIOBOOKS_RUNPOD_*` / `AUDIOBOOKS_DEEPL_API_KEY` exported, workers raised `RuntimeError("No STT provider configured")` on every dispatch. Now mirrors the systemd pattern (`Environment=` then `EnvironmentFile=`): sources defaults first, then wraps `audiobooks.conf` in `set -a` / `set +a` so every assignment is exported to worker subprocesses. Honors `$AUDIOBOOKS_CONFIG` override
+- **`stream-translate-daemon.sh` same latent defect**: even though it only runs under systemd today, anyone invoking it manually (debug, cron, future wrappers) would hit the same missing-env issue. Added the same defensive `set -a` / source `audiobooks.conf` / `set +a` block. Idempotent under systemd where `EnvironmentFile=` already populated those vars
+- **Missing CLI symlinks for sampler admin tools**: `sampler-burst` was only accessible by full `/opt/audiobooks/scripts/sampler-burst.sh` path despite being a documented user-facing admin command; `sampler-reconcile` (referenced by `docs/SAMPLER.md` and `MULTI-LANGUAGE-SETUP.md`) had no short-name at all. Both now registered in `SCRIPT_ALIASES` (install.sh + upgrade.sh — duplicated but kept in sync) so `refresh_bin_symlinks` auto-creates `/usr/local/bin/sampler-burst` and `/usr/local/bin/sampler-reconcile` on every install/upgrade
+- **Broken-symlink sweep missed `sampler-*`**: `upgrade.sh::audit_and_cleanup` glob was `audiobook*` only, so if a future release removed a sampler-* CLI, the stale symlink would linger. Extended to `\( -name "audiobook*" -o -name "sampler-*" \)`
+- **CodeQL `py/log-injection` defense in `sampler.py::enqueue_sampler`**: callers already validate `locale` at the boundary (sampler_hook iterates env-whitelisted locales; admin API rejects non-canonical slugs), but the log line used raw `str(locale)` / `str(scope)`. Added private `_safe_log()` helper (mirrors `_safe_log_value` in `streaming_translate.py`) that strips CR/LF/null/control chars and truncates to 200. CodeQL alert #522 dismissed as false-positive with the caller-validation + explicit-sanitizer reasoning documented on the alert
+
 ## [8.3.8.1] - 2026-04-23
 
 ### Fixed
@@ -3350,7 +3360,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.2...HEAD
+[8.3.8.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.1...v8.3.8.2
 [8.3.8.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8...v8.3.8.1
 [8.3.8]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.7.1...v8.3.8
 [8.3.7.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.7...v8.3.7.1
