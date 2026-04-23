@@ -13,6 +13,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8] - 2026-04-23
+
+### Added
+
+- **6-minute pretranslation sampler**: every book gets its opening 6 minutes pretranslated per enabled non-EN locale at scan time. Library-wide discovery for non-EN listeners (preview any book in their locale without GPU wait) and runway for the live pipeline when a user commits. Scope algorithm in `library/localization/sampler.py::compute_sampler_range`: ≥ 6 min, extend to chapter boundary if within `SAMPLER_MAX_EXTEND_SECONDS` (3 min) slack, otherwise hard-stop at 6 min. See `docs/SAMPLER.md`
+- **Sampler priority invariant enforced at the DB layer**: new `streaming_segments.origin` column (`live` | `sampler` | `backlog`) plus `BEFORE INSERT/UPDATE` triggers that `RAISE(ABORT)` when `origin='sampler' AND priority < 2`. Makes it physically impossible for sampler work to starve live-playback cursor (p0) or buffer-ahead (p1) work
+- **`sampler_jobs` table** tracking per-`(audiobook, locale)` status + progress; driven by `segment-complete` callback; drives the library-browse "🎧 6-min Sample" affordance
+- **Scan-time sampler hook** `library/scanner/utils/sampler_hook.py` — fires on every new book insert for each enabled non-EN locale. Failures logged and swallowed; sampler is enrichment, never blocks ingestion
+- **Locale-addition reconciler** `scripts/sampler-reconcile.py` — enqueues sampler jobs for every `(book, locale)` pair missing a `sampler_jobs` row; idempotent; `--dry-run`, `--locale`, `--max-books` flags
+- **Sampler API endpoints** in `api_modular/streaming_translate.py`:
+  - `POST /api/translate/sampler/prefetch` — admin-triggered enqueue
+  - `GET /api/translate/sampler/status/<id>/<locale>` — single-book status + chapter audio URLs when complete
+  - `GET /api/translate/sampler/batch-status?ids=&locale=` — bulk-query up to 100 books at once; used by library browse
+  - `POST /api/translate/sampler/activate` — called by frontend when user crosses the adaptive buffer-fill threshold; creates p0/p1 segments from cursor forward
+  - `GET /api/translate/warmth` — returns current RunPod streaming endpoint warmth + adaptive `buffer_fill_threshold`
+- **Adaptive buffer-fill threshold** — segment 3 when RunPod is cold (`workers.ready == 0`, 4.5-min runway), segment 4 when warm (4-min runway). Warmth probe cached 60s. Default on probe failure: assume cold (safer)
+- **"🎧 6-min Sample" book-card affordance** — `library.js::applySamplerAvailability` chunks rendered book IDs in batches of 100, queries `/api/translate/sampler/batch-status`, flips `.btn-sample` visibility on cards whose sampler is complete. Sapphire-bordered to distinguish from the full-play button. Curated zh-Hans translation for the label and tooltip
+- **Release-requirements manifest** `scripts/release-requirements.sh` — declarative `REQUIRED_CONFIG_KEYS`, `REQUIRED_SYSTEMD_UNITS`, `REQUIRED_DB_COLUMNS`. Upgrade/install emit actionable remediation snippets for missing entries
+- **Post-upgrade functional smoke probe** `scripts/smoke_probe.sh` — probes `systemctl is-active` (with expected-inactive whitelist for timer-triggered units), `/api/system/health` response, DB schema coverage, RunPod endpoint reachability. Wired into BOTH `upgrade.sh` success paths AND `install.sh`; hard-fails the workflow when the system isn't actually functional post-upgrade
+- **Schema migration 024** (`library/backend/migrations/024_streaming_origin_and_sampler.sql`) + matching data migration `data-migrations/008_streaming_origin_and_sampler.sh` — idempotent; verified on scratch SQLite
+- **install.sh streaming config stubs**: commented `AUDIOBOOKS_DEEPL_API_KEY`, `AUDIOBOOKS_RUNPOD_API_KEY`, `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT`, `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT`, `AUDIOBOOKS_TTS_PROVIDER` written into fresh `audiobooks.conf` so operators see the keys and know what to configure for streaming translation
+
+### Fixed
+
+- **upgrade.sh version-ordering bug (SEVERE — root cause of the v8.3.7.1 prod regression)**: `do_upgrade()` was writing the new `VERSION` file before `apply_data_migrations` ran, so the migration dispatcher's gate read the new version, saw `installed > MIN_VERSION`, and silently skipped every data migration. This is why v8.3.7.1 landed on prod with three missing columns (`streaming_segments.retry_count`, `streaming_segments.source_vtt_content`, `audiobooks.chapter_count`) despite the dispatcher being invoked — and why the streaming worker kept crashing with `sqlite3.OperationalError: no such column`. Fixed by capturing `_DO_UPGRADE_PRE_VERSION` at the top of `do_upgrade` before any file write, exporting for `apply_data_migrations`. Belt-and-suspenders: migration gate now treats empty/unknown `installed_version` as "must run"
+- **upgrade.sh `audit_and_cleanup` orphan-systemd wipe (SEVERE)**: the orphan-unit check fell back to `${SCRIPT_DIR}/systemd` when `${target}/systemd` was missing. When upgrade.sh was copied to `/tmp/` for a `--from-github` bootstrap, `SCRIPT_DIR=/tmp` and `/tmp/systemd` didn't exist — every installed `audiobook-*.service` appeared "orphaned" and was `rm -f`'d. Fixed with three-tier source resolution (`$project/systemd` → `$target/systemd` → `$SCRIPT_DIR/systemd`), each candidate only accepted when it contains `audiobook*.service` files, safety gate that skips the destructive loop entirely when no trusted source exists
+- **Install / upgrade now validate they produced a functional system** — both paths run `release-requirements.sh::validate_release_requirements` + `smoke_probe.sh` before printing success. A passing `rsync` + `systemctl enable` is no longer treated as proof of a functional release. Dry-run safely skips the gates
+
+### Changed
+
+- **`streaming_segments.priority` schema comment** updated from `0=P0 cursor, 1=P1 chase, 2=back-fill` to `0=P0 cursor, 1=P1 chase, 2=sampler, 3=backlog`, reflecting the four-tier priority model
+- **`segment-complete` callback** now captures segment `origin` before the state update. For `origin='sampler'` segments, increments `sampler_jobs.segments_done` and flips status to `'complete'` once `segments_done >= segments_target`
+
 ## [8.3.7.1] - 2026-04-22
 
 ### Fixed
@@ -3236,7 +3269,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.7.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8...HEAD
+[8.3.8]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.7.1...v8.3.8
 [8.3.7.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.7...v8.3.7.1
 [8.3.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.6...v8.3.7
 [8.3.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.2...v8.3.6
