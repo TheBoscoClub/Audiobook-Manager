@@ -177,6 +177,9 @@ declare -A SCRIPT_ALIASES=(
     ["find-duplicate-sources"]="audiobook-find-duplicates"
     ["fix-wrong-chapters-json"]="audiobook-fix-chapters"
     ["embed-cover-art.py"]="audiobook-embed-covers"
+    # Sampler admin tools (unprefixed — docs reference them by these short names)
+    ["sampler-burst.sh"]="sampler-burst"
+    ["sampler-reconcile.py"]="sampler-reconcile"
 )
 
 # -----------------------------------------------------------------------------
@@ -977,9 +980,15 @@ audit_and_cleanup() {
     local issues=0
 
     # --- (a) Broken symlinks in /usr/local/bin ---
+    # Covers audiobook-* (standard prefix) and sampler-* (unprefixed admin
+    # tools: sampler-burst, sampler-reconcile). AAXtoMP3 intentionally
+    # excluded — converter lifecycle is separate.
     echo -e "${BLUE}Checking for broken symlinks in /usr/local/bin...${NC}"
     local broken_links
-    mapfile -t broken_links < <(find /usr/local/bin -name "audiobook*" -xtype l 2>/dev/null)
+    mapfile -t broken_links < <(
+        find /usr/local/bin \( -name "audiobook*" -o -name "sampler-*" \) \
+            -xtype l 2>/dev/null
+    )
     if [[ ${#broken_links[@]} -gt 0 ]]; then
         for link in "${broken_links[@]}"; do
             local link_target

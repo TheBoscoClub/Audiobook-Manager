@@ -30,6 +30,20 @@ else
     exit 1
 fi
 
+# Defensive: also source /etc/audiobooks/audiobooks.conf so operator
+# overrides (path remappings + STT/DeepL/TTS credentials) are present when
+# this script is invoked outside systemd (manual debug, cron, burst
+# wrappers). Under systemd, EnvironmentFile= already populated these, so
+# re-sourcing is an idempotent no-op. set -a exports every assignment so
+# the Python worker subprocess inherits them.
+CONFIG_ENV="${AUDIOBOOKS_CONFIG:-/etc/audiobooks/audiobooks.conf}"
+if [[ -f "$CONFIG_ENV" ]]; then
+    set -a
+    # shellcheck source=/dev/null
+    source "$CONFIG_ENV"
+    set +a
+fi
+
 DB_PATH="${AUDIOBOOKS_DATABASE}"
 LIBRARY_PATH="${AUDIOBOOKS_LIBRARY}"
 VENV_PYTHON="${AUDIOBOOKS_VENV}/bin/python"

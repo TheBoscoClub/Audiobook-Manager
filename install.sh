@@ -73,6 +73,9 @@ declare -A SCRIPT_ALIASES=(
     ["find-duplicate-sources"]="audiobook-find-duplicates"
     ["fix-wrong-chapters-json"]="audiobook-fix-chapters"
     ["embed-cover-art.py"]="audiobook-embed-covers"
+    # Sampler admin tools (unprefixed — docs reference them by these short names)
+    ["sampler-burst.sh"]="sampler-burst"
+    ["sampler-reconcile.py"]="sampler-reconcile"
 )
 
 # -----------------------------------------------------------------------------
