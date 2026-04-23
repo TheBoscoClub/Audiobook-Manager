@@ -360,12 +360,12 @@
             </ol>
             <p>The first time you play a book in a non-English locale, you may see a brief "Generating subtitles" banner while the system processes the current chapter. Subsequent chapters are processed in the background.</p>
 
-            <h3>Real-Time Streaming Translation</h3>
-            <p>When you press Play on a book that hasn't been translated yet, The Library doesn't keep you waiting for the entire book. It warms up a GPU worker, starts translating the first three minutes of the current chapter, and begins playback as soon as the buffer is ready &mdash; typically within a minute or two on a cold start, or a few seconds if a worker is already warm. A gold progress overlay shows buffer status. As you listen, the next chapter is translated ahead of you. Skipping to a new chapter shifts the buffer: the system fills a cursor window first, then extends forward, then back-fills anything you seeked past.</p>
-            <p>Once a chapter is translated it's cached permanently &mdash; every future play (from you or any other patron) serves instantly from cache at zero cost.</p>
+            <h3 data-i18n="help.streamingTranslation.title">Real-Time Streaming Translation</h3>
+            <p data-i18n="help.streamingTranslation.body">When you press Play on a book that hasn't been translated yet, The Library doesn't keep you waiting for the entire book. It warms up a GPU worker, starts translating the first three minutes of the current chapter, and begins playback as soon as the buffer is ready &mdash; typically within a minute or two on a cold start, or a few seconds if a worker is already warm. A gold progress overlay shows buffer status. As you listen, the next chapter is translated ahead of you. Skipping to a new chapter shifts the buffer: the system fills a cursor window first, then extends forward, then back-fills anything you seeked past.</p>
+            <p data-i18n="help.streamingTranslation.caching">Once a chapter is translated it's cached permanently &mdash; every future play (from you or any other patron) serves instantly from cache at zero cost.</p>
 
-            <h3>Mobile Transcript Layout</h3>
-            <p>On phone-width screens the bilingual transcript panel flips to a single column and places your selected language on top, with the English source directly below each cue. Auto-scroll follows your language's column, and scrolling freely for a few seconds won't snap back to the playhead &mdash; you can read ahead or look back without the panel fighting you.</p>
+            <h3 data-i18n="help.mobileTranscript.title">Mobile Transcript Layout</h3>
+            <p data-i18n="help.mobileTranscript.body">On phone-width screens the bilingual transcript panel flips to a single column and places your selected language on top, with the English source directly below each cue. Auto-scroll follows your language's column, and scrolling freely for a few seconds won't snap back to the playhead &mdash; you can read ahead or look back without the panel fighting you.</p>
             <a href="#" class="back-to-top">&uarr; Back to top</a>
         </section>
 
