@@ -1492,6 +1492,17 @@ AUTH_KEY_FILE="/etc/audiobooks/auth.key"
 #AUDIOBOOKS_HOSTNAME=""
 #BASE_URL=""
 #CORS_ORIGIN=""
+
+# --- Streaming translation (optional) ---
+# These keys enable the real-time streaming translation pipeline (non-EN locales).
+# If left commented, streaming translation is disabled and only DeepL text-only
+# translation will work. See docs/STREAMING-TRANSLATION.md for setup.
+#
+#AUDIOBOOKS_DEEPL_API_KEY=""                        # Get one at https://www.deepl.com/pro-api
+#AUDIOBOOKS_RUNPOD_API_KEY=""                       # https://www.runpod.io/console/user/settings
+#AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT=""    # RunPod serverless endpoint ID for streaming STT
+#AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT=""      # RunPod serverless endpoint ID for backlog STT
+#AUDIOBOOKS_TTS_PROVIDER="edge-tts"                 # edge-tts (free, no GPU) | xtts (GPU) | coqui
 EOF
     fi
 
@@ -1909,6 +1920,38 @@ EOF
         BIN_DIR="/usr/local/bin" \
         RECONCILE_MODE="${RECONCILE_MODE:-enforce}" \
         bash "${SCRIPT_DIR}/scripts/reconcile-filesystem.sh" || true
+
+    # Hard gate: validate release requirements AND run functional smoke probe
+    # before declaring installation complete. Same contract as upgrade.sh —
+    # never print success unless the system actually works. See
+    # scripts/release-requirements.sh and scripts/smoke_probe.sh.
+    if [[ -f "${SCRIPT_DIR}/scripts/release-requirements.sh" ]]; then
+        # shellcheck source=/dev/null
+        source "${SCRIPT_DIR}/scripts/release-requirements.sh"
+        local _db_path="${DB_PATH:-/var/lib/audiobooks/db/audiobooks.db}"
+        if ! validate_release_requirements "$_conf_file" "$_db_path" "sudo"; then
+            echo ""
+            echo -e "${RED}=== Release requirements NOT satisfied — install incomplete ===${NC}"
+            echo -e "${YELLOW}Edit ${_conf_file} to add the missing keys, then re-run:${NC}"
+            echo "  sudo bash ${SCRIPT_DIR}/scripts/smoke_probe.sh"
+            return 1
+        fi
+    fi
+    if [[ -f "${SCRIPT_DIR}/scripts/smoke_probe.sh" ]]; then
+        local _new_version
+        _new_version=$(tr -d '[:space:]' < "${SCRIPT_DIR}/VERSION" 2>/dev/null || echo "")
+        DB_PATH="${DB_PATH:-/var/lib/audiobooks/db/audiobooks.db}" \
+            USE_SUDO="sudo" \
+            EXPECTED_VERSION="$_new_version" \
+            bash "${SCRIPT_DIR}/scripts/smoke_probe.sh" || {
+            echo ""
+            echo -e "${RED}=== Post-install smoke probe FAILED — install incomplete ===${NC}"
+            echo -e "${RED}Files copied and services enabled but functional check failed.${NC}"
+            echo -e "${YELLOW}Review probe output above; re-run after fixing:${NC}"
+            echo "  sudo bash ${SCRIPT_DIR}/scripts/smoke_probe.sh"
+            return 1
+        }
+    fi
 }
 
 # shellcheck disable=SC2120
@@ -2068,6 +2111,17 @@ AUTH_ENABLED="false"
 #AUDIOBOOKS_HOSTNAME=""
 #BASE_URL=""
 #CORS_ORIGIN=""
+
+# --- Streaming translation (optional) ---
+# These keys enable the real-time streaming translation pipeline (non-EN locales).
+# If left commented, streaming translation is disabled and only DeepL text-only
+# translation will work. See docs/STREAMING-TRANSLATION.md for setup.
+#
+#AUDIOBOOKS_DEEPL_API_KEY=""                        # Get one at https://www.deepl.com/pro-api
+#AUDIOBOOKS_RUNPOD_API_KEY=""                       # https://www.runpod.io/console/user/settings
+#AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT=""    # RunPod serverless endpoint ID for streaming STT
+#AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT=""      # RunPod serverless endpoint ID for backlog STT
+#AUDIOBOOKS_TTS_PROVIDER="edge-tts"                 # edge-tts (free, no GPU) | xtts (GPU) | coqui
 EOF
     fi
 

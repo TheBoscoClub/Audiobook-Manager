@@ -780,7 +780,19 @@ apply_data_migrations() {
 
     local venv_python="$target/library/venv/bin/python"
     local installed_version
-    installed_version=$(get_version "$target")
+    # Prefer the pre-upgrade version captured at the top of do_upgrade.
+    # get_version "$target" here would read the *already-overwritten* VERSION
+    # file (do_upgrade writes it at ~line 1765, well before this function is
+    # called at ~line 1891). That silently broke every data migration on real
+    # upgrades because the gate compared installed==new_version > MIN_VERSION
+    # and continued. $_DO_UPGRADE_PRE_VERSION is set by do_upgrade before any
+    # files are touched; fall back to reading target/VERSION for callers that
+    # invoke this function outside do_upgrade (e.g. check_for_updates path).
+    if [[ -n "${_DO_UPGRADE_PRE_VERSION:-}" ]]; then
+        installed_version="$_DO_UPGRADE_PRE_VERSION"
+    else
+        installed_version=$(get_version "$target")
+    fi
     local target_version
     target_version=$(get_version "$project")
 
@@ -799,24 +811,44 @@ apply_data_migrations() {
             continue
         fi
 
-        # Version gate: skip only if installed version is STRICTLY past the
-        # boundary. When installed == MIN_VERSION, still run — the migration
-        # may have been added mid-cycle (e.g., 8.3.2-A shipped without it,
-        # 8.3.2-B added it, both report version "8.3.2"). Migrations are
-        # required to be idempotent (PRAGMA / IF NOT EXISTS guards), so
-        # running them again on the boundary is a safe no-op.
-        # "unknown" (fresh install) always qualifies — run everything.
-        if [[ "$installed_version" != "unknown" ]]; then
+        # Version gate — belt-and-suspenders defense after the v8.3.7.1 bug:
+        #
+        # Historically the gate skipped migrations when installed > MIN_VERSION.
+        # That policy depended on `installed_version` accurately reflecting the
+        # PRE-upgrade state — which it didn't, because upgrade.sh was writing
+        # the new VERSION file before this function ran. Two safeguards now:
+        #
+        #   1. do_upgrade captures $_DO_UPGRADE_PRE_VERSION at entry (see
+        #      do_upgrade's version-ordering fix), so the value we compare
+        #      against is the real pre-upgrade version.
+        #   2. Even when the gate says "skip", every migration is required to
+        #      carry its own idempotency guard (PRAGMA / IF NOT EXISTS / column
+        #      existence check). Running a redundant migration is a safe no-op.
+        #
+        # Policy: ALWAYS attempt the migration unless the gate is high-confidence
+        # that it's already applied. "High-confidence" means:
+        #   - installed_version is known (not "unknown"/empty)
+        #   - AND installed_version > MIN_VERSION (strictly past boundary)
+        #   - AND the comparison itself succeeded (cmp != error)
+        # If ANY of those preconditions is shaky, run the migration — the
+        # idempotency guard is cheap insurance compared to the catastrophic
+        # failure mode of leaving a required column unwritten.
+        local _should_skip=0
+        if [[ -n "$installed_version" ]] && [[ "$installed_version" != "unknown" ]]; then
             set +e
             compare_versions "$installed_version" "$min_ver"
             local cmp=$?
             set -e
             # cmp=0: equal (boundary — run, idempotent guard handles no-op)
-            # cmp=1: installed > min (past it — skip)
-            # cmp=2: installed < min (below boundary — run)
+            # cmp=1: installed > min (past it — safe to skip)
+            # cmp=2: installed < min (below boundary — MUST run)
+            # any other value: comparison failed — MUST run (belt-and-suspenders)
             if [[ $cmp -eq 1 ]]; then
-                continue
+                _should_skip=1
             fi
+        fi
+        if [[ $_should_skip -eq 1 ]]; then
+            continue
         fi
 
         local migration_name
@@ -937,6 +969,7 @@ audit_and_cleanup() {
     # Runs on every upgrade (not gated by --major-version). Idempotent.
     local target="$1"
     local use_sudo="${2:-}"
+    local project="${3:-}"
 
     echo ""
     echo -e "${BLUE}=== Post-Upgrade Audit & Cleanup ===${NC}"
@@ -1004,35 +1037,65 @@ audit_and_cleanup() {
     # --- (c) Orphaned systemd units ---
     echo -e "${BLUE}Checking for orphaned systemd units...${NC}"
     local orphan_found=0
-    local project_systemd_dir="${target}/systemd"
-    # Fall back to the project source if target doesn't have systemd/ yet
-    [[ ! -d "$project_systemd_dir" ]] && project_systemd_dir="${SCRIPT_DIR}/systemd"
-    while IFS= read -r unit_path; do
-        [[ -z "$unit_path" ]] && continue
-        local unit_name
-        unit_name=$(basename "$unit_path")
-        # Skip the .wants directory (managed by systemd enable/disable)
-        [[ "$unit_path" == *".wants/"* ]] && continue
-        # Skip non-unit files (e.g., audiobooks-tmpfiles.conf in /etc/systemd is unlikely but be safe)
-        [[ "$unit_name" != *.service && "$unit_name" != *.timer && "$unit_name" != *.path && "$unit_name" != *.target ]] && continue
-        # Check if this unit exists in the project's systemd/ directory
-        if [[ ! -f "${project_systemd_dir}/${unit_name}" ]]; then
-            if [[ "$DRY_RUN" == "true" ]]; then
-                echo -e "  ${YELLOW}[DRY-RUN] Would remove orphaned unit: $unit_name${NC}"
-            else
-                # $use_sudo is "" when running as root, "sudo" when non-root.
-                # Either way, we have (or need and have) the privilege to rm.
-                $use_sudo systemctl disable "$unit_name" 2>/dev/null || true
-                $use_sudo systemctl stop "$unit_name" 2>/dev/null || true
-                $use_sudo rm -f "$unit_path"
-                echo -e "  ${GREEN}Removed orphaned unit: $unit_name${NC}"
-            fi
-            orphan_found=$((orphan_found + 1))
-            issues=$((issues + 1))
+    # Canonical source order (first hit wins):
+    #   1. $project/systemd              — the release that's actually being installed
+    #   2. $target/systemd               — last-known-good on disk in the target
+    #   3. $SCRIPT_DIR/systemd           — upgrade.sh next to a project tree
+    # SCRIPT_DIR alone is dangerous: when upgrade.sh is copied to /tmp/ and
+    # executed there (a common --from-github bootstrap pattern), SCRIPT_DIR=/tmp
+    # and /tmp/systemd doesn't exist. Without the earlier-priority sources we
+    # would falsely conclude that every installed audiobook-*.service is
+    # "orphaned" and rm -f them — exactly the regression that wiped units on
+    # dev + QA during the v8.3.7.1 from-github upgrade.
+    local project_systemd_dir=""
+    for _candidate in "${project}/systemd" "${target}/systemd" "${SCRIPT_DIR}/systemd"; do
+        if [[ -n "$_candidate" ]] && [[ -d "$_candidate" ]] \
+            && compgen -G "${_candidate}/audiobook*.service" > /dev/null 2>&1; then
+            project_systemd_dir="$_candidate"
+            break
         fi
-    done < <(find /etc/systemd/system -maxdepth 1 -name "audiobook*" -type f 2>/dev/null)
-    if [[ $orphan_found -eq 0 ]]; then
-        echo -e "  ${GREEN}No orphaned systemd units found${NC}"
+    done
+    # Safety gate: if NO source has audiobook-*.service files, skip the orphan
+    # check entirely. Deleting installed units because we couldn't find the
+    # canonical list is worse than leaving a genuinely-obsolete unit in place
+    # for one more upgrade cycle.
+    if [[ -z "$project_systemd_dir" ]]; then
+        echo -e "  ${YELLOW}Skipped: no canonical systemd unit source found${NC}"
+        echo -e "  ${YELLOW}(checked: \$project/systemd, \$target/systemd, \$SCRIPT_DIR/systemd)${NC}"
+        # Fall through to drop-in check with an empty source; the drop-in loop
+        # is a no-op when project_systemd_dir is empty.
+    fi
+    # Only run the destructive orphan loop when we have a trustworthy source.
+    # Without it, an empty or missing directory would make every installed unit
+    # look orphaned.
+    if [[ -n "$project_systemd_dir" ]]; then
+        while IFS= read -r unit_path; do
+            [[ -z "$unit_path" ]] && continue
+            local unit_name
+            unit_name=$(basename "$unit_path")
+            # Skip the .wants directory (managed by systemd enable/disable)
+            [[ "$unit_path" == *".wants/"* ]] && continue
+            # Skip non-unit files (e.g., audiobooks-tmpfiles.conf in /etc/systemd is unlikely but be safe)
+            [[ "$unit_name" != *.service && "$unit_name" != *.timer && "$unit_name" != *.path && "$unit_name" != *.target ]] && continue
+            # Check if this unit exists in the project's systemd/ directory
+            if [[ ! -f "${project_systemd_dir}/${unit_name}" ]]; then
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    echo -e "  ${YELLOW}[DRY-RUN] Would remove orphaned unit: $unit_name${NC}"
+                else
+                    # $use_sudo is "" when running as root, "sudo" when non-root.
+                    # Either way, we have (or need and have) the privilege to rm.
+                    $use_sudo systemctl disable "$unit_name" 2>/dev/null || true
+                    $use_sudo systemctl stop "$unit_name" 2>/dev/null || true
+                    $use_sudo rm -f "$unit_path"
+                    echo -e "  ${GREEN}Removed orphaned unit: $unit_name${NC}"
+                fi
+                orphan_found=$((orphan_found + 1))
+                issues=$((issues + 1))
+            fi
+        done < <(find /etc/systemd/system -maxdepth 1 -name "audiobook*" -type f 2>/dev/null)
+        if [[ $orphan_found -eq 0 ]]; then
+            echo -e "  ${GREEN}No orphaned systemd units found${NC}"
+        fi
     fi
 
     # --- (c2) Orphaned drop-in fragments referencing removed services ---
@@ -1451,9 +1514,21 @@ do_upgrade() {
         fi
     fi
 
+    # Capture the pre-upgrade installed version BEFORE any file write touches
+    # $target/VERSION. apply_data_migrations gates on this value; if we read
+    # it after the VERSION overwrite below, the gate sees installed==new and
+    # "skip if installed > MIN_VERSION" fires on every migration — the exact
+    # bug that let v8.3.7.1 ship to prod without applying migrations 006/007
+    # and left streaming_segments.retry_count + source_vtt_content absent.
+    # See docs/INSTALLER-ARCHITECTURE.md §Data Migrations for the invariant.
+    local _pre_upgrade_version
+    _pre_upgrade_version=$(get_version "$target")
+    export _DO_UPGRADE_PRE_VERSION="$_pre_upgrade_version"
+
     echo -e "${GREEN}=== Upgrading Application ===${NC}"
     echo "Project: $project"
     echo "Target:  $target"
+    echo "Installed: $_pre_upgrade_version"
     echo ""
 
     # Upgrade scripts
@@ -1885,8 +1960,11 @@ do_upgrade() {
     # Verify permissions after upgrade
     verify_installation_permissions "$target"
 
-    # Run audit & cleanup (every upgrade)
-    audit_and_cleanup "$target" "$use_sudo"
+    # Run audit & cleanup (every upgrade). Pass $project so the systemd-unit
+    # orphan check has an authoritative source — the release being installed —
+    # rather than falling back to $SCRIPT_DIR/systemd (which is absent when
+    # upgrade.sh was copied to /tmp for a from-github bootstrap).
+    audit_and_cleanup "$target" "$use_sudo" "$project"
 
     # Reconcile filesystem against install manifest. Default is enforce: the
     # items the reconciler acts on (PHANTOM_PATHS, legacy config keys listed
@@ -2731,6 +2809,41 @@ do_github_upgrade() {
     # Validate auth database post-upgrade
     validate_auth_post_upgrade "$target"
 
+    # Hard gate: validate release requirements AND run functional smoke probe
+    # before declaring success. See scripts/release-requirements.sh and
+    # scripts/smoke_probe.sh for what's checked. The v8.3.7.1 prod regression
+    # that printed "Successfully upgraded" while streaming was dead is
+    # specifically what this gate prevents.
+    # Skipped in dry-run (nothing was actually installed, so validation would
+    # flag the un-migrated state as a hard fail).
+    if [[ "$DRY_RUN" != "true" ]]; then
+        if [[ -f "${release_dir}/scripts/release-requirements.sh" ]]; then
+            # shellcheck source=/dev/null
+            source "${release_dir}/scripts/release-requirements.sh"
+            local _conf_file="${AUDIOBOOKS_CONF:-/etc/audiobooks/audiobooks.conf}"
+            local _db_path="${DB_PATH:-${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}/db/audiobooks.db}"
+            if ! validate_release_requirements "$_conf_file" "$_db_path" "$use_sudo"; then
+                echo ""
+                echo -e "${RED}=== Release requirements NOT satisfied — upgrade aborted ===${NC}"
+                exit 1
+            fi
+        fi
+        if [[ -f "${release_dir}/scripts/smoke_probe.sh" ]]; then
+            DB_PATH="${DB_PATH:-${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}/db/audiobooks.db}" \
+                USE_SUDO="$use_sudo" \
+                EXPECTED_VERSION="$install_version" \
+                bash "${release_dir}/scripts/smoke_probe.sh" || {
+                echo ""
+                echo -e "${RED}=== Post-upgrade smoke probe FAILED — upgrade aborted ===${NC}"
+                echo -e "${RED}The release files are in place, but functional verification${NC}"
+                echo -e "${RED}detected that the system is not operating correctly.${NC}"
+                echo -e "${YELLOW}Review the probe output above. Re-run the probe manually:${NC}"
+                echo "  sudo bash ${release_dir}/scripts/smoke_probe.sh"
+                exit 1
+            }
+        fi
+    fi
+
     echo ""
     echo -e "${GREEN}Successfully upgraded to version $install_version${NC}"
 }
@@ -3046,5 +3159,39 @@ fi
 echo ""
 current_arch=$(detect_architecture "$TARGET_DIR")
 echo -e "${BLUE}API Architecture:${NC} $current_arch"
+
+# Hard gate: validate release requirements AND run functional smoke probe
+# before printing "Upgrade complete!". The project-tree upgrade path uses
+# PROJECT_DIR's scripts since the source tree is authoritative here.
+# Skipped in dry-run (nothing was actually installed, so validation would
+# flag the un-migrated state as a hard fail).
+if [[ "$DRY_RUN" != "true" ]]; then
+    _new_version=$(get_version "$PROJECT_DIR")
+    if [[ -f "${PROJECT_DIR}/scripts/release-requirements.sh" ]]; then
+        # shellcheck source=/dev/null
+        source "${PROJECT_DIR}/scripts/release-requirements.sh"
+        _conf_file="${AUDIOBOOKS_CONF:-/etc/audiobooks/audiobooks.conf}"
+        _db_path="${DB_PATH:-${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}/db/audiobooks.db}"
+        if ! validate_release_requirements "$_conf_file" "$_db_path" "$use_sudo"; then
+            echo ""
+            echo -e "${RED}=== Release requirements NOT satisfied — upgrade aborted ===${NC}"
+            exit 1
+        fi
+    fi
+    if [[ -f "${PROJECT_DIR}/scripts/smoke_probe.sh" ]]; then
+        DB_PATH="${DB_PATH:-${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}/db/audiobooks.db}" \
+            USE_SUDO="$use_sudo" \
+            EXPECTED_VERSION="$_new_version" \
+            bash "${PROJECT_DIR}/scripts/smoke_probe.sh" || {
+            echo ""
+            echo -e "${RED}=== Post-upgrade smoke probe FAILED — upgrade aborted ===${NC}"
+            echo -e "${RED}Files are in place but functional verification detected broken state.${NC}"
+            echo -e "${YELLOW}Review the probe output above. Re-run the probe:${NC}"
+            echo "  sudo bash ${PROJECT_DIR}/scripts/smoke_probe.sh"
+            exit 1
+        }
+    fi
+fi
+
 echo ""
 echo -e "${GREEN}Upgrade complete!${NC}"
