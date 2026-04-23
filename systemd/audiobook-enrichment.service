@@ -16,7 +16,11 @@ EnvironmentFile=-/etc/audiobooks/audiobooks.conf
 Environment=HOME=/var/lib/audiobooks
 
 # Run backfill enrichment (idempotent — only processes books where audible_enriched_at IS NULL)
-ExecStart=/bin/bash -c '${AUDIOBOOKS_HOME}/venv/bin/python ${AUDIOBOOKS_HOME}/library/scripts/backfill_enrichment.py --db ${AUDIOBOOKS_DATABASE} --sources ${AUDIOBOOKS_SOURCES}'
+# venv lives at ${AUDIOBOOKS_HOME}/library/venv (matches install.sh layout — every
+# other unit uses either the explicit /opt/audiobooks/library/venv path or
+# ${AUDIOBOOKS_VENV}). Pre-v8.3.8 this referenced ${AUDIOBOOKS_HOME}/venv which
+# never existed — the service had been silently failing since deploy.
+ExecStart=/bin/bash -c '${AUDIOBOOKS_HOME}/library/venv/bin/python ${AUDIOBOOKS_HOME}/library/scripts/backfill_enrichment.py --db ${AUDIOBOOKS_DATABASE} --sources ${AUDIOBOOKS_SOURCES}'
 
 # Allow up to 1 hour for large library enrichment
 TimeoutStartSec=3600
