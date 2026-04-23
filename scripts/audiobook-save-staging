@@ -18,6 +18,7 @@ else
     echo "ERROR: Cannot find audiobook-config.sh" >&2
     exit 1
 fi
+require_audiobooks_user "$@"
 
 # Configuration
 STAGING_DIR="$AUDIOBOOKS_STAGING"

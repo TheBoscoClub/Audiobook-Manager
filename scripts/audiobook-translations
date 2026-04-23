@@ -23,6 +23,7 @@
 # The --db flag defaults to $AUDIOBOOKS_DATABASE from audiobooks.conf.
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
+require_audiobooks_user "$@"
 
 export AUDIOBOOKS_DATABASE="${AUDIOBOOKS_DATABASE:-/var/lib/audiobooks/db/audiobooks.db}"
 DB="$AUDIOBOOKS_DATABASE"

@@ -491,6 +491,12 @@ def _run_batch(db_path, args):
 
 
 def main():
+    # Must run as audiobooks service account — DB + config are 0640
+    # audiobooks:audiobooks. Fails fast with a usage diagnostic if not.
+    from config import require_audiobooks_user  # noqa: E402
+
+    require_audiobooks_user()
+
     args = _parse_args()
     db_path = args.db
 

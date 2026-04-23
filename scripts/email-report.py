@@ -8,10 +8,31 @@ Usage:
 
 import argparse
 import json
+import os
+import pwd
 import smtplib
+import sys
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
+
+
+def _require_audiobooks_user() -> None:
+    """Abort if not running as the audiobooks user (mirrors lib/audiobook-config.sh)."""
+    current = pwd.getpwuid(os.getuid()).pw_name
+    if current == "audiobooks":
+        return
+    script_name = os.path.basename(sys.argv[0]) if sys.argv else "<script>"
+    rest_args = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else ""
+    print(
+        f"error: {script_name} must run as the audiobooks user.\n"
+        f"  current:  {current} (uid {os.getuid()})\n"
+        f"  required: audiobooks\n"
+        f"\n"
+        f"Re-invoke with: sudo -u audiobooks {script_name} {rest_args}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 def load_smtp_config() -> dict:
@@ -105,6 +126,8 @@ def send_email(to: str, subject: str, body: str, conf: dict) -> None:
 
 
 def main():
+    _require_audiobooks_user()
+
     parser = argparse.ArgumentParser(description="Email translation report")
     parser.add_argument("--to", required=True, help="Recipient email")
     parser.add_argument("--report", required=True, help="Path to JSON report")

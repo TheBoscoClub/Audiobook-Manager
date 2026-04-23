@@ -16,6 +16,7 @@ Configuration is read from environment variables:
 import argparse
 import base64
 import os
+import pwd
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -26,6 +27,24 @@ try:
     from mutagen.oggopus import OggOpus
 except ImportError:
     print("Error: mutagen is required. Install with: pip3 install mutagen")
+    sys.exit(1)
+
+
+def _require_audiobooks_user() -> None:
+    """Abort if not running as the audiobooks user (mirrors lib/audiobook-config.sh)."""
+    current = pwd.getpwuid(os.getuid()).pw_name
+    if current == "audiobooks":
+        return
+    script_name = os.path.basename(sys.argv[0]) if sys.argv else "<script>"
+    rest_args = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else ""
+    print(
+        f"error: {script_name} must run as the audiobooks user.\n"
+        f"  current:  {current} (uid {os.getuid()})\n"
+        f"  required: audiobooks\n"
+        f"\n"
+        f"Re-invoke with: sudo -u audiobooks {script_name} {rest_args}",
+        file=sys.stderr,
+    )
     sys.exit(1)
 
 # Configuration from environment with defaults
@@ -136,6 +155,8 @@ def process_file(opus_path: Path, dry_run: bool = False) -> Tuple[str, bool, str
 
 
 def main():
+    _require_audiobooks_user()
+
     parser = argparse.ArgumentParser(description="Embed cover art into Opus audiobook files")
     parser.add_argument(
         "--dry-run", action="store_true", help="Show what would be done without making changes"

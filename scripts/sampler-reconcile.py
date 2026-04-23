@@ -188,6 +188,12 @@ def reconcile(
 
 
 def main() -> int:
+    # Must run as audiobooks service account — DB + config are 0640
+    # audiobooks:audiobooks. Fails fast with a usage diagnostic if not.
+    from config import require_audiobooks_user  # noqa: E402
+
+    require_audiobooks_user()
+
     parser = argparse.ArgumentParser(
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )

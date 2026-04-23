@@ -224,6 +224,46 @@ HTTP_REDIRECT_ENABLED = os.environ.get(
 # =============================================================================
 
 
+def require_audiobooks_user() -> None:
+    """Abort with a usage message if not running as the audiobooks user.
+
+    Every script that reads/writes the audiobook DB, reads the operator
+    config, or spawns worker subprocesses MUST run as the audiobooks
+    service account. The DB and /etc/audiobooks/audiobooks.conf are
+    0640 audiobooks:audiobooks by design — running as root or an
+    interactive user bypasses the permission model the systemd units
+    rely on.
+
+    Mirrors require_audiobooks_user in lib/audiobook-config.sh.
+    """
+    import os
+    import pwd
+    import sys
+
+    current = pwd.getpwuid(os.getuid()).pw_name
+    if current == "audiobooks":
+        return
+
+    script_name = os.path.basename(sys.argv[0]) if sys.argv else "<script>"
+    rest_args = " ".join(sys.argv[1:]) if len(sys.argv) > 1 else ""
+    print(
+        f"error: {script_name} must run as the audiobooks user.\n"
+        f"\n"
+        f"  current:  {current} (uid {os.getuid()})\n"
+        f"  required: audiobooks\n"
+        f"\n"
+        f"Re-invoke with:\n"
+        f"\n"
+        f"  sudo -u audiobooks {script_name} {rest_args}\n"
+        f"\n"
+        f"(The audiobook database and /etc/audiobooks/audiobooks.conf are owned\n"
+        f"audiobooks:audiobooks by design. Running as anyone else bypasses the\n"
+        f"permission model the systemd units rely on.)",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+
 def print_config() -> None:
     """Print current configuration for debugging."""
     print("Audiobook Library Configuration")

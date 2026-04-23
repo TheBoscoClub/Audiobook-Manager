@@ -153,6 +153,12 @@ def verify_book(conn: sqlite3.Connection, book_id: int, locale: str) -> dict:
 
 
 def main():
+    # Must run as audiobooks service account — DB + config are 0640
+    # audiobooks:audiobooks. Fails fast with a usage diagnostic if not.
+    from config import require_audiobooks_user  # noqa: E402
+
+    require_audiobooks_user()
+
     parser = argparse.ArgumentParser(description="Verify completed translations")
     parser.add_argument("--db", required=True, help="Path to audiobooks.db")
     parser.add_argument("--locale", default="zh-Hans", help="Target locale")

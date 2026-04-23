@@ -528,6 +528,14 @@ def get_chapter_info(db_path: str, audiobook_id: int, chapter_index: int) -> tup
 
 
 def main():
+    # Must run as audiobooks service account — DB + config are 0640
+    # audiobooks:audiobooks. Defensive check; systemd / daemon wrappers
+    # already run as audiobooks, but manual invocations from a shell
+    # would silently fail without this gate.
+    from config import require_audiobooks_user  # noqa: E402
+
+    require_audiobooks_user()
+
     parser = argparse.ArgumentParser(description="Streaming translation worker")
     parser.add_argument("--db", required=True, help="Path to audiobooks.db")
     parser.add_argument("--library", required=True, help="Path to audiobook library")

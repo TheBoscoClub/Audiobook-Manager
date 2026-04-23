@@ -44,6 +44,13 @@ if [[ -f "$CONFIG_ENV" ]]; then
     set +a
 fi
 
+# ─── User gate ───────────────────────────────────────────────────────────────
+# Defined in audiobook-config.sh. Systemd already runs this unit as
+# audiobooks, so this is a no-op in production; it exists to catch
+# manual debug invocations as root or a personal user account where the
+# worker subprocess would fail silently on DB writes.
+require_audiobooks_user "$@"
+
 DB_PATH="${AUDIOBOOKS_DATABASE}"
 LIBRARY_PATH="${AUDIOBOOKS_LIBRARY}"
 VENV_PYTHON="${AUDIOBOOKS_VENV}/bin/python"

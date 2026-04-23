@@ -1009,6 +1009,28 @@ audit_and_cleanup() {
         echo -e "  ${GREEN}No broken symlinks found${NC}"
     fi
 
+    # --- (a2) /usr/local/lib/audiobooks symlink ---
+    # install.sh creates /usr/local/lib/audiobooks -> ${target}/lib so shell
+    # scripts invoked outside the project tree can source audiobook-config.sh
+    # from a stable path. If it ever goes missing (manual cleanup, partial
+    # uninstall, disk reshuffle), every sampler-burst / stream-translate-
+    # daemon / audiobook-* CLI run by the operator breaks with "file not
+    # found" on the canonical source. Recreate defensively here.
+    echo -e "${BLUE}Checking /usr/local/lib/audiobooks symlink...${NC}"
+    local lib_link="/usr/local/lib/audiobooks"
+    local lib_target="${target}/lib"
+    if [[ ! -L "$lib_link" ]] || [[ "$(readlink "$lib_link")" != "$lib_target" ]]; then
+        if [[ "$DRY_RUN" == "true" ]]; then
+            echo -e "  ${YELLOW}[DRY-RUN] Would create/fix: $lib_link -> $lib_target${NC}"
+        else
+            $use_sudo ln -sfn "$lib_target" "$lib_link"
+            echo -e "  ${GREEN}Created/fixed: $lib_link -> $lib_target${NC}"
+        fi
+        issues=$((issues + 1))
+    else
+        echo -e "  ${GREEN}Symlink present${NC}"
+    fi
+
     # --- (b) Stale legacy symlinks (wrong target) ---
     echo -e "${BLUE}Checking for stale legacy symlinks...${NC}"
     local legacy_found=0

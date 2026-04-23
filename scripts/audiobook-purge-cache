@@ -26,6 +26,7 @@ if [[ -f "$LIB_DIR/audiobook-config.sh" ]]; then
 elif [[ -f /usr/local/lib/audiobooks/audiobook-config.sh ]]; then
     source /usr/local/lib/audiobooks/audiobook-config.sh
 fi
+require_audiobooks_user "$@"
 
 # Load Cloudflare credentials from canonical API keys file
 CF_KEYS_FILE="${CF_KEYS_FILE:-$HOME/.config/api-keys.env}"

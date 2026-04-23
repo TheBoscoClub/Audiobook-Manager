@@ -337,6 +337,40 @@ audiobooks_python() {
     fi
 }
 
+# ─── User gate ───────────────────────────────────────────────────────────────
+# Every script that reads/writes the audiobook DB, reads the operator config,
+# or invokes worker subprocesses MUST run as the audiobooks service account.
+# Failing fast with a clear usage message is strictly better than spawning
+# doomed workers or, worse, having them silently succeed on unintended state.
+#
+# The DB is 0640 audiobooks:audiobooks by design — running as root or as an
+# interactive user (even one with group membership) bypasses the permission
+# model that the systemd units depend on.
+
+require_audiobooks_user() {
+    local current
+    current="$(id -un)"
+    if [[ "$current" != "audiobooks" ]]; then
+        local script_name
+        script_name="$(basename "${BASH_SOURCE[1]:-$0}")"
+        cat >&2 <<EOF
+error: $script_name must run as the audiobooks user.
+
+  current:  $current (uid $(id -u))
+  required: audiobooks
+
+Re-invoke with:
+
+  sudo -u audiobooks $script_name $*
+
+(The audiobook database and /etc/audiobooks/audiobooks.conf are owned
+audiobooks:audiobooks by design. Running as anyone else bypasses the
+permission model the systemd units rely on.)
+EOF
+        exit 1
+    fi
+}
+
 # Run if executed directly (for testing), not when sourced
 _sourced=false
 [[ "${BASH_SOURCE[0]:-}" != "$0" ]] && _sourced=true

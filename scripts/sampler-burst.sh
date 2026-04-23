@@ -173,6 +173,11 @@ EOF
     echo "warning: audiobook-stream-translate.service is active — --force acknowledged"
 fi
 
+# ─── User gate ───────────────────────────────────────────────────────────────
+# Defined in audiobook-config.sh (canonical shared helper). Fails fast with
+# a useful diagnostic instead of spawning workers that can't write the DB.
+require_audiobooks_user "$@"
+
 # ─── Spawn workers ───────────────────────────────────────────────────────────
 
 declare -a WORKER_PIDS=()
@@ -206,12 +211,19 @@ trap '_cleanup SIGTERM' TERM
 trap '_cleanup EXIT' EXIT
 
 echo "Spawning ${WORKERS} stream-translate worker(s)..."
+# Per-invocation log dir so concurrent bursts (and different users)
+# don't collide on /tmp/sampler-burst-${i}.log — v8.3.8.2 had a flat
+# naming scheme that would fail on the second user with "Permission
+# denied" when prior-run files weren't group-writable.
+LOG_DIR="${TMPDIR:-/tmp}/sampler-burst-$$"
+mkdir -p "$LOG_DIR"
+echo "  log dir: $LOG_DIR"
 for i in $(seq 1 "$WORKERS"); do
     "$PYTHON_BIN" "$WORKER_SCRIPT" \
         --db "$AUDIOBOOKS_DATABASE" \
         --library "$AUDIOBOOKS_LIBRARY" \
         --api-base "$API_BASE" \
-        >"/tmp/sampler-burst-${i}.log" 2>&1 &
+        >"${LOG_DIR}/worker-${i}.log" 2>&1 &
     WORKER_PIDS+=("$!")
     echo "  worker $i: PID $!"
 done
@@ -219,14 +231,27 @@ done
 # ─── Wait for drain ──────────────────────────────────────────────────────────
 
 _pending_count() {
-    # Count pending+processing sampler segments. Return 0 if the DB is
-    # unreachable (treats "can't query" as "don't know; keep waiting" — caller
-    # timeout is the safety net).
-    sqlite3 "$AUDIOBOOKS_DATABASE" "
+    # Count pending+processing sampler segments. On DB-query failure, echo
+    # a sentinel that the caller treats as "don't know; keep waiting" (the
+    # wall-clock timeout is the real safety net). A prior version echoed 0
+    # on failure — which the loop interpreted as "drained" and exited
+    # immediately, masking permission problems (see v8.3.8.2 regression
+    # where a user without DB group membership saw "drained after 0s"
+    # even though 21k segments were still pending).
+    local n
+    if ! n=$(sqlite3 "$AUDIOBOOKS_DATABASE" "
         SELECT COUNT(*) FROM streaming_segments
         WHERE origin='sampler'
           AND state IN ('pending','processing','in_flight')
-    " 2>/dev/null || echo "0"
+    " 2>/dev/null); then
+        # Query failed — return a large positive number so the main loop
+        # keeps polling instead of exiting early. The pre-flight check
+        # above should have caught permission issues, so hitting this is
+        # a transient DB-locked / disk-read anomaly; re-polling recovers.
+        echo "999999"
+        return
+    fi
+    echo "$n"
 }
 
 start_ts="$(date +%s)"
