@@ -105,7 +105,7 @@ def _checksum_first_mb(filepath):
         with open(filepath, "rb") as f:
             data = f.read(1048576)
         return hashlib.md5(data, usedforsecurity=False).hexdigest()
-    except IOError, OSError:
+    except (IOError, OSError):
         return None
 
 

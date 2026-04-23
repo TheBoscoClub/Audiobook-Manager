@@ -77,7 +77,7 @@ def _write_request(request_data: dict) -> bool:
         try:
             # Try to truncate the file instead of deleting
             HELPER_STATUS_FILE.write_text("")
-        except PermissionError, OSError:
+        except (PermissionError, OSError):
             # If we can't even truncate, just leave it - helper will overwrite
             pass
 
@@ -110,7 +110,7 @@ def _read_status() -> dict:
         content = HELPER_STATUS_FILE.read_text()
         status = json.loads(content)
         return status
-    except json.JSONDecodeError, PermissionError:
+    except (json.JSONDecodeError, PermissionError):
         return default_status
 
 
@@ -126,7 +126,7 @@ def _read_preflight() -> dict | None:
     try:
         content = PREFLIGHT_FILE.read_text()
         data = json.loads(content)
-    except json.JSONDecodeError, PermissionError, OSError:
+    except (json.JSONDecodeError, PermissionError, OSError):
         return None
 
     # Compute staleness from the timestamp field
@@ -137,7 +137,7 @@ def _read_preflight() -> dict | None:
             ts = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
             age = (datetime.now(timezone.utc) - ts).total_seconds()
             stale = age > PREFLIGHT_STALE_SECONDS
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             stale = True
 
     data["stale"] = stale
@@ -161,7 +161,7 @@ def _wait_for_completion(timeout: float = 30.0, poll_interval: float = 0.5) -> d
                     # Only return if we have a completed operation (success is not None)
                     if status.get("success") is not None and not status.get("running", True):
                         return status
-            except json.JSONDecodeError, PermissionError, OSError:
+            except (json.JSONDecodeError, PermissionError, OSError):
                 pass  # Keep waiting
         time.sleep(poll_interval)
 
@@ -429,7 +429,7 @@ def _load_cf_credentials_from_file(token_file: str) -> tuple[str | None, str | N
                     api_key = val
                 elif key == "CF_AUTH_EMAIL":
                     auth_email = val
-    except PermissionError, OSError:
+    except (PermissionError, OSError):
         pass
     return api_key, auth_email
 

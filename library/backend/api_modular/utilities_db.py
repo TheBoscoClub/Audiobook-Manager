@@ -56,7 +56,7 @@ def _parse_files_found(output: str) -> int:
         if "Total audiobook files:" in line:
             try:
                 return int(line.split(":")[1].strip())
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 pass
     return 0
 
@@ -70,7 +70,7 @@ def _parse_imported_count(output: str) -> int:
                 for i, part in enumerate(parts):
                     if part == "Imported" and i + 1 < len(parts):
                         return int(parts[i + 1])
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 pass
     return 0
 

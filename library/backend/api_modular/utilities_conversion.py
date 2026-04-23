@@ -39,7 +39,7 @@ def get_ffmpeg_processes() -> tuple[list[int], dict[int, str]]:
                         pid = int(parts[1])
                         pids.append(pid)
                         cmdlines[pid] = parts[10]  # The command line
-                    except ValueError, IndexError:
+                    except (ValueError, IndexError):
                         pass  # Non-critical: skip malformed line
     except Exception as e:
         logger.debug("Process listing failed (non-critical): %s", e)
@@ -82,7 +82,7 @@ def parse_job_io(pid: int) -> tuple[int, int]:
                     read_bytes = int(line.split(":")[1].strip())
                 elif line.startswith("wchar:"):
                     write_bytes = int(line.split(":")[1].strip())
-    except FileNotFoundError, PermissionError:
+    except (FileNotFoundError, PermissionError):
         pass  # Process may have exited; return zeros
 
     return read_bytes, write_bytes
