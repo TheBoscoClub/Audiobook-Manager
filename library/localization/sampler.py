@@ -35,11 +35,27 @@ from __future__ import annotations
 
 import logging
 import math
+import re
 import sqlite3
 from datetime import UTC, datetime
 from typing import Sequence
 
 logger = logging.getLogger(__name__)
+
+# Log-injection defense: strip CR/LF/null bytes and other control chars from
+# values that may have originated in untrusted input (e.g. locale from an
+# admin API body). Mirrors _safe_log_value in the streaming_translate API
+# module. Kept private to the sampler module to avoid a cross-package import.
+_LOG_SCRUB_RE = re.compile(r"[\r\n\t\x00-\x1f\x7f]")
+
+
+def _safe_log(value) -> str:
+    """Sanitize a value for safe inclusion in log messages."""
+    s = str(value) if value is not None else ""
+    s = _LOG_SCRUB_RE.sub("_", s)
+    if len(s) > 200:
+        s = s[:200] + "...(truncated)"
+    return s
 
 # Constants — kept in sync with streaming_translate.py. A test pins that
 # both modules agree on these values.
@@ -192,8 +208,8 @@ def enqueue_sampler(
     logger.info(
         "sampler enqueued: book=%d locale=%s scope=%s segments_target=%d",
         int(audiobook_id),
-        str(locale),
-        str(scope),
+        _safe_log(locale),
+        _safe_log(scope),
         segments_target,
     )
 
