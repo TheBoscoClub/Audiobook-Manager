@@ -135,9 +135,15 @@ EXPOSE 5001 8443 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:5001/api/system/health || exit 1
 
-# Create non-root user for security
-RUN groupadd --gid 1000 audiobooks && \
-    useradd --uid 1000 --gid audiobooks --shell /bin/bash --create-home audiobooks && \
+# Create non-root user for security.
+#
+# UID/GID must match install.sh's AUDIOBOOKS_CANONICAL_UID/GID (935/934) so
+# bind-mounted host volumes (docker-data, Library, Supplements) have the same
+# ownership inside and outside the container. Without UID alignment the
+# container sees host-written DB files as "not mine", re-triggers the scanner
+# init path, and writes new files the host service account can't read back.
+RUN groupadd --system --gid 934 audiobooks && \
+    useradd --system --uid 935 --gid audiobooks --shell /bin/bash --create-home audiobooks && \
     chown -R audiobooks:audiobooks /app
 
 # Copy and set entrypoint (755 = readable and executable by all)
