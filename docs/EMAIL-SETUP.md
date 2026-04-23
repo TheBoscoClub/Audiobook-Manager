@@ -28,7 +28,7 @@ SMTP_TLS="none"        # plaintext; ONLY for localhost relays
 
 Domain must be verified in Resend console + DNS records added to Cloudflare / your DNS host:
 
-```
+```text
 TXT  resend._domainkey.YOUR-DOMAIN   (DKIM public key from Resend)
 MX   send.YOUR-DOMAIN                feedback-smtp.eu-west-1.amazonses.com  pri=10
 TXT  send.YOUR-DOMAIN                v=spf1 include:amazonses.com ~all

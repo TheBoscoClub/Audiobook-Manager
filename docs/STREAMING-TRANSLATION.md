@@ -74,7 +74,7 @@ The coordinator simultaneously:
 - Each row represents one 30-second segment:
   `(audiobook_id, chapter_index, segment_index, locale, state='pending')`
 
-See [Priority Model](#priority-model-cursor-centric) below for the full 3-tier
+See [Priority Model](#priority-model-cursor-centric-four-tiers-since-v838) below for the full 3-tier
 semantics.
 
 ### Phase 4 — GPU Worker Processing

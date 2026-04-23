@@ -1,18 +1,16 @@
 {
   "name": "audiobooks",
-  "version": "8.3.2",
+  "version": "8.3.8",
   "description": "Self-hosted audiobook library browser with conversion, web player, and optional Audible downloading",
   "install_type": "system",
   "install_dir": "/opt/audiobooks",
   "service_user": "audiobooks",
   "service_group": "audiobooks",
-
   "github": {
     "repo": "TheBoscoClub/Audiobook-Manager",
     "api": "https://api.github.com/repos/TheBoscoClub/Audiobook-Manager",
     "releases": "https://github.com/TheBoscoClub/Audiobook-Manager/releases"
   },
-
   "management_scripts": [
     {
       "name": "upgrade.sh",
@@ -32,150 +30,204 @@
       "description": "Switch between API architectures"
     }
   ],
-
   "binaries": [
     {
       "name": "audiobook-api",
-      "paths": ["/usr/local/bin/audiobook-api"],
+      "paths": [
+        "/usr/local/bin/audiobook-api"
+      ],
       "description": "Start the API server"
     },
     {
       "name": "audiobook-web",
-      "paths": ["/usr/local/bin/audiobook-web"],
+      "paths": [
+        "/usr/local/bin/audiobook-web"
+      ],
       "description": "Start the web interface"
     },
     {
       "name": "audiobook-scan",
-      "paths": ["/usr/local/bin/audiobook-scan"],
+      "paths": [
+        "/usr/local/bin/audiobook-scan"
+      ],
       "description": "Scan library for new audiobooks"
     },
     {
       "name": "audiobook-import",
-      "paths": ["/usr/local/bin/audiobook-import"],
+      "paths": [
+        "/usr/local/bin/audiobook-import"
+      ],
       "description": "Import audiobooks from sources"
     },
     {
       "name": "audiobook-config",
-      "paths": ["/usr/local/bin/audiobook-config"],
+      "paths": [
+        "/usr/local/bin/audiobook-config"
+      ],
       "description": "Manage configuration"
     },
     {
       "name": "audiobook-convert",
-      "paths": ["/usr/local/bin/audiobook-convert"],
+      "paths": [
+        "/usr/local/bin/audiobook-convert"
+      ],
       "description": "Convert AAXC to Opus (alias: convert-audiobooks-opus-parallel)"
     },
     {
       "name": "audiobook-download",
-      "paths": ["/usr/local/bin/audiobook-download"],
+      "paths": [
+        "/usr/local/bin/audiobook-download"
+      ],
       "description": "Download from Audible (alias: download-new-audiobooks)"
     },
     {
       "name": "audiobook-move-staged",
-      "paths": ["/usr/local/bin/audiobook-move-staged"],
+      "paths": [
+        "/usr/local/bin/audiobook-move-staged"
+      ],
       "description": "Move staged files to permanent storage (alias: move-staged-audiobooks)"
     },
     {
       "name": "audiobook-save-staging",
-      "paths": ["/usr/local/bin/audiobook-save-staging"],
+      "paths": [
+        "/usr/local/bin/audiobook-save-staging"
+      ],
       "description": "Save staging area before shutdown"
     },
     {
       "name": "audiobook-save-staging-auto",
-      "paths": ["/usr/local/bin/audiobook-save-staging-auto"],
+      "paths": [
+        "/usr/local/bin/audiobook-save-staging-auto"
+      ],
       "description": "Automatic staging save (called by shutdown service)"
     },
     {
       "name": "audiobook-upgrade",
-      "paths": ["/usr/local/bin/audiobook-upgrade"],
+      "paths": [
+        "/usr/local/bin/audiobook-upgrade"
+      ],
       "description": "Upgrade from GitHub releases"
     },
     {
       "name": "audiobook-migrate",
-      "paths": ["/usr/local/bin/audiobook-migrate"],
+      "paths": [
+        "/usr/local/bin/audiobook-migrate"
+      ],
       "description": "Switch API architecture"
     },
     {
       "name": "audiobook-status",
-      "paths": ["/usr/local/bin/audiobook-status"],
+      "paths": [
+        "/usr/local/bin/audiobook-status"
+      ],
       "description": "Show service and timer status"
     },
     {
       "name": "audiobook-start",
-      "paths": ["/usr/local/bin/audiobook-start"],
+      "paths": [
+        "/usr/local/bin/audiobook-start"
+      ],
       "description": "Start all audiobook services"
     },
     {
       "name": "audiobook-stop",
-      "paths": ["/usr/local/bin/audiobook-stop"],
+      "paths": [
+        "/usr/local/bin/audiobook-stop"
+      ],
       "description": "Stop all audiobook services"
     },
     {
       "name": "audiobook-enable",
-      "paths": ["/usr/local/bin/audiobook-enable"],
+      "paths": [
+        "/usr/local/bin/audiobook-enable"
+      ],
       "description": "Enable services for auto-start at boot"
     },
     {
       "name": "audiobook-disable",
-      "paths": ["/usr/local/bin/audiobook-disable"],
+      "paths": [
+        "/usr/local/bin/audiobook-disable"
+      ],
       "description": "Disable services from auto-start at boot"
     },
     {
       "name": "audiobook-help",
-      "paths": ["/usr/local/bin/audiobook-help"],
+      "paths": [
+        "/usr/local/bin/audiobook-help"
+      ],
       "description": "Display help and usage information"
     },
     {
       "name": "audiobook-user",
-      "paths": ["/usr/local/bin/audiobook-user"],
+      "paths": [
+        "/usr/local/bin/audiobook-user"
+      ],
       "description": "Admin CLI for user management"
     },
     {
       "name": "audiobook-download-monitor",
-      "paths": ["/usr/local/bin/audiobook-download-monitor"],
+      "paths": [
+        "/usr/local/bin/audiobook-download-monitor"
+      ],
       "description": "Monitor Audible download progress"
     },
     {
       "name": "audiobook-monitor",
-      "paths": ["/usr/local/bin/audiobook-monitor"],
+      "paths": [
+        "/usr/local/bin/audiobook-monitor"
+      ],
       "description": "Live conversion monitor (alias: monitor-audiobook-conversion)"
     },
     {
       "name": "audiobook-build-queue",
-      "paths": ["/usr/local/bin/audiobook-build-queue"],
+      "paths": [
+        "/usr/local/bin/audiobook-build-queue"
+      ],
       "description": "Build conversion queue (alias: build-conversion-queue)"
     },
     {
       "name": "audiobook-copy-metadata",
-      "paths": ["/usr/local/bin/audiobook-copy-metadata"],
+      "paths": [
+        "/usr/local/bin/audiobook-copy-metadata"
+      ],
       "description": "Copy metadata between audiobooks (alias: copy-audiobook-metadata)"
     },
     {
       "name": "audiobook-cleanup-indexes",
-      "paths": ["/usr/local/bin/audiobook-cleanup-indexes"],
+      "paths": [
+        "/usr/local/bin/audiobook-cleanup-indexes"
+      ],
       "description": "Remove stale database indexes (alias: cleanup-stale-indexes)"
     },
     {
       "name": "audiobook-find-duplicates",
-      "paths": ["/usr/local/bin/audiobook-find-duplicates"],
+      "paths": [
+        "/usr/local/bin/audiobook-find-duplicates"
+      ],
       "description": "Find duplicate source files (alias: find-duplicate-sources)"
     },
     {
       "name": "audiobook-fix-chapters",
-      "paths": ["/usr/local/bin/audiobook-fix-chapters"],
+      "paths": [
+        "/usr/local/bin/audiobook-fix-chapters"
+      ],
       "description": "Fix malformed chapters JSON (alias: fix-wrong-chapters-json)"
     },
     {
       "name": "audiobook-embed-covers",
-      "paths": ["/usr/local/bin/audiobook-embed-covers"],
+      "paths": [
+        "/usr/local/bin/audiobook-embed-covers"
+      ],
       "description": "Embed cover art into Opus files (alias: embed-cover-art.py)"
     },
     {
       "name": "audiobook-purge-cache",
-      "paths": ["/usr/local/bin/audiobook-purge-cache"],
+      "paths": [
+        "/usr/local/bin/audiobook-purge-cache"
+      ],
       "description": "Purge cover art and metadata cache"
     }
   ],
-
   "services": [
     {
       "name": "audiobook-api.service",
@@ -251,7 +303,6 @@
       "description": "Target grouping all audiobook services"
     }
   ],
-
   "config_files": [
     {
       "path": "/etc/audiobooks/audiobooks.conf",
@@ -269,7 +320,6 @@
       "description": "Log rotation configuration"
     }
   ],
-
   "data_directories": [
     {
       "path": "/var/lib/audiobooks",
@@ -328,7 +378,6 @@
       "description": "Cover art cache (created as needed)"
     }
   ],
-
   "environment": {
     "required_vars": [
       "AUDIOBOOKS_DATA",
@@ -343,7 +392,6 @@
       "AUDIOBOOKS_COVERS"
     ]
   },
-
   "ports": [
     {
       "port": 5001,
@@ -367,7 +415,6 @@
       "env_override": "AUDIOBOOKS_HTTP_REDIRECT_PORT"
     }
   ],
-
   "health_checks": [
     {
       "name": "API health endpoint",

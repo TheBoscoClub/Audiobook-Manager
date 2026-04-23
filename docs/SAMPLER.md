@@ -117,6 +117,7 @@ No special "upgrade to full translation" UI — the transition from sample to fu
 ## Cost envelope
 
 Per `(book, locale)`:
+
 - 12 segments × (Whisper STT ~$0.0003 + DeepL 1-sentence ~$0.0001 + edge-tts free) ≈ **$0.005**
 - For a 300-book library × 1 locale = **~$1.50**, one-time.
 - Adding a second locale: same math again.
