@@ -1059,9 +1059,13 @@ def _probe_runpod_warmth() -> tuple[bool, int]:
         _RUNPOD_WARMTH_CACHE.update({"ts": now, "streaming_ready": 0, "cold": True})
         return True, 0
 
+    # URL is built from a hardcoded scheme/host ("https://api.runpod.ai/") and
+    # an admin-controlled env var (AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT);
+    # no user input reaches this URL. Authenticated with Bearer API key. Not SSRF.
     url = f"https://api.runpod.ai/v2/{endpoint}/health"
     req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}"})
     try:
+        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
         with urllib.request.urlopen(req, timeout=3) as resp:  # nosec B310 — trusted api.runpod.ai host
             import json as _json
 
@@ -1906,13 +1910,12 @@ def sampler_batch_status():
         return jsonify({"error": "too many ids (max 100 per call)"}), 400
 
     db = _get_db()
-    # Build placeholders safely — ids are ints validated above.
+    # Build placeholders safely — ids are ints validated above; locale is
+    # _sanitize_locale-validated. Only '?,?,?' chars are interpolated.
     placeholders = ",".join("?" * len(ids))
-    rows = db.execute(
-        f"SELECT audiobook_id, status FROM sampler_jobs "
-        f"WHERE locale = ? AND audiobook_id IN ({placeholders})",
-        (locale, *ids),
-    ).fetchall()
+    _sql_sampler_status = f"SELECT audiobook_id, status FROM sampler_jobs WHERE locale = ? AND audiobook_id IN ({placeholders})"  # nosec B608  # noqa: S608, E501  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    rows = db.execute(_sql_sampler_status, (locale, *ids)).fetchall()
 
     result = {str(book_id): "none" for book_id in ids}
     for r in rows:
