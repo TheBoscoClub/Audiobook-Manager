@@ -2358,6 +2358,10 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 
 Feature requests and pull requests welcome! See the [GitHub Issues](https://github.com/TheBoscoClub/Audiobook-Manager/issues) page.
 
+## Acknowledgements
+
+See [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md) for external services and open-source tools the maintainer personally uses in production. None are required — the project is provider-agnostic and any equivalent can be substituted.
+
 ## License
 
 See individual component licenses in `converter/LICENSE` and `library/` files.
