@@ -338,21 +338,68 @@ CREATE TABLE streaming_sessions (
 );
 
 CREATE TABLE streaming_segments (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    audiobook_id    INTEGER NOT NULL,
-    chapter_index   INTEGER NOT NULL,
-    segment_index   INTEGER NOT NULL,
-    locale          TEXT NOT NULL,
-    state           TEXT DEFAULT 'pending',      -- pending, processing, completed, failed
-    priority        INTEGER DEFAULT 1,           -- 0=P0 cursor buffer, 1=P1 forward chase, 2=P2 back-fill
-    worker_id       TEXT,
-    vtt_content     TEXT,                         -- inline VTT for completed segments
-    audio_path      TEXT,
-    started_at      DATETIME,
-    completed_at    DATETIME,
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    audiobook_id        INTEGER NOT NULL,
+    chapter_index       INTEGER NOT NULL,
+    segment_index       INTEGER NOT NULL,
+    locale              TEXT NOT NULL,
+    state               TEXT DEFAULT 'pending',  -- pending, processing, completed, failed
+    priority            INTEGER DEFAULT 1,       -- 0=P0 cursor buffer, 1=P1 forward chase, 2=P2 back-fill
+    worker_id           TEXT,
+    vtt_content         TEXT,                    -- translated-locale VTT for completed segments
+    source_vtt_content  TEXT,                    -- source-language (English) VTT (v8.3.2+)
+    audio_path          TEXT,                    -- per-segment opus, filled by worker (v8.3.2+)
+    retry_count         INTEGER DEFAULT 0,       -- transient failure recovery counter (v8.3.2+)
+    started_at          DATETIME,
+    completed_at        DATETIME,
     UNIQUE(audiobook_id, chapter_index, segment_index, locale)
 );
 ```
+
+Schema evolved across 8.3.2 data-migrations (`003_streaming_segments.sh`,
+`006_streaming_source_vtt.sh`, `007_streaming_retry_count.sh`); all are
+idempotent (`PRAGMA table_info` guards) and boundary-gated via `MIN_VERSION`,
+so cross-version upgrades populate only the columns that are missing.
+
+## In-flight VTT Stitching (v8.3.7+)
+
+The manifest and subtitle-fetch routes merge `chapter_subtitles` (finalized,
+on-disk VTT files) with a live index of `streaming_segments` rows so
+chapters whose VTT has not yet been consolidated still appear in the
+subtitle list the moment the first segment lands.
+
+- **`/api/audiobooks/<id>/subtitles`** returns the union of (a) cached rows
+  in `chapter_subtitles` and (b) a deduped `(chapter_index, locale)` index
+  built from `streaming_segments`. Polling from `subtitles.js` discovers
+  live-streaming tracks without waiting for end-of-chapter consolidation.
+- **`/api/audiobooks/<id>/subtitle/<chapter>/<locale>`** falls through to a
+  stitched VTT built from `streaming_segments` when no cached file exists
+  on disk (or a row exists in `chapter_subtitles` but its file is missing).
+  Stitching strips per-segment `WEBVTT` headers and emits a single
+  `WEBVTT` + concatenated cues in `segment_index` order.
+- For `locale='en'` the stitcher pulls `source_vtt_content` (the Whisper
+  transcript is locale-agnostic); other locales pull `vtt_content` where
+  `streaming_segments.locale` matches.
+- Stitched VTT is **never cached on disk** — always rebuilt from segment
+  rows so late-arriving segments appear on the next fetch.
+- Error discrimination is preserved: a cached row with a missing on-disk
+  file still returns `VTT file missing on disk` (404); no row at all
+  returns `Subtitle not found` (404).
+
+## Deferred Legacy-Queue State (v8.3.7+)
+
+`library/localization/queue.py::get_book_translation_status` collapses
+`pending` / `processing` / `failed` rows on non-English locales to a new
+`{"state": "deferred", "reason": "streaming_pipeline"}` payload, masking
+pre-streaming-era batch-pipeline crashes from the UI. Before this change
+every first-open of an untranslated zh-Hans book rendered stale
+`字幕生成失败 — No STT provider configured` toasts surfaced from
+`translation_queue` rows that had been failing since the legacy worker
+stopped draining months ago. The canonical progress surface for
+non-en locales is now the streaming overlay
+(`library/web-v2/js/streaming-overlay.js`); completed legacy rows still
+pass through unchanged (legitimate VTT-on-disk cases). `'en'` locale is
+exempt — STT failures for English are real, not stale.
 
 ## Security
 

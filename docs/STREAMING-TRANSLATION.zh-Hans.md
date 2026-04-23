@@ -320,21 +320,64 @@ CREATE TABLE streaming_sessions (
 );
 
 CREATE TABLE streaming_segments (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    audiobook_id    INTEGER NOT NULL,
-    chapter_index   INTEGER NOT NULL,
-    segment_index   INTEGER NOT NULL,
-    locale          TEXT NOT NULL,
-    state           TEXT DEFAULT 'pending',      -- pending, processing, completed, failed
-    priority        INTEGER DEFAULT 1,           -- 0=P0 光标缓冲, 1=P1 向前追赶, 2=P2 回填
-    worker_id       TEXT,
-    vtt_content     TEXT,                         -- 已完成分段的内联 VTT
-    audio_path      TEXT,
-    started_at      DATETIME,
-    completed_at    DATETIME,
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    audiobook_id        INTEGER NOT NULL,
+    chapter_index       INTEGER NOT NULL,
+    segment_index       INTEGER NOT NULL,
+    locale              TEXT NOT NULL,
+    state               TEXT DEFAULT 'pending',  -- pending, processing, completed, failed
+    priority            INTEGER DEFAULT 1,       -- 0=P0 光标缓冲, 1=P1 向前追赶, 2=P2 回填
+    worker_id           TEXT,
+    vtt_content         TEXT,                    -- 目标语言（已完成分段）的内联 VTT
+    source_vtt_content  TEXT,                    -- 源语言（英文）VTT（v8.3.2+）
+    audio_path          TEXT,                    -- 每个分段的 opus 路径，由工作节点写入（v8.3.2+）
+    retry_count         INTEGER DEFAULT 0,       -- 瞬时失败重试计数（v8.3.2+）
+    started_at          DATETIME,
+    completed_at        DATETIME,
     UNIQUE(audiobook_id, chapter_index, segment_index, locale)
 );
 ```
+
+该表结构通过 8.3.2 的数据迁移脚本（`003_streaming_segments.sh`、
+`006_streaming_source_vtt.sh`、`007_streaming_retry_count.sh`）逐步演进；
+每个脚本均幂等（`PRAGMA table_info` 守卫）且按版本边界门控
+（`MIN_VERSION`），跨版本升级仅填充缺失的列。
+
+## 在途 VTT 拼接（v8.3.7+）
+
+清单和字幕获取路由将 `chapter_subtitles`（已完成、落盘的 VTT 文件）与
+`streaming_segments` 的实时索引合并，即便某章节的 VTT 尚未完成整合，
+只要第一个分段完成落库，就会立即出现在字幕列表中。
+
+- **`/api/audiobooks/<id>/subtitles`** 返回两者的并集：
+  （a）`chapter_subtitles` 中的缓存行，（b）由 `streaming_segments`
+  按 `(chapter_index, locale)` 去重构建的索引。`subtitles.js` 的轮询无需
+  等到章节整合就能发现正在流式处理的字幕轨。
+- **`/api/audiobooks/<id>/subtitle/<chapter>/<locale>`** 在磁盘无缓存文件
+  （或 `chapter_subtitles` 有记录但文件缺失）时，直接从
+  `streaming_segments` 构建拼接后的 VTT 返回。拼接过程剥离每个分段的
+  `WEBVTT` 头部，按 `segment_index` 顺序输出单一的 `WEBVTT` + 连续 cues。
+- 对于 `locale='en'`，拼接器读取 `source_vtt_content`（Whisper 转录与
+  语言无关）；其他语言读取 `streaming_segments.locale` 匹配的 `vtt_content`。
+- 拼接的 VTT **永不缓存到磁盘** —— 每次请求都从分段行重新构建，
+  保证后到的分段在下一次拉取时即可显现。
+- 错误辨别得到保留：`chapter_subtitles` 中存在行但磁盘文件缺失仍返回
+  `VTT file missing on disk` (404)；完全没有记录则返回
+  `Subtitle not found` (404)。
+
+## 遗留队列的延迟状态（v8.3.7+）
+
+`library/localization/queue.py::get_book_translation_status` 将非英文
+locale 的 `pending` / `processing` / `failed` 行折叠为
+`{"state": "deferred", "reason": "streaming_pipeline"}`，避免将
+流式管道上线前遗留的批处理失败暴露给 UI。在此之前，首次打开任一
+尚未翻译的 zh-Hans 书都会显示来自 `translation_queue` 的过期
+`字幕生成失败 — No STT provider configured` 提示 —— 这些记录早在
+旧批处理 worker 停止运转数月前就已经是失败状态。非英文 locale
+现在的规范进度展示面板是流式 overlay
+（`library/web-v2/js/streaming-overlay.js`）；已完成的遗留记录
+（合法的磁盘 VTT 情况）仍按原样通过。`'en'` locale 豁免 —— 英文
+的 STT 失败是真实情况，不是过期数据。
 
 ## 安全性
 

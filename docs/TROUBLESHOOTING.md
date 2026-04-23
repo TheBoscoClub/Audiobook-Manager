@@ -19,6 +19,8 @@ Quick reference for diagnosing and resolving common Audiobook-Manager issues.
 9. [SSL Certificate Warnings](#9-ssl-certificate-warnings)
 10. [Permission Denied Errors](#10-permission-denied-errors)
 11. [Health Check Script](#11-health-check-script)
+12. [Maintenance Scheduling](#12-maintenance-scheduling)
+13. [Streaming Translation & UID/GID Issues](#13-streaming-translation--uidgid-issues-v837)
 
 ---
 
@@ -440,6 +442,110 @@ sqlite3 /path/to/audiobooks.db "SELECT id, name, enabled, cron_expression FROM m
 
 ---
 
+## 13. Streaming Translation & UID/GID Issues (v8.3.7+)
+
+### Docker container cold-boot takes 30–45 minutes on first start
+
+**Symptoms**: First `docker run` / `docker compose up` after upgrade sits on
+"Initializing scanner…" for 30–45 minutes against a ~2,000-book library.
+Subsequent restarts re-do the same work every time.
+
+**Root cause**: UID/GID mismatch between the container's `audiobooks` user
+and the host's `audiobooks` user. The container treats host-owned files as
+alien because of the UID delta — on every restart the Dockerfile's init path
+re-chowns, re-indexes, or attempts scanner initialization against files it
+thinks don't belong to it. Pre-8.3.7 installs picked free system UIDs per
+distro (prod=935, QA/dev=951, container=1000) so host and container never
+agreed.
+
+**Fix**: realign the host to the canonical UID=935 / GID=934 that the
+Dockerfile now hardcodes.
+
+```bash
+# Preview what will change
+sudo bash /opt/audiobooks/scripts/migrate-audiobooks-uid.sh --dry-run
+
+# Apply
+sudo bash /opt/audiobooks/scripts/migrate-audiobooks-uid.sh
+```
+
+The helper stops `audiobook.target`, runs `usermod -u` + `groupmod -g`,
+`chown -R` every path under `/opt/audiobooks`, `/etc/audiobooks`,
+`/var/lib/audiobooks`, `/srv/audiobooks` from the old UID/GID to 935/934,
+then restarts services. Idempotent — no-op on hosts already at canonical.
+
+### "字幕生成失败" / "Subtitle generation failed" toast on every first book-open (zh-Hans)
+
+**Symptoms**: A zh-Hans (or other non-English) patron opens any book they
+haven't listened to before and gets an immediate red error toast. Retrying
+does nothing. The book plays fine in English.
+
+**Root cause**: Stale `translation_queue` rows from the legacy batch-pipeline
+era (pre-streaming). The queue accumulated `failed` rows with
+`"No STT provider configured"` that `subtitles.js::renderGenStatus` still
+surfaced through its `phase === "error"` branch.
+
+**Fix**: already applied in v8.3.7 — `queue.py::get_book_translation_status`
+collapses non-English `pending` / `processing` / `failed` rows to
+`state: "deferred"`, which the UI handlers now render as no-op. If the toast
+still appears after upgrade, verify you are running 8.3.7+:
+
+```bash
+curl -sk https://localhost:8443/api/system/version
+```
+
+### Bilingual transcript panel snaps back to playhead while you're reading
+
+**Symptoms**: Open the transcript side panel, scroll forward (or back) to
+read ahead / re-read a passage, and the panel auto-scrolls back to the
+current playhead on the next `timeupdate` — about once a second.
+
+**Fix**: v8.3.7 adds a 4-second user-scroll pause. Any
+`touchstart` / `wheel` / `pointerdown` inside `#transcript-content` stamps
+a `_userScrolledAt` timestamp; `highlightTranscriptCue` refuses to
+auto-scroll for `USER_SCROLL_PAUSE_MS` (4 000 ms) after. If this is still
+happening post-upgrade, hard-refresh to defeat browser/CDN cache on
+`subtitles.js?v=1776891943`. Cachebust enforcement is Task #51 (automated
+stamp bump in `upgrade.sh`).
+
+### In-flight subtitle track never appears while a chapter is streaming
+
+**Symptoms**: You start playback on an untranslated book. Audio streams
+fine. `subtitles.js` polls the manifest but the chapter never shows up
+until streaming finishes and chapter consolidation runs.
+
+**Root cause**: Pre-8.3.7 the subtitle manifest only listed
+`chapter_subtitles` rows written at end-of-chapter consolidation.
+
+**Fix**: v8.3.7's in-flight VTT stitching. The manifest now unions
+`chapter_subtitles` with a live index of `streaming_segments` rows; the
+fall-through route stitches a VTT from completed segments. Verify:
+
+```bash
+# Expect the chapter to appear in the manifest as soon as the first
+# streaming segment completes (state='completed' in streaming_segments).
+curl -sk "https://localhost:8443/api/audiobooks/<id>/subtitles" | jq .
+```
+
+If chapters still don't appear, confirm the streaming worker is running
+(`systemctl status audiobook-stream-translate`) and the segments are
+landing (`sqlite3 audiobooks.db "SELECT state, COUNT(*) FROM streaming_segments WHERE audiobook_id=<id> GROUP BY state"`).
+
+### `audiobook-translations import` drops most streaming segments
+
+**Symptoms**: You export translations from QA with
+`audiobook-translations export` and import into prod; streaming segments
+are mostly missing from prod's `streaming-audio` directory — 1,465 exported
+rows become ~232 extracted files.
+
+**Root cause**: Pre-8.3.7 `transfer.py` used flat arcnames in the tar
+(`audio/streaming/{basename}`). Every book's `seg0000.webm` /
+`seg0001.webm` overwrote earlier entries.
+
+**Fix**: v8.3.7 nests arcnames by `(audiobook_id, chapter_index, locale, segment_index)`. Re-run export from a 8.3.7+ source; import on 8.3.7+ accepts both the new nested format and the legacy flat format (backwards-compatible for in-flight tarballs).
+
+---
+
 ## Quick Reference
 
 | Issue | First Check | Fix |
@@ -451,3 +557,7 @@ sqlite3 /path/to/audiobooks.db "SELECT id, name, enabled, cron_expression FROM m
 | Conversion stuck | `df -h /tmp` | Free disk space, restart converter |
 | HDD mount timing | `journalctl -u audiobook-api` | Add `RequiresMountsFor` to service |
 | Clock skew | `timedatectl` | `sudo timedatectl set-ntp true` |
+| Docker 45-min cold boot | `id audiobooks` (host vs container) | `sudo bash scripts/migrate-audiobooks-uid.sh` |
+| 字幕生成失败 on every first-open | `curl .../api/system/version` | Upgrade to 8.3.7+ |
+| Transcript snaps back while reading | Hard-refresh `subtitles.js?v=` | Upgrade to 8.3.7+ |
+| Streaming segments lost on transfer | Re-export from 8.3.7+ source | `audiobook-translations export` (nested format) |

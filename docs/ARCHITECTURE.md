@@ -849,7 +849,14 @@ audiobook-translations export -o translations.tar.gz [--locale zh-Hans]
 audiobook-translations import -a translations.tar.gz
 ```
 
-Archive contains `manifest.json`, `vtt/*.vtt`, `audio/*.opus`. Import matches books by **title** (not ID) and rewrites file paths for the target environment. Manifest version 2 includes: subtitles, translated audio, audiobook translations, collection translations, string translations, and completed queue entries.
+Archive contains `manifest.json`, `vtt/*.vtt`, and nested audio trees. Import matches books by **title** (not ID) and rewrites file paths for the target environment. Manifest version 2 includes: subtitles, translated audio, audiobook translations, collection translations, string translations, completed queue entries, and streaming-audio segments.
+
+**Nested arcname layout (v8.3.7+).** Early versions flattened every book's chapter/segment files to `audio/{basename}` — the import tarball kept only one `chapter.webm` across the entire export, and thousands of per-segment `seg0000.webm` files overwrote each other during tar write. Archives now nest by `(audiobook_id, chapter_index, locale, segment_index)`:
+
+- Chapter audio: `audio/chapter/<audiobook_id>/ch<NNN>/<locale>/chapter.<ext>`
+- Streaming segments: `audio/streaming/<audiobook_id>/ch<NNN>/<locale>/seg<NNNN>.<ext>`
+
+Import reconstructs the nested arc key, then extracts to the target env's streaming-audio directory using the **remapped** audiobook_id, and writes that prod-local path into `streaming_segments.audio_path`. Legacy flat-format archives are still accepted (fallback to `audio/streaming/{basename}` when the nested key isn't present) so pre-fix tarballs still import — just with fewer files surviving.
 
 ### Database Tables
 
@@ -863,7 +870,7 @@ Archive contains `manifest.json`, `vtt/*.vtt`, `audio/*.opus`. Import matches bo
 | `translation_queue` | Job queue: audiobook_id, locale, state, step, priority |
 | `deepl_quota` | Monthly character usage tracking |
 | `streaming_sessions` | Active streaming session tracking, GPU warm-up signal |
-| `streaming_segments` | Per-segment state (pending/processing/completed/failed), priority, inline VTT |
+| `streaming_segments` | Per-segment state (pending/processing/completed/failed), priority, translated `vtt_content`, source-language `source_vtt_content` (v8.3.2+), per-segment opus `audio_path`, `retry_count` for transient failure recovery (v8.3.2+) |
 
 ### Streaming Translation Pipeline (v8.3.0+)
 
@@ -885,6 +892,39 @@ fill the cache.
 | GPU segment worker | `scripts/stream-translate-worker.py` | Polls `streaming_segments`, splits audio, runs STT + translation, reports completion |
 | Buffering overlay | `library/web-v2/shell.html` + `css/shell.css` | Gold-themed progress bar with segment count |
 | Notification audio | `library/web-v2/audio/translation-buffering-*.mp3` | Localized edge-tts clips played during buffering |
+
+**In-flight VTT stitching (v8.3.7+).** `/api/audiobooks/<id>/subtitles` merges
+cached `chapter_subtitles` rows with a `streaming_segments` index deduped by
+`(chapter_index, locale)`, so a chapter whose VTT has not yet been consolidated
+on disk still appears in the manifest the moment the first segment lands. The
+fall-through route `/api/audiobooks/<id>/subtitle/<chapter>/<locale>` returns
+a stitched WEBVTT built from `streaming_segments` when no finalized VTT file
+exists on disk. Stitched VTTs are never cached — they are rebuilt from segment
+rows on every fetch so late-arriving segments appear on the next poll.
+
+**Path- and log-injection defense (v8.3.7+).** `streaming_translate.py`
+exposes two boundary helpers used by every filesystem/DB write that accepts
+worker-provided paths:
+
+- `_safe_join_under(base, *parts)` resolves the target and verifies
+  `is_relative_to(base)` before returning — used at the chapter-audio
+  consolidation output and for any future nested-path composition.
+- `_validate_audio_path(path)` rejects paths outside
+  `_streaming_audio_root` with HTTP 400; the `chapter-complete` callback
+  runs `translated_vtt_path` and `source_vtt_path` through the same
+  resolver against `_streaming_subtitles_root`.
+
+Every `logger.*` call site that interpolated tainted-flow values casts ints
+with `int(...)` and routes strings through `_safe_log_value`, satisfying
+CodeQL `py/log-injection`. These helpers are unit-tested in
+`test_streaming_translate.py::TestSafeJoinUnder` and `TestValidateAudioPath`.
+
+**Deferred translation state (v8.3.7+).** `queue.py::get_book_translation_status`
+collapses `pending` / `processing` / `failed` rows on non-English locales to
+`{"state": "deferred", "reason": "streaming_pipeline"}`, masking pre-streaming-era
+legacy-batch-pipeline failures from the UI. The canonical progress surface
+for non-en locales is the streaming overlay, not the legacy banner. `'en'`
+locale is exempt — English STT failures are real, not stale.
 
 For the complete architecture, playback flow, state machine diagrams, and
 operational guide, see [STREAMING-TRANSLATION.md](STREAMING-TRANSLATION.md).
@@ -1456,8 +1496,10 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
                                   ▼
                     ┌───────────────────────────────┐
                     │   Create service account      │
-                    │   • groupadd audiobooks       │
-                    │   • useradd audiobooks        │
+                    │   • groupadd --gid 934        │
+                    │     audiobooks (canonical)    │
+                    │   • useradd --uid 935 --gid   │
+                    │     934 audiobooks            │
                     │     (system, nologin shell)   │
                     └───────────────────────────────┘
                                   │
@@ -2567,5 +2609,5 @@ systemctl status audiobook.target --no-pager
 
 ---
 
-*Document Version: 8.3.2*
-*Last Updated: 2026-04-18*
+*Document Version: 8.3.7*
+*Last Updated: 2026-04-22*
