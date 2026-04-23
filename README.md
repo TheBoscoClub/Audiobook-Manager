@@ -293,6 +293,8 @@ Web-based audiobook library browser with:
 - **CJK bigram search** — queries with CJK characters use LIKE-based bigram matching instead of FTS (SQLite unicode61 drops CJK tokens) (v8.1.0+)
 - **Translation asset transfer** — `audiobook-translations` CLI tool exports/imports subtitles, TTS audio, and metadata translations between environments to avoid re-translating (v8.2.0+)
 - **DeepL quota tracking** — monthly character usage with soft warning at 90% and hard stop at 99%, admin dashboard endpoint (v8.1.0+)
+- **Real-time streaming translation** — play any book in a non-English locale and the first ~3 minutes translate on demand while a cursor-centric buffer runs ahead of your position; seeks re-prioritize on the fly; chapter-by-chapter cache is shared across all listeners (v8.3.0+)
+- **6-minute pretranslation sampler** — every book gets its opening ~6 minutes pretranslated in every enabled non-EN locale at ingest time. Any listener can browse the library and play any book's preview instantly (no GPU wait), and for books they commit to, the sample covers GPU cold-start runway so transitioning to live translation is seamless. Sampler runs at dedicated priority p2 and can never starve live playback — enforced at the DB layer. See [`docs/SAMPLER.md`](docs/SAMPLER.md) (v8.3.8+)
 
 ## Quick Start
 

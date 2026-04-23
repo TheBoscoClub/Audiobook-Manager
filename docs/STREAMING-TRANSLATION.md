@@ -222,34 +222,58 @@ one.
 | P1 — forward chase | Cursor buffer → end of chapter / next break | Keeps GPU ahead of the cursor during playback |
 | P2 — back-fill | Prior translated tail → cursor | Continuous side panel and backward-scrub safety net |
 
-## Priority Model (Cursor-Centric)
+## Priority Model (Cursor-Centric, Four Tiers since v8.3.8)
 
 The scheduler is **cursor-centric**, not chapter-centric. Segments are queued
-at one of three priority tiers relative to the listener's current playback
-cursor:
+at one of four priority tiers relative to the listener's current playback
+cursor. v8.3.8 added **p2=sampler** as a dedicated tier, pushing prior
+back-fill work to p3, so the 6-minute pretranslation sampler can never
+starve live playback:
 
 ```text
 Priority levels (lower = higher urgency):
   0  P0 — cursor buffer fill. Populates first ~3 minutes (6 segments)
          forward of the cursor. Must flow before playback resumes.
+         Live-playback, current book ONLY.
   1  P1 — forward chase. Continues producing segments past the cursor
          buffer toward end-of-chapter / next logical break. Deprioritized
-         only if the user jumps/stops.
-  2  P2 — back-fill. Produces segments between prior translated tail and
-         the cursor. Runs after P0 is satisfied so the side panel and
-         future backward-scrubbing have continuous context.
+         only if the user jumps/stops. Live-playback, current book ONLY.
+  2  P2 — sampler (v8.3.8+). The 6-minute pretranslation for each book's
+         opening. Runs for every book × enabled non-EN locale, bounded
+         cost. See docs/SAMPLER.md. ENFORCED by DB trigger: an INSERT or
+         UPDATE that would place an origin='sampler' row at priority<2
+         is ABORTed by the engine.
+  3  P3 — back-fill and all other bulk work. Produces segments between
+         prior translated tail and the cursor; runs after everything
+         above is satisfied so the side panel and future backward-scrubbing
+         have continuous context.
 
-On seek-beyond-buffer: existing pending segments downgraded to P2; six
-segments forward of the new cursor promoted/inserted at P0; end-of-chapter
-remainder queued at P1; gap between prior tail and new cursor queued at P2.
+Per the trigger + invariant: live playback of the currently-playing book
+always preempts sampler work on any other book. The sampler can never
+pull a GPU slot away from a listener who's actively listening.
 
-On stop: all pending segments downgraded to P2 (back-fill preserves work
-for future resume / side-panel completeness).
+On seek-beyond-buffer: existing pending live segments downgraded to P3;
+six segments forward of the new cursor promoted/inserted at P0;
+end-of-chapter remainder queued at P1; gap between prior tail and new
+cursor queued at P3.
+
+On stop: all pending live segments downgraded to P3 (back-fill preserves
+work for future resume / side-panel completeness).
 ```
 
 Worker claim order — `ORDER BY priority, chapter, segment` — is unchanged;
-only the semantics of each tier shifted in v8.3.2 from "chapter role" to
-"relationship to cursor."
+the tier set expanded in v8.3.8 to give the sampler its own protected slot.
+
+### How the sampler interacts with this model
+
+The sampler runs continuously at p2 as books are ingested, but it never
+competes with live playback (p0/p1). When a user plays a sample and crosses
+the **adaptive buffer-fill threshold** (segment 3 if RunPod is cold, 4 if
+warm — see `docs/SAMPLER.md §Adaptive buffer-fill threshold`), the frontend
+calls `POST /api/translate/sampler/activate`, which creates p0/p1 segments
+from the cursor forward. GPU cold-start happens while the user is still
+listening to the cached sample; by the time the 6-minute sample ends, the
+live buffer is already filling ahead. Seamless transition, no spinner.
 
 ### Transition Summary
 

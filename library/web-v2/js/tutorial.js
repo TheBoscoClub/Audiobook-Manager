@@ -62,6 +62,13 @@ class LibraryTutorial {
           "Each card shows the cover, title, author, narrator, duration, and format. Click a card to start playing.",
       },
       {
+        target: ".btn-sample",
+        title: "🎧 6-Minute Sample",
+        description:
+          "When you're browsing in a non-English locale, every book gets its opening ~6 minutes pretranslated ahead of time. Click the 6-min Sample button to start listening instantly — zero wait, no GPU spinner. The sample lets you try any book in your language before committing, and it gives the live-translation pipeline enough runway to catch up seamlessly if you decide to keep going past the sample.",
+        optional: true,
+      },
+      {
         target: ".editions-badge, .book-card .supplement-badge",
         title: "Edition & Supplement Badges",
         description:

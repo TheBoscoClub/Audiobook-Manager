@@ -902,6 +902,28 @@ a stitched WEBVTT built from `streaming_segments` when no finalized VTT file
 exists on disk. Stitched VTTs are never cached — they are rebuilt from segment
 rows on every fetch so late-arriving segments appear on the next poll.
 
+**6-minute pretranslation sampler (v8.3.8+).** Every book gets its opening
+~6 minutes pretranslated into every enabled non-EN locale at ingest time,
+enabling three effects simultaneously: (1) library-wide discovery — any
+listener can preview any book in their language with zero GPU wait;
+(2) cost control — full-book translation is only triggered when a listener
+keeps listening past the sample; (3) GPU cold-start runway — when a user
+commits to a book, the live pipeline has ~3–4 minutes of sample playback
+to warm up and start running ahead of the cursor, so the transition from
+sample to continuous translation is seamless (no "排队中" spinner).
+Sampler segments run at dedicated priority `p2`, with a DB trigger that
+ABORTs any INSERT/UPDATE attempting to demote them to `p0`/`p1`. See
+`docs/SAMPLER.md` for the scope algorithm, adaptive buffer-fill threshold,
+and API surface.
+
+| Sampler component | Path | Purpose |
+|-----|-----|-----|
+| Pure scope algorithm + enqueue helper | `library/localization/sampler.py` | ≥6 min, extend to chapter boundary if within 3 min slack, hard-stop otherwise; creates `sampler_jobs` row + p2 `streaming_segments` |
+| Scan-time auto-enqueue | `library/scanner/utils/sampler_hook.py` | Fires from `insert_audiobook`; failures logged, never block ingestion |
+| Locale-add reconciler CLI | `scripts/sampler-reconcile.py` | Backfill sampler jobs for books missing one; idempotent |
+| Priority-invariant triggers | `streaming_segments_sampler_priority_{ins,upd}` | DB-level `RAISE(ABORT)` on sampler at priority<2 |
+| Adaptive buffer-fill | `GET /api/translate/warmth`, `POST /api/translate/sampler/activate` | 3-when-cold / 4-when-warm threshold based on RunPod `workers.ready` |
+
 **Path- and log-injection defense (v8.3.7+).** `streaming_translate.py`
 exposes two boundary helpers used by every filesystem/DB write that accepts
 worker-provided paths:

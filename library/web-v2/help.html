@@ -364,6 +364,11 @@
             <p data-i18n="help.streamingTranslation.body">When you press Play on a book that hasn't been translated yet, The Library doesn't keep you waiting for the entire book. It warms up a GPU worker, starts translating the first three minutes of the current chapter, and begins playback as soon as the buffer is ready &mdash; typically within a minute or two on a cold start, or a few seconds if a worker is already warm. A gold progress overlay shows buffer status. As you listen, the next chapter is translated ahead of you. Skipping to a new chapter shifts the buffer: the system fills a cursor window first, then extends forward, then back-fills anything you seeked past.</p>
             <p data-i18n="help.streamingTranslation.caching">Once a chapter is translated it's cached permanently &mdash; every future play (from you or any other patron) serves instantly from cache at zero cost.</p>
 
+            <h3 data-i18n="help.sampler.title">The 6-Minute Sample &mdash; Choose Any Book, Zero Wait</h3>
+            <p data-i18n="help.sampler.body">Every book in the library gets its opening <strong>~6 minutes</strong> pretranslated in your language the first time it's added. On book cards in non-English locales you'll see a <strong>&#127911; 6-min Sample</strong> button whenever a sample is ready &mdash; click it and playback starts <em>immediately</em> from the cached audio, no GPU cold-start, no spinner.</p>
+            <p data-i18n="help.sampler.howItHelps">This is how you choose what to read next. Browse the whole library in your language, play any book's first ~6 minutes to decide whether to commit, and move on if it's not for you. For books you do want to hear in full, the sample gives the live-translation pipeline a head start: while you listen to the opening, the GPU warms up and begins translating ahead of you, so the transition from sample to continuous playback is seamless. In practice you should rarely &mdash; if ever &mdash; see a buffering pause, because the sample covers the cold-start window.</p>
+            <p data-i18n="help.sampler.scope">The sample covers at least 6 minutes, rounded to the nearest chapter boundary when one is close so you get a cohesive opening, not a cut mid-sentence. Very short opening chapters will spill into the next chapter to still deliver the full 6-minute preview.</p>
+
             <h3 data-i18n="help.mobileTranscript.title">Mobile Transcript Layout</h3>
             <p data-i18n="help.mobileTranscript.body">On phone-width screens the bilingual transcript panel flips to a single column and places your selected language on top, with the English source directly below each cue. Auto-scroll follows your language's column, and scrolling freely for a few seconds won't snap back to the playhead &mdash; you can read ahead or look back without the panel fighting you.</p>
             <a href="#" class="back-to-top">&uarr; Back to top</a>
@@ -578,6 +583,12 @@
 
             <h3>Why do I see a "Generating subtitles" banner?</h3>
             <p>The first time you play a book in a non-English language, the system transcribes and translates the audio chapter by chapter. This typically takes 30&ndash;60 seconds per chapter. Once generated, subtitles load instantly on future plays.</p>
+
+            <h3 data-i18n="faq.sampler.what.q">What is the <strong>&#127911; 6-min Sample</strong> button?</h3>
+            <p data-i18n="faq.sampler.what.a">Every book in the library gets its opening ~6 minutes pretranslated in your language the first time it's added. On book cards in non-English locales you'll see a <strong>&#127911; 6-min Sample</strong> button whenever a sample is ready. Clicking it starts playback immediately from the cached audio &mdash; no waiting for a GPU to warm up, no spinner. It's designed for browsing: play the first ~6 minutes of anything to decide whether you want the whole book, then move on if it's not for you.</p>
+
+            <h3 data-i18n="faq.sampler.seamless.q">Why does translated playback feel seamless after the sample ends?</h3>
+            <p data-i18n="faq.sampler.seamless.a">The ~6-minute sample isn't just for previewing &mdash; it also covers the time the live translation pipeline needs to warm up and start running ahead of you. Once you've listened past the first couple of minutes, the system assumes you're committed and begins translating the rest of the book in the background. By the time you reach the end of the sample, there's already a buffer of translated audio ready to continue. In practice you should rarely, if ever, see a buffering pause after a sample-started playback.</p>
 
             <h3>Can I see both English and translated text?</h3>
             <p>Yes. Open the <strong>Transcript panel</strong> (click the transcript icon in the player bar) to see a bilingual view with English and your selected language side by side. The current line is highlighted and the panel auto-scrolls to follow playback.</p>

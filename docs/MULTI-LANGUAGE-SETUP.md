@@ -390,6 +390,29 @@ Restart the API service after changing this value:
 sudo systemctl restart audiobook-api.service
 ```
 
+### Step 2a: Backfill the 6-minute sampler for the new locale
+
+Adding a new locale doesn't automatically retro-translate existing books'
+opening samples. Run the sampler reconciler to enqueue a 6-minute pretranslation
+for every book × the new locale:
+
+```bash
+# Target a single locale (recommended — bounded cost per locale):
+sudo -u audiobooks python3 /opt/audiobooks/scripts/sampler-reconcile.py --locale ja
+
+# Or preview first:
+sudo -u audiobooks python3 /opt/audiobooks/scripts/sampler-reconcile.py --locale ja --dry-run
+
+# Or cap the batch size if you're watching RunPod budget:
+sudo -u audiobooks python3 /opt/audiobooks/scripts/sampler-reconcile.py --locale ja --max-books 50
+```
+
+The reconciler is idempotent — safe to re-run. Books with an existing
+completed `sampler_jobs` row are skipped. Samplers enqueue at priority `p2`,
+so they never compete with live-playback work (the DB trigger enforces this).
+Newly added books after this point get their sampler enqueued automatically
+via the scan-time hook. See `docs/SAMPLER.md` for the full design.
+
 ### Step 3: Configure a TTS Voice
 
 If you want translated audio narration, set the TTS voice for your language. First, find available voices:
