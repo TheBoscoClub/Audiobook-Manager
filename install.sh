@@ -1305,51 +1305,75 @@ do_system_install() {
     #     A separate migration (scripts/migrate-audiobooks-uid.sh) handles that.
     #   - If UID/GID 935/934 are taken by a different user/group on this host,
     #     abort with a clear error.
-    AUDIOBOOKS_CANONICAL_UID=935
-    AUDIOBOOKS_CANONICAL_GID=934
+    # Preferred starting point for matched UID:GID. install.sh auto-probes
+    # upward if this pair is taken — operators never have to edit this file.
+    # Also honors AUDIOBOOKS_PREFERRED_UID / _GID env vars if the operator
+    # wants to steer the pick (e.g. match an existing Docker-host UID for
+    # bind-mount portability).
+    AUDIOBOOKS_PREFERRED_UID="${AUDIOBOOKS_PREFERRED_UID:-935}"
+    AUDIOBOOKS_PREFERRED_GID="${AUDIOBOOKS_PREFERRED_GID:-935}"
 
-    echo -e "${BLUE}Setting up service account (canonical UID=${AUDIOBOOKS_CANONICAL_UID} GID=${AUDIOBOOKS_CANONICAL_GID})...${NC}"
-    if ! getent group audiobooks >/dev/null 2>&1; then
-        # Group doesn't exist. Check GID 934 isn't claimed by something else first.
-        existing_gid_holder=$(getent group "${AUDIOBOOKS_CANONICAL_GID}" 2>/dev/null | cut -d: -f1)
-        if [[ -n "$existing_gid_holder" && "$existing_gid_holder" != "audiobooks" ]]; then
-            echo -e "${RED}  ERROR: GID ${AUDIOBOOKS_CANONICAL_GID} is already used by group '${existing_gid_holder}'.${NC}"
-            echo -e "${RED}  Free this GID or edit install.sh AUDIOBOOKS_CANONICAL_GID before proceeding.${NC}"
-            exit 1
-        fi
-        echo "  Creating 'audiobooks' group with GID ${AUDIOBOOKS_CANONICAL_GID}..."
-        sudo groupadd --system --gid "${AUDIOBOOKS_CANONICAL_GID}" audiobooks
-    else
-        current_gid=$(getent group audiobooks | cut -d: -f3)
-        if [[ "$current_gid" == "${AUDIOBOOKS_CANONICAL_GID}" ]]; then
-            echo "  Group 'audiobooks' already exists with canonical GID ${AUDIOBOOKS_CANONICAL_GID}"
+    # Probe for a free matched UID:GID pair, starting at the preferred value
+    # and walking upward to the first number where BOTH are free. This
+    # eliminates install-time collisions on hosts where 935 or 935 is
+    # already in use by an unrelated service (e.g. prod's GID 935 is held
+    # by an unrelated 'empower' group). Cap the search at UID 65000 —
+    # realistic ceiling well below the libc 16-bit boundary.
+    _probe_free_uidgid() {
+        local n="$1"
+        while [[ $n -lt 65000 ]]; do
+            if ! getent passwd "$n" >/dev/null 2>&1 \
+                && ! getent group "$n" >/dev/null 2>&1; then
+                echo "$n"
+                return 0
+            fi
+            n=$((n + 1))
+        done
+        return 1
+    }
+
+    echo -e "${BLUE}Setting up service account...${NC}"
+
+    # If the user already exists, honor its UID and its group's GID. No
+    # migration here — operator must run scripts/migrate-audiobooks-uid.sh
+    # explicitly if they want to change it.
+    if getent passwd audiobooks >/dev/null 2>&1; then
+        AUDIOBOOKS_UID=$(getent passwd audiobooks | cut -d: -f3)
+        AUDIOBOOKS_GID=$(getent passwd audiobooks | cut -d: -f4)
+        if [[ "$AUDIOBOOKS_UID" == "$AUDIOBOOKS_GID" ]]; then
+            echo "  User 'audiobooks' already exists at UID=${AUDIOBOOKS_UID} GID=${AUDIOBOOKS_GID} (matched)"
         else
-            echo -e "${YELLOW}  WARN: Group 'audiobooks' exists with GID ${current_gid} (canonical is ${AUDIOBOOKS_CANONICAL_GID}).${NC}"
-            echo -e "${YELLOW}        Cross-env data transfers may be inconsistent. Run migrate-audiobooks-uid.sh to realign.${NC}"
+            echo -e "${YELLOW}  WARN: User 'audiobooks' exists with UID=${AUDIOBOOKS_UID} GID=${AUDIOBOOKS_GID} (not matched)${NC}"
+            echo -e "${YELLOW}        For matched UID:GID on future upgrades, run scripts/migrate-audiobooks-uid.sh${NC}"
         fi
-    fi
-
-    if ! getent passwd audiobooks >/dev/null 2>&1; then
-        # User doesn't exist. Check UID 935 isn't claimed by something else first.
-        existing_uid_holder=$(getent passwd "${AUDIOBOOKS_CANONICAL_UID}" 2>/dev/null | cut -d: -f1)
-        if [[ -n "$existing_uid_holder" && "$existing_uid_holder" != "audiobooks" ]]; then
-            echo -e "${RED}  ERROR: UID ${AUDIOBOOKS_CANONICAL_UID} is already used by user '${existing_uid_holder}'.${NC}"
-            echo -e "${RED}  Free this UID or edit install.sh AUDIOBOOKS_CANONICAL_UID before proceeding.${NC}"
+    else
+        # Fresh creation. Find a free matched pair starting at the preferred value.
+        local matched_id
+        matched_id=$(_probe_free_uidgid "$AUDIOBOOKS_PREFERRED_UID") || {
+            echo -e "${RED}  ERROR: could not find a free matched UID:GID pair in range ${AUDIOBOOKS_PREFERRED_UID}..65000${NC}"
             exit 1
+        }
+        AUDIOBOOKS_UID="$matched_id"
+        AUDIOBOOKS_GID="$matched_id"
+        if [[ "$matched_id" != "$AUDIOBOOKS_PREFERRED_UID" ]]; then
+            echo -e "${YELLOW}  Preferred UID=${AUDIOBOOKS_PREFERRED_UID} was taken; using UID=${matched_id} GID=${matched_id} instead${NC}"
         fi
-        echo "  Creating 'audiobooks' service user with UID ${AUDIOBOOKS_CANONICAL_UID}..."
-        sudo useradd --system --uid "${AUDIOBOOKS_CANONICAL_UID}" --gid audiobooks \
+
+        echo "  Creating 'audiobooks' group with GID ${AUDIOBOOKS_GID}..."
+        sudo groupadd --system --gid "${AUDIOBOOKS_GID}" audiobooks
+
+        echo "  Creating 'audiobooks' service user with UID ${AUDIOBOOKS_UID}..."
+        sudo useradd --system --uid "${AUDIOBOOKS_UID}" --gid audiobooks \
             --shell /usr/sbin/nologin \
             --home-dir /var/lib/audiobooks --comment "Audiobook Library Service" audiobooks
-    else
-        current_uid=$(getent passwd audiobooks | cut -d: -f3)
-        if [[ "$current_uid" == "${AUDIOBOOKS_CANONICAL_UID}" ]]; then
-            echo "  User 'audiobooks' already exists with canonical UID ${AUDIOBOOKS_CANONICAL_UID}"
-        else
-            echo -e "${YELLOW}  WARN: User 'audiobooks' exists with UID ${current_uid} (canonical is ${AUDIOBOOKS_CANONICAL_UID}).${NC}"
-            echo -e "${YELLOW}        Cross-env data transfers may be inconsistent. Run migrate-audiobooks-uid.sh to realign.${NC}"
-        fi
     fi
+
+    # Persist resolved UID/GID into /etc/audiobooks/audiobooks.conf so every
+    # downstream component (Dockerfile build args, docker-compose.yml PUID/PGID,
+    # systemd units, migration scripts) reads from one source of truth.
+    # The config dir may not exist yet on first install — we'll write this
+    # file below right after `mkdir -p ${CONFIG_DIR}`.
+    export AUDIOBOOKS_UID AUDIOBOOKS_GID
 
     # Add installer to audiobooks group for file access
     if ! groups "$USER" 2>/dev/null | grep -qw audiobooks; then

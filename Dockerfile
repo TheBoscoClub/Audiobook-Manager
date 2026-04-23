@@ -137,13 +137,23 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
 
 # Create non-root user for security.
 #
-# UID/GID must match install.sh's AUDIOBOOKS_CANONICAL_UID/GID (935/934) so
-# bind-mounted host volumes (docker-data, Library, Supplements) have the same
-# ownership inside and outside the container. Without UID alignment the
-# container sees host-written DB files as "not mine", re-triggers the scanner
-# init path, and writes new files the host service account can't read back.
-RUN groupadd --system --gid 934 audiobooks && \
-    useradd --system --uid 935 --gid audiobooks --shell /bin/bash --create-home audiobooks && \
+# UID/GID must match the host's audiobooks account so bind-mounted host
+# volumes (docker-data, Library, Supplements) have the same ownership
+# inside and outside the container. Without UID alignment the container
+# sees host-written DB files as "not mine", re-triggers the scanner init
+# path, and writes new files the host service account can't read back.
+#
+# Defaults to matched 935:935 (v8.3.8 convention — UID == GID simplifies
+# bind-mount portability). Operators whose host's audiobooks UID differs
+# can override at build time:
+#   docker build --build-arg AUDIOBOOKS_UID=1042 --build-arg AUDIOBOOKS_GID=1042 -t audiobook-manager:X.Y.Z .
+# install.sh auto-probes for a free matched pair and writes the chosen
+# values into /etc/audiobooks/audiobooks.conf; use those values as your
+# build-args to keep the Docker image aligned with your host.
+ARG AUDIOBOOKS_UID=935
+ARG AUDIOBOOKS_GID=935
+RUN groupadd --system --gid "$AUDIOBOOKS_GID" audiobooks && \
+    useradd --system --uid "$AUDIOBOOKS_UID" --gid audiobooks --shell /bin/bash --create-home audiobooks && \
     chown -R audiobooks:audiobooks /app
 
 # Copy and set entrypoint (755 = readable and executable by all)

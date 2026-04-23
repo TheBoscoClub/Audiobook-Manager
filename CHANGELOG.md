@@ -35,27 +35,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Schema migration 024** (`library/backend/migrations/024_streaming_origin_and_sampler.sql`) + matching data migration `data-migrations/008_streaming_origin_and_sampler.sh` — idempotent; verified on scratch SQLite
 - **install.sh streaming config stubs**: commented `AUDIOBOOKS_DEEPL_API_KEY`, `AUDIOBOOKS_RUNPOD_API_KEY`, `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT`, `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT`, `AUDIOBOOKS_TTS_PROVIDER` written into fresh `audiobooks.conf` so operators see the keys and know what to configure for streaming translation
 
-### Operator action required (one-time) — Docker bind-mount UID alignment
+### Service-account UID/GID is now auto-matched and configurable
 
-The v8.3.8 Dockerfile canonicalizes the in-container `audiobooks` user to
-**UID 935 / GID 934** so the image is portable across hosts regardless of
-local `audiobooks` account numbering. Hosts whose local `audiobooks`
-account has a *different* UID/GID (common on older installs where the
-account was created before the canonical UID policy) need a one-time
-chown of the Docker bind-mount data directory before the container can
-read the existing DB:
+Prior releases hardcoded `AUDIOBOOKS_CANONICAL_UID=935` and
+`AUDIOBOOKS_CANONICAL_GID=934` in `install.sh` and the `Dockerfile`,
+which fails on hosts where either slot is already claimed by an unrelated
+account (e.g., hosts where GID 935 holds an `empower` or similar group).
+v8.3.8 fixes both sides of this:
+
+- **`install.sh` auto-probes for a free matched pair** (UID == GID),
+  starting at `AUDIOBOOKS_PREFERRED_UID=935 AUDIOBOOKS_PREFERRED_GID=935`
+  (both overridable via environment variables) and walking upward to the
+  first matched number that is free on this host. Matched UID:GID
+  simplifies Docker bind-mount portability and mirrors how mainstream
+  container images assign service identifiers.
+
+- **`upgrade.sh` detects UID != GID** on existing installs and
+  interactively offers to realign via `scripts/migrate-audiobooks-uid.sh`.
+  The prompt is skipped in `--yes` and `--dry-run` modes so unattended
+  automation isn't blocked. Operators running attended upgrades just
+  answer `y` and the script takes care of `usermod`/`groupmod` +
+  chowning every audiobook-owned path under `/opt/audiobooks`,
+  `/etc/audiobooks`, `/var/lib/audiobooks` (including the Docker
+  `docker-data` bind-mount), and `/srv/audiobooks`.
+
+- **`scripts/migrate-audiobooks-uid.sh`** now accepts `--uid N --gid N`
+  explicitly, and auto-probes for a free matched pair when called with
+  no args.
+
+- **`Dockerfile`** accepts `AUDIOBOOKS_UID` and `AUDIOBOOKS_GID` as
+  `ARG` build-args (both defaulting to a matched `935:935`). Operators
+  who want the Docker image to match a non-default host UID can build
+  with `docker build --build-arg AUDIOBOOKS_UID=1042 --build-arg AUDIOBOOKS_GID=1042 ...`
+  and the in-container `audiobooks` user will match exactly. `install.sh`
+  exports the resolved host values so this step is straightforward.
+
+### Operator action required (one-time, only if upgrading pre-v8.3.8 with UID != GID)
+
+If your host has an existing `audiobooks` account with mismatched UID/GID
+(e.g. 951:949 from older installs) AND you want the new matched convention,
+`upgrade.sh` will prompt interactively. Answer `y`; the script handles
+everything.
+
+To skip the prompt but match later manually:
 
 ```bash
-sudo chown -R 935:934 /var/lib/audiobooks/docker-data
-sudo docker restart audiobooks-docker
+sudo bash /opt/audiobooks/scripts/migrate-audiobooks-uid.sh            # auto-pick matched pair
+sudo bash /opt/audiobooks/scripts/migrate-audiobooks-uid.sh --uid 1042 --gid 1042
+sudo bash /opt/audiobooks/scripts/migrate-audiobooks-uid.sh --dry-run  # preview only
 ```
 
-Without this step, `docker-entrypoint.sh` cannot open the existing DB as
-the container's `audiobooks` user, falls through to `NEEDS_INIT=true`,
-and re-runs the full library scan (1-3 hours depending on library size).
-The scan is non-destructive — existing data is preserved — but the
-container won't be API-responsive until it finishes. Native app is
-unaffected (install.sh already enforces canonical UIDs end-to-end).
+If you keep your existing mismatched UID/GID, everything continues to
+work — the `Dockerfile` build-args let you align the container image to
+match your host when you rebuild the Docker image.
 - **Cachebust stamp automation** `scripts/bump-cachebust.sh` — one stamp per deploy, atomically rewrites every `?v=<stamp>` in `web-v2/*.html`. Wired into both `upgrade.sh` (after HTML sync, before service restart) and `install.sh`. Replaces the manual `?v=` bumping every JS/CSS change required — root cause of the recurring "user runs stale JS after a deploy" class of incident (v8.3.4 qalib 2000-ID URL-overflow 400 was one). Stamp validation rejects shell-injection inputs. 8 regression tests pin the rewrite contract + shellcheck cleanliness + upgrade/install wiring
 - **Profile preference live-apply** — `account.js::saveBrowsingPref` now dispatches `audiobooks:preference-changed` CustomEvent after persisting each preference. `library.js::_wirePreferenceLiveApply` listens and routes by key: `view_mode` → CSS class toggle (instant), `sort_order`/`items_per_page`/`content_filter` → re-apply + reload audiobooks. No hard browser refresh required. (Deferred since the Localization-RND merge, finally un-gated.)
 - **`docs/EMAIL-SETUP.md`** — end-to-end SMTP configuration guide covering Resend (recommended for thebosco.club deployments — cleanroom SES, no PGP wrap), Gmail (app-password requirement), Microsoft 365 / Outlook.com, Protonmail Bridge (with explicit callout of why it breaks Apple mail via `554 5.7.1 [CS01]`), generic MTA relay, mailx/s-nail smoke-test wrappers. STARTTLS vs implicit-SSL vs plaintext decision matrix. Common failure-mode table with diagnoses

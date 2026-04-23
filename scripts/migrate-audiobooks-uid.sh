@@ -3,12 +3,14 @@
 # Audiobook Manager — audiobooks UID/GID migration
 # =============================================================================
 #
-# Realigns an existing install's audiobooks service account to the canonical
-# UID=935 / GID=934 shared with the Dockerfile and install.sh. This matters
-# when bind-mounting host volumes into the Docker container — a UID mismatch
-# between host and container makes the container treat existing host files
-# as alien, triggering scanner re-inits and producing files the host
-# service account can't read back.
+# Realigns an existing install's audiobooks service account to a target
+# UID/GID. The preferred convention is a matched pair (UID == GID), which
+# makes bind-mount portability simpler (operator only has to remember one
+# number) and mirrors how mainstream container images assign service IDs.
+#
+# When called with no args, the script auto-picks the first matched pair
+# that's free on this host (starting at 935:935, walking upward if taken).
+# Pass --uid N --gid N to specify explicitly.
 #
 # DESTRUCTIVE: This script runs `usermod -u`, `groupmod -g`, and chowns
 # every audiobook-owned file. It is SAFE if the services are stopped first,
@@ -16,15 +18,57 @@
 # or equivalent before running on production.
 #
 # Usage:
-#   sudo bash scripts/migrate-audiobooks-uid.sh            # apply
-#   sudo bash scripts/migrate-audiobooks-uid.sh --dry-run  # preview only
+#   sudo bash scripts/migrate-audiobooks-uid.sh                    # auto-pick matched pair
+#   sudo bash scripts/migrate-audiobooks-uid.sh --uid 1042 --gid 1042
+#   sudo bash scripts/migrate-audiobooks-uid.sh --dry-run
 # =============================================================================
 set -euo pipefail
 
-CANONICAL_UID=935
-CANONICAL_GID=934
+# Defaults if --uid / --gid not provided: probe for the first matched pair.
+TARGET_UID=""
+TARGET_GID=""
 DRY_RUN=false
-[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --uid) TARGET_UID="$2"; shift 2 ;;
+        --gid) TARGET_GID="$2"; shift 2 ;;
+        --dry-run) DRY_RUN=true; shift ;;
+        *) echo "Unknown arg: $1" >&2; exit 2 ;;
+    esac
+done
+
+_probe_free_matched_id() {
+    # Find the first N >= start where UID N AND GID N are both free.
+    local n="${1:-935}"
+    while [[ $n -lt 65000 ]]; do
+        if ! getent passwd "$n" >/dev/null 2>&1 \
+            && ! getent group "$n" >/dev/null 2>&1; then
+            echo "$n"
+            return 0
+        fi
+        n=$((n + 1))
+    done
+    return 1
+}
+
+if [[ -z "$TARGET_UID" && -z "$TARGET_GID" ]]; then
+    # No target specified — pick a matched pair.
+    matched=$(_probe_free_matched_id 935) || {
+        echo "ERROR: no free matched UID:GID pair in range 935..65000" >&2
+        exit 1
+    }
+    TARGET_UID="$matched"
+    TARGET_GID="$matched"
+elif [[ -z "$TARGET_UID" || -z "$TARGET_GID" ]]; then
+    echo "ERROR: --uid and --gid must both be given (or neither)" >&2
+    exit 2
+fi
+
+# Compat shim for downstream variable names — keep the existing CANONICAL_*
+# references working without rewriting the body.
+CANONICAL_UID="$TARGET_UID"
+CANONICAL_GID="$TARGET_GID"
 
 say() { printf '%s\n' "$*"; }
 run() {

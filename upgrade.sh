@@ -1997,6 +1997,41 @@ do_upgrade() {
     # upgrade.sh was copied to /tmp for a from-github bootstrap).
     audit_and_cleanup "$target" "$use_sudo" "$project"
 
+    # UID/GID uniformity check. Prompt the operator if audiobooks UID != GID,
+    # which is the configuration that requires a one-time chown on Docker
+    # bind-mounts when the canonical in-container UID differs. If the operator
+    # opts in, invoke scripts/migrate-audiobooks-uid.sh to realign. Skipped
+    # entirely in --yes mode to avoid blocking unattended upgrades on the
+    # prompt — operators running with --yes can invoke the migration script
+    # manually. Also skipped if already matched (UID == GID).
+    if getent passwd audiobooks >/dev/null 2>&1; then
+        local _ab_uid _ab_gid
+        _ab_uid=$(getent passwd audiobooks | cut -d: -f3)
+        _ab_gid=$(getent passwd audiobooks | cut -d: -f4)
+        if [[ "$_ab_uid" != "$_ab_gid" ]] && [[ "$AUTO_YES" != "true" ]] && [[ "$DRY_RUN" != "true" ]]; then
+            echo ""
+            echo -e "${YELLOW}=== Service-account UID/GID not matched ===${NC}"
+            echo -e "  audiobooks UID=${_ab_uid} GID=${_ab_gid}"
+            echo "  Matched UID:GID simplifies Docker bind-mount portability and"
+            echo "  avoids the one-time host-side chown required when the canonical"
+            echo "  in-container UID differs from your host's audiobooks GID."
+            echo ""
+            read -rp "Align audiobooks UID == GID now? (runs migrate-audiobooks-uid.sh) [y/N]: " _ab_resp
+            if [[ "${_ab_resp,,}" == "y" || "${_ab_resp,,}" == "yes" ]]; then
+                local _migrator="${project}/scripts/migrate-audiobooks-uid.sh"
+                if [[ -x "$_migrator" ]]; then
+                    echo -e "${BLUE}Running UID/GID migration (auto-pick matched pair)...${NC}"
+                    sudo bash "$_migrator" || echo -e "${YELLOW}  migration returned nonzero — review above${NC}"
+                else
+                    echo -e "${YELLOW}  migrate-audiobooks-uid.sh not found — skipping${NC}"
+                fi
+            else
+                echo "  Skipped. Run 'sudo bash scripts/migrate-audiobooks-uid.sh' later if you change your mind."
+            fi
+            echo ""
+        fi
+    fi
+
     # Reconcile filesystem against install manifest. Default is enforce: the
     # items the reconciler acts on (PHANTOM_PATHS, legacy config keys listed
     # in CONFIG_CANONICAL_DEFAULTS, stale __pycache__) are explicitly marked
