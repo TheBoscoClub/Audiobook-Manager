@@ -1,4 +1,10 @@
+# ruff: noqa: F821
 # Vulture whitelist — auto-generated via `vulture library/ --make-whitelist`.
+#
+# The file-level suppression above silences "undefined name" across the whole
+# file: vulture's format is bare identifiers, which Python parses as implicit
+# reads of undefined globals. Vulture parses the file correctly on its own
+# terms; ruff just needs to be told to skip that single rule here.
 #
 # Vast majority are false positives: Flask route handlers (dispatched by URL
 # via @bp.route decorator, not called directly), pytest fixtures (resolved by
@@ -13,7 +19,7 @@
 #   vulture library/ .vulture_whitelist.py --min-confidence 60
 #
 # Findings outside this whitelist indicate genuinely unused code — remove it
-# or add a narrow `# noqa: vulture` inline.
+# or suppress it with a narrow inline comment recognized by vulture.
 
 APPROVED  # unused variable (library/auth/access_request.py:21)
 preferred_auth_method  # unused variable (library/auth/access_request.py:51)
