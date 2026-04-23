@@ -44,11 +44,17 @@ RELEASE_REQUIREMENTS_VERSION="8.3.8"
 # Missing "optional" → info log only.
 #
 # No literal secrets or endpoint IDs here — those are per-deployment.
+#
+# STT backend keys are deliberately NOT listed as project-level requirements.
+# The project supports multiple interchangeable STT backends — RunPod serverless,
+# Vast.ai serverless, local whisper-gpu service (CUDA/ROCm), or CPU-only
+# faster-whisper — and the choice is an operator deployment decision, not a
+# project contract. Functional readiness of whichever backend(s) the operator
+# configured is validated by smoke_probe.sh (_probe_stt_providers), not
+# declaratively here. DeepL is currently the only supported translation
+# backend, so its key remains a feature-gated project requirement.
 REQUIRED_CONFIG_KEYS=(
     "AUDIOBOOKS_DEEPL_API_KEY|required_for_feature|translation|DeepL API key for text translation (get one at https://www.deepl.com/pro-api)"
-    "AUDIOBOOKS_RUNPOD_API_KEY|required_for_feature|streaming|RunPod API key for serverless STT inference (https://www.runpod.io/console/user/settings)"
-    "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT|required_for_feature|streaming|RunPod endpoint ID for streaming Whisper (must be provisioned separately per deployment)"
-    "AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT|required_for_feature|streaming|RunPod endpoint ID for backlog Whisper (can share with streaming endpoint)"
     "AUDIOBOOKS_TTS_PROVIDER|optional|streaming|TTS engine selector (edge-tts / xtts / etc). Default: edge-tts"
 )
 

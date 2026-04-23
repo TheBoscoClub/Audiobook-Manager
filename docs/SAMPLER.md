@@ -50,16 +50,43 @@ A matching UPDATE trigger catches attempts to demote a sampler row after the fac
 
 When a user plays a cached sample in `zh-Hans`, we need to fire the live-translation pipeline early enough that the buffer catches up before the sample ends. Too early and we waste GPU money on casual browsers; too late and the GPU cold-start extends past the end of the sample and Qing sees a spinner.
 
-We resolve this adaptively based on **current RunPod streaming endpoint warmth**:
+We resolve this adaptively based on **current STT provider warmth** — aggregated across every STT backend the operator has configured (RunPod, Vast.ai, self-hosted whisper-gpu, etc.):
 
 | State | Threshold | Runway |
 |---|---|---|
-| Cold (workers.ready == 0) | Fire at segment 3 (90s in) | 4.5 min to end of sample — safest, covers worst-case 60s cold-start |
-| Warm (workers.ready ≥ 1) | Fire at segment 4 (120s in) | 4 min to end of sample — more cost-aware, user is more committed |
+| Cold (no provider has ready workers) | Fire at segment 3 (90s in) | 4.5 min to end of sample — safest, covers worst-case 60s cold-start |
+| Warm (at least one provider has ≥1 ready worker) | Fire at segment 4 (120s in) | 4 min to end of sample — more cost-aware, user is more committed |
 
 The frontend queries `GET /api/translate/warmth` to learn the current threshold, then calls `POST /api/translate/sampler/activate` once playback passes that segment. The server creates p0/p1 segments from `cursor+1` forward. The worker picks them up ahead of any p2 sampler work on other books.
 
-Warmth probe is cached server-side for 60s to bound RunPod health-endpoint traffic. Default on probe failure: assume cold (safer).
+The warmth response includes a `providers` array (`[{"name", "ready", "endpoint_id"}, ...]`) so the UI can surface per-provider state when helpful. Warm = **any** provider ready, so a single warm farm is enough to shorten the runway; this matches real behavior, where the dispatcher will pick the warm farm for the first call.
+
+Warmth probe is cached server-side for 60s to bound provider /health traffic. Default on probe failure (timeout, no key configured): assume cold (safer).
+
+### Provider options
+
+The project treats STT backend choice as an **operator deployment decision**, not a project contract. Any of the following work:
+
+- **RunPod serverless** — pay-per-second, no minimum spend, `AUDIOBOOKS_RUNPOD_*` keys
+- **Vast.ai serverless** — cheaper on some GPU classes, `AUDIOBOOKS_VASTAI_SERVERLESS_*` keys
+- **Self-hosted GPU Whisper service** — CUDA/ROCm/Apple Silicon machine on the LAN, `AUDIOBOOKS_WHISPER_GPU_HOST` + `AUDIOBOOKS_WHISPER_GPU_PORT`
+- **CPU-only `faster-whisper`** — no GPU, slower but zero operating cost; advanced deployment (requires wiring in the provider, see `library/localization/stt/`)
+
+Multiple backends can be configured at once. The pipeline **round-robins** across configured candidates by default (`AUDIOBOOKS_STT_DISTRIBUTION=round_robin`), so parallel workers spread the load across farms. Modes: `round_robin` (default), `random`, `primary` (pre-8.3.8 legacy — always picks the first candidate).
+
+See `docs/SERVERLESS-OPS.md` for endpoint provisioning and `docs/MULTI-LANGUAGE-SETUP.md` for the full configuration reference.
+
+### Backfill acceleration — sampler-burst.sh
+
+For backfills where many books need their 6-min sample translated at once (e.g., after adding a new locale to a 300-book library), `scripts/sampler-burst.sh` spawns N parallel `stream-translate-worker.py` processes that exit automatically when the queue drains. Combined with dual-provider round-robin, a 4-worker burst across 2 STT farms gives ~4× wall-clock speedup on a cold library:
+
+```bash
+# After a locale-addition reconcile, spawn 4 parallel workers to drain
+sudo systemctl stop audiobook-stream-translate.service   # free the queue
+sudo -u audiobooks /opt/audiobooks/scripts/sampler-burst.sh --workers 4
+# Or run reconcile + burst in one step
+sudo -u audiobooks python3 /opt/audiobooks/scripts/sampler-reconcile.py --burst 4
+```
 
 ## Triggers — when a sampler is enqueued
 
@@ -130,12 +157,12 @@ Books users don't touch past the sample never incur full-book cost. This is the 
 |---|---|---|
 | Sample button never appears on any card | No sampler has been enqueued for your locale. | Run `scripts/sampler-reconcile.py --locale X` |
 | Status stays `pending` forever | Streaming worker dead / start-limit-hit. | `systemctl status audiobook-stream-translate`; check recent journal |
-| Status stays `running` for hours | Worker can't reach RunPod (network / key wrong). | Check worker logs for HTTP 401/timeout from api.runpod.ai |
+| Status stays `running` for hours | Worker can't reach any configured STT backend (network / key wrong / no providers configured). | Check worker logs for HTTP 401/timeout against whichever backends the operator configured (api.runpod.ai, run.vast.ai, self-hosted whisper-gpu host, etc.) |
 | Status = `failed` | Worker hit an error it couldn't recover from on any segment. | Look at `sampler_jobs.error`; re-enqueue via the admin prefetch endpoint |
 | Sample plays but live buffer never fills | Adaptive threshold never fired — maybe JS error. | Browser dev tools: look for POST `/api/translate/sampler/activate` after segment 3 or 4 |
 
 ## Related docs
 
 - `docs/STREAMING-TRANSLATION.md` — how the live streaming pipeline works end-to-end
-- `docs/SERVERLESS-OPS.md` — RunPod and Vast.ai endpoint provisioning
+- `docs/SERVERLESS-OPS.md` — STT backend endpoint provisioning (RunPod, Vast.ai, self-hosted GPU recipes)
 - `docs/MULTI-LANGUAGE-SETUP.md` — enabling new locales

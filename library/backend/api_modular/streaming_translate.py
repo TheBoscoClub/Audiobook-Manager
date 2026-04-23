@@ -136,10 +136,11 @@ SAMPLER_MAX_EXTEND_SECONDS = 180  # 3 min — extend past 6 min to reach chapter
 SAMPLER_PRIORITY = 2
 
 # Adaptive buffer-fill threshold: when a user plays past this many segments
-# of the sample, fire the live-pipeline buffer fill so the GPU has runway to
-# catch up before the sample ends. Adaptive on RunPod worker warmth:
-#   - cold (workers.ready == 0): fire at segment 3 (more runway needed)
-#   - warm (workers.ready > 0):  fire at segment 4 (more cost-aware)
+# of the sample, fire the live-pipeline buffer fill so the STT pipeline has
+# runway to catch up before the sample ends. Adaptive on STT provider warmth
+# (aggregate across every configured provider — RunPod, Vast.ai, etc.):
+#   - cold (no provider has ready workers): fire at segment 3 (more runway needed)
+#   - warm (at least one provider has ready workers): fire at segment 4 (more cost-aware)
 # See docs/SAMPLER.md for the cold-start runway math.
 BUFFER_FILL_THRESHOLD_COLD = 3
 BUFFER_FILL_THRESHOLD_WARM = 4
@@ -1028,89 +1029,161 @@ def get_session_state(audiobook_id, locale):
     )
 
 
-# ─── RunPod warmth probe + buffer-fill threshold ─────────────────────────────
+# ─── STT warmth probe + buffer-fill threshold ───────────────────────────────
 
-# Cache (TTL 60s) to avoid hitting RunPod /health on every session creation.
-# Warm/cold state rarely flips faster than a minute — RunPod idle-worker decay
-# is measured in minutes, and warm-up on first request is also minutes.
-_RUNPOD_WARMTH_CACHE: dict = {"ts": 0.0, "streaming_ready": 0, "cold": True}
-_RUNPOD_WARMTH_TTL_SEC = 60
+# Cache (TTL 60s) to avoid hitting provider /health endpoints on every session
+# creation. Warm/cold state rarely flips faster than a minute — serverless
+# idle-worker decay is measured in minutes, and warm-up on first request is
+# also minutes.
+# Structure:
+#   {"ts": <epoch>,
+#    "streaming_ready": <int — combined across providers>,
+#    "cold": <bool — True iff every configured provider has 0 ready workers>,
+#    "providers": [{"name": "runpod", "ready": N, "endpoint_id": "xxx"}, ...]}
+_STT_WARMTH_CACHE: dict = {
+    "ts": 0.0,
+    "streaming_ready": 0,
+    "cold": True,
+    "providers": [],
+}
+_STT_WARMTH_TTL_SEC = 60
 
 
-def _probe_runpod_warmth() -> tuple[bool, int]:
-    """Query the configured RunPod streaming endpoint /health.
+def _probe_stt_warmth() -> tuple[bool, int, list[dict]]:
+    """Query every configured STT provider's streaming /health endpoint.
 
-    Returns ``(is_cold, ready_workers)``. Cached for 60s to bound cost.
-    If the endpoint can't be queried (no config, network error, timeout),
-    we return ``(True, 0)`` — safer to assume cold and give the user more
-    runway than to mis-trigger early.
+    Iterates known provider families (RunPod, Vast.ai serverless) — each
+    reports the RunPod-compatible ``{"workers": {"ready": N, ...}}`` shape.
+    Returns ``(is_cold, total_ready_workers, per_provider_list)``.
+
+    - ``is_cold`` is True iff every configured provider has 0 ready workers
+      (or none are configured).
+    - ``total_ready_workers`` is the sum across providers.
+    - ``per_provider_list`` is a list of ``{"name", "ready", "endpoint_id"}``
+      dicts for each configured provider, in the order RunPod → Vast.ai.
+
+    Cached for 60s to bound cost. If a provider can't be queried (network
+    error, timeout), that provider contributes 0 ready workers but does not
+    force ``is_cold=True`` if another provider has workers ready.
+
+    Returning three values (instead of the old two) is a superset — existing
+    callers that unpack only the first two still work.
     """
     import time
     import urllib.request
     import urllib.error
 
     now = time.time()
-    if now - _RUNPOD_WARMTH_CACHE["ts"] < _RUNPOD_WARMTH_TTL_SEC:
-        return _RUNPOD_WARMTH_CACHE["cold"], _RUNPOD_WARMTH_CACHE["streaming_ready"]
+    if now - _STT_WARMTH_CACHE["ts"] < _STT_WARMTH_TTL_SEC:
+        return (
+            _STT_WARMTH_CACHE["cold"],
+            _STT_WARMTH_CACHE["streaming_ready"],
+            list(_STT_WARMTH_CACHE["providers"]),
+        )
 
-    api_key = os.environ.get("AUDIOBOOKS_RUNPOD_API_KEY", "")
-    endpoint = os.environ.get("AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT", "")
-    if not api_key or not endpoint:
-        _RUNPOD_WARMTH_CACHE.update({"ts": now, "streaming_ready": 0, "cold": True})
-        return True, 0
+    providers: list[dict] = []
+    total_ready = 0
 
-    # URL is built from a hardcoded scheme/host ("https://api.runpod.ai/") and
-    # an admin-controlled env var (AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT);
-    # no user input reaches this URL. Authenticated with Bearer API key. Not SSRF.
-    url = f"https://api.runpod.ai/v2/{endpoint}/health"
-    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}"})
-    try:
-        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        with urllib.request.urlopen(req, timeout=3) as resp:  # nosec B310 — trusted api.runpod.ai host
-            import json as _json
+    def _probe_one(name: str, api_key: str, endpoint: str, base_url: str) -> dict | None:
+        """Probe a single {api_key, endpoint} pair; return summary dict or None."""
+        if not api_key or not endpoint:
+            return None
+        url = f"{base_url}/v2/{endpoint}/health"
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}"})
+        entry = {"name": name, "ready": 0, "endpoint_id": endpoint}
+        try:
+            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+            with urllib.request.urlopen(req, timeout=3) as resp:  # nosec B310 — trusted provider hosts
+                import json as _json
 
-            payload = _json.loads(resp.read().decode())
-    except (urllib.error.URLError, TimeoutError, ValueError) as e:
-        logger.debug("RunPod warmth probe failed: %s", e)
-        _RUNPOD_WARMTH_CACHE.update({"ts": now, "streaming_ready": 0, "cold": True})
-        return True, 0
+                payload = _json.loads(resp.read().decode())
+            workers = payload.get("workers", {}) or {}
+            entry["ready"] = int(workers.get("ready", 0))
+        except (urllib.error.URLError, TimeoutError, ValueError) as e:
+            logger.debug("%s warmth probe failed: %s", name, e)
+        return entry
 
-    workers = payload.get("workers", {}) or {}
-    ready = int(workers.get("ready", 0))
-    is_cold = ready == 0
-    _RUNPOD_WARMTH_CACHE.update({"ts": now, "streaming_ready": ready, "cold": is_cold})
-    return is_cold, ready
+    # RunPod serverless — trusted host api.runpod.ai
+    runpod_entry = _probe_one(
+        name="runpod",
+        api_key=os.environ.get("AUDIOBOOKS_RUNPOD_API_KEY", ""),
+        endpoint=os.environ.get("AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT", ""),
+        base_url="https://api.runpod.ai",
+    )
+    if runpod_entry is not None:
+        providers.append(runpod_entry)
+        total_ready += runpod_entry["ready"]
+
+    # Vast.ai serverless — trusted host run.vast.ai
+    vastai_entry = _probe_one(
+        name="vastai",
+        api_key=os.environ.get("AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY", ""),
+        endpoint=os.environ.get("AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT", ""),
+        base_url="https://run.vast.ai",
+    )
+    if vastai_entry is not None:
+        providers.append(vastai_entry)
+        total_ready += vastai_entry["ready"]
+
+    # Cold = no provider configured, or every configured provider has 0 ready.
+    is_cold = total_ready == 0
+    _STT_WARMTH_CACHE.update(
+        {"ts": now, "streaming_ready": total_ready, "cold": is_cold, "providers": providers}
+    )
+    return is_cold, total_ready, providers
+
+
+# Backwards-compat shim: any in-process caller still importing
+# _probe_runpod_warmth gets the new generalized probe and the first two
+# elements of its tuple. Tests assert against the new name; this shim keeps
+# the older name working for one release cycle.
+def _probe_runpod_warmth() -> tuple[bool, int]:
+    """Deprecated. Use ``_probe_stt_warmth`` — returns (cold, ready, providers).
+
+    Retained as a two-tuple wrapper so any legacy import path continues to
+    function. Will be removed once all callers have migrated.
+    """
+    cold, ready, _providers = _probe_stt_warmth()
+    return cold, ready
 
 
 def _buffer_fill_threshold() -> int:
     """Return the segment index at which the frontend should fire buffer-fill.
 
-    Adaptive on RunPod streaming-endpoint warmth:
-    - cold (workers.ready == 0) → fire at segment 3 (4.5 min runway)
-    - warm (workers.ready > 0)  → fire at segment 4 (4 min runway)
+    Adaptive on whichever STT provider(s) are configured — warm if ANY
+    configured provider has >=1 ready worker, cold otherwise:
+    - cold (no provider has ready workers) → fire at segment 3 (4.5 min runway)
+    - warm (at least one provider has workers ready) → fire at segment 4
+      (4 min runway)
 
     The 6-min sample (12 segments) gives the live pipeline enough time to
     catch up before the user reaches end-of-sample IF buffer-fill starts
     within the threshold runway. See docs/SAMPLER.md.
     """
-    cold, _ready = _probe_runpod_warmth()
+    cold, _ready, _providers = _probe_stt_warmth()
     return BUFFER_FILL_THRESHOLD_COLD if cold else BUFFER_FILL_THRESHOLD_WARM
 
 
 @streaming_bp.route("/api/translate/warmth", methods=["GET"])
 @guest_allowed
 def gpu_warmth():
-    """Expose current RunPod streaming endpoint warmth to the frontend.
+    """Expose current STT provider warmth to the frontend.
 
     Response:
-      ``{"cold": bool, "streaming_ready": int,
-         "buffer_fill_threshold": int}``
+      ``{"cold": bool,
+         "streaming_ready": int,             # total ready workers across providers
+         "buffer_fill_threshold": int,
+         "providers": [{"name": str, "ready": int, "endpoint_id": str}, ...]}``
+
+    Backwards-compatible: frontends that only consume ``cold``, ``streaming_ready``,
+    and ``buffer_fill_threshold`` work unchanged. The ``providers`` array is
+    additive, giving richer diagnostics when multiple STT backends are in use.
 
     Frontend uses ``buffer_fill_threshold`` to decide when, during sample
     playback, to fire ``/api/translate/sampler/activate`` to start the
     live pipeline.
     """
-    cold, ready = _probe_runpod_warmth()
+    cold, ready, providers = _probe_stt_warmth()
     return jsonify(
         {
             "cold": cold,
@@ -1118,6 +1191,7 @@ def gpu_warmth():
             "buffer_fill_threshold": BUFFER_FILL_THRESHOLD_COLD
             if cold
             else BUFFER_FILL_THRESHOLD_WARM,
+            "providers": providers,
         }
     )
 

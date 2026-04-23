@@ -268,8 +268,9 @@ the tier set expanded in v8.3.8 to give the sampler its own protected slot.
 
 The sampler runs continuously at p2 as books are ingested, but it never
 competes with live playback (p0/p1). When a user plays a sample and crosses
-the **adaptive buffer-fill threshold** (segment 3 if RunPod is cold, 4 if
-warm — see `docs/SAMPLER.md §Adaptive buffer-fill threshold`), the frontend
+the **adaptive buffer-fill threshold** (segment 3 if no configured STT
+provider has ready workers, 4 if any provider is warm — see `docs/SAMPLER.md
+§Adaptive buffer-fill threshold`), the frontend
 calls `POST /api/translate/sampler/activate`, which creates p0/p1 segments
 from the cursor forward. GPU cold-start happens while the user is still
 listening to the cached sample; by the time the 6-minute sample ends, the

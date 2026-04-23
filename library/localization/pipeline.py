@@ -13,6 +13,9 @@ reporting progress between chapters so the frontend can show
 """
 
 import logging
+import os
+import random
+import threading
 from collections.abc import Callable
 from pathlib import Path
 
@@ -152,9 +155,62 @@ def get_stt_provider(
             "AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT (backlog)."
         )
 
-    chosen = remote[0]
-    logger.info("Auto STT: selected %s (workload=%s)", chosen.name, workload.value)
+    # Dual-farm load sharing: when 2+ providers are configured, rotate between
+    # them so parallel workers naturally fan out across farms instead of
+    # hammering whichever one happens to be first in the priority list.
+    # Distribution mode is tunable:
+    #
+    #   AUDIOBOOKS_STT_DISTRIBUTION=round_robin  (default) — deterministic
+    #     cycling across a process-wide atomic counter. Best for N-worker burst
+    #     backfills where you want exact 50/50 split.
+    #   AUDIOBOOKS_STT_DISTRIBUTION=random       — uniform random choice.
+    #     Best when workers are spawned in waves / uneven lifetimes.
+    #   AUDIOBOOKS_STT_DISTRIBUTION=primary      — always pick remote[0]
+    #     (the pre-8.3.8 legacy behavior).
+    #
+    # In every mode the RETURNED provider is picked up from the full candidate
+    # list, so any provider-level fallback inside _transcribe_with_fallback
+    # still sees the same pool.
+    chosen = _select_from_candidates(remote)
+    logger.info(
+        "Auto STT: selected %s (workload=%s, candidates=%d)",
+        chosen.name,
+        workload.value,
+        len(remote),
+    )
     return chosen
+
+
+# Process-wide atomic counter for round-robin dispatch. `itertools.count()` is
+# thread-safe for `next()` on CPython thanks to the GIL; we still wrap it in
+# a lock so non-CPython interpreters (PyPy, future free-threaded CPython) keep
+# the same ordering guarantees.
+_RR_COUNTER = 0
+_RR_LOCK = threading.Lock()
+
+
+def _select_from_candidates(candidates: list[STTProvider]) -> STTProvider:
+    """Pick one provider from the configured candidate list.
+
+    With a single candidate this trivially returns it. With two or more,
+    honors ``AUDIOBOOKS_STT_DISTRIBUTION`` (round_robin | random | primary)
+    so parallel worker processes don't all land on the same farm.
+    """
+    if len(candidates) <= 1:
+        return candidates[0]
+
+    mode = (os.environ.get("AUDIOBOOKS_STT_DISTRIBUTION") or "round_robin").strip().lower()
+    if mode == "primary":
+        return candidates[0]
+    if mode == "random":
+        return random.choice(candidates)  # nosec B311 — load balancing, not security
+
+    # round_robin (default)
+    global _RR_COUNTER
+    with _RR_LOCK:
+        idx = _RR_COUNTER % len(candidates)
+        _RR_COUNTER += 1
+    return candidates[idx]
 
 
 def _stt_by_explicit_name(name: str) -> STTProvider | None:

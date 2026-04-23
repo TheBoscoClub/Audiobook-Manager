@@ -207,6 +207,19 @@ def main() -> int:
         "--dry-run", action="store_true", help="Log what would happen, enqueue nothing"
     )
     parser.add_argument("--verbose", "-v", action="store_true")
+    parser.add_argument(
+        "--burst",
+        type=int,
+        nargs="?",
+        const=4,
+        default=None,
+        metavar="N",
+        help=(
+            "After enqueueing, exec sampler-burst.sh to spawn N parallel workers "
+            "(default 4 if flag given without a value). Workers exit once the "
+            "queue drains. Not compatible with --dry-run."
+        ),
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -220,6 +233,34 @@ def main() -> int:
         return 1
 
     reconcile(args.db, args.locales, args.max_books, args.dry_run)
+
+    # --burst: fan out worker processes immediately to drain the queue we
+    # just enqueued. No-op on dry-run.
+    if args.burst is not None and not args.dry_run:
+        burst_script = _HERE / "sampler-burst.sh"
+        if not burst_script.is_file():
+            logging.warning(
+                "--burst requested but sampler-burst.sh not found at %s; "
+                "enqueue succeeded, but no burst workers spawned.",
+                burst_script,
+            )
+            return 0
+        if not os.access(str(burst_script), os.X_OK):
+            logging.warning(
+                "--burst requested but %s is not executable; enqueue succeeded, "
+                "but no burst workers spawned. Try: chmod +x %s",
+                burst_script,
+                burst_script,
+            )
+            return 0
+        logging.info("Exec'ing sampler-burst.sh with --workers %d", args.burst)
+        # os.execvp replaces this Python process — sampler-burst handles its
+        # own signal cleanup, so we don't need to wrap with subprocess.run.
+        os.execvp(  # nosec B606 — hardcoded sibling script path, int-validated workers
+            str(burst_script),
+            [str(burst_script), "--workers", str(args.burst)],
+        )
+
     return 0
 
 
