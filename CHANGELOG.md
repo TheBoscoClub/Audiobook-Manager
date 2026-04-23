@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8.1] - 2026-04-23
+
+### Fixed
+
+- **Release tarball missing critical directories**: `create-release.sh` used an explicit allowlist that had drifted from the project layout. The v8.3.8 GitHub tarball shipped at 1.2M instead of 2.4M — missing `data-migrations/`, `config-migrations/`, `caddy/`, `Dockerfile` + `docker-compose.yml` + `docker-entrypoint.sh`, `docs/`, `ACKNOWLEDGEMENTS.md`, and `bootstrap-install.sh`. Impact: any `--from-github` install or upgrade silently skipped every data migration (including 008 which ships the `sampler_jobs` table and `streaming_segments.origin` column), silently skipped config migrations, and omitted the Docker deployment artifacts. Allowlist expanded to cover all runtime-required directories plus `ACKNOWLEDGEMENTS.md` and user-facing `docs/`. Library + docs rsyncs now exclude Claude session artifacts (`.claude*`, `*.jsonl`) so nothing internal leaks in
+- **Release-requirements gate didn't catch whole-table features**: `scripts/release-requirements.sh` only declared required DB columns — migrations that add a whole new table (like `sampler_jobs` in 8.3.8) slipped past. Added `REQUIRED_DB_TABLES` array plus matching `missing_tables` report path; `scripts/smoke_probe.sh` extended to probe required tables. Both use `declare -p` guard so older envs running pre-8.3.8.1 release-requirements.sh stay backward-compatible
+
 ## [8.3.8] - 2026-04-23
 
 ### Added
@@ -3343,7 +3350,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.1...HEAD
+[8.3.8.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8...v8.3.8.1
 [8.3.8]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.7.1...v8.3.8
 [8.3.7.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.7...v8.3.7.1
 [8.3.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.6...v8.3.7

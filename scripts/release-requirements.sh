@@ -87,6 +87,19 @@ REQUIRED_DB_COLUMNS=(
     "audiobooks.chapter_count"
     "streaming_segments.retry_count"
     "streaming_segments.source_vtt_content"
+    "streaming_segments.origin"
+)
+
+# ─── Required DB tables ──────────────────────────────────────────────────────
+# Features that hinge on a whole new table (not just a column add). Missing →
+# upgrade fails. The data-migration dispatcher is responsible for creating
+# these; this list is the invariant it must produce.
+#
+# v8.3.8 shipped sampler_jobs via data-migration 008, then the GitHub release
+# tarball omitted data-migrations/ entirely — so every fresh install/upgrade
+# from the tarball was missing this table. This gate catches exactly that.
+REQUIRED_DB_TABLES=(
+    "sampler_jobs"
 )
 
 # ─── Validator ───────────────────────────────────────────────────────────────
@@ -152,6 +165,7 @@ validate_release_requirements() {
     done
 
     # ─── DB columns ───
+    local missing_tables=()
     if [[ -n "$db_path" ]] && [[ -f "$db_path" ]]; then
         local _sqlite_cmd="sqlite3"
         if [[ -n "$use_sudo" ]]; then
@@ -164,6 +178,15 @@ validate_release_requirements() {
             if ! $_sqlite_cmd "$db_path" "PRAGMA table_info(${table});" 2>/dev/null \
                 | awk -F'|' '{print $2}' | grep -qx "$column"; then
                 missing_columns+=("$entry")
+                hard_fail=1
+            fi
+        done
+        # ─── DB tables (whole-table features) ───
+        for tbl in "${REQUIRED_DB_TABLES[@]}"; do
+            if ! $_sqlite_cmd "$db_path" \
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='${tbl}';" \
+                2>/dev/null | grep -qx "$tbl"; then
+                missing_tables+=("$tbl")
                 hard_fail=1
             fi
         done
@@ -203,6 +226,15 @@ validate_release_requirements() {
         echo -e "  ${_red}✗ Required database columns missing:${_nc}"
         for col in "${missing_columns[@]}"; do
             echo -e "    ${_red}${col}${_nc}"
+        done
+        echo -e "  ${_yellow}  Re-run the data-migration dispatcher:${_nc}"
+        echo "    ./upgrade.sh --from-project . --target ${APP_DIR:-/opt/audiobooks} --yes --force"
+    fi
+
+    if [[ ${#missing_tables[@]} -gt 0 ]]; then
+        echo -e "  ${_red}✗ Required database tables missing:${_nc}"
+        for tbl in "${missing_tables[@]}"; do
+            echo -e "    ${_red}${tbl}${_nc}"
         done
         echo -e "  ${_yellow}  Re-run the data-migration dispatcher:${_nc}"
         echo "    ./upgrade.sh --from-project . --target ${APP_DIR:-/opt/audiobooks} --yes --force"

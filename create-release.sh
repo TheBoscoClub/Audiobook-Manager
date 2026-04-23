@@ -104,6 +104,7 @@ build_release() {
         --exclude='htmlcov' --exclude='.mypy_cache' --exclude='nohup.out' \
         --exclude='tests' --exclude='covers' --exclude='certs' \
         --exclude='.ruff_cache' --exclude='_archive' --exclude='.git' \
+        --exclude='.claude*' --exclude='*.jsonl' \
         "${SCRIPT_DIR}/library/" "${staging_dir}/library/"
 
     # Lib (shell config)
@@ -119,6 +120,38 @@ build_release() {
     log_info "Copying systemd units..."
     rsync -a "${SCRIPT_DIR}/systemd/" "${staging_dir}/systemd/"
 
+    # Config migrations (audiobooks.conf schema updates — apply_config_migrations
+    # in upgrade.sh iterates this directory; MUST ship in every release).
+    if [[ -d "${SCRIPT_DIR}/config-migrations" ]]; then
+        log_info "Copying config-migrations..."
+        rsync -a "${SCRIPT_DIR}/config-migrations/" "${staging_dir}/config-migrations/"
+    fi
+
+    # Data migrations (DB schema/state updates — apply_data_migrations in
+    # upgrade.sh iterates this directory. Omitting these silently breaks
+    # features gated on new tables/columns; v8.3.8 sampler feature was
+    # affected by this exact omission before v8.3.8.1).
+    if [[ -d "${SCRIPT_DIR}/data-migrations" ]]; then
+        log_info "Copying data-migrations..."
+        rsync -a "${SCRIPT_DIR}/data-migrations/" "${staging_dir}/data-migrations/"
+    fi
+
+    # Caddy (reverse-proxy config templates referenced by install.sh / upgrade.sh)
+    if [[ -d "${SCRIPT_DIR}/caddy" ]]; then
+        log_info "Copying caddy..."
+        rsync -a "${SCRIPT_DIR}/caddy/" "${staging_dir}/caddy/"
+    fi
+
+    # Docker deployment artifacts (optional deployment path for operators)
+    for docker_file in Dockerfile docker-compose.yml docker-entrypoint.sh .dockerignore; do
+        if [[ -f "${SCRIPT_DIR}/${docker_file}" ]]; then
+            cp "${SCRIPT_DIR}/${docker_file}" "${staging_dir}/"
+        fi
+    done
+    if [[ -d "${SCRIPT_DIR}/docker" ]]; then
+        rsync -a "${SCRIPT_DIR}/docker/" "${staging_dir}/docker/"
+    fi
+
     # Converter (AAXtoMP3)
     if [[ -d "${SCRIPT_DIR}/converter" ]]; then
         log_info "Copying converter..."
@@ -133,12 +166,28 @@ build_release() {
         rsync -a "${SCRIPT_DIR}/etc/" "${staging_dir}/etc/"
     fi
 
-    # Optional files
-    for file in README.md LICENSE CHANGELOG.md CONTRIBUTING.md .env.example; do
+    # Optional bootstrap/one-liner installer
+    if [[ -f "${SCRIPT_DIR}/bootstrap-install.sh" ]]; then
+        cp "${SCRIPT_DIR}/bootstrap-install.sh" "${staging_dir}/"
+        chmod 755 "${staging_dir}/bootstrap-install.sh"
+    fi
+
+    # Optional top-level docs
+    for file in README.md LICENSE CHANGELOG.md CONTRIBUTING.md ACKNOWLEDGEMENTS.md .env.example; do
         if [[ -f "${SCRIPT_DIR}/${file}" ]]; then
             cp "${SCRIPT_DIR}/${file}" "${staging_dir}/"
         fi
     done
+
+    # Top-level documentation directory (user-facing docs only; exclude
+    # Claude session artifacts and internal planning/superpowers notes).
+    if [[ -d "${SCRIPT_DIR}/docs" ]]; then
+        log_info "Copying docs..."
+        rsync -a \
+            --exclude='.claude*' --exclude='*.jsonl' \
+            --exclude='superpowers' --exclude='plans' \
+            "${SCRIPT_DIR}/docs/" "${staging_dir}/docs/"
+    fi
 
     # ---------------------------------------------------------------------
     # Create release metadata

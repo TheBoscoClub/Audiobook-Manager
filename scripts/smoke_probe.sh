@@ -197,6 +197,22 @@ _probe_db_schema() {
             _fail "DB column missing: $entry (data-migration did not apply)"
         fi
     done
+
+    # Whole-table invariants (e.g. sampler_jobs for v8.3.8). Missing/empty
+    # array means skip this block entirely — backward compatible with envs
+    # running an older release-requirements.sh.
+    if declare -p REQUIRED_DB_TABLES >/dev/null 2>&1 \
+        && [[ ${#REQUIRED_DB_TABLES[@]} -gt 0 ]]; then
+        for tbl in "${REQUIRED_DB_TABLES[@]}"; do
+            if $_sqlite_cmd "$db_path" \
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='${tbl}';" \
+                2>/dev/null | grep -qx "$tbl"; then
+                _pass "DB table: $tbl"
+            else
+                _fail "DB table missing: $tbl (data-migration did not apply)"
+            fi
+        done
+    fi
 }
 
 # ─── Probe 4: STT providers (provider-agnostic) ──────────────────────────────
