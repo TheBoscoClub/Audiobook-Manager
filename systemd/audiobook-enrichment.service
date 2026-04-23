@@ -10,7 +10,13 @@ Type=oneshot
 User=audiobooks
 Group=audiobooks
 
-# Load configuration
+# Load configuration — set canonical defaults BEFORE EnvironmentFile so that
+# an explicit user override in audiobooks.conf wins (systemd processes
+# Environment= and EnvironmentFile= in document order; last write wins).
+# AUDIOBOOKS_DATABASE is intentionally absent from audiobooks.conf (falls
+# through to Python config.py defaults), but the ExecStart shell-expansion
+# needs a real value, not an empty string.
+Environment=AUDIOBOOKS_DATABASE=/var/lib/audiobooks/db/audiobooks.db
 EnvironmentFile=-/etc/audiobooks/audiobooks.conf
 # HOME directory for audiobooks user
 Environment=HOME=/var/lib/audiobooks
