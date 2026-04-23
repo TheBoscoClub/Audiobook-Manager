@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8.3] - 2026-04-23
+
+### Added
+
+- **Shared `require_audiobooks_user()` helper**: new function in both `lib/audiobook-config.sh` (shell) and `library/config.py` (Python). Every script that reads/writes the audiobook DB, reads the operator config at `/etc/audiobooks/audiobooks.conf`, or spawns worker subprocesses now fails fast with a clear `sudo -u audiobooks <script>` diagnostic when invoked as any other account. The DB and config are `0640 audiobooks:audiobooks` by design; running as root or an interactive user bypasses the permission model the systemd units rely on. Applied to 13 scripts: `sampler-burst.sh`, `stream-translate-daemon.sh`, `audiobook-status`, `audiobook-purge-cache`, `audiobook-save-staging`, `audiobook-save-staging-auto`, `audiobook-translations`, `sampler-reconcile.py`, `stream-translate-worker.py`, `batch-translate.py`, `verify-translations.py`, `embed-cover-art.py`, `email-report.py` (last two use an inline copy of the helper — no `library/` `sys.path` setup in those)
+
+### Fixed
+
+- **`sampler-burst.sh` silent-drain bug**: `_pending_count()` used `sqlite3 ... || echo 0` — so a transient DB-query failure (e.g. running as a user without group membership) was interpreted as "queue drained" and the main loop exited immediately with `Queue drained after 0s` even with thousands of pending rows. Now returns `999999` on query failure so the loop keeps polling until its wall-clock timeout fires; the new user-gate catches the common case (wrong user) before spawning workers anyway
+- **`sampler-burst.sh` worker log path collision**: `/tmp/sampler-burst-N.log` was flat and unscoped, so a second user (or second invocation) hit `Permission denied` trying to overwrite files owned by whoever ran first. Now writes to `/tmp/sampler-burst-$$/worker-N.log` — per-invocation directory, no collisions
+- **Missing `/usr/local/lib/audiobooks` symlink on existing deployments**: `install.sh` creates `/usr/local/lib/audiobooks → ${target}/lib` on fresh installs, but three existing deployments were discovered without it (probably wiped by a historical partial uninstall). Without the symlink, any script that sources `audiobook-config.sh` from the canonical `/usr/local/lib` path fails with "file not found" on startup. Added defensive create in `upgrade.sh::audit_and_cleanup` so subsequent upgrades self-repair
+
 ## [8.3.8.2] - 2026-04-23
 
 ### Fixed
@@ -3360,7 +3372,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.3...HEAD
+[8.3.8.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.2...v8.3.8.3
 [8.3.8.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.1...v8.3.8.2
 [8.3.8.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8...v8.3.8.1
 [8.3.8]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.7.1...v8.3.8
