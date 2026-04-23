@@ -181,6 +181,7 @@
 }
 
 .btn-play,
+.btn-sample,
 .btn-download {
     flex: 1 1 0;
     min-width: 0;
@@ -203,6 +204,23 @@
 
 .btn-download {
     border-color: var(--emerald-light);
+}
+
+/* Sample affordance — distinct visual cue (sapphire) so users can
+   tell the 6-min preview apart from the full play button. */
+.btn-sample {
+    border-color: #3b7bbf;
+}
+.btn-sample:hover:not(:disabled) {
+    background: linear-gradient(180deg, #5a99d8 0%, #3b7bbf 40%, #24528a 100%);
+    color: var(--cream-light);
+    border-color: #5a99d8;
+    transform: translateY(-3px);
+    box-shadow: var(--btn-3d-hover), 0 0 10px rgba(59, 123, 191, 0.4);
+}
+.btn-sample:active:not(:disabled) {
+    transform: translateY(2px);
+    box-shadow: var(--btn-3d-pressed);
 }
 
 .btn-play:hover:not(:disabled) {

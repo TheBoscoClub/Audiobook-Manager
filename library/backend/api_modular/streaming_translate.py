@@ -22,12 +22,13 @@ import re
 import sqlite3
 import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import tempfile
+from datetime import UTC, datetime
 from pathlib import Path
 
 from flask import Blueprint, abort, g, jsonify, request, send_file
 from i18n import SUPPORTED_LOCALES
 
-from .auth import guest_allowed, localhost_only
+from .auth import admin_or_localhost, guest_allowed, localhost_only
 from .websocket import connection_manager
 
 streaming_bp = Blueprint("streaming_translate", __name__)
@@ -117,6 +118,31 @@ BUFFER_AHEAD_SEGMENTS = 6
 # knob (web JS, schema default, broadcast payloads). The two values must stay
 # equal — the web UI thresholds match the cursor-buffer semantic.
 BUFFER_THRESHOLD = BUFFER_AHEAD_SEGMENTS
+
+# 6-minute pretranslation sampler (v8.3.8). Per book × locale, translate the
+# opening of the book so non-EN listeners can preview it without waiting for
+# GPU cold-start, and so live playback has runway to catch up once the user
+# commits. Rule (confirmed 2026-04-23):
+#   - Sample AT LEAST 6 min (SAMPLER_MIN_SECONDS)
+#   - If the chapter containing the 6-min mark ends within SAMPLER_MAX_EXTEND_SECONDS
+#     of that mark, extend to the chapter boundary (cohesive sample)
+#   - Otherwise, stop exactly at 6 min (never translate mid-scene in a long chapter)
+# See _compute_sampler_range() for the concrete algorithm and traces.
+SAMPLER_MIN_SECONDS = 360          # 6 min — minimum sample length
+SAMPLER_MAX_EXTEND_SECONDS = 180   # 3 min — extend past 6 min to reach chapter boundary
+# Sampler always runs at priority 2. Live work (current book) uses 0/1.
+# Backlog / other bulk work uses 3. The DB-level trigger ABORTs any insert
+# or update that would land a sampler row at priority <2.
+SAMPLER_PRIORITY = 2
+
+# Adaptive buffer-fill threshold: when a user plays past this many segments
+# of the sample, fire the live-pipeline buffer fill so the GPU has runway to
+# catch up before the sample ends. Adaptive on RunPod worker warmth:
+#   - cold (workers.ready == 0): fire at segment 3 (more runway needed)
+#   - warm (workers.ready > 0):  fire at segment 4 (more cost-aware)
+# See docs/SAMPLER.md for the cold-start runway math.
+BUFFER_FILL_THRESHOLD_COLD = 3
+BUFFER_FILL_THRESHOLD_WARM = 4
 
 # Allowed locale patterns for path/log safety
 _SAFE_LOCALE_RE = re.compile(r"^[a-zA-Z]{2}(?:-[a-zA-Z0-9]{1,8})?$")
@@ -482,6 +508,36 @@ def _ensure_chapter_segments(
         int(priority),
     )
     return seg_count
+
+
+def _enqueue_sampler(db, audiobook_id: int, locale: str) -> dict:
+    """API-layer wrapper around ``localization.sampler.enqueue_sampler``.
+
+    Resolves chapter durations via the live ``_resolve_chapters`` memo (falls
+    back to uniform average if ffprobe data is missing — same graceful
+    degradation the live streaming path uses). All state mutation happens in
+    the shared helper so the scanner path can exercise identical semantics
+    without importing Flask.
+    """
+    from localization.sampler import enqueue_sampler as _shared_enqueue
+
+    bounds = _resolve_chapters(db, audiobook_id)
+    if bounds:
+        chapter_durations = [dur for _start, dur in bounds]
+    else:
+        book_dur = _get_book_duration_sec(db, audiobook_id)
+        chapter_count = _resolve_chapter_count(db, audiobook_id)
+        if book_dur <= 0 or chapter_count <= 0:
+            return {
+                "status": "error",
+                "reason": "cannot resolve book duration or chapter count",
+                "audiobook_id": audiobook_id,
+                "locale": locale,
+            }
+        per_ch = book_dur / chapter_count
+        chapter_durations = [per_ch] * chapter_count
+
+    return _shared_enqueue(db, audiobook_id, locale, chapter_durations)
 
 
 def _get_segment_bitmap(db, audiobook_id: int, chapter_index: int, locale: str) -> dict:
@@ -972,6 +1028,143 @@ def get_session_state(audiobook_id, locale):
     )
 
 
+# ─── RunPod warmth probe + buffer-fill threshold ─────────────────────────────
+
+# Cache (TTL 60s) to avoid hitting RunPod /health on every session creation.
+# Warm/cold state rarely flips faster than a minute — RunPod idle-worker decay
+# is measured in minutes, and warm-up on first request is also minutes.
+_RUNPOD_WARMTH_CACHE: dict = {"ts": 0.0, "streaming_ready": 0, "cold": True}
+_RUNPOD_WARMTH_TTL_SEC = 60
+
+
+def _probe_runpod_warmth() -> tuple[bool, int]:
+    """Query the configured RunPod streaming endpoint /health.
+
+    Returns ``(is_cold, ready_workers)``. Cached for 60s to bound cost.
+    If the endpoint can't be queried (no config, network error, timeout),
+    we return ``(True, 0)`` — safer to assume cold and give the user more
+    runway than to mis-trigger early.
+    """
+    import time
+    import urllib.request
+    import urllib.error
+
+    now = time.time()
+    if now - _RUNPOD_WARMTH_CACHE["ts"] < _RUNPOD_WARMTH_TTL_SEC:
+        return _RUNPOD_WARMTH_CACHE["cold"], _RUNPOD_WARMTH_CACHE["streaming_ready"]
+
+    api_key = os.environ.get("AUDIOBOOKS_RUNPOD_API_KEY", "")
+    endpoint = os.environ.get("AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT", "")
+    if not api_key or not endpoint:
+        _RUNPOD_WARMTH_CACHE.update({"ts": now, "streaming_ready": 0, "cold": True})
+        return True, 0
+
+    url = f"https://api.runpod.ai/v2/{endpoint}/health"
+    req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}"})
+    try:
+        with urllib.request.urlopen(req, timeout=3) as resp:  # nosec B310 — trusted api.runpod.ai host
+            import json as _json
+            payload = _json.loads(resp.read().decode())
+    except (urllib.error.URLError, TimeoutError, ValueError) as e:
+        logger.debug("RunPod warmth probe failed: %s", e)
+        _RUNPOD_WARMTH_CACHE.update({"ts": now, "streaming_ready": 0, "cold": True})
+        return True, 0
+
+    workers = payload.get("workers", {}) or {}
+    ready = int(workers.get("ready", 0))
+    is_cold = ready == 0
+    _RUNPOD_WARMTH_CACHE.update({"ts": now, "streaming_ready": ready, "cold": is_cold})
+    return is_cold, ready
+
+
+def _buffer_fill_threshold() -> int:
+    """Return the segment index at which the frontend should fire buffer-fill.
+
+    Adaptive on RunPod streaming-endpoint warmth:
+    - cold (workers.ready == 0) → fire at segment 3 (4.5 min runway)
+    - warm (workers.ready > 0)  → fire at segment 4 (4 min runway)
+
+    The 6-min sample (12 segments) gives the live pipeline enough time to
+    catch up before the user reaches end-of-sample IF buffer-fill starts
+    within the threshold runway. See docs/SAMPLER.md.
+    """
+    cold, _ready = _probe_runpod_warmth()
+    return BUFFER_FILL_THRESHOLD_COLD if cold else BUFFER_FILL_THRESHOLD_WARM
+
+
+@streaming_bp.route("/api/translate/warmth", methods=["GET"])
+@guest_allowed
+def gpu_warmth():
+    """Expose current RunPod streaming endpoint warmth to the frontend.
+
+    Response:
+      ``{"cold": bool, "streaming_ready": int,
+         "buffer_fill_threshold": int}``
+
+    Frontend uses ``buffer_fill_threshold`` to decide when, during sample
+    playback, to fire ``/api/translate/sampler/activate`` to start the
+    live pipeline.
+    """
+    cold, ready = _probe_runpod_warmth()
+    return jsonify({
+        "cold": cold,
+        "streaming_ready": ready,
+        "buffer_fill_threshold": BUFFER_FILL_THRESHOLD_COLD if cold else BUFFER_FILL_THRESHOLD_WARM,
+    })
+
+
+@streaming_bp.route("/api/translate/sampler/activate", methods=["POST"])
+@guest_allowed
+def sampler_activate():
+    """Frontend fires this once the user has played past the buffer-fill
+    threshold during sample playback. The server kicks off the live
+    translation pipeline from the cursor forward so the buffer is ready
+    by the time the user reaches end-of-sample.
+
+    Request body: ``{"audiobook_id": int, "locale": str, "chapter_index": int,
+                     "segment_index": int}``
+      ``segment_index`` is the last segment the user has confirmed listening
+      to — live fill starts at ``segment_index + 1`` forward.
+
+    Response: ``{"activated": bool, "cursor_segments_created": int}``
+
+    This path is idempotent and cheap: calling it multiple times on the same
+    (book, locale) only creates segments that don't already exist.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        audiobook_id = int(data.get("audiobook_id"))
+        locale = _sanitize_locale(data.get("locale"))
+        chapter_index = int(data.get("chapter_index", 0))
+        segment_index = int(data.get("segment_index", 0))
+    except (ValueError, TypeError):
+        return jsonify({"error": "audiobook_id, locale, chapter_index, segment_index required"}), 400
+
+    if locale not in SUPPORTED_LOCALES:
+        return jsonify({"error": "locale not supported"}), 400
+
+    db = _get_db()
+    # Ensure chapter segments exist at p0 (cursor), then p1 (forward chase).
+    # _ensure_chapter_segments is idempotent. For sampler-origin segments at
+    # segments < current cursor, we do NOT promote them to p0 — they stay at
+    # sampler priority so live playback of future segments gets served first.
+    # We create new p0/p1 rows for segments past the sampler scope.
+    created = _ensure_chapter_segments(db, audiobook_id, chapter_index, locale, priority=0)
+    # Chase priority for the next chapter so buffer stays ahead.
+    _ensure_chapter_segments(db, audiobook_id, chapter_index + 1, locale, priority=1)
+
+    logger.info(
+        "sampler activated: book=%d locale=%s ch=%d seg=%d (cursor segments=%d)",
+        int(audiobook_id), _safe_log_value(locale),
+        int(chapter_index), int(segment_index), int(created),
+    )
+
+    return jsonify({
+        "activated": True,
+        "cursor_segments_created": created,
+    })
+
+
 @streaming_bp.route("/api/translate/warmup", methods=["POST"])
 @guest_allowed
 def warmup_gpu():
@@ -1172,6 +1365,15 @@ def segment_complete():
         return jsonify({"error": "audio_path outside allowed root"}), 400
 
     db = _get_db()
+    # Capture origin before the state update so we can attribute this completion
+    # to the sampler_jobs row if it was a sampler-origin segment.
+    origin_row = db.execute(
+        "SELECT origin FROM streaming_segments "
+        "WHERE audiobook_id = ? AND chapter_index = ? AND segment_index = ? AND locale = ?",
+        (audiobook_id, chapter_index, segment_index, locale),
+    ).fetchone()
+    segment_origin = origin_row["origin"] if origin_row else "live"
+
     db.execute(
         "UPDATE streaming_segments SET state = 'completed', "
         "vtt_content = ?, source_vtt_content = ?, audio_path = ?, "
@@ -1187,6 +1389,25 @@ def segment_complete():
             locale,
         ),
     )
+
+    # Sampler accounting: if this completed segment came from the sampler,
+    # bump the matching sampler_jobs.segments_done counter and flip status
+    # to 'complete' once all target segments are in.
+    if segment_origin == "sampler":
+        now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+        db.execute(
+            "UPDATE sampler_jobs "
+            "SET segments_done = segments_done + 1, updated_at = ? "
+            "WHERE audiobook_id = ? AND locale = ?",
+            (now, audiobook_id, locale),
+        )
+        # Flip to 'complete' when segments_done >= segments_target.
+        db.execute(
+            "UPDATE sampler_jobs SET status = 'complete', updated_at = ? "
+            "WHERE audiobook_id = ? AND locale = ? "
+            "AND status = 'running' AND segments_done >= segments_target",
+            (now, audiobook_id, locale),
+        )
     db.commit()
 
     # Broadcast to WebSocket clients
@@ -1593,6 +1814,168 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
             _safe_log_value(locale),
             _safe_log_value(exc),
         )
+
+
+@streaming_bp.route("/api/translate/sampler/prefetch", methods=["POST"])
+@admin_or_localhost
+def sampler_prefetch():
+    """Enqueue a 6-minute sampler for (audiobook_id, locale).
+
+    Auth: ``@admin_or_localhost`` — admins hit this from the UI, scanner and
+    locale-add triggers hit it from the API host itself. Casual users don't
+    trigger sampler work (cost control).
+
+    Request body: ``{"audiobook_id": int, "locale": str}``
+    Response: the ``sampler_jobs`` row (id, status, segments_target,
+    segments_done, scope). Idempotent: re-hitting with an already-complete
+    (book, locale) returns status='complete' without side effects.
+    """
+    data = request.get_json(silent=True) or {}
+    try:
+        audiobook_id = int(data.get("audiobook_id"))
+        locale = _sanitize_locale(data.get("locale"))
+    except (ValueError, TypeError):
+        return jsonify({"error": "audiobook_id (int) and locale (str) required"}), 400
+
+    # Reject unknown locales to prevent enqueue-for-nonsense-locales.
+    if locale not in SUPPORTED_LOCALES:
+        return jsonify({
+            "error": "locale not supported",
+            "locale": locale,
+            "supported": sorted(SUPPORTED_LOCALES),
+        }), 400
+
+    db = _get_db()
+    result = _enqueue_sampler(db, audiobook_id, locale)
+    # Distinguish hard errors from soft skip/complete short-circuits.
+    status = result.get("status")
+    if status == "error":
+        return jsonify(result), 400
+    return jsonify(result), 200
+
+
+@streaming_bp.route("/api/translate/sampler/batch-status", methods=["GET"])
+@guest_allowed
+def sampler_batch_status():
+    """Bulk-query sampler job status for many books at once.
+
+    Called by library.js during ``applyBookTranslations`` to decide which
+    book cards show the "Play sample" affordance. Single-row queries would
+    mean ~2000 HTTP calls per library load; this batches them.
+
+    Query params:
+      - ``ids``: comma-separated audiobook ids (max 100 per call)
+      - ``locale``: non-EN locale to check
+
+    Response:
+      ``{"<id>": "complete" | "running" | "pending" | "failed" | "none", ...}``
+    """
+    ids_raw = request.args.get("ids", "")
+    locale_raw = request.args.get("locale", "")
+    try:
+        locale = _sanitize_locale(locale_raw)
+    except (ValueError, TypeError):
+        return jsonify({"error": "invalid locale"}), 400
+
+    ids: list[int] = []
+    for token in ids_raw.split(","):
+        token = token.strip()
+        if not token:
+            continue
+        try:
+            ids.append(int(token))
+        except ValueError:
+            return jsonify({"error": f"invalid id: {token}"}), 400
+
+    if not ids:
+        return jsonify({}), 200
+    if len(ids) > 100:
+        return jsonify({"error": "too many ids (max 100 per call)"}), 400
+
+    db = _get_db()
+    # Build placeholders safely — ids are ints validated above.
+    placeholders = ",".join("?" * len(ids))
+    rows = db.execute(
+        f"SELECT audiobook_id, status FROM sampler_jobs "
+        f"WHERE locale = ? AND audiobook_id IN ({placeholders})",
+        (locale, *ids),
+    ).fetchall()
+
+    result = {str(book_id): "none" for book_id in ids}
+    for r in rows:
+        result[str(r["audiobook_id"])] = r["status"]
+    return jsonify(result), 200
+
+
+@streaming_bp.route(
+    "/api/translate/sampler/status/<int:audiobook_id>/<locale>"
+)
+@guest_allowed
+def sampler_status(audiobook_id, locale):
+    """Return the sampler job state for (audiobook_id, locale).
+
+    Auth: ``@guest_allowed`` — readable by library-browse UI so each book
+    card knows whether to show the "Play sample" affordance.
+
+    Response:
+      - ``{"status": "none"}`` if no job exists
+      - full sampler_jobs row otherwise:
+        ``{"status": "pending|running|complete|failed",
+           "segments_target": N, "segments_done": M,
+           "progress": 0.0..1.0, "error": str|None,
+           "chapter_audio_urls": [...] when complete}``
+    """
+    try:
+        locale = _sanitize_locale(locale)
+    except (ValueError, TypeError):
+        return jsonify({"error": "invalid locale"}), 400
+
+    db = _get_db()
+    row = db.execute(
+        "SELECT id, status, segments_target, segments_done, error, created_at, updated_at "
+        "FROM sampler_jobs WHERE audiobook_id = ? AND locale = ?",
+        (audiobook_id, locale),
+    ).fetchone()
+
+    if row is None:
+        return jsonify({"status": "none", "audiobook_id": audiobook_id, "locale": locale}), 200
+
+    resp = {
+        "audiobook_id": audiobook_id,
+        "locale": locale,
+        "status": row["status"],
+        "segments_target": row["segments_target"],
+        "segments_done": row["segments_done"],
+        "progress": (
+            float(row["segments_done"]) / float(row["segments_target"])
+            if row["segments_target"] > 0 else 0.0
+        ),
+        "error": row["error"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+    # When complete, surface the chapter audio URLs the frontend can use for
+    # the instant-play affordance. The live path writes chapter_translations_audio
+    # rows as part of _consolidate_chapter; reuse that cache here.
+    if row["status"] == "complete":
+        chapters = db.execute(
+            "SELECT chapter_index, audio_path "
+            "FROM chapter_translations_audio "
+            "WHERE audiobook_id = ? AND locale = ? "
+            "ORDER BY chapter_index",
+            (audiobook_id, locale),
+        ).fetchall()
+        resp["chapter_audio_urls"] = [
+            {
+                "chapter_index": c["chapter_index"],
+                # Relative URL — frontend prepends /streaming-audio/ or uses
+                # the chapter_translations_audio-specific serve route.
+                "audio_path": c["audio_path"],
+            }
+            for c in chapters
+        ]
+    return jsonify(resp), 200
 
 
 @streaming_bp.route(

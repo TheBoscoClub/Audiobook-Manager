@@ -315,6 +315,68 @@ class AudiobookLibraryV2 {
       // Translation overlay is non-critical — fail silently
       console.warn("Book translation overlay failed:", e.message || e);
     }
+
+    // After text translation overlay, surface the "Play sample" affordance
+    // for books that have a completed sampler job in this locale. Non-EN only.
+    try {
+      await this.applySamplerAvailability();
+    } catch (e) {
+      console.warn("Sampler availability check failed:", e.message || e);
+    }
+  }
+
+  /**
+   * Flip .btn-sample visibility on book cards based on sampler_jobs.status.
+   * Runs after applyBookTranslations in non-EN locales. Hits the
+   * /api/translate/sampler/batch-status endpoint in chunks of 100.
+   */
+  async applySamplerAvailability() {
+    const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
+    // en* is the source locale — samples make no sense there.
+    if (!locale || locale.toLowerCase().startsWith("en")) {
+      // Ensure sample buttons are hidden when toggling back to EN.
+      document.querySelectorAll(".btn-sample").forEach((btn) => {
+        btn.style.display = "none";
+      });
+      return;
+    }
+
+    const allCards = document.querySelectorAll(".book-card[data-id]");
+    const visibleIds = [];
+    allCards.forEach((card) => {
+      const bookId = card.getAttribute("data-id");
+      if (bookId) visibleIds.push(bookId);
+    });
+    if (visibleIds.length === 0) return;
+
+    // Backend caps ?ids= at 100 per call. Chunk to match.
+    const CHUNK = 100;
+    const chunks = [];
+    for (let i = 0; i < visibleIds.length; i += CHUNK) {
+      chunks.push(visibleIds.slice(i, i + CHUNK));
+    }
+
+    const base = `${API_BASE}/translate/sampler/batch-status?locale=${encodeURIComponent(locale)}`;
+    const results = await Promise.all(
+      chunks.map((ids) =>
+        api.get(`${base}&ids=${ids.join(",")}`, { toast: false }).catch(() => ({}))
+      )
+    );
+
+    const statuses = {};
+    for (const part of results) {
+      if (part && typeof part === "object") Object.assign(statuses, part);
+    }
+
+    // Flip per-card: show the sample button ONLY if status === "complete".
+    allCards.forEach((card) => {
+      const bookId = card.getAttribute("data-id");
+      const status = statuses[bookId] || "none";
+      const btn = card.querySelector(".btn-sample");
+      if (!btn) return;
+      btn.dataset.sampleStatus = status;
+      btn.style.display = status === "complete" ? "" : "none";
+    });
   }
 
   /**
@@ -1899,6 +1961,7 @@ class AudiobookLibraryV2 {
                 }
                 <div class="book-actions">
                     <button class="btn-play" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, "&quot;")}, true)" title="${this.escapeHtml(hasContinue ? t("book.resumeFrom", { position: formatPlaybackTime(savedPosition.position) }) : t("book.playFromBeginning"))}">${this.escapeHtml(t("book.playFull"))}</button>
+                    <button class="btn-sample" style="display: none;" data-sample-status="unknown" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, "&quot;")}, true)" title="${this.escapeHtml(t("book.playSampleTooltip"))}">${this.escapeHtml(t("book.playSample"))}</button>
                     <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${bookId})" title="${this.escapeHtml(t("book.downloadTooltip"))}">
                         ${this.escapeHtml(t("book.downloadFull"))}
                     </button>

@@ -156,6 +156,8 @@
   "book.play": "Play",
   "book.playFromBeginning": "Play from beginning",
   "book.playFull": "▶ Play",
+  "book.playSample": "🎧 6-min Sample",
+  "book.playSampleTooltip": "Play the pretranslated 6-minute sample of this book in your selected language — no GPU wait.",
   "book.published": "Published",
   "book.publisher": "Publisher",
   "book.resume": "Resume",

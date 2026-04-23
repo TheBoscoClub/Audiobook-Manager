@@ -117,4 +117,25 @@ def insert_audiobook(
             (audiobook_id, topic_id),
         )
 
+    # Scan-time trigger for the 6-minute pretranslation sampler (v8.3.8).
+    # Enqueues sampler jobs for each enabled non-EN locale. Failures are
+    # logged and swallowed — sampler is an enrichment layer, a sampler error
+    # MUST NOT break book ingestion. See scanner/utils/sampler_hook.py.
+    file_path_for_sampler = metadata.get("file_path")
+    if audiobook_id and file_path_for_sampler:
+        try:
+            from scanner.utils.sampler_hook import enqueue_sampler_for_new_book
+
+            enqueue_sampler_for_new_book(conn, audiobook_id, file_path_for_sampler)
+        except Exception:
+            # Defensive: the hook already catches its own errors, but belt-and-
+            # suspenders in case an import or unexpected path fails early.
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "sampler hook exception (non-fatal) for book=%s",
+                audiobook_id,
+                exc_info=True,
+            )
+
     return audiobook_id

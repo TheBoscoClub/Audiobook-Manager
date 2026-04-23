@@ -480,13 +480,15 @@ CREATE TABLE IF NOT EXISTS streaming_segments (
     segment_index INTEGER NOT NULL,
     locale TEXT NOT NULL,
     state TEXT NOT NULL DEFAULT 'pending',   -- pending, processing, completed, failed
-    priority INTEGER NOT NULL DEFAULT 2,     -- 0=P0 cursor buffer, 1=P1 forward chase, 2=P2 back-fill
+    priority INTEGER NOT NULL DEFAULT 2,     -- 0=P0 cursor, 1=P1 chase, 2=sampler, 3=backlog
     worker_id TEXT,                          -- GPU worker identifier
     vtt_content TEXT,                        -- Translated VTT cues for this segment
     source_vtt_content TEXT,                 -- English (source) VTT cues for this segment
     audio_path TEXT,                         -- Path to TTS audio for this segment
     error TEXT,
     retry_count INTEGER NOT NULL DEFAULT 0,  -- Bounded retry budget (cap = 3)
+    origin TEXT NOT NULL DEFAULT 'live'      -- live | sampler | backlog — audit + invariant enforcement
+        CHECK (origin IN ('live','sampler','backlog')),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     started_at TIMESTAMP,
     completed_at TIMESTAMP,
@@ -497,6 +499,45 @@ CREATE TABLE IF NOT EXISTS streaming_segments (
 CREATE INDEX IF NOT EXISTS idx_streaming_seg_book ON streaming_segments(audiobook_id, locale);
 CREATE INDEX IF NOT EXISTS idx_streaming_seg_state ON streaming_segments(state, priority);
 CREATE INDEX IF NOT EXISTS idx_streaming_seg_chapter ON streaming_segments(audiobook_id, chapter_index, locale);
+
+-- Cross-column invariant: sampler rows MUST have priority >= 2. p0/p1 are
+-- reserved EXCLUSIVELY for live-playback work on the currently-playing book.
+-- SQLite doesn't support adding cross-column CHECK via ALTER TABLE, so the
+-- invariant is enforced by BEFORE INSERT/UPDATE triggers that ABORT on
+-- violation. Paired test in test_sampler_priority_invariant.py.
+CREATE TRIGGER IF NOT EXISTS streaming_segments_sampler_priority_ins
+BEFORE INSERT ON streaming_segments
+WHEN NEW.origin = 'sampler' AND NEW.priority < 2
+BEGIN
+    SELECT RAISE(ABORT, 'sampler rows must have priority >= 2 (p0/p1 reserved for live playback)');
+END;
+
+CREATE TRIGGER IF NOT EXISTS streaming_segments_sampler_priority_upd
+BEFORE UPDATE ON streaming_segments
+WHEN NEW.origin = 'sampler' AND NEW.priority < 2
+BEGIN
+    SELECT RAISE(ABORT, 'sampler rows must have priority >= 2 (p0/p1 reserved for live playback)');
+END;
+
+-- Per-book sampler job tracking. One row per (audiobook_id, locale). Drives
+-- the library-browse "Play sample" affordance (row exists AND status='complete'
+-- → show affordance). Also surfaces failure state for admin retry.
+CREATE TABLE IF NOT EXISTS sampler_jobs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    audiobook_id INTEGER NOT NULL,
+    locale TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',  -- pending, running, complete, failed
+    segments_target INTEGER NOT NULL,        -- how many segments the sampler aims to translate
+    segments_done INTEGER NOT NULL DEFAULT 0,
+    error TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(audiobook_id, locale),
+    FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sampler_jobs_status ON sampler_jobs(status);
+CREATE INDEX IF NOT EXISTS idx_sampler_jobs_locale ON sampler_jobs(locale, status);
 
 -- Streaming translation sessions — tracks an active streaming request
 -- from a player instance. Links a playback event to its segment work.

@@ -156,6 +156,8 @@
   "book.play": "播放",
   "book.playFromBeginning": "从头播放",
   "book.playFull": "▶ 播放",
+  "book.playSample": "🎧 六分钟试听",
+  "book.playSampleTooltip": "播放本书已预翻译的 6 分钟试听样本（您所选语言版本），无需等待 GPU 启动。",
   "book.published": "出版年份",
   "book.publisher": "出版社",
   "book.resume": "继续播放",
