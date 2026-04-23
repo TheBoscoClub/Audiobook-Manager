@@ -1795,6 +1795,16 @@ do_upgrade() {
         if [[ "$DRY_RUN" == "false" ]]; then
             sudo systemctl daemon-reload
 
+            # Clear any start-limit-hit / failed state on audiobook units so a
+            # pre-upgrade failure (caused by the OLD unit file, a missing venv,
+            # or a since-fixed config) doesn't persist past the upgrade and
+            # cause the smoke probe to incorrectly flag a healthy upgrade as
+            # broken. Confirmed case: v8.3.8 fixed enrichment unit's wrong
+            # venv path; without reset-failed, the old start-limit-hit state
+            # lingered and the probe reported "failed" even though the
+            # corrected unit would start cleanly on next trigger.
+            sudo systemctl reset-failed 'audiobook-*' 2>/dev/null || true
+
             # Enable and start the privileged helper path unit if not already running
             if [[ -f "/etc/systemd/system/audiobook-upgrade-helper.path" ]]; then
                 sudo systemctl enable audiobook-upgrade-helper.path 2>/dev/null || true
