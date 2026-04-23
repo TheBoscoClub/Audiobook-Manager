@@ -28,8 +28,14 @@ set -euo pipefail
 
 # ─── Config ──────────────────────────────────────────────────────────────────
 
-# Canonical audiobook-config.sh provides AUDIOBOOKS_* vars. Fall back to
-# project-tree values if run in dev.
+# Two-layer sourcing mirrors the systemd units (Environment= then
+# EnvironmentFile=): canonical DEFAULTS first (audiobook-config.sh), then
+# OPERATOR OVERRIDES on top (/etc/audiobooks/audiobooks.conf — contains the
+# library path override plus STT/DeepL/TTS backend credentials).
+#
+# Without this, burst workers inherit only the bare defaults and dispatch to
+# /srv/audiobooks/Library with no provider configured → every segment fails.
+
 CONFIG_LIB="/usr/local/lib/audiobooks/audiobook-config.sh"
 if [[ ! -f "$CONFIG_LIB" ]]; then
     # Dev-tree fallback (running from checkout).
@@ -40,6 +46,17 @@ if [[ ! -f "$CONFIG_LIB" ]]; then
 fi
 # shellcheck source=/dev/null
 [[ -f "$CONFIG_LIB" ]] && source "$CONFIG_LIB"
+
+# Operator overrides + provider credentials. set -a exports every assignment
+# so the spawned Python workers inherit AUDIOBOOKS_RUNPOD_*, AUDIOBOOKS_VASTAI_*,
+# AUDIOBOOKS_DEEPL_API_KEY, etc.
+CONFIG_ENV="${AUDIOBOOKS_CONFIG:-/etc/audiobooks/audiobooks.conf}"
+if [[ -f "$CONFIG_ENV" ]]; then
+    set -a
+    # shellcheck source=/dev/null
+    source "$CONFIG_ENV"
+    set +a
+fi
 
 : "${AUDIOBOOKS_HOME:=/opt/audiobooks}"
 : "${AUDIOBOOKS_VAR_DIR:=/var/lib/audiobooks}"
