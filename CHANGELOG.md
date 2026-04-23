@@ -34,6 +34,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Post-upgrade functional smoke probe** `scripts/smoke_probe.sh` — probes `systemctl is-active` (with expected-inactive whitelist for timer-triggered units), `/api/system/health` response, DB schema coverage, RunPod endpoint reachability. Wired into BOTH `upgrade.sh` success paths AND `install.sh`; hard-fails the workflow when the system isn't actually functional post-upgrade
 - **Schema migration 024** (`library/backend/migrations/024_streaming_origin_and_sampler.sql`) + matching data migration `data-migrations/008_streaming_origin_and_sampler.sh` — idempotent; verified on scratch SQLite
 - **install.sh streaming config stubs**: commented `AUDIOBOOKS_DEEPL_API_KEY`, `AUDIOBOOKS_RUNPOD_API_KEY`, `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT`, `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT`, `AUDIOBOOKS_TTS_PROVIDER` written into fresh `audiobooks.conf` so operators see the keys and know what to configure for streaming translation
+
+### Operator action required (one-time) — Docker bind-mount UID alignment
+
+The v8.3.8 Dockerfile canonicalizes the in-container `audiobooks` user to
+**UID 935 / GID 934** so the image is portable across hosts regardless of
+local `audiobooks` account numbering. Hosts whose local `audiobooks`
+account has a *different* UID/GID (common on older installs where the
+account was created before the canonical UID policy) need a one-time
+chown of the Docker bind-mount data directory before the container can
+read the existing DB:
+
+```bash
+sudo chown -R 935:934 /var/lib/audiobooks/docker-data
+sudo docker restart audiobooks-docker
+```
+
+Without this step, `docker-entrypoint.sh` cannot open the existing DB as
+the container's `audiobooks` user, falls through to `NEEDS_INIT=true`,
+and re-runs the full library scan (1-3 hours depending on library size).
+The scan is non-destructive — existing data is preserved — but the
+container won't be API-responsive until it finishes. Native app is
+unaffected (install.sh already enforces canonical UIDs end-to-end).
 - **Cachebust stamp automation** `scripts/bump-cachebust.sh` — one stamp per deploy, atomically rewrites every `?v=<stamp>` in `web-v2/*.html`. Wired into both `upgrade.sh` (after HTML sync, before service restart) and `install.sh`. Replaces the manual `?v=` bumping every JS/CSS change required — root cause of the recurring "user runs stale JS after a deploy" class of incident (v8.3.4 qalib 2000-ID URL-overflow 400 was one). Stamp validation rejects shell-injection inputs. 8 regression tests pin the rewrite contract + shellcheck cleanliness + upgrade/install wiring
 - **Profile preference live-apply** — `account.js::saveBrowsingPref` now dispatches `audiobooks:preference-changed` CustomEvent after persisting each preference. `library.js::_wirePreferenceLiveApply` listens and routes by key: `view_mode` → CSS class toggle (instant), `sort_order`/`items_per_page`/`content_filter` → re-apply + reload audiobooks. No hard browser refresh required. (Deferred since the Localization-RND merge, finally un-gated.)
 - **`docs/EMAIL-SETUP.md`** — end-to-end SMTP configuration guide covering Resend (recommended for thebosco.club deployments — cleanroom SES, no PGP wrap), Gmail (app-password requirement), Microsoft 365 / Outlook.com, Protonmail Bridge (with explicit callout of why it breaks Apple mail via `554 5.7.1 [CS01]`), generic MTA relay, mailx/s-nail smoke-test wrappers. STARTTLS vs implicit-SSL vs plaintext decision matrix. Common failure-mode table with diagnoses
