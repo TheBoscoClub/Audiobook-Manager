@@ -144,6 +144,36 @@ def _build_manifest(data: dict) -> dict:
     }
 
 
+def _chapter_audio_arcname(row) -> str:
+    """Per-book nested arcname for a chapter_translations_audio row.
+
+    Basename alone collides across books (e.g. every book's consolidated
+    translation is named chapter.webm); nest by (audiobook_id, chapter_index,
+    locale) to keep tar entries unique. The original extension is preserved so
+    the import side can detect codec on extract.
+    """
+    ext = Path(row["audio_path"]).suffix or ".webm"
+    return (
+        f"audio/chapter/{row['audiobook_id']}/"
+        f"ch{row['chapter_index']:03d}/{row['locale']}/chapter{ext}"
+    )
+
+
+def _streaming_segment_arcname(row) -> str:
+    """Per-segment nested arcname for a streaming_segments row.
+
+    Thousands of segments share basenames like seg0000.webm across different
+    books/chapters/locales; nest by (audiobook_id, chapter_index, locale,
+    segment_index) so every segment gets a unique tar entry.
+    """
+    ext = Path(row["audio_path"]).suffix or ".webm"
+    return (
+        f"audio/streaming/{row['audiobook_id']}/"
+        f"ch{row['chapter_index']:03d}/{row['locale']}/"
+        f"seg{row['segment_index']:04d}{ext}"
+    )
+
+
 def _write_tarball(output: str, manifest: dict, data: dict) -> None:
     """Write manifest.json + referenced VTT/audio files into the output tarball."""
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -153,24 +183,30 @@ def _write_tarball(output: str, manifest: dict, data: dict) -> None:
         with tarfile.open(output, "w:gz") as tar:
             tar.add(str(manifest_path), arcname="manifest.json")
 
-            seen_files: set[str] = set()
+            seen_arcs: set[str] = set()
             for row in list(data["en_subs"]) + list(data["subs"]):
                 vtt = row["vtt_path"]
-                if vtt and Path(vtt).exists() and vtt not in seen_files:
-                    tar.add(vtt, arcname=f"vtt/{Path(vtt).name}")
-                    seen_files.add(vtt)
+                if vtt and Path(vtt).exists():
+                    arc = f"vtt/{Path(vtt).name}"
+                    if arc not in seen_arcs:
+                        tar.add(vtt, arcname=arc)
+                        seen_arcs.add(arc)
 
             for row in data["audio"]:
                 ap = row["audio_path"]
-                if ap and Path(ap).exists() and ap not in seen_files:
-                    tar.add(ap, arcname=f"audio/{Path(ap).name}")
-                    seen_files.add(ap)
+                if ap and Path(ap).exists():
+                    arc = _chapter_audio_arcname(row)
+                    if arc not in seen_arcs:
+                        tar.add(ap, arcname=arc)
+                        seen_arcs.add(arc)
 
             for row in data["streaming"]:
                 sp = row["audio_path"]
-                if sp and Path(sp).exists() and sp not in seen_files:
-                    tar.add(sp, arcname=f"audio/streaming/{Path(sp).name}")
-                    seen_files.add(sp)
+                if sp and Path(sp).exists():
+                    arc = _streaming_segment_arcname(row)
+                    if arc not in seen_arcs:
+                        tar.add(sp, arcname=arc)
+                        seen_arcs.add(arc)
 
 
 def _print_export_summary(summary: dict, data: dict, output: str) -> None:
@@ -349,7 +385,11 @@ def _import_audio(
             continue
         old_path = aud["audio_path"]
         audio_name = Path(old_path).name if old_path else None
-        arc_key = f"audio/{audio_name}" if audio_name else None
+        # Prefer the nested arcname (post-fix tarballs); fall back to the
+        # flat basename for backward compatibility with older archives.
+        nested_arc = _chapter_audio_arcname(aud) if old_path else None
+        flat_arc = f"audio/{audio_name}" if audio_name else None
+        arc_key = nested_arc if (nested_arc and nested_arc in members) else flat_arc
         new_audio_path = _extract_file_to_dest(
             tar, members, arc_key, new_id, target_book_paths, "translated", audio_name, old_path
         )
@@ -373,18 +413,22 @@ def _extract_streaming_audio(
     tar: tarfile.TarFile,
     members: dict,
     arc_key: str | None,
-    filename: str | None,
-    default_path: str,
+    dest_path: Path,
 ) -> str:
-    """Extract a streaming-audio file to the shared flat streaming-audio dir."""
-    if not (arc_key and arc_key in members and filename):
-        return default_path
-    dest_dir = _streaming_audio_dir()
-    dest_dir.mkdir(parents=True, exist_ok=True)
-    dest_path = dest_dir / filename
+    """Extract a streaming-audio tar entry to its prod-local nested path.
+
+    `dest_path` is the full destination — typically
+    ``<streaming-audio>/<new_id>/ch<NNN>/<locale>/seg<NNNN>.<ext>``. The caller
+    passes a prod-local path already remapped through the audiobook_id map, so
+    segments on the target env don't reference the source env's audiobook IDs.
+    Returns the final path written. Returns "" when no tar member matches.
+    """
+    if not (arc_key and arc_key in members):
+        return ""
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
     tar_member = members[arc_key]
-    tar_member.name = filename
-    tar.extract(tar_member, path=str(dest_dir))
+    tar_member.name = dest_path.name
+    tar.extract(tar_member, path=str(dest_path.parent))
     return str(dest_path)
 
 
@@ -395,22 +439,48 @@ def _import_streaming_segments(
     manifest: dict,
     id_map: dict[int, int],
 ) -> int:
-    """Import streaming_segments rows + their opus files.
+    """Import streaming_segments rows + their audio files.
+
+    File layout on the target env mirrors the source env's nesting
+    (``<streaming-audio>/<audiobook_id>/ch<NNN>/<locale>/seg<NNNN>.<ext>``)
+    but uses the TARGET env's audiobook_id — rows and files stay consistent
+    after title-based ID remapping. Extensions (opus vs webm) are preserved
+    from the source row so codec detection on the target keeps working.
 
     Skipped (without warning) when the target DB lacks the table — pre-v8.3
     databases don't have it.
     """
     if not _table_exists(conn, "streaming_segments"):
         return 0
+    streaming_root = _streaming_audio_dir()
     count = 0
     for seg in manifest.get("streaming_segments", []):
         new_id = id_map.get(seg["audiobook_id"])
         if not new_id:
             continue
-        old_path = seg.get("audio_path")
-        audio_name = Path(old_path).name if old_path else None
-        arc_key = f"audio/streaming/{audio_name}" if audio_name else None
-        new_audio_path = _extract_streaming_audio(tar, members, arc_key, audio_name, old_path or "")
+        old_path = seg.get("audio_path") or ""
+        ext = Path(old_path).suffix or ".webm"
+        # Prefer the nested arcname (post-fix tarballs); fall back to the
+        # flat basename for archives built by older transfer.py.
+        nested_arc = _streaming_segment_arcname(seg) if old_path else None
+        flat_arc = (
+            f"audio/streaming/{Path(old_path).name}"
+            if old_path and (not nested_arc or nested_arc not in members)
+            else None
+        )
+        arc_key = nested_arc if (nested_arc and nested_arc in members) else flat_arc
+        dest_path = (
+            streaming_root
+            / str(new_id)
+            / f"ch{int(seg['chapter_index']):03d}"
+            / str(seg["locale"])
+            / f"seg{int(seg['segment_index']):04d}{ext}"
+        )
+        extracted = _extract_streaming_audio(tar, members, arc_key, dest_path)
+        # If no matching tar member, keep the original (source-env) path so
+        # the DB reflects reality — file won't exist locally, but rerunning
+        # import with a correct archive will overwrite.
+        new_audio_path = extracted or str(dest_path) or old_path
         conn.execute(
             _INSERT_STREAMING_SEGMENT,
             (

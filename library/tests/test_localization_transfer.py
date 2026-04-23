@@ -618,6 +618,216 @@ class TestStreamingSegmentsRoundTrip:
         summary = transfer.import_translations(str(tgt_db), str(archive))
         assert summary["streaming"] == 0  # silently skipped, no crash
 
+    def test_streaming_segments_no_basename_collisions(self, tmp_path, monkeypatch):
+        """Multi-book / multi-chapter / multi-segment export+import roundtrip
+        with basenames that collide on the flat naming scheme. A pre-fix
+        transfer.py would have dropped ~1,233 of 1,465 segments for the real
+        QA→prod migration; this test ensures nested arcnames keep every
+        segment distinct.
+        """
+        target_streaming_dir = tmp_path / "tgt_streaming"
+        monkeypatch.setenv("AUDIOBOOKS_STREAMING_AUDIO_DIR", str(target_streaming_dir))
+
+        src_db = tmp_path / "src.db"
+        _build_db(src_db)
+        src_streaming = tmp_path / "src_streaming"
+        # Two books, two chapters each, three segments each chapter — 12 rows.
+        # Every chapter uses seg0000/seg0001/seg0002 — same basenames across
+        # the matrix, which is exactly what QA's layout does in practice.
+        books = [(1, "The Fellowship of the Ring"), (2, "The Two Towers")]
+        conn = sqlite3.connect(str(src_db))
+        for book_id, title in books:
+            conn.execute(
+                "INSERT INTO audiobooks (id, title, file_path) VALUES (?, ?, ?)",
+                (book_id, title, f"/tmp/{title}.opus"),  # nosec B108 -- fixture only
+            )
+        expected: list[tuple[int, int, int, bytes]] = []
+        for book_id, _ in books:
+            for ch in (0, 1):
+                for seg in (0, 1, 2):
+                    seg_dir = src_streaming / str(book_id) / f"ch{ch:03d}" / "zh-Hans"
+                    seg_dir.mkdir(parents=True, exist_ok=True)
+                    seg_path = seg_dir / f"seg{seg:04d}.webm"
+                    content = f"book{book_id}-ch{ch}-seg{seg}".encode()
+                    seg_path.write_bytes(content)
+                    conn.execute(
+                        "INSERT INTO streaming_segments "
+                        "(audiobook_id, chapter_index, segment_index, locale, "
+                        " state, priority, worker_id, vtt_content, audio_path, completed_at) "
+                        "VALUES (?, ?, ?, ?, 'completed', 0, 'w', 'WEBVTT', ?, CURRENT_TIMESTAMP)",
+                        (book_id, ch, seg, "zh-Hans", str(seg_path)),
+                    )
+                    expected.append((book_id, ch, seg, content))
+        conn.commit()
+        conn.close()
+
+        archive = tmp_path / "bundle.tar.gz"
+        summary = transfer.export_translations(str(src_db), str(archive))
+        assert summary["streaming_segments"] == 12
+
+        # Tarball must have 12 DISTINCT streaming entries — one per segment.
+        with tarfile.open(str(archive), "r:gz") as tar:
+            arc_names = [m.name for m in tar.getmembers() if m.name.startswith("audio/streaming/")]
+        assert len(arc_names) == 12, f"expected 12 distinct arcs, got {len(arc_names)}: {arc_names}"
+        assert len(set(arc_names)) == 12, "arcnames must be unique — no basename collisions"
+
+        tgt_db = tmp_path / "tgt.db"
+        _build_db(tgt_db)
+        tgt_conn = sqlite3.connect(str(tgt_db))
+        # Target env uses DIFFERENT audiobook IDs for the same titles.
+        tgt_conn.execute(
+            "INSERT INTO audiobooks (id, title, file_path) VALUES (?, ?, ?)",
+            (1001, "The Fellowship of the Ring", "/tmp/f.opus"),  # nosec B108 -- fixture only
+        )
+        tgt_conn.execute(
+            "INSERT INTO audiobooks (id, title, file_path) VALUES (?, ?, ?)",
+            (1002, "The Two Towers", "/tmp/t.opus"),  # nosec B108 -- fixture only
+        )
+        tgt_conn.commit()
+        tgt_conn.close()
+
+        imp = transfer.import_translations(str(tgt_db), str(archive))
+        assert imp["streaming"] == 12, "every segment must import — pre-fix lost ~85%"
+
+        tgt_conn = sqlite3.connect(str(tgt_db))
+        rows = tgt_conn.execute(
+            "SELECT audiobook_id, chapter_index, segment_index, audio_path "
+            "FROM streaming_segments ORDER BY audiobook_id, chapter_index, segment_index"
+        ).fetchall()
+        tgt_conn.close()
+        id_map = {1: 1001, 2: 1002}
+        assert len(rows) == 12
+        for (new_id, ch, seg, ap), (old_id, old_ch, old_seg, content) in zip(
+            rows, sorted(expected), strict=True
+        ):
+            assert new_id == id_map[old_id], "ID remapped via title"
+            assert (ch, seg) == (old_ch, old_seg)
+            # Path uses TARGET env's audiobook_id + preserves nesting + extension.
+            assert ap.startswith(str(target_streaming_dir))
+            assert f"/{new_id}/ch{ch:03d}/zh-Hans/seg{seg:04d}.webm" in ap
+            assert Path(ap).exists(), f"file missing: {ap}"
+            assert Path(ap).read_bytes() == content, "content lost in extract"
+
+    def test_chapter_audio_no_basename_collisions(self, tmp_path):
+        """Two books each with a consolidated 'chapter.webm' must both land
+        on the target — pre-fix the second overwrote the first in the tar."""
+        src_db = tmp_path / "src.db"
+        _build_db(src_db)
+        src_audio = tmp_path / "src_audio"
+        src_audio.mkdir()
+        a1 = src_audio / "book1_chapter.webm"
+        a2 = src_audio / "book2_chapter.webm"
+        a1.write_bytes(b"book1-audio")
+        a2.write_bytes(b"book2-audio")
+        conn = sqlite3.connect(str(src_db))
+        for book_id, title, audio in [
+            (1, "The Fellowship of the Ring", a1),
+            (2, "The Two Towers", a2),
+        ]:
+            conn.execute(
+                "INSERT INTO audiobooks (id, title, file_path) VALUES (?, ?, ?)",
+                (book_id, title, str(audio)),
+            )
+            conn.execute(
+                "INSERT INTO chapter_translations_audio "
+                "(audiobook_id, chapter_index, locale, audio_path, "
+                " tts_provider, tts_voice, duration_seconds) "
+                "VALUES (?, 0, 'zh-Hans', ?, 'edge-tts', 'zh-CN-XiaoxiaoNeural', 1.0)",
+                (book_id, str(audio)),
+            )
+        conn.commit()
+        conn.close()
+
+        archive = tmp_path / "bundle.tar.gz"
+        transfer.export_translations(str(src_db), str(archive))
+
+        with tarfile.open(str(archive), "r:gz") as tar:
+            chapter_arcs = [m.name for m in tar.getmembers() if m.name.startswith("audio/chapter/")]
+        assert len(chapter_arcs) == 2
+        assert len(set(chapter_arcs)) == 2, "distinct per-book arcnames"
+
+        tgt_db = tmp_path / "tgt.db"
+        _build_db(tgt_db)
+        tgt_audio = tmp_path / "tgt_audio"
+        _populate_target(tgt_db, tgt_audio)
+        imp = transfer.import_translations(str(tgt_db), str(archive))
+        assert imp["audio"] == 2
+
+        tgt_conn = sqlite3.connect(str(tgt_db))
+        rows = tgt_conn.execute(
+            "SELECT audiobook_id, audio_path FROM chapter_translations_audio ORDER BY audiobook_id"
+        ).fetchall()
+        tgt_conn.close()
+        assert len(rows) == 2
+        for book_id, ap in rows:
+            assert Path(ap).exists(), f"file missing for book {book_id}: {ap}"
+        # Both books' contents survive; no overwrite.
+        contents = {Path(ap).read_bytes() for _, ap in rows}
+        assert contents == {b"book1-audio", b"book2-audio"}
+
+    def test_import_accepts_legacy_flat_arcnames(self, tmp_path, monkeypatch):
+        """Backward compat: tarballs built by pre-fix transfer.py used flat
+        arcnames (audio/streaming/<basename>). New import must still read them.
+        """
+        target_streaming_dir = tmp_path / "tgt_streaming"
+        monkeypatch.setenv("AUDIOBOOKS_STREAMING_AUDIO_DIR", str(target_streaming_dir))
+
+        # Hand-build a legacy-format tarball: one streaming segment at flat path.
+        src_seg = tmp_path / "seg0000.webm"
+        src_seg.write_bytes(b"legacy-flat-seg-bytes")
+        manifest = {
+            "books": {"1": {"title": "The Fellowship of the Ring"}},
+            "subtitles": [],
+            "translated_audio": [],
+            "streaming_segments": [
+                {
+                    "audiobook_id": 1,
+                    "chapter_index": 0,
+                    "segment_index": 0,
+                    "locale": "zh-Hans",
+                    "priority": 2,
+                    "worker_id": "w",
+                    "vtt_content": "WEBVTT",
+                    "audio_path": "/var/lib/audiobooks/streaming-audio/1/ch000/zh-Hans/seg0000.webm",
+                    "completed_at": "2026-04-22T00:00:00",
+                }
+            ],
+            "audiobook_translations": [],
+            "collection_translations": [],
+            "string_translations": [],
+        }
+        import json as _json
+
+        manifest_path = tmp_path / "manifest.json"
+        manifest_path.write_text(_json.dumps(manifest))
+        archive = tmp_path / "legacy.tar.gz"
+        with tarfile.open(str(archive), "w:gz") as tar:
+            tar.add(str(manifest_path), arcname="manifest.json")
+            tar.add(str(src_seg), arcname="audio/streaming/seg0000.webm")
+
+        tgt_db = tmp_path / "tgt.db"
+        _build_db(tgt_db)
+        conn = sqlite3.connect(str(tgt_db))
+        conn.execute(
+            "INSERT INTO audiobooks (id, title, file_path) VALUES (?, ?, ?)",
+            (101, "The Fellowship of the Ring", "/tmp/f.opus"),  # nosec B108 -- fixture only
+        )
+        conn.commit()
+        conn.close()
+
+        summary = transfer.import_translations(str(tgt_db), str(archive))
+        assert summary["streaming"] == 1
+
+        conn = sqlite3.connect(str(tgt_db))
+        ap = conn.execute("SELECT audio_path FROM streaming_segments").fetchone()[0]
+        conn.close()
+        # Even with a flat input arcname, import places the file at the nested
+        # target path and records that nested path in the DB.
+        assert ap.startswith(str(target_streaming_dir))
+        assert "/101/ch000/zh-Hans/seg0000.webm" in ap
+        assert Path(ap).exists()
+        assert Path(ap).read_bytes() == b"legacy-flat-seg-bytes"
+
 
 # ── CLI ────────────────────────────────────────────────────────────────
 
