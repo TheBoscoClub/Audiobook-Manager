@@ -2700,8 +2700,25 @@ do_github_upgrade() {
     fi
     echo ""
 
-    # Use the existing do_upgrade function with the extracted release
+    # Use the existing do_upgrade function with the extracted release.
+    # Same return-code-must-be-checked discipline as the local-project path:
+    # do_upgrade has errexit disabled internally, so sudo/rsync/space failures
+    # return nonzero without aborting; we must catch that here to avoid
+    # printing "Successfully upgraded" when no files actually changed.
     do_upgrade "$release_dir" "$target"
+    upgrade_rc=$?
+    if [[ "$upgrade_rc" -ne 0 ]]; then
+        echo ""
+        echo -e "${RED}=== GitHub upgrade FAILED (do_upgrade returned $upgrade_rc) ===${NC}"
+        echo -e "${RED}Release $install_version was downloaded and extracted, but file${NC}"
+        echo -e "${RED}sync into $target did NOT complete. Restarting services so the${NC}"
+        echo -e "${RED}machine doesn't stay offline, but the target is unchanged.${NC}"
+        if [[ "$SKIP_SERVICE_LIFECYCLE" != "true" ]]; then
+            start_services "$use_sudo"
+            _SERVICES_STOPPED=false
+        fi
+        exit "$upgrade_rc"
+    fi
 
     echo ""
 
@@ -2988,8 +3005,26 @@ if [[ "$SKIP_SERVICE_LIFECYCLE" != "true" ]]; then
 fi
 echo ""
 
-# Perform upgrade
+# Perform upgrade. `do_upgrade` disables errexit internally (functions like
+# compare_versions return nonzero for flow control), so the return code must
+# be captured and checked HERE — otherwise a mid-run failure (sudo credential
+# prompt in a non-interactive shell, rsync permission error, out-of-disk)
+# proceeds silently to "Upgrade complete!" with an unchanged target.
 do_upgrade "$PROJECT_DIR" "$TARGET_DIR"
+upgrade_rc=$?
+if [[ "$upgrade_rc" -ne 0 ]]; then
+    echo ""
+    echo -e "${RED}=== Upgrade FAILED (do_upgrade returned $upgrade_rc) ===${NC}"
+    echo -e "${RED}Target may be in a partial state — the installed version could still${NC}"
+    echo -e "${RED}be the OLD version, or some files may be new while others are old.${NC}"
+    echo -e "${RED}Restarting services to avoid leaving the machine offline, but do NOT${NC}"
+    echo -e "${RED}treat this as a successful upgrade.${NC}"
+    if [[ "$SKIP_SERVICE_LIFECYCLE" != "true" ]]; then
+        start_services "$use_sudo"
+        _SERVICES_STOPPED=false
+    fi
+    exit "$upgrade_rc"
+fi
 
 # Start services after upgrade
 echo ""

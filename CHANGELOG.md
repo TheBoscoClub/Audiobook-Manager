@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`upgrade.sh` no longer prints "Upgrade complete!" after a mid-run sudo failure**: both `do_upgrade` call sites (local-project path at `upgrade.sh:2992` and GitHub-release path at `upgrade.sh:2704`) discarded the function's return code. Because `do_upgrade` runs `set +e` internally (its flow control relies on nonzero returns from helpers like `compare_versions`), a sudo-credential prompt in a non-interactive shell, rsync permission error, or out-of-disk condition would cause `do_upgrade` to `return 1` — which the caller ignored, continuing straight to `start_services` + `validate_auth_post_upgrade` + `echo "Upgrade complete!"`. VERSION on disk remained at the OLD version while the UI and admin saw success. Surfaced during v8.3.7 prod upgrade in this release cycle when `sudo -v` prompted for a password the non-interactive shell couldn't supply: `sudo: a terminal is required to read the password`, `Error: Sudo access required` — followed immediately by the script cheerfully restarting services and declaring "Upgrade complete!" with 8.3.1 still on disk. Now both call sites capture `upgrade_rc=$?`, emit a loud red `=== Upgrade FAILED ===` banner when nonzero, still restart services so the machine doesn't stay offline, and `exit "$upgrade_rc"` so callers (release automation, systemd invocations, operators reading the log) see the real outcome
+
 ## [8.3.7] - 2026-04-21
 
 ### Added
