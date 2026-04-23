@@ -384,9 +384,7 @@ class TestPriorityAndStatus:
         assert result["state"] == "pending"
         assert result["priority"] == 10
 
-    def test_get_book_translation_status_defers_stale_failed_non_en(
-        self, audiobooks_db: Path
-    ):
+    def test_get_book_translation_status_defers_stale_failed_non_en(self, audiobooks_db: Path):
         """Legacy translation_queue failures for non-en locales must not surface
         as current status — they sit in the DB from the pre-streaming batch era
         (1,844 rows stamped 'No STT provider configured' on 2026-04-19 QA) and
@@ -410,9 +408,7 @@ class TestPriorityAndStatus:
         # No stale 'failed'/'error' field surfaces to the caller.
         assert "error" not in result
 
-    def test_get_book_translation_status_defers_stale_pending_non_en(
-        self, audiobooks_db: Path
-    ):
+    def test_get_book_translation_status_defers_stale_pending_non_en(self, audiobooks_db: Path):
         """Same deferral applies to stale 'pending'/'processing' rows on non-en
         locales — no active worker drains the legacy queue, so leaving them as
         visible 'pending' would keep the UI polling forever."""
@@ -428,9 +424,7 @@ class TestPriorityAndStatus:
         assert result is not None
         assert result["state"] == "deferred"
 
-    def test_get_book_translation_status_passes_failed_en_unchanged(
-        self, audiobooks_db: Path
-    ):
+    def test_get_book_translation_status_passes_failed_en_unchanged(self, audiobooks_db: Path):
         """English-locale failures are *not* deferred — there's no streaming
         replacement for the en pipeline (en subtitles come from Whisper STT
         direct, not translation), so surfacing the real failure is correct."""
@@ -448,9 +442,7 @@ class TestPriorityAndStatus:
         assert result["state"] == "failed"
         assert result["error"] == "Whisper STT crashed"
 
-    def test_get_book_translation_status_completed_non_en_passes_through(
-        self, audiobooks_db: Path
-    ):
+    def test_get_book_translation_status_completed_non_en_passes_through(self, audiobooks_db: Path):
         """A legitimately-completed legacy row (e.g. VTT files exist on disk
         from a successful batch run) must still pass through — the UI reads it
         to hide the banner, not to show an error."""

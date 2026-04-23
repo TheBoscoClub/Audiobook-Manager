@@ -100,7 +100,7 @@ class LocalGPUWhisperSTT(STTProvider):
         try:
             resp = requests.get(f"{self._base_url}/health", timeout=3)
             return resp.ok and resp.json().get("status") == "ok"
-        except (requests.ConnectionError, requests.Timeout):
+        except (requests.ConnectionError, requests.Timeout):  # fmt: skip
             return False
 
     def transcribe(self, audio_path: Path, language: str = "en") -> Transcript:

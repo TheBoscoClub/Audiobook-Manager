@@ -112,7 +112,7 @@ validate_release_requirements() {
     # ─── Config keys ───
     if [[ -f "$conf_file" ]]; then
         for entry in "${REQUIRED_CONFIG_KEYS[@]}"; do
-            IFS='|' read -r key severity feature purpose <<< "$entry"
+            IFS='|' read -r key severity feature purpose <<<"$entry"
             local value=""
             value=$(grep -oP "^${key}=\K.*" "$conf_file" 2>/dev/null | head -1)
             value="${value%\"}"
@@ -128,7 +128,7 @@ validate_release_requirements() {
                         soft_warn=1
                         ;;
                     *)
-                        ;;  # optional — info only
+                        ;; # optional — info only
                 esac
             fi
         done
@@ -167,7 +167,7 @@ validate_release_requirements() {
     if [[ ${#missing_keys[@]} -gt 0 ]]; then
         echo -e "  ${_red}✗ Required config keys missing:${_nc}"
         for entry in "${missing_keys[@]}"; do
-            IFS='|' read -r key sev purpose <<< "$entry"
+            IFS='|' read -r key sev purpose <<<"$entry"
             echo -e "    ${_red}${key}${_nc} — $purpose"
             echo "      Add to $conf_file:"
             echo "      ${key}=\"<value>\""
@@ -177,7 +177,7 @@ validate_release_requirements() {
     if [[ ${#disabled_by_missing_key[@]} -gt 0 ]]; then
         echo -e "  ${_yellow}⚠ Optional features disabled by missing config:${_nc}"
         for entry in "${disabled_by_missing_key[@]}"; do
-            IFS='|' read -r feature_key purpose <<< "$entry"
+            IFS='|' read -r feature_key purpose <<<"$entry"
             local feature="${feature_key%%:*}"
             local key="${feature_key##*:}"
             echo -e "    ${_yellow}${feature}${_nc}: missing ${key}"

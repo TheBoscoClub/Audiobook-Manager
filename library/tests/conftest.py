@@ -83,7 +83,7 @@ def _get_project_major_version():
     try:
         version_str = version_file.read_text().strip()
         return int(version_str.split(".")[0])
-    except (FileNotFoundError, ValueError, IndexError):
+    except (FileNotFoundError, ValueError, IndexError):  # fmt: skip
         return 0
 
 
@@ -212,7 +212,7 @@ def ensure_vm_running():
         result = subprocess.run(
             ["sudo", "virsh", "domstate", VM_NAME], capture_output=True, text=True, timeout=10
         )
-    except (FileNotFoundError, subprocess.TimeoutExpired):
+    except (FileNotFoundError, subprocess.TimeoutExpired):  # fmt: skip
         pytest.skip("virsh not available or timed out")
         return
 

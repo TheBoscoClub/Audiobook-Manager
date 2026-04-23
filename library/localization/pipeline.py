@@ -80,9 +80,7 @@ def _remote_stt_candidates(workload: WorkloadHint = WorkloadHint.ANY) -> list[ST
             providers.append(WhisperSTT(RUNPOD_API_KEY, RUNPOD_STREAMING_WHISPER_ENDPOINT))
         if VASTAI_SERVERLESS_API_KEY and VASTAI_SERVERLESS_STREAMING_ENDPOINT:
             providers.append(
-                VastaiServerlessSTT(
-                    VASTAI_SERVERLESS_API_KEY, VASTAI_SERVERLESS_STREAMING_ENDPOINT
-                )
+                VastaiServerlessSTT(VASTAI_SERVERLESS_API_KEY, VASTAI_SERVERLESS_STREAMING_ENDPOINT)
             )
     else:
         if RUNPOD_API_KEY and RUNPOD_BACKLOG_WHISPER_ENDPOINT:

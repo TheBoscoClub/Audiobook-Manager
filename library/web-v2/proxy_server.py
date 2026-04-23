@@ -216,7 +216,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         try:
             content_type = self._resolve_cover_content_type(filename)
             self._send_cover_response(cover_path, content_type)
-        except (OSError, BrokenPipeError):
+        except (OSError, BrokenPipeError):  # fmt: skip
             pass
 
     def do_POST(self):
@@ -437,9 +437,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(error_body)
 
         except urllib.error.URLError as e:
-            self.log_message(
-                "URLError proxying %s %s: %s", method, api_url, e.reason
-            )
+            self.log_message("URLError proxying %s %s: %s", method, api_url, e.reason)
             self._send_json_error(
                 503, "Service Unavailable", f"API server not reachable: {str(e.reason)}"
             )

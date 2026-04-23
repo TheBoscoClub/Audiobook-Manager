@@ -1,6 +1,19 @@
 #!/bin/bash
 # bump-cachebust.sh — Rewrite ?v=<digits> cachebust stamps in HTML entrypoints.
 #
+# EXCEPTION (per upgrade-consistency.md "New-Script Wiring Enforcement"):
+# This is a standalone build-time helper invoked directly by install.sh and
+# upgrade.sh (shell-out) immediately before the web service restarts. It is
+# an internal deploy helper — NOT a long-running service and NOT a user-facing
+# CLI. Therefore it intentionally has:
+#   - No systemd unit (not a daemon, not timer-driven, runs synchronously)
+#   - No symlink from /usr/local/bin (internal to the install/upgrade flow,
+#     never run by end users or operators directly)
+#   - No install-manifest.sh entry for a system location (it is copied into
+#     /opt/audiobooks/scripts/ alongside the other internal helpers and lives
+#     only as a source-of-truth file shipped with the install)
+# Documented exception per upgrade-consistency.md new-script wiring rule.
+#
 # Run by upgrade.sh and install.sh after HTML files have been synced into the
 # target and before the web service restarts. Fixes the recurring
 # "stale browsers run old JS" bug that previously required manual bumps of
@@ -72,7 +85,7 @@ for file in "$TARGET_DIR"/*.html; do
     fi
     tmp=$(mktemp "${file}.XXXXXX")
     # Write new content to tmp, then atomic rename.
-    if ! sed "s/?v=[A-Za-z0-9._-]\+/?v=${STAMP}/g" "$file" > "$tmp"; then
+    if ! sed "s/?v=[A-Za-z0-9._-]\+/?v=${STAMP}/g" "$file" >"$tmp"; then
         rm -f "$tmp"
         echo "ERROR: sed failed on $file" >&2
         exit 1

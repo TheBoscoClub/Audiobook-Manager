@@ -31,9 +31,7 @@ EXCLUDE_DIRS = {"venv", ".snapshots", "__pycache__", ".pytest_cache", ".ruff_cac
 # namespaces (e.g. `subprocess.TimeoutExpired`), later segments match either
 # case. Each segment must start with a letter/underscore.
 _ID = r"[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*"
-EXCEPT_COMMA_RE = re.compile(
-    rf"^\s*except\s+{_ID}(?:\s*,\s*{_ID})+\s*:"
-)
+EXCEPT_COMMA_RE = re.compile(rf"^\s*except\s+{_ID}(?:\s*,\s*{_ID})+\s*:")
 
 
 def _iter_python_files() -> list[Path]:
@@ -55,7 +53,7 @@ def test_no_py2_except_comma_regression() -> None:
     for path in _iter_python_files():
         try:
             text = path.read_text(encoding="utf-8")
-        except (UnicodeDecodeError, OSError):
+        except (UnicodeDecodeError, OSError):  # fmt: skip
             continue
         for lineno, line in enumerate(text.splitlines(), start=1):
             if EXCEPT_COMMA_RE.match(line):
@@ -64,8 +62,7 @@ def test_no_py2_except_comma_regression() -> None:
     assert not offenders, (
         "Found Py2-style `except A, B:` patterns — these silently swallow "
         "only the FIRST exception (Python 3 parses `except A, B:` as "
-        "`except A as B:`). Convert to `except (A, B):`:\n"
-        + "\n".join(offenders)
+        "`except A as B:`). Convert to `except (A, B):`:\n" + "\n".join(offenders)
     )
 
 
@@ -92,9 +89,7 @@ def test_guard_scanner_allows_correct_pattern() -> None:
         "            # except OSError, RuntimeError: (historical fix note)",
     ]
     for line in good_lines:
-        assert not EXCEPT_COMMA_RE.match(line), (
-            f"regex falsely matched valid line: {line!r}"
-        )
+        assert not EXCEPT_COMMA_RE.match(line), f"regex falsely matched valid line: {line!r}"
 
 
 if __name__ == "__main__":

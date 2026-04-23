@@ -75,9 +75,7 @@ def test_bumper_rewrites_cachebust_stamps(tmp_path):
 
 def test_bumper_idempotent(tmp_path):
     """Running the bumper twice with the same stamp produces the same result."""
-    (tmp_path / "index.html").write_text(
-        '<script src="js/x.js?v=old"></script>\n'
-    )
+    (tmp_path / "index.html").write_text('<script src="js/x.js?v=old"></script>\n')
     subprocess.run([str(BUMPER), "STAMP1", str(tmp_path)], check=True)
     content_after_first = (tmp_path / "index.html").read_text()
     subprocess.run([str(BUMPER), "STAMP1", str(tmp_path)], check=True)
@@ -121,9 +119,7 @@ def test_upgrade_sh_invokes_bumper_before_service_restart():
         "upgrade.sh must invoke scripts/bump-cachebust.sh so HTML cachebust "
         "stamps get bumped on every deploy."
     )
-    assert re.search(
-        r'stamp=\$\(date\s+\+%s\)', upgrade
-    ), (
+    assert re.search(r"stamp=\$\(date\s+\+%s\)", upgrade), (
         "upgrade.sh's cachebust step must use $(date +%s) as the stamp so every "
         "deploy gets a distinct monotonic cache key."
     )
@@ -141,6 +137,7 @@ def test_bumper_shellcheck_clean():
     """bump-cachebust.sh must have no shellcheck errors."""
     if not os.path.exists("/usr/bin/shellcheck"):
         import pytest
+
         pytest.skip("shellcheck not installed")
     result = subprocess.run(
         ["shellcheck", "-s", "bash", str(BUMPER)],

@@ -368,7 +368,7 @@ class GooglePlayProcessor:
         if "TDRC" in tags:
             try:
                 metadata["year"] = int(str(tags["TDRC"])[:4])
-            except (ValueError, TypeError):
+            except (ValueError, TypeError):  # fmt: skip
                 pass  # Non-critical: year is optional metadata
 
     def _extract_m4a_tags(self, tags: Dict, metadata: Dict):
@@ -382,7 +382,7 @@ class GooglePlayProcessor:
         if "\xa9day" in tags:
             try:
                 metadata["year"] = int(str(tags["\xa9day"][0])[:4])
-            except (ValueError, TypeError, IndexError):
+            except (ValueError, TypeError, IndexError):  # fmt: skip
                 pass  # Non-critical: year is optional metadata
 
     def _extract_m4a_title(self, tags: Dict, metadata: Dict):
@@ -789,7 +789,7 @@ def main():
     # Check for FFmpeg
     try:
         subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except (subprocess.CalledProcessError, FileNotFoundError):  # fmt: skip
         print("Error: FFmpeg not found. Please install FFmpeg.")
         sys.exit(1)
 

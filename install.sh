@@ -1971,7 +1971,7 @@ EOF
     fi
     if [[ -f "${SCRIPT_DIR}/scripts/smoke_probe.sh" ]]; then
         local _new_version
-        _new_version=$(tr -d '[:space:]' < "${SCRIPT_DIR}/VERSION" 2>/dev/null || echo "")
+        _new_version=$(tr -d '[:space:]' <"${SCRIPT_DIR}/VERSION" 2>/dev/null || echo "")
         DB_PATH="${DB_PATH:-/var/lib/audiobooks/db/audiobooks.db}" \
             USE_SUDO="sudo" \
             EXPECTED_VERSION="$_new_version" \

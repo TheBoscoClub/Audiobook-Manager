@@ -64,7 +64,7 @@ def _parse_date(value: str | None) -> date | None:
         return None
     try:
         return date.fromisoformat(value)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fmt: skip
         return None
 
 
@@ -77,11 +77,11 @@ def _parse_pagination(args):
     """Parse limit and offset from request args with defaults and bounds."""
     try:
         limit = max(1, min(int(args.get("limit", 50)), 200))
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fmt: skip
         limit = 50
     try:
         offset = max(0, int(args.get("offset", 0)))
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fmt: skip
         offset = 0
     return limit, offset
 
@@ -208,7 +208,7 @@ def get_activity():
     if audiobook_id_filter is not None:
         try:
             audiobook_id_filter = str(int(audiobook_id_filter))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError):  # fmt: skip
             return jsonify({"error": "audiobook_id must be a number"}), 400
 
     # Build filters and SQL
@@ -349,7 +349,7 @@ def _get_book_titles(audiobook_ids: set) -> dict[str, str | None]:
     for aid in audiobook_ids:
         try:
             int_ids.append(int(aid))
-        except (ValueError, TypeError):
+        except (ValueError, TypeError):  # fmt: skip
             continue
 
     if not int_ids:
@@ -357,7 +357,7 @@ def _get_book_titles(audiobook_ids: set) -> dict[str, str | None]:
 
     try:
         conn = _get_library_db()
-    except (RuntimeError, OSError):
+    except (RuntimeError, OSError):  # fmt: skip
         return {}
 
     try:

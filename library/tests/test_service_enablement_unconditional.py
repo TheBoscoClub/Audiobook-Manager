@@ -102,7 +102,7 @@ def test_enable_new_services_does_not_gate_on_use_sudo():
     assert bad_guard is None, (
         "enable_new_services must NOT return early when use_sudo is empty — "
         "root-mode --remote upgrades legitimately run with use_sudo=''. "
-        "Drop the -z \"$use_sudo\" branch from the guard and prefix "
+        'Drop the -z "$use_sudo" branch from the guard and prefix '
         "systemctl calls with $use_sudo (empty prefix is fine when root)."
     )
 
@@ -145,8 +145,7 @@ def test_upgrade_parses_target_wants():
     """
     upgrade = _read("upgrade.sh")
     assert (
-        re.search(r"grep\s+'\^Wants='\s+/etc/systemd/system/audiobook\.target", upgrade)
-        is not None
+        re.search(r"grep\s+'\^Wants='\s+/etc/systemd/system/audiobook\.target", upgrade) is not None
     ), "upgrade.sh no longer parses Wants= from audiobook.target"
     assert (
         re.search(
@@ -170,9 +169,9 @@ def test_target_declares_expected_wants():
         # .timer tokens end in .timer, .service tokens are implicit
         if not unit.endswith(".timer"):
             unit = f"{unit}.service"
-        assert re.search(
-            rf"^Wants={re.escape(unit)}\s*$", target, re.MULTILINE
-        ), f"audiobook.target missing Wants={unit}"
+        assert re.search(rf"^Wants={re.escape(unit)}\s*$", target, re.MULTILINE), (
+            f"audiobook.target missing Wants={unit}"
+        )
 
 
 def test_all_standalone_timer_unit_files_exist():

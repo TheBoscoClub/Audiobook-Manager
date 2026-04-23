@@ -84,7 +84,7 @@ def _probe_audio_duration(audio_path: Path) -> float | None:
             audio_path.resolve(strict=False).relative_to(
                 _streaming_audio_root.resolve(strict=False)
             )
-        except (ValueError, OSError):
+        except (ValueError, OSError):  # fmt: skip
             return None
     try:
         result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
@@ -105,7 +105,7 @@ def _probe_audio_duration(audio_path: Path) -> float | None:
         )
         if result.returncode == 0 and result.stdout.strip():
             return float(result.stdout.strip())
-    except (OSError, ValueError, subprocess.TimeoutExpired):
+    except (OSError, ValueError, subprocess.TimeoutExpired):  # fmt: skip
         return None
     return None
 
@@ -128,8 +128,8 @@ BUFFER_THRESHOLD = BUFFER_AHEAD_SEGMENTS
 #     of that mark, extend to the chapter boundary (cohesive sample)
 #   - Otherwise, stop exactly at 6 min (never translate mid-scene in a long chapter)
 # See _compute_sampler_range() for the concrete algorithm and traces.
-SAMPLER_MIN_SECONDS = 360          # 6 min — minimum sample length
-SAMPLER_MAX_EXTEND_SECONDS = 180   # 3 min — extend past 6 min to reach chapter boundary
+SAMPLER_MIN_SECONDS = 360  # 6 min — minimum sample length
+SAMPLER_MAX_EXTEND_SECONDS = 180  # 3 min — extend past 6 min to reach chapter boundary
 # Sampler always runs at priority 2. Live work (current book) uses 0/1.
 # Backlog / other bulk work uses 3. The DB-level trigger ABORTs any insert
 # or update that would land a sampler row at priority <2.
@@ -247,7 +247,7 @@ def _validate_audio_path(audio_path) -> Path | None:
         audio_root = _streaming_audio_root.resolve(strict=False)
         resolved.relative_to(audio_root)  # raises ValueError if outside
         return resolved
-    except (ValueError, OSError):
+    except (ValueError, OSError):  # fmt: skip
         return None
 
 
@@ -330,7 +330,7 @@ def _probe_chapter_count(audio_path: Path) -> int:
         data = json.loads(result.stdout)
         chapters = data.get("chapters", [])
         return len(chapters) if isinstance(chapters, list) else 0
-    except (OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError):
+    except (OSError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError):  # fmt: skip
         return 0
 
 
@@ -816,7 +816,7 @@ def _parse_stream_request(data):
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fmt: skip
         return None, None, None, (jsonify({"error": "invalid parameters"}), 400)
 
     return audiobook_id, locale, chapter_index, None
@@ -958,7 +958,7 @@ def get_segment_bitmap(audiobook_id, chapter_index, locale):
     """
     try:
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fmt: skip
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -982,7 +982,7 @@ def get_session_state(audiobook_id, locale):
     """
     try:
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fmt: skip
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -1064,6 +1064,7 @@ def _probe_runpod_warmth() -> tuple[bool, int]:
     try:
         with urllib.request.urlopen(req, timeout=3) as resp:  # nosec B310 — trusted api.runpod.ai host
             import json as _json
+
             payload = _json.loads(resp.read().decode())
     except (urllib.error.URLError, TimeoutError, ValueError) as e:
         logger.debug("RunPod warmth probe failed: %s", e)
@@ -1106,11 +1107,15 @@ def gpu_warmth():
     live pipeline.
     """
     cold, ready = _probe_runpod_warmth()
-    return jsonify({
-        "cold": cold,
-        "streaming_ready": ready,
-        "buffer_fill_threshold": BUFFER_FILL_THRESHOLD_COLD if cold else BUFFER_FILL_THRESHOLD_WARM,
-    })
+    return jsonify(
+        {
+            "cold": cold,
+            "streaming_ready": ready,
+            "buffer_fill_threshold": BUFFER_FILL_THRESHOLD_COLD
+            if cold
+            else BUFFER_FILL_THRESHOLD_WARM,
+        }
+    )
 
 
 @streaming_bp.route("/api/translate/sampler/activate", methods=["POST"])
@@ -1137,8 +1142,10 @@ def sampler_activate():
         locale = _sanitize_locale(data.get("locale"))
         chapter_index = int(data.get("chapter_index", 0))
         segment_index = int(data.get("segment_index", 0))
-    except (ValueError, TypeError):
-        return jsonify({"error": "audiobook_id, locale, chapter_index, segment_index required"}), 400
+    except (ValueError, TypeError):  # fmt: skip
+        return jsonify(
+            {"error": "audiobook_id, locale, chapter_index, segment_index required"}
+        ), 400
 
     if locale not in SUPPORTED_LOCALES:
         return jsonify({"error": "locale not supported"}), 400
@@ -1155,14 +1162,19 @@ def sampler_activate():
 
     logger.info(
         "sampler activated: book=%d locale=%s ch=%d seg=%d (cursor segments=%d)",
-        int(audiobook_id), _safe_log_value(locale),
-        int(chapter_index), int(segment_index), int(created),
+        int(audiobook_id),
+        _safe_log_value(locale),
+        int(chapter_index),
+        int(segment_index),
+        int(created),
     )
 
-    return jsonify({
-        "activated": True,
-        "cursor_segments_created": created,
-    })
+    return jsonify(
+        {
+            "activated": True,
+            "cursor_segments_created": created,
+        }
+    )
 
 
 @streaming_bp.route("/api/translate/warmup", methods=["POST"])
@@ -1218,7 +1230,7 @@ def handle_seek():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fmt: skip
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -1298,7 +1310,7 @@ def stop_streaming():
     try:
         audiobook_id = int(audiobook_id)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fmt: skip
         return jsonify({"error": "invalid parameters"}), 400
 
     db = _get_db()
@@ -1355,7 +1367,7 @@ def segment_complete():
         chapter_index = int(chapter_index)
         segment_index = int(segment_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fmt: skip
         return jsonify({"error": "invalid parameters"}), 400
 
     # Validate audio_path is within the allowed streaming audio root
@@ -1463,7 +1475,7 @@ def chapter_complete():
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fmt: skip
         return jsonify({"error": "invalid parameters"}), 400
 
     # Validate audio_path is within the allowed streaming audio root
@@ -1486,7 +1498,7 @@ def chapter_complete():
             if not candidate.is_relative_to(root):
                 return None
             return str(candidate)
-        except (ValueError, OSError):
+        except (ValueError, OSError):  # fmt: skip
             return None
 
     raw_translated_vtt = data.get("translated_vtt_path")
@@ -1586,8 +1598,8 @@ def _consolidate_chapter_audio(db, audiobook_id: int, chapter_index: int, locale
         try:
             p_resolved = p.resolve(strict=False)
             p_resolved.relative_to(audio_root_resolved)  # raises ValueError if outside
-        except (ValueError, OSError):
-            # Parenthesised tuple — prior ``except ValueError, OSError:``
+        except (ValueError, OSError):  # fmt: skip
+            # Parenthesised tuple — prior ``except (ValueError, OSError):``
             # was silently parsed as "catch ValueError as OSError" (Py2-style
             # binding), which would let real OSErrors escape.
             logger.warning(
@@ -1793,8 +1805,7 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
     db.commit()
 
     logger.info(
-        "Consolidated streaming segments into permanent VTT: "
-        "book=%d ch=%d locale=%s bilingual=%s",
+        "Consolidated streaming segments into permanent VTT: book=%d ch=%d locale=%s bilingual=%s",
         int(audiobook_id),
         int(chapter_index),
         _safe_log_value(locale),
@@ -1834,16 +1845,18 @@ def sampler_prefetch():
     try:
         audiobook_id = int(data.get("audiobook_id"))
         locale = _sanitize_locale(data.get("locale"))
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fmt: skip
         return jsonify({"error": "audiobook_id (int) and locale (str) required"}), 400
 
     # Reject unknown locales to prevent enqueue-for-nonsense-locales.
     if locale not in SUPPORTED_LOCALES:
-        return jsonify({
-            "error": "locale not supported",
-            "locale": locale,
-            "supported": sorted(SUPPORTED_LOCALES),
-        }), 400
+        return jsonify(
+            {
+                "error": "locale not supported",
+                "locale": locale,
+                "supported": sorted(SUPPORTED_LOCALES),
+            }
+        ), 400
 
     db = _get_db()
     result = _enqueue_sampler(db, audiobook_id, locale)
@@ -1874,7 +1887,7 @@ def sampler_batch_status():
     locale_raw = request.args.get("locale", "")
     try:
         locale = _sanitize_locale(locale_raw)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fmt: skip
         return jsonify({"error": "invalid locale"}), 400
 
     ids: list[int] = []
@@ -1907,9 +1920,7 @@ def sampler_batch_status():
     return jsonify(result), 200
 
 
-@streaming_bp.route(
-    "/api/translate/sampler/status/<int:audiobook_id>/<locale>"
-)
+@streaming_bp.route("/api/translate/sampler/status/<int:audiobook_id>/<locale>")
 @guest_allowed
 def sampler_status(audiobook_id, locale):
     """Return the sampler job state for (audiobook_id, locale).
@@ -1927,7 +1938,7 @@ def sampler_status(audiobook_id, locale):
     """
     try:
         locale = _sanitize_locale(locale)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError):  # fmt: skip
         return jsonify({"error": "invalid locale"}), 400
 
     db = _get_db()
@@ -1948,7 +1959,8 @@ def sampler_status(audiobook_id, locale):
         "segments_done": row["segments_done"],
         "progress": (
             float(row["segments_done"]) / float(row["segments_target"])
-            if row["segments_target"] > 0 else 0.0
+            if row["segments_target"] > 0
+            else 0.0
         ),
         "error": row["error"],
         "created_at": row["created_at"],
@@ -2027,9 +2039,9 @@ def serve_streaming_segment(audiobook_id, chapter_index, segment_index, locale):
         # strict=False so a missing file still resolves (we check exists()
         # below and return 404); strict=True would raise FileNotFoundError.
         resolved = candidate.resolve(strict=False)
-    except (OSError, RuntimeError):
+    except (OSError, RuntimeError):  # fmt: skip
         # Resolve can raise on broken symlink loops; treat as not-found.
-        # Parenthesised tuple: prior ``except OSError, RuntimeError:`` was
+        # Parenthesised tuple: prior ``except (OSError, RuntimeError):`` was
         # silently parsed as "catch OSError as RuntimeError" (Py2-style
         # binding), which would let real RuntimeErrors escape.
         abort(404)
@@ -2093,9 +2105,7 @@ def init_streaming_routes(
         _streaming_subtitles_root = Path(streaming_subtitles_dir)
     else:
         _streaming_subtitles_root = Path(
-            os.environ.get(
-                "AUDIOBOOKS_STREAMING_SUBTITLES_DIR", f"{_var_dir}/streaming-subtitles"
-            )
+            os.environ.get("AUDIOBOOKS_STREAMING_SUBTITLES_DIR", f"{_var_dir}/streaming-subtitles")
         )
 
 

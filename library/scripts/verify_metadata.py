@@ -107,7 +107,7 @@ def get_embedded_tags(file_path: str) -> dict | None:
 
         # Normalize tag keys to lowercase
         return {k.lower(): v for k, v in tags.items()} if tags else {}
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError):  # fmt: skip
         return None
 
 
@@ -122,7 +122,7 @@ def compute_duration_hours(file_path: str) -> float | None:
         duration = data.get("format", {}).get("duration")
         if duration:
             return float(duration) / 3600.0
-    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError, ValueError):
+    except (subprocess.TimeoutExpired, json.JSONDecodeError, FileNotFoundError, ValueError):  # fmt: skip
         pass
     return None
 

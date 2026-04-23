@@ -31,10 +31,22 @@ DRY_RUN=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --uid) TARGET_UID="$2"; shift 2 ;;
-        --gid) TARGET_GID="$2"; shift 2 ;;
-        --dry-run) DRY_RUN=true; shift ;;
-        *) echo "Unknown arg: $1" >&2; exit 2 ;;
+        --uid)
+            TARGET_UID="$2"
+            shift 2
+            ;;
+        --gid)
+            TARGET_GID="$2"
+            shift 2
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        *)
+            echo "Unknown arg: $1" >&2
+            exit 2
+            ;;
     esac
 done
 

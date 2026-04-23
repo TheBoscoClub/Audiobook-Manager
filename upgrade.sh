@@ -1050,7 +1050,7 @@ audit_and_cleanup() {
     local project_systemd_dir=""
     for _candidate in "${project}/systemd" "${target}/systemd" "${SCRIPT_DIR}/systemd"; do
         if [[ -n "$_candidate" ]] && [[ -d "$_candidate" ]] \
-            && compgen -G "${_candidate}/audiobook*.service" > /dev/null 2>&1; then
+            && compgen -G "${_candidate}/audiobook*.service" >/dev/null 2>&1; then
             project_systemd_dir="$_candidate"
             break
         fi

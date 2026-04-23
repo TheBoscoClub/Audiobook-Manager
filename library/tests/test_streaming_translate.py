@@ -754,7 +754,7 @@ class TestChapterComplete:
                 "audiobook_id": 1,
                 "chapter_index": 0,
                 "locale": "zh-Hans",
-                "source_vtt_path": "/tmp/../etc/hosts",
+                "source_vtt_path": "/tmp/../etc/hosts",  # nosec B108 - security test input (path traversal rejection), never touches FS
             },
         )
         assert resp.status_code == 400

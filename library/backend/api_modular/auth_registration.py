@@ -64,7 +64,7 @@ def _parse_invite_meta(backup_codes_json: str | None) -> bool:
         meta = _json.loads(backup_codes_json)
         if isinstance(meta, dict) and meta.get("invited"):
             return meta.get("can_download", True)
-    except (_json.JSONDecodeError, TypeError):
+    except (_json.JSONDecodeError, TypeError):  # fmt: skip
         pass
     return True
 

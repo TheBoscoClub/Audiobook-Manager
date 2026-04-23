@@ -36,6 +36,7 @@ def _read(path: str) -> str:
 # the new VERSION file.
 # ──────────────────────────────────────────────────────────────────────────
 
+
 def test_do_upgrade_captures_pre_version_before_file_work():
     """do_upgrade must call get_version "$target" BEFORE VERSION is overwritten.
 
@@ -65,7 +66,7 @@ def test_do_upgrade_captures_pre_version_before_file_work():
     version_write_pos = version_write_match.start()
 
     assert first_get_version != -1, (
-        "do_upgrade must call get_version \"$target\" to capture pre-upgrade "
+        'do_upgrade must call get_version "$target" to capture pre-upgrade '
         "version before any file write."
     )
     assert first_get_version < version_write_pos, (
@@ -80,7 +81,7 @@ def test_do_upgrade_exports_pre_version_env_var():
     """do_upgrade must export _DO_UPGRADE_PRE_VERSION so apply_data_migrations sees it."""
     upgrade = _read("upgrade.sh")
     assert re.search(
-        r'export\s+_DO_UPGRADE_PRE_VERSION=',
+        r"export\s+_DO_UPGRADE_PRE_VERSION=",
         upgrade,
     ), (
         "do_upgrade must export _DO_UPGRADE_PRE_VERSION so that the shared "
@@ -136,6 +137,7 @@ def test_migration_gate_runs_when_installed_version_empty():
 # Release requirements manifest
 # ──────────────────────────────────────────────────────────────────────────
 
+
 def test_release_requirements_script_exists_and_is_executable():
     path = REPO / "scripts/release-requirements.sh"
     assert path.exists(), "scripts/release-requirements.sh must exist"
@@ -151,7 +153,7 @@ def test_release_requirements_declares_required_arrays():
         "REQUIRED_DB_COLUMNS",
         "validate_release_requirements",
     ):
-        assert re.search(rf'\b{sym}\b', body), (
+        assert re.search(rf"\b{sym}\b", body), (
             f"release-requirements.sh must define {sym} — validator contract broken"
         )
 
@@ -184,6 +186,7 @@ def test_release_requirements_contains_streaming_service():
 # Smoke probe
 # ──────────────────────────────────────────────────────────────────────────
 
+
 def test_smoke_probe_script_exists_and_is_executable():
     path = REPO / "scripts/smoke_probe.sh"
     assert path.exists(), "scripts/smoke_probe.sh must exist"
@@ -201,7 +204,7 @@ def test_smoke_probe_sources_release_requirements():
 def test_smoke_probe_defines_run_smoke_probe():
     body = _read("scripts/smoke_probe.sh")
     assert re.search(
-        r'^run_smoke_probe\s*\(\)',
+        r"^run_smoke_probe\s*\(\)",
         body,
         re.MULTILINE,
     ), "smoke_probe.sh must define run_smoke_probe as its entry point"
@@ -212,7 +215,7 @@ def test_smoke_probe_exits_nonzero_on_failure():
     body = _read("scripts/smoke_probe.sh")
     # run_smoke_probe's last meaningful branch: if _smoke_fail > 0 → return 1.
     assert re.search(
-        r'if\s+\[\[\s+\$_smoke_fail\s+-eq\s+0\s+\]\]',
+        r"if\s+\[\[\s+\$_smoke_fail\s+-eq\s+0\s+\]\]",
         body,
     ), "smoke_probe.sh must distinguish pass from fail via _smoke_fail counter"
 
@@ -221,6 +224,7 @@ def test_smoke_probe_exits_nonzero_on_failure():
 # upgrade.sh wiring
 # ──────────────────────────────────────────────────────────────────────────
 
+
 def test_upgrade_sh_invokes_smoke_probe_before_success_banner():
     """upgrade.sh must fail the upgrade if smoke_probe.sh returns nonzero."""
     upgrade = _read("upgrade.sh")
@@ -228,11 +232,13 @@ def test_upgrade_sh_invokes_smoke_probe_before_success_banner():
     # must call smoke_probe.sh before printing their "Successfully upgraded"
     # or "Upgrade complete!" banner. Match only actual echo statements, not
     # comments or docstrings that mention the strings.
-    echo_banners = list(re.finditer(
-        r'^\s*echo\s+-e\s+"\$\{GREEN\}(?:Successfully upgraded|Upgrade complete)',
-        upgrade,
-        re.MULTILINE,
-    ))
+    echo_banners = list(
+        re.finditer(
+            r'^\s*echo\s+-e\s+"\$\{GREEN\}(?:Successfully upgraded|Upgrade complete)',
+            upgrade,
+            re.MULTILINE,
+        )
+    )
     assert len(echo_banners) >= 2, (
         "upgrade.sh should have two echo banners (github + project-tree). "
         f"Found {len(echo_banners)} — can't enforce gate on all paths."
@@ -240,7 +246,7 @@ def test_upgrade_sh_invokes_smoke_probe_before_success_banner():
     # smoke_probe invocation must appear BEFORE each banner within a reasonable
     # window (100 lines / ~4000 chars).
     for banner in echo_banners:
-        preceding = upgrade[max(0, banner.start() - 4000):banner.start()]
+        preceding = upgrade[max(0, banner.start() - 4000) : banner.start()]
         assert "smoke_probe.sh" in preceding, (
             f"Success banner at char {banner.start()} has no smoke_probe.sh "
             "invocation in the preceding ~4000 chars. Gate is not enforced "
@@ -258,16 +264,13 @@ def test_upgrade_sh_aborts_on_smoke_probe_failure():
     each one.
     """
     upgrade = _read("upgrade.sh")
-    invocations = list(re.finditer(
-        r'bash\s+"[^"]*smoke_probe\.sh"', upgrade
-    ))
+    invocations = list(re.finditer(r'bash\s+"[^"]*smoke_probe\.sh"', upgrade))
     assert len(invocations) >= 2, (
-        f"Expected smoke_probe.sh invocations in at least 2 places, found "
-        f"{len(invocations)}."
+        f"Expected smoke_probe.sh invocations in at least 2 places, found {len(invocations)}."
     )
     for m in invocations:
-        window = upgrade[m.start():m.start() + 1500]
-        assert re.search(r'exit\s+1', window), (
+        window = upgrade[m.start() : m.start() + 1500]
+        assert re.search(r"exit\s+1", window), (
             "upgrade.sh must hard-fail (exit 1) after smoke_probe.sh returns "
             f"nonzero. No `exit 1` within 1500 chars of invocation at "
             f"char {m.start()}."
@@ -277,6 +280,7 @@ def test_upgrade_sh_aborts_on_smoke_probe_failure():
 # ──────────────────────────────────────────────────────────────────────────
 # install.sh parity
 # ──────────────────────────────────────────────────────────────────────────
+
 
 def test_install_sh_writes_streaming_config_stubs():
     """install.sh's audiobooks.conf template must include commented streaming stubs."""
@@ -308,6 +312,7 @@ def test_install_sh_invokes_smoke_probe():
 # upgrade.sh audit_and_cleanup orphan-systemd fix (earlier work, re-pinned)
 # ──────────────────────────────────────────────────────────────────────────
 
+
 def test_audit_and_cleanup_accepts_project_arg():
     """audit_and_cleanup must take $project as third arg (fix for systemd wipe)."""
     upgrade = _read("upgrade.sh")
@@ -317,7 +322,7 @@ def test_audit_and_cleanup_accepts_project_arg():
         re.DOTALL | re.MULTILINE,
     )
     body = func_match.group(1)
-    assert re.search(r'local\s+project=', body), (
+    assert re.search(r"local\s+project=", body), (
         "audit_and_cleanup must accept a project arg so its systemd orphan "
         "check has an authoritative source (the release being installed), "
         "not a blind fallback to SCRIPT_DIR/systemd."

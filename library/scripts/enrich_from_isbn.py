@@ -96,7 +96,7 @@ def query_openlibrary_isbn(isbn: str) -> dict | None:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (OPENLIBRARY_API) + validated ISBN from internal DB; not user-controlled scheme
         with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310  # nosec B310
             return json.loads(resp.read())
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):  # fmt: skip
         return None
 
 

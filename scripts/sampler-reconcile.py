@@ -53,7 +53,8 @@ def _connect_db(db_path: str) -> sqlite3.Connection:
 def _supported_non_en_locales() -> list[str]:
     raw = os.environ.get("AUDIOBOOKS_SUPPORTED_LOCALES", "en,zh-Hans")
     return [
-        loc.strip() for loc in raw.split(",")
+        loc.strip()
+        for loc in raw.split(",")
         if loc.strip() and not loc.strip().lower().startswith("en")
     ]
 
@@ -84,7 +85,9 @@ def reconcile(
     ).fetchall()
     logging.info(
         "Reconciling sampler for %d books × %d locale(s) = %d potential jobs",
-        len(books), len(targets), len(books) * len(targets),
+        len(books),
+        len(targets),
+        len(books) * len(targets),
     )
 
     enqueued = 0
@@ -101,7 +104,8 @@ def reconcile(
 
         # Determine which locales need sampling for this book.
         existing_locales = {
-            row["locale"] for row in conn.execute(
+            row["locale"]
+            for row in conn.execute(
                 "SELECT locale FROM sampler_jobs WHERE audiobook_id = ?",
                 (audiobook_id,),
             ).fetchall()
@@ -120,7 +124,9 @@ def reconcile(
             except Exception as e:  # noqa: BLE001
                 logging.warning(
                     "extract_chapters failed for book=%d path=%s: %s",
-                    audiobook_id, file_path, e,
+                    audiobook_id,
+                    file_path,
+                    e,
                 )
 
         if not chapter_durations:
@@ -132,7 +138,8 @@ def reconcile(
             if dry_run:
                 logging.info(
                     "[DRY RUN] would enqueue sampler: book=%d locale=%s",
-                    audiobook_id, locale,
+                    audiobook_id,
+                    locale,
                 )
                 enqueued += 1
                 continue
@@ -143,7 +150,9 @@ def reconcile(
                     enqueued += 1
                     logging.info(
                         "enqueued: book=%d locale=%s target=%d",
-                        audiobook_id, locale, result.get("segments_target", 0),
+                        audiobook_id,
+                        locale,
+                        result.get("segments_target", 0),
                     )
                 elif status == "skipped":
                     # en* source locale — shouldn't happen here since we filter,
@@ -152,37 +161,51 @@ def reconcile(
                 else:
                     logging.warning(
                         "enqueue returned status=%s for book=%d locale=%s reason=%s",
-                        status, audiobook_id, locale, result.get("reason"),
+                        status,
+                        audiobook_id,
+                        locale,
+                        result.get("reason"),
                     )
                     failed += 1
             except Exception as e:  # noqa: BLE001
                 failed += 1
                 logging.warning(
                     "enqueue failed book=%d locale=%s err=%s",
-                    audiobook_id, locale, e,
+                    audiobook_id,
+                    locale,
+                    e,
                 )
 
     conn.close()
     logging.info(
         "Reconcile summary: enqueued=%d skipped_existing=%d skipped_no_chapters=%d failed=%d",
-        enqueued, skipped_existing, skipped_no_chapters, failed,
+        enqueued,
+        skipped_existing,
+        skipped_no_chapters,
+        failed,
     )
     return enqueued
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument(
         "--db",
         default=os.environ.get("AUDIOBOOKS_DATABASE", "/var/lib/audiobooks/db/audiobooks.db"),
         help="Path to audiobooks.db (default: from AUDIOBOOKS_DATABASE or /var/lib/audiobooks/db/audiobooks.db)",
     )
     parser.add_argument(
-        "--locale", action="append", dest="locales",
+        "--locale",
+        action="append",
+        dest="locales",
         help="Target locale (repeatable). Defaults to all non-EN from AUDIOBOOKS_SUPPORTED_LOCALES.",
     )
     parser.add_argument("--max-books", type=int, default=None, help="Cap number of books processed")
-    parser.add_argument("--dry-run", action="store_true", help="Log what would happen, enqueue nothing")
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Log what would happen, enqueue nothing"
+    )
     parser.add_argument("--verbose", "-v", action="store_true")
     args = parser.parse_args()
 

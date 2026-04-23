@@ -68,10 +68,12 @@ def _make_db(tmp_path):
 
 class TestParseArgs:
     def test_required_flags(self, tmp_path):
-        with patch("sys.argv", ["bt", "--db", "/tmp/x.db", "--library", "/tmp/lib"]):
+        db_path = str(tmp_path / "x.db")
+        lib_path = str(tmp_path / "lib")
+        with patch("sys.argv", ["bt", "--db", db_path, "--library", lib_path]):
             args = bt._parse_args()
-        assert args.db == "/tmp/x.db"
-        assert args.library == "/tmp/lib"
+        assert args.db == db_path
+        assert args.library == lib_path
         assert not args.dry_run
         assert not args.stt_only
         assert not args.tts_only

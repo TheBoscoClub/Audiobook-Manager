@@ -41,7 +41,7 @@ Create a **send-only API key** in the Resend console, then:
 SMTP_HOST="smtp.resend.com"
 SMTP_PORT="587"
 SMTP_USER="resend"
-SMTP_PASS="re_DJR8Prne_SAMPLE_SEND_ONLY_KEY"
+SMTP_PASS="YOUR_RESEND_API_KEY_HERE"
 SMTP_FROM="library@YOUR-DOMAIN"
 ```
 

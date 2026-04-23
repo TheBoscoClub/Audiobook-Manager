@@ -43,7 +43,8 @@ def enqueue_sampler_for_new_book(
 
     # Filter to actionable locales. en* is the source; skip.
     target_locales = [
-        loc.strip() for loc in SUPPORTED_LOCALES
+        loc.strip()
+        for loc in SUPPORTED_LOCALES
         if loc.strip() and not loc.strip().lower().startswith("en")
     ]
     if not target_locales:
@@ -60,7 +61,9 @@ def enqueue_sampler_for_new_book(
     except Exception as e:  # noqa: BLE001 — don't want ingest to fail here
         logger.warning(
             "sampler hook: extract_chapters failed for book=%d path=%s err=%s",
-            audiobook_id, str(file_path), e,
+            audiobook_id,
+            str(file_path),
+            e,
         )
         return
 
@@ -76,10 +79,14 @@ def enqueue_sampler_for_new_book(
             result = enqueue_sampler(conn, audiobook_id, locale, chapter_durations)
             logger.info(
                 "sampler hook: book=%d locale=%s status=%s",
-                audiobook_id, locale, result.get("status"),
+                audiobook_id,
+                locale,
+                result.get("status"),
             )
         except Exception as e:  # noqa: BLE001
             logger.warning(
                 "sampler hook: enqueue failed book=%d locale=%s err=%s",
-                audiobook_id, locale, e,
+                audiobook_id,
+                locale,
+                e,
             )

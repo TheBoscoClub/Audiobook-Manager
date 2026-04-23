@@ -204,7 +204,7 @@ def get_file_acquired_date(file_path):
         if path.exists():
             mtime = path.stat().st_mtime
             return datetime.fromtimestamp(mtime).strftime("%Y-%m-%d")
-    except (OSError, ValueError):
+    except (OSError, ValueError):  # fmt: skip
         pass  # Non-critical: return None if file stat fails
     return None
 

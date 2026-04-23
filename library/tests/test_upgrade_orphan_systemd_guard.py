@@ -64,9 +64,7 @@ def test_audit_tries_project_before_target_before_script_dir():
     """Source resolution must prefer $project, then $target, then SCRIPT_DIR."""
     body = _audit_body()
     # Collect the candidate ordering in the resolver loop.
-    candidate_match = re.search(
-        r'for\s+_candidate\s+in\s+(.+?);\s*do', body, re.DOTALL
-    )
+    candidate_match = re.search(r"for\s+_candidate\s+in\s+(.+?);\s*do", body, re.DOTALL)
     assert candidate_match, (
         "audit_and_cleanup no longer resolves systemd source via an ordered "
         "for-loop — the from-github wipe regression is unprotected."
@@ -82,8 +80,7 @@ def test_audit_tries_project_before_target_before_script_dir():
     )
     assert project_pos < target_pos < script_dir_pos, (
         "source-resolution order must be project → target → SCRIPT_DIR "
-        "(got: project=%d, target=%d, SCRIPT_DIR=%d)"
-        % (project_pos, target_pos, script_dir_pos)
+        "(got: project=%d, target=%d, SCRIPT_DIR=%d)" % (project_pos, target_pos, script_dir_pos)
     )
 
 
@@ -112,8 +109,8 @@ def test_orphan_loop_skipped_when_no_trusted_source():
     # The body has a clear guard wrapping the orphan while-loop.
     guard_match = re.search(
         r'if\s+\[\[\s+-n\s+"?\$project_systemd_dir"?\s+\]\]\s*;\s*then\s*\n'
-        r'(.*?)'
-        r'\n\s*fi\s*\n\s*\n\s*#\s*---\s*\(c2\)',
+        r"(.*?)"
+        r"\n\s*fi\s*\n\s*\n\s*#\s*---\s*\(c2\)",
         body,
         re.DOTALL,
     )
@@ -127,8 +124,7 @@ def test_orphan_loop_skipped_when_no_trusted_source():
     guarded_region = guard_match.group(1)
     # The rm -f must live inside the guarded region, not outside it.
     assert "rm -f" in guarded_region, (
-        "rm -f of orphaned units must execute inside the "
-        "[[ -n $project_systemd_dir ]] guard"
+        "rm -f of orphaned units must execute inside the [[ -n $project_systemd_dir ]] guard"
     )
 
 

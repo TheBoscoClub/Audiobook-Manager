@@ -249,9 +249,7 @@ def _streaming_subtitle_index(conn, book_id: int, locale_filter: str | None) -> 
     return entries
 
 
-def _stitch_streaming_vtt(
-    conn, book_id: int, chapter_index: int, locale: str
-) -> str | None:
+def _stitch_streaming_vtt(conn, book_id: int, chapter_index: int, locale: str) -> str | None:
     """
     Stitch per-segment VTT from streaming_segments into a single chapter VTT.
 
@@ -367,9 +365,7 @@ def get_chapter_subtitle(book_id, chapter_index, locale):
             if not vtt_path.is_absolute() and _library_path:
                 vtt_path = _library_path / vtt_path
             if vtt_path.exists():
-                return send_file(
-                    vtt_path, mimetype="text/vtt; charset=utf-8", as_attachment=False
-                )
+                return send_file(vtt_path, mimetype="text/vtt; charset=utf-8", as_attachment=False)
             cached_file_missing = True
 
         stitched = _stitch_streaming_vtt(conn, book_id, chapter_index, locale)

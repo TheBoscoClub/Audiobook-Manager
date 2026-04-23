@@ -36,7 +36,7 @@ if VM_HOST:
         sock = socket.create_connection((VM_HOST, 5001), timeout=3)
         sock.close()
         _vm_reachable = True
-    except (OSError, ConnectionRefusedError):
+    except (OSError, ConnectionRefusedError):  # fmt: skip
         pass
 
 pytestmark: list[pytest.MarkDecorator] = [

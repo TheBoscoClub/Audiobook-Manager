@@ -32,6 +32,7 @@ from localization.sampler import (
 
 # ─── Pure algorithm — compute_sampler_range ─────────────────────────────────
 
+
 def test_range_empty_input():
     assert compute_sampler_range([]) == []
 
@@ -193,9 +194,7 @@ def test_trigger_allows_sampler_priority_2(sampler_db):
         "VALUES (42, 0, 0, 'zh-Hans', 2, 'sampler')"
     )
     sampler_db.commit()
-    rows = sampler_db.execute(
-        "SELECT origin, priority FROM streaming_segments"
-    ).fetchall()
+    rows = sampler_db.execute("SELECT origin, priority FROM streaming_segments").fetchall()
     assert rows[0]["origin"] == "sampler" and rows[0]["priority"] == 2
 
 
@@ -207,9 +206,7 @@ def test_trigger_allows_live_priority_0(sampler_db):
         "VALUES (42, 0, 0, 'zh-Hans', 0, 'live')"
     )
     sampler_db.commit()
-    row = sampler_db.execute(
-        "SELECT origin, priority FROM streaming_segments"
-    ).fetchone()
+    row = sampler_db.execute("SELECT origin, priority FROM streaming_segments").fetchone()
     assert row["origin"] == "live" and row["priority"] == 0
 
 
@@ -221,9 +218,7 @@ def test_trigger_rejects_update_that_would_violate(sampler_db):
     )
     sampler_db.commit()
     with pytest.raises(sqlite3.IntegrityError, match="priority >= 2"):
-        sampler_db.execute(
-            "UPDATE streaming_segments SET priority = 1 WHERE origin = 'sampler'"
-        )
+        sampler_db.execute("UPDATE streaming_segments SET priority = 1 WHERE origin = 'sampler'")
 
 
 # ─── enqueue_sampler behavior ────────────────────────────────────────────────
@@ -243,16 +238,13 @@ def test_enqueue_creates_job_and_segments(sampler_db):
     assert result["segments_target"] == 14
 
     # sampler_jobs row present with correct state.
-    job = sampler_db.execute(
-        "SELECT status, segments_target FROM sampler_jobs"
-    ).fetchone()
+    job = sampler_db.execute("SELECT status, segments_target FROM sampler_jobs").fetchone()
     assert job["status"] == "running"
     assert job["segments_target"] == 14
 
     # streaming_segments rows present, all origin='sampler', all priority=2.
     segs = sampler_db.execute(
-        "SELECT COUNT(*), origin, priority FROM streaming_segments "
-        "GROUP BY origin, priority"
+        "SELECT COUNT(*), origin, priority FROM streaming_segments GROUP BY origin, priority"
     ).fetchall()
     assert len(segs) == 1
     count, origin, priority = segs[0][0], segs[0]["origin"], segs[0]["priority"]
@@ -264,22 +256,16 @@ def test_enqueue_creates_job_and_segments(sampler_db):
 def test_enqueue_idempotent_on_complete(sampler_db):
     # Set up a complete job.
     enqueue_sampler(sampler_db, 42, "zh-Hans", [360.0])
-    sampler_db.execute(
-        "UPDATE sampler_jobs SET status = 'complete', segments_done = 12"
-    )
+    sampler_db.execute("UPDATE sampler_jobs SET status = 'complete', segments_done = 12")
     sampler_db.commit()
-    baseline_segs = sampler_db.execute(
-        "SELECT COUNT(*) FROM streaming_segments"
-    ).fetchone()[0]
+    baseline_segs = sampler_db.execute("SELECT COUNT(*) FROM streaming_segments").fetchone()[0]
 
     # Re-enqueue — should return 'complete' short-circuit, NOT create rows.
     result = enqueue_sampler(sampler_db, 42, "zh-Hans", [360.0])
     assert result["status"] == "complete"
     assert result["reason"] == "already complete"
 
-    after_segs = sampler_db.execute(
-        "SELECT COUNT(*) FROM streaming_segments"
-    ).fetchone()[0]
+    after_segs = sampler_db.execute("SELECT COUNT(*) FROM streaming_segments").fetchone()[0]
     assert after_segs == baseline_segs  # no new rows
 
 
@@ -290,9 +276,7 @@ def test_enqueue_resets_failed_job(sampler_db):
 
     result = enqueue_sampler(sampler_db, 42, "zh-Hans", [360.0])
     assert result["status"] == "running"
-    job = sampler_db.execute(
-        "SELECT status, error FROM sampler_jobs"
-    ).fetchone()
+    job = sampler_db.execute("SELECT status, error FROM sampler_jobs").fetchone()
     assert job["status"] == "running"
     assert job["error"] is None
 

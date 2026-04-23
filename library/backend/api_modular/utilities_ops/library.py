@@ -61,7 +61,7 @@ def _parse_rescan_line(buf, state, tracker, operation_id):
     if "Total files:" in buf or "Total audiobooks:" in buf:
         try:
             state["files_found"] = int(buf.split(":")[1].strip())
-        except (ValueError, IndexError):
+        except (ValueError, IndexError):  # fmt: skip
             pass
 
 
