@@ -472,6 +472,17 @@
       if (headerSelect) headerSelect.value = value;
     }
     api.patch('/api/user/preferences', body, { toast: false, keepalive: true }).catch(function () {});
+
+    // Broadcast a live-apply event so the library page re-renders immediately
+    // instead of requiring a hard browser refresh. Listener lives in
+    // library.js::_wirePreferenceLiveApply. Pre-v8.3.8 this was deferred
+    // behind the Localization-RND merge — merge happened at v8.3.0 so the
+    // deferral has been stale.
+    try {
+      document.dispatchEvent(new CustomEvent('audiobooks:preference-changed', {
+        detail: { key: key, value: value }
+      }));
+    } catch (_e) { /* legacy browser — user can still hard-refresh */ }
   }
 
   function loadPreferencesIntoModal() {

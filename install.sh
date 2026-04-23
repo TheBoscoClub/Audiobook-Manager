@@ -1438,6 +1438,14 @@ do_system_install() {
         sudo sed -i "s/· v[0-9.]*\"/· v${new_version}\"/" "${APP_DIR}/library/web-v2/utilities.html"
     fi
 
+    # Bump HTML cachebust stamps — prevents browsers from serving pre-install
+    # cached JS/CSS after a fresh install on a machine that had an older
+    # version. Same helper upgrade.sh uses. See scripts/bump-cachebust.sh.
+    if [[ -x "${SCRIPT_DIR}/scripts/bump-cachebust.sh" ]]; then
+        sudo bash "${SCRIPT_DIR}/scripts/bump-cachebust.sh" "$(date +%s)" "${APP_DIR}/library/web-v2" \
+            || echo -e "${YELLOW}  cachebust bump had a warning (non-fatal)${NC}"
+    fi
+
     # Create backward-compat symlink for any scripts that reference old path
     sudo mkdir -p "/usr/local/lib"
     sudo ln -sfn "${APP_DIR}/lib" "/usr/local/lib/audiobooks"
@@ -2070,6 +2078,12 @@ do_user_install() {
     if [[ -n "$new_version" ]] && [[ -f "${LIB_DIR}/library/web-v2/utilities.html" ]]; then
         echo -e "${BLUE}Setting version to v${new_version} in utilities.html...${NC}"
         sed -i "s/· v[0-9.]*\"/· v${new_version}\"/" "${LIB_DIR}/library/web-v2/utilities.html"
+    fi
+
+    # Bump HTML cachebust stamps (user install — no sudo).
+    if [[ -x "${SCRIPT_DIR}/scripts/bump-cachebust.sh" ]]; then
+        bash "${SCRIPT_DIR}/scripts/bump-cachebust.sh" "$(date +%s)" "${LIB_DIR}/library/web-v2" \
+            || echo -e "${YELLOW}  cachebust bump had a warning (non-fatal)${NC}"
     fi
 
     # Create config file if it doesn't exist

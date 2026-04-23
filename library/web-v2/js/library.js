@@ -813,7 +813,54 @@ class AudiobookLibraryV2 {
     this.setupEventListeners();
     this.initTabs();
     await this.applySavedSortPreference();
+    this._wirePreferenceLiveApply();
     await this.loadAudiobooks();
+  }
+
+  /**
+   * Apply profile-preference changes live, without requiring a browser refresh.
+   *
+   * account.js::saveBrowsingPref dispatches `audiobooks:preference-changed`
+   * after persisting each preference. We route by key:
+   *   view_mode       → CSS class toggle (no reload)
+   *   sort_order      → re-apply filters + reload audiobooks
+   *   items_per_page  → update pagination state + reload
+   *   content_filter  → update filter + reload
+   * Other keys (playback_speed / sleep_timer / auto_play_series) don't
+   * affect the library grid; shell.js can listen for them independently.
+   */
+  _wirePreferenceLiveApply() {
+    document.addEventListener("audiobooks:preference-changed", (e) => {
+      const { key, value } = e.detail || {};
+      if (!key) return;
+      switch (key) {
+        case "view_mode":
+          this._applyViewMode(value);
+          // _applyViewMode toggles the .list-view class; the CSS does the
+          // rest. No re-render needed unless future list-view changes
+          // require different markup.
+          break;
+        case "sort_order":
+          if (this._applySortString(value)) {
+            this.currentPage = 1;
+            this.loadAudiobooks();
+          }
+          break;
+        case "items_per_page":
+          this._applyItemsPerPage(value);
+          this.currentPage = 1;
+          this.loadAudiobooks();
+          break;
+        case "content_filter":
+          this.currentFilters.content_filter = value;
+          this.currentPage = 1;
+          this.loadAudiobooks();
+          break;
+        default:
+          // No-op for prefs the library grid doesn't consume.
+          break;
+      }
+    });
   }
 
   /**

@@ -42,6 +42,8 @@ See `VERSION` file. User/group: `audiobooks:audiobooks`
 | MULTI-LANGUAGE-SETUP.md | `./docs/MULTI-LANGUAGE-SETUP.md` |
 | STREAMING-TRANSLATION.md | `./docs/STREAMING-TRANSLATION.md` |
 | STREAMING-TRANSLATION.zh-Hans.md | `./docs/STREAMING-TRANSLATION.zh-Hans.md` |
+| SAMPLER.md | `./docs/SAMPLER.md` |
+| EMAIL-SETUP.md | `./docs/EMAIL-SETUP.md` |
 | SERVERLESS-OPS.md | `./docs/SERVERLESS-OPS.md` |
 | CONTRIBUTING.md | `./CONTRIBUTING.md` |
 
@@ -53,6 +55,7 @@ See `VERSION` file. User/group: `audiobooks:audiobooks`
 | ~~Cover Art Resolver~~ | ~~Medium~~ | **DONE** — Only 1 book was missing (not ~642). Manually fixed + built tiered resolver (`scanner/utils/cover_resolver.py`: Audible → Open Library → Google Books) as fallback in `extract_cover_art()`. |
 | ~~Hide shell.html from URL~~ | ~~Low~~ | **DONE** — `proxy_server.py` serves shell.html content at `/` directly. `/shell.html` redirects 301 → `/`. |
 | ~~Mobile player bottom clipping~~ | ~~Medium~~ | **DONE** — Added `env(safe-area-inset-bottom)` padding to `#shell-player` in `shell.css`. Works across Safari, Chrome, Firefox mobile. |
-| Email Setup Guide | Low | Add `docs/EMAIL-SETUP.md` covering end-to-end SMTP config with examples for Protonmail Bridge, mailx, s-nail, Outlook, Gmail, Resend, and generic SMTP. Include TLS/STARTTLS/SSL transport security options and when to use each. |
-| Profile preference live-apply | Low | **Deferred until after Localization-RND merges to main.** Changing Grid/List view preference in the user profile (and possibly other profile options) requires a hard browser refresh to take effect. Exists in both `main` and `Localization-RND` — fix in `main` ONLY after the localization branch is merged, to avoid cherry-picking. Investigate `library/web-v2/js/account.js` / profile preference save path — likely missing a reactive dispatch that re-renders the library grid on preference change. |
+| ~~Email Setup Guide~~ | ~~Low~~ | **DONE (v8.3.8)** — `docs/EMAIL-SETUP.md` covers Resend, Gmail, Outlook, Protonmail Bridge, generic SMTP, mailx/s-nail smoke-test, plus STARTTLS/implicit-SSL/plaintext decision matrix and common failure-mode table. |
+| ~~Profile preference live-apply~~ | ~~Low~~ | **DONE (v8.3.8)** — `account.js::saveBrowsingPref` dispatches `audiobooks:preference-changed` CustomEvent; `library.js::_wirePreferenceLiveApply` routes by key (`view_mode` → CSS class toggle, `sort_order`/`items_per_page`/`content_filter` → re-apply + `loadAudiobooks`). No hard refresh required. |
+| ~~Cachebust stamp automation~~ | ~~High~~ | **DONE (v8.3.8)** — `scripts/bump-cachebust.sh` rewrites every `?v=<stamp>` in `web-v2/*.html` to a single per-deploy epoch stamp. Invoked by both `upgrade.sh` (after HTML sync, before service restart) and `install.sh`. Replaces the manual ?v= bumping that periodically caused stale-JS incidents (v8.3.4 qalib 2000-ID URL-overflow 400 being one). |
 | ~~Data migrations framework for `upgrade.sh`~~ | ~~Medium~~ | **DONE** — `data-migrations/` directory parallel to `config-migrations/`, version-gated via `MIN_VERSION` in each script. `upgrade.sh` runs migrations only when crossing the declared boundary; `install.sh` runs all unconditionally on fresh installs. First migration: `001_podcast_detection.sh` (v8.0.3 boundary). |

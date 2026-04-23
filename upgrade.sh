@@ -1831,6 +1831,27 @@ do_upgrade() {
                 sed -i "s/· v[0-9.]*\"/· v${new_version}\"/" "$target/library/web-v2/utilities.html"
             fi
         fi
+
+        # Bump HTML cachebust stamps so browsers don't serve stale JS/CSS from
+        # the PREVIOUS deploy. Without this, every deploy of library.js or
+        # library.css requires a manual ?v= bump in index.html + shell.html +
+        # utilities.html — a class of bug that repeatedly caused "shipped the
+        # feature, user can't see it" incidents (see v8.3.4 qalib 2000-ID
+        # URL-overflow 400 as the motivating case). One stamp per deploy,
+        # same across all three entrypoints. See scripts/bump-cachebust.sh.
+        local bumper="${project}/scripts/bump-cachebust.sh"
+        if [[ -x "$bumper" ]]; then
+            local web_dir="${target}/library/web-v2"
+            local stamp
+            stamp=$(date +%s)
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [DRY-RUN] Would bump cachebust stamps to ${stamp} in ${web_dir}"
+            elif [[ -n "$use_sudo" ]]; then
+                sudo bash "$bumper" "$stamp" "$web_dir" || echo -e "${YELLOW}  cachebust bump had a warning${NC}"
+            else
+                bash "$bumper" "$stamp" "$web_dir" || echo -e "${YELLOW}  cachebust bump had a warning${NC}"
+            fi
+        fi
     fi
 
     # Fix ownership of entire installation (cp/rsync don't set correct owner)
