@@ -19,6 +19,8 @@ from pathlib import Path
 
 def _require_audiobooks_user() -> None:
     """Abort if not running as the audiobooks user (mirrors lib/audiobook-config.sh)."""
+    if os.environ.get("AUDIOBOOKS_SKIP_USER_GATE") == "1":
+        return
     current = pwd.getpwuid(os.getuid()).pw_name
     if current == "audiobooks":
         return

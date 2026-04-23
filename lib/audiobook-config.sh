@@ -348,6 +348,10 @@ audiobooks_python() {
 # model that the systemd units depend on.
 
 require_audiobooks_user() {
+    # Bypass for pytest / sandboxes — production scripts never set this.
+    if [[ "${AUDIOBOOKS_SKIP_USER_GATE:-}" == "1" ]]; then
+        return 0
+    fi
     local current
     current="$(id -un)"
     if [[ "$current" != "audiobooks" ]]; then

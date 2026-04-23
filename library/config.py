@@ -234,11 +234,18 @@ def require_audiobooks_user() -> None:
     interactive user bypasses the permission model the systemd units
     rely on.
 
+    Bypass: set ``AUDIOBOOKS_SKIP_USER_GATE=1`` in the environment.
+    Intended for pytest runs (conftest sets it universally) and
+    developer sandboxes. Production scripts never set this.
+
     Mirrors require_audiobooks_user in lib/audiobook-config.sh.
     """
     import os
     import pwd
     import sys
+
+    if os.environ.get("AUDIOBOOKS_SKIP_USER_GATE") == "1":
+        return
 
     current = pwd.getpwuid(os.getuid()).pw_name
     if current == "audiobooks":

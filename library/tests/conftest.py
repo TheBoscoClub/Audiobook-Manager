@@ -11,6 +11,13 @@ import tempfile
 import time
 from pathlib import Path
 
+# Bypass the "must run as audiobooks user" gate during tests. Production
+# scripts gate on this to prevent operator accidents; tests run as
+# whoever invokes pytest (CI runner, developer sandbox, etc.) and need
+# to call those scripts' main() functions directly. MUST be set before
+# any script modules are imported.
+os.environ.setdefault("AUDIOBOOKS_SKIP_USER_GATE", "1")
+
 import pytest
 
 HARDWARE_TOUCH_TIMEOUT = 90  # total seconds for up to 3 hardware touch attempts
