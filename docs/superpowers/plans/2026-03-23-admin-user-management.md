@@ -1863,7 +1863,7 @@ SSH to VM, check that `audit_log` table exists in the auth DB.
 
 - [ ] **Step 3: Test admin create user flow through full external path**
 
-Open `https://library.thebosco.club` (or equivalent test URL), log in as admin, go to Back Office → Users, create a TOTP user, verify QR code displays, download QR PNG.
+Open `https://<your-prod-host>` (or equivalent test URL), log in as admin, go to Back Office → Users, create a TOTP user, verify QR code displays, download QR PNG.
 
 - [ ] **Step 4: Test self-service flows**
 

@@ -294,7 +294,7 @@ When "Start Upgrade" is clicked with Force checked, the confirmation modal uses 
 
 ### Purpose
 
-When all audiobook services are down during upgrade, external visitors hitting `library.thebosco.club` see a branded maintenance page instead of a generic Cloudflare 502 error. The page auto-reloads when services come back.
+When all audiobook services are down during upgrade, external visitors hitting the library hostname see a branded maintenance page instead of a generic Cloudflare 502 error. The page auto-reloads when services come back.
 
 ### Architecture
 

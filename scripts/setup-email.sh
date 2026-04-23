@@ -1,6 +1,6 @@
 #!/bin/bash
 # Setup script for magic link email functionality
-# Uses Protonmail Bridge for SMTP access to thebosco.club
+# Uses Protonmail Bridge for SMTP access to the operator's Proton Mail domain
 
 set -e
 

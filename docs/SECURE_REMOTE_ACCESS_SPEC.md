@@ -114,7 +114,7 @@ Enable secure remote access to the Audiobook-Manager library for a small group o
 │                                    INTERNET                                              │
 └─────────────────────────────────────────────────────────────────────────────────────────┘
          │
-         │ library.thebosco.club (DNS via Cloudflare)
+         │ library.example.com (DNS via Cloudflare)
          │
          ▼
 ┌─────────────────────────────────────────────────────────────────────────────────────────┐
@@ -201,13 +201,13 @@ Enable secure remote access to the Audiobook-Manager library for a small group o
 
 ### 3.3 DNS Configuration
 
-> **Note:** The examples below use `library.thebosco.club` as a concrete deployment example. Replace with your own domain.
+> **Note:** The examples below use `library.example.com` as a placeholder. Replace with your own domain.
 
 | Record | Type | Value | Purpose |
 |--------|------|-------|---------|
-| `thebosco.club` | A | Squarespace IP | Main website (unchanged) |
-| `library.thebosco.club` | A | Home server IP | Audiobook library |
-| MX records | MX | Proton | Email routing (unchanged) |
+| `example.com` | A | Main site host IP | Main website (unchanged) |
+| `library.example.com` | A | Home server IP | Audiobook library |
+| MX records | MX | Your mail provider | Email routing (unchanged) |
 
 ### 3.4 Dynamic DNS
 
@@ -945,7 +945,7 @@ User submits message
          ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │  Send admin alert                                                │
-│  • Email to bosco@thebosco.club                                 │
+│  • Email to admin@example.com                                   │
 │  • SMS (optional): "New message from bob"                        │
 └─────────────────────────────────────────────────────────────────┘
          │
@@ -972,7 +972,7 @@ Admin replies via CLI: audiobook-inbox reply <id> "message"
 ```bash
 # /etc/audiobooks/admin.conf
 
-ADMIN_EMAIL="bosco@thebosco.club"
+ADMIN_EMAIL="admin@example.com"
 ADMIN_SMS="+15551234567"  # Optional
 
 ALERT_VIA_EMAIL=true
@@ -1282,7 +1282,7 @@ If a user loses their authenticator AND all backup codes, the account is unrecov
 ### Appendix A: Caddyfile Template
 
 ```text
-library.thebosco.club {
+library.example.com {
     # TLS configuration (automatic via Let's Encrypt)
 
     # Security headers
@@ -1335,7 +1335,7 @@ library.thebosco.club {
 ZONE_ID="your-cloudflare-zone-id"
 RECORD_ID="your-dns-record-id"
 API_TOKEN="your-cloudflare-api-token"
-DOMAIN="library.thebosco.club"
+DOMAIN="library.example.com"
 
 CURRENT_IP=$(curl -s https://api.ipify.org)
 CACHED_IP=$(cat /var/lib/audiobooks/.cached_ip 2>/dev/null)

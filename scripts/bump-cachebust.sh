@@ -20,11 +20,11 @@
 # index.html / shell.html / utilities.html in every commit that touched JS or
 # CSS. One stamp per deploy, applied to every *.html under web-v2/.
 #
-# Previous manifestation the automation prevents: v8.3.4 qalib.thebosco.club
-# 2000-ID URL-overflow 400 — caused by Qing's browser still running an old
-# library.js from a prior deploy because the cachebust stamps in index.html
-# had not been updated. That class of incident is what this script makes
-# impossible by construction.
+# Previous manifestation the automation prevents: v8.3.4 QA
+# 2000-ID URL-overflow 400 — caused by an end-user browser still running an
+# old library.js from a prior deploy because the cachebust stamps in
+# index.html had not been updated. That class of incident is what this
+# script makes impossible by construction.
 #
 # Usage:
 #   bump-cachebust.sh [STAMP] [TARGET_DIR]

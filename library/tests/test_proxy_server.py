@@ -554,7 +554,7 @@ class TestProxyToApi:
                 "X-Forwarded-For": "1.2.3.4",
                 "X-Forwarded-Proto": "https",
                 "X-Real-IP": "1.2.3.4",
-                "Host": "library.thebosco.club",
+                "Host": "library.example.com",
                 "Cookie": "session=abc",
             }
         )

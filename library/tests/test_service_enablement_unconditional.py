@@ -3,7 +3,7 @@
 Root cause: ``upgrade.sh`` gated ``enable_new_services()`` on
 ``MAJOR_VERSION=true`` so patch upgrades (8.3.1 -> 8.3.2) shipped new
 systemd units (stream-translate) that were never enabled. After host
-reboot, ``qalib.thebosco.club`` returned Cloudflare 502 because nothing
+reboot, the QA reverse-proxy returned Cloudflare 502 because nothing
 started at boot.
 
 These tests enforce two invariants going forward:

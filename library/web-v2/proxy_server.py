@@ -145,7 +145,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
 
         if bare_path == "/":
             # Serve shell.html directly at / so the browser address bar shows
-            # the clean URL (e.g., https://library.thebosco.club/) with no
+            # the clean URL (e.g., https://library.example.com/) with no
             # shell.html visible. Preserve query string (e.g., ?autoplay=...).
             self.path = "/shell.html" + ("?" + parsed.query if parsed.query else "")
             super().do_GET()

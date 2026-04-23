@@ -2,7 +2,7 @@
  * debug-overlay.js — QA-only on-device diagnostic panel.
  *
  * Chrome iOS has no real DevTools; Safari Web Inspector needs a Mac. This
- * gives Qing a screenshot-ready panel showing the failure state.
+ * gives a field tester a screenshot-ready panel showing the failure state.
  *
  * Activation:
  *   ?debug=1   — turn on (persists in localStorage)

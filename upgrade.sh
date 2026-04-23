@@ -901,9 +901,9 @@ enable_new_services() {
     #
     # Historical bug (v8.3.1 → 8.3.2 QA): this function was gated on
     # MAJOR_VERSION=true, so patch upgrades shipped new units (stream-translate)
-    # that never got enabled. After host reboot, qalib.thebosco.club returned
-    # Cloudflare 502 because nothing started at boot. The gate has been
-    # removed; the function now runs on every upgrade.
+    # that never got enabled. After host reboot, the reverse proxy in front of
+    # QA returned Cloudflare 502 because nothing started at boot. The gate has
+    # been removed; the function now runs on every upgrade.
     #
     # The explicit reference to audiobook-stream-translate.service is required
     # by library/tests/test_stream_translate_wiring.py to guard against the

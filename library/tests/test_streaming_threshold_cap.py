@@ -16,7 +16,7 @@ Why this test exists:
     cap behaves correctly. It is not a substitute for real-device
     validation — but it proves the fix at line 534 of the shipped JS
     eliminates the threshold > total impossible-condition that stalled
-    Qing's zh-Hans player on 2026-04-19/20.
+    A zh-Hans player in QA on 2026-04-19/20.
 
 The bug: before v8.3.6, if total=5 and rawThreshold=6, the BUFFERING
     phase would wait forever for a 6th segment that would never arrive,
@@ -88,7 +88,7 @@ class TestThresholdCap:
 
     def test_short_chapter_threshold_caps_to_total(self):
         """
-        Qing's regression: 5-segment chapter with raw threshold 6.
+        Field regression: 5-segment chapter with raw threshold 6.
         Before fix: threshold=6, completed=5, 5 >= 6 is false → stuck.
         After fix:  threshold=5, completed=5, 5 >= 5 is true  → STREAMING.
         """

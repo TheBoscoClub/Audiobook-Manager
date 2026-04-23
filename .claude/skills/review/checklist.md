@@ -326,11 +326,11 @@ the fix, it's ASK.
 - `btrfs subvolume delete` on a path matching `*pristine*` — pristine snapshots are protected, never delete
 - `virsh snapshot-delete` targeting `pristine` — same rule
 - BTRFS snapshot created OUTSIDE `$PROJECT/.snapshots/` — pollutes the top-level `ccp` listing
-- Snapshot created at `/hddRaid1/ClaudeCodeProjects/MyProject-snap-*` path (not inside project) — violates canonical location rule
+- Snapshot created at `<projects-root>/MyProject-snap-*` path (not inside project) — violates canonical location rule
 
 ### Pass 2 — INFORMATIONAL
 
-- fstab entry added without `nofail,degraded` options on `/hddRaid1` members — can break boot on a degraded array
+- fstab entry added without `nofail,degraded` options on the projects storage array — can break boot on a degraded array
 - Subvolume created without corresponding fstab entry — won't survive a remount
 - `snapper` config referenced without being created first (ordering bug — delete-config requires subvolume)
 
@@ -377,7 +377,7 @@ the fix, it's ASK.
 - Script that uses `--no-verify` to skip pre-commit / pre-push hooks — forbidden unless user explicitly requested
 - `git push --force` or `git reset --hard` on the default branch in any automation
 - `gh repo create` without `--private` flag (new repos must be private by default)
-- `gh repo create` in the `greogory` / personal namespace instead of `TheBoscoClub` — violates repo-owner rule
+- `gh repo create` in a personal namespace instead of the designated org — violates repo-owner rule
 
 ### Pass 2 — INFORMATIONAL
 
@@ -390,7 +390,7 @@ the fix, it's ASK.
 ### Pass 2 — INFORMATIONAL
 
 - `grep -r` / `rg` without excluding `.snapshots/` and `.btrbk-snapshots/` — per `rules/development-tools.md`, snapshots should never pollute search results
-- `find` without `-not -path '*/.snapshots/*'` when searching under `/hddRaid1/ClaudeCodeProjects/`
+- `find` without `-not -path '*/.snapshots/*'` when searching under the projects root — per `rules/development-tools.md`, snapshots should never pollute search results
 
 ---
 

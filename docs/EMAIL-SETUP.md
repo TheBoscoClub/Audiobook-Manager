@@ -22,9 +22,9 @@ SMTP_TLS="none"        # plaintext; ONLY for localhost relays
 
 ## Provider recipes
 
-### Resend (recommended for thebosco.club)
+### Resend (recommended)
 
-**Why it's the right choice** for this project: cleanroom SMTP service via Amazon SES, no PGP/MIME wrapping (Protonmail Bridge adds `multipart/signed` which Apple's mac.com rejects with `554 5.7.1 [CS01]`), free tier (3,000 emails/month) covers invitation + activation email without additional spend.
+**Why it's a strong choice**: cleanroom SMTP service via Amazon SES, no PGP/MIME wrapping (Protonmail Bridge adds `multipart/signed` which Apple's mac.com rejects with `554 5.7.1 [CS01]`), free tier (3,000 emails/month) covers invitation + activation email without additional spend.
 
 Domain must be verified in Resend console + DNS records added to Cloudflare / your DNS host:
 

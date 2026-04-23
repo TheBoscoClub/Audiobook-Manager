@@ -7,7 +7,7 @@
 
 ## Problem
 
-Administering user accounts currently requires direct access to the encrypted SQLCipher auth database via CLI or a SQL editor. This creates real risk of corruption from typos, terminal crashes, or editor bugs. It also blocks account creation when email delivery fails (e.g., mac.com blocking thebosco.club), since the existing invite flow depends on email.
+Administering user accounts currently requires direct access to the encrypted SQLCipher auth database via CLI or a SQL editor. This creates real risk of corruption from typos, terminal crashes, or editor bugs. It also blocks account creation when email delivery fails (e.g., mac.com blocking a small sender domain), since the existing invite flow depends on email.
 
 ## Goals
 
@@ -157,7 +157,7 @@ Three-tier notification stack for critical changes (username, auth method, crede
 
 1. **In-app toast + badge**: Always, for all admins. Toast on next load or WebSocket push if connected. Badge count on USERS tab.
 
-2. **Email alert**: For all admins with an email on their account. Sent via existing Resend SMTP path (`library@thebosco.club`). Short, factual:
+2. **Email alert**: For all admins with an email on their account. Sent via existing Resend SMTP path (`library@<your-domain>`). Short, factual:
    > Subject: [Audiobook Library] Account change: bosco changed username
    > Body: User "bosco" changed their username to "bosco2" at 2026-03-23 18:15 UTC. Review in Back Office → Users → Audit Log.
 

@@ -379,31 +379,31 @@ class TestWebAuthnConfigDerivation:
     def test_fqdn_used_as_rp_id(self):
         """A real FQDN should be used as-is for RP ID."""
         rp_id, rp_name, origin = self._call_get_webauthn_config(
-            {"AUDIOBOOKS_HOSTNAME": "library.thebosco.club"}
+            {"AUDIOBOOKS_HOSTNAME": "library.example.com"}
         )
-        assert rp_id == "library.thebosco.club"
+        assert rp_id == "library.example.com"
 
     def test_origin_https_default_port(self):
         """HTTPS on port 443 should omit the port from origin."""
         rp_id, rp_name, origin = self._call_get_webauthn_config(
             {
-                "AUDIOBOOKS_HOSTNAME": "library.thebosco.club",
+                "AUDIOBOOKS_HOSTNAME": "library.example.com",
                 "AUDIOBOOKS_HTTPS_ENABLED": "true",
                 "AUDIOBOOKS_WEB_PORT": "443",
             }
         )
-        assert origin == "https://library.thebosco.club"
+        assert origin == "https://library.example.com"
 
     def test_origin_https_custom_port(self):
         """HTTPS on non-443 port should include port in origin."""
         rp_id, rp_name, origin = self._call_get_webauthn_config(
             {
-                "AUDIOBOOKS_HOSTNAME": "library.thebosco.club",
+                "AUDIOBOOKS_HOSTNAME": "library.example.com",
                 "AUDIOBOOKS_HTTPS_ENABLED": "true",
                 "AUDIOBOOKS_WEB_PORT": "8443",
             }
         )
-        assert origin == "https://library.thebosco.club:8443"
+        assert origin == "https://library.example.com:8443"
 
     def test_localhost_always_includes_port(self):
         """Localhost origin always includes the port."""

@@ -285,7 +285,7 @@ SMTP_HOST=smtp.resend.com
 SMTP_PORT=587
 SMTP_USER=resend
 SMTP_PASS=<api-key>
-SMTP_FROM=library@thebosco.club
+SMTP_FROM=library@YOUR_DOMAIN.example
 ```
 
 If SMTP is not configured, the action still succeeds and is logged — only the email delivery is skipped (no error raised).

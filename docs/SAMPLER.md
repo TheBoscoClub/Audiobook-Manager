@@ -48,7 +48,7 @@ A matching UPDATE trigger catches attempts to demote a sampler row after the fac
 
 ## Adaptive buffer-fill threshold
 
-When a user plays a cached sample in `zh-Hans`, we need to fire the live-translation pipeline early enough that the buffer catches up before the sample ends. Too early and we waste GPU money on casual browsers; too late and the GPU cold-start extends past the end of the sample and Qing sees a spinner.
+When a user plays a cached sample in `zh-Hans`, we need to fire the live-translation pipeline early enough that the buffer catches up before the sample ends. Too early and we waste GPU money on casual browsers; too late and the GPU cold-start extends past the end of the sample and the listener sees a spinner.
 
 We resolve this adaptively based on **current STT provider warmth** — aggregated across every STT backend the operator has configured (RunPod, Vast.ai, self-hosted whisper-gpu, etc.):
 

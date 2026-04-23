@@ -534,11 +534,11 @@ use_waitress = AUDIOBOOKS_USE_WAITRESS
 
 **Affected Files**:
 
-- `systemd/audiobook.target` line 3: `Documentation=https://github.com/greogory/Audiobook-Manager`
-- `systemd/audiobook-upgrade-helper.path` line 3: `Documentation=https://github.com/greogory/Audiobook-Manager`
+- `systemd/audiobook.target` line 3: `Documentation=https://github.com/<user>/Audiobook-Manager`
+- `systemd/audiobook-upgrade-helper.path` line 3: `Documentation=https://github.com/<user>/Audiobook-Manager`
 - Other service files use: `Documentation=https://github.com/TheBoscoClub/Audiobook-Manager`
 
-**Root Cause**: GitHub username `greogory` in two files vs. `TheBoscoClub` (the correct org) in other service files.
+**Root Cause**: GitHub username (personal namespace) in two files vs. `TheBoscoClub` (the correct org) in other service files.
 
 **Fix**: Update to `https://github.com/TheBoscoClub/Audiobook-Manager` in both files.
 
@@ -602,7 +602,7 @@ with contextlib.closing(get_db(db_path)) as conn:
 | H-7 | MEDIUM | Shell scripts | Hardcoded maintainer-specific fallback paths |
 | H-8 | LOW | Shell scripts | Missing third-tier config source fallback |
 | H-9 | INFO | Systemd services | Proxy uses system Python while API uses venv Python |
-| H-10 | LOW | Systemd files | Documentation URL typo (`greogory` vs `TheBoscoClub`) |
+| H-10 | LOW | Systemd files | Documentation URL typo (personal vs org namespace) |
 | H-11 | LOW | API endpoints | No try/finally for database connections |
 | H-12 | LOW | **init**.py | `admin_or_localhost` not exported |
 

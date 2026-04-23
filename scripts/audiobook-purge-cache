@@ -6,7 +6,9 @@
 # Call after deploying CSS/JS/HTML changes to ensure visitors get fresh assets.
 #
 # Credentials are sourced from ~/.config/api-keys.env (shared with cloudflare-manager).
-# Zone ID is hardcoded for thebosco.club or auto-detected via API.
+# Zone ID is supplied via CF_ZONE_ID (env or /etc/audiobooks/audiobooks.conf)
+# or auto-detected via the Cloudflare API using the hostname in
+# AUDIOBOOKS_HOSTNAME.
 #
 # Usage:
 #   audiobook-purge-cache              # Purge everything
@@ -63,7 +65,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Credentials: sourced from ~/.config/api-keys.env"
             echo "  CF_GLOBAL_API_KEY and CF_AUTH_EMAIL must be set"
-            echo "  CF_ZONE_ID defaults to thebosco.club zone"
+            echo "  CF_ZONE_ID must be set; auto-detects from AUDIOBOOKS_HOSTNAME if unset"
             exit 0
             ;;
         *)

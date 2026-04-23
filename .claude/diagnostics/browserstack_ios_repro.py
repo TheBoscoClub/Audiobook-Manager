@@ -3,14 +3,14 @@
 BrowserStack Automate harness — real iPhone, real iOS Safari/Chrome.
 
 Why this exists: Playwright on Linux (WebKit) approximates iOS but runs on
-desktop kernels. Chrome iOS and Safari iOS are the only browsers Qing uses,
+desktop kernels. Chrome iOS and Safari iOS are the target browsers,
 both are WebKit under the hood (App Store rule), and neither reproduces
 reliably without a real device. This script drives BrowserStack Automate's
 real-device cloud via Appium/Selenium.
 
 Flow (same as playwright_ios_repro.py):
   1. Session start on real iPhone + chosen browser
-  2. Login as claudecode on qalib.thebosco.club (TOTP)
+  2. Login as claudecode on the QA host from $AUDIOBOOKS_QA_HOST (TOTP)
   3. Activate ?debug=1 overlay, enter iframe
   4. Open first book, press play, soak
   5. Harvest debug overlay text + full-page screenshot
@@ -42,6 +42,7 @@ from __future__ import annotations
 import argparse
 import base64
 import json
+import os
 import re
 import sys
 import time
@@ -65,7 +66,7 @@ CREDS_FILE = Path.home() / ".config" / "BrowserStackLocalCredentials.txt"
 TOTP_SECRET_FILE = ROOT / ".claude" / "secrets" / "totp-secret"
 OUT_DIR = ROOT / ".claude" / "diagnostics"
 
-QA_HOST = "https://qalib.thebosco.club"
+QA_HOST = os.environ.get("AUDIOBOOKS_QA_HOST", "https://qa.example.com")
 USERNAME = "claudecode"
 HUB_URL = "https://hub-cloud.browserstack.com/wd/hub"
 
@@ -198,7 +199,7 @@ def run(
     text_path = OUT_DIR / f"bs-{tag}-{ts}.txt"
     meta_path = OUT_DIR / f"bs-{tag}-{ts}.meta.json"
 
-    build_name = f"qing-streaming-repro-{datetime.now().strftime('%Y%m%d')}"
+    build_name = f"streaming-repro-{datetime.now().strftime('%Y%m%d')}"
     session_name = f"{device} iOS {os_version} {browser} v8.3.6"
 
     opts = build_capabilities(
@@ -252,7 +253,7 @@ def run(
 
         # Wait for redirect to / (or /?something)
         wait.until(lambda d: re.match(
-            r"^https://qalib\.thebosco\.club/?(\?.*)?$", d.current_url
+            rf"^{re.escape(QA_HOST)}/?(\?.*)?$", d.current_url
         ))
         log(f"login OK — landed at {driver.current_url}")
 
@@ -271,7 +272,7 @@ def run(
         driver.get(f"{QA_HOST}/?debug=1")
         wait.until(EC.presence_of_element_located((By.ID, "content-frame")))
 
-        # Flip locale to zh-Hans on the shell (Qing's flow). Must happen BEFORE
+        # Flip locale to zh-Hans on the shell (field-user flow). Must happen BEFORE
         # entering the iframe — i18n is owned by the shell and propagates to the
         # iframe via shared localStorage + postMessage. Without this, the
         # streaming-translate path never fires and the soak just shows cached

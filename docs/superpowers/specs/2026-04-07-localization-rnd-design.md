@@ -3,7 +3,7 @@
 **Branch:** `Localization-RND`
 **Date:** 2026-04-07
 **Priority locale:** zh-Hans (Simplified Chinese / Mandarin)
-**Motivation:** Qing (Bosco's partner, Mandarin speaker) wants to navigate the UI, read translated subtitles, and listen to translated audio for English audiobooks.
+**Motivation:** A Mandarin-speaking household member wants to navigate the UI, read translated subtitles, and listen to translated audio for English audiobooks.
 
 ---
 
@@ -102,7 +102,7 @@ Apply `var(--font-cjk)` as a fallback in all `font-family` declarations. CJK cha
 - Range: 12px to 28px in 2px increments, stored in `user_settings.font_size`
 - Applies globally via CSS custom property `--user-font-size` on `<html>` element
 - Subtitle text (inline and side panel) scales independently with its own size control in the player area
-- Persisted per-user so Qing's preference survives sessions
+- Persisted per-user so the locale preference survives sessions
 - Default: 16px (standard), but respects user's browser zoom as a baseline multiplier
 
 ### 1.4 Localized Book Card Metadata

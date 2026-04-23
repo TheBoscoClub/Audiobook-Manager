@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Playwright WebKit harness — reproduce Qing's Chrome-iOS streaming bug on CachyOS.
+Playwright WebKit harness — reproduce the reported Chrome-iOS streaming bug on CachyOS.
 
 Chrome iOS is Safari under the hood (App Store rule forces all iOS browsers to
 WebKit). WebKit on Linux is the closest local approximation we have to iOS
@@ -8,7 +8,8 @@ browsers without a Mac.
 
 Flow:
   1. Launch WebKit with iPhone 14 device emulation
-  2. Log in as `claudecode` on qalib.thebosco.club (TOTP from .claude/secrets/totp-secret)
+  2. Log in as `claudecode` on the QA host from $AUDIOBOOKS_QA_HOST
+     (TOTP from .claude/secrets/totp-secret)
   3. Navigate to /?debug=1 — the debug overlay activates
   4. Open first book, switch locale to zh-Hans, press play
   5. Wait through buffering window, capture screenshot + overlay text
@@ -46,7 +47,7 @@ os.environ["LD_LIBRARY_PATH"] = (
 ROOT = Path(__file__).resolve().parents[2]
 SECRETS = ROOT / ".claude" / "secrets" / "totp-secret"
 OUT_DIR = ROOT / ".claude" / "diagnostics"
-QA_HOST = "https://qalib.thebosco.club"
+QA_HOST = os.environ.get("AUDIOBOOKS_QA_HOST", "https://qa.example.com")
 USERNAME = "claudecode"
 # Buffer window long enough to see phase transitions (buffering -> streaming/error)
 PLAY_WAIT_SEC = 45
@@ -134,12 +135,12 @@ def run(browser_name: str, headless: bool) -> int:
             page.click("#login-button")
 
             # Successful login redirects to /
-            page.wait_for_url(re.compile(r"https://qalib\.thebosco\.club/?(\?.*)?$"),
+            page.wait_for_url(re.compile(rf"{re.escape(QA_HOST)}/?(\?.*)?$"),
                               timeout=20_000)
             log("login OK")
 
             # 2. Pre-seed localStorage on the QA origin so the first-visit
-            # feature-announce banner doesn't obscure the library. Qing saw it
+            # feature-announce banner doesn't obscure the library. The field user saw it
             # once and dismissed it; fresh Playwright contexts hit it every run.
             page.goto(f"{QA_HOST}/?debug=1", wait_until="domcontentloaded")
             page.evaluate(
@@ -231,7 +232,7 @@ def run(browser_name: str, headless: bool) -> int:
             log("clicking play")
             play_btn.click()
 
-            # 6. Soak time — this is where Qing's flow died at ~5min
+            # 6. Soak time — this is where the field-user flow died at ~5min
             log(f"soaking for {PLAY_WAIT_SEC}s to surface streaming state")
             time.sleep(PLAY_WAIT_SEC)
 

@@ -46,7 +46,7 @@ confirmation must appear in the release staging notes — not in Claude's head.
 **Why**: v8.3.0/v8.3.1 shipped `scripts/stream-translate-worker.py` with zero
 wiring — no systemd unit, no install.sh, no upgrade.sh, no manifest entry, no
 dispatch. `streaming_segments` rows inserted by the streaming API had nobody to
-read them. User's real-time Chinese translation demo to Qing on prod failed
+read them. The maintainer's real-time Chinese translation demo on prod failed
 with a 5-minute "排队中" spinner. The CHANGELOG claimed the pipeline was
 shipped; the installed application never received the worker. See memory
 `feedback_upgrade_consistency_enforcement.md` for full post-mortem.

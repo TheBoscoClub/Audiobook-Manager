@@ -620,7 +620,7 @@ def _derive_phase(conn, audiobook_id: int, locale: str) -> str:
     The phase is surfaced to the player via both the REST
     ``POST /api/translate/stream`` response and the WebSocket
     ``buffer_progress`` broadcast so the UI can render a distinct label
-    for each pipeline stage (e.g. Qing's monolingual zh-Hans player).
+    for each pipeline stage (e.g. a monolingual zh-Hans player).
 
     Precedence (first match wins):
         1. failed > 0                                 → "error"
