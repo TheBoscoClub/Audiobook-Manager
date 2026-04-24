@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8.8] - 2026-04-24
+
+### Fixed
+
+- **Mobile player controls hidden behind iOS Chrome bottom nav bar**: Qing's iPhone (Chrome iOS) showed the player's cover + title row but ALL controls — play/pause, -30/+30, scrubber, speed, CC, close — were clipped. Audio + subtitles worked, but she had no way to pause, seek, or close the player. Root cause: on narrow-mobile (`@media max-width: 768px`) the player flex-wraps its 5 child bars into 4 rows totaling ~184 px of content, but `min-height: calc(100px + safe-area-inset-bottom)` only reserved ~134 px. `body { overflow: hidden }` clipped the overflow; iOS Chrome's bottom nav bar (which, unlike iOS Safari, does NOT collapse on scroll) occluded whatever escaped. The v8.3.6 "mobile player bottom clipping" fix with `--player-height: 100px` worked on Safari because Safari's bottom chrome DOES retract — iOS Chrome exposes the gap. Fix: bump `--player-height` to 200 px at the mobile breakpoint so `min-height` reserves enough vertical space for all four wrapped rows (row 1: cover + info ~56 px · row 2: controls ~44 px · row 3: extras ~44 px · row 4: progress ~40 px = 184 px + internal padding). `height: auto` still lets the bar shrink on breakpoints that need less. Affects `library/web-v2/css/shell.css` only — no JS or HTML changes
+
 ## [8.3.8.7] - 2026-04-24
 
 ### Fixed
@@ -3424,7 +3430,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.7...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.8...HEAD
+[8.3.8.8]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.7...v8.3.8.8
 [8.3.8.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.6...v8.3.8.7
 [8.3.8.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.5...v8.3.8.6
 [8.3.8.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.4...v8.3.8.5

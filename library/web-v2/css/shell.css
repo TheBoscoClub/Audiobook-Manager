@@ -210,7 +210,25 @@ body {
 
 /* Mobile: stack vertically */
 @media (max-width: 768px) {
-    :root { --player-height: 100px; }
+    /* Player-bar min-height at narrow widths must reserve enough space
+     * for ALL four wrapped rows, or flex's overflow gets clipped by body's
+     * overflow:hidden + iOS Chrome's bottom nav bar.
+     *   Row 1: cover + info-bar (title/author)           ~56px
+     *   Row 2: controls-bar (-30 / play / +30)           ~44px
+     *   Row 3: extras-bar (volume + speed + CC + …)      ~44px
+     *   Row 4: progress-bar (time | scrubber | time)     ~40px (order:10)
+     * Total ~184px + 12px internal padding.
+     *
+     * The v8.3.6 "mobile player bottom clipping" fix used 100px — that
+     * worked on Safari because Safari's bottom chrome collapses on scroll,
+     * exposing the clipped rows again. iOS Chrome does NOT collapse its
+     * bottom nav, so the wrapped rows stay invisible behind it. Qing's
+     * iPhone (Chrome iOS) exhibited this with only cover+title visible
+     * and no player controls reachable.
+     *
+     * `height: auto` still lets the bar shrink when fewer rows are needed
+     * (e.g. no streaming, fewer extras). */
+    :root { --player-height: 200px; }
 
     #shell-player {
         flex-wrap: wrap;
