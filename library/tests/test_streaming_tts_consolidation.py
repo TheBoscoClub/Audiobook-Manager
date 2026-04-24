@@ -555,7 +555,6 @@ def test_process_segment_skips_stt_when_vtt_content_already_present(tmp_path):
     """
     import json as _json
     from pathlib import Path as _Path
-    from unittest.mock import MagicMock
 
     w = _load_worker(env_streaming_dir=tmp_path)
 
@@ -650,7 +649,6 @@ def test_process_segment_skips_stt_when_only_vtt_content_present_no_source(tmp_p
     """
     import json as _json
     from pathlib import Path as _Path
-    from unittest.mock import MagicMock
 
     w = _load_worker(env_streaming_dir=tmp_path)
 
@@ -732,7 +730,6 @@ def test_process_segment_runs_full_stt_when_vtt_content_empty(tmp_path):
     non-empty vtt_content. A row with empty string, whitespace-only, or
     None must take the full pipeline.
     """
-    import json as _json
     from pathlib import Path as _Path
     from unittest.mock import MagicMock
 
