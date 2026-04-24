@@ -13,6 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8.4] - 2026-04-24
+
+### Added
+
+- **`sampler-burst --workers N` / `--add-workers N` semantics**: the previous version only stacked new workers on top of whatever was already running. Now:
+  - **`--workers N`** (default, **REPLACE** semantics): any existing burst workers are gracefully `SIGTERM`ed so they finish their current segment (~30–60s on cold GPU, 90s grace window), then N fresh workers spawn. Gives predictable pool-size control without orphaning workers
+  - **`--add-workers N`** (**ADD** semantics): existing burst workers keep running; N new workers stack on top. For when you want to ramp throughput incrementally
+  - **Cap enforcement**: total `stream-translate-worker.py` count across the host is capped at `MAX_WORKERS_TOTAL=16` including the systemd on-demand worker. Requested counts that would push past the cap are clamped to the remaining slot budget with a user-visible `note:` line showing what was skipped and why. Mutually exclusive; the two flags can't both be given
+  - **Existing-worker discovery** filters the systemd unit's `MainPID` out of the `pgrep -f stream-translate-worker.py` set. Works whether the prior burst parent is alive, exited, or re-parented to init via `nohup`
+  - Regression suite in `library/tests/test_sampler_burst_modes.py` (16 tests) pins every invariant: arg-parsing mutex, default=replace, cap math, TERM-before-KILL, grace=90s, systemd exclusion from burst count
+- **Test bypass for the user-gate helpers**: `AUDIOBOOKS_SKIP_USER_GATE=1` env var makes both shell (`lib/audiobook-config.sh`) and Python (`library/config.py`, inline copies in `email-report.py` / `embed-cover-art.py`) helpers no-op. `library/tests/conftest.py` sets it before any script module is imported, so all 4729 tests see a no-op gate regardless of the CI runner's uid. Production scripts never set this
+
 ## [8.3.8.3] - 2026-04-23
 
 ### Added
@@ -3372,7 +3384,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.3...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.4...HEAD
+[8.3.8.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.3...v8.3.8.4
 [8.3.8.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.2...v8.3.8.3
 [8.3.8.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.1...v8.3.8.2
 [8.3.8.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8...v8.3.8.1

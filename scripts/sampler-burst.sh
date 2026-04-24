@@ -71,6 +71,15 @@ PYTHON_BIN="${AUDIOBOOKS_HOME}/venv/bin/python"
 WORKERS=4
 TIMEOUT_SEC=$((6 * 3600)) # 6h default ceiling
 FORCE=0
+# Mode: "replace" (default — gracefully terminate existing burst workers
+# before spawning the new set) or "add" (leave existing alone, stack more
+# workers on top, subject to the max-total cap).
+MODE="replace"
+# Max total stream-translate-worker.py processes allowed on this host,
+# INCLUDING the systemd audiobook-stream-translate.service worker. Hitting
+# the cap means new requests are clamped to the remaining slots, with a
+# note explaining what was skipped.
+MAX_WORKERS_TOTAL=16
 
 # ─── Arg parsing ─────────────────────────────────────────────────────────────
 
@@ -78,8 +87,19 @@ _usage() {
     cat <<EOF
 sampler-burst.sh — drain the streaming_segments backlog with N parallel workers
 
-OPTIONS:
-  --workers N     Number of parallel workers (default: 4, max: 16)
+POOL-SIZING OPTIONS (mutually exclusive):
+  --workers N       REPLACE semantics (default mode). Gracefully SIGTERM any
+                    existing burst workers, wait for their current segment
+                    to finish, then spawn N fresh workers. Default: 4.
+  --add-workers N   ADD semantics. Leave existing burst workers running and
+                    spawn N additional workers on top of them.
+
+  Cap: total stream-translate-worker.py processes across the host is
+  capped at $MAX_WORKERS_TOTAL (including the systemd on-demand worker). If
+  the requested N would push total above the cap, N is clamped to the
+  available slots and a note is emitted.
+
+OTHER OPTIONS:
   --timeout DUR   Max wall-clock time (e.g. 30m, 2h, 10800s). Default: 6h.
   --force         Start even if the main systemd unit is active.
   -h, --help      Show this help.
@@ -90,7 +110,7 @@ ENVIRONMENT:
 Exit codes:
   0  queue drained successfully
   1  generic error
-  2  invalid --workers / --timeout argument
+  2  invalid --workers / --add-workers / --timeout argument
   3  timeout reached with work still in queue
 EOF
 }
@@ -110,16 +130,38 @@ _parse_duration() {
     fi
 }
 
+_mode_set=0
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --workers)
+            if [[ $_mode_set -eq 1 ]]; then
+                echo "error: --workers and --add-workers are mutually exclusive" >&2
+                exit 2
+            fi
             # Integer-only, 1..16. Reject anything else to prevent shell injection
             # via weird values reaching the `for` loop below.
-            if [[ "${2:-}" =~ ^[0-9]+$ ]] && [[ "$2" -ge 1 ]] && [[ "$2" -le 16 ]]; then
+            if [[ "${2:-}" =~ ^[0-9]+$ ]] && [[ "$2" -ge 1 ]] && [[ "$2" -le $MAX_WORKERS_TOTAL ]]; then
                 WORKERS="$2"
+                MODE="replace"
+                _mode_set=1
                 shift 2
             else
-                echo "error: --workers requires an integer 1..16" >&2
+                echo "error: --workers requires an integer 1..$MAX_WORKERS_TOTAL" >&2
+                exit 2
+            fi
+            ;;
+        --add-workers)
+            if [[ $_mode_set -eq 1 ]]; then
+                echo "error: --workers and --add-workers are mutually exclusive" >&2
+                exit 2
+            fi
+            if [[ "${2:-}" =~ ^[0-9]+$ ]] && [[ "$2" -ge 1 ]] && [[ "$2" -le $MAX_WORKERS_TOTAL ]]; then
+                WORKERS="$2"
+                MODE="add"
+                _mode_set=1
+                shift 2
+            else
+                echo "error: --add-workers requires an integer 1..$MAX_WORKERS_TOTAL" >&2
                 exit 2
             fi
             ;;
@@ -177,6 +219,103 @@ fi
 # Defined in audiobook-config.sh (canonical shared helper). Fails fast with
 # a useful diagnostic instead of spawning workers that can't write the DB.
 require_audiobooks_user "$@"
+
+# ─── Pool sizing (existing workers + cap enforcement) ────────────────────────
+#
+# Count existing stream-translate-worker.py processes across the host and
+# decide how many new workers to spawn. The cap ($MAX_WORKERS_TOTAL) applies
+# to the TOTAL running worker count, including the systemd audiobook-stream-
+# translate.service worker when it's active.
+#
+# Discovery heuristic: any stream-translate-worker.py process that isn't
+# the systemd unit's MainPID is considered a "burst worker" — this covers
+# children of a prior sampler-burst invocation (whose parent may still be
+# alive, may have exited, or may have been re-parented to init via nohup).
+
+_systemd_worker_pid() {
+    if ! systemctl is-active audiobook-stream-translate.service &>/dev/null; then
+        echo ""
+        return
+    fi
+    local pid
+    pid=$(systemctl show -p MainPID --value audiobook-stream-translate.service 2>/dev/null)
+    [[ "$pid" == "0" ]] && pid=""
+    echo "$pid"
+}
+
+_existing_burst_worker_pids() {
+    local sysd_pid="$1"
+    local pid
+    for pid in $(pgrep -f 'stream-translate-worker\.py' 2>/dev/null); do
+        [[ "$pid" != "$sysd_pid" ]] && echo "$pid"
+    done
+}
+
+_terminate_workers() {
+    # Usage: _terminate_workers GRACE_SEC pid1 pid2 ...
+    # SIGTERMs each pid, polls up to GRACE_SEC for graceful exit (lets the
+    # worker finish its current segment), then SIGKILLs survivors.
+    local grace="$1"
+    shift
+    local pid
+    for pid in "$@"; do
+        [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null && kill -TERM "$pid" 2>/dev/null || true
+    done
+    while ((grace > 0)); do
+        local alive=0
+        for pid in "$@"; do
+            [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null && alive=$((alive + 1))
+        done
+        [[ $alive -eq 0 ]] && return 0
+        sleep 1
+        grace=$((grace - 1))
+    done
+    for pid in "$@"; do
+        [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
+    done
+}
+
+sysd_pid="$(_systemd_worker_pid)"
+mapfile -t existing_worker_pids < <(_existing_burst_worker_pids "$sysd_pid")
+existing_count=${#existing_worker_pids[@]}
+sysd_count=0
+[[ -n "$sysd_pid" ]] && sysd_count=1
+
+# ─── Cap math ────────────────────────────────────────────────────────────────
+# REPLACE: we'll SIGTERM the existing burst workers before spawning new,
+# so the available slot budget = MAX - systemd (existing burst workers
+# don't subtract because they're about to go away).
+# ADD: existing stay, so available = MAX - systemd - existing.
+if [[ "$MODE" == "add" ]]; then
+    available_slots=$((MAX_WORKERS_TOTAL - sysd_count - existing_count))
+else
+    available_slots=$((MAX_WORKERS_TOTAL - sysd_count))
+fi
+
+# Pool-sizing report
+echo "Pool state: existing burst=$existing_count, systemd=$sysd_count, requested=$WORKERS (mode=$MODE, cap=$MAX_WORKERS_TOTAL)"
+
+if [[ $available_slots -le 0 ]]; then
+    echo "note: pool already at cap ($sysd_count systemd + $existing_count burst = $MAX_WORKERS_TOTAL). No new workers spawned."
+    exit 0
+fi
+
+target_workers=$WORKERS
+if [[ $WORKERS -gt $available_slots ]]; then
+    echo "note: requested $WORKERS new worker(s), but cap=$MAX_WORKERS_TOTAL with $sysd_count systemd + $existing_count existing leaves $available_slots slot(s). Spawning $available_slots."
+    target_workers=$available_slots
+fi
+WORKERS=$target_workers
+
+# ─── Replace-mode termination ────────────────────────────────────────────────
+# Before spawning fresh workers, gracefully SIGTERM the existing set so each
+# finishes its current segment and exits. 90s grace window covers a cold-GPU
+# segment (~60s) with headroom.
+if [[ "$MODE" == "replace" ]] && [[ $existing_count -gt 0 ]]; then
+    echo "Replace mode: SIGTERMing $existing_count existing burst worker(s); grace=90s for in-flight segments..."
+    _terminate_workers 90 "${existing_worker_pids[@]}"
+    echo "  existing workers terminated"
+fi
 
 # ─── Spawn workers ───────────────────────────────────────────────────────────
 
