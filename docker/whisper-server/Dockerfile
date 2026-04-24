@@ -30,6 +30,7 @@ RUN python3 -c "from faster_whisper import WhisperModel; WhisperModel('large-v3'
 RUN useradd --system --uid 1001 --home-dir /app --create-home whisper \
     && chown -R whisper:whisper /models
 
+LABEL org.opencontainers.image.source="https://github.com/TheBoscoClub/Audiobook-Manager"
 WORKDIR /app
 COPY --chown=whisper:whisper whisper_server.py /app/whisper_server.py
 USER whisper

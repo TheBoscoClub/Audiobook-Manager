@@ -54,13 +54,15 @@ def _insert_seg(
     priority=1,
     retry_count=0,
     locale="zh-Hans",
+    origin="live",
 ):
     conn = sqlite3.connect(db_path)
     conn.execute(
         "INSERT INTO streaming_segments "
-        "(audiobook_id, chapter_index, segment_index, locale, state, priority, retry_count) "
-        "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (audiobook_id, chapter, segment, locale, state, priority, retry_count),
+        "(audiobook_id, chapter_index, segment_index, locale, state, priority, "
+        " retry_count, origin) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+        (audiobook_id, chapter, segment, locale, state, priority, retry_count, origin),
     )
     conn.commit()
     conn.close()
@@ -156,6 +158,62 @@ def test_claim_allows_no_session(db_path):
     assert claimed is not None
 
 
+def test_claim_sampler_row_ignores_stopped_session(db_path):
+    """v8.3.8.6 orphan-repair fix: session-state block applies ONLY to
+    origin='live' rows. A user pressing Stop on their playback session
+    must not freeze background pretranslation (origin='sampler') or
+    operator-initiated orphan repair (origin='backlog').
+
+    Reproduction of the v8.3.8.6 incident snag: after the user Stopped
+    playback on book 115401 to clear a stuck player, the orphan-repair
+    flow reset 132 ch=1 rows to state='pending' with origin='live'
+    (those were legacy-.opus orphans). The stopped session blocked all
+    132 rows from being claimed; operator had to manually transition
+    the session state back to 'buffering'. Long-term fix (schema-level
+    repair sessions) is deferred to v8.3.8.7; this carve-out is the
+    minimum bug-stopping change.
+
+    For live-origin rows the block still applies — see
+    test_claim_skips_stopped_session.
+    """
+    worker = _load_worker()
+    _insert_session(db_path, state="stopped")
+    _insert_seg(db_path, segment=0, origin="sampler", priority=2)
+    _insert_seg(db_path, segment=1, origin="backlog", priority=2)
+    claimed = worker.claim_next_segment(db_path)
+    assert claimed is not None, (
+        "sampler/backlog rows must be claimable regardless of session state"
+    )
+    assert claimed["origin"] in ("sampler", "backlog")
+
+
+def test_claim_live_row_still_blocked_by_stopped_session(db_path):
+    """Regression guard on the live-origin invariant preserved across
+    the v8.3.8.6 session-block carve-out. Live rows in a stopped
+    session MUST NOT be claimed — that is the original Bug E defense
+    (user pressed Stop, do not silently resume their live playback)."""
+    worker = _load_worker()
+    _insert_session(db_path, state="stopped")
+    _insert_seg(db_path, segment=0, origin="live", priority=0)
+    claimed = worker.claim_next_segment(db_path)
+    assert claimed is None, "live row MUST still be blocked by stopped session"
+
+
+def test_claim_priority_ordering_unaffected_by_origin(db_path):
+    """When both live and sampler rows are pending under a stopped
+    session, the filter excludes live but still honors ORDER BY
+    priority ASC — so the sampler row (p=2) is claimable even though a
+    p=0 live row nominally has higher priority but is blocked."""
+    worker = _load_worker()
+    _insert_session(db_path, state="stopped")
+    _insert_seg(db_path, segment=0, origin="live", priority=0)  # blocked
+    _insert_seg(db_path, segment=1, origin="sampler", priority=2)  # eligible
+    claimed = worker.claim_next_segment(db_path)
+    assert claimed is not None
+    assert claimed["origin"] == "sampler"
+    assert claimed["segment_index"] == 1
+
+
 def test_claim_uses_latest_session_by_id(db_path):
     """If a user starts, stops, then re-starts streaming for the same book,
     the LATEST session wins (ORDER BY id DESC). Old stopped session must
@@ -166,6 +224,35 @@ def test_claim_uses_latest_session_by_id(db_path):
     _insert_seg(db_path, segment=0)
     claimed = worker.claim_next_segment(db_path)
     assert claimed is not None, "newest session state 'streaming' should unblock"
+
+
+def test_streaming_translate_js_populates_bitmap_before_all_cached_shortcut():
+    """Static-source guard for v8.3.8.6 MSE buffer-threshold fix.
+
+    In ``library/web-v2/js/streaming-translate.js::enterBuffering``, the
+    ``bitmap.all_cached`` fast-path early-returns via ``enterStreaming()``.
+    If the local ``segmentBitmap[chapterIndex]`` has not been populated
+    BEFORE this return, ``enterStreaming``'s replay loop iterates an
+    empty Set, never enqueues a segment into the MSE chain, and the
+    audio element sits at currentTime=0 readyState=0 forever. Books
+    affected: any whose ch=0 has fewer than BUFFER_THRESHOLD (6)
+    segments — observed on 115401 (1 seg), 115852 (3 segs), 116062
+    (1 seg) during v8.3.8.6 orphan-repair browser proof.
+
+    This test reads the source and asserts that ``if (bitmap.all_cached)``
+    appears AFTER the ``segmentBitmap[chapterIndex]`` population loop.
+    """
+    js_path = PROJECT_ROOT / "library" / "web-v2" / "js" / "streaming-translate.js"
+    src = js_path.read_text(encoding="utf-8")
+    bitmap_pop_idx = src.find("segmentBitmap[chapterIndex].add(idx)")
+    all_cached_branch_idx = src.find("if (bitmap.all_cached)")
+    assert bitmap_pop_idx > 0, "segmentBitmap population loop not found"
+    assert all_cached_branch_idx > 0, "bitmap.all_cached branch not found"
+    assert bitmap_pop_idx < all_cached_branch_idx, (
+        "segmentBitmap must be populated BEFORE the all_cached short-circuit "
+        "— otherwise enterStreaming replays an empty Set and MSE is never fed "
+        "for short-chapter books"
+    )
 
 
 def test_stop_impl_deletes_pending(db_path):

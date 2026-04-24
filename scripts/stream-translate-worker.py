@@ -219,6 +219,23 @@ def claim_next_segment(db_path: str) -> dict | None:
         # is genuinely wanted work. The LEFT JOIN picks the most recent
         # session for (book, locale) by id DESC so a user's latest
         # Stop/abort wins over any stale row.
+        #
+        # Session-state filter applies ONLY to origin='live' rows — user
+        # Stop is about the user's live playback session. Sampler and
+        # backlog pretranslation work must not be blocked by a stale
+        # session state, because:
+        #   (1) orphan-repair flows reset rows to state='pending' and
+        #       rely on the worker draining them regardless of the
+        #       (possibly ancient) last session's state.
+        #   (2) sampler pre-translation is a background job that has
+        #       its own `sampler_jobs.status` lifecycle — it is not
+        #       controlled by streaming_sessions.state.
+        # Without this carve-out, a single user Stop on a book where
+        # pretranslation is underway silently freezes all 7 of the
+        # book's sampler rows, and the operator has to manually
+        # transition the session state back to 'buffering' to resume
+        # work. That was the exact snag that delayed orphan repair on
+        # books 115401, 115852, and 116062 during the v8.3.8.6 repair.
         row = conn.execute(
             "UPDATE streaming_segments "
             "SET state = 'processing', worker_id = ?, started_at = ? "
@@ -230,7 +247,8 @@ def claim_next_segment(db_path: str) -> dict | None:
             "                            ORDER BY id DESC LIMIT 1) "
             "            WHERE s.state = 'pending' "
             "              AND COALESCE(s.retry_count, 0) < 3 "
-            "              AND (sess.state IS NULL "
+            "              AND (s.origin != 'live' "
+            "                   OR sess.state IS NULL "
             "                   OR sess.state NOT IN "
             "                      ('stopped','cancelled','error')) "
             "            ORDER BY s.priority ASC, s.chapter_index ASC, "
@@ -324,47 +342,80 @@ def process_segment(
 
     seg_audio: Path | None = None  # extracted temp 30-sec slice (cleanup target)
     tts_opus: Path | None = None  # permanent synthesized opus (DO NOT delete)
+    output_dir: Path | None = None  # tempdir for generate_subtitles outputs (STT-path only)
     try:
-        # Extract the 30-second audio segment
-        seg_audio = split_audio_segment(
-            audio_path, chapter_start_sec, segment_index, chapter_duration_sec
-        )
+        # Idempotent TTS-regen path: when a pending row already has
+        # vtt_content (a previous run completed STT+translate but the audio
+        # is missing — e.g. a broken burst worker, a legacy .opus orphan,
+        # or a manual reset to repair orphaned audio_path), skip STT and
+        # translation entirely and regenerate only the per-segment TTS.
+        # This is a pure economic optimization (no STT GPU cost, no DeepL
+        # per-char cost) AND the correctness primitive that lets an
+        # operator reset orphan rows to pending to recover missing audio.
+        vtt_raw = segment.get("vtt_content") or ""
+        source_vtt_raw = segment.get("source_vtt_content") or ""
+        if vtt_raw.strip():
+            logger.info(
+                "TTS-only regen (vtt_content present): book=%d ch=%d seg=%d",
+                audiobook_id,
+                chapter_index,
+                segment_index,
+            )
+            # Preserve the DB-stored VTT verbatim — timestamp offsets were
+            # already applied when originally written, and the callback's
+            # update path is idempotent w.r.t. unchanged content.
+            vtt_content = vtt_raw
+            source_vtt_content = source_vtt_raw
+        else:
+            # Extract the 30-second audio segment
+            seg_audio = split_audio_segment(
+                audio_path, chapter_start_sec, segment_index, chapter_duration_sec
+            )
 
-        # Run STT + translation on the segment — D+C streaming path
-        # routes to the warm-pool endpoint for sub-second first-segment latency.
-        stt = get_stt_provider("", workload=WorkloadHint.STREAMING)
-        output_dir = Path(tempfile.mkdtemp(prefix="stream-seg-"))
+            # Run STT + translation on the segment. Workload hint routes to the
+            # right endpoint tier:
+            #   - origin='live' (real user playback) → STREAMING → warm pool (RunPod
+            #     min_workers=1, Vast.ai streaming if configured) for sub-second
+            #     first-segment latency.
+            #   - origin='sampler' / 'backlog' (pretranslation backfill) → LONG_FORM
+            #     → backlog pool (min_workers=0) so Vast.ai scale-to-zero cold
+            #     endpoints participate alongside RunPod backlog, giving dual-farm
+            #     throughput for bulk work without burning warm-instance cost.
+            origin = segment.get("origin", "live")
+            workload = WorkloadHint.STREAMING if origin == "live" else WorkloadHint.LONG_FORM
+            stt = get_stt_provider("", workload=workload)
+            output_dir = Path(tempfile.mkdtemp(prefix="stream-seg-"))
 
-        source_vtt, translated_vtt = generate_subtitles(
-            audio_path=seg_audio,
-            output_dir=output_dir,
-            target_locale=locale,
-            chapter_name=f"book{audiobook_id}_ch{chapter_index:03d}_seg{segment_index:04d}",
-            stt_provider=stt,
-        )
+            source_vtt, translated_vtt = generate_subtitles(
+                audio_path=seg_audio,
+                output_dir=output_dir,
+                target_locale=locale,
+                chapter_name=f"book{audiobook_id}_ch{chapter_index:03d}_seg{segment_index:04d}",
+                stt_provider=stt,
+            )
 
-        # Read VTT content for inline storage. Persist BOTH the translated
-        # cues (vtt_content) AND the English source cues (source_vtt_content)
-        # so the bilingual transcript panel has data to render once the
-        # chapter consolidates. v8.3.2 and earlier discarded source_vtt here,
-        # which left chapter_subtitles with only the translated locale row.
-        vtt_content = ""
-        if translated_vtt and translated_vtt.exists():
-            vtt_content = translated_vtt.read_text(encoding="utf-8")
+            # Read VTT content for inline storage. Persist BOTH the translated
+            # cues (vtt_content) AND the English source cues (source_vtt_content)
+            # so the bilingual transcript panel has data to render once the
+            # chapter consolidates. v8.3.2 and earlier discarded source_vtt here,
+            # which left chapter_subtitles with only the translated locale row.
+            vtt_content = ""
+            if translated_vtt and translated_vtt.exists():
+                vtt_content = translated_vtt.read_text(encoding="utf-8")
 
-        source_vtt_content = ""
-        if source_vtt and source_vtt.exists():
-            source_vtt_content = source_vtt.read_text(encoding="utf-8")
+            source_vtt_content = ""
+            if source_vtt and source_vtt.exists():
+                source_vtt_content = source_vtt.read_text(encoding="utf-8")
 
-        # Offset cue timestamps to account for segment position in chapter.
-        # Both VTTs share the same time base (the source audio slice), so
-        # they get the same offset.
-        offset_ms = segment_index * SEGMENT_DURATION_SEC * 1000
-        if offset_ms > 0:
-            if vtt_content:
-                vtt_content = _offset_vtt_timestamps(vtt_content, offset_ms)
-            if source_vtt_content:
-                source_vtt_content = _offset_vtt_timestamps(source_vtt_content, offset_ms)
+            # Offset cue timestamps to account for segment position in chapter.
+            # Both VTTs share the same time base (the source audio slice), so
+            # they get the same offset.
+            offset_ms = segment_index * SEGMENT_DURATION_SEC * 1000
+            if offset_ms > 0:
+                if vtt_content:
+                    vtt_content = _offset_vtt_timestamps(vtt_content, offset_ms)
+                if source_vtt_content:
+                    source_vtt_content = _offset_vtt_timestamps(source_vtt_content, offset_ms)
 
         # Synthesize per-segment TTS audio (opus). VTT alone is still useful,
         # so a TTS failure downgrades to "text-only" rather than failing the
@@ -421,10 +472,13 @@ def process_segment(
             "Segment complete: book=%d ch=%d seg=%d", audiobook_id, chapter_index, segment_index
         )
 
-        # Cleanup temp files
-        for f in output_dir.iterdir():
-            f.unlink(missing_ok=True)
-        output_dir.rmdir()
+        # Cleanup temp files — only when STT branch created the tempdir.
+        # The TTS-only regen path (vtt_content already present) skips
+        # generate_subtitles entirely, so output_dir stays None.
+        if output_dir is not None:
+            for f in output_dir.iterdir():
+                f.unlink(missing_ok=True)
+            output_dir.rmdir()
 
         return True
 

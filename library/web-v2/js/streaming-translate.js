@@ -318,20 +318,30 @@
     var completed = 0;
     var total = 0;
     if (bitmap) {
-      if (bitmap.all_cached) {
-        // Already cached — skip buffering entirely
-        enterStreaming();
-        return;
-      }
       completed = Array.isArray(bitmap.completed) ? bitmap.completed.length : 0;
       total = bitmap.total || 0;
 
-      // Update local bitmap
+      // Update local bitmap — MUST happen before the `all_cached` fast-path
+      // below, otherwise `enterStreaming` finds an empty
+      // segmentBitmap[chapterIndex] and its enqueueSegment loop is a no-op.
+      // Symptom of getting this wrong: books with short ch=0 (e.g. a 1-seg
+      // "This is Audible" intro) load the player, decide the chapter is
+      // already cached, skip buffering, then sit at audio.currentTime=0
+      // with readyState=0 forever because MSE was never fed. Caught during
+      // v8.3.8.6 orphan-repair browser proof on books 115401 (1 seg ch=0),
+      // 115852 (3 segs), 116062 (1 seg).
       if (!segmentBitmap[chapterIndex]) segmentBitmap[chapterIndex] = new Set();
       if (Array.isArray(bitmap.completed)) {
         bitmap.completed.forEach(function (idx) {
           segmentBitmap[chapterIndex].add(idx);
         });
+      }
+      if (bitmap.all_cached) {
+        // Already cached — skip buffering entirely. segmentBitmap is now
+        // populated, so enterStreaming's replay loop will enqueue each
+        // cached segment into the MSE chain.
+        enterStreaming();
+        return;
       }
     }
 
@@ -483,7 +493,22 @@
     var ch = data.chapter_index;
     var seg = data.segment_index;
 
-    if (!segmentBitmap[ch]) segmentBitmap[ch] = new Set();
+    // segmentBitmap[ch] can be:
+    //   - undefined (first segment for this chapter)
+    //   - a Set (normal in-progress case)
+    //   - the string "all" (chapter was previously marked fully cached via
+    //     onChapterReady). This happens when a prior session's false-cached
+    //     chapter was detected or when the backend reports chapter_ready
+    //     before a new p=0 segment arrives (e.g. after the cursor advanced
+    //     past the sampler-only chapter into a freshly-activated chapter).
+    //
+    // In all three cases, a new segment_ready for this chapter is valid
+    // input. Replace a "all" sentinel with a fresh Set and record the
+    // segment — the chapter is manifestly NOT fully cached if we just got
+    // a new segment for it.
+    if (!segmentBitmap[ch] || segmentBitmap[ch] === "all") {
+      segmentBitmap[ch] = new Set();
+    }
     segmentBitmap[ch].add(seg);
 
     // Feed the MSE chain with the opus for this segment so translated

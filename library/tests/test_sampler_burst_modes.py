@@ -208,3 +208,61 @@ def test_detach_branch_emits_monitoring_hints():
     tail = BURST[idx : idx + 1200]
     for token in ("sqlite3", "pgrep -af stream-translate-worker", "tail -f"):
         assert token in tail, f"detach message missing monitoring hint: {token}"
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Venv-path enforcement (v8.3.8.6 prod incident)
+# ──────────────────────────────────────────────────────────────────────────
+#
+# Prod ran v8.3.8.5 sampler-burst with PYTHON_BIN=${AUDIOBOOKS_HOME}/venv/bin/python
+# (missing /library/) — the broken-path -x check fell back to /usr/bin/python3,
+# which has no edge_tts module. Every TTS synthesis call failed and 4 of every
+# 5 segments completed with VTT only, no audio_path. User clicked play and
+# heard one segment then silence. Pin the canonical wiring + hard-fail.
+
+
+def test_python_bin_uses_canonical_venv():
+    """PYTHON_BIN MUST resolve from AUDIOBOOKS_VENV (the canonical export from
+    audiobook-config.sh), not from a hardcoded ${AUDIOBOOKS_HOME}/venv/... path
+    that drifts from the real venv location at ${AUDIOBOOKS_HOME}/library/venv."""
+    assert 'PYTHON_BIN="${AUDIOBOOKS_VENV}/bin/python"' in BURST, (
+        "PYTHON_BIN must derive from AUDIOBOOKS_VENV, not a hardcoded path"
+    )
+    # The drifted path (the v8.3.8.5 bug) must NOT appear.
+    assert 'PYTHON_BIN="${AUDIOBOOKS_HOME}/venv/bin/python"' not in BURST, (
+        "Bug-shaped PYTHON_BIN reintroduced — wrong by /library/"
+    )
+
+
+def test_python_bin_has_no_silent_python3_fallback():
+    """The script MUST NOT fall back to system python3 when the venv path is
+    missing — that path has no edge_tts module and produces silent TTS failures.
+    Hard-fail with a clear diagnostic instead."""
+    # The bug-shaped fallback was: [[ -x "$PYTHON_BIN" ]] || PYTHON_BIN="python3"
+    assert 'PYTHON_BIN="python3"' not in BURST, (
+        "Silent fallback to system python3 reintroduced — would mask edge_tts ImportError"
+    )
+
+
+def test_preflight_rejects_missing_venv_python():
+    """Pre-flight MUST exit non-zero with a clear message when PYTHON_BIN
+    isn't executable. Spawning workers against a broken venv silently kills
+    the audio pipeline."""
+    # Look for the explicit -x guard and its error path.
+    assert '! -x "$PYTHON_BIN"' in BURST, (
+        "Pre-flight executable check on PYTHON_BIN missing"
+    )
+    # The error message must reference AUDIOBOOKS_VENV so the operator knows
+    # which path to fix.
+    assert "AUDIOBOOKS_VENV" in BURST, (
+        "Pre-flight error message missing AUDIOBOOKS_VENV reference"
+    )
+
+
+def test_preflight_verifies_edge_tts_importable():
+    """Pre-flight MUST refuse to spawn workers when the venv exists but has
+    no edge_tts. A venv that lacks edge_tts produces VTT-only segments —
+    every audio playback dead-ends after the systemd worker's one segment."""
+    assert "import edge_tts" in BURST, (
+        "Pre-flight edge_tts importability check missing"
+    )

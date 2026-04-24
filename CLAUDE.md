@@ -45,6 +45,7 @@ See `VERSION` file. User/group: `audiobooks:audiobooks`
 | SAMPLER.md | `./docs/SAMPLER.md` |
 | EMAIL-SETUP.md | `./docs/EMAIL-SETUP.md` |
 | SERVERLESS-OPS.md | `./docs/SERVERLESS-OPS.md` |
+| RCA-v8.3.8.6-chinese-audio-silence.md | `./docs/RCA-v8.3.8.6-chinese-audio-silence.md` |
 | CONTRIBUTING.md | `./CONTRIBUTING.md` |
 
 ## Future Improvements

@@ -65,8 +65,13 @@ fi
 
 WORKER_SCRIPT="${AUDIOBOOKS_HOME}/scripts/stream-translate-worker.py"
 API_BASE="${API_BASE:-http://localhost:5001}"
-PYTHON_BIN="${AUDIOBOOKS_HOME}/venv/bin/python"
-[[ -x "$PYTHON_BIN" ]] || PYTHON_BIN="python3"
+# Canonical venv path comes from audiobook-config.sh (AUDIOBOOKS_VENV =
+# ${AUDIOBOOKS_HOME}/library/venv). v8.3.8.5 and earlier hardcoded
+# ${AUDIOBOOKS_HOME}/venv (missing /library/) and silently fell back to
+# /usr/bin/python3, which has no edge_tts module — bursted workers
+# logged "TTS synthesis failed: No module named edge_tts" for every
+# segment, leaving 4 of every 5 segments completed without audio_path.
+PYTHON_BIN="${AUDIOBOOKS_VENV}/bin/python"
 
 WORKERS=4
 TIMEOUT_SEC=$((6 * 3600)) # 6h default ceiling
@@ -210,6 +215,25 @@ done
 
 if [[ ! -f "$WORKER_SCRIPT" ]]; then
     echo "error: stream-translate-worker.py not found at $WORKER_SCRIPT" >&2
+    exit 1
+fi
+
+# Hard-fail when the venv python isn't executable. A silent fallback to
+# system python3 turns into a per-segment edge_tts ImportError storm —
+# segments mark "completed" with VTT only, no audio_path, no webm. The
+# only visible symptom is the user playing the book and hearing nothing
+# (see v8.3.8.5 prod incident). The systemd worker uses
+# stream-translate-daemon.sh which already enforces this; the burst path
+# now matches.
+if [[ ! -x "$PYTHON_BIN" ]]; then
+    echo "error: venv python not executable: $PYTHON_BIN" >&2
+    echo "       expected AUDIOBOOKS_VENV=${AUDIOBOOKS_VENV}" >&2
+    echo "       run install.sh / upgrade.sh to provision the venv" >&2
+    exit 1
+fi
+if ! "$PYTHON_BIN" -c 'import edge_tts' 2>/dev/null; then
+    echo "error: $PYTHON_BIN cannot import edge_tts" >&2
+    echo "       this venv is incomplete; reinstall with upgrade.sh" >&2
     exit 1
 fi
 

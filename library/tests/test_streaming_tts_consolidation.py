@@ -531,3 +531,271 @@ def test_consolidate_chapter_skips_audio_when_any_segment_missing_audio(
     assert row is None, (
         "chapter_translations_audio must not exist when any segment is missing audio_path"
     )
+
+
+# ── process_segment: idempotent TTS-only regen (v8.3.8.7 repair path) ──
+
+
+def test_process_segment_skips_stt_when_vtt_content_already_present(tmp_path):
+    """Regression guard for the orphan-repair primitive.
+
+    When a pending row already has ``vtt_content`` populated (e.g. a
+    broken-burst row reset to pending, or a legacy .opus orphan whose
+    audio file is missing), the worker MUST skip STT + translation and
+    regenerate only the per-segment TTS. This preserves the translated
+    text (saves DeepL per-char cost and is the only way to recover the
+    400 legacy .opus rows whose source audio may no longer exist) and
+    avoids a RunPod/Vast.ai GPU hit (~$0.30-1/hr, unnecessary for
+    recovery work).
+
+    The test pins: (1) generate_subtitles is NOT called, (2)
+    split_audio_segment is NOT called, (3) _synthesize_segment_audio IS
+    called, and (4) the segment-complete payload uses the PRE-EXISTING
+    vtt_content/source_vtt_content verbatim.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+    from unittest.mock import MagicMock
+
+    w = _load_worker(env_streaming_dir=tmp_path)
+
+    # Real webm bytes the worker's mocked synth will "produce"
+    final_webm = tmp_path / "42" / "ch001" / "zh-Hans" / "seg0003.webm"
+
+    def fake_synth(vtt, ab_id, ch, seg, locale):
+        final_webm.parent.mkdir(parents=True, exist_ok=True)
+        final_webm.write_bytes(b"fake-webm-regen")
+        return final_webm
+
+    captured: dict = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["payload"] = _json.loads(req.data.decode())
+
+        class _Resp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return b""
+
+        return _Resp()
+
+    # Sentinels that WILL fail loudly if the STT branch is taken
+    def forbidden_split(*a, **k):
+        raise AssertionError(
+            "split_audio_segment must NOT be called when vtt_content is pre-populated"
+        )
+
+    def forbidden_subtitles(*a, **k):
+        raise AssertionError(
+            "generate_subtitles must NOT be called when vtt_content is pre-populated"
+        )
+
+    def forbidden_stt_provider(*a, **k):
+        raise AssertionError(
+            "get_stt_provider must NOT be called when vtt_content is pre-populated"
+        )
+
+    existing_vtt = (
+        "WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\n"
+        "你好。这是一个测试。\n"
+    )
+    existing_source_vtt = "WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\nHello. This is a test.\n"
+
+    segment = {
+        "audiobook_id": 42,
+        "chapter_index": 1,
+        "segment_index": 3,
+        "locale": "zh-Hans",
+        "origin": "live",
+        "vtt_content": existing_vtt,
+        "source_vtt_content": existing_source_vtt,
+    }
+
+    with (
+        patch.object(w, "split_audio_segment", side_effect=forbidden_split),
+        patch.object(w, "_synthesize_segment_audio", side_effect=fake_synth),
+        patch("localization.pipeline.generate_subtitles", side_effect=forbidden_subtitles),
+        patch("localization.pipeline.get_stt_provider", side_effect=forbidden_stt_provider),
+        patch("urllib.request.urlopen", side_effect=fake_urlopen),
+    ):
+        result = w.process_segment(
+            db_path=str(tmp_path / "unused.db"),
+            segment=segment,
+            audio_path=_Path("/nonexistent/book.opus"),
+            chapter_start_sec=0.0,
+            chapter_duration_sec=600.0,
+            api_base="http://localhost:5001",
+        )
+
+    assert result is True
+    payload = captured["payload"]
+    # Pre-existing content flows verbatim to the callback
+    assert payload["vtt_content"] == existing_vtt
+    assert payload["source_vtt_content"] == existing_source_vtt
+    # New audio_path reflects the regenerated webm (relative to streaming root)
+    assert payload["audio_path"] == "42/ch001/zh-Hans/seg0003.webm"
+
+
+def test_process_segment_skips_stt_when_only_vtt_content_present_no_source(tmp_path):
+    """Legacy .opus orphan rows only have vtt_content (no source_vtt_content).
+
+    The TTS-only regen path MUST still trigger — the worker checks
+    ``vtt_content``, not ``source_vtt_content``. The source_vtt_content
+    in the callback payload will just be an empty string.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+    from unittest.mock import MagicMock
+
+    w = _load_worker(env_streaming_dir=tmp_path)
+
+    final_webm = tmp_path / "99" / "ch000" / "zh-Hans" / "seg0000.webm"
+
+    def fake_synth(vtt, ab_id, ch, seg, locale):
+        final_webm.parent.mkdir(parents=True, exist_ok=True)
+        final_webm.write_bytes(b"fake-webm")
+        return final_webm
+
+    captured: dict = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["payload"] = _json.loads(req.data.decode())
+
+        class _Resp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return b""
+
+        return _Resp()
+
+    existing_vtt = (
+        "WEBVTT\n\n1\n00:00:00.000 --> 00:00:05.000\n代理我们的未来。\n"
+    )
+    segment = {
+        "audiobook_id": 99,
+        "chapter_index": 0,
+        "segment_index": 0,
+        "locale": "zh-Hans",
+        "origin": "live",
+        "vtt_content": existing_vtt,
+        "source_vtt_content": None,  # legacy .opus row — no source
+    }
+
+    with (
+        patch.object(
+            w,
+            "split_audio_segment",
+            side_effect=AssertionError("STT must not run"),
+        ),
+        patch.object(w, "_synthesize_segment_audio", side_effect=fake_synth),
+        patch(
+            "localization.pipeline.generate_subtitles",
+            side_effect=AssertionError("STT must not run"),
+        ),
+        patch(
+            "localization.pipeline.get_stt_provider",
+            side_effect=AssertionError("STT must not run"),
+        ),
+        patch("urllib.request.urlopen", side_effect=fake_urlopen),
+    ):
+        result = w.process_segment(
+            db_path=str(tmp_path / "unused.db"),
+            segment=segment,
+            audio_path=_Path("/nonexistent/book.opus"),
+            chapter_start_sec=0.0,
+            chapter_duration_sec=300.0,
+            api_base="http://localhost:5001",
+        )
+
+    assert result is True
+    payload = captured["payload"]
+    assert payload["vtt_content"] == existing_vtt
+    # source_vtt_content fills in as empty string (not None) — callback expects string
+    assert payload["source_vtt_content"] == ""
+    assert payload["audio_path"] == "99/ch000/zh-Hans/seg0000.webm"
+
+
+def test_process_segment_runs_full_stt_when_vtt_content_empty(tmp_path):
+    """Fresh-claim path — when vtt_content is empty/None, STT + translation run.
+
+    Regression guard: the idempotent shortcut must trigger ONLY on
+    non-empty vtt_content. A row with empty string, whitespace-only, or
+    None must take the full pipeline.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+    from unittest.mock import MagicMock
+
+    w = _load_worker(env_streaming_dir=tmp_path)
+
+    fake_seg = tmp_path / "fake_seg.opus"
+    fake_seg.write_bytes(b"fake-slice")
+
+    split_calls: list = []
+    subtitles_calls: list = []
+
+    def fake_split(*a, **k):
+        split_calls.append(1)
+        return fake_seg
+
+    def fake_generate_subtitles(audio_path, output_dir, target_locale, chapter_name, stt_provider):
+        subtitles_calls.append(1)
+        src = _Path(output_dir) / "source.vtt"
+        tr = _Path(output_dir) / "translated.vtt"
+        src.write_text("WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\nhello\n")
+        tr.write_text("WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\n你好\n")
+        return src, tr
+
+    def fake_urlopen(req, timeout=None):
+        class _Resp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return b""
+
+        return _Resp()
+
+    for vtt_case in ("", None, "   \n\n  "):
+        split_calls.clear()
+        subtitles_calls.clear()
+        segment = {
+            "audiobook_id": 1,
+            "chapter_index": 0,
+            "segment_index": 0,
+            "locale": "zh-Hans",
+            "origin": "live",
+            "vtt_content": vtt_case,
+            "source_vtt_content": None,
+        }
+        with (
+            patch.object(w, "split_audio_segment", side_effect=fake_split),
+            patch.object(w, "_synthesize_segment_audio", return_value=None),
+            patch("localization.pipeline.generate_subtitles", side_effect=fake_generate_subtitles),
+            patch("localization.pipeline.get_stt_provider", return_value=MagicMock()),
+            patch("urllib.request.urlopen", side_effect=fake_urlopen),
+        ):
+            result = w.process_segment(
+                db_path=str(tmp_path / "unused.db"),
+                segment=segment,
+                audio_path=_Path("/nonexistent/book.opus"),
+                chapter_start_sec=0.0,
+                chapter_duration_sec=300.0,
+                api_base="http://localhost:5001",
+            )
+        assert result is True, f"vtt_case={vtt_case!r} should still succeed"
+        assert split_calls, f"split_audio_segment must run for empty vtt_case={vtt_case!r}"
+        assert subtitles_calls, f"generate_subtitles must run for empty vtt_case={vtt_case!r}"

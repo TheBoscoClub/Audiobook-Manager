@@ -67,10 +67,60 @@ def _get_db():
 @translated_audio_bp.route("/api/audiobooks/<int:book_id>/translated-audio", methods=["GET"])
 @guest_allowed
 def get_book_translated_audio(book_id):
-    """List all translated audio entries for a book."""
+    """List all translated audio entries for a book.
+
+    Hides ONLY sampler-produced rows (``audio_path`` under
+    ``streaming-audio/``) when the sampler job for this (book, locale) is
+    not yet complete. Legacy chapter-batch translations (files under the
+    library's ``translated/`` subdir) are always returned — they were
+    produced by the old per-chapter batch pipeline, are fully playable
+    end-to-end, and do not depend on the sampler's progress.
+
+    Rationale: a partial sample (e.g. 1/13 segments done) wrote its first
+    chapter's consolidated ``.webm`` into ``chapter_translations_audio``,
+    which the frontend treats as "full translation available" and plays —
+    only to dead-end after 30s because the rest of the chapters are not
+    sampled yet. When a book has BOTH legacy full rows AND a partial
+    sampler row for the same chapter, the sampler row would also be
+    hidden; the legacy rows for the remaining chapters play normally.
+    When a book has ONLY sampler rows (pre-sampler translation never
+    ran), suppressing them lets the frontend fall through to live
+    on-demand streaming.
+    """
     locale = request.args.get("locale")
     conn = _get_db()
     try:
+        # Determine whether each row is sampler-produced by path prefix.
+        # AUDIOBOOKS_STREAMING_AUDIO_DIR is the canonical sampler+stream
+        # output location; legacy rows live under AUDIOBOOKS_LIBRARY.
+        import os as _os
+
+        sampler_audio_prefix = _os.environ.get(
+            "AUDIOBOOKS_STREAMING_AUDIO_DIR",
+            f"{_os.environ.get('AUDIOBOOKS_VAR_DIR', '/var/lib/audiobooks')}/streaming-audio",
+        ).rstrip("/")
+
+        def _is_sampler_row(row):
+            return (row["audio_path"] or "").startswith(sampler_audio_prefix + "/")
+
+        # Sampler-incomplete check — cached per (book, locale) within the call.
+        _sampler_cache: dict = {}
+
+        def _sampler_incomplete(loc):
+            if loc in _sampler_cache:
+                return _sampler_cache[loc]
+            try:
+                job = conn.execute(
+                    "SELECT status FROM sampler_jobs "
+                    "WHERE audiobook_id = ? AND locale = ? LIMIT 1",
+                    (book_id, loc),
+                ).fetchone()
+                blocked = job is not None and job["status"] != "complete"
+            except sqlite3.OperationalError:
+                blocked = False  # older installs w/o sampler_jobs
+            _sampler_cache[loc] = blocked
+            return blocked
+
         if locale:
             rows = conn.execute(
                 "SELECT * FROM chapter_translations_audio "
@@ -84,7 +134,14 @@ def get_book_translated_audio(book_id):
                 "WHERE audiobook_id = ? ORDER BY chapter_index, locale",
                 (book_id,),
             ).fetchall()
-        return jsonify([dict(r) for r in rows])
+
+        # Filter out SAMPLER-ORIGINATED rows when sampler is incomplete.
+        # Legacy batch-translation rows are always kept.
+        filtered = [
+            r for r in rows
+            if not (_is_sampler_row(r) and _sampler_incomplete(r["locale"]))
+        ]
+        return jsonify([dict(r) for r in filtered])
     finally:
         conn.close()
 

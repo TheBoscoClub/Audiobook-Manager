@@ -467,22 +467,32 @@ def _get_chapter_duration_sec(db, audiobook_id: int, chapter_index: int) -> floa
 def _ensure_chapter_segments(
     db, audiobook_id: int, chapter_index: int, locale: str, priority: int = 1
 ) -> int:
-    """Create pending segment rows for a chapter if they don't exist.
+    """Ensure segment rows exist for the entire chapter at the requested priority.
 
-    Returns the number of segments (existing or newly created).
+    Three things must be true on return:
+      1. A row exists for every segment_index in [0, expected_segment_count) —
+         either by INSERTing a new pending row or by finding an existing one.
+      2. Any existing PENDING rows (state='pending') whose current priority is
+         LOWER (numerically higher — 2 or 3) than the requested priority are
+         promoted UP to the requested priority. Live playback (priority=0) must
+         NOT be blocked by sampler pre-enqueued rows (priority=2) sitting in
+         front of the segment range the user is trying to play.
+      3. Completed / in-flight / failed rows are left alone — promoting them
+         would falsify their state and re-trigger work.
+
+    Returns the resulting number of segment rows for the chapter.
+
+    Sampler-origin rows (``origin='sampler'``) have their priority promoted too
+    when a live session activates on the same chapter — that's the whole point
+    of the sampler priority-invariant trigger (priority >= 2 for origin=sampler)
+    which the UPDATE below deliberately sidesteps by not touching origin. The
+    DB trigger blocks INSERT/UPDATE of sampler rows at priority < 2, so we
+    cannot promote sampler rows. We create NEW rows with origin='live' at the
+    target priority instead, and the claim query orders by priority ASC so the
+    live rows win the race against the sampler rows for the same segment_index.
     """
-    existing = db.execute(
-        "SELECT COUNT(*) as cnt FROM streaming_segments "
-        "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ?",
-        (audiobook_id, chapter_index, locale),
-    ).fetchone()
-
-    if existing and existing["cnt"] > 0:
-        return existing["cnt"]
-
     ch_duration = _get_chapter_duration_sec(db, audiobook_id, chapter_index)
     seg_count = _chapter_segment_count(ch_duration)
-
     if seg_count <= 0:
         # Fallback: with chapter_count now guaranteed >0 by
         # _resolve_chapter_count, seg_count can only reach 0 when book
@@ -491,23 +501,68 @@ def _ensure_chapter_segments(
         # the real per-segment bounds from ffprobe chapter timings.
         seg_count = 1
 
-    for seg_idx in range(seg_count):
+    # UNIQUE(audiobook_id, chapter_index, segment_index, locale) means sampler
+    # and live rows CAN'T coexist for the same segment — there is exactly one
+    # row per tuple. When a user activates live playback on a chapter whose
+    # sampler is still pending, we promote the existing sampler-origin rows
+    # to origin='live' so they can drop to p=0 without tripping the
+    # priority-invariant trigger (trigger only fires when origin='sampler'
+    # AND priority<2; flipping origin first sidesteps the check).
+    #
+    # Completed sampler rows are LEFT UNTOUCHED — they already produced
+    # audio/VTT and are valid cache regardless of live vs sampler origin.
+    if priority in (0, 1):
+        # Flip pending sampler rows → live (allows priority drop below 2).
         db.execute(
+            "UPDATE streaming_segments SET origin = 'live' "
+            "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ? "
+            "  AND state = 'pending' AND origin = 'sampler'",
+            (audiobook_id, chapter_index, locale),
+        )
+        # Lower priority for ALL pending rows whose current priority is less
+        # urgent than what we want. This covers both the sampler-promoted
+        # rows and any leftover live rows from a prior session at p=1.
+        db.execute(
+            "UPDATE streaming_segments SET priority = ? "
+            "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ? "
+            "  AND state = 'pending' AND priority > ?",
+            (priority, audiobook_id, chapter_index, locale, priority),
+        )
+
+    # Re-snapshot existing segment_indices after any promotion.
+    existing_indices = {
+        r["segment_index"] for r in db.execute(
+            "SELECT segment_index FROM streaming_segments "
+            "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ?",
+            (audiobook_id, chapter_index, locale),
+        ).fetchall()
+    }
+
+    # Fill any gaps with fresh live rows at the requested priority.
+    created = 0
+    for seg_idx in range(seg_count):
+        if seg_idx in existing_indices:
+            continue
+        cur = db.execute(
             "INSERT OR IGNORE INTO streaming_segments "
-            "(audiobook_id, chapter_index, segment_index, locale, state, priority) "
-            "VALUES (?, ?, ?, ?, 'pending', ?)",
+            "(audiobook_id, chapter_index, segment_index, locale, state, priority, origin) "
+            "VALUES (?, ?, ?, ?, 'pending', ?, 'live')",
             (audiobook_id, chapter_index, seg_idx, locale, priority),
         )
+        if cur.rowcount:
+            created += 1
+
     db.commit()
 
-    logger.info(
-        "Created %d segment rows: book=%d ch=%d locale=%s priority=%d",
-        int(seg_count),
-        int(audiobook_id),
-        int(chapter_index),
-        _safe_log_value(locale),
-        int(priority),
-    )
+    if created:
+        logger.info(
+            "Created %d segment rows: book=%d ch=%d locale=%s priority=%d",
+            int(created),
+            int(audiobook_id),
+            int(chapter_index),
+            _safe_log_value(locale),
+            int(priority),
+        )
     return seg_count
 
 
@@ -567,7 +622,26 @@ def _get_segment_bitmap(db, audiobook_id: int, chapter_index: int, locale: str) 
 
     completed = [r["segment_index"] for r in rows if r["state"] == "completed"]
     total = len(rows)
-    streaming_done = total > 0 and len(completed) == total
+
+    # Expected total segments for the chapter = ceil(chapter_duration / 30).
+    # Without this, a sampler that only enqueued + completed the opening 1-2
+    # segments (sampler scope, not the whole chapter) trivially satisfies
+    # ``len(completed) == total`` and the system falsely concludes the
+    # chapter is "fully streamed" → writes a phantom chapter_translations_audio
+    # row → /translated-audio serves 30s of Audible intro as "chapter 0" →
+    # playback dead-ends at the end of the sample with no live-stream fallback.
+    #
+    # ``streaming_done`` now requires completed count to match the chapter's
+    # expected segment count (with a 1-seg slack for rounding).
+    try:
+        expected = _chapter_segment_count(_get_chapter_duration_sec(db, audiobook_id, chapter_index))
+    except (ValueError, OSError):
+        expected = 0  # unknown duration → fall back to legacy "match rows" behavior
+    if expected > 0:
+        streaming_done = len(completed) >= expected - 1
+    else:
+        streaming_done = total > 0 and len(completed) == total
+
     batch_cached = _has_cached_subtitles(db, audiobook_id, chapter_index, locale)
 
     if batch_cached and streaming_done:
