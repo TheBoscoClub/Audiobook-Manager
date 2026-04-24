@@ -255,6 +255,43 @@ def test_streaming_translate_js_populates_bitmap_before_all_cached_shortcut():
     )
 
 
+def test_streaming_translate_js_has_chapter_advance_on_ended():
+    """Static-source guard for v8.3.8.7 chapter auto-advance fix (RCA §4.8c).
+
+    streaming-translate.js must attach an ``ended`` listener to the
+    audio element while in STREAMING state and call advanceChapter
+    when it fires. Without this, books play their active chapter
+    through and then sit silent at ``currentTime == duration`` —
+    worst-observed on short-ch=0 books (115401, 115852, 116062)
+    during v8.3.8.6 proof, where the Audible intro is 1-3 segments
+    and the 131+ actual-content segments in ch=1 never play.
+
+    Expected: (1) an ``audio.addEventListener('ended', ...)`` call
+    inside enterStreaming, (2) an ``advanceChapter`` function that
+    tears down mseChain and POSTs ``/translate/stream`` with
+    ``chapter_index: nextChapter``, (3) a matching
+    ``removeEventListener('ended', ...)`` in enterIdle so
+    book-switch doesn't leave a dead listener firing.
+    """
+    js_path = PROJECT_ROOT / "library" / "web-v2" / "js" / "streaming-translate.js"
+    src = js_path.read_text(encoding="utf-8")
+    assert "function advanceChapter" in src, "advanceChapter function missing"
+    assert 'addEventListener("ended"' in src, (
+        "enterStreaming must install an audio.ended listener"
+    )
+    assert 'removeEventListener("ended"' in src, (
+        "enterIdle (and advanceChapter mid-transition) must clean up the ended listener"
+    )
+    # advanceChapter must actually attempt to POST /translate/stream with
+    # the next chapter, not just log-and-quit
+    assert "chapter_index: nextChapter" in src, (
+        "advanceChapter must request streaming for nextChapter"
+    )
+    assert "totalChapters" in src, (
+        "advanceChapter needs totalChapters to know when to stop"
+    )
+
+
 def test_stop_impl_deletes_pending(db_path):
     """Bug E fix: /api/translate/stop DELETEs pending rows (v8.3.2 semantics)."""
     sys.path.insert(0, str(PROJECT_ROOT / "library"))

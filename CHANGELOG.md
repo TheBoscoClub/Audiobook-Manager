@@ -13,6 +13,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8.7] - 2026-04-24
+
+### Fixed
+
+- **`streaming-translate.js` did not auto-advance chapters on MSE end-of-stream**: the streaming player loaded the active chapter's segments into MediaSource, played them, and then sat silent at `audio.currentTime == audio.duration` with no next-chapter transition. Affected books whose ch=0 is a short Audible frame ("This is Audible." clip of 1-3 segments) — e.g. 115401, 115852, 116062 — which played their ~1-3 second intro and stopped, even though the actual content in ch=1 was fully cached. Root cause: `shell.js`'s `audio.addEventListener('ended', …)` only advances chapters for the LEGACY cached-chapter path (`translatedEntries`) and explicitly comments that "the streaming MSE path is unaffected: streamingTranslate owns its own end-of-stream signaling" — but `streaming-translate.js` had no `ended` listener of its own. Fix: installs a chapter-advance listener inside `enterStreaming()` that, on `audio.ended` while `state === STREAMING`, tears down the current `MseAudioChain`, removes the listener, POSTs `/api/translate/stream` with the incremented `chapter_index`, and re-enters buffering so the replay loop can feed the new chapter's segments. Listener is also removed in `enterIdle()` and on book-switch so dead-session callbacks can't fire. `totalChapters` is captured from the `/translate/stream` response (see backend fix below) so the advance handler knows when to stop at end-of-book
+- **`/api/translate/stream` buffering response was missing `total_chapters`**: the `_fully_cached_response` branch already returned it, but the `buffering` branch did not, meaning the chapter-advance client could not tell when it had reached the last chapter without a separate book-metadata fetch. Now both branches return `total_chapters`. Covered by `test_buffering_response_includes_total_chapters` in `test_streaming_translate.py`
+- Regression-guarded by `test_streaming_translate_js_has_chapter_advance_on_ended` in `test_streaming_retry_and_claim.py` — a static source scan that asserts the `advanceChapter` function exists, an `ended` listener is installed and removed, the POST body references `nextChapter`, and `totalChapters` is tracked
+- **`_fully_cached_response` was missing `segment_bitmap`**: chapter-advance POST to `/api/translate/stream` for a fully-cached chapter returned `{state: "cached"}` without a bitmap, so the frontend's `enterBuffering` received `undefined` and no-oped its populate-and-transition block — the player sat in BUFFERING after a successful advance call. Now both the cached and buffering response branches return `segment_bitmap` built from `_get_segment_bitmap`. Covered by `test_cached_response_includes_segment_bitmap` in `test_streaming_translate.py`
+- **`get_book_translated_audio` sampler-incomplete filter overreached on stuck `sampler_jobs.status`**: v8.3.8.6 added a filter that hides sampler-origin audio when `sampler_jobs.status != 'complete'` to prevent dead-ends from partial samples. But `sampler_jobs.status` drifts — orphan-repair and ad-hoc `UPDATE streaming_segments` flows deliver all audio without touching the sampler_jobs row, leaving books with status='running' forever even though every segment has `audio_path` and every consolidated `chapter.webm` exists on disk. The filter then hid fully-playable audio (book 115852 returned `[]` from `/translated-audio` despite 269/269 segments complete + both chapter.webm files valid, 325 KB and 40 MB). Authoritative signal is the actual segment state: sampler is incomplete iff `COUNT(*) FROM streaming_segments WHERE state != 'completed' OR audio_path IS NULL > 0` for that (book, locale). Falls back to `sampler_jobs.status` only when streaming_segments has zero rows. Also includes a one-off data repair: `UPDATE sampler_jobs SET status='complete' WHERE status='running' AND no streaming_segments rows are pending or audio-less` — 14 rows repaired on prod
+- **`streaming-translate.js::MseAudioChain` never signalled end-of-stream**: the chain appended segments but never called `mediaSource.endOfStream()`, so the `<audio>` element reached its last buffered timestamp and sat there with `readyState=2, ended=false`, paused silently. That prevented the chapter-advance `ended` handler from firing. Added `markEndOfStream()` + in-flight-append watchdog to `_drain()` — when the caller signals no more segments will be enqueued AND the queue is empty AND no fetches are in flight, the MediaSource transitions to `'ended'` and the `<audio>` element fires `ended`. Called from `enterStreaming` when `chapterIsFullyKnown(currentChapter)` and from `onSegmentReady` when the final segment for a chapter arrives. Per-chapter segment totals are tracked in `chapterTotals[ch]` (populated from `bitmap.total` in `enterBuffering`)
+
 ## [8.3.8.6] - 2026-04-24
 
 ### Fixed
@@ -3413,7 +3424,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.6...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.7...HEAD
+[8.3.8.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.6...v8.3.8.7
 [8.3.8.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.5...v8.3.8.6
 [8.3.8.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.4...v8.3.8.5
 [8.3.8.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.3...v8.3.8.4

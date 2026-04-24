@@ -924,6 +924,17 @@ def _fully_cached_response(db, audiobook_id, chapter_index, locale):
             # Fully-cached chapters are effectively already streaming — the
             # player can immediately play from the permanent cache.
             "phase": "streaming",
+            # Include the active chapter's segment_bitmap so the frontend's
+            # chapter-advance flow (streaming-translate.js::advanceChapter
+            # → enterBuffering) has data to populate segmentBitmap[ch] and
+            # hit the all_cached fast-path to enterStreaming. v8.3.8.7
+            # chapter-advance shipped without this and the frontend sat in
+            # BUFFERING after a successful advance POST because
+            # enterBuffering's populate-and-transition block no-ops when
+            # bitmap is undefined. This closes the loop.
+            "segment_bitmap": _get_segment_bitmap(
+                db, audiobook_id, chapter_index, locale
+            ),
         }
     )
 
@@ -1006,6 +1017,14 @@ def request_streaming_translation():
                 "segment_bitmap": _get_segment_bitmap(db, audiobook_id, chapter_index, locale),
                 "phase": _derive_phase(db, audiobook_id, locale),
                 "current_segment": _get_current_segment(db, audiobook_id, chapter_index, locale),
+                # total_chapters is what the frontend uses to know when to
+                # stop walking chapters at end-of-stream. The cached-response
+                # branch (see _fully_cached_response) already returns it;
+                # the buffering branch previously didn't, which meant the
+                # streaming chapter-advance-on-EOF path couldn't know when
+                # it had reached the end of the book and would try to fetch
+                # a nonexistent chapter N+1.
+                "total_chapters": chapter_count or 0,
             }
         )
     except ValueError as exc:

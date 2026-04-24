@@ -54,6 +54,20 @@
     // replay loop and a racing segment_ready WS event (e.g. reconnect
     // replay, or a late-arriving duplicate from the server).
     self.enqueuedUrls = {};
+    // Set when the caller knows no more segments will arrive for this
+    // chapter — _drain() will call mediaSource.endOfStream() after the
+    // last queued buffer is appended. This is what makes the <audio>
+    // element fire its `ended` event so the chapter-advance handler
+    // can transition. Without this, the audio just stops silently at
+    // bufferedEnd, which is what trapped short-chapter books on
+    // v8.3.8.7's first browser proof (115401's 1.8-s Audible intro
+    // played then froze instead of advancing to ch=1).
+    self.endPending = false;
+    self.ended = false;
+    // Count of outstanding fetch→append round-trips. endOfStream() is
+    // only safe after all in-flight segment appends complete AND the
+    // queue is drained AND sourceBuffer isn't updating.
+    self.inflight = 0;
 
     if (typeof MediaSource === "undefined") {
       // Browser lacks MSE (rare on Chromium/Firefox). Chain is inert; the
@@ -96,6 +110,7 @@
     // Prevents double-append when replay loop + WS event race.
     if (self.enqueuedUrls[url]) return;
     self.enqueuedUrls[url] = true;
+    self.inflight += 1;
     // Even if .ready rejected (no MSE), we skip silently.
     return self.ready
       .then(function () {
@@ -113,6 +128,12 @@
       .catch(function () {
         // Swallow — one failed seg should not break the chain. The
         // buffering overlay and WS retry handle re-dispatch server-side.
+      })
+      .then(function () {
+        self.inflight = Math.max(0, self.inflight - 1);
+        // If endOfStream was flagged while this fetch was in-flight,
+        // _drain() will finalize once the queue empties.
+        self._drain();
       });
   };
 
@@ -125,7 +146,33 @@
       } catch (e) {
         // QuotaExceededError or buffer full — drop; updateend will retry.
       }
+      return;
     }
+    // Queue is empty. If the caller has signalled end-of-stream AND
+    // there are no in-flight fetches, transition the MediaSource to
+    // 'ended' so the <audio> element fires its `ended` event (which
+    // the chapter-advance listener in enterStreaming waits for).
+    if (this.endPending && this.inflight === 0 && !this.ended) {
+      if (this.mediaSource && this.mediaSource.readyState === "open") {
+        try {
+          this.mediaSource.endOfStream();
+          this.ended = true;
+        } catch (e) {
+          // endOfStream can throw if updating; updateend will retry via
+          // the addEventListener("updateend") hook calling _drain again.
+        }
+      }
+    }
+  };
+
+  MseAudioChain.prototype.markEndOfStream = function () {
+    // Caller asserts no more segments will be enqueued for this chain
+    // (the current chapter is fully queued / cached). Actual
+    // endOfStream() call is deferred to _drain so we don't race
+    // appendBuffer.
+    if (this.closed) return;
+    this.endPending = true;
+    this._drain();
   };
 
   MseAudioChain.prototype.endOfStream = function () {
@@ -162,11 +209,14 @@
   var currentBookId = null;
   var currentLocale = null;
   var currentChapter = 0;
+  var totalChapters = 0; // from /translate/stream response — used by advanceChapter
   var sessionId = null;
   var segmentBitmap = {}; // chapter -> Set of completed segment indices
+  var chapterTotals = {}; // chapter -> expected segment count (from bitmap.total)
   var notificationAudio = null;
   var notificationPlayed = false;
   var mseChain = null; // MseAudioChain for translated audio playback
+  var endedHandler = null; // installed on audio.ended while streaming
 
   // ── Polling fallback when WS is silent (Task 15, v8.3.2) ──
   //
@@ -320,6 +370,13 @@
     if (bitmap) {
       completed = Array.isArray(bitmap.completed) ? bitmap.completed.length : 0;
       total = bitmap.total || 0;
+      // Record the expected segment count per chapter so chapterIsFullyKnown
+      // can tell MSE end-of-stream is safe to signal. `total` comes from the
+      // server's _get_segment_bitmap, which returns the current DB row count
+      // for the (book, chapter) pair — authoritative for the lifetime of
+      // this session (sampler/backlog inserts for untouched chapters don't
+      // mutate an already-playing chapter's row set).
+      chapterTotals[chapterIndex] = total;
 
       // Update local bitmap — MUST happen before the `all_cached` fast-path
       // below, otherwise `enterStreaming` finds an empty
@@ -371,6 +428,19 @@
     armStallTimer();
   }
 
+  function chapterIsFullyKnown(ch) {
+    // True when we have an expected total for the chapter AND the local
+    // bitmap has reached that total. Used to decide when to signal MSE
+    // end-of-stream so the <audio> element fires `ended` for chapter
+    // advance. Returns false while total is unknown (pre-bitmap) so we
+    // never prematurely close a live chapter.
+    var total = chapterTotals[ch];
+    if (!total || total <= 0) return false;
+    var chMap = segmentBitmap[ch];
+    if (!chMap || chMap === "all") return false;
+    return chMap.size >= total;
+  }
+
   function enterStreaming() {
     state = State.STREAMING;
     hideOverlay();
@@ -395,6 +465,20 @@
           mseChain.enqueueSegment(url);
         });
       }
+
+      // If the chapter bitmap was all_cached at enterBuffering time, no
+      // more segments will arrive via WebSocket for this chapter — the
+      // replay loop above IS the full set. Signal endOfStream so the
+      // MediaSource transitions to 'ended' when the last buffer drains,
+      // which is what makes the <audio> element fire `ended` → triggers
+      // advanceChapter. Without this, short-chapter books (e.g. a 1-seg
+      // "This is Audible." intro on book 115401) play their ~1.8s and
+      // then stall silently at audio.currentTime == duration with
+      // audio.ended==false. The in-flight-append watchdog in
+      // MseAudioChain._drain handles the timing race.
+      if (chapterIsFullyKnown(currentChapter)) {
+        mseChain.markEndOfStream();
+      }
     }
 
     // Resume playback with translated audio
@@ -402,10 +486,97 @@
       audio.play().catch(function () {});
     }
 
+    // Install chapter-advance-on-EOF handler. The streaming MSE path
+    // feeds per-chapter segments through a single <audio> element; when
+    // the element reaches end-of-stream for the active chapter, we
+    // need to tear down the current MSE chain, POST
+    // /api/translate/stream with the next chapter_index, and re-enter
+    // buffering so the server can populate the new chapter's bitmap
+    // and the replay loop can feed new segments. Without this, books
+    // whose ch=0 is a short Audible intro (e.g. 115401 1-seg, 115852
+    // 3-seg, 116062 1-seg) play the intro and then sit silent at
+    // `audio.currentTime == audio.duration` forever. shell.js already
+    // has its own `ended` handler, but it only walks `translatedEntries`
+    // (the legacy cached-chapter path) — the streaming path is
+    // unaffected there by design, and installing the advance handler
+    // here (scoped to the streaming lifecycle) is the right split.
+    if (audio && !endedHandler) {
+      endedHandler = function () {
+        // Only act if we're still the active streaming session — the
+        // audio element is shared, and a rapid book-switch could have
+        // moved us to a different book/locale.
+        if (state !== State.STREAMING) return;
+        advanceChapter();
+      };
+      audio.addEventListener("ended", endedHandler);
+    }
+
     // Arm the stall timer — entering STREAMING means we should start
     // expecting a steady cadence of WS events; if they stop, kick over
     // to polling after STALL_TIMEOUT_MS.
     armStallTimer();
+  }
+
+  function advanceChapter() {
+    // Invariant: called from the `ended` listener on the audio
+    // element while in STREAMING state. If the book has more
+    // chapters, tear down the current MSE chain (so we can re-bind a
+    // fresh MediaSource for the new chapter's segments) and ask the
+    // coordinator for the next chapter's bitmap.
+    if (currentChapter + 1 >= totalChapters) {
+      // End of book — let shell.js finalize (clear position, pause).
+      // We stay in STREAMING briefly; enterIdle will fire on drain or
+      // player close.
+      return;
+    }
+    var nextChapter = currentChapter + 1;
+    var bookId = currentBookId;
+    var locale = currentLocale;
+
+    // Tear down the current MSE chain. The new chapter needs a fresh
+    // MediaSource because source buffers carry the timeline of already-
+    // appended segments — keeping them across chapter boundaries is
+    // what causes the AppendBuffer range errors we saw during v8.3.2
+    // development.
+    if (mseChain) {
+      mseChain.teardown();
+      mseChain = null;
+    }
+    // Also detach our ended listener — enterStreaming will re-attach
+    // a fresh one when the new chapter comes up. Leaving the stale
+    // listener attached risks firing on the empty-MSE transition.
+    var audio = document.getElementById("audio-element");
+    if (audio && endedHandler) {
+      audio.removeEventListener("ended", endedHandler);
+      endedHandler = null;
+    }
+
+    fetch(API_BASE + "/translate/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        audiobook_id: bookId,
+        locale: locale,
+        chapter_index: nextChapter,
+      }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        // Server advances session.active_chapter to nextChapter as a
+        // side-effect of the POST (see streaming_translate.py —
+        // the INSERT…ON CONFLICT DO UPDATE on streaming_sessions
+        // sets active_chapter from the request). The response returns
+        // the fresh bitmap for the new chapter.
+        if (data.state === "cached" || data.state === "buffering") {
+          enterBuffering(bookId, locale, data.chapter_index, data.segment_bitmap);
+        }
+      })
+      .catch(function () {
+        // Network or parse failure — fall back to idle so the user
+        // can retry via a manual seek rather than sitting at a dead
+        // player.
+        enterIdle();
+      });
   }
 
   function enterIdle() {
@@ -425,6 +596,16 @@
       mseChain.teardown();
       mseChain = null;
     }
+    // Detach the chapter-advance 'ended' listener if it was installed.
+    // Leaving it attached across book-switches causes a dead-session
+    // callback to fire when the new book's audio ends.
+    var audio = document.getElementById("audio-element");
+    if (audio && endedHandler) {
+      audio.removeEventListener("ended", endedHandler);
+      endedHandler = null;
+    }
+    totalChapters = 0;
+    chapterTotals = {};
     currentBookId = null;
     currentLocale = null;
     sessionId = null;
@@ -519,6 +700,12 @@
       var url = "/streaming-audio/" + data.audiobook_id + "/" + ch +
                 "/" + seg + "/" + data.locale;
       mseChain.enqueueSegment(url);
+      // If this segment closes out the chapter (bitmap now matches
+      // total), signal MSE end-of-stream so the `ended` event fires
+      // and chapter-advance kicks in.
+      if (chapterIsFullyKnown(ch)) {
+        mseChain.markEndOfStream();
+      }
     }
   }
 
@@ -664,6 +851,13 @@
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        // Capture total_chapters so advanceChapter() knows when to stop
+        // walking. The server returns this on every /translate/stream
+        // response; we refresh it on each call so mid-session edits
+        // (e.g. scanner updates chapter_count after re-import) pick up.
+        if (typeof data.total_chapters === "number") {
+          totalChapters = data.total_chapters;
+        }
         if (data.state === "cached") {
           // All cached — no streaming needed
           enterIdle();

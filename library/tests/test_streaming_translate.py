@@ -351,6 +351,26 @@ class TestRequestStreamingTranslation:
         assert "session_id" in body
         assert "segment_bitmap" in body
 
+    def test_buffering_response_includes_total_chapters(self, app_client, streaming_db):
+        """Chapter auto-advance on streaming EOF (v8.3.8.7) requires the
+        frontend to know when to stop walking chapters. The buffering
+        branch of /api/translate/stream previously returned chapter_index
+        but not total_chapters, so the streamingTranslate chapter-advance
+        handler had no way to tell it was on the last chapter without a
+        separate book-metadata fetch. Now total_chapters is included in
+        both the cached and buffering responses.
+        """
+        resp = app_client.post(
+            "/api/translate/stream",
+            json={"audiobook_id": 1, "locale": "zh-Hans", "chapter_index": 0},
+        )
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body["state"] == "buffering"
+        assert "total_chapters" in body
+        # Book 1 fixture seeds chapter_count=3
+        assert body["total_chapters"] == 3
+
     def test_existing_session_reused(self, app_client, streaming_db):
         # First call creates a session
         r1 = app_client.post(
@@ -366,6 +386,55 @@ class TestRequestStreamingTranslation:
         )
         session_id_2 = r2.get_json()["session_id"]
         assert session_id_1 == session_id_2
+
+    def test_cached_response_includes_segment_bitmap(self, app_client, streaming_db):
+        """Chapter-advance (v8.3.8.7) needs segment_bitmap in BOTH the
+        buffering and cached response branches. The frontend's
+        advanceChapter → enterBuffering relies on the bitmap to populate
+        segmentBitmap[ch] and hit the all_cached → enterStreaming
+        fast-path; without it, the player stays in BUFFERING after a
+        successful advance POST.
+        """
+        conn = sqlite3.connect(str(streaming_db))
+        # Seed chapter 0 of book 3 as fully cached (subtitles + audio)
+        conn.execute(
+            "INSERT INTO chapter_subtitles "
+            "(audiobook_id, chapter_index, locale, vtt_path, stt_provider) "
+            "VALUES (3, 0, 'zh-Hans', '/tmp/x.vtt', 'test')"
+        )
+        conn.execute(
+            "INSERT INTO chapter_translations_audio "
+            "(audiobook_id, chapter_index, locale, audio_path, tts_provider) "
+            "VALUES (3, 0, 'zh-Hans', '/tmp/x.webm', 'test')"
+        )
+        conn.execute(
+            "INSERT INTO chapter_subtitles "
+            "(audiobook_id, chapter_index, locale, vtt_path, stt_provider) "
+            "VALUES (3, 1, 'zh-Hans', '/tmp/x.vtt', 'test')"
+        )
+        conn.execute(
+            "INSERT INTO chapter_translations_audio "
+            "(audiobook_id, chapter_index, locale, audio_path, tts_provider) "
+            "VALUES (3, 1, 'zh-Hans', '/tmp/x.webm', 'test')"
+        )
+        conn.commit()
+        conn.close()
+
+        resp = app_client.post(
+            "/api/translate/stream",
+            json={"audiobook_id": 3, "locale": "zh-Hans", "chapter_index": 0},
+        )
+        assert resp.status_code == 200
+        body = resp.get_json()
+        assert body["state"] == "cached"
+        # Regression guard: segment_bitmap MUST be present for the
+        # chapter-advance flow to populate the client-side bitmap
+        assert "segment_bitmap" in body, (
+            "segment_bitmap missing from cached response — advanceChapter "
+            "→ enterBuffering would receive undefined bitmap and the player "
+            "would get stuck in BUFFERING"
+        )
+        assert isinstance(body["segment_bitmap"], dict)
 
     def test_all_cached_returns_cached_state(self, app_client, streaming_db):
         # Book 3 is seeded by the fixture with chapter_count=2

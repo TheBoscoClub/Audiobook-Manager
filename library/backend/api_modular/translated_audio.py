@@ -104,18 +104,60 @@ def get_book_translated_audio(book_id):
             return (row["audio_path"] or "").startswith(sampler_audio_prefix + "/")
 
         # Sampler-incomplete check — cached per (book, locale) within the call.
+        #
+        # The "sampler is incomplete" signal was originally
+        # `sampler_jobs.status != 'complete'`. In practice
+        # `sampler_jobs.status` drifts away from reality —
+        # orphan-repair and ad-hoc `UPDATE streaming_segments` flows
+        # deliver all the audio without touching the sampler_jobs row,
+        # and books end up with status='running' forever even though
+        # every segment has `audio_path` populated and every chapter's
+        # consolidated `chapter.webm` exists on disk. In that state
+        # the filter was hiding fully-playable audio, which stranded
+        # book 115852 during v8.3.8.7 chapter-advance browser proof —
+        # the API returned `[]` for /translated-audio and the player
+        # had nothing to walk.
+        #
+        # Authoritative signal is the actual segment state. A sampler
+        # is incomplete iff at least one streaming_segments row for
+        # that (book, locale) is NOT state='completed' or is missing
+        # an `audio_path`. Fall back to the status column only if
+        # streaming_segments has no rows at all (genuinely nothing
+        # sampled yet).
         _sampler_cache: dict = {}
 
         def _sampler_incomplete(loc):
             if loc in _sampler_cache:
                 return _sampler_cache[loc]
             try:
-                job = conn.execute(
-                    "SELECT status FROM sampler_jobs "
-                    "WHERE audiobook_id = ? AND locale = ? LIMIT 1",
+                counts = conn.execute(
+                    "SELECT COUNT(*) AS total, "
+                    "SUM(CASE WHEN state='completed' AND audio_path IS NOT NULL "
+                    "THEN 1 ELSE 0 END) AS done "
+                    "FROM streaming_segments "
+                    "WHERE audiobook_id = ? AND locale = ?",
                     (book_id, loc),
                 ).fetchone()
-                blocked = job is not None and job["status"] != "complete"
+                total = int(counts["total"] or 0) if counts else 0
+                done = int(counts["done"] or 0) if counts else 0
+                if total == 0:
+                    # No streaming_segments rows at all. Fall back to
+                    # sampler_jobs.status if available; otherwise treat
+                    # as not-blocked (legacy / batch-translation only).
+                    try:
+                        job = conn.execute(
+                            "SELECT status FROM sampler_jobs "
+                            "WHERE audiobook_id = ? AND locale = ? LIMIT 1",
+                            (book_id, loc),
+                        ).fetchone()
+                        blocked = job is not None and job["status"] != "complete"
+                    except sqlite3.OperationalError:
+                        blocked = False
+                else:
+                    # Authoritative: the sampler delivered all rows iff
+                    # done == total. Anything less and we hide its
+                    # sampler-origin audio to prevent dead-ends.
+                    blocked = done < total
             except sqlite3.OperationalError:
                 blocked = False  # older installs w/o sampler_jobs
             _sampler_cache[loc] = blocked
