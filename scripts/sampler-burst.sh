@@ -81,6 +81,11 @@ MODE="replace"
 # note explaining what was skipped.
 MAX_WORKERS_TOTAL=16
 
+# Foreground/background: default is DETACH (spawn workers, return control
+# immediately). --wait keeps the drain-polling loop in the foreground —
+# intended for cron/CI callers that want a non-zero exit code on timeout.
+WAIT=0
+
 # ─── Arg parsing ─────────────────────────────────────────────────────────────
 
 _usage() {
@@ -101,6 +106,12 @@ POOL-SIZING OPTIONS (mutually exclusive):
 
 OTHER OPTIONS:
   --timeout DUR   Max wall-clock time (e.g. 30m, 2h, 10800s). Default: 6h.
+                  Only applies with --wait.
+  --wait          Stay in foreground and poll the queue until drained or
+                  timeout. Without --wait, workers are spawned and the
+                  script returns immediately (interactive-friendly default).
+                  Use --wait from cron/CI where a non-zero exit code on
+                  timeout is useful.
   --force         Start even if the main systemd unit is active.
   -h, --help      Show this help.
 
@@ -177,6 +188,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --force)
             FORCE=1
+            shift
+            ;;
+        --wait)
+            WAIT=1
             shift
             ;;
         -h | --help)
@@ -345,9 +360,17 @@ _cleanup() {
         [[ -n "$pid" ]] && kill -0 "$pid" 2>/dev/null && kill -KILL "$pid" 2>/dev/null || true
     done
 }
-trap '_cleanup SIGINT' INT
-trap '_cleanup SIGTERM' TERM
-trap '_cleanup EXIT' EXIT
+# Only install the "kill my children on exit" trap in --wait mode. Under
+# the default detach mode, the script returns after spawning; the workers
+# are backgrounded children (`&`) and bash scripts don't SIGHUP children
+# on exit (huponexit is off for non-interactive shells), so they continue
+# running independently. Installing the EXIT trap in detach mode would
+# kill the very workers we just spawned.
+if [[ "$WAIT" -eq 1 ]]; then
+    trap '_cleanup SIGINT' INT
+    trap '_cleanup SIGTERM' TERM
+    trap '_cleanup EXIT' EXIT
+fi
 
 echo "Spawning ${WORKERS} stream-translate worker(s)..."
 # Per-invocation log dir so concurrent bursts (and different users)
@@ -392,6 +415,26 @@ _pending_count() {
     fi
     echo "$n"
 }
+
+if [[ "$WAIT" -eq 0 ]]; then
+    # Default: detach. The workers are backgrounded children; bash scripts
+    # don't SIGHUP their children on exit (non-interactive shell, huponexit
+    # off), so they continue independently. Return control to the caller.
+    pending="$(_pending_count)"
+    cat <<EOF
+Workers dispatched — returning control. The workers run independently
+(no trap handlers installed; closing your terminal or this shell will
+not affect them).
+
+  ${pending} segment(s) pending. Monitor progress with:
+    sqlite3 $AUDIOBOOKS_DATABASE "SELECT state, COUNT(*) FROM streaming_segments WHERE origin='sampler' GROUP BY state"
+    pgrep -af stream-translate-worker
+    tail -f $LOG_DIR/worker-*.log
+
+  Pass --wait to keep this script in the foreground polling until drain.
+EOF
+    exit 0
+fi
 
 start_ts="$(date +%s)"
 echo "Waiting for queue drain... (timeout ${TIMEOUT_SEC}s)"

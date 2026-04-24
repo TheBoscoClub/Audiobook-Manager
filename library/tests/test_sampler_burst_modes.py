@@ -156,3 +156,55 @@ def test_replace_mode_skipped_when_no_existing_workers():
 def test_sampler_burst_calls_require_audiobooks_user():
     """The shared helper is invoked early — no code paths that skip it."""
     assert 'require_audiobooks_user "$@"' in BURST
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# Detach-by-default (v8.3.8.5): interactive invocations must return the
+# shell immediately after spawning workers, not block on drain-polling.
+# Ctrl+C on a drain-polling sampler-burst would previously fire the EXIT
+# trap and kill the workers the user just spawned.
+# ──────────────────────────────────────────────────────────────────────────
+
+
+def test_wait_flag_is_registered():
+    """--wait is a recognized flag."""
+    assert "--wait)" in BURST
+
+
+def test_detach_is_default():
+    """WAIT=0 at declaration — drain-loop opt-in, not opt-out."""
+    # Match both the constant and the branch that short-circuits on WAIT=0.
+    assert "WAIT=0" in BURST
+    assert '[[ "$WAIT" -eq 0 ]]' in BURST
+
+
+def test_traps_only_installed_in_wait_mode():
+    """EXIT/INT/TERM traps must be gated on --wait.
+
+    Without this gate, closing the user's terminal (or Ctrl+C) would fire
+    the trap and SIGTERM every worker the script just spawned — the exact
+    opposite of what interactive users want.
+    """
+    # The three trap installs must live inside an `if [[ $WAIT -eq 1 ]]` block.
+    idx = BURST.index('trap \'_cleanup EXIT\' EXIT')
+    # Back-walk to the enclosing `if`.
+    prefix = BURST[:idx]
+    gate_idx = prefix.rindex('if [[ "$WAIT" -eq 1 ]]')
+    # No `fi` between the gate and the traps — the traps are inside the block.
+    assert "fi" not in BURST[gate_idx:idx]
+
+
+def test_detach_branch_exits_zero():
+    """Under detach default, the script exits 0 after spawning — no drain loop."""
+    # Find the "Workers dispatched" message and confirm an `exit 0` follows.
+    idx = BURST.index("Workers dispatched")
+    tail = BURST[idx : idx + 1200]
+    assert "exit 0" in tail, "detach branch missing exit 0"
+
+
+def test_detach_branch_emits_monitoring_hints():
+    """Detach message points users at sqlite3/pgrep/tail for progress watching."""
+    idx = BURST.index("Workers dispatched")
+    tail = BURST[idx : idx + 1200]
+    for token in ("sqlite3", "pgrep -af stream-translate-worker", "tail -f"):
+        assert token in tail, f"detach message missing monitoring hint: {token}"

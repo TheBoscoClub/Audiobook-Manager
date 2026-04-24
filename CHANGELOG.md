@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8.5] - 2026-04-24
+
+### Changed
+
+- **`sampler-burst` default is now DETACH (interactive-friendly)**: previous behavior blocked the terminal on a drain-polling loop — so the operator couldn't close their terminal without `Ctrl+Z` / `bg` / `disown` gymnastics, and a `Ctrl+C` would fire the `EXIT` trap and SIGTERM the workers they'd just spawned. New default: after spawning, the script prints a monitoring hint (`sqlite3`, `pgrep`, `tail -f`) and returns exit 0 immediately. The workers are backgrounded children; non-interactive bash doesn't `huponexit`, so they keep running after the shell detaches. The `EXIT`/`INT`/`TERM` traps that kill children are now gated on `--wait` — they only install when the caller explicitly asks to stay attached
+
+### Added
+
+- **`--wait` flag** for cron/CI callers that want the old drain-polling behavior plus a non-zero exit code on `--timeout` (exit 3). The traps that SIGTERM workers on script exit only install under `--wait`. Paired with `--timeout DUR`, `--wait` gives scripted callers the same deterministic semantics as v8.3.8.4
+
 ## [8.3.8.4] - 2026-04-24
 
 ### Added
@@ -3384,7 +3394,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.4...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.5...HEAD
+[8.3.8.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.4...v8.3.8.5
 [8.3.8.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.3...v8.3.8.4
 [8.3.8.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.2...v8.3.8.3
 [8.3.8.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.1...v8.3.8.2
