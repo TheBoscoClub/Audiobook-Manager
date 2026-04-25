@@ -423,3 +423,7 @@ test-*-[0-9][0-9].md
 .claude/diagnostics/repro-*.console.log
 .claude/diagnostics/repro-*.json
 .claude/diagnostics/repro-*.txt
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+.beads-credential-key

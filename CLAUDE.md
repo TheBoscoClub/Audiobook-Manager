@@ -60,3 +60,51 @@ See `VERSION` file. User/group: `audiobooks:audiobooks`
 | ~~Profile preference live-apply~~ | ~~Low~~ | **DONE (v8.3.8)** — `account.js::saveBrowsingPref` dispatches `audiobooks:preference-changed` CustomEvent; `library.js::_wirePreferenceLiveApply` routes by key (`view_mode` → CSS class toggle, `sort_order`/`items_per_page`/`content_filter` → re-apply + `loadAudiobooks`). No hard refresh required. |
 | ~~Cachebust stamp automation~~ | ~~High~~ | **DONE (v8.3.8)** — `scripts/bump-cachebust.sh` rewrites every `?v=<stamp>` in `web-v2/*.html` to a single per-deploy epoch stamp. Invoked by both `upgrade.sh` (after HTML sync, before service restart) and `install.sh`. Replaces the manual ?v= bumping that periodically caused stale-JS incidents (v8.3.4 qalib 2000-ID URL-overflow 400 being one). |
 | ~~Data migrations framework for `upgrade.sh`~~ | ~~Medium~~ | **DONE** — `data-migrations/` directory parallel to `config-migrations/`, version-gated via `MIN_VERSION` in each script. `upgrade.sh` runs migrations only when crossing the declared boundary; `install.sh` runs all unconditionally on fresh installs. First migration: `001_podcast_detection.sh` (v8.0.3 boundary). |
+
+
+<!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
+## Beads Issue Tracker
+
+This project uses **bd (beads)** for issue tracking. Run `bd prime` to see full workflow context and commands.
+
+### Quick Reference
+
+```bash
+bd ready              # Find available work
+bd show <id>          # View issue details
+bd update <id> --claim  # Claim work
+bd close <id>         # Complete work
+```
+
+### Rules
+
+- Use `bd` for ALL task tracking — do NOT use TodoWrite, TaskCreate, or markdown TODO lists
+- Run `bd prime` for detailed command reference and session close protocol
+- Use `bd remember` for persistent knowledge — do NOT use MEMORY.md files
+
+## Session Completion
+
+**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+
+**MANDATORY WORKFLOW:**
+
+1. **File issues for remaining work** - Create issues for anything that needs follow-up
+2. **Run quality gates** (if code changed) - Tests, linters, builds
+3. **Update issue status** - Close finished work, update in-progress items
+4. **PUSH TO REMOTE** - This is MANDATORY:
+   ```bash
+   git pull --rebase
+   bd dolt push
+   git push
+   git status  # MUST show "up to date with origin"
+   ```
+5. **Clean up** - Clear stashes, prune remote branches
+6. **Verify** - All changes committed AND pushed
+7. **Hand off** - Provide context for next session
+
+**CRITICAL RULES:**
+- Work is NOT complete until `git push` succeeds
+- NEVER stop before pushing - that leaves work stranded locally
+- NEVER say "ready to push when you are" - YOU must push
+- If push fails, resolve and retry until it succeeds
+<!-- END BEADS INTEGRATION -->
