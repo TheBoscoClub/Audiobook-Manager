@@ -112,9 +112,7 @@ def test_systemd_worker_excluded_from_burst_count():
 
 def test_systemd_mainpid_lookup_uses_systemctl_show():
     """Lookup MainPID via systemctl show (canonical source)."""
-    assert (
-        "systemctl show -p MainPID --value audiobook-stream-translate.service" in BURST
-    )
+    assert "systemctl show -p MainPID --value audiobook-stream-translate.service" in BURST
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -129,7 +127,7 @@ def test_replace_mode_sends_sigterm_not_sigkill():
     the grace window expires.
     """
     # _terminate_workers must TERM before KILL.
-    idx_term = BURST.index('_terminate_workers() {')
+    idx_term = BURST.index("_terminate_workers() {")
     idx_done = BURST.index("}\n", idx_term)
     helper_body = BURST[idx_term:idx_done]
     assert "kill -TERM" in helper_body, "TERM missing from _terminate_workers"
@@ -145,7 +143,7 @@ def test_replace_mode_grace_window_is_90s():
 
 def test_replace_mode_skipped_when_no_existing_workers():
     """If existing_count==0, no SIGTERM is sent (nothing to replace)."""
-    assert '[[ $existing_count -gt 0 ]]' in BURST
+    assert "[[ $existing_count -gt 0 ]]" in BURST
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -186,7 +184,7 @@ def test_traps_only_installed_in_wait_mode():
     opposite of what interactive users want.
     """
     # The three trap installs must live inside an `if [[ $WAIT -eq 1 ]]` block.
-    idx = BURST.index('trap \'_cleanup EXIT\' EXIT')
+    idx = BURST.index("trap '_cleanup EXIT' EXIT")
     # Back-walk to the enclosing `if`.
     prefix = BURST[:idx]
     gate_idx = prefix.rindex('if [[ "$WAIT" -eq 1 ]]')
@@ -249,20 +247,14 @@ def test_preflight_rejects_missing_venv_python():
     isn't executable. Spawning workers against a broken venv silently kills
     the audio pipeline."""
     # Look for the explicit -x guard and its error path.
-    assert '! -x "$PYTHON_BIN"' in BURST, (
-        "Pre-flight executable check on PYTHON_BIN missing"
-    )
+    assert '! -x "$PYTHON_BIN"' in BURST, "Pre-flight executable check on PYTHON_BIN missing"
     # The error message must reference AUDIOBOOKS_VENV so the operator knows
     # which path to fix.
-    assert "AUDIOBOOKS_VENV" in BURST, (
-        "Pre-flight error message missing AUDIOBOOKS_VENV reference"
-    )
+    assert "AUDIOBOOKS_VENV" in BURST, "Pre-flight error message missing AUDIOBOOKS_VENV reference"
 
 
 def test_preflight_verifies_edge_tts_importable():
     """Pre-flight MUST refuse to spawn workers when the venv exists but has
     no edge_tts. A venv that lacks edge_tts produces VTT-only segments —
     every audio playback dead-ends after the systemd worker's one segment."""
-    assert "import edge_tts" in BURST, (
-        "Pre-flight edge_tts importability check missing"
-    )
+    assert "import edge_tts" in BURST, "Pre-flight edge_tts importability check missing"

@@ -531,7 +531,8 @@ def _ensure_chapter_segments(
 
     # Re-snapshot existing segment_indices after any promotion.
     existing_indices = {
-        r["segment_index"] for r in db.execute(
+        r["segment_index"]
+        for r in db.execute(
             "SELECT segment_index FROM streaming_segments "
             "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ?",
             (audiobook_id, chapter_index, locale),
@@ -634,8 +635,10 @@ def _get_segment_bitmap(db, audiobook_id: int, chapter_index: int, locale: str) 
     # ``streaming_done`` now requires completed count to match the chapter's
     # expected segment count (with a 1-seg slack for rounding).
     try:
-        expected = _chapter_segment_count(_get_chapter_duration_sec(db, audiobook_id, chapter_index))
-    except (ValueError, OSError):
+        expected = _chapter_segment_count(
+            _get_chapter_duration_sec(db, audiobook_id, chapter_index)
+        )
+    except (ValueError, OSError):  # fmt: skip
         expected = 0  # unknown duration → fall back to legacy "match rows" behavior
     if expected > 0:
         streaming_done = len(completed) >= expected - 1
@@ -932,9 +935,7 @@ def _fully_cached_response(db, audiobook_id, chapter_index, locale):
             # BUFFERING after a successful advance POST because
             # enterBuffering's populate-and-transition block no-ops when
             # bitmap is undefined. This closes the loop.
-            "segment_bitmap": _get_segment_bitmap(
-                db, audiobook_id, chapter_index, locale
-            ),
+            "segment_bitmap": _get_segment_bitmap(db, audiobook_id, chapter_index, locale),
         }
     )
 

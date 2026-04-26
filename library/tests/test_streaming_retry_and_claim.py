@@ -181,9 +181,7 @@ def test_claim_sampler_row_ignores_stopped_session(db_path):
     _insert_seg(db_path, segment=0, origin="sampler", priority=2)
     _insert_seg(db_path, segment=1, origin="backlog", priority=2)
     claimed = worker.claim_next_segment(db_path)
-    assert claimed is not None, (
-        "sampler/backlog rows must be claimable regardless of session state"
-    )
+    assert claimed is not None, "sampler/backlog rows must be claimable regardless of session state"
     assert claimed["origin"] in ("sampler", "backlog")
 
 
@@ -276,9 +274,7 @@ def test_streaming_translate_js_has_chapter_advance_on_ended():
     js_path = PROJECT_ROOT / "library" / "web-v2" / "js" / "streaming-translate.js"
     src = js_path.read_text(encoding="utf-8")
     assert "function advanceChapter" in src, "advanceChapter function missing"
-    assert 'addEventListener("ended"' in src, (
-        "enterStreaming must install an audio.ended listener"
-    )
+    assert 'addEventListener("ended"' in src, "enterStreaming must install an audio.ended listener"
     assert 'removeEventListener("ended"' in src, (
         "enterIdle (and advanceChapter mid-transition) must clean up the ended listener"
     )
@@ -287,9 +283,7 @@ def test_streaming_translate_js_has_chapter_advance_on_ended():
     assert "chapter_index: nextChapter" in src, (
         "advanceChapter must request streaming for nextChapter"
     )
-    assert "totalChapters" in src, (
-        "advanceChapter needs totalChapters to know when to stop"
-    )
+    assert "totalChapters" in src, "advanceChapter needs totalChapters to know when to stop"
 
 
 def test_stop_impl_deletes_pending(db_path):

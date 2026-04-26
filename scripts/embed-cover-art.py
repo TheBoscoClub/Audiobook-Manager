@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# /test:wiring-exception: standalone CLI tool, not service-graph wired. Operator runs manually as needed (also exposed via audiobook-embed-covers wrapper).
 """
 Embed cover art into Opus audiobook files using mutagen.
 

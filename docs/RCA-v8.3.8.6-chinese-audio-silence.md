@@ -76,7 +76,7 @@ fast-path exceptions.
 ## 1. The user-facing failure
 
 Qing (monolingual zh-Hans speaker, Bosco's wife, primary end user) opened
-a book in the library at https://library.thebosco.club, chose Chinese
+a book in the library at <https://library.thebosco.club>, chose Chinese
 narration (`zh-Hans` locale), pressed play. Audio played the first ~30
 seconds. Then silence — the bilingual transcript kept scrolling under
 imaginary timestamps, but no audio came from the speakers. Clicking
@@ -113,7 +113,7 @@ bug didn't touch.
 At the storage layer, broken-burst rows had
 `state='completed' AND audio_path IS NULL`. `vtt_content` and
 `source_vtt_content` were populated (200-460 chars of translated Chinese
-+ 415-754 chars of original English). The webm file that should have
+plus 415-754 chars of original English). The webm file that should have
 existed at
 `${AUDIOBOOKS_STREAMING_AUDIO_DIR}/<book>/ch<NNN>/<locale>/seg<NNNN>.webm`
 did not exist on disk.
@@ -301,6 +301,7 @@ invariant preserved (regression-guarded by
 `test_claim_live_row_still_blocked_by_stopped_session`).
 
 Three new tests pin the new contract:
+
 - `test_claim_sampler_row_ignores_stopped_session`
 - `test_claim_live_row_still_blocked_by_stopped_session`
 - `test_claim_priority_ordering_unaffected_by_origin`
@@ -327,6 +328,7 @@ bug masked §4.8c).
 
 **Scope decision for v8.3.8.6:** not shipped. A minimum-viable fix
 needs coordinated backend + frontend work:
+
 1. Frontend: `audio.addEventListener('ended')` in streaming-translate.js
    → detect current streaming session → POST to an endpoint that
    advances `session.active_chapter`.
@@ -375,6 +377,7 @@ succeed) was the ONE line without a regression guard.
 **Why the tests didn't catch it:** they checked syntactic invariants
 (flag parsing, mode mutex, etc.), not functional invariants (spawning a
 worker will produce audio). A functional test would have been:
+
 1. Invoke `sampler-burst.sh --workers 1`.
 2. Wait for one segment to complete.
 3. Assert the segment has audio_path populated.
@@ -408,6 +411,7 @@ production-mirror to validate released versions before promote. **Both AI
 and human verification reported green on v8.3.8.**
 
 **What was checked:**
+
 - systemd services all active (green)
 - API version matches (green)
 - `/test` phases passed (structural: schema, health, smoke endpoints)
@@ -418,6 +422,7 @@ and human verification reported green on v8.3.8.**
   heard)
 
 **What was NOT checked:**
+
 - QA library's `audio_path IS NULL` row count after a sampler burst
 - Whether a freshly-scanned book's sampler run would produce audio
 - Whether Chinese audio continues past the 30-second mark on a
@@ -472,12 +477,14 @@ would have caught this.
 
 After the v8.3.7.1 streaming-pipeline incident, v8.3.8 added a
 functional smoke probe in `upgrade.sh`:
+
 - systemd service states
 - DB column / table presence
 - API version / health
 - STT provider warmth (RunPod endpoint worker count)
 
 **What it does NOT check:**
+
 - TTS endpoint (edge-tts is a library call, not a service endpoint)
 - `audio_path IS NULL` ratio on recent `streaming_segments` rows
 - Whether a test Chinese translation actually produces an audio file
@@ -528,7 +535,7 @@ sweep.
 ## 7. What v8.3.8.6 actually ships
 
 - `scripts/sampler-burst.sh`: canonical `${AUDIOBOOKS_VENV}/bin/python`
-  + hard-fail pre-flight on missing venv or un-importable `edge_tts`.
+  with hard-fail pre-flight on missing venv or un-importable `edge_tts`.
 - `library/backend/api_modular/streaming_translate.py::_ensure_chapter_segments`:
   promote pending sampler rows to `'live'` instead of early-returning.
 - `library/backend/api_modular/streaming_translate.py::_get_segment_bitmap`:

@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# /test:wiring-exception: standalone CLI tool, not service-graph wired. Operator runs manually as needed.
 """Email a translation verification report.
 
 Usage:

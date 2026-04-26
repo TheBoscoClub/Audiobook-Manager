@@ -180,8 +180,7 @@ def get_book_translated_audio(book_id):
         # Filter out SAMPLER-ORIGINATED rows when sampler is incomplete.
         # Legacy batch-translation rows are always kept.
         filtered = [
-            r for r in rows
-            if not (_is_sampler_row(r) and _sampler_incomplete(r["locale"]))
+            r for r in rows if not (_is_sampler_row(r) and _sampler_incomplete(r["locale"]))
         ]
         return jsonify([dict(r) for r in filtered])
     finally:

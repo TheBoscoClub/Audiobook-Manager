@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# /test:wiring-exception: standalone CLI tool, not service-graph wired. Operator runs manually as needed.
 """Verify completed translations with proof.
 
 Checks that every audiobook in the translation queue marked 'completed' has:

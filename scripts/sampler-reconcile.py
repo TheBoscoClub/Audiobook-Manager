@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# /test:wiring-exception: standalone CLI tool, not service-graph wired. Operator runs manually as needed (also exposed via sampler-reconcile wrapper).
 """Sampler reconciler — enqueue 6-min pretranslation for books missing one.
 
 Run this when:

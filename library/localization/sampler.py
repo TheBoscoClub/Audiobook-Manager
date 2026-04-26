@@ -57,6 +57,7 @@ def _safe_log(value) -> str:
         s = s[:200] + "...(truncated)"
     return s
 
+
 # Constants — kept in sync with streaming_translate.py. A test pins that
 # both modules agree on these values.
 SEGMENT_DURATION_SEC = 30

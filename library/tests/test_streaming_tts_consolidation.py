@@ -175,7 +175,16 @@ def test_synthesize_silent_segment_audio_creates_valid_webm(tmp_path):
 
     # ffprobe verification: codec=opus, channels=1, samplerate=48000, ~5s
     probe = _subprocess.run(  # nosec B603,B607
-        ["ffprobe", "-v", "quiet", "-show_streams", "-show_format", "-print_format", "json", str(out)],
+        [
+            "ffprobe",
+            "-v",
+            "quiet",
+            "-show_streams",
+            "-show_format",
+            "-print_format",
+            "json",
+            str(out),
+        ],
         capture_output=True,
         check=True,
     )
@@ -765,10 +774,7 @@ def test_process_segment_skips_stt_when_vtt_content_already_present(tmp_path):
             "get_stt_provider must NOT be called when vtt_content is pre-populated"
         )
 
-    existing_vtt = (
-        "WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\n"
-        "你好。这是一个测试。\n"
-    )
+    existing_vtt = "WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\n你好。这是一个测试。\n"
     existing_source_vtt = "WEBVTT\n\n1\n00:00:00.000 --> 00:00:03.000\nHello. This is a test.\n"
 
     segment = {
@@ -842,9 +848,7 @@ def test_process_segment_skips_stt_when_only_vtt_content_present_no_source(tmp_p
 
         return _Resp()
 
-    existing_vtt = (
-        "WEBVTT\n\n1\n00:00:00.000 --> 00:00:05.000\n代理我们的未来。\n"
-    )
+    existing_vtt = "WEBVTT\n\n1\n00:00:00.000 --> 00:00:05.000\n代理我们的未来。\n"
     segment = {
         "audiobook_id": 99,
         "chapter_index": 0,

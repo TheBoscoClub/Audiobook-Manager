@@ -42,9 +42,7 @@ class TestShellCSS:
         pre-v8.3.8.9 CSS for hours after the prod hot-patch was live —
         because her tab stayed open with cached HTML).
         """
-        assert VERSION_POLLER_JS.exists(), (
-            f"version-poller.js missing at {VERSION_POLLER_JS}"
-        )
+        assert VERSION_POLLER_JS.exists(), f"version-poller.js missing at {VERSION_POLLER_JS}"
         html = SHELL_HTML.read_text()
         assert "version-poller.js" in html, (
             "shell.html must reference version-poller.js — without it, "

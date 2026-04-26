@@ -360,6 +360,7 @@ fi
 
 declare -a WORKER_PIDS=()
 
+# shellcheck disable=SC2329 # invoked indirectly via trap (INT/TERM/EXIT) below
 _cleanup() {
     local sig="${1:-EXIT}"
     [[ "$sig" != "EXIT" ]] && echo "" >&2 && echo "Received $sig — shutting down workers..." >&2

@@ -91,6 +91,22 @@ CANONICAL_WORKERS=(
 )
 
 # ---------------------------------------------------------------------------
+# Standalone operator CLI tools — copied by install.sh / upgrade.sh into
+# ${LIB_DIR}/scripts/ but NOT wired into the systemd service graph. These are
+# manually invoked by the operator (admin) for backfills, audits, repairs.
+# Each script carries a `# /test:wiring-exception:` comment explaining why
+# it is not service-graph wired. Test guard: library/tests/test_install_manifest.py
+# (or successor) greps this list to confirm presence and copy coverage.
+# ---------------------------------------------------------------------------
+CANONICAL_OPERATOR_TOOLS=(
+    "batch-translate.py|operator-run: standalone STT->translate->TTS pipeline runner"
+    "email-report.py|operator-run: emails translation verification report"
+    "verify-translations.py|operator-run: audits completed translations for proof"
+    "embed-cover-art.py|operator-run: embeds cover art into Opus files (also exposed via audiobook-embed-covers wrapper)"
+    "sampler-reconcile.py|operator-run: backfill sampler_jobs rows for missing (book,locale) pairs (also exposed via sampler-reconcile wrapper)"
+)
+
+# ---------------------------------------------------------------------------
 # Wrapper scripts that MUST be present in /usr/local/bin (system) or
 # ~/.local/bin (user). These are the user-facing CLI entry points.
 # ---------------------------------------------------------------------------

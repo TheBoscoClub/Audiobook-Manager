@@ -148,9 +148,9 @@ class TestEdgeTTSProviderSynthesize:
 
         calls: dict = {}
 
-        def _fake_run(cmd, capture_output, text, timeout):
+        def _fake_run(cmd, *args, **kwargs):
             calls["cmd"] = cmd
-            calls["timeout"] = timeout
+            calls["timeout"] = kwargs.get("timeout")
             out_path = Path(cmd[cmd.index("--write-media") + 1])
             out_path.write_bytes(b"FAKEMP3DATA")
             return MagicMock(returncode=0, stderr="")
@@ -172,7 +172,7 @@ class TestEdgeTTSProviderSynthesize:
         a truncated stderr preview."""
         from library.localization.tts import edge_tts_provider as mod
 
-        def _fake_run(cmd, capture_output, text, timeout):
+        def _fake_run(cmd, *args, **kwargs):
             return MagicMock(returncode=1, stderr="auth failed")
 
         monkeypatch.setattr(mod.subprocess, "run", _fake_run)
@@ -185,7 +185,7 @@ class TestEdgeTTSProviderSynthesize:
         """Even with exit 0, a zero-byte output must be flagged."""
         from library.localization.tts import edge_tts_provider as mod
 
-        def _fake_run(cmd, capture_output, text, timeout):
+        def _fake_run(cmd, *args, **kwargs):
             # DO NOT write to output — simulate edge-tts quietly producing nothing.
             return MagicMock(returncode=0, stderr="")
 
@@ -202,7 +202,7 @@ class TestEdgeTTSProviderSynthesize:
 
         seen_temp: dict = {}
 
-        def _fake_run(cmd, capture_output, text, timeout):
+        def _fake_run(cmd, *args, **kwargs):
             # Capture the temp text file path so we can verify cleanup.
             file_idx = cmd.index("--file") + 1
             seen_temp["path"] = Path(cmd[file_idx])

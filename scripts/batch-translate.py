@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# /test:wiring-exception: standalone CLI tool, not service-graph wired. Operator runs manually as needed.
 """Standalone batch translation processor.
 
 Runs the STT -> subtitle translation -> TTS pipeline independently of
