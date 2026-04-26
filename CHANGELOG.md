@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8.13] - 2026-04-26
+
+### Fixed
+
+- **iOS Chrome portrait player-clipping survived v8.3.8.8/v8.3.8.9 because `theme-art-deco.css` was forcing body to `min-height: 100vh`** (`Audiobook-Manager-g9f`): Qing's iPhone 17 Pro Chrome iOS still showed the bottom row of player controls (`1x`/`倍速`/`CC`/transcript/lang/`×`) clipped behind Chrome's persistent bottom action bar even after v8.3.8.9 capped `<html>` at `min(100svh, var(--app-height, 100svh))`. Live diagnostic on Qing's actual device — added via `?debug=viewport` instrumentation in `library/web-v2/js/shell.js::setupViewportDebugOverlay` (gated behind the query param, invisible to all other users) — produced ground truth: `100svh = 676`, `100lvh = 788`, `documentElement.cH = 676` (correct cap), but `body.getBoundingClientRect().height = 788` (broken). Chrome iOS reports `100svh` and `visualViewport.height` correctly; the cap on `<html>` was working. The body was 112 px taller than `<html>` because `theme-art-deco.css:186` declared `body { min-height: 100vh }` — and `theme-art-deco.css` loads after `shell.css`, so its `min-height: 100vh` (= 788 px on iOS Chrome portrait) won the cascade and forced the body box to the layout viewport. Per CSS spec `min-height` overrides `max-height` when they conflict, so v8.3.8.9's body cap was a no-op there. Same root cause produced the landscape-collections-won't-scroll bug: in landscape the iframe's bottom-of-body region was sized to the layout viewport too, leaving content unreachable. Fix: `library/web-v2/css/shell.css` body rule changed to `html body` selector (specificity 0,0,2) with explicit `min-height: 0` to override the theme's 0,0,1 rule; `height` and `max-height` both clamped to `min(100svh, var(--app-height, 100svh))` as belt-and-suspenders. Belt-and-suspenders defense added on the mobile player too: `max-height: min(50svh, calc(var(--app-height, 100svh) * 0.5))` plus `overflow-y: auto; -webkit-overflow-scrolling: touch` so even if a future browser update breaks the body cap again, the player can never extend past half the visible viewport. Verified end-to-end on Qing's actual iPhone 17 Pro Chrome iOS portrait (body rect = 676, content-frame = 628 top=47 bot=676, all four player rows visible above Chrome's action bar) AND landscape (body rect = 338, collections scroll restored). The viewport diagnostic overlay (`setupViewportDebugOverlay`) ships permanently as a maintenance tool because Apple does not allow remote DevTools inspection of Chrome iOS — when the next iOS-Chrome viewport regression appears, hitting `?debug=viewport` on any environment immediately surfaces `100vh`/`100svh`/`100dvh`/`100lvh`, `visualViewport.*`, `--app-height`, `safe-area-inset-*`, and rendered rects of `<body>`/`#shell-header`/`#content-frame`/`#shell-player`. Documentation: new "Viewport Diagnostic Overlay" section added to `docs/CSS-CUSTOMIZATION.md`. Audit-driven side fixes that landed in the same release window (separate commits): 4 `_fake_run` mock signatures in `library/tests/test_tts_factory.py` updated to accept `**kwargs` after v8.3.8.10 added `encoding="utf-8", errors="replace"` to `subprocess.run()` in `edge_tts_provider.py` (CI red since the v8.3.8.10 push); `ffmpeg` added to `.github/workflows/ci.yml` apt install (was missing, causing `test_streaming_tts_consolidation.py` to fail in CI environments only); 5 `scripts/*.py` (`batch-translate`, `email-report`, `verify-translations`, `embed-cover-art`, `sampler-reconcile`) wired into `scripts/install-manifest.sh` with documented exception comments per the project's "new-script wiring enforcement" rule; `scripts/stream-translate-worker.py` added to `upgrade.sh` (was in install.sh but missing from upgrade.sh)
+
 ## [8.3.8.12] - 2026-04-25
 
 ### Added
@@ -3457,7 +3463,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.12...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.13...HEAD
+[8.3.8.13]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.12...v8.3.8.13
 [8.3.8.12]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.11...v8.3.8.12
 [8.3.8.11]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.10...v8.3.8.11
 [8.3.8.10]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.9...v8.3.8.10

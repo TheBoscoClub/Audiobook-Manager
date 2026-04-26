@@ -31,8 +31,18 @@ html {
     font-family: 'Georgia', 'Times New Roman', serif;
 }
 
-body {
-    height: 100%;
+/* `html body` (specificity 0,0,2) — required to override
+   theme-art-deco.css:186 which sets `body { min-height: 100vh }`. Without
+   this override, min-height wins per CSS spec (min-height beats max-height
+   when in conflict), forcing body to 100vh = 788px on iOS Chrome portrait
+   — exactly the layout-viewport size that puts the iframe's bottom 112px
+   behind Chrome's persistent action bar. Confirmed via diagnostic on Qing's
+   iPhone 17 Pro Chrome iOS portrait, 2026-04-26 (body rect was 788, html cH
+   was 676, content-frame extended to bot=788). */
+html body {
+    height: min(100svh, var(--app-height, 100svh));
+    min-height: 0;
+    max-height: min(100svh, var(--app-height, 100svh));
     overflow: hidden;
     background: var(--deep-burgundy);
     font-family: 'Georgia', 'Times New Roman', serif;
@@ -256,6 +266,14 @@ body {
            #content-frame shrinks the iframe to absorb the change. */
         height: auto;
         min-height: calc(var(--player-height) + env(safe-area-inset-bottom, 0px));
+        /* Cap at half the visible viewport and allow internal scroll if the
+           four-row layout still overflows. This is the fallback that prevents
+           the bottom row of controls from disappearing behind iOS Chrome's
+           persistent bottom toolbar even if the body-height cap fails. */
+        max-height: 50vh;
+        max-height: min(50svh, calc(var(--app-height, 100svh) * 0.5));
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
     }
 
     .sp-cover { width: 44px; height: 44px; }

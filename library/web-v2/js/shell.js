@@ -925,12 +925,95 @@ function setupViewportFix() {
   if (iframe) iframe.addEventListener("load", update);
 }
 
+// Diagnostic overlay for iOS Chrome viewport investigation. Activates only
+// when the URL has ?debug=viewport. Shows live values of every viewport
+// metric we depend on — visualViewport.*, window.inner*, --app-height,
+// resolved 100vh/100svh/100dvh/100lvh, safe-area insets, and UA — so we
+// can see what Chrome iOS is actually reporting on a real device (Apple
+// blocks remote DevTools inspection of Chrome iOS).
+//
+// The four sentinel divs measure the resolved pixel value of each viewport
+// unit; reading their .clientHeight tells us exactly what each unit equals
+// at this moment. If 100svh on Chrome iOS turns out to equal 100lvh
+// (i.e. the largest viewport, including chrome), our min() cap in shell.css
+// is a no-op there and we have our root cause.
+function setupViewportDebugOverlay() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("debug") !== "viewport") return;
+
+  const sentinels = ["100vh", "100svh", "100dvh", "100lvh"].map((unit) => {
+    const el = document.createElement("div");
+    el.style.cssText = `position:fixed;left:-9999px;top:0;width:1px;height:${unit};pointer-events:none;`;
+    el.dataset.unit = unit;
+    document.body.appendChild(el);
+    return el;
+  });
+
+  const overlay = document.createElement("div");
+  overlay.id = "viewport-debug-overlay";
+  overlay.style.cssText =
+    "position:fixed;top:0;left:0;right:0;z-index:2147483647;" +
+    "background:rgba(0,0,0,0.85);color:#0f0;font:11px/1.3 monospace;" +
+    "padding:6px 8px;pointer-events:none;white-space:pre;" +
+    "max-height:50vh;overflow:hidden;";
+  document.body.appendChild(overlay);
+
+  function readSafeArea(side) {
+    const probe = document.createElement("div");
+    probe.style.cssText = `position:fixed;left:-9999px;top:0;height:env(safe-area-inset-${side},0px);width:1px;`;
+    document.body.appendChild(probe);
+    const v = probe.clientHeight;
+    document.body.removeChild(probe);
+    return v;
+  }
+
+  function elH(id) {
+    const el = document.getElementById(id);
+    if (!el) return "—";
+    const r = el.getBoundingClientRect();
+    return `${Math.round(r.height)} (top=${Math.round(r.top)} bot=${Math.round(r.bottom)})`;
+  }
+
+  function snapshot() {
+    const vv = window.visualViewport;
+    const cs = getComputedStyle(document.documentElement);
+    const bodyR = document.body.getBoundingClientRect();
+    const lines = [
+      `UA: ${navigator.userAgent.slice(0, 90)}`,
+      `window.inner:        ${window.innerWidth} x ${window.innerHeight}`,
+      `visualViewport:      ${vv ? vv.width.toFixed(1) + " x " + vv.height.toFixed(1) : "unsupported"}`,
+      `vv.offset / scale:   ${vv ? `top=${vv.offsetTop.toFixed(1)} left=${vv.offsetLeft.toFixed(1)} scale=${vv.scale.toFixed(2)}` : "—"}`,
+      `documentElement.cH:  ${document.documentElement.clientHeight}`,
+      `--app-height:        ${cs.getPropertyValue("--app-height").trim() || "(unset)"}`,
+      `safe-area top/bot:   ${readSafeArea("top")} / ${readSafeArea("bottom")}`,
+      `100vh / 100svh:      ${sentinels[0].clientHeight} / ${sentinels[1].clientHeight}`,
+      `100dvh / 100lvh:     ${sentinels[2].clientHeight} / ${sentinels[3].clientHeight}`,
+      `bottomChrome:        ${vv ? Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0)) : 0}`,
+      `body rect:           ${Math.round(bodyR.height)} (top=${Math.round(bodyR.top)} bot=${Math.round(bodyR.bottom)})`,
+      `#shell-header:       ${elH("shell-header")}`,
+      `#content-frame:      ${elH("content-frame")}`,
+      `#shell-player:       ${elH("shell-player")}`,
+    ];
+    overlay.textContent = lines.join("\n");
+  }
+
+  snapshot();
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", snapshot);
+    window.visualViewport.addEventListener("scroll", snapshot);
+  }
+  window.addEventListener("resize", snapshot);
+  window.addEventListener("orientationchange", () => setTimeout(snapshot, 150));
+  window.addEventListener("scroll", snapshot, { passive: true });
+}
+
 // Initialize when DOM is ready.
 // MUST use var (not let/const) so shellPlayer is a window property,
 // accessible from the iframe via window.parent.shellPlayer.
 var shellPlayer;
 document.addEventListener("DOMContentLoaded", () => {
   setupViewportFix();
+  setupViewportDebugOverlay();
   shellPlayer = new ShellPlayer();
 
   // Check for autoplay intent (from non-iframe redirect)
