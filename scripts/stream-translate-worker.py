@@ -182,6 +182,64 @@ def _synthesize_segment_audio(
     return out_webm
 
 
+def _synthesize_silent_segment_audio(
+    audiobook_id: int,
+    chapter_index: int,
+    segment_index: int,
+    locale: str,
+    duration_sec: float,
+) -> Path:
+    """Generate a silent WebM-Opus segment of the given duration.
+
+    Used when ``_synthesize_segment_audio`` returns ``None`` because the
+    segment's translated VTT has no spoken text — i.e. a music, silence,
+    or sound-effect segment that Whisper transcribed as empty. Without
+    a per-segment audio file the frontend MSE chain stalls indefinitely
+    waiting for bytes that will never arrive (the segment row sits at
+    ``state='completed', audio_path=NULL``). A silent track matching the
+    source segment's duration keeps the chain advancing; subtitle cues
+    remain accurate (they have their own timestamps); chapter
+    consolidation via ``ffmpeg -c copy`` produces a uniform stream.
+
+    Container/codec must match ``_synthesize_segment_audio`` exactly so
+    Task 10 chapter consolidation can ``-c copy`` across the mixed
+    spoken/silent segments without re-encoding.
+    """
+    out_webm = (
+        _STREAMING_AUDIO_ROOT
+        / str(audiobook_id)
+        / f"ch{chapter_index:03d}"
+        / locale
+        / f"seg{segment_index:04d}.webm"
+    )
+    out_webm.parent.mkdir(parents=True, exist_ok=True)
+    subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+        [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
+            "ffmpeg",
+            "-y",
+            "-loglevel",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=channel_layout=mono:sample_rate=48000",
+            "-t",
+            f"{max(duration_sec, 0.1):.3f}",
+            "-c:a",
+            "libopus",
+            "-b:a",
+            "48k",
+            "-ar",
+            "48000",
+            "-f",
+            "webm",
+            str(out_webm),
+        ],
+        check=True,
+    )
+    return out_webm
+
+
 def get_db(db_path: str) -> sqlite3.Connection:
     # 30s busy_timeout: absorbs transient lock contention at startup when the
     # API server and this worker race to initialize WAL mode on the shared DB.
@@ -307,7 +365,22 @@ def split_audio_segment(
         "-1",
         str(out_path),
     ]
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
+    # `errors="replace"` defends against non-UTF-8 bytes in ffmpeg's stderr —
+    # most often source-file metadata (chapter titles, ID3 tags) authored in
+    # legacy single-byte encodings that strict UTF-8 decoding would crash on.
+    # Caused 91 sampler segments to fail with `UnicodeDecodeError: invalid
+    # continuation byte` between v8.3.7 and v8.3.8.9 — the worker's bounded
+    # retry handler then flipped them to state='failed' after 3 attempts even
+    # though ffmpeg's actual exit code was 0 and the segment opus was written
+    # successfully. Replacement-on-decode keeps the stderr legible for the
+    # error message below without crashing on tag bytes that don't matter.
+    result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
+        cmd,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+    )
     if result.returncode != 0:
         out_path.unlink(missing_ok=True)
         raise RuntimeError(f"ffmpeg segment split failed: {result.stderr[-200:]}")
@@ -386,13 +459,35 @@ def process_segment(
             stt = get_stt_provider("", workload=workload)
             output_dir = Path(tempfile.mkdtemp(prefix="stream-seg-"))
 
-            source_vtt, translated_vtt = generate_subtitles(
-                audio_path=seg_audio,
-                output_dir=output_dir,
-                target_locale=locale,
-                chapter_name=f"book{audiobook_id}_ch{chapter_index:03d}_seg{segment_index:04d}",
-                stt_provider=stt,
-            )
+            try:
+                source_vtt, translated_vtt = generate_subtitles(
+                    audio_path=seg_audio,
+                    output_dir=output_dir,
+                    target_locale=locale,
+                    chapter_name=f"book{audiobook_id}_ch{chapter_index:03d}_seg{segment_index:04d}",
+                    stt_provider=stt,
+                )
+                source_vtt_path: Path | None = source_vtt
+                translated_vtt_path: Path | None = translated_vtt
+            except ValueError as exc:
+                # "No speech detected" — Whisper transcribed the segment as
+                # empty. This is the music / silence / sound-effects case,
+                # NOT a transient error worth retrying. Fall through with
+                # empty VTT; the silent-segment-audio fallback below will
+                # produce a duration-matched silent WebM-Opus so the MSE
+                # chain on the frontend stays unbroken. Without this
+                # carve-out 39+ such segments accumulated as `state='failed'`
+                # on prod (Audiobook-Manager-g9f follow-up, 2026-04-25).
+                if "No speech detected" not in str(exc):
+                    raise
+                logger.info(
+                    "No speech in seg %d/%d/%d — falling back to silent segment",
+                    audiobook_id,
+                    chapter_index,
+                    segment_index,
+                )
+                source_vtt_path = None
+                translated_vtt_path = None
 
             # Read VTT content for inline storage. Persist BOTH the translated
             # cues (vtt_content) AND the English source cues (source_vtt_content)
@@ -400,12 +495,12 @@ def process_segment(
             # chapter consolidates. v8.3.2 and earlier discarded source_vtt here,
             # which left chapter_subtitles with only the translated locale row.
             vtt_content = ""
-            if translated_vtt and translated_vtt.exists():
-                vtt_content = translated_vtt.read_text(encoding="utf-8")
+            if translated_vtt_path and translated_vtt_path.exists():
+                vtt_content = translated_vtt_path.read_text(encoding="utf-8")
 
             source_vtt_content = ""
-            if source_vtt and source_vtt.exists():
-                source_vtt_content = source_vtt.read_text(encoding="utf-8")
+            if source_vtt_path and source_vtt_path.exists():
+                source_vtt_content = source_vtt_path.read_text(encoding="utf-8")
 
             # Offset cue timestamps to account for segment position in chapter.
             # Both VTTs share the same time base (the source audio slice), so
@@ -454,15 +549,28 @@ def process_segment(
             vtt_content, audiobook_id, chapter_index, segment_index, locale
         )
         audio_rel: str | None = None
-        if tts_opus is not None:
-            try:
-                audio_rel = str(tts_opus.relative_to(_STREAMING_AUDIO_ROOT))
-            except ValueError as exc:
-                raise RuntimeError(
-                    f"TTS opus path {tts_opus} is not under "
-                    f"{_STREAMING_AUDIO_ROOT}; cannot produce a relative "
-                    "audio_path"
-                ) from exc
+        if tts_opus is None:
+            # Empty translated VTT — Whisper transcribed no speech (music,
+            # silence, sound effects). Without a per-segment audio file the
+            # frontend MSE chain stalls forever; generate a silent WebM-Opus
+            # matching the source segment's duration so the chain advances.
+            # The legitimate "no speech" case is now distinct from a TTS
+            # exception (which propagates to the outer retry handler).
+            seg_duration = min(
+                SEGMENT_DURATION_SEC,
+                max(0.1, chapter_duration_sec - segment_index * SEGMENT_DURATION_SEC),
+            )
+            tts_opus = _synthesize_silent_segment_audio(
+                audiobook_id, chapter_index, segment_index, locale, seg_duration
+            )
+        try:
+            audio_rel = str(tts_opus.relative_to(_STREAMING_AUDIO_ROOT))
+        except ValueError as exc:
+            raise RuntimeError(
+                f"TTS opus path {tts_opus} is not under "
+                f"{_STREAMING_AUDIO_ROOT}; cannot produce a relative "
+                "audio_path"
+            ) from exc
 
         # Report completion to coordinator API
         import json
@@ -585,11 +693,14 @@ def get_chapter_info(db_path: str, audiobook_id: int, chapter_index: int) -> tup
             ch = chapters[chapter_index]
             return audio_path, ch.start_sec, ch.duration_ms / 1000.0
 
-        # Fallback: single-chapter book
+        # Fallback: single-chapter book. `errors="replace"` defends stderr
+        # decode against non-UTF-8 metadata bytes — same pattern as the
+        # ffmpeg call in split_audio_segment above.
         result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
             ["ffprobe", "-v", "quiet", "-show_format", "-print_format", "json", str(audio_path)],  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled
             capture_output=True,
-            text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=30,
         )
         if result.returncode == 0:

@@ -78,7 +78,14 @@ class EdgeTTSProvider(TTSProvider):
                     str(output_path),
                 ],
                 capture_output=True,
-                text=True,
+                # `errors="replace"` — edge-tts can occasionally emit non-UTF-8
+                # bytes in its stderr (e.g. from underlying aiohttp / azure
+                # SDK warnings); strict decoding would raise UnicodeDecodeError
+                # before we even see the real exit code. Replacement keeps
+                # the failure message readable while preventing a confusing
+                # decode-time crash that masks the actual TTS issue.
+                encoding="utf-8",
+                errors="replace",
                 timeout=_TTS_TIMEOUT,
             )
         finally:

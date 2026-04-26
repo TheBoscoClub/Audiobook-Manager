@@ -145,6 +145,125 @@ def test_synthesize_segment_audio_happy_path_mocks_edge_tts_and_ffmpeg(tmp_path)
     assert out.is_relative_to(tmp_path)
 
 
+# ── process_segment: silent fallback for music/silence segments ──
+
+
+def test_synthesize_silent_segment_audio_creates_valid_webm(tmp_path):
+    """`_synthesize_silent_segment_audio` must produce a valid WebM-Opus file
+    of approximately the requested duration so the frontend MSE chain can
+    play through music/silence segments without stalling.
+
+    Regression guard for `Audiobook-Manager-g9f` follow-up (2026-04-25):
+    47 segments accumulated on prod with `state='completed', audio_path=NULL`
+    or `state='failed'` because Whisper transcribed them as empty. The MSE
+    chain stalls indefinitely waiting for the per-segment audio that never
+    arrives. Generating a silent WebM-Opus matching the segment duration
+    gives the chain something to play through; subtitle cues remain
+    accurate since they have their own timestamps.
+    """
+    import json as _json
+    import subprocess as _subprocess
+
+    w = _load_worker(env_streaming_dir=tmp_path)
+
+    out = w._synthesize_silent_segment_audio(
+        audiobook_id=99, chapter_index=0, segment_index=0, locale="zh-Hans", duration_sec=5.0
+    )
+    assert out.exists()
+    assert out.suffix == ".webm"
+    assert out.stat().st_size > 100, "silent webm should not be empty"
+
+    # ffprobe verification: codec=opus, channels=1, samplerate=48000, ~5s
+    probe = _subprocess.run(  # nosec B603,B607
+        ["ffprobe", "-v", "quiet", "-show_streams", "-show_format", "-print_format", "json", str(out)],
+        capture_output=True,
+        check=True,
+    )
+    data = _json.loads(probe.stdout)
+    stream = data["streams"][0]
+    assert stream["codec_name"] == "opus"
+    assert int(stream["channels"]) == 1
+    assert int(stream["sample_rate"]) == 48000
+    duration = float(data["format"]["duration"])
+    assert 4.5 <= duration <= 5.5, f"expected ~5s, got {duration}"
+
+
+def test_process_segment_no_speech_falls_back_to_silent_segment(tmp_path):
+    """When generate_subtitles raises ValueError('No speech detected ...'),
+    process_segment must NOT fail the segment — it must produce a silent
+    WebM-Opus and report success with audio_path set.
+
+    Whisper transcribes music / silence / sound-effect segments as empty,
+    raising the "No speech detected" ValueError. Without this fallback,
+    the bounded retry handler exhausts its budget and flips the segment
+    to `state='failed'`, leaving a hole in the MSE chain that stalls
+    playback. 39 such segments accumulated on prod before this fix.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+    from unittest.mock import MagicMock
+
+    w = _load_worker(env_streaming_dir=tmp_path)
+
+    fake_seg = tmp_path / "fake_seg.opus"
+    fake_seg.write_bytes(b"fake-slice")
+
+    captured: dict = {}
+
+    def fake_urlopen(req, timeout=None):
+        captured["payload"] = _json.loads(req.data.decode())
+
+        class _Resp:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+            def read(self):
+                return b""
+
+        return _Resp()
+
+    def no_speech_subtitles(*a, **k):
+        raise ValueError("No speech detected in fake_seg.opus")
+
+    segment = {"audiobook_id": 42, "chapter_index": 1, "segment_index": 3, "locale": "zh-Hans"}
+
+    with (
+        patch.object(w, "split_audio_segment", return_value=fake_seg),
+        patch("localization.pipeline.generate_subtitles", side_effect=no_speech_subtitles),
+        patch("localization.pipeline.get_stt_provider", return_value=MagicMock()),
+        patch("urllib.request.urlopen", side_effect=fake_urlopen),
+    ):
+        result = w.process_segment(
+            db_path=str(tmp_path / "unused.db"),
+            segment=segment,
+            audio_path=_Path("/nonexistent/book.opus"),
+            chapter_start_sec=0.0,
+            chapter_duration_sec=600.0,
+            api_base="http://localhost:5001",
+        )
+
+    # Segment SUCCEEDS (silent fallback produced audio).
+    assert result is True, "no-speech segment must succeed via silent fallback"
+
+    # Coordinator callback was invoked with audio_path set (not None).
+    assert "payload" in captured
+    audio_path = captured["payload"]["audio_path"]
+    assert audio_path is not None, "audio_path must be set for silent fallback"
+    assert audio_path.endswith("seg0003.webm")
+
+    # The silent file actually exists on disk.
+    full_audio = tmp_path / audio_path
+    assert full_audio.exists(), f"silent fallback file must exist at {full_audio}"
+    assert full_audio.stat().st_size > 100
+
+    # VTT and source_vtt are empty (no speech to transcribe).
+    assert captured["payload"]["vtt_content"] == ""
+    assert captured["payload"]["source_vtt_content"] == ""
+
+
 # ── process_segment: TTS failure must NOT silently complete ──
 
 

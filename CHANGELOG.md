@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8.10] - 2026-04-25
+
+### Fixed
+
+- **`subprocess.run(..., text=True)` crashed on non-UTF-8 stderr from ffmpeg/ffprobe/edge-tts**: 91 sampler segments accumulated in `state='failed'` with `UnicodeDecodeError: 'utf-8' codec can't decode bytes ... invalid continuation byte`. Root cause: source-file metadata (chapter titles, ID3 tags) authored in legacy single-byte encodings was being echoed by ffmpeg/ffprobe to stderr; Python's strict UTF-8 decode (the default for `text=True`) raised before the worker could even inspect the exit code — the segment opus had been written successfully, but the decode crash caused the bounded retry handler to flip the row to `state='failed'` after 3 attempts. Fix: replace `text=True` with `encoding="utf-8", errors="replace"` at all `subprocess.run` sites that capture output: `scripts/stream-translate-worker.py::split_audio_segment` (line 310), `_get_chapter_audio_and_timing`'s ffprobe fallback (line 605), `library/localization/chapters.py::_chapters_from_ffprobe` and `extract_chapter`, and `library/localization/tts/edge_tts_provider.py::synthesize`. Decode replacement keeps stderr legible for the error message without crashing on bytes that don't matter
+- **Music / silence segments stalled MSE playback by leaving holes in the audio chain**: 47 segments (8 with VTT cues but no spoken text + 39 with `ValueError: No speech detected` from Whisper) accumulated on prod with either `state='completed', audio_path=NULL` or `state='failed'`. The frontend's MSE chain has no path that handles a "completed" segment with missing audio — it stalls indefinitely waiting for bytes that will never arrive. Fix: when `_synthesize_segment_audio` returns `None` (its documented contract for empty translated VTT), generate a silent WebM-Opus matching the source segment's duration via `_synthesize_silent_segment_audio` (new helper). Container/codec/sample-rate match the spoken-segment helper exactly so Task 10 chapter consolidation can `ffmpeg -c copy` across mixed spoken/silent segments without re-encoding. Subtitle cues remain accurate (their timestamps are unaffected). Also: `process_segment` now catches `ValueError("No speech detected ...")` from `generate_subtitles` and falls through with empty VTT, letting the silent-segment fallback complete the segment with `audio_path` set instead of bouncing through the retry handler. Regression-guarded by `test_synthesize_silent_segment_audio_creates_valid_webm` and `test_process_segment_no_speech_falls_back_to_silent_segment` in `library/tests/test_streaming_tts_consolidation.py`
+
 ## [8.3.8.9] - 2026-04-25
 
 ### Fixed
@@ -3438,7 +3445,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.9...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.10...HEAD
+[8.3.8.10]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.9...v8.3.8.10
 [8.3.8.9]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.8...v8.3.8.9
 [8.3.8.8]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.7...v8.3.8.8
 [8.3.8.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.6...v8.3.8.7
