@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8.12] - 2026-04-25
+
+### Added
+
+- **Version-update banner — `library/web-v2/js/version-poller.js`**: addresses the gap that bit Qing's iPhone Chrome on 2026-04-25, where her tab stayed open with cached HTML referencing the old `?v=` cachebust stamps and continued running the broken pre-v8.3.8.9 CSS for hours after the prod hot-patch was live. The shell now polls `/api/system/version` every 60 s (only while the document is visible — `Page Visibility API` defers polling on backgrounded tabs to spare battery and API load), and when it detects a version different from the one captured at page load, renders an Art Deco banner pinned just above the player. The banner has two buttons: a `Reload` action and a close (`×`) — **both** trigger `location.reload()`. There is intentionally no "stay on the old version" escape hatch: once a deploy is detected, any acknowledgement (action button or close) refreshes (per explicit user decision 2026-04-25). The reload uses a plain `location.reload()` — NO cookie wipe, NO storage wipe, NO `Clear-Site-Data` header. The HTML's `Cache-Control: no-cache` and the `?v=` cachebust rotation handle invalidation surgically; auth cookies and accessibility preferences in localStorage are intentionally preserved. i18n via existing `t()` infrastructure: `update.available` / `update.reload` / `update.dismiss` keys added to `library/locales/en.json` and `library/locales/zh-Hans.json`; banner re-renders on `localeChanged` event so a mid-session locale switch updates the banner text live (Qing's app uses zh-Hans, this MUST work). Pre-existing cachebust automation (`scripts/bump-cachebust.sh` rewrites `?v=` stamps on every deploy) handles the actual cache invalidation; this banner closes the loop for already-open tabs. Regression-guarded by `test_version_poller_wired_into_shell` and `test_update_i18n_keys_present_in_both_locales` in `library/tests/test_shell_css.py`
+
 ## [8.3.8.11] - 2026-04-25
 
 ### Fixed
@@ -3451,7 +3457,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.11...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.12...HEAD
+[8.3.8.12]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.11...v8.3.8.12
 [8.3.8.11]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.10...v8.3.8.11
 [8.3.8.10]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.9...v8.3.8.10
 [8.3.8.9]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.8...v8.3.8.9

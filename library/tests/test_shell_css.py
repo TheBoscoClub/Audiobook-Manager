@@ -3,6 +3,10 @@
 from pathlib import Path
 
 SHELL_CSS = Path(__file__).parent.parent / "web-v2" / "css" / "shell.css"
+SHELL_HTML = Path(__file__).parent.parent / "web-v2" / "shell.html"
+VERSION_POLLER_JS = Path(__file__).parent.parent / "web-v2" / "js" / "version-poller.js"
+EN_JSON = Path(__file__).parent.parent / "locales" / "en.json"
+ZH_HANS_JSON = Path(__file__).parent.parent / "locales" / "zh-Hans.json"
 
 
 class TestShellCSS:
@@ -30,6 +34,47 @@ class TestShellCSS:
         assert "--deep-burgundy" in content
         assert "--gold" in content
         assert "--parchment" in content
+
+    def test_version_poller_wired_into_shell(self):
+        """Shell must load `version-poller.js` so deploys can prompt
+        currently-open tabs to reload (closes the gap that bit Qing's
+        iPhone Chrome on 2026-04-25, where she ran the broken
+        pre-v8.3.8.9 CSS for hours after the prod hot-patch was live —
+        because her tab stayed open with cached HTML).
+        """
+        assert VERSION_POLLER_JS.exists(), (
+            f"version-poller.js missing at {VERSION_POLLER_JS}"
+        )
+        html = SHELL_HTML.read_text()
+        assert "version-poller.js" in html, (
+            "shell.html must reference version-poller.js — without it, "
+            "the deploy-detection banner never loads"
+        )
+        # Banner CSS lives in shell.css.
+        css = SHELL_CSS.read_text()
+        assert ".version-update-banner" in css, (
+            ".version-update-banner styles must exist in shell.css"
+        )
+
+    def test_update_i18n_keys_present_in_both_locales(self):
+        """Banner strings (`update.available`, `update.reload`,
+        `update.dismiss`) must exist in both en.json and zh-Hans.json
+        so the banner renders in the user's selected locale, not
+        English-by-fallback. The user explicitly required Chinese
+        rendering for Chinese users."""
+        import json
+
+        en = json.loads(EN_JSON.read_text())
+        zh = json.loads(ZH_HANS_JSON.read_text())
+        for key in ("update.available", "update.reload", "update.dismiss"):
+            assert key in en, f"missing key in en.json: {key}"
+            assert key in zh, f"missing key in zh-Hans.json: {key}"
+            # zh value must NOT be the English string verbatim — that
+            # would mean someone forgot to translate.
+            assert en[key] != zh[key], (
+                f"{key} appears identical in en and zh-Hans — was the "
+                "Chinese translation actually written?"
+            )
 
     def test_html_height_capped_at_100svh(self):
         """`<html>` height MUST be capped at 100svh.

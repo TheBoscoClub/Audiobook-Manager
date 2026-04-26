@@ -495,3 +495,88 @@ body {
     .streaming-overlay-content { gap: 0.5em; }
     .streaming-progress-bar { width: 60px; }
 }
+
+/* ── Version-update banner (deploy detected) ── */
+
+/* Pinned just above the player bar so it doesn't obscure playback
+   controls. Uses calc() over var(--player-height) for the same reason
+   .streaming-overlay does. Z-index above the streaming-overlay (1100)
+   so a deploy-during-buffering scenario shows the more important
+   notice on top. Min-height: 0 — content alone determines size. */
+.version-update-banner {
+    position: fixed;
+    bottom: calc(var(--player-height, 80px) + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1200;
+    max-width: 540px;
+    width: calc(100% - 2em);
+    margin: 0 1em 0.6em 1em;
+    padding: 0.7em 0.9em 0.7em 1.1em;
+    background: linear-gradient(180deg, var(--leather), var(--deep-burgundy));
+    border: 1px solid var(--gold);
+    border-radius: 6px;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45),
+                inset 0 1px 0 rgba(255, 215, 0, 0.18);
+    color: var(--parchment);
+    font-family: 'Georgia', 'Times New Roman', serif;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6em;
+    animation: vub-slide-up 0.25s ease-out;
+}
+
+@keyframes vub-slide-up {
+    from { transform: translate(-50%, 100%); opacity: 0; }
+    to   { transform: translate(-50%, 0);    opacity: 1; }
+}
+
+.vub-message {
+    flex: 1;
+    min-width: 0;
+    line-height: 1.3;
+}
+
+.vub-reload {
+    flex-shrink: 0;
+    background: linear-gradient(180deg, var(--gold), #b08a2c);
+    color: var(--deep-burgundy);
+    border: 1px solid #b08a2c;
+    padding: 0.35em 0.95em;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 700;
+    font-size: 0.85rem;
+    letter-spacing: 0.04em;
+    transition: filter 0.15s, transform 0.1s;
+}
+.vub-reload:hover  { filter: brightness(1.1); }
+.vub-reload:active { transform: translateY(1px); }
+
+.vub-dismiss {
+    flex-shrink: 0;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--parchment);
+    opacity: 0.55;
+    width: 24px;
+    height: 24px;
+    line-height: 1;
+    font-size: 1.1rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: opacity 0.15s, background 0.15s;
+    padding: 0;
+}
+.vub-dismiss:hover { opacity: 1; background: rgba(255, 255, 255, 0.06); }
+
+@media (max-width: 480px) {
+    .version-update-banner {
+        font-size: 0.82rem;
+        padding: 0.55em 0.7em 0.55em 0.9em;
+        gap: 0.4em;
+    }
+    .vub-reload { padding: 0.3em 0.7em; font-size: 0.8rem; }
+}
