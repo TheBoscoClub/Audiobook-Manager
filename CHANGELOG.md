@@ -13,6 +13,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8.14] - 2026-04-27
+
+### Fixed
+
+- **UFW preset diverged between Dev and QA, silently breaking `devdocker.thebosco.club`**: 2026-04-26 cloudflared on the local host was returning 404 for `devdocker.thebosco.club` even though the tunnel ingress was correctly configured (after API update) and the Dev VM's Caddy was listening on 8085. Root cause: Dev's UFW had ports 22, 5001, 8443, 8090, 8080, 8084 open but **not 8085**, while QA's UFW had 8085 from a manual fix. Cloudflared's outbound TCP from the host to `192.168.122.105:8085` was silently dropped by Dev's firewall. `install.sh` and `upgrade.sh` now reconcile UFW rules for the canonical port set (`5001/tcp 8090/tcp 8080/tcp 8443/tcp 8084/tcp 8085/tcp`) on every install AND every upgrade — `ufw allow` is idempotent, and the `upgrade.sh` block uses `ufw status | awk` to skip already-allowed ports so existing installs catch up cleanly without log spam. Gated on `command -v ufw` and `ufw status | grep -q active` so non-UFW hosts (or UFW-inactive hosts) are skipped silently. Block lives right after the Caddy reverse-proxy install in `install.sh:1853` and right after the Caddy reload in `upgrade.sh` (in the systemd-reload neighborhood)
+- **In-app upgrade UI showed "Restoring services after upgrade failure..." despite the upgrade actually succeeding** — `upgrade.sh`'s post-upgrade smoke probe (line 2928 release-tarball branch, line 3278 from-project branch) ran unconditionally as long as `DRY_RUN != true`, but `scripts/upgrade-helper-process` invokes `upgrade.sh --skip-service-lifecycle --yes` and the helper's own service-stop happens BEFORE upgrade.sh runs and service-start happens AFTER upgrade.sh exits. The smoke probe therefore ran while services were still stopped, found `audiobook-redirect.service: inactive (ExecMainStatus=15)`, `audiobook-mover.service: inactive (ExecMainStatus=15)`, `audiobook-api: not running`, and `API health endpoint unreachable at http://127.0.0.1:5001/api/system/health` — declared "4 FAILURE(S), 2 warning(s)", and exited with code 1. The helper saw exit-1, branched into its failure-recovery path at `scripts/upgrade-helper-process:516`, wrote the status `"Restoring services after upgrade failure..."`, then proceeded to start services (Step 7) and the actual deployment was already correct (VERSION = 8.3.8.13, all services started cleanly). The user saw a misleading "failure" UI on a successful upgrade. Reproduced on prod 2026-04-26 during the v8.3.8.13 in-app upgrade. Fix: gate both smoke-probe blocks in `upgrade.sh` on `SKIP_SERVICE_LIFECYCLE != "true"` in addition to the existing `DRY_RUN != "true"` gate. The helper does its own post-start verification (Step 8: poll `/api/system/health` for up to 30s); the redundant pre-service-start probe in upgrade.sh was always wrong for the in-app flow and the gate was the missing piece. CLI `./upgrade.sh` invocations (without `--skip-service-lifecycle`) continue to run the smoke probe as before — that path manages services itself, so the probe runs after `start_services`. Comment blocks on both upgrade.sh smoke-probe sites updated to document the helper-driven service lifecycle and why the gate exists
+
 ## [8.3.8.13] - 2026-04-26
 
 ### Fixed
@@ -3463,7 +3470,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.13...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.14...HEAD
+[8.3.8.14]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.13...v8.3.8.14
 [8.3.8.13]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.12...v8.3.8.13
 [8.3.8.12]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.11...v8.3.8.12
 [8.3.8.11]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.10...v8.3.8.11

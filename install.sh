@@ -1851,6 +1851,22 @@ EOF
             echo "  Installed: Caddy reverse proxy (:8084->native:${native_port}, :8085->docker:${docker_port})"
         fi
 
+        # Reconcile UFW rules for the audiobook stack — idempotent.
+        # Without this, dev/QA/test VMs end up with diverged UFW presets and a
+        # tunnel→origin path silently 404s/times-out (see incident 2026-04-26
+        # where Dev's UFW was missing 8085/tcp, breaking devdocker.thebosco.club
+        # while qadocker worked fine because QA's UFW had 8085 from a manual fix).
+        if command -v ufw &>/dev/null && sudo ufw status 2>/dev/null | head -1 | grep -q "active"; then
+            echo -e "${BLUE}Reconciling UFW firewall rules for audiobook stack...${NC}"
+            for port in \
+                "${DEFAULT_API_PORT:-5001}/tcp" \
+                "${DEFAULT_WEB_PORT:-8090}/tcp" \
+                "${DEFAULT_HTTP_REDIRECT_PORT:-8080}/tcp" \
+                8443/tcp 8084/tcp 8085/tcp; do
+                sudo ufw allow "$port" >/dev/null 2>&1 && echo "  UFW allow: $port"
+            done
+        fi
+
         # Enable the upgrade helper path unit (monitors for privileged operation requests)
         if [[ -f "${SYSTEMD_DIR}/audiobook-upgrade-helper.path" ]]; then
             echo -e "${BLUE}Enabling privileged operations helper...${NC}"

@@ -1822,6 +1822,18 @@ do_upgrade() {
             fi
         fi
 
+        # Reconcile UFW rules for the audiobook stack — idempotent. Catches up
+        # existing installs whose UFW preset diverged from the canonical port
+        # set (see install.sh for the same block + incident note).
+        if [[ "$DRY_RUN" == "false" ]] && command -v ufw &>/dev/null && \
+           sudo ufw status 2>/dev/null | head -1 | grep -q "active"; then
+            for port in 5001/tcp 8090/tcp 8080/tcp 8443/tcp 8084/tcp 8085/tcp; do
+                if ! sudo ufw status 2>/dev/null | awk '{print $1}' | grep -qx "$port"; then
+                    sudo ufw allow "$port" >/dev/null 2>&1 && echo -e "${BLUE}UFW allow: $port${NC}"
+                fi
+            done
+        fi
+
         # Reload systemd to pick up changes
         if [[ "$DRY_RUN" == "false" ]]; then
             sudo systemctl daemon-reload
@@ -2925,7 +2937,15 @@ do_github_upgrade() {
                 exit 1
             fi
         fi
-        if [[ -f "${release_dir}/scripts/smoke_probe.sh" ]]; then
+        # Smoke probe requires running services. When the caller manages the
+        # service lifecycle (in-app upgrade via upgrade-helper-process), services
+        # are still stopped at this point — the helper restarts them in its
+        # Step 7 and runs its own `/api/system/health` poll in Step 8. Running
+        # the smoke probe here would falsely report failure (services down,
+        # API unreachable) and trigger the helper's "Restoring services after
+        # upgrade failure..." UI even though the upgrade itself succeeded.
+        # Reported on prod 2026-04-26 during v8.3.8.13 in-app upgrade.
+        if [[ -f "${release_dir}/scripts/smoke_probe.sh" && "$SKIP_SERVICE_LIFECYCLE" != "true" ]]; then
             DB_PATH="${DB_PATH:-${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}/db/audiobooks.db}" \
                 USE_SUDO="$use_sudo" \
                 EXPECTED_VERSION="$install_version" \
@@ -3275,7 +3295,13 @@ if [[ "$DRY_RUN" != "true" ]]; then
             exit 1
         fi
     fi
-    if [[ -f "${PROJECT_DIR}/scripts/smoke_probe.sh" ]]; then
+    # See companion comment above the release-tarball smoke probe — when
+    # SKIP_SERVICE_LIFECYCLE=true the caller (upgrade-helper-process) is
+    # responsible for service start AND post-start verification, so a
+    # smoke probe run here (services still stopped) would fire a false
+    # failure and surface "Restoring services after upgrade failure..." in
+    # the in-app upgrade UI.
+    if [[ -f "${PROJECT_DIR}/scripts/smoke_probe.sh" && "$SKIP_SERVICE_LIFECYCLE" != "true" ]]; then
         DB_PATH="${DB_PATH:-${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}/db/audiobooks.db}" \
             USE_SUDO="$use_sudo" \
             EXPECTED_VERSION="$_new_version" \
