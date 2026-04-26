@@ -262,6 +262,26 @@ When customizing bottom-anchored UI elements (player bar, footers, toolbars):
 - Test at multiple viewport sizes, including with the mobile keyboard open
 - The `--app-height` variable updates in real-time as the browser chrome shows/hides
 
+### Viewport Diagnostic Overlay (iOS Chrome / Remote DevTools not available)
+
+When debugging layout issues on iOS Chrome — where remote DevTools inspection is unavailable —
+append `?debug=viewport` to the app URL to activate the built-in diagnostic overlay.
+
+```text
+https://yourserver:8443/?debug=viewport
+```
+
+The overlay renders a fixed panel in the bottom-left corner showing live values for:
+
+- `window.innerWidth` / `window.innerHeight`
+- `visualViewport.width` / `visualViewport.height` / `visualViewport.offsetTop`
+- `--app-height` CSS custom property (the value actually used for layout)
+- `screen.width` / `screen.height` / `devicePixelRatio`
+
+Values update in real time as the keyboard opens, the address bar hides, or orientation
+changes. To dismiss, reload without the query parameter. Implemented in
+`library/web-v2/js/shell.js::setupViewportDebugOverlay`.
+
 ## Accessibility Notes
 
 When customizing colors:
