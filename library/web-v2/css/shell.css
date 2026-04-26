@@ -12,7 +12,20 @@
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 html {
-    height: var(--app-height, 100dvh);
+    /* Cap at 100svh (smallest viewport — with all browser UI showing) so the
+       body never extends behind a non-collapsing bottom bar. JS still sets
+       --app-height from visualViewport.height; min() lets it win when smaller
+       (on-screen keyboard shrinks the visual viewport) but caps at 100svh
+       when larger.
+       Why this matters: on iOS Chrome the bottom nav is persistent AND
+       visualViewport.height matches the layout viewport (i.e. includes the
+       area behind that nav). With 100dvh or an unbounded --app-height, the
+       body extends behind the toolbar and the bottom of the player bar gets
+       clipped. v8.3.8.8 attempted to compensate by enlarging --player-height
+       to 200px — that addressed the wrong variable; this caps the source.
+       Do NOT replace svh with dvh here: dvh is reported to alias to lvh on
+       iOS Chrome, so it does not solve this case. */
+    height: min(100svh, var(--app-height, 100svh));
     overflow: hidden;
     background: var(--deep-burgundy);
     font-family: 'Georgia', 'Times New Roman', serif;
@@ -210,21 +223,23 @@ body {
 
 /* Mobile: stack vertically */
 @media (max-width: 768px) {
-    /* Player-bar min-height at narrow widths must reserve enough space
-     * for ALL four wrapped rows, or flex's overflow gets clipped by body's
-     * overflow:hidden + iOS Chrome's bottom nav bar.
+    /* Player-bar min-height at narrow widths reserves enough space for
+     * ALL four wrapped rows so flex's wrapping doesn't push content past
+     * the body's overflow:hidden boundary.
      *   Row 1: cover + info-bar (title/author)           ~56px
      *   Row 2: controls-bar (-30 / play / +30)           ~44px
      *   Row 3: extras-bar (volume + speed + CC + …)      ~44px
      *   Row 4: progress-bar (time | scrubber | time)     ~40px (order:10)
      * Total ~184px + 12px internal padding.
      *
-     * The v8.3.6 "mobile player bottom clipping" fix used 100px — that
-     * worked on Safari because Safari's bottom chrome collapses on scroll,
-     * exposing the clipped rows again. iOS Chrome does NOT collapse its
-     * bottom nav, so the wrapped rows stay invisible behind it. Qing's
-     * iPhone (Chrome iOS) exhibited this with only cover+title visible
-     * and no player controls reachable.
+     * NOTE: the iOS Chrome bottom-nav clip (Qing's iPhone, screenshot
+     * 2026-04-25) is fixed at the html height level — see the comment on
+     * `html` above. v8.3.6 (100px) and v8.3.8.8 (200px) both targeted this
+     * variable; neither alone could fix the clip because the body itself
+     * was sized via 100dvh / --app-height which on iOS Chrome includes
+     * the area behind the persistent bottom toolbar. Keeping 200px here
+     * as a defensive floor so the four rows always have guaranteed room
+     * regardless of accessibility font-size or future row additions.
      *
      * `height: auto` still lets the bar shrink when fewer rows are needed
      * (e.g. no streaming, fewer extras). */

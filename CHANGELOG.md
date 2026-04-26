@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8.9] - 2026-04-25
+
+### Fixed
+
+- **`stream-translate-worker.py` silently swallowed TTS exceptions, leaving "completed" rows with NULL audio_path** (`Audiobook-Manager-g9f`): the inner TTS try/except at lines 420-442 caught `Exception` from `_synthesize_segment_audio`, logged `WARNING`, and reported `audio_path=None` to the coordinator. The coordinator wrote `state='completed', audio_path=NULL` — the MSE chain on the frontend reads `state='completed'` as "done", tries to fetch the per-segment audio, hits 404, and stalls indefinitely. 20 orphan rows accumulated in 24h of prod operation (1 live priority p=0 blocking Pronto playback for Qing on 2026-04-25, 18 sampler rows scattered across multiple books — exact pattern of "translation never happened, waited 30+ minutes"). The "VTT alone is still useful, so a TTS failure downgrades to text-only" rationalization in the prior comment was the silent-fallback anti-pattern from the v8.3.8.6 sampler-burst venv RCA — the VTT-only fallback was never actually reachable by the player, the MSE chain has no path that handles a missing-audio "completed" segment. Fix: let TTS exceptions propagate to the outer retry handler at line 485, which already has bounded retry (cap=3), error column persistence, and the v8.3.8.6 idempotent re-run that skips STT+translation when `vtt_content` is already populated — turning a transient edge-tts blip into a sub-second retry instead of a permanent broken segment. The legitimate `_synthesize_segment_audio` → None case (empty VTT — music/silence segments per the function docstring) is preserved unchanged. `library/tests/test_streaming_tts_consolidation.py::test_process_segment_tts_failure_does_not_silently_complete` flips the prior `test_process_segment_tts_failure_degrades_to_text_only` test (which had been *enforcing* the bug) to assert the opposite invariant: TTS exception → `result is False`, segment-complete callback never invoked, retry_count incremented, error column populated, worker_id/started_at cleared for re-claim
+- **iOS Chrome mobile player still clipped after v8.3.8.8** (`Audiobook-Manager-g9f`): Qing's iPhone 17 Pro Chrome continued to show only the player's cover + title row, with all four wrapped control rows hidden behind Chrome's persistent bottom nav, even after v8.3.8.8 bumped `--player-height` 100 → 200 px. Root cause: the player wasn't being clipped by its own `min-height` — the entire `<body>` was extending behind the toolbar. `library/web-v2/css/shell.css` sized `<html>` to `var(--app-height, 100dvh)`, where `--app-height` is set by `setupViewportFix()` from `window.visualViewport.height`. On iOS Chrome `visualViewport.height` matches the layout viewport (i.e. INCLUDES the area behind the persistent bottom nav), and `100dvh` aliases to `100lvh` on the same engine — so `<html>` was always taller than the visible area. The body's flex column placed the player at the bottom edge of `<html>`, which sat behind Chrome's nav. v8.3.8.8's height bump made the bug *more visible* (200 px of clipped player vs 100 px) but did not address the source. Fix: cap `<html>` height at `min(100svh, var(--app-height, 100svh))`. `100svh` is the small viewport (with all UI showing) and on iOS Chrome correctly excludes the persistent bottom nav; the `min()` lets `--app-height` win when smaller (on-screen keyboard shrinks the visual viewport) and caps it when larger (the iOS Chrome bug case). Comment block on `html` and the mobile `@media` block updated to document why `100svh` is mandatory and why `100dvh` is forbidden. `shell.js::setupViewportFix` comment header expanded to record that on iOS Chrome the computed `bottomChrome` evaluates to `0` and iframe consumers should not depend on it
+- **Regression guard for `<html>` height cap**: `library/tests/test_shell_css.py::test_html_height_capped_at_100svh` asserts the exact `min(100svh, var(--app-height, 100svh))` formulation is present and that `var(--app-height, 100dvh)` does not return. Belt-and-braces against future "simplification" replacing `svh` with `dvh`, since `dvh` was the original setting that hid this bug from desktop dev
+
 ## [8.3.8.8] - 2026-04-24
 
 ### Fixed
@@ -3430,7 +3438,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.8...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.9...HEAD
+[8.3.8.9]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.8...v8.3.8.9
 [8.3.8.8]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.7...v8.3.8.8
 [8.3.8.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.6...v8.3.8.7
 [8.3.8.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.5...v8.3.8.6

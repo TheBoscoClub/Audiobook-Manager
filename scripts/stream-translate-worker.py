@@ -417,29 +417,52 @@ def process_segment(
                 if source_vtt_content:
                     source_vtt_content = _offset_vtt_timestamps(source_vtt_content, offset_ms)
 
-        # Synthesize per-segment TTS audio (opus). VTT alone is still useful,
-        # so a TTS failure downgrades to "text-only" rather than failing the
-        # whole segment.
+        # Synthesize per-segment TTS audio (opus).
+        #
+        # IMPORTANT — do NOT catch and swallow TTS *exceptions* here. A
+        # previous implementation rationalized "VTT alone is still useful,
+        # so a TTS failure downgrades to text-only" and caught Exception,
+        # returning `audio_rel=None`. The coordinator then wrote
+        # `state='completed', audio_path=NULL`, which the MSE chain on the
+        # frontend reads as "done" — but the per-segment audio fetch 404s
+        # and the player stalls indefinitely. The "VTT-only fallback" was
+        # never actually reachable by the player; it was a silent failure
+        # that masqueraded as a feature.
+        #
+        # Letting TTS exceptions propagate here lands in the outer except
+        # at the bottom of process_segment, which has the bounded retry
+        # handler (retry_count cap=3, error column persisted, state flips
+        # to 'failed' only after the budget is exhausted). Combined with
+        # the v8.3.8.6 idempotent re-run (skips STT+translation when
+        # vtt_content is already populated), a transient edge-tts failure
+        # becomes a sub-second retry rather than a permanent broken segment.
+        #
+        # The legitimate `_synthesize_segment_audio` returning None case
+        # (empty VTT — music/silence segment with no spoken text per the
+        # function's docstring) is preserved: audio_rel stays None and
+        # the coordinator records state='completed', audio_path=NULL,
+        # which is the documented intent for music/silence handling. The
+        # frontend's behavior on those rows is a separate concern; this
+        # change does not regress it.
+        #
+        # Audiobook-Manager-g9f and Qing's 2026-04-25 prod report drove
+        # this: 20 orphan rows accumulated in 24h (1 live, blocking
+        # Pronto playback). All 20 had `error=NULL` because the TTS
+        # exception never made it to the retry handler that persists
+        # the error column.
+        tts_opus = _synthesize_segment_audio(
+            vtt_content, audiobook_id, chapter_index, segment_index, locale
+        )
         audio_rel: str | None = None
-        try:
-            tts_opus = _synthesize_segment_audio(
-                vtt_content, audiobook_id, chapter_index, segment_index, locale
-            )
-            if tts_opus is not None:
-                try:
-                    audio_rel = str(tts_opus.relative_to(_STREAMING_AUDIO_ROOT))
-                except ValueError:
-                    audio_rel = None
-        except Exception as exc:  # pylint: disable=broad-except
-            logger.warning(
-                "TTS synthesis failed for seg %d/%d/%d (locale=%s): %s",
-                audiobook_id,
-                chapter_index,
-                segment_index,
-                locale,
-                exc,
-            )
-            audio_rel = None
+        if tts_opus is not None:
+            try:
+                audio_rel = str(tts_opus.relative_to(_STREAMING_AUDIO_ROOT))
+            except ValueError as exc:
+                raise RuntimeError(
+                    f"TTS opus path {tts_opus} is not under "
+                    f"{_STREAMING_AUDIO_ROOT}; cannot produce a relative "
+                    "audio_path"
+                ) from exc
 
         # Report completion to coordinator API
         import json

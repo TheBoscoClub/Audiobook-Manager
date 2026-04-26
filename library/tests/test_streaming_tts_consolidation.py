@@ -145,20 +145,31 @@ def test_synthesize_segment_audio_happy_path_mocks_edge_tts_and_ffmpeg(tmp_path)
     assert out.is_relative_to(tmp_path)
 
 
-# ── process_segment: graceful degrade on TTS failure ──
+# ── process_segment: TTS failure must NOT silently complete ──
 
 
-def test_process_segment_tts_failure_degrades_to_text_only(tmp_path):
-    """TTS synthesis failure must NOT fail the segment — payload carries
-    ``audio_path=None`` and the segment still reports completion.
+def test_process_segment_tts_failure_does_not_silently_complete(tmp_path):
+    """TTS synthesis failure MUST surface — segment-complete callback must
+    NOT be invoked with ``audio_path=None``. Instead the failure propagates
+    to the outer retry handler in process_segment.
 
-    Regression guard for the Task 9 review bug: if TTS raises, the worker
-    must still POST the callback with ``audio_path=None``, AND must never
-    unlink the permanent TTS opus (since none was produced here, the
-    stricter invariant is verified in the variable-split review — this
-    test locks in the degrade behavior).
+    Regression guard for `Audiobook-Manager-g9f` (Qing's 2026-04-25 prod
+    report): the prior implementation rationalized "VTT alone is still
+    useful, so a TTS failure downgrades to text-only" and caught Exception,
+    POSTing ``audio_path=None`` to the coordinator. The coordinator wrote
+    ``state='completed', audio_path=NULL``, the MSE chain on the frontend
+    saw "done" but 404'd on per-segment audio fetch, and the player stalled
+    indefinitely. 20 orphan rows accumulated in 24 hours of prod operation.
+
+    The "VTT-only" branch was never actually playable by the frontend —
+    it was a silent failure masquerading as a fallback. This test enforces
+    that TTS failures land in the outer except (which has bounded retry +
+    error column persistence + v8.3.8.6 idempotent re-run that skips
+    STT+translation when VTT is already present), NOT the silent
+    coordinator callback.
     """
     import json as _json
+    import sqlite3 as _sqlite3
     from pathlib import Path as _Path
     from unittest.mock import MagicMock
 
@@ -169,10 +180,29 @@ def test_process_segment_tts_failure_degrades_to_text_only(tmp_path):
     fake_seg = tmp_path / "fake_seg.opus"
     fake_seg.write_bytes(b"fake-slice")
 
+    # Real SQLite DB so the outer retry handler's UPDATE can run.
+    db_path = tmp_path / "test.db"
+    conn = _sqlite3.connect(str(db_path))
+    conn.executescript("""
+        CREATE TABLE streaming_segments (
+            audiobook_id INTEGER, chapter_index INTEGER, segment_index INTEGER,
+            locale TEXT, state TEXT, retry_count INTEGER DEFAULT 0,
+            error TEXT, worker_id TEXT, started_at TIMESTAMP
+        );
+        INSERT INTO streaming_segments
+            (audiobook_id, chapter_index, segment_index, locale, state,
+             retry_count, worker_id, started_at)
+        VALUES (42, 1, 3, 'zh-Hans', 'processing', 0, 'w1',
+                CURRENT_TIMESTAMP);
+    """)
+    conn.commit()
+    conn.close()
+
     captured: dict = {}
 
     def fake_urlopen(req, timeout=None):
-        # urllib.request.Request carries its body in .data
+        # If this is invoked, the silent-fallback bug is back. Capture
+        # so the assertion can show what was POSTed.
         captured["payload"] = _json.loads(req.data.decode())
 
         class _Resp:
@@ -187,8 +217,6 @@ def test_process_segment_tts_failure_degrades_to_text_only(tmp_path):
 
         return _Resp()
 
-    # Fake generate_subtitles: write a minimal VTT into output_dir and
-    # return (source_vtt, translated_vtt).
     def fake_generate_subtitles(audio_path, output_dir, target_locale, chapter_name, stt_provider):
         src = _Path(output_dir) / "source.vtt"
         tr = _Path(output_dir) / "translated.vtt"
@@ -206,7 +234,7 @@ def test_process_segment_tts_failure_degrades_to_text_only(tmp_path):
         patch("urllib.request.urlopen", side_effect=fake_urlopen),
     ):
         result = w.process_segment(
-            db_path=str(tmp_path / "unused.db"),
+            db_path=str(db_path),
             segment=segment,
             audio_path=_Path("/nonexistent/book.opus"),
             chapter_start_sec=0.0,
@@ -214,19 +242,38 @@ def test_process_segment_tts_failure_degrades_to_text_only(tmp_path):
             api_base="http://localhost:5001",
         )
 
-    # Segment succeeds despite TTS raising
-    assert result is True, "TTS failure must not fail the segment"
-
-    # Callback fired with audio_path=None (text-only mode)
-    assert "payload" in captured, "segment-complete callback was never invoked"
-    assert captured["payload"]["audio_path"] is None, (
-        f"audio_path must be None when TTS fails; got {captured['payload']['audio_path']!r}"
+    # Segment must report failure (return False), NOT silent success.
+    assert result is False, (
+        "TTS failure must propagate to outer retry handler; got success "
+        "(silent-fallback bug regression)"
     )
-    # Sanity: VTT still flows through
-    assert captured["payload"]["vtt_content"]
-    assert captured["payload"]["audiobook_id"] == 42
-    assert captured["payload"]["chapter_index"] == 1
-    assert captured["payload"]["segment_index"] == 3
+
+    # The segment-complete callback MUST NOT have fired — that's the
+    # silent-failure path we're guarding against.
+    assert "payload" not in captured, (
+        "segment-complete callback fired despite TTS failure — silent "
+        "fallback bug. The MSE chain would see state='completed' but "
+        "no audio_path, and the player would stall."
+    )
+
+    # Outer retry handler must have written: state='pending' (retry_count
+    # below cap), retry_count=1, error populated.
+    conn = _sqlite3.connect(str(db_path))
+    row = conn.execute(
+        "SELECT state, retry_count, error, worker_id, started_at "
+        "FROM streaming_segments WHERE audiobook_id=42 AND chapter_index=1 "
+        "AND segment_index=3 AND locale='zh-Hans'"
+    ).fetchone()
+    conn.close()
+    assert row is not None
+    state, retry_count, error, worker_id, started_at = row
+    assert state == "pending", f"expected state=pending after first retry, got {state!r}"
+    assert retry_count == 1, f"expected retry_count=1, got {retry_count}"
+    assert error and "synth failed" in error, (
+        f"expected error column populated with 'synth failed', got {error!r}"
+    )
+    assert worker_id is None, "worker_id must be cleared on failure for re-claim"
+    assert started_at is None, "started_at must be cleared on failure for re-claim"
 
 
 # ── segment-complete callback backward-compat ──

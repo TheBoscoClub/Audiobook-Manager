@@ -879,10 +879,18 @@ class ShellPlayer {
   }
 }
 
-// Mobile viewport fix: measure the ACTUAL visible viewport height via
-// visualViewport API and set --app-height on the shell. Also calculate
-// how much of the layout viewport is hidden behind browser chrome and
-// post that offset to the iframe so it can add bottom padding.
+// Mobile viewport fix: measure the visible viewport height via the
+// visualViewport API and publish it as --app-height on <html>. Also
+// compute the bottom-chrome offset (layout - visual) and post it to
+// the iframe so its content can add bottom padding for keyboards.
+//
+// CAVEAT (iOS Chrome): visualViewport.height there matches the layout
+// viewport — i.e. it INCLUDES the area behind the persistent bottom
+// nav bar — so --app-height can be too tall and `bottomChrome` evaluates
+// to 0 even when the nav bar visibly occludes content. The shell guards
+// against this by capping `<html>` at min(100svh, var(--app-height,
+// 100svh)) in shell.css; iframe consumers that depend on `bottomChrome`
+// should not rely on it being non-zero on iOS Chrome.
 function setupViewportFix() {
   const iframe = document.getElementById("content-frame");
   function update() {
@@ -892,7 +900,9 @@ function setupViewportFix() {
 
     // Calculate bottom chrome offset: difference between layout viewport
     // (window.innerHeight) and visual viewport. This is the space eaten
-    // by browser bottom bars (Chrome nav, Safari toolbar, etc.)
+    // by browser bottom bars (Chrome nav, Safari toolbar, etc.) — except
+    // on iOS Chrome where vv.height == innerHeight and this is 0; see
+    // CAVEAT in the function header.
     const bottomChrome = vv
       ? Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0))
       : 0;
