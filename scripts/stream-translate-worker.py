@@ -134,7 +134,24 @@ def _synthesize_segment_audio(
     text (empty cue block, synthesis would produce 0-byte silence).
     """
     text = _vtt_to_plain(vtt_content)
-    if not text.strip():
+    # Strip whitespace, punctuation, and Whisper's non-speech markers (the
+    # pilcrow `¶` is Whisper's convention for instrumental music; `♪` is
+    # used for sung lyrics that won't transcribe usefully). What remains
+    # is either a real spoken phrase or empty — treat the empty case as
+    # music/silence (caller's silent-segment fallback handles it).
+    # 3 prod sampler segments at 2026-04-25 had VTT bodies of `¶¶ ¶¶` or
+    # `.` and crashed edge-tts which couldn't TTS them as Mandarin.
+    import string as _string
+    import unicodedata as _unicodedata
+    stripped = "".join(
+        ch for ch in text if not (
+            ch.isspace()
+            or ch in _string.punctuation
+            or ch in "¶♪♫♩♬"
+            or _unicodedata.category(ch).startswith("P")
+        )
+    )
+    if not stripped:
         return None
 
     # Short clips → edge-tts (no cold-start, no per-minute billing).

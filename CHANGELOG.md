@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.8.11] - 2026-04-25
+
+### Fixed
+
+- **Whisper non-speech markers (`¶`, `♪`, lone punctuation) crashed edge-tts and bypassed the silent-segment fallback**: 3 sampler segments held in `state='failed'` on prod after v8.3.8.10 because their VTT bodies were `¶¶ ¶¶` or just `.` — Whisper's convention for instrumental music or sound effects that produce no real speech. `_vtt_to_plain` returned the markers as plain text (5 chars in the worst case), `_synthesize_segment_audio`'s `if not text.strip()` check happily passed them along to edge-tts, which crashed because the input wasn't synthesizable Mandarin. Fix: in `_synthesize_segment_audio`, after `_vtt_to_plain`, strip whitespace + Unicode punctuation (`unicodedata.category().startswith("P")`) + the explicit non-speech markers `¶♪♫♩♬`. If nothing remains, return `None` and fall through to the silent-segment fallback added in v8.3.8.10. Catches the legitimate "Whisper transcribed music" case at the same boundary as the legitimate "empty VTT" case
+
 ## [8.3.8.10] - 2026-04-25
 
 ### Fixed
@@ -3445,7 +3451,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.10...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.11...HEAD
+[8.3.8.11]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.10...v8.3.8.11
 [8.3.8.10]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.9...v8.3.8.10
 [8.3.8.9]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.8...v8.3.8.9
 [8.3.8.8]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.7...v8.3.8.8
