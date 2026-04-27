@@ -1,9 +1,9 @@
 # RCA — v8.3.8.6 — Chinese narration silent on prod (catastrophic QA → prod regression)
 
-**Author:** Claude + Bosco (co-maintained) · **Date:** 2026-04-24 ·
+**Author:** maintainer · **Date:** 2026-04-24 ·
 **Owning release:** v8.3.8.6 ("sampler-burst venv + idempotent TTS regen") ·
-**Incident severity:** user-facing catastrophic — the feature Qing (primary
-zh-Hans end user, Bosco's wife) relies on was unusable on prod for days,
+**Incident severity:** user-facing catastrophic — the feature the primary
+zh-Hans end user relies on was unusable on prod for days,
 and the pretranslation accumulated 6,687 silently-damaged rows plus 400
 stale-path orphan rows (a separate failure class that surfaced during
 repair). The QA cycle reported green — by both AI and human verification —
@@ -75,8 +75,8 @@ fast-path exceptions.
 
 ## 1. The user-facing failure
 
-Qing (monolingual zh-Hans speaker, Bosco's wife, primary end user) opened
-a book in the library at <https://library.thebosco.club>, chose Chinese
+The primary zh-Hans end user (monolingual zh-Hans speaker) opened
+a book in the library at the production hostname, chose Chinese
 narration (`zh-Hans` locale), pressed play. Audio played the first ~30
 seconds. Then silence — the bilingual transcript kept scrolling under
 imaginary timestamps, but no audio came from the speakers. Clicking
@@ -84,20 +84,20 @@ forward 30 seconds produced more silence. Clicking to a different chapter
 played another ~30 seconds and then silence again. The shape was
 consistent across multiple books: exactly one segment per chapter played.
 
-This is the single most important feature in the library for Bosco's
-primary user. The regression ran live for several days before Bosco
-noticed during a casual check of prod. Qing was directly affected.
+This is the single most important feature in the library for the
+primary user. The regression ran live for several days before the
+maintainer noticed during a casual check of prod. The primary user was directly affected.
 
 ## 2. Timeline of events — from QA-green to prod-red
 
 | Time (approximate) | Environment | Signal |
 |---|---|---|
 | 2026-04-20 | dev | v8.3.8 sampler-burst feature developed. Unit tests passed. Functional smoke on dev VM claimed green — small test library, the single systemd worker kept up, nobody noticed that burst workers were silently producing audio-less segments. |
-| 2026-04-20 | QA (qa-audiobook-cachyos) | Release deployed to QA via `upgrade.sh --remote`. Smoke probe green. Qing opened a book on `qalib.thebosco.club` — played fine because the QA library chapters she tried had already been fully-translated by prior versions; she wasn't asked to verify a newly-sampled book. AI verification (Claude) looked at systemd state, API version, smoke output, agreed "green". Human verification (Bosco + Qing) agreed. This is the critical misread. |
+| 2026-04-20 | QA VM | Release deployed to QA via `upgrade.sh --remote`. Smoke probe green. The primary end user opened a book on the QA hostname — played fine because the QA library chapters tried had already been fully-translated by prior versions; not asked to verify a newly-sampled book. AI verification looked at systemd state, API version, smoke output, agreed "green". Human verification agreed. This is the critical misread. |
 | 2026-04-20 | prod | `/git-release --promote` pushed v8.3.8 to GitHub + prod. `audiobook-stream-translate.service` restarted with the new code. Broken burst workers (when they ran) started silently accumulating NULL-audio rows. |
 | 2026-04-20 → 2026-04-23 | prod | Over several days, each time `sampler-burst.sh` ran (manually or on user-initiated bursts from the library UI), 4 of every 5 segments completed without audio. Accumulation reached 6,687 rows across 1,398 books by the time it was noticed. |
 | 2026-04-22 (approx) | prod | v8.3.8.1-.5 shipped through QA-cycle again. Each patch was a progressive sampler-burst fix, but none touched the venv path. Each shipped with the same underlying silent fallback. |
-| 2026-04-23 evening | prod | Bosco played a book in zh-Hans; audio cut out after 30 s. Caught the regression. |
+| 2026-04-23 evening | prod | The maintainer played a book in zh-Hans; audio cut out after 30 s. Caught the regression. |
 | 2026-04-23 late | dev | v8.3.8.6 drafted — bundled 5 pre-existing fixes from the day's work + the sampler-burst venv fix. |
 | 2026-04-24 00:xx | prod | v8.3.8.6 deployed via `upgrade.sh`. Broken burst workers killed. 2 fresh burst workers spawned under the fixed script: observed 48/48 new completions WITH audio (previously ~1/5). The fix is proven at DB level. |
 | 2026-04-24 01:xx | prod | Browser proof: Playwright drove prod UI through login + book play, `audio.currentTime` advanced 0 → 23.5 s → 61.2 s on book 115328 "House of Earth" with `audio.duration = 4474 s` (realistic), `bufferedEnd = 532 s`, live Chinese subtitle displaying. Screenshot archived. |
@@ -386,7 +386,7 @@ This is now covered in v8.3.8.6 via the 4 new tests.
 
 ### 5.2 Dev VM
 
-`dev-audiobook-cachyos` (192.168.122.105) is where complete file-by-file
+The dev VM is where complete file-by-file
 review and side-branch development happens. Sampler-burst was added in
 v8.3.8 and its exercise on dev was either manual (not run by all
 developers) or rare (most dev work doesn't use sampler-burst in the
@@ -406,7 +406,7 @@ with."
 
 ### 5.3 QA VM (the big one — AI + human verified green here)
 
-`qa-audiobook-cachyos` (192.168.122.63) exists specifically as a
+The QA VM exists specifically as a
 production-mirror to validate released versions before promote. **Both AI
 and human verification reported green on v8.3.8.**
 
@@ -416,7 +416,7 @@ and human verification reported green on v8.3.8.**
 - API version matches (green)
 - `/test` phases passed (structural: schema, health, smoke endpoints)
 - UI loads in Chinese (green — cosmetic test only)
-- Qing opened a book on `qalib.thebosco.club`, pressed play, heard
+- The primary end user opened a book on the QA hostname, pressed play, heard
   Chinese (green — but the book she tried had been pre-translated by
   a previous version, so the burst workers were irrelevant to what she
   heard)
@@ -438,9 +438,9 @@ is only as good as the contract it's verifying against; the contract did
 not mention "audio_path must be populated on ≥99% of completed
 sampler segments within the last 60 minutes."
 
-**Why human verification missed it:** Qing played books that had already
+**Why human verification missed it:** the primary user played books that had already
 been translated and cached before v8.3.8. She did not test the brand-new
-sampler-burst-triggered pretranslation pathway. Bosco saw her say "this
+sampler-burst-triggered pretranslation pathway. The maintainer saw "this
 is working" and moved on. The test plan did not specify "wait for a
 freshly-scanned, uncached book to pretranslate, then play it."
 
@@ -503,7 +503,7 @@ end-to-end probe run after every deploy.
 
 After v8.3.8.x deployed to prod, no automated check observed the
 resulting `audio_path IS NULL` accumulation. For the ~four days between
-v8.3.8 shipping and Bosco noticing, the broken-burst code wrote NULL
+v8.3.8 shipping and the maintainer noticing, the broken-burst code wrote NULL
 rows at a 4:1 ratio. By catch time, 6,687 damaged rows spanned 1,398
 books.
 
@@ -700,7 +700,7 @@ right question.**
   - `audiobook_orphan_row_count` (scanned from the integrity timer)
   - `audiobook_pending_by_priority{priority="0|1|2"}`
 - Action: wire these into an existing Grafana or similar dashboard
-  (Bosco has infra). Alert on audio_ratio < 0.95 for > 10 min.
+  (operator infrastructure permitting). Alert on audio_ratio < 0.95 for > 10 min.
 - Signal: catastrophic regressions like this one become un-missable —
   the metric drops on the first broken burst and pages immediately.
 - Effort: 1 day (Prometheus exporter + Grafana panel + alert rule).
@@ -759,12 +759,12 @@ right question.**
 |---|---|---|---|---|
 | 9.4 | Extend smoke probe (audio_ratio + synthetic canary) | P0 | Claude | next release |
 | 9.1 | DEV exercise-sampler-burst script | P0 | Claude | next release |
-| 9.2 | QA user-experience test plan + `/git-release` tripwire | P0 | Claude + Bosco | next release |
+| 9.2 | QA user-experience test plan + `/git-release` tripwire | P0 | maintainer | next release |
 | 9.3 | `/test` Phase 9b functional probe + 9d integrity scan | P1 | Claude | v8.3.9 |
 | 9.6 | Silent-fallback grep sweep (streaming first) | P1 | Claude | v8.3.9 |
 | 9.7 | Orphan-prevention pre-commit + legacy `.opus` cleanup | P1 | Claude | v8.3.9 |
 | 9.8 | Claim-queue repair state OR audiobooks-repair CLI | P2 | Claude | v8.3.10 |
-| 9.5 | Post-deploy Prometheus metrics + Grafana alerts | P2 | Bosco + Claude | v8.3.10 or v8.4 |
+| 9.5 | Post-deploy Prometheus metrics + Grafana alerts | P2 | maintainer | v8.3.10 or v8.4 |
 
 "Next release" means before any further sampler-burst or streaming
 changes ship to prod. P0 items are non-negotiable pre-conditions.

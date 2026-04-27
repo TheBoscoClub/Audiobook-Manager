@@ -68,7 +68,7 @@ Keep names short and predicate-style. Extend the `ALLOWED_EVENT_TYPES` set in `l
 | `capacity_warning` | live | Pending live queue exceeds `LIVE_PENDING_PRESSURE_THRESHOLD` while workers are active |
 | `spend_pause_book` *(future)* | sampler | A book's sampler job auto-paused on per-book cap |
 | `spend_pause_global` *(future)* | sampler | The whole sampler queue was auto-paused on daily cap |
-| `backend_probe_failed` *(future)* | live, sampler | Inference-backend health probe returned non-OK |
+| `gpu_probe_failed` *(future)* | live, sampler | Inference-backend health probe returned non-OK |
 
 ## Reading the audit trail
 
@@ -153,7 +153,7 @@ The idempotency is enforced by the SQL predicates: each `UPDATE` is guarded by `
 | `systemd/audiobook-translation-monitor-sampler.timer` | Sampler timer (every 5min) |
 | `library/backend/migrations/025_translation_monitor_events.sql` | Schema migration |
 | `data-migrations/009_translation_monitor_events.sh` | Upgrade-time data migration |
-| `library/tests/test_translation_monitor.py` | Test suite (33 tests) |
+| `library/tests/test_translation_monitor.py` | Test suite (46 tests) |
 
 ## Forthcoming
 
@@ -161,5 +161,5 @@ Items below are anticipated but not yet implemented. Order is suggestive, not co
 
 * **Per-book `spent_cents` aggregation** joining `streaming_segments` to a (yet-to-be-added) `translation_costs` table; auto-pause via `spend_pause_book` event when a per-book cap is exceeded. Useful for installations paying per-inference; a no-op for installations using local hardware.
 * **Daily/weekly global spend cap** with `spend_pause_global` event and a scheduler flag for global queue pause. Provider-agnostic — operators configure the cap; the cost source is whatever telemetry their inference backend exposes.
-* **Real backend health probe** replacing the v8.3.9 stub. Provider-agnostic interface so operators can plug in whatever inference backend they have configured. Emits `backend_probe_failed` events.
+* **Real backend health probe** replacing the v8.3.9 stub. Provider-agnostic interface so operators can plug in whatever inference backend they have configured. Emits `gpu_probe_failed` events (the slot is already reserved in `ALLOWED_EVENT_TYPES`).
 * **Operator API endpoint** exposing `recent_events()` to the admin UI so reading the audit trail doesn't require SQL.
