@@ -131,19 +131,37 @@ def test_upgrade_parses_target_wants():
 
     We don't pin specific service names into upgrade.sh for the
     target-wanted set (the parser is the canonical source); we just
-    verify the parser branch still exists and iterates ``systemctl
-    enable`` over what it finds.
+    verify the parser branch still exists and iterates an enabling
+    helper over what it finds. The helper must end up calling
+    ``systemctl enable`` (with or without ``--now``); since
+    Audiobook-Manager-hp2 (v8.3.10) the loop dispatches through
+    ``_enable_unit_smart`` which decides ``--now`` vs plain enable
+    based on the unit's WantedBy.
     """
     upgrade = _read("upgrade.sh")
     assert (
         re.search(r"grep\s+'\^Wants='\s+/etc/systemd/system/audiobook\.target", upgrade) is not None
     ), "upgrade.sh no longer parses Wants= from audiobook.target"
-    assert (
-        re.search(
-            r"for\s+svc\s+in\s+\$target_wants.*?systemctl\s+enable\s+\"\$svc\"", upgrade, re.DOTALL
-        )
-        is not None
-    ), "upgrade.sh Wants= loop no longer calls systemctl enable per service"
+    # Loop body must invoke the enabling helper (or systemctl enable directly).
+    # Either pattern keeps stream-translate / scheduler / api / etc. wired up
+    # at upgrade time.
+    loop_body = re.search(
+        r"for\s+svc\s+in\s+\$target_wants.*?done", upgrade, re.DOTALL
+    )
+    assert loop_body is not None, "upgrade.sh Wants= loop missing"
+    body = loop_body.group(0)
+    enables_via_helper = re.search(r'_enable_unit_smart\s+"\$svc"', body) is not None
+    enables_direct = re.search(r'systemctl\s+enable(?:\s+--now)?\s+"\$svc"', body) is not None
+    assert enables_via_helper or enables_direct, (
+        "upgrade.sh Wants= loop no longer enables units (neither "
+        "_enable_unit_smart nor systemctl enable found in loop body)"
+    )
+    # The helper itself must end up calling `systemctl enable` somewhere in
+    # upgrade.sh — guards against the helper being inadvertently no-op'd.
+    if enables_via_helper:
+        assert (
+            re.search(r"systemctl\s+enable(?:\s+--now)?\s+\"\$unit\"", upgrade) is not None
+        ), "_enable_unit_smart helper no longer calls systemctl enable internally"
 
 
 def test_target_declares_expected_wants():
