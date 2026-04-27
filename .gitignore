@@ -259,7 +259,8 @@ yarn-debug.log*
 yarn-error.log*
 .npm/
 .yarn/
-package-lock.json
+# package-lock.json IS committed (CI's `npm ci` needs it for reproducible
+# installs). Don't gitignore it.
 yarn.lock
 .pnpm-store/
 
