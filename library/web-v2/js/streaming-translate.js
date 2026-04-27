@@ -20,6 +20,19 @@
   var BUFFER_THRESHOLD = 6; // 3 minutes = 6 × 30-sec segments
   var SEGMENT_DURATION_SEC = 30;
 
+  // Pre-buffer trigger — when this many seconds remain in the current chapter,
+  // eagerly fetch the next chapter's segment bitmap so the chapter-end advance
+  // is a synchronous swap instead of an async POST. Without this, iOS Chrome
+  // rejects the `audio.play()` call inside `enterStreaming` because the chain
+  // (POST → bitmap → MSE rebuild → sourceopen → play) crosses too many async
+  // ticks and breaks the user-gesture chain — Qing had to manually tap play
+  // at every chapter boundary.
+  //
+  // 10 s gives the POST + bitmap response plenty of headroom on slow mobile
+  // links; small enough that a chapter shorter than 10 s still gets the slow
+  // path (rare for audiobooks). See Audiobook-Manager-dwa.
+  var PRELOAD_TRIGGER_SEC = 10;
+
   // State machine
   var State = {
     IDLE: "idle",
@@ -217,6 +230,16 @@
   var notificationPlayed = false;
   var mseChain = null; // MseAudioChain for translated audio playback
   var endedHandler = null; // installed on audio.ended while streaming
+
+  // Pre-buffer state for next-chapter auto-advance (Audiobook-Manager-dwa).
+  // Populated by maybePreloadNextChapter() while playing the current chapter
+  // and consumed by advanceChapter() at chapter-end. When present, the
+  // chapter-end advance skips the network round-trip and stays inside iOS's
+  // gesture chain, allowing the new chapter's audio.play() to fire without a
+  // manual tap.
+  var preloadedNextChapter = null;       // { chapterIndex, bitmap, state } | null
+  var preloadInProgress = false;         // de-dupes overlapping preload POSTs
+  var preloadTimeUpdateHandler = null;   // installed on audio.timeupdate while STREAMING
 
   // ── Polling fallback when WS is silent (Task 15, v8.3.2) ──
   //
@@ -441,6 +464,75 @@
     return chMap.size >= total;
   }
 
+  // ── Next-chapter preload (Audiobook-Manager-dwa) ──
+  //
+  // While playing chapter N, when the audio element reports < PRELOAD_TRIGGER_SEC
+  // remaining, POST /translate/stream for chapter N+1 in the background. The
+  // response (segment bitmap + state) is stored in `preloadedNextChapter` so
+  // the eventual `advanceChapter` call at chapter-end can skip the round-trip
+  // entirely — keeping audio.play() inside iOS's user-gesture chain.
+
+  function maybePreloadNextChapter() {
+    if (state !== State.STREAMING) return;
+    if (preloadedNextChapter !== null || preloadInProgress) return;
+    if (!currentBookId || !currentLocale) return;
+    if (totalChapters > 0 && currentChapter + 1 >= totalChapters) return;
+
+    var audio = document.getElementById("audio-element");
+    if (!audio) return;
+    var duration = audio.duration;
+    if (!isFinite(duration) || duration <= 0) return;
+    var remaining = duration - audio.currentTime;
+    if (!isFinite(remaining) || remaining > PRELOAD_TRIGGER_SEC) return;
+
+    preloadInProgress = true;
+    var nextCh = currentChapter + 1;
+    var bookId = currentBookId;
+    var locale = currentLocale;
+
+    fetch(API_BASE + "/translate/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        audiobook_id: bookId,
+        locale: locale,
+        chapter_index: nextCh,
+      }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        preloadInProgress = false;
+        // Sanity: ensure we're still on the same book/locale we asked for.
+        // A book-switch between request and response would invalidate the
+        // payload — drop it rather than splice cross-session data.
+        if (state !== State.STREAMING) return;
+        if (currentBookId !== bookId || currentLocale !== locale) return;
+        if (!data || (data.state !== "cached" && data.state !== "buffering")) return;
+        preloadedNextChapter = {
+          chapterIndex: data.chapter_index != null ? data.chapter_index : nextCh,
+          bitmap: data.segment_bitmap,
+          state: data.state,
+        };
+      })
+      .catch(function () {
+        preloadInProgress = false;
+        // Non-fatal — advanceChapter falls through to its slow-path POST if
+        // preloadedNextChapter is still null at chapter-end.
+      });
+  }
+
+  function clearPreload() {
+    preloadedNextChapter = null;
+    preloadInProgress = false;
+  }
+
+  function detachPreloadListener(audio) {
+    if (audio && preloadTimeUpdateHandler) {
+      audio.removeEventListener("timeupdate", preloadTimeUpdateHandler);
+      preloadTimeUpdateHandler = null;
+    }
+  }
+
   function enterStreaming() {
     state = State.STREAMING;
     hideOverlay();
@@ -511,6 +603,17 @@
       audio.addEventListener("ended", endedHandler);
     }
 
+    // Install timeupdate-driven preload trigger (Audiobook-Manager-dwa).
+    // timeupdate fires ~4× per second on most browsers — the maybePreload
+    // gate is cheap (just a duration arithmetic + null check) so we don't
+    // throttle further.
+    if (audio && !preloadTimeUpdateHandler) {
+      preloadTimeUpdateHandler = function () {
+        maybePreloadNextChapter();
+      };
+      audio.addEventListener("timeupdate", preloadTimeUpdateHandler);
+    }
+
     // Arm the stall timer — entering STREAMING means we should start
     // expecting a steady cadence of WS events; if they stop, kick over
     // to polling after STALL_TIMEOUT_MS.
@@ -550,7 +653,28 @@
       audio.removeEventListener("ended", endedHandler);
       endedHandler = null;
     }
+    // Same for the preload trigger — enterStreaming re-attaches when the
+    // new chapter starts streaming.
+    detachPreloadListener(audio);
 
+    // FAST PATH (Audiobook-Manager-dwa) — if maybePreloadNextChapter()
+    // already ran while playing the previous chapter, the bitmap is
+    // already in hand. Skip the network round-trip and go straight to
+    // enterBuffering — this keeps audio.play() inside iOS's gesture
+    // chain so Qing doesn't have to manually tap play at every chapter
+    // boundary.
+    if (preloadedNextChapter && preloadedNextChapter.chapterIndex === nextChapter) {
+      var preload = preloadedNextChapter;
+      preloadedNextChapter = null;
+      preloadInProgress = false;
+      enterBuffering(bookId, locale, preload.chapterIndex, preload.bitmap);
+      return;
+    }
+
+    // SLOW PATH — preload missed (chapter shorter than PRELOAD_TRIGGER_SEC,
+    // preload fetch failed, or the trigger never fired because timeupdate
+    // didn't get a chance to). Fall through to the original POST + buffer
+    // sequence; iOS will reject the eventual play() and the user will tap.
     fetch(API_BASE + "/translate/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -604,6 +728,10 @@
       audio.removeEventListener("ended", endedHandler);
       endedHandler = null;
     }
+    // Detach preload trigger and discard any pre-fetched next-chapter data —
+    // a book switch invalidates it.
+    detachPreloadListener(audio);
+    clearPreload();
     totalChapters = 0;
     chapterTotals = {};
     currentBookId = null;
