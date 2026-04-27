@@ -35,14 +35,14 @@ import logging
 import sys
 from pathlib import Path
 
-# Allow running from /opt/audiobooks/scripts or from the project tree
+# Allow running from /opt/audiobooks/scripts or from the project tree.
+# The translation_monitor package lives at <project_root>/library/translation_monitor/.
+# We must insert <project_root>/library/ into sys.path so `from translation_monitor import …`
+# resolves — NOT <project_root>, which only contains the namespace one level up.
 _HERE = Path(__file__).resolve().parent
-for candidate in (_HERE.parent, _HERE.parent / "library"):
-    if (candidate / "library" / "translation_monitor" / "__init__.py").exists():
-        sys.path.insert(0, str(candidate))
-        break
+for candidate in (_HERE.parent / "library", _HERE.parent):
     if (candidate / "translation_monitor" / "__init__.py").exists():
-        sys.path.insert(0, str(candidate.parent))
+        sys.path.insert(0, str(candidate))
         break
 
 from translation_monitor import (  # noqa: E402

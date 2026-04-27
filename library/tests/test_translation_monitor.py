@@ -245,7 +245,11 @@ def test_sampler_claim_reset_clears_stuck_claim(db):
 
 def test_sampler_claim_reset_leaves_fresh_claim_alone(db):
     _insert_segment(
-        db, seg_id=1, started_at_offset_sec=600, origin="sampler", priority=2  # 10min, way under 2h
+        db,
+        seg_id=1,
+        started_at_offset_sec=600,
+        origin="sampler",
+        priority=2,  # 10min, way under 2h
     )
     affected = reset_stuck_sampler_claims(db)
     assert affected == []
@@ -392,6 +396,75 @@ def test_sampler_script_imports_cleanly():
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     assert callable(mod.main)
+
+
+# ─── Systemd-launch regression guard (Phase 10a finding E-1) ──────────────
+#
+# The two tests above use importlib, which runs in-process and inherits the
+# test runner's sys.path — so a broken sys.path.insert in the script is
+# silently masked. v8.3.9 shipped with the scripts inserting `_HERE.parent`
+# (e.g. /opt/audiobooks) instead of `_HERE.parent / "library"` where the
+# package actually lives, and every systemd timer fire crashed with
+# ModuleNotFoundError. The unit tests showed green throughout.
+#
+# These tests subprocess the scripts in a CLEAN environment (PYTHONPATH and
+# any inherited sys.path stripped), exactly as systemd ExecStart would, so
+# any future path-resolution regression fails the test.
+
+
+def _run_script_in_clean_env(script_name: str):
+    """Run a monitor script as a subprocess with a stripped environment.
+
+    Mirrors what `systemd ExecStart=/usr/bin/env python3 …` does on prod:
+    no PYTHONPATH, no inherited sys.path, no import cache. The script's
+    own bootstrap is the only thing that can make the package importable.
+    """
+    import os
+    import subprocess
+    import sys
+
+    script = PROJECT_ROOT / "scripts" / script_name
+    env = {
+        "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+        "HOME": os.environ.get("HOME", "/tmp"),
+        # Deliberately omit PYTHONPATH so the script must self-bootstrap.
+    }
+    return subprocess.run(
+        [sys.executable, str(script)],
+        env=env,
+        cwd="/",  # ensure no relative-path accident
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+
+def test_live_script_runs_in_clean_env():
+    """Regression guard for Phase 10a finding E-1.
+
+    The script's sys.path bootstrap must locate the translation_monitor
+    package even when invoked via `systemd ExecStart` with no PYTHONPATH.
+    """
+    result = _run_script_in_clean_env("translation-monitor-live.py")
+    assert result.returncode == 0, (
+        f"live monitor script crashed: rc={result.returncode}\n"
+        f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
+    assert "ModuleNotFoundError" not in result.stderr, (
+        f"live monitor failed to bootstrap sys.path:\n{result.stderr}"
+    )
+
+
+def test_sampler_script_runs_in_clean_env():
+    """Regression guard for Phase 10a finding E-1 (sampler tier)."""
+    result = _run_script_in_clean_env("translation-monitor-sampler.py")
+    assert result.returncode == 0, (
+        f"sampler monitor script crashed: rc={result.returncode}\n"
+        f"STDOUT:\n{result.stdout}\nSTDERR:\n{result.stderr}"
+    )
+    assert "ModuleNotFoundError" not in result.stderr, (
+        f"sampler monitor failed to bootstrap sys.path:\n{result.stderr}"
+    )
 
 
 # ─── systemd unit + manifest wiring guard ─────────────────────────────────
