@@ -35,8 +35,15 @@
   // (touch, wheel, pointer drag) we stop yanking them back to the current
   // cue for USER_SCROLL_PAUSE_MS. Without this, reading ahead or looking
   // back is impossible on a playing book.
+  //
+  // v8.3.10 (Audiobook-Manager-ic5) reduced the pause from 4000 ms to 1500 ms.
+  // The 4 s window meant any incidental finger-nudge silenced narration-follow
+  // for so long Qing had to manually re-scroll to find the playing line.
+  // 1.5 s is long enough to honour an intentional reach-ahead but short
+  // enough that the panel snaps back to the line within one or two seconds
+  // of the user releasing the scroll.
   var _userScrolledAt = 0;
-  var USER_SCROLL_PAUSE_MS = 4000;
+  var USER_SCROLL_PAUSE_MS = 1500;
 
   // ── VTT Parsing ──
 
@@ -947,8 +954,13 @@
         }
         if (transcriptVisible &&
             Date.now() - _userScrolledAt >= USER_SCROLL_PAUSE_MS) {
+          // v8.3.10 (Audiobook-Manager-ic5): use behavior:"auto" for an
+          // immediate snap. "smooth" was sluggish on iPhone — by the time
+          // the smooth-scroll animation finished, the narration had moved
+          // on to the next cue and the panel was perpetually trailing.
+          // "auto" snaps in <16 ms and stays in lockstep with playback.
           (anchor || els[0]).scrollIntoView({
-            behavior: "smooth",
+            behavior: "auto",
             block: "center",
           });
         }

@@ -400,10 +400,17 @@ html.cjk .subtitle-translated {
   opacity: 0.7;
 }
 
+/* Active cue — the line the narration is currently on. v8.3.10 (Audiobook-Manager-ic5)
+   bumps contrast significantly: stronger background fill, brighter foreground,
+   and a soft gold glow so Qing can find the playing line at a glance even on
+   iPhone in bright light. The previous 15 % gold tint read as faintly-shaded
+   on the Art Deco dark wood; 35 % is unmistakable without being garish. */
 .transcript-cue.active {
   opacity: 1;
-  background: rgba(197, 165, 90, 0.15);
+  background: rgba(197, 165, 90, 0.35);
   border-left: 3px solid var(--deco-gold, #c5a55a);
+  color: #fff5d8;
+  box-shadow: 0 0 12px rgba(197, 165, 90, 0.25);
 }
 
 .transcript-cue-time {
@@ -564,11 +571,15 @@ html.cjk .transcript-panel.bilingual .col-target .transcript-cue .transcript-cue
   background: rgba(197, 165, 90, 0.06);
 }
 
-/* Exact-hit highlight — the active cue at the current playback time */
+/* Exact-hit highlight — the active cue at the current playback time.
+   Bilingual panel uses the same v8.3.10 brighter-fill scheme as the single-
+   column variant above (Audiobook-Manager-ic5). */
 .transcript-panel.bilingual .cues .transcript-cue.active {
   opacity: 1;
-  background: rgba(197, 165, 90, 0.18);
+  background: rgba(197, 165, 90, 0.35);
   border-left: 3px solid var(--deco-gold, #c5a55a);
+  color: #fff5d8;
+  box-shadow: 0 0 12px rgba(197, 165, 90, 0.25);
   font-weight: 600;
 }
 
