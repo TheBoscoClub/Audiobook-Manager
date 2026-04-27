@@ -6,8 +6,17 @@ Before=shutdown.target reboot.target halt.target
 
 [Service]
 Type=oneshot
-User=root
-Group=root
+# audiobook-save-staging enforces audiobooks user via require_audiobooks_user()
+# so newly-moved files (staging → library) inherit the correct audiobooks:audiobooks
+# ownership. Running as root would create root-owned files in the library and
+# break the project's permission model. The script's `systemctl stop` calls for
+# audiobook-converter/mover are silently ignored when invoked without privilege —
+# acceptable because the shutdown sequence stops them shortly afterwards anyway.
+# (Audiobook-Manager-c8l: prior `User=root` caused every shutdown attempt to FAIL
+# with "audiobook-save-staging must run as the audiobooks user" — staging never
+# persisted on reboot.)
+User=audiobooks
+Group=audiobooks
 
 # Load configuration
 EnvironmentFile=-/etc/audiobooks/audiobooks.conf
