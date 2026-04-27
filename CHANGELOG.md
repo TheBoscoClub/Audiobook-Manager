@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`upgrade.sh` and `install.sh`: newly-added timers/services now start in the current boot, not just at next reboot** (`Audiobook-Manager-hp2`): both scripts called `systemctl enable` without `--now`, so units added in a release sat `enabled` but `inactive (dead)` until the system was rebooted. Discovered after the v8.3.8.14 → v8.3.9 prod upgrade left both `audiobook-translation-monitor-live.timer` and `audiobook-translation-monitor-sampler.timer` enabled-but-dead — `systemctl list-timers` returned 0 matches even though the timers were correctly wired into `audiobook.target`. Fix: introduces `_enable_unit_smart()` (inline-duplicated in `upgrade.sh::enable_new_services` and `install.sh::do_system_install` because both bootstrap before any shared shell library is reachable on the target) which parses `[Install] WantedBy=` and uses `systemctl enable --now` for runtime units (audiobook.target, multi-user.target, timers.target dependents) but keeps plain `systemctl enable` for shutdown-only units (`WantedBy=halt.target reboot.target shutdown.target`) so `audiobook-shutdown-saver.service` is not erroneously activated during normal operation. The user-mode install path also gets `enable --now` (no shutdown-only units in that set, so blanket `--now` is safe). `uninstall.sh` was reviewed and left unchanged — its dynamic-discovery + `stop`-then-`disable` pattern (`uninstall.sh:285-345`) handles new units correctly without modification
+
 ## [8.3.9] - 2026-04-27
 
 ### Added

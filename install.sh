@@ -1885,20 +1885,58 @@ EOF
         # Enable and start services
         echo -e "${BLUE}Enabling services for automatic start at boot...${NC}"
 
+        # Enable a unit, and start it if it has a runtime target. Skips --now
+        # for shutdown-only units (WantedBy halt/reboot/shutdown.target) since
+        # those must NOT activate during normal operation. Mirrors the helper
+        # in upgrade.sh::_enable_unit_smart — the two MUST stay in sync.
+        # Inline-duplicated because install.sh bootstraps before any shared
+        # shell library is reachable on the target.
+        _enable_unit_smart() {
+            local unit="$1"
+            local unit_file="${SYSTEMD_DIR}/${unit}"
+            [[ ! -f "$unit_file" ]] && return 0
+            local wanted_by
+            wanted_by=$(awk '
+                /^\[Install\]/ { in_install = 1; next }
+                /^\[/          { in_install = 0 }
+                in_install && /^WantedBy=/ {
+                    sub(/^WantedBy=/, "")
+                    print
+                }
+            ' "$unit_file")
+            local has_runtime_target=0
+            if [[ -z "$wanted_by" ]]; then
+                has_runtime_target=1
+            else
+                for tgt in $wanted_by; do
+                    case "$tgt" in
+                        halt.target|reboot.target|shutdown.target) ;;
+                        *) has_runtime_target=1 ;;
+                    esac
+                done
+            fi
+            if [[ $has_runtime_target -eq 1 ]]; then
+                sudo systemctl enable --now "$unit" 2>/dev/null || true
+            else
+                sudo systemctl enable "$unit" 2>/dev/null || true
+            fi
+        }
+
         # Enable the target and all individual services.
         # This list MUST stay in sync with upgrade.sh::enable_new_services().
         # audiobook-shutdown-saver.service hooks halt/reboot/shutdown targets
-        # and must be enabled so tmpfs staging is flushed on clean shutdown.
+        # and must be enabled so tmpfs staging is flushed on clean shutdown
+        # (the helper above detects shutdown-only WantedBy and skips --now).
         sudo systemctl enable audiobook.target 2>/dev/null || true
         for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer audiobook-stream-translate audiobook-shutdown-saver.service audiobook-translation-monitor-live.timer audiobook-translation-monitor-sampler.timer; do
-            sudo systemctl enable "$svc" 2>/dev/null || true
+            _enable_unit_smart "$svc"
         done
         # Explicit enable for streaming translation worker (belt-and-suspenders
         # alongside the loop above). The literal reference is required by
         # library/tests/test_stream_translate_wiring.py to guard against
         # orphan-script regressions (see 8.3.1 stream-translate-worker.py
         # incident where the script shipped without any wiring).
-        sudo systemctl enable audiobook-stream-translate.service 2>/dev/null || true
+        _enable_unit_smart "audiobook-stream-translate.service"
 
         echo -e "${BLUE}Starting services...${NC}"
         # Start the target (which starts all wanted services)
@@ -2528,14 +2566,19 @@ EOF
         # Reload systemd
         systemctl --user daemon-reload
 
-        # Enable and start services by default
+        # Enable and start services by default. Use `enable --now` so newly-added
+        # units start in the current session, not just after the next login —
+        # mirrors the system-mode fix for Audiobook-Manager-hp2. No shutdown-only
+        # units exist in the user-mode set, so blanket --now is safe; if one is
+        # ever added, switch to the _enable_unit_smart helper used in do_system_install().
         echo -e "${BLUE}Enabling and starting user services...${NC}"
-        systemctl --user enable audiobook.target 2>/dev/null || true
-        systemctl --user enable audiobook-api.service audiobook-web.service 2>/dev/null || true
+        systemctl --user enable --now audiobook.target 2>/dev/null || true
+        systemctl --user enable --now audiobook-api.service audiobook-web.service 2>/dev/null || true
 
-        # Start services
+        # Belt-and-suspenders start (target activation should pull these in via
+        # Wants=, but explicit start covers the case where the target was already
+        # active or Wants= isn't fully specified).
         systemctl --user start audiobook.target 2>/dev/null || {
-            # Fallback: start individual services
             systemctl --user start audiobook-api.service 2>/dev/null || true
             systemctl --user start audiobook-web.service 2>/dev/null || true
         }

@@ -889,24 +889,85 @@ apply_data_migrations() {
     fi
 }
 
+# Enable a unit, and start it if it has a runtime target (audiobook.target,
+# multi-user.target, timers.target, etc.). Skips --now for shutdown-only units
+# (WantedBy halt/reboot/shutdown.target) since those must NOT activate during
+# normal operation.
+#
+# Why: plain `systemctl enable` only installs the .wants/ symlink — it does
+# NOT start the unit. For new units added in a release, that meant they sat
+# enabled-but-inactive until the next reboot (Audiobook-Manager-hp2,
+# discovered after v8.3.9 prod upgrade left both translation-monitor timers
+# silently dead). `enable --now` closes that gap.
+#
+# Idempotent: --now on an already-active unit is a no-op.
+_enable_unit_smart() {
+    local unit="$1"
+    local use_sudo="$2"
+    local unit_file="/etc/systemd/system/${unit}"
+
+    if [[ ! -f "$unit_file" ]]; then
+        return 0
+    fi
+
+    # Extract WantedBy= from the [Install] section only.
+    local wanted_by
+    wanted_by=$(awk '
+        /^\[Install\]/ { in_install = 1; next }
+        /^\[/          { in_install = 0 }
+        in_install && /^WantedBy=/ {
+            sub(/^WantedBy=/, "")
+            print
+        }
+    ' "$unit_file")
+
+    # Treat as runtime (start --now) unless WantedBy= consists *only* of
+    # halt/reboot/shutdown targets.
+    local has_runtime_target=0
+    if [[ -z "$wanted_by" ]]; then
+        # No WantedBy= — defensive default to runtime (matches existing behavior
+        # where every project unit either declares a runtime target or is the
+        # shutdown-saver outlier).
+        has_runtime_target=1
+    else
+        for tgt in $wanted_by; do
+            case "$tgt" in
+                halt.target|reboot.target|shutdown.target) ;;
+                *) has_runtime_target=1 ;;
+            esac
+        done
+    fi
+
+    if [[ $has_runtime_target -eq 1 ]]; then
+        $use_sudo systemctl enable --now "$unit" 2>/dev/null || true
+    else
+        $use_sudo systemctl enable "$unit" 2>/dev/null || true
+    fi
+}
+
 enable_new_services() {
-    # Enable the full audiobook unit set for persistence across reboots.
-    # Idempotent — already-enabled services are silently skipped. Safe to run
-    # on every upgrade (minor, patch, or major).
+    # Enable (and start) the full audiobook unit set for persistence across
+    # reboots and the current boot. Idempotent — already-enabled/active units
+    # are silently skipped. Safe to run on every upgrade.
     #
     # Covers two disjoint sets:
     #   1. Target-wanted units: parsed from audiobook.target Wants= lines
     #      (currently: api, proxy, redirect, converter, mover, stream-translate,
-    #      scheduler, downloader.timer)
-    #   2. Standalone timers that fire outside audiobook.target but ship with
-    #      the project and must be enabled for scheduled work:
+    #      scheduler, downloader.timer, translation-monitor-{live,sampler}.timer)
+    #   2. Standalone units that fire outside audiobook.target but ship with
+    #      the project:
     #      - audiobook-enrichment.timer (metadata enrichment)
+    #      - audiobook-shutdown-saver.service (shutdown-only oneshot — enabled
+    #        but NOT started; activates from halt/reboot/shutdown.target)
     #
-    # Historical bug (v8.3.1 → 8.3.2 QA): this function was gated on
-    # MAJOR_VERSION=true, so patch upgrades shipped new units (stream-translate)
-    # that never got enabled. After host reboot, the reverse proxy in front of
-    # QA returned Cloudflare 502 because nothing started at boot. The gate has
-    # been removed; the function now runs on every upgrade.
+    # Historical bugs:
+    #   - v8.3.1 → 8.3.2 QA: function was gated on MAJOR_VERSION=true, so patch
+    #     upgrades shipped new units (stream-translate) that never got enabled.
+    #     After host reboot, QA's reverse proxy returned Cloudflare 502 because
+    #     nothing started at boot. The gate is gone; runs on every upgrade.
+    #   - v8.3.9 prod (Audiobook-Manager-hp2): `enable` without `--now` left
+    #     newly-added timers enabled-but-inactive until reboot. `_enable_unit_smart`
+    #     now enables AND starts runtime units in the current boot.
     #
     # The explicit reference to audiobook-stream-translate.service is required
     # by library/tests/test_stream_translate_wiring.py to guard against the
@@ -938,29 +999,27 @@ enable_new_services() {
         | grep -v 'network-online' | grep -v '^$')
 
     for svc in $target_wants; do
-        $use_sudo systemctl enable "$svc" 2>/dev/null || true
+        _enable_unit_smart "$svc" "$use_sudo"
         echo "  Enabled: $svc"
     done
 
     # (2) Standalone units not declared in audiobook.target Wants=
-    #     These either schedule their own services (timers) or hook reboot
-    #     targets (shutdown-saver). Must be enabled explicitly.
     local standalone_units=(
         audiobook-enrichment.timer                       # backfill un-enriched metadata
-        audiobook-shutdown-saver.service                 # saves tmpfs staging before reboot/halt
+        audiobook-shutdown-saver.service                 # saves tmpfs staging before reboot/halt (shutdown-only)
         audiobook-translation-monitor-live.timer         # v8.3.9: 30s live-tier monitor
         audiobook-translation-monitor-sampler.timer      # v8.3.9: 5min sampler-tier monitor
     )
     for unit in "${standalone_units[@]}"; do
         if [[ -f "/etc/systemd/system/${unit}" ]]; then
-            $use_sudo systemctl enable "$unit" 2>/dev/null || true
+            _enable_unit_smart "$unit" "$use_sudo"
             echo "  Enabled: $unit"
         fi
     done
 
-    # Belt-and-suspenders: explicit enable for streaming translation worker.
+    # Belt-and-suspenders: explicit enable+start for streaming translation worker.
     # Required by library/tests/test_stream_translate_wiring.py.
-    $use_sudo systemctl enable audiobook-stream-translate.service 2>/dev/null || true
+    _enable_unit_smart "audiobook-stream-translate.service" "$use_sudo"
 
     echo -e "${GREEN}  All services and timers enabled${NC}"
 }
