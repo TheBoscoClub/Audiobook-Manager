@@ -99,11 +99,15 @@ class AudiobookLibraryV2 {
 
       await api.post("/auth/session/restore", { token }, { toast: false });
       return true;
-
-      // Token invalid — clear stale stored token
-      await SessionPersistence.clear();
-      return false;
     } catch (e) {
+      // Token invalid (or network blip) — clear stale stored token so we
+      // don't loop on it. Used to live after the `return true` above where
+      // it was unreachable; fixed 2026-04-27.
+      try {
+        await SessionPersistence.clear();
+      } catch (_clearErr) {
+        /* clear failure is itself non-fatal */
+      }
       return false;
     }
   }
@@ -2465,12 +2469,11 @@ class AudiobookLibraryV2 {
     });
   }
 
-  escapeHtml(text) {
-    if (!text) return "";
-    const div = document.createElement("div");
-    div.textContent = text;
-    return div.innerHTML;
-  }
+  // (Duplicate `escapeHtml` definition removed 2026-04-27 — the canonical
+  // copy lives at the top of the class. JS class semantics let the later
+  // definition silently win, but the falsy-rejecting `if (!text)` form
+  // would mis-handle text === "0" edge cases. The canonical `text == null`
+  // form correctly preserves all non-nullish input.)
 
   updateResultsInfo(pagination) {
     const el = document.getElementById("showing-count");
@@ -2494,7 +2497,7 @@ class AudiobookLibraryV2 {
 
   createPaginationHTML(pagination) {
     const maxButtons = 7;
-    let pages = [];
+    let pages;
 
     if (pagination.total_pages <= maxButtons) {
       // Show all pages

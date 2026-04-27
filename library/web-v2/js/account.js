@@ -44,6 +44,13 @@
       return;
     }
     refreshAccountData();
+    // Load saved browsing preferences (theme, default page, etc.) into the
+    // modal form. Used to live in a wrapper at the bottom of this file that
+    // tried to monkey-patch this function — but the addEventListener at
+    // line ~328 had already captured this function reference, so the wrapper
+    // never fired and preferences were never auto-loaded. Inlined here
+    // 2026-04-27 so the call actually runs.
+    loadPreferencesIntoModal();
     document.getElementById("account-modal").classList.add("show");
   }
 
@@ -516,10 +523,4 @@
       });
   }
 
-  // Override openAccountModal to also load preferences
-  var _origOpenModal = openAccountModal;
-  openAccountModal = function () {
-    _origOpenModal();
-    if (authenticated) loadPreferencesIntoModal();
-  };
 })();

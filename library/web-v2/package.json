@@ -1,0 +1,14 @@
+{
+  "name": "audiobooks-web-v2",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Front-end JS for the Audiobook Manager web UI. Linted via ESLint flat config in eslint.config.js. Not published — exists only so npx/eslint can resolve @eslint/js without walking up to a malformed parent package.json.",
+  "type": "module",
+  "scripts": {
+    "lint": "eslint --config eslint.config.js js/"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.2.1"
+  }
+}

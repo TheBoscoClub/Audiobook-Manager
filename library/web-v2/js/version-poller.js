@@ -152,13 +152,13 @@
     if (!newVersion || !initialVersion || newVersion === initialVersion) {
       return false;
     }
-    // Same version the user already dismissed? Skip until backoff expires.
-    if (
-      dismissedFor === newVersion &&
-      Date.now() - dismissedAt < BACKOFF_AFTER_DISMISS_MS
-    ) {
-      return false;
-    }
+    // The dismiss-backoff branch that used to live here was vestigial —
+    // it referenced `dismissedFor` / `dismissedAt` / `BACKOFF_AFTER_DISMISS_MS`
+    // that were never declared anywhere in the module, so the comparison
+    // was always against `undefined` and always returned false. Removed
+    // 2026-04-27 in lockstep with the docstring's "explicit decision
+    // 2026-04-25 to remove the escape hatch" — once a deploy is detected,
+    // any acknowledgement reloads.
     return true;
   }
 

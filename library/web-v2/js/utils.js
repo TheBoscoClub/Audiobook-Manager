@@ -129,6 +129,35 @@ function formatLocal(isoStr) {
   return formatDate(isoStr, "long");
 }
 
+/**
+ * Format a Date as locale-aware "X minutes ago" / "Y hours ago" using
+ * Intl.RelativeTimeFormat. Falls back to a localized absolute string if
+ * the API isn't available (very old browsers).
+ *
+ * Used by utilities.js's recent-activity column when the activity is
+ * less than 24h old. Was previously called as `formatRelativeTime(d)`
+ * without an implementation existing — `ReferenceError` at runtime any
+ * time activity older than now-but-newer-than-24h needed to render.
+ * Implemented 2026-04-27 to make the call site honest.
+ *
+ * @param {Date} d
+ * @returns {string}
+ */
+function formatRelativeTime(d) {
+  var diffSec = Math.round((Date.now() - d.getTime()) / 1000);
+  if (typeof Intl !== "undefined" && Intl.RelativeTimeFormat) {
+    var rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+    if (Math.abs(diffSec) < 60) return rtf.format(-diffSec, "second");
+    var diffMin = Math.round(diffSec / 60);
+    if (Math.abs(diffMin) < 60) return rtf.format(-diffMin, "minute");
+    var diffHour = Math.round(diffMin / 60);
+    if (Math.abs(diffHour) < 24) return rtf.format(-diffHour, "hour");
+    var diffDay = Math.round(diffHour / 24);
+    return rtf.format(-diffDay, "day");
+  }
+  return d.toLocaleString();
+}
+
 // ============================================
 // Operation Polling
 // ============================================
