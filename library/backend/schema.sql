@@ -556,3 +556,26 @@ CREATE TABLE IF NOT EXISTS streaming_sessions (
 
 CREATE INDEX IF NOT EXISTS idx_streaming_sess_book ON streaming_sessions(audiobook_id, locale);
 CREATE INDEX IF NOT EXISTS idx_streaming_sess_state ON streaming_sessions(state);
+
+-- Translation monitor audit trail (v8.3.9). Every action the live + sampler
+-- monitors take (claim reset, retry exhausted, spend pause, etc.) is logged
+-- here for operator audit. See library/backend/migrations/025_translation_monitor_events.sql
+-- for the rationale and the type taxonomy. Local-only — not exported by transfer.py.
+CREATE TABLE IF NOT EXISTS translation_monitor_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    monitor TEXT NOT NULL CHECK (monitor IN ('live','sampler')),
+    event_type TEXT NOT NULL,
+    audiobook_id INTEGER,
+    segment_id INTEGER,
+    sampler_job_id INTEGER,
+    worker_id TEXT,
+    details TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_tm_events_created
+    ON translation_monitor_events(created_at);
+CREATE INDEX IF NOT EXISTS idx_tm_events_type
+    ON translation_monitor_events(event_type);
+CREATE INDEX IF NOT EXISTS idx_tm_events_monitor_created
+    ON translation_monitor_events(monitor, created_at);

@@ -1,0 +1,21 @@
+[Unit]
+Description=Audiobook translation monitor (sampler/backlog tier) — every 5 minutes
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
+PartOf=audiobook.target
+
+[Timer]
+# Fire 2 minutes after boot (let the live tier and the API stabilise first),
+# then every 5 minutes. The cadence is tuned to the sampler's wall-clock
+# tolerance — sampler segments take 30s of audio, plus translation latency,
+# and a stuck-2h claim is still cheaper to detect every 5 minutes than to
+# burn a full GPU-hour on.
+OnBootSec=2min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+Persistent=false
+
+Unit=audiobook-translation-monitor-sampler.service
+
+[Install]
+WantedBy=audiobook.target timers.target

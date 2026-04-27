@@ -16,7 +16,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![8](https://img.shields.io/badge/8-brightgreen)![3](https://img.shields.io/badge/3-darkgreen)![8](https://img.shields.io/badge/8-green)![14](https://img.shields.io/badge/14-yellow) | Latest tweak | [v8.3.8.14](../../releases/tag/v8.3.8.14) |
+| ![8](https://img.shields.io/badge/8-brightgreen)![3](https://img.shields.io/badge/3-darkgreen)![9](https://img.shields.io/badge/9-yellow) | Latest patch | [v8.3.9](../../releases/tag/v8.3.9) |
+| ![8](https://img.shields.io/badge/8-brightred)![3](https://img.shields.io/badge/3-darkred)![8](https://img.shields.io/badge/8-red)![14](https://img.shields.io/badge/14-orange) | Prior tweak | [v8.3.8.14](../../releases/tag/v8.3.8.14) |
 | ![8](https://img.shields.io/badge/8-brightred)![3](https://img.shields.io/badge/3-darkred)![8](https://img.shields.io/badge/8-red)![13](https://img.shields.io/badge/13-orange) | Prior tweak | [v8.3.8.13](../../releases/tag/v8.3.8.13) |
 | ![8](https://img.shields.io/badge/8-brightred)![3](https://img.shields.io/badge/3-darkred)![8](https://img.shields.io/badge/8-red)![12](https://img.shields.io/badge/12-orange) | Prior tweak | [v8.3.8.12](../../releases/tag/v8.3.8.12) |
 | ![8](https://img.shields.io/badge/8-brightred)![3](https://img.shields.io/badge/3-darkred)![8](https://img.shields.io/badge/8-red)![11](https://img.shields.io/badge/11-orange) | Prior tweak | [v8.3.8.11](../../releases/tag/v8.3.8.11) |
@@ -2341,6 +2342,12 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 - ~~**Subtitle Pipeline**~~: ✅ On-demand chapter-by-chapter STT (Whisper) → Translation (DeepL) → VTT generation with bilingual transcript panel
 - ~~**Text-to-Speech**~~: ✅ Translated audio via edge-tts or XTTS v2 with provider fallback
 - ~~**Translation Portability**~~: ✅ Export/import CLI tool for transferring GPU-generated assets between environments
+
+**Streaming Translation Pipeline (v8.3)**
+
+- ~~**Real-time chapter-level streaming translation**~~: ✅ Cursor-buffer-fill model with 30s segments, MSE-driven playback, WebSocket progress updates, and chapter auto-advance on EOF
+- ~~**Pre-translation sampler**~~: ✅ 6-minute first-listen pre-translation per book at scan-time so cold-start latency is invisible to listeners; cost-discovery via DB-enforced priority invariant (sampler segments are p2; live playback p0/p1 always wins)
+- ~~**Translation monitor (v8.3.9)**~~: ✅ Two-tier systemd-timer watchdog that resets stuck claims (60s live / 2h sampler), sweeps retry-budget exhaustion, and emits `live_age_alert` / `capacity_warning` events to the `translation_monitor_events` audit trail. Prevents queue stalls when workers crash or disconnect
 
 ### Planned Features
 

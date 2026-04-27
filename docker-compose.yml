@@ -19,7 +19,7 @@
 services:
   audiobooks:
     # Option 1: Pull from GHCR (recommended) — pinned to release tag for reproducibility
-    image: ghcr.io/theboscoclub/audiobook-manager:8.3.8.14
+    image: ghcr.io/theboscoclub/audiobook-manager:8.3.9
     # Option 2: Build locally (uncomment below, comment out image above)
     # build: .
     container_name: audiobooks
@@ -69,6 +69,15 @@ services:
       - HTTP_REDIRECT_PORT=8080
       # Gunicorn+geventwebsocket is used automatically (migrated from Waitress in v7.2)
       - HTTP_REDIRECT_ENABLED=true
+
+      # Instance identifier rendered as a pulsing pill in the shell header.
+      # Optional — leave unset for production to render no pill. Set to any
+      # short string to distinguish stacks during testing (e.g., "STAGING",
+      # "QA", "DEV", or operator conventions like "QA-NATIVE" / "QA-DOCK"
+      # to disambiguate native vs containerized instances of the same env).
+      # API surface: library/backend/api_modular/utilities_system.py:671
+      # UI hook:     library/web-v2/shell.html:425
+      - INSTANCE_BADGE=${INSTANCE_BADGE:-}
 
       # Authentication — set AUTH_ENABLED=true for QA/prod-mirror deployments.
       # When true, api_server.py requires AUTH_DATABASE and AUTH_KEY_FILE to

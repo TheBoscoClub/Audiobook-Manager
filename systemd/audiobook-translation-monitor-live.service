@@ -1,0 +1,57 @@
+[Unit]
+Description=Audiobook translation monitor — live tier (claim reset, retry sweep)
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
+After=network-online.target audiobook-api.service
+PartOf=audiobook.target
+RequiresMountsFor=/opt/audiobooks /var/lib/audiobooks
+# Generous interval caps restart storms if persistently broken
+StartLimitIntervalSec=300
+StartLimitBurst=5
+
+[Service]
+Type=oneshot
+User=audiobooks
+Group=audiobooks
+
+# Canonical default — falls through to library/config.py defaults if not
+# overridden in audiobooks.conf. See audiobook-enrichment.service for the
+# rationale on why this Environment= line precedes EnvironmentFile= rather
+# than relying on shell expansion (systemd EnvironmentFile= does not expand
+# ${...} references).
+Environment=AUDIOBOOKS_DATABASE=/var/lib/audiobooks/db/audiobooks.db
+EnvironmentFile=-/etc/audiobooks/audiobooks.conf
+Environment=HOME=/var/lib/audiobooks
+
+WorkingDirectory=/opt/audiobooks
+
+ExecStart=/opt/audiobooks/library/venv/bin/python /opt/audiobooks/scripts/translation-monitor-live.py
+
+# Cap individual pass runtime — a single pass should complete in <1s under
+# normal conditions. 60s is a runaway-protection ceiling.
+TimeoutStartSec=60
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audiobook-translation-monitor-live
+
+# Security hardening — same baseline as audiobook-stream-translate.service.
+# ProtectSystem=full leaves /var (DB) and /srv (library) writable; we never
+# need to write outside those.
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+
+# No Restart= for oneshot — the timer drives the cadence.
+
+[Install]
+WantedBy=audiobook.target

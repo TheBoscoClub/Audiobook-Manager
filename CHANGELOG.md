@@ -13,6 +13,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.9] - 2026-04-27
+
+### Added
+
+- **`INSTANCE_BADGE` env var plumbed through `docker-compose.yml`**: the pulsing instance-identifier pill in `library/web-v2/shell.html:22-37` (populated by `if (d.instance_badge)` at `shell.html:426`) has been available to native installs since v7.x via `INSTANCE_BADGE=...` in `/etc/audiobooks/audiobooks.conf`, echoed back through `/api/system/version` by `library/backend/api_modular/utilities_system.py:671`. This release adds `environment: INSTANCE_BADGE=${INSTANCE_BADGE:-}` to the Docker template so the same identifier can be passed to a containerized instance without editing the compose file. The variable is optional — leaving it unset renders no pill, which is the default behaviour for single-instance installations
+- **Two-tier translation monitor**: automatically resets translation jobs that are stuck in claimed/running states beyond their expected duration so the queue keeps progressing instead of stalling on a worker that crashed or lost connectivity. Introduces `audiobook-translation-monitor-live.timer` (every 30s, scope `streaming_segments WHERE origin='live'`) and `audiobook-translation-monitor-sampler.timer` (every 5min, scope `sampler_jobs` + `streaming_segments WHERE origin IN ('sampler','backlog')`). Each tier runs idempotent SQL primitives in `library/translation_monitor/probe.py`:
+  - **Stuck claim reset** — `state IN ('processing','claimed') AND started_at` past tier-specific timeout (60s live, 2h sampler) → clear `worker_id`, `started_at`, set `state='pending'` so the next worker poll picks the row up
+  - **Retry budget sweep** — `retry_count >= 3 AND state NOT IN ('failed','completed')` → mark `state='failed'` with `error='retry budget exhausted (monitor)'`. Second-line defence for the case where the worker crashed mid-handler before its own retry-cap branch could fire
+  - **Stuck `sampler_jobs` reset** — `status='running' AND updated_at >2h ago` → reset to `pending` (preserves `segments_done`); the next sampler sweep continues where the previous worker left off
+  - **Live age alert** (informational) — live segments past `LIVE_AGE_ALERT_SEC` (default 120s) still pending/processing/claimed → emit `live_age_alert` event without mutating state. Distinct from claim reset: that catches *worker-stuck* claims at 60s; this catches *queue-depth* problems at 2 min where a healthy worker is just busy with prior work. Each segment alerts at most once per `cooldown_sec` (default 1h) to prevent log spam
+  - **Capacity warning** — pending live segments > `LIVE_PENDING_PRESSURE_THRESHOLD` (default 50) AND at least one worker active → emit one `capacity_warning` event. Two-condition gate prevents false-fires when the system is fully idle (a large pending count with no active workers is a different failure mode that future work will address). Idempotent over `CAPACITY_WARNING_COOLDOWN_SEC` (default 5min)
+- **`translation_monitor_events` audit-trail table** (migration `library/backend/migrations/025_translation_monitor_events.sql` + data-migration `data-migrations/009_translation_monitor_events.sh`): every action either monitor takes writes one row with `monitor`, `event_type`, `audiobook_id`, `segment_id`, `sampler_job_id`, `worker_id`, and a JSON `details` blob. Without an audit trail a reset is silent and indistinguishable from "the worker finished on its own" — which makes diagnosing a misbehaving worker impossible. Per-worker reset frequency is now answerable from one SQL query
+- **Operator documentation**: new `docs/TRANSLATION-MONITOR.md` covers the architecture, the event-type taxonomy, threshold tuning (constants in `probe.py`), three diagnostic SQL queries (recent events / per-worker reset counts / retry-exhausted in last 24h), and commands for inspecting / forcing / disabling each tier. Cross-linked from `docs/ARCHITECTURE.md` "Streaming Translation Pipeline" section
+- **Test suite**: `library/tests/test_translation_monitor.py` — 46 tests covering stuck-claim reset (live + sampler), `sampler_jobs` reset, retry-cap sweep, live-age alert (fires/skips/idempotent), capacity warning (threshold/no-workers/cooldown/details), idempotency (running a monitor twice yields zero events on the second pass), audit-trail correctness, event-type taxonomy enforcement, and structural wiring guards (units exist, manifest lists them, target Wants= the timers, release-requirements lists the new table, data-migration 009 declares the right `MIN_VERSION`)
+- **Wiring**: `audiobook.target` Wants= both new timers; `install.sh` enables them in its system-mode timer-enable loop; `upgrade.sh::enable_new_services` adds them to its `standalone_units` array (idempotent); `scripts/install-manifest.sh` lists all four new units in `CANONICAL_UNITS` and both new scripts in `CANONICAL_WORKERS`; `scripts/release-requirements.sh` adds `translation_monitor_events` to `REQUIRED_DB_TABLES` and bumps `RELEASE_REQUIREMENTS_VERSION` to `8.3.9`. Stub `probe_gpu_instance_health()` returns a structurally-correct payload so call sites are stable when a real GPU/inference-backend health probe lands in a future release
+
 ## [8.3.8.14] - 2026-04-27
 
 ### Fixed
@@ -3470,7 +3486,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.14...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.9...HEAD
+[8.3.9]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.14...v8.3.9
 [8.3.8.14]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.13...v8.3.8.14
 [8.3.8.13]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.12...v8.3.8.13
 [8.3.8.12]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.11...v8.3.8.12

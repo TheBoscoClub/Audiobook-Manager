@@ -946,8 +946,10 @@ enable_new_services() {
     #     These either schedule their own services (timers) or hook reboot
     #     targets (shutdown-saver). Must be enabled explicitly.
     local standalone_units=(
-        audiobook-enrichment.timer       # backfill un-enriched metadata
-        audiobook-shutdown-saver.service # saves tmpfs staging before reboot/halt
+        audiobook-enrichment.timer                       # backfill un-enriched metadata
+        audiobook-shutdown-saver.service                 # saves tmpfs staging before reboot/halt
+        audiobook-translation-monitor-live.timer         # v8.3.9: 30s live-tier monitor
+        audiobook-translation-monitor-sampler.timer      # v8.3.9: 5min sampler-tier monitor
     )
     for unit in "${standalone_units[@]}"; do
         if [[ -f "/etc/systemd/system/${unit}" ]]; then

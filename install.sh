@@ -1890,7 +1890,7 @@ EOF
         # audiobook-shutdown-saver.service hooks halt/reboot/shutdown targets
         # and must be enabled so tmpfs staging is flushed on clean shutdown.
         sudo systemctl enable audiobook.target 2>/dev/null || true
-        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer audiobook-stream-translate audiobook-shutdown-saver.service; do
+        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer audiobook-stream-translate audiobook-shutdown-saver.service audiobook-translation-monitor-live.timer audiobook-translation-monitor-sampler.timer; do
             sudo systemctl enable "$svc" 2>/dev/null || true
         done
         # Explicit enable for streaming translation worker (belt-and-suspenders

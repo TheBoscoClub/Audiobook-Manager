@@ -924,6 +924,24 @@ and API surface.
 | Priority-invariant triggers | `streaming_segments_sampler_priority_{ins,upd}` | DB-level `RAISE(ABORT)` on sampler at priority<2 |
 | Adaptive buffer-fill | `GET /api/translate/warmth`, `POST /api/translate/sampler/activate` | 3-when-cold / 4-when-warm threshold based on RunPod `workers.ready` |
 
+**Translation monitor (v8.3.9+).** Two systemd-timer-driven oneshot scripts
+automatically reset translation jobs that are stuck in claimed/running states
+beyond their expected duration, so the queue keeps progressing instead of
+stalling on a worker that crashed or lost connectivity:
+
+| Tier | Cadence | Scope |
+|------|---------|-------|
+| `translation-monitor-live` | every 30s | `streaming_segments` rows with `origin='live'` (priority 0/1) |
+| `translation-monitor-sampler` | every 5min | `sampler_jobs` + `streaming_segments` with `origin in ('sampler','backlog')` |
+
+Each pass detects stuck claims (`state IN ('processing','claimed') AND
+started_at` past tier-specific timeout — 60s live, 2h sampler), retry-budget
+exhaustion (`retry_count >= 3`), and orphan `sampler_jobs` rows
+(`status='running'` and `updated_at >2h`). Every action writes one row to
+`translation_monitor_events` for operator audit. Implementation in
+`library/translation_monitor/{db,events,probe}.py`; full operator guide in
+`docs/TRANSLATION-MONITOR.md`.
+
 **Path- and log-injection defense (v8.3.7+).** `streaming_translate.py`
 exposes two boundary helpers used by every filesystem/DB write that accepts
 worker-provided paths:

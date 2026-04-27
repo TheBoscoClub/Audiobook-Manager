@@ -31,7 +31,7 @@
 
 # shellcheck disable=SC2034  # arrays consumed by validator, not this file
 
-RELEASE_REQUIREMENTS_VERSION="8.3.8"
+RELEASE_REQUIREMENTS_VERSION="8.3.9"
 
 # ─── Required config keys ────────────────────────────────────────────────────
 # Format: KEY|SEVERITY|FEATURE|PURPOSE
@@ -100,6 +100,7 @@ REQUIRED_DB_COLUMNS=(
 # from the tarball was missing this table. This gate catches exactly that.
 REQUIRED_DB_TABLES=(
     "sampler_jobs"
+    "translation_monitor_events"
 )
 
 # ─── Validator ───────────────────────────────────────────────────────────────

@@ -1,0 +1,23 @@
+[Unit]
+Description=Audiobook translation monitor (live tier) — every 30 seconds
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
+PartOf=audiobook.target
+
+[Timer]
+# Fire 30 seconds after boot, then every 30 seconds. The cadence matches
+# the live cursor-buffer's tolerance — a stuck claim that survives one tick
+# wastes at most one segment of GPU compute (~10s of inference).
+OnBootSec=30s
+OnUnitActiveSec=30s
+
+# Survive AccuracySec slop — without this, systemd may bunch fires.
+AccuracySec=5s
+
+# Persistent=false — there is no value in running 4-hours-worth of catch-up
+# fires after a host wakes from sleep; only the most recent state matters.
+Persistent=false
+
+Unit=audiobook-translation-monitor-live.service
+
+[Install]
+WantedBy=audiobook.target timers.target

@@ -1,0 +1,47 @@
+[Unit]
+Description=Audiobook translation monitor — sampler/backlog tier (claim reset, retry sweep)
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
+After=network-online.target audiobook-api.service
+PartOf=audiobook.target
+RequiresMountsFor=/opt/audiobooks /var/lib/audiobooks
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=oneshot
+User=audiobooks
+Group=audiobooks
+
+Environment=AUDIOBOOKS_DATABASE=/var/lib/audiobooks/db/audiobooks.db
+EnvironmentFile=-/etc/audiobooks/audiobooks.conf
+Environment=HOME=/var/lib/audiobooks
+
+WorkingDirectory=/opt/audiobooks
+
+ExecStart=/opt/audiobooks/library/venv/bin/python /opt/audiobooks/scripts/translation-monitor-sampler.py
+
+# Sampler tier may have larger candidate sets and more events to log; allow
+# 5 minutes total (still well under the 5-min cadence so two runs never overlap).
+TimeoutStartSec=300
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audiobook-translation-monitor-sampler
+
+# Security hardening — same baseline as the live-tier service.
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=audiobook.target

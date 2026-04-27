@@ -74,6 +74,10 @@ CANONICAL_UNITS=(
     "audiobook-upgrade-helper.service"
     "audiobook-upgrade-helper.path"
     "audiobook-stream-translate.service"
+    "audiobook-translation-monitor-live.service"
+    "audiobook-translation-monitor-live.timer"
+    "audiobook-translation-monitor-sampler.service"
+    "audiobook-translation-monitor-sampler.timer"
 )
 
 # ---------------------------------------------------------------------------
@@ -88,6 +92,8 @@ CANONICAL_UNITS=(
 CANONICAL_WORKERS=(
     "stream-translate-worker.py|audiobook-stream-translate.service (via stream-translate-daemon.sh)"
     "stream-translate-daemon.sh|audiobook-stream-translate.service"
+    "translation-monitor-live.py|audiobook-translation-monitor-live.service (timer-driven, every 30s)"
+    "translation-monitor-sampler.py|audiobook-translation-monitor-sampler.service (timer-driven, every 5min)"
 )
 
 # ---------------------------------------------------------------------------

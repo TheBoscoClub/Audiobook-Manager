@@ -18,5 +18,12 @@ Wants=audiobook-stream-translate.service
 Wants=audiobook-downloader.timer
 Wants=audiobook-scheduler.service
 
+# Translation monitor (v8.3.9) — two-tier stuck-claim / retry-budget watchdog.
+# Live tier fires every 30s (origin='live', priority 0/1); sampler tier fires
+# every 5min (sampler_jobs + origin in ('sampler','backlog')). See
+# docs/TRANSLATION-MONITOR.md.
+Wants=audiobook-translation-monitor-live.timer
+Wants=audiobook-translation-monitor-sampler.timer
+
 [Install]
 WantedBy=multi-user.target
