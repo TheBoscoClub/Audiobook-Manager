@@ -90,7 +90,11 @@
       "command": "./install.sh --system",
       "required_on_pristine": true,
       "creates": ["audiobooks user/group", "/opt/audiobooks/", "/etc/audiobooks/", "/var/lib/audiobooks/", "venv", "SSL certs", "systemd services"],
-      "detects_pristine_by": "getent passwd audiobooks"
+      "detects_pristine_by": "getent passwd audiobooks",
+      "assert_enabled_timers_active": {
+        "unit_pattern": "audiobook-*",
+        "rationale": "Regression guard for Audiobook-Manager-hp2: catch the 'enable without --now' upgrade bug class where new timers in a release are wired but never started in the current boot. Phase 10b runs systemctl is-enabled + is-active for each /etc/systemd/system/audiobook-*.timer and fails if any enabled timer is not active. Shutdown-only units are auto-exempted by the phase logic."
+      }
     },
 
     "deploy": {
