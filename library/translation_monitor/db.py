@@ -34,10 +34,11 @@ def _canonical_default_db() -> str:
     """
     fallback = os.environ.get("AUDIOBOOKS_DATABASE", "")
     try:
+        # pylint: disable=import-outside-toplevel
         from config import AUDIOBOOKS_DATABASE  # type: ignore[import-not-found]
 
         return str(AUDIOBOOKS_DATABASE)
-    except Exception:  # noqa: BLE001 — config import is best-effort
+    except (ImportError, AttributeError):
         return fallback
 
 
@@ -82,8 +83,7 @@ def schema_has_monitor_table(conn: sqlite3.Connection) -> bool:
     where migration 025 hasn't run yet — better than crashing the timer.
     """
     row = conn.execute(
-        "SELECT name FROM sqlite_master "
-        "WHERE type='table' AND name='translation_monitor_events'"
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='translation_monitor_events'"
     ).fetchone()
     return row is not None
 

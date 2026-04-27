@@ -135,9 +135,9 @@ class TestShellHtmlMarkup:
         """Panel must carry the .bilingual modifier so CSS can target two-column rules."""
         assert re.search(
             r'id="transcript-panel"[^>]*class="[^"]*\bbilingual\b', self.html
-        ) or re.search(r'class="[^"]*\bbilingual\b[^"]*"[^>]*id="transcript-panel"', self.html), (
-            "transcript-panel must carry the 'bilingual' CSS class"
-        )
+        ) or re.search(
+            r'class="[^"]*\bbilingual\b[^"]*"[^>]*id="transcript-panel"', self.html
+        ), "transcript-panel must carry the 'bilingual' CSS class"
 
     def test_has_two_column_structure(self):
         """Panel interior must contain a source column and a target column."""
@@ -185,17 +185,17 @@ class TestCssBilingualLayout:
         assert mq is not None, "missing @media (max-width: 720px) block"
         body = mq.group(1)
         assert re.search(r"\.cols", body), "720px block must target .cols"
-        assert re.search(r"flex-direction\s*:\s*column", body), (
-            "720px block must set flex-direction:column on the columns container"
-        )
+        assert re.search(
+            r"flex-direction\s*:\s*column", body
+        ), "720px block must set flex-direction:column on the columns container"
 
     def test_current_cue_highlight_rule(self):
         """Active-cue highlight for the bilingual panel must exist."""
         assert re.search(
             r"\.transcript-panel\.bilingual[^{]*\.(?:cue|current)[^{]*{", self.css
-        ) or re.search(r"\.bilingual\s+[^{]*\.current\s*{", self.css), (
-            "bilingual current-cue highlight rule missing"
-        )
+        ) or re.search(
+            r"\.bilingual\s+[^{]*\.current\s*{", self.css
+        ), "bilingual current-cue highlight rule missing"
 
 
 # ── Behavioural tests for pairVttCues via node subprocess ───────────────

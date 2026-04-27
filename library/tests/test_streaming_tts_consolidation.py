@@ -397,9 +397,9 @@ def test_process_segment_tts_failure_does_not_silently_complete(tmp_path):
     state, retry_count, error, worker_id, started_at = row
     assert state == "pending", f"expected state=pending after first retry, got {state!r}"
     assert retry_count == 1, f"expected retry_count=1, got {retry_count}"
-    assert error and "synth failed" in error, (
-        f"expected error column populated with 'synth failed', got {error!r}"
-    )
+    assert (
+        error and "synth failed" in error
+    ), f"expected error column populated with 'synth failed', got {error!r}"
     assert worker_id is None, "worker_id must be cleared on failure for re-claim"
     assert started_at is None, "started_at must be cleared on failure for re-claim"
 
@@ -703,9 +703,9 @@ def test_consolidate_chapter_skips_audio_when_any_segment_missing_audio(
         "WHERE audiobook_id = 10 AND chapter_index = 0 AND locale = 'zh-Hans'"
     ).fetchone()
     db.close()
-    assert row is None, (
-        "chapter_translations_audio must not exist when any segment is missing audio_path"
-    )
+    assert (
+        row is None
+    ), "chapter_translations_audio must not exist when any segment is missing audio_path"
 
 
 # ── process_segment: idempotent TTS-only regen (v8.3.8.7 repair path) ──
@@ -860,19 +860,14 @@ def test_process_segment_skips_stt_when_only_vtt_content_present_no_source(tmp_p
     }
 
     with (
-        patch.object(
-            w,
-            "split_audio_segment",
-            side_effect=AssertionError("STT must not run"),
-        ),
+        patch.object(w, "split_audio_segment", side_effect=AssertionError("STT must not run")),
         patch.object(w, "_synthesize_segment_audio", side_effect=fake_synth),
         patch(
             "localization.pipeline.generate_subtitles",
             side_effect=AssertionError("STT must not run"),
         ),
         patch(
-            "localization.pipeline.get_stt_provider",
-            side_effect=AssertionError("STT must not run"),
+            "localization.pipeline.get_stt_provider", side_effect=AssertionError("STT must not run")
         ),
         patch("urllib.request.urlopen", side_effect=fake_urlopen),
     ):

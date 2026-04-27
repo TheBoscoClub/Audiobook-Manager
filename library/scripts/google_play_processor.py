@@ -788,7 +788,9 @@ def main():
 
     # Check for FFmpeg
     try:
-        subprocess.run(["ffmpeg", "-version"], capture_output=True, check=True)  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+        subprocess.run(
+            ["ffmpeg", "-version"], capture_output=True, check=True
+        )  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
     except (subprocess.CalledProcessError, FileNotFoundError):  # fmt: skip
         print("Error: FFmpeg not found. Please install FFmpeg.")
         sys.exit(1)

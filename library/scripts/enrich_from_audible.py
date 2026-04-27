@@ -77,7 +77,9 @@ def fetch_audible_product(asin: str) -> dict | None:
     Returns the product dict or None on failure.
     """
     url = f"{AUDIBLE_API}/{asin}?response_groups={ALL_RESPONSE_GROUPS}&marketplace={MARKETPLACE}"
-    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})  # noqa: S310 — Request for fixed HTTPS Audible API endpoint; no user-controlled URL scheme
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "AudiobookManager/1.0"}
+    )  # noqa: S310 — Request for fixed HTTPS Audible API endpoint; no user-controlled URL scheme
 
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (AUDIBLE_API) + validated ASIN from internal DB; not user-controlled scheme
@@ -499,7 +501,9 @@ def _execute_book_update(cursor, book_id: int, updates: list, params: list, now:
     params.append(book_id)
     sql = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608  # noqa: S608
     try:
-        cursor.execute(sql, params)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        cursor.execute(
+            sql, params
+        )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         return True
     except sqlite3.DatabaseError as e:
         print(f"  DB ERROR on book_id={book_id}: {e}")

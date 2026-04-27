@@ -41,9 +41,9 @@ def test_skip_service_lifecycle_flag_passed():
 def test_no_echo_y_pipe_hack():
     """Helper must not use 'echo y |' pipe hack."""
     content = HELPER_PATH.read_text()
-    assert 'echo "y"' not in content and "echo 'y'" not in content and "echo y |" not in content, (
-        "Must use --yes flag, not echo y pipe hack"
-    )
+    assert (
+        'echo "y"' not in content and "echo 'y'" not in content and "echo y |" not in content
+    ), "Must use --yes flag, not echo y pipe hack"
 
 
 def test_new_request_fields_parsed():
@@ -57,9 +57,9 @@ def test_force_and_major_version_forwarded_to_upgrade_sh():
     """--force and --major-version must be forwarded to upgrade.sh command."""
     content = HELPER_PATH.read_text()
     assert '"--force"' in content, "Must pass --force flag to upgrade.sh when force=true"
-    assert '"--major-version"' in content, (
-        "Must pass --major-version flag to upgrade.sh when major_version=true"
-    )
+    assert (
+        '"--major-version"' in content
+    ), "Must pass --major-version flag to upgrade.sh when major_version=true"
 
 
 def test_all_services_in_stop_order():
@@ -82,9 +82,9 @@ def test_all_services_in_stop_order():
 def test_no_hardcoded_paths():
     """Helper must source audiobook-config.sh and use config variables for paths."""
     content = HELPER_PATH.read_text()
-    assert "audiobook-config.sh" in content, (
-        "Helper must source audiobook-config.sh for path variables"
-    )
+    assert (
+        "audiobook-config.sh" in content
+    ), "Helper must source audiobook-config.sh for path variables"
     for line in content.splitlines():
         if line.startswith("CONTROL_DIR=") and "/var/lib/audiobooks" in line:
             assert False, "CONTROL_DIR must use $AUDIOBOOKS_VAR_DIR, not hardcoded path"

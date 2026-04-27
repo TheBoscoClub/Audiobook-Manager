@@ -162,7 +162,9 @@ AUDIOBOOKS_WEBM_CACHE = Path(
     get_config("AUDIOBOOKS_WEBM_CACHE", str(AUDIOBOOKS_DATA / ".webm-cache"))
 )
 AUDIOBOOKS_STAGING = Path(
-    get_config("AUDIOBOOKS_STAGING", "/tmp/audiobook-staging")  # noqa: S108 — default only; users override via audiobooks.conf; service creates dir 0700  # nosec B108 — tmp path — config default only; production overrides via audiobooks.conf; service creates dir 0700
+    get_config(
+        "AUDIOBOOKS_STAGING", "/tmp/audiobook-staging"
+    )  # noqa: S108 — default only; users override via audiobooks.conf; service creates dir 0700  # nosec B108 — tmp path — config default only; production overrides via audiobooks.conf; service creates dir 0700
 )  # nosec B108
 AUDIOBOOKS_VENV = Path(get_config("AUDIOBOOKS_VENV", str(AUDIOBOOKS_HOME / "library" / "venv")))
 AUDIOBOOKS_CONVERTER = Path(

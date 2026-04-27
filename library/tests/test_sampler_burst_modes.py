@@ -39,9 +39,9 @@ def test_add_workers_flag_registered():
 def test_workers_and_add_workers_mutually_exclusive():
     """Using --workers with --add-workers errors out with a clear message."""
     # Both branches must check _mode_set and emit the mutex error.
-    assert BURST.count("mutually exclusive") >= 1, (
-        "mutual exclusion error message missing from --workers/--add-workers handlers"
-    )
+    assert (
+        BURST.count("mutually exclusive") >= 1
+    ), "mutual exclusion error message missing from --workers/--add-workers handlers"
     assert "_mode_set=1" in BURST, "mode-set sentinel missing"
 
 
@@ -84,9 +84,9 @@ def test_add_mode_subtracts_existing_count():
 def test_clamp_emits_user_visible_note():
     """When requested > available, the excess is clamped and a note is printed."""
     # Grep for the characteristic note phrase.
-    assert "cap=" in BURST and "Spawning $available_slots" in BURST, (
-        "clamp note not emitted when requested exceeds available slots"
-    )
+    assert (
+        "cap=" in BURST and "Spawning $available_slots" in BURST
+    ), "clamp note not emitted when requested exceeds available slots"
 
 
 def test_full_cap_refuses_to_spawn():
@@ -223,13 +223,13 @@ def test_python_bin_uses_canonical_venv():
     """PYTHON_BIN MUST resolve from AUDIOBOOKS_VENV (the canonical export from
     audiobook-config.sh), not from a hardcoded ${AUDIOBOOKS_HOME}/venv/... path
     that drifts from the real venv location at ${AUDIOBOOKS_HOME}/library/venv."""
-    assert 'PYTHON_BIN="${AUDIOBOOKS_VENV}/bin/python"' in BURST, (
-        "PYTHON_BIN must derive from AUDIOBOOKS_VENV, not a hardcoded path"
-    )
+    assert (
+        'PYTHON_BIN="${AUDIOBOOKS_VENV}/bin/python"' in BURST
+    ), "PYTHON_BIN must derive from AUDIOBOOKS_VENV, not a hardcoded path"
     # The drifted path (the v8.3.8.5 bug) must NOT appear.
-    assert 'PYTHON_BIN="${AUDIOBOOKS_HOME}/venv/bin/python"' not in BURST, (
-        "Bug-shaped PYTHON_BIN reintroduced — wrong by /library/"
-    )
+    assert (
+        'PYTHON_BIN="${AUDIOBOOKS_HOME}/venv/bin/python"' not in BURST
+    ), "Bug-shaped PYTHON_BIN reintroduced — wrong by /library/"
 
 
 def test_python_bin_has_no_silent_python3_fallback():
@@ -237,9 +237,9 @@ def test_python_bin_has_no_silent_python3_fallback():
     missing — that path has no edge_tts module and produces silent TTS failures.
     Hard-fail with a clear diagnostic instead."""
     # The bug-shaped fallback was: [[ -x "$PYTHON_BIN" ]] || PYTHON_BIN="python3"
-    assert 'PYTHON_BIN="python3"' not in BURST, (
-        "Silent fallback to system python3 reintroduced — would mask edge_tts ImportError"
-    )
+    assert (
+        'PYTHON_BIN="python3"' not in BURST
+    ), "Silent fallback to system python3 reintroduced — would mask edge_tts ImportError"
 
 
 def test_preflight_rejects_missing_venv_python():

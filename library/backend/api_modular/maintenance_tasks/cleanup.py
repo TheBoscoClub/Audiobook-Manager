@@ -188,7 +188,9 @@ def _resolve_staging_dir():
         return AUDIOBOOKS_STAGING
     except ImportError:
         return Path(
-            os.environ.get("AUDIOBOOKS_STAGING", "/tmp/audiobook-staging")  # noqa: S108 — config module unavailable at this call site; env var or compile-time default  # nosec B108 — tmp path — config default only; production overrides via audiobooks.conf; service creates dir 0700
+            os.environ.get(
+                "AUDIOBOOKS_STAGING", "/tmp/audiobook-staging"
+            )  # noqa: S108 — config module unavailable at this call site; env var or compile-time default  # nosec B108 — tmp path — config default only; production overrides via audiobooks.conf; service creates dir 0700
         )  # nosec B108
 
 
@@ -196,7 +198,9 @@ def _is_conversion_active():
     """Check if any ffmpeg conversions are currently running."""
     import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 
-    result = subprocess.run(["pgrep", "-f", "ffmpeg.*opus"], capture_output=True, timeout=5)  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+    result = subprocess.run(
+        ["pgrep", "-f", "ffmpeg.*opus"], capture_output=True, timeout=5
+    )  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
     return result.returncode == 0
 
 

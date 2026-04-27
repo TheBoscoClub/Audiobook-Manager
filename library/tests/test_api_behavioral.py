@@ -585,9 +585,9 @@ class TestSortBySeries:
         for b in books:
             series_groups.setdefault(b["series"], []).append(b["series_sequence"])
         for series_name, sequences in series_groups.items():
-            assert sequences == sorted(sequences), (
-                f"Series '{series_name}' not in sequence order: {sequences}"
-            )
+            assert sequences == sorted(
+                sequences
+            ), f"Series '{series_name}' not in sequence order: {sequences}"
 
 
 class TestSortByAuthorLast:

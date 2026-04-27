@@ -354,8 +354,7 @@ def _resolve_chapter_count(db, audiobook_id: int) -> int:
         return memoed
 
     row = db.execute(
-        "SELECT chapter_count, file_path FROM audiobooks WHERE id = ?",
-        (audiobook_id,),
+        "SELECT chapter_count, file_path FROM audiobooks WHERE id = ?", (audiobook_id,)
     ).fetchone()
     if row is None:
         raise ValueError(f"audiobook {audiobook_id} not found")
@@ -375,16 +374,11 @@ def _resolve_chapter_count(db, audiobook_id: int) -> int:
             f"ffprobe reported no chapters for audiobook {audiobook_id} ({file_path!r})"
         )
 
-    db.execute(
-        "UPDATE audiobooks SET chapter_count = ? WHERE id = ?",
-        (count, audiobook_id),
-    )
+    db.execute("UPDATE audiobooks SET chapter_count = ? WHERE id = ?", (count, audiobook_id))
     db.commit()
     _chapter_count_memo[audiobook_id] = count
     logger.info(
-        "Backfilled chapter_count=%d for audiobook %d via ffprobe",
-        int(count),
-        int(audiobook_id),
+        "Backfilled chapter_count=%d for audiobook %d via ffprobe", int(count), int(audiobook_id)
     )
     return count
 
@@ -426,10 +420,7 @@ def _resolve_chapters(db, audiobook_id: int) -> list[tuple[float, float]]:
     if cached is not None:
         return cached
 
-    row = db.execute(
-        "SELECT file_path FROM audiobooks WHERE id = ?",
-        (audiobook_id,),
-    ).fetchone()
+    row = db.execute("SELECT file_path FROM audiobooks WHERE id = ?", (audiobook_id,)).fetchone()
     if row is None or not row["file_path"]:
         _chapters_memo[audiobook_id] = []
         return []
@@ -1134,12 +1125,7 @@ def get_session_state(audiobook_id, locale):
 #    "streaming_ready": <int — combined across providers>,
 #    "cold": <bool — True iff every configured provider has 0 ready workers>,
 #    "providers": [{"name": "runpod", "ready": N, "endpoint_id": "xxx"}, ...]}
-_STT_WARMTH_CACHE: dict = {
-    "ts": 0.0,
-    "streaming_ready": 0,
-    "cold": True,
-    "providers": [],
-}
+_STT_WARMTH_CACHE: dict = {"ts": 0.0, "streaming_ready": 0, "cold": True, "providers": []}
 _STT_WARMTH_TTL_SEC = 60
 
 
@@ -1164,8 +1150,8 @@ def _probe_stt_warmth() -> tuple[bool, int, list[dict]]:
     callers that unpack only the first two still work.
     """
     import time
-    import urllib.request
     import urllib.error
+    import urllib.request
 
     now = time.time()
     if now - _STT_WARMTH_CACHE["ts"] < _STT_WARMTH_TTL_SEC:
@@ -1187,7 +1173,9 @@ def _probe_stt_warmth() -> tuple[bool, int, list[dict]]:
         entry = {"name": name, "ready": 0, "endpoint_id": endpoint}
         try:
             # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-            with urllib.request.urlopen(req, timeout=3) as resp:  # nosec B310 — trusted provider hosts
+            with urllib.request.urlopen(
+                req, timeout=3
+            ) as resp:  # nosec B310 — trusted provider hosts
                 import json as _json
 
                 payload = _json.loads(resp.read().decode())
@@ -1282,9 +1270,9 @@ def gpu_warmth():
         {
             "cold": cold,
             "streaming_ready": ready,
-            "buffer_fill_threshold": BUFFER_FILL_THRESHOLD_COLD
-            if cold
-            else BUFFER_FILL_THRESHOLD_WARM,
+            "buffer_fill_threshold": (
+                BUFFER_FILL_THRESHOLD_COLD if cold else BUFFER_FILL_THRESHOLD_WARM
+            ),
             "providers": providers,
         }
     )
@@ -1315,9 +1303,10 @@ def sampler_activate():
         chapter_index = int(data.get("chapter_index", 0))
         segment_index = int(data.get("segment_index", 0))
     except (ValueError, TypeError):  # fmt: skip
-        return jsonify(
-            {"error": "audiobook_id, locale, chapter_index, segment_index required"}
-        ), 400
+        return (
+            jsonify({"error": "audiobook_id, locale, chapter_index, segment_index required"}),
+            400,
+        )
 
     if locale not in SUPPORTED_LOCALES:
         return jsonify({"error": "locale not supported"}), 400
@@ -1341,12 +1330,7 @@ def sampler_activate():
         int(created),
     )
 
-    return jsonify(
-        {
-            "activated": True,
-            "cursor_segments_created": created,
-        }
-    )
+    return jsonify({"activated": True, "cursor_segments_created": created})
 
 
 @streaming_bp.route("/api/translate/warmup", methods=["POST"])
@@ -1951,10 +1935,7 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
             source_vtt_path.write_text(all_source_vtt)
         except ValueError as exc:
             # Source-side write is best-effort — translated row still goes in.
-            logger.warning(
-                "Rejected unsafe consolidated source VTT path: %s",
-                _safe_log_value(exc),
-            )
+            logger.warning("Rejected unsafe consolidated source VTT path: %s", _safe_log_value(exc))
             source_vtt_path = None
 
     # Insert translated locale row into permanent cache
@@ -1988,7 +1969,9 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
     # leaves the VTT-side cache intact.
     try:
         _consolidate_chapter_audio(db, audiobook_id, chapter_index, locale)
-    except Exception as exc:  # pylint: disable=broad-except  # defense in depth — audio side must never break VTT path
+    except (
+        Exception
+    ) as exc:  # pylint: disable=broad-except  # defense in depth — audio side must never break VTT path
         logger.warning(
             "Chapter audio consolidation raised unexpected exception: "
             "book=%d ch=%d locale=%s err=%s",
@@ -2022,13 +2005,16 @@ def sampler_prefetch():
 
     # Reject unknown locales to prevent enqueue-for-nonsense-locales.
     if locale not in SUPPORTED_LOCALES:
-        return jsonify(
-            {
-                "error": "locale not supported",
-                "locale": locale,
-                "supported": sorted(SUPPORTED_LOCALES),
-            }
-        ), 400
+        return (
+            jsonify(
+                {
+                    "error": "locale not supported",
+                    "locale": locale,
+                    "supported": sorted(SUPPORTED_LOCALES),
+                }
+            ),
+            400,
+        )
 
     db = _get_db()
     result = _enqueue_sampler(db, audiobook_id, locale)
@@ -2232,10 +2218,7 @@ def serve_streaming_segment(audiobook_id, chapter_index, segment_index, locale):
 
 
 def init_streaming_routes(
-    database_path,
-    library_path=None,
-    streaming_audio_dir=None,
-    streaming_subtitles_dir=None,
+    database_path, library_path=None, streaming_audio_dir=None, streaming_subtitles_dir=None
 ):
     """Initialize the streaming translation blueprint.
 

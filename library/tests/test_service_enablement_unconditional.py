@@ -34,10 +34,7 @@ TARGET_WANTED_SERVICES = (
     "audiobook-downloader.timer",
 )
 
-STANDALONE_UNITS = (
-    "audiobook-enrichment.timer",
-    "audiobook-shutdown-saver.service",
-)
+STANDALONE_UNITS = ("audiobook-enrichment.timer", "audiobook-shutdown-saver.service")
 
 
 def _read(path: str) -> str:
@@ -85,20 +82,14 @@ def test_enable_new_services_does_not_gate_on_use_sudo():
 
     # Locate the function body (from def line to closing brace).
     func_match = re.search(
-        r"^enable_new_services\s*\(\)\s*\{\n(.*?)^\}",
-        upgrade,
-        re.DOTALL | re.MULTILINE,
+        r"^enable_new_services\s*\(\)\s*\{\n(.*?)^\}", upgrade, re.DOTALL | re.MULTILINE
     )
     assert func_match, "enable_new_services function not found in upgrade.sh"
     body = func_match.group(1)
 
     # The specific pattern that broke QA: `-z "$use_sudo"` followed by
     # `return 0` within the same guard block. Either operand order is a bug.
-    bad_guard = re.search(
-        r'if\s*\[\[.*-z\s*"\$use_sudo".*\]\].*\n[^}]*return\s+0',
-        body,
-        re.DOTALL,
-    )
+    bad_guard = re.search(r'if\s*\[\[.*-z\s*"\$use_sudo".*\]\].*\n[^}]*return\s+0', body, re.DOTALL)
     assert bad_guard is None, (
         "enable_new_services must NOT return early when use_sudo is empty — "
         "root-mode --remote upgrades legitimately run with use_sudo=''. "
@@ -149,9 +140,7 @@ def test_upgrade_parses_target_wants():
     ), "upgrade.sh no longer parses Wants= from audiobook.target"
     assert (
         re.search(
-            r"for\s+svc\s+in\s+\$target_wants.*?systemctl\s+enable\s+\"\$svc\"",
-            upgrade,
-            re.DOTALL,
+            r"for\s+svc\s+in\s+\$target_wants.*?systemctl\s+enable\s+\"\$svc\"", upgrade, re.DOTALL
         )
         is not None
     ), "upgrade.sh Wants= loop no longer calls systemctl enable per service"
@@ -169,9 +158,9 @@ def test_target_declares_expected_wants():
         # .timer tokens end in .timer, .service tokens are implicit
         if not unit.endswith(".timer"):
             unit = f"{unit}.service"
-        assert re.search(rf"^Wants={re.escape(unit)}\s*$", target, re.MULTILINE), (
-            f"audiobook.target missing Wants={unit}"
-        )
+        assert re.search(
+            rf"^Wants={re.escape(unit)}\s*$", target, re.MULTILINE
+        ), f"audiobook.target missing Wants={unit}"
 
 
 def test_all_standalone_timer_unit_files_exist():

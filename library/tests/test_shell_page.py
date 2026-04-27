@@ -12,9 +12,9 @@ class TestShellPageExists:
 
     def test_has_iframe(self):
         content = SHELL_HTML.read_text()
-        assert 'id="content-frame"' in content, (
-            "shell.html must have an iframe with id='content-frame'"
-        )
+        assert (
+            'id="content-frame"' in content
+        ), "shell.html must have an iframe with id='content-frame'"
 
     def test_iframe_default_src(self):
         content = SHELL_HTML.read_text()
@@ -26,9 +26,9 @@ class TestShellPageExists:
 
     def test_has_player_bar(self):
         content = SHELL_HTML.read_text()
-        assert 'id="shell-player"' in content, (
-            "shell.html must have a player bar with id='shell-player'"
-        )
+        assert (
+            'id="shell-player"' in content
+        ), "shell.html must have a player bar with id='shell-player'"
 
     def test_player_bar_hidden_by_default(self):
         content = SHELL_HTML.read_text()
@@ -51,6 +51,6 @@ class TestShellPageExists:
     def test_no_library_js(self):
         """shell.html should NOT load library.js — that's for content pages."""
         content = SHELL_HTML.read_text()
-        assert "library.js" not in content, (
-            "shell.html must not load library.js (that belongs in iframe content)"
-        )
+        assert (
+            "library.js" not in content
+        ), "shell.html must not load library.js (that belongs in iframe content)"

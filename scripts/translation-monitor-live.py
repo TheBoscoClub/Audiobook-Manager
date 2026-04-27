@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # /test:wiring-exception: systemd-timer-driven oneshot, not invoked by app code.
 #                          Wired via audiobook-translation-monitor-live.{service,timer}.
+# pylint: disable=invalid-name,broad-exception-caught
 """Translation monitor — live tier (every 30s).
 
 One pass:
@@ -55,13 +56,13 @@ from translation_monitor import (  # noqa: E402
 from translation_monitor.db import db_exists, schema_has_monitor_table  # noqa: E402
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [translation-monitor-live] %(levelname)s %(message)s",
+    level=logging.INFO, format="%(asctime)s [translation-monitor-live] %(levelname)s %(message)s"
 )
 logger = logging.getLogger("translation-monitor-live")
 
 
 def main() -> int:
+    """Run a single monitor pass; return systemd-friendly exit code."""
     if not db_exists():
         logger.info("DB not present yet — skipping pass")
         return 0
@@ -73,11 +74,7 @@ def main() -> int:
                 return 0
 
             reset_segs = reset_stuck_live_claims(conn)
-            failed_segs = sweep_retry_exhausted_segments(
-                conn,
-                monitor="live",
-                origins=("live",),
-            )
+            failed_segs = sweep_retry_exhausted_segments(conn, monitor="live", origins=("live",))
             aged_segs = alert_old_live_segments(conn)
             capacity_event = alert_capacity_pressure(conn)
             health = probe_gpu_instance_health(conn, monitor="live")

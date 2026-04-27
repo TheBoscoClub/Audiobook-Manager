@@ -501,7 +501,9 @@ class TestRegisterWebAuthnBegin:
         # Create a pending registration
         from auth import hash_token
 
-        raw_token = "reg_webauthn_token_1"  # nosec B105 # noqa: S105 — test fixture, not a real credential
+        raw_token = (
+            "reg_webauthn_token_1"  # nosec B105 # noqa: S105 — test fixture, not a real credential
+        )
         with auth_db.connection() as conn:
             conn.execute(
                 """INSERT INTO pending_registrations
@@ -545,7 +547,9 @@ class TestRegisterWebAuthnBegin:
     def test_begin_expired_token(self, auth_app, auth_db):
         from auth import hash_token
 
-        raw_token = "reg_expired_token_1"  # nosec B105 # noqa: S105 — test fixture, not a real credential
+        raw_token = (
+            "reg_expired_token_1"  # nosec B105 # noqa: S105 — test fixture, not a real credential
+        )
         with auth_db.connection() as conn:
             conn.execute(
                 """INSERT INTO pending_registrations
@@ -589,7 +593,9 @@ class TestRegisterWebAuthnComplete:
 
         from auth import hash_token
 
-        raw_token = "reg_complete_token_1"  # nosec B105 # noqa: S105 — test fixture, not a real credential
+        raw_token = (
+            "reg_complete_token_1"  # nosec B105 # noqa: S105 — test fixture, not a real credential
+        )
         with auth_db.connection() as conn:
             conn.execute(
                 """INSERT INTO pending_registrations
@@ -633,7 +639,9 @@ class TestRegisterWebAuthnComplete:
 
         from auth import hash_token
 
-        raw_token = "reg_fido2_token_1"  # nosec B105 # noqa: S105 — test fixture, not a real credential
+        raw_token = (
+            "reg_fido2_token_1"  # nosec B105 # noqa: S105 — test fixture, not a real credential
+        )
         with auth_db.connection() as conn:
             conn.execute(
                 """INSERT INTO pending_registrations
@@ -720,7 +728,9 @@ class TestRegisterWebAuthnComplete:
 
         from auth import hash_token
 
-        raw_token = "reg_verify_fail_1"  # nosec B105 # noqa: S105 — test fixture, not a real credential
+        raw_token = (
+            "reg_verify_fail_1"  # nosec B105 # noqa: S105 — test fixture, not a real credential
+        )
         with auth_db.connection() as conn:
             conn.execute(
                 """INSERT INTO pending_registrations
@@ -804,8 +814,7 @@ class TestLoginWebAuthnBegin:
         """TOTP user cannot use WebAuthn login."""
         client = auth_app.test_client()
         resp = client.post(
-            "/auth/login/webauthn/begin",
-            json={"username": "testuser1"},  # seed TOTP user
+            "/auth/login/webauthn/begin", json={"username": "testuser1"}  # seed TOTP user
         )
         assert resp.status_code == 400
         assert "passkey" in resp.get_json()["error"].lower()

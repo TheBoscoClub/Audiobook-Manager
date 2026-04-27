@@ -160,7 +160,9 @@ def _upsert_entity(conn, name, seen, stats, table, dry_run):
     return conn.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         f"SELECT id FROM {table} WHERE name = ?",  # nosec B608 — table is code-defined literal "authors"/"narrators" from callers; name is parameter-bound
         (name,),  # noqa: S608
-    ).fetchone()["id"]
+    ).fetchone()[
+        "id"
+    ]
 
 
 def _process_authors(conn, book_id, clean_authors, seen_authors, stats, dry_run):

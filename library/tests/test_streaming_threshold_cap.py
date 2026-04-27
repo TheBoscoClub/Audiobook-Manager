@@ -74,11 +74,7 @@ const should_enter_streaming =
 process.stdout.write(JSON.stringify({{ threshold, should_enter_streaming }}));
 """
     result = subprocess.run(
-        ["node", "-e", script],
-        capture_output=True,
-        text=True,
-        timeout=10,
-        check=True,
+        ["node", "-e", script], capture_output=True, text=True, timeout=10, check=True
     )
     return json.loads(result.stdout)
 
@@ -93,12 +89,12 @@ class TestThresholdCap:
         After fix:  threshold=5, completed=5, 5 >= 5 is true  → STREAMING.
         """
         result = _run_threshold_cap(completed=5, total=5, raw_threshold=6)
-        assert result["threshold"] == 5, (
-            f"threshold should cap at total (5), got {result['threshold']}"
-        )
-        assert result["should_enter_streaming"] is True, (
-            "short chapter with completed==total must transition BUFFERING→STREAMING"
-        )
+        assert (
+            result["threshold"] == 5
+        ), f"threshold should cap at total (5), got {result['threshold']}"
+        assert (
+            result["should_enter_streaming"] is True
+        ), "short chapter with completed==total must transition BUFFERING→STREAMING"
 
     def test_long_chapter_threshold_not_capped(self):
         """Normal case: 10-segment chapter, raw threshold 6 — no cap needed."""

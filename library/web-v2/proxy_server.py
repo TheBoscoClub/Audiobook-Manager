@@ -411,7 +411,9 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         try:
             headers = self._collect_proxy_headers()
             body = self._read_request_body(method)
-            req = urllib.request.Request(api_url, data=body, headers=headers, method=method)  # noqa: S310 — Request for proxied API call; URL validated against internal 127.0.0.1 host only
+            req = urllib.request.Request(
+                api_url, data=body, headers=headers, method=method
+            )  # noqa: S310 — Request for proxied API call; URL validated against internal 127.0.0.1 host only
 
             with urllib.request.urlopen(  # noqa: S310 — urlopen for proxied localhost API; URL built from internal 127.0.0.1 base  # nosec B310  # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
                 req, timeout=30
@@ -449,10 +451,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
             # a traceback — this is expected client-driven behavior, not an
             # internal error.
             self.log_message(
-                "client disconnected while proxying %s %s: %s",
-                method,
-                api_url,
-                type(e).__name__,
+                "client disconnected while proxying %s %s: %s", method, api_url, type(e).__name__
             )
 
         except Exception as e:

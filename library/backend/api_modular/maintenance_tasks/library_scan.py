@@ -26,7 +26,13 @@ class LibraryScanTask(MaintenanceTask):
             # Invoke the existing scanner via the API utility endpoint
             # The scanner runs in-process via the utilities blueprint
             result = subprocess.run(  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-                ["curl", "-s", "-X", "POST", "http://127.0.0.1:5001/api/admin/scan"],  # noqa: S603,S607 — curl target is 127.0.0.1 localhost API; no user-controlled input in URL or args
+                [
+                    "curl",
+                    "-s",
+                    "-X",
+                    "POST",
+                    "http://127.0.0.1:5001/api/admin/scan",
+                ],  # noqa: S603,S607 — curl target is 127.0.0.1 localhost API; no user-controlled input in URL or args
                 capture_output=True,
                 text=True,
                 timeout=600,

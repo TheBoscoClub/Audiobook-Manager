@@ -61,7 +61,15 @@ def _chapters_from_ffprobe(audio_path: Path) -> list[Chapter]:
         # metadata (chapter titles authored in legacy single-byte encodings).
         # See companion comment in scripts/stream-translate-worker.py.
         result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-            ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_chapters", str(audio_path)],  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_chapters",
+                str(audio_path),
+            ],  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled
             capture_output=True,
             encoding="utf-8",
             errors="replace",
@@ -148,11 +156,7 @@ def split_chapter(audio_path: Path, chapter: Chapter, output_dir: Path | None = 
     # `errors="replace"` defends stderr decode against non-UTF-8 bytes in
     # source-file metadata. Same pattern as scripts/stream-translate-worker.py.
     result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
-        cmd,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=timeout_s,
+        cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=timeout_s
     )
     if result.returncode != 0:
         logger.error("ffmpeg chapter split failed: %s", result.stderr[-500:])

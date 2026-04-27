@@ -19,9 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 def enqueue_sampler_for_new_book(
-    conn: sqlite3.Connection,
-    audiobook_id: int,
-    file_path: str | Path,
+    conn: sqlite3.Connection, audiobook_id: int, file_path: str | Path
 ) -> None:
     """Best-effort sampler enqueue for a freshly-imported audiobook.
 
@@ -69,8 +67,7 @@ def enqueue_sampler_for_new_book(
 
     if not chapter_durations:
         logger.info(
-            "sampler hook: book=%d has no chapter metadata — skipping sampler",
-            audiobook_id,
+            "sampler hook: book=%d has no chapter metadata — skipping sampler", audiobook_id
         )
         return
 
@@ -85,8 +82,5 @@ def enqueue_sampler_for_new_book(
             )
         except Exception as e:  # noqa: BLE001
             logger.warning(
-                "sampler hook: enqueue failed book=%d locale=%s err=%s",
-                audiobook_id,
-                locale,
-                e,
+                "sampler hook: enqueue failed book=%d locale=%s err=%s", audiobook_id, locale, e
             )

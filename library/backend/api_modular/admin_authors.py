@@ -31,7 +31,9 @@ admin_authors_bp = Blueprint("admin_authors", __name__, url_prefix="/api/admin")
 
 def init_admin_authors_routes(
     database_path: str,
-) -> None:  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
+) -> (
+    None
+):  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
     """Initialize admin author routes (no-op, kept for API compatibility).
 
     Database path is now resolved at request time via current_app.config.

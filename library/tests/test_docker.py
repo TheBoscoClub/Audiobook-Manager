@@ -345,7 +345,9 @@ class TestAPIIntegration:
     def test_api_stats_endpoint(self, healthy_container):
         """GET /api/stats returns valid JSON with expected keys."""
         url = self._https_url(healthy_container, "/api/stats")
-        resp = requests.get(url, verify=False, timeout=10)  # noqa: S501 # nosec B501 — self-signed cert on local test container
+        resp = requests.get(
+            url, verify=False, timeout=10
+        )  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code == 200, f"Unexpected status {resp.status_code}"
         data = resp.json()
         assert isinstance(data, dict)
@@ -353,7 +355,9 @@ class TestAPIIntegration:
     def test_api_version_endpoint(self, healthy_container):
         """GET /api/system/version returns version info matching VERSION file."""
         url = self._https_url(healthy_container, "/api/system/version")
-        resp = requests.get(url, verify=False, timeout=10)  # noqa: S501 # nosec B501 — self-signed cert on local test container
+        resp = requests.get(
+            url, verify=False, timeout=10
+        )  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code == 200
         data = resp.json()
         assert "version" in data or "app_version" in data
@@ -361,14 +365,18 @@ class TestAPIIntegration:
     def test_https_web_ui_loads(self, healthy_container):
         """HTTPS on 8443 serves the web UI (HTML page)."""
         url = self._https_url(healthy_container, "/")
-        resp = requests.get(url, verify=False, timeout=10)  # noqa: S501 # nosec B501 — self-signed cert on local test container
+        resp = requests.get(
+            url, verify=False, timeout=10
+        )  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code == 200
         assert "text/html" in resp.headers.get("Content-Type", "")
 
     def test_http_redirect_works(self, healthy_container):
         """HTTP on 8080 redirects (301/302/307/308) to HTTPS."""
         url = self._http_url(healthy_container, "/")
-        resp = requests.get(url, verify=False, timeout=10, allow_redirects=False)  # noqa: S501 # nosec B501 — self-signed cert on local test container
+        resp = requests.get(
+            url, verify=False, timeout=10, allow_redirects=False
+        )  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code in (
             301,
             302,
@@ -381,7 +389,9 @@ class TestAPIIntegration:
     def test_api_audiobooks_list(self, healthy_container):
         """GET /api/audiobooks returns a valid response (empty library is OK)."""
         url = self._https_url(healthy_container, "/api/audiobooks")
-        resp = requests.get(url, verify=False, timeout=10)  # noqa: S501 # nosec B501 — self-signed cert on local test container
+        resp = requests.get(
+            url, verify=False, timeout=10
+        )  # noqa: S501 # nosec B501 — self-signed cert on local test container
         assert resp.status_code == 200
         data = resp.json()
         # Response is a list of audiobooks (possibly empty)
@@ -406,9 +416,9 @@ class TestVolumeAndData:
         """The SQLite database file is created inside /app/data on first run."""
         name = healthy_container["name"]
         result = _docker("exec", name, "test", "-f", "/app/data/audiobooks.db", check=False)
-        assert result.returncode == 0, (
-            "Database file /app/data/audiobooks.db not found in container"
-        )
+        assert (
+            result.returncode == 0
+        ), "Database file /app/data/audiobooks.db not found in container"
 
     def test_self_signed_cert_generated(self, healthy_container):
         """Self-signed TLS certificate and key are generated automatically."""
@@ -452,9 +462,9 @@ class TestEnvironmentVariables:
                 docker_image,
                 timeout=30,
             )
-            assert run_result.returncode == 0, (
-                f"Container with custom WEB_PORT failed to start: {run_result.stderr}"
-            )
+            assert (
+                run_result.returncode == 0
+            ), f"Container with custom WEB_PORT failed to start: {run_result.stderr}"
 
             # Wait for the container to be healthy (or at least running)
             healthy = _wait_for_healthy(container_name, timeout=180)
@@ -466,7 +476,9 @@ class TestEnvironmentVariables:
             if healthy and requests is not None:
                 url = f"https://127.0.0.1:{mapped}/"
                 try:
-                    resp = requests.get(url, verify=False, timeout=10)  # noqa: S501 # nosec B501 — self-signed cert on local test container
+                    resp = requests.get(
+                        url, verify=False, timeout=10
+                    )  # noqa: S501 # nosec B501 — self-signed cert on local test container
                     assert resp.status_code == 200
                 except RequestsConnectionError:
                     # Port bound but HTTPS proxy may still be starting
@@ -483,9 +495,9 @@ class TestEnvironmentVariables:
         result = _docker("exec", name, "cat", "/app/VERSION", check=False)
         assert result.returncode == 0, "Could not read /app/VERSION in container"
         container_version = result.stdout.strip()
-        assert container_version == EXPECTED_VERSION, (
-            f"Container version '{container_version}' != project version '{EXPECTED_VERSION}'"
-        )
+        assert (
+            container_version == EXPECTED_VERSION
+        ), f"Container version '{container_version}' != project version '{EXPECTED_VERSION}'"
 
 
 # ===================================================================
@@ -522,6 +534,6 @@ class TestSecurity:
             "token=",
         ]
         for pattern in forbidden_patterns:
-            assert pattern not in history_text, (
-                f"Potential secret found in image layer history: '{pattern}'"
-            )
+            assert (
+                pattern not in history_text
+            ), f"Potential secret found in image layer history: '{pattern}'"

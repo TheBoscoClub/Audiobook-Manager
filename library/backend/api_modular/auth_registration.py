@@ -349,9 +349,9 @@ def _create_access_request(request_repo, username, contact_email):
 
     if contact_email:
         response_data["email_notification"] = True
-        response_data["message"] += (
-            f" We'll also notify you at {contact_email} when your request is reviewed."
-        )
+        response_data[
+            "message"
+        ] += f" We'll also notify you at {contact_email} when your request is reviewed."
 
     return jsonify(response_data)
 

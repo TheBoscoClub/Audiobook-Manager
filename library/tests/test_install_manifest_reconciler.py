@@ -292,9 +292,9 @@ def test_scripts_have_no_hardcoded_var_lib(script):
         for line in text.splitlines()
         if "/var/lib/audiobooks" in line and not line.strip().startswith("#")
     ]
-    assert not lines, (
-        f"{script.name} contains literal /var/lib/audiobooks outside comments:\n" + "\n".join(lines)
-    )
+    assert (
+        not lines
+    ), f"{script.name} contains literal /var/lib/audiobooks outside comments:\n" + "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------
@@ -307,10 +307,7 @@ def test_scripts_have_no_hardcoded_var_lib(script):
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "script_name",
-    ["install.sh", "upgrade.sh"],
-)
+@pytest.mark.parametrize("script_name", ["install.sh", "upgrade.sh"])
 def test_invoker_defaults_to_enforce_mode(script_name):
     """Every RECONCILE_MODE invocation in install.sh / upgrade.sh must default
     to `enforce`. If someone regresses this back to `report`, drift starts

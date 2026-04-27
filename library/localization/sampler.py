@@ -66,9 +66,7 @@ SAMPLER_MAX_EXTEND_SECONDS = 180
 SAMPLER_PRIORITY = 2
 
 
-def compute_sampler_range(
-    chapter_durations_sec: Sequence[float],
-) -> list[tuple[int, int]]:
+def compute_sampler_range(chapter_durations_sec: Sequence[float]) -> list[tuple[int, int]]:
     """Return the sampler scope as ``[(chapter_index, segment_count), ...]``.
 
     Empty list if no chapters have positive duration. See module docstring
@@ -115,10 +113,7 @@ def compute_sampler_range(
 
 
 def enqueue_sampler(
-    conn: sqlite3.Connection,
-    audiobook_id: int,
-    locale: str,
-    chapter_durations_sec: Sequence[float],
+    conn: sqlite3.Connection, audiobook_id: int, locale: str, chapter_durations_sec: Sequence[float]
 ) -> dict:
     """Create sampler_jobs + pending streaming_segments for (book, locale).
 
@@ -201,8 +196,7 @@ def enqueue_sampler(
             )
 
     conn.execute(
-        "UPDATE sampler_jobs SET status = 'running', updated_at = ? WHERE id = ?",
-        (now, job_id),
+        "UPDATE sampler_jobs SET status = 'running', updated_at = ? WHERE id = ?", (now, job_id)
     )
     conn.commit()
 

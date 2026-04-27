@@ -20,7 +20,6 @@ import time
 from pathlib import Path
 
 import pytest
-
 from translation_monitor import (
     CAPACITY_WARNING_COOLDOWN_SEC,
     LIVE_AGE_ALERT_SEC,
@@ -37,11 +36,7 @@ from translation_monitor import (
     reset_stuck_sampler_jobs,
     sweep_retry_exhausted_segments,
 )
-from translation_monitor.events import (
-    ALLOWED_EVENT_TYPES,
-    ALLOWED_MONITORS,
-    recent_events,
-)
+from translation_monitor.events import ALLOWED_EVENT_TYPES, ALLOWED_MONITORS, recent_events
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = PROJECT_ROOT / "library" / "backend" / "schema.sql"
@@ -57,9 +52,7 @@ def db(tmp_path) -> sqlite3.Connection:
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA_PATH.read_text())
     # Insert a minimal audiobook so FK CASCADE doesn't reject test rows.
-    conn.execute(
-        "INSERT INTO audiobooks (id, title, file_path) VALUES (1, 't', '/tmp/t')"
-    )
+    conn.execute("INSERT INTO audiobooks (id, title, file_path) VALUES (1, 't', '/tmp/t')")
     conn.commit()
     yield conn
     conn.close()
@@ -96,12 +89,15 @@ def _insert_segment(
         if created_at_offset_sec
         else "CURRENT_TIMESTAMP"
     )
-    conn.execute(
-        f"INSERT INTO streaming_segments "
+    sql_insert_seg = (
+        f"INSERT INTO streaming_segments "  # nosec B608 - test fixture; offsets are int-validated literals
         f"(id, audiobook_id, chapter_index, segment_index, locale, "
         f" state, priority, origin, worker_id, retry_count, "
         f" started_at, created_at) "
-        f"VALUES (?, 1, 0, ?, 'zh-Hans', ?, ?, ?, ?, ?, {started}, {created})",
+        f"VALUES (?, 1, 0, ?, 'zh-Hans', ?, ?, ?, ?, ?, {started}, {created})"
+    )
+    conn.execute(
+        sql_insert_seg,
         (seg_id, seg_id, state, priority, origin, worker_id, retry_count),
     )
     conn.commit()
@@ -120,10 +116,13 @@ def _insert_sampler_job(
         if updated_at_offset_sec
         else "CURRENT_TIMESTAMP"
     )
-    conn.execute(
-        f"INSERT INTO sampler_jobs "
+    sql_insert_job = (
+        f"INSERT INTO sampler_jobs "  # nosec B608 - test fixture; offsets are int-validated literals
         f"(id, audiobook_id, locale, status, segments_target, segments_done, updated_at) "
-        f"VALUES (?, 1, 'zh-Hans', ?, 12, 0, {updated})",
+        f"VALUES (?, 1, 'zh-Hans', ?, 12, 0, {updated})"
+    )
+    conn.execute(
+        sql_insert_job,
         (job_id, status),
     )
     conn.commit()
@@ -134,12 +133,7 @@ def _insert_sampler_job(
 
 
 def test_event_taxonomy_includes_required_types():
-    required = {
-        "claim_reset",
-        "retry_exceeded",
-        "sampler_job_failed",
-        "sampler_job_reset",
-    }
+    required = {"claim_reset", "retry_exceeded", "sampler_job_failed", "sampler_job_reset"}
     assert required.issubset(ALLOWED_EVENT_TYPES)
     assert ALLOWED_MONITORS == {"live", "sampler"}
 
@@ -210,9 +204,7 @@ def test_live_claim_reset_leaves_fresh_claim_alone(db):
 def test_live_claim_reset_ignores_sampler_origin(db):
     # 90s old but origin=sampler → live monitor must skip
     # Sampler rows must have priority>=2 per the trigger.
-    _insert_segment(
-        db, seg_id=1, started_at_offset_sec=90, origin="sampler", priority=2
-    )
+    _insert_segment(db, seg_id=1, started_at_offset_sec=90, origin="sampler", priority=2)
     affected = reset_stuck_live_claims(db)
     assert affected == []
 
@@ -239,11 +231,7 @@ def test_live_claim_reset_uses_default_threshold():
 def test_sampler_claim_reset_clears_stuck_claim(db):
     # 3h old > 2h threshold
     seg = _insert_segment(
-        db,
-        seg_id=1,
-        started_at_offset_sec=3 * 3600,
-        origin="sampler",
-        priority=2,
+        db, seg_id=1, started_at_offset_sec=3 * 3600, origin="sampler", priority=2
     )
     affected = reset_stuck_sampler_claims(db)
     assert affected == [seg]
@@ -257,11 +245,7 @@ def test_sampler_claim_reset_clears_stuck_claim(db):
 
 def test_sampler_claim_reset_leaves_fresh_claim_alone(db):
     _insert_segment(
-        db,
-        seg_id=1,
-        started_at_offset_sec=600,  # 10min, way under 2h
-        origin="sampler",
-        priority=2,
+        db, seg_id=1, started_at_offset_sec=600, origin="sampler", priority=2  # 10min, way under 2h
     )
     affected = reset_stuck_sampler_claims(db)
     assert affected == []
@@ -300,9 +284,7 @@ def test_sampler_job_reset_leaves_fresh_running_alone(db):
 
 
 def test_sampler_job_reset_skips_complete_status(db):
-    _insert_sampler_job(
-        db, job_id=1, status="complete", updated_at_offset_sec=3 * 3600
-    )
+    _insert_sampler_job(db, job_id=1, status="complete", updated_at_offset_sec=3 * 3600)
     affected = reset_stuck_sampler_jobs(db)
     assert affected == []
 
@@ -316,19 +298,11 @@ def test_sampler_job_threshold_constant():
 
 def test_retry_sweep_marks_exhausted_live_segments_failed(db):
     seg = _insert_segment(
-        db,
-        seg_id=1,
-        state="processing",
-        retry_count=RETRY_CAP,
-        started_at_offset_sec=10,
+        db, seg_id=1, state="processing", retry_count=RETRY_CAP, started_at_offset_sec=10
     )
-    affected = sweep_retry_exhausted_segments(
-        db, monitor="live", origins=("live",)
-    )
+    affected = sweep_retry_exhausted_segments(db, monitor="live", origins=("live",))
     assert affected == [seg]
-    row = db.execute(
-        "SELECT state, error FROM streaming_segments WHERE id=?", (seg,)
-    ).fetchone()
+    row = db.execute("SELECT state, error FROM streaming_segments WHERE id=?", (seg,)).fetchone()
     assert row["state"] == "failed"
     assert "retry budget exhausted" in row["error"]
 
@@ -339,27 +313,19 @@ def test_retry_sweep_marks_exhausted_live_segments_failed(db):
 def test_retry_sweep_only_targets_specified_origins(db):
     # Live row at retry_cap, but we sweep with origins=('sampler',) — must skip.
     _insert_segment(db, seg_id=1, state="processing", retry_count=RETRY_CAP)
-    affected = sweep_retry_exhausted_segments(
-        db, monitor="sampler", origins=("sampler", "backlog")
-    )
+    affected = sweep_retry_exhausted_segments(db, monitor="sampler", origins=("sampler", "backlog"))
     assert affected == []
 
 
 def test_retry_sweep_skips_already_completed(db):
-    _insert_segment(
-        db, seg_id=1, state="completed", retry_count=RETRY_CAP
-    )
-    affected = sweep_retry_exhausted_segments(
-        db, monitor="live", origins=("live",)
-    )
+    _insert_segment(db, seg_id=1, state="completed", retry_count=RETRY_CAP)
+    affected = sweep_retry_exhausted_segments(db, monitor="live", origins=("live",))
     assert affected == []
 
 
 def test_retry_sweep_skips_already_failed(db):
     _insert_segment(db, seg_id=1, state="failed", retry_count=RETRY_CAP)
-    affected = sweep_retry_exhausted_segments(
-        db, monitor="live", origins=("live",)
-    )
+    affected = sweep_retry_exhausted_segments(db, monitor="live", origins=("live",))
     assert affected == []
 
 
@@ -395,11 +361,7 @@ def test_full_sampler_pass_no_events_on_clean_db(db):
 
 def test_claim_reset_event_records_worker_and_retry(db):
     _insert_segment(
-        db,
-        seg_id=7,
-        worker_id="worker-zorblax",
-        retry_count=2,
-        started_at_offset_sec=120,
+        db, seg_id=7, worker_id="worker-zorblax", retry_count=2, started_at_offset_sec=120
     )
     reset_stuck_live_claims(db)
     events = recent_events(db, limit=1)
@@ -426,9 +388,7 @@ def test_sampler_script_imports_cleanly():
     import importlib.util
 
     path = PROJECT_ROOT / "scripts" / "translation-monitor-sampler.py"
-    spec = importlib.util.spec_from_file_location(
-        "translation_monitor_sampler_test", path
-    )
+    spec = importlib.util.spec_from_file_location("translation_monitor_sampler_test", path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     assert callable(mod.main)
@@ -498,8 +458,7 @@ _ = time
 
 
 def test_live_age_alert_fires_on_old_pending_segment(db):
-    _insert_segment(db, seg_id=1, state="pending", worker_id=None,
-                    created_at_offset_sec=180)
+    _insert_segment(db, seg_id=1, state="pending", worker_id=None, created_at_offset_sec=180)
     alerted = alert_old_live_segments(db)
     assert alerted == [1]
     events = recent_events(db, event_type="live_age_alert")
@@ -509,30 +468,33 @@ def test_live_age_alert_fires_on_old_pending_segment(db):
 
 
 def test_live_age_alert_skips_fresh_pending_segment(db):
-    _insert_segment(db, seg_id=2, state="pending", worker_id=None,
-                    created_at_offset_sec=30)
+    _insert_segment(db, seg_id=2, state="pending", worker_id=None, created_at_offset_sec=30)
     alerted = alert_old_live_segments(db)
     assert alerted == []
 
 
 def test_live_age_alert_skips_completed_segment(db):
-    _insert_segment(db, seg_id=3, state="completed", worker_id="w",
-                    created_at_offset_sec=300)
+    _insert_segment(db, seg_id=3, state="completed", worker_id="w", created_at_offset_sec=300)
     alerted = alert_old_live_segments(db)
     assert alerted == []
 
 
 def test_live_age_alert_skips_sampler_origin(db):
-    _insert_segment(db, seg_id=4, state="pending", origin="sampler",
-                    priority=2, worker_id=None,
-                    created_at_offset_sec=300)
+    _insert_segment(
+        db,
+        seg_id=4,
+        state="pending",
+        origin="sampler",
+        priority=2,
+        worker_id=None,
+        created_at_offset_sec=300,
+    )
     alerted = alert_old_live_segments(db)
     assert alerted == []
 
 
 def test_live_age_alert_idempotent_within_cooldown(db):
-    _insert_segment(db, seg_id=5, state="pending", worker_id=None,
-                    created_at_offset_sec=180)
+    _insert_segment(db, seg_id=5, state="pending", worker_id=None, created_at_offset_sec=180)
     first = alert_old_live_segments(db)
     second = alert_old_live_segments(db)
     assert first == [5]
@@ -542,8 +504,7 @@ def test_live_age_alert_idempotent_within_cooldown(db):
 
 
 def test_live_age_alert_fires_for_processing_segment_too(db):
-    _insert_segment(db, seg_id=6, state="processing", worker_id="w",
-                    created_at_offset_sec=200)
+    _insert_segment(db, seg_id=6, state="processing", worker_id="w", created_at_offset_sec=200)
     alerted = alert_old_live_segments(db)
     assert alerted == [6]
 
@@ -603,6 +564,7 @@ def test_capacity_warning_records_pending_and_worker_counts(db):
     alert_capacity_pressure(db)
     events = recent_events(db, event_type="capacity_warning")
     import json as _json
+
     details = _json.loads(events[0]["details"])
     assert details["pending_count"] == 52
     assert details["active_workers"] == 2

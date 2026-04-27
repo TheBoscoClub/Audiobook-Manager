@@ -25,9 +25,9 @@ from pathlib import Path
 def test_streaming_translate_module_imports() -> None:
     """Module must import under Python 3 and expose handle_seek."""
     mod = importlib.import_module("backend.api_modular.streaming_translate")
-    assert hasattr(mod, "handle_seek"), (
-        "streaming_translate module imported but handle_seek is missing"
-    )
+    assert hasattr(
+        mod, "handle_seek"
+    ), "streaming_translate module imported but handle_seek is missing"
 
 
 def test_no_py2_except_binding_form() -> None:

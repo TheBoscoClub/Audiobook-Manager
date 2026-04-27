@@ -33,9 +33,7 @@ def _read(path: str) -> str:
 def _audit_body() -> str:
     upgrade = _read("upgrade.sh")
     func_match = re.search(
-        r"^audit_and_cleanup\s*\(\)\s*\{\n(.*?)^\}",
-        upgrade,
-        re.DOTALL | re.MULTILINE,
+        r"^audit_and_cleanup\s*\(\)\s*\{\n(.*?)^\}", upgrade, re.DOTALL | re.MULTILINE
     )
     assert func_match, "audit_and_cleanup function not found in upgrade.sh"
     return func_match.group(1)
@@ -48,10 +46,7 @@ def test_audit_scans_scripts_directory_for_orphans():
     # mechanism. Any equivalent diff-based walk is acceptable, but the
     # current implementation uses find — pin it to keep the invariant
     # mechanical and easy to review.
-    assert re.search(
-        r'find\s+"\$\{target\}/scripts"\s+-maxdepth\s+1\s+-type\s+f',
-        body,
-    ), (
+    assert re.search(r'find\s+"\$\{target\}/scripts"\s+-maxdepth\s+1\s+-type\s+f', body), (
         "audit_and_cleanup no longer walks ${target}/scripts/ to detect "
         "orphaned files — retired scripts will survive upgrade. Same class "
         "of bug as 8.3.2 systemd-enablement gap."
@@ -118,11 +113,7 @@ def test_retired_v8_3_2_scripts_no_longer_in_project():
     someone reverted the retirement, or a new script happened to reuse
     the name. Either way, the delta needs a conscious decision.
     """
-    retired = (
-        "fleet-watchdog.sh",
-        "translation-check.sh",
-        "translation-daemon.sh",
-    )
+    retired = ("fleet-watchdog.sh", "translation-check.sh", "translation-daemon.sh")
     scripts_dir = REPO / "scripts"
     for name in retired:
         assert not (scripts_dir / name).exists(), (

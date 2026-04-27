@@ -28,7 +28,9 @@ grouped_bp = Blueprint("grouped", __name__)
 
 def init_grouped_routes(
     db_path: Path,
-) -> None:  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
+) -> (
+    None
+):  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
     """Initialize grouped routes (no-op, kept for API compatibility).
 
     Database path is now resolved at request time via current_app.config.

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # /test:wiring-exception: systemd-timer-driven oneshot, not invoked by app code.
 #                          Wired via audiobook-translation-monitor-sampler.{service,timer}.
+# pylint: disable=invalid-name,broad-exception-caught
 """Translation monitor — sampler/backlog tier (every 5min).
 
 One pass:
@@ -45,20 +46,16 @@ from translation_monitor import (  # noqa: E402
     reset_stuck_sampler_jobs,
     sweep_retry_exhausted_segments,
 )
-from translation_monitor.db import (  # noqa: E402
-    connect,
-    db_exists,
-    schema_has_monitor_table,
-)
+from translation_monitor.db import connect, db_exists, schema_has_monitor_table  # noqa: E402
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [translation-monitor-sampler] %(levelname)s %(message)s",
+    level=logging.INFO, format="%(asctime)s [translation-monitor-sampler] %(levelname)s %(message)s"
 )
 logger = logging.getLogger("translation-monitor-sampler")
 
 
 def main() -> int:
+    """Run a single monitor pass; return systemd-friendly exit code."""
     if not db_exists():
         logger.info("DB not present yet — skipping pass")
         return 0
@@ -66,17 +63,13 @@ def main() -> int:
     try:
         with connect() as conn:
             if not schema_has_monitor_table(conn):
-                logger.info(
-                    "translation_monitor_events table missing — pre-v8.3.9 DB, skipping"
-                )
+                logger.info("translation_monitor_events table missing — pre-v8.3.9 DB, skipping")
                 return 0
 
             reset_segs = reset_stuck_sampler_claims(conn)
             reset_jobs = reset_stuck_sampler_jobs(conn)
             failed_segs = sweep_retry_exhausted_segments(
-                conn,
-                monitor="sampler",
-                origins=("sampler", "backlog"),
+                conn, monitor="sampler", origins=("sampler", "backlog")
             )
 
             # TODO(v8.3.10): per-book spent_cents aggregation + auto-pause

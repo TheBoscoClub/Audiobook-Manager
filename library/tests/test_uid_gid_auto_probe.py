@@ -35,14 +35,11 @@ def _read(path: str) -> str:
 def test_install_sh_has_probe_helper():
     body = _read("install.sh")
     assert re.search(
-        r"_probe_free_uidgid\s*\(\)\s*\{",
-        body,
+        r"_probe_free_uidgid\s*\(\)\s*\{", body
     ), "install.sh must define _probe_free_uidgid helper"
     # The helper must check BOTH getent passwd $n AND getent group $n.
     probe_match = re.search(
-        r"_probe_free_uidgid\s*\(\)\s*\{(.*?)^\s*\}",
-        body,
-        re.DOTALL | re.MULTILINE,
+        r"_probe_free_uidgid\s*\(\)\s*\{(.*?)^\s*\}", body, re.DOTALL | re.MULTILINE
     )
     assert probe_match, "could not locate probe helper body"
     probe_body = probe_match.group(1)
@@ -82,18 +79,16 @@ def test_migrate_script_accepts_uid_gid_args():
     assert "--uid" in body
     assert "--gid" in body
     # Must support auto-probe when no args given (either-neither validation).
-    assert re.search(r"_probe_free_matched_id", body), (
-        "migrate script must auto-probe when --uid/--gid not provided"
-    )
+    assert re.search(
+        r"_probe_free_matched_id", body
+    ), "migrate script must auto-probe when --uid/--gid not provided"
 
 
 def test_upgrade_sh_detects_uid_gid_mismatch():
     body = _read("upgrade.sh")
     # The prompt must only fire when UID != GID AND we're interactive.
     mismatch_gate = re.search(
-        r'if\s+\[\[\s+"\$_ab_uid"\s+!=\s+"\$_ab_gid"\s+\]\].*?AUTO_YES.*?DRY_RUN',
-        body,
-        re.DOTALL,
+        r'if\s+\[\[\s+"\$_ab_uid"\s+!=\s+"\$_ab_gid"\s+\]\].*?AUTO_YES.*?DRY_RUN', body, re.DOTALL
     )
     assert mismatch_gate, (
         "upgrade.sh must gate the mismatch prompt on UID != GID AND AUTO_YES "
@@ -111,19 +106,19 @@ def test_upgrade_sh_detects_uid_gid_mismatch():
 
 def test_dockerfile_accepts_uid_gid_build_args():
     body = _read("Dockerfile")
-    assert re.search(r"ARG\s+AUDIOBOOKS_UID=\d+", body), (
-        "Dockerfile must accept AUDIOBOOKS_UID as a build-arg"
-    )
-    assert re.search(r"ARG\s+AUDIOBOOKS_GID=\d+", body), (
-        "Dockerfile must accept AUDIOBOOKS_GID as a build-arg"
-    )
+    assert re.search(
+        r"ARG\s+AUDIOBOOKS_UID=\d+", body
+    ), "Dockerfile must accept AUDIOBOOKS_UID as a build-arg"
+    assert re.search(
+        r"ARG\s+AUDIOBOOKS_GID=\d+", body
+    ), "Dockerfile must accept AUDIOBOOKS_GID as a build-arg"
     # The groupadd/useradd lines must consume the args (not hardcoded 934/935).
-    assert re.search(r'groupadd.*--gid\s+"?\$AUDIOBOOKS_GID"?', body), (
-        "groupadd must use $AUDIOBOOKS_GID build-arg, not a literal"
-    )
-    assert re.search(r'useradd.*--uid\s+"?\$AUDIOBOOKS_UID"?', body), (
-        "useradd must use $AUDIOBOOKS_UID build-arg, not a literal"
-    )
+    assert re.search(
+        r'groupadd.*--gid\s+"?\$AUDIOBOOKS_GID"?', body
+    ), "groupadd must use $AUDIOBOOKS_GID build-arg, not a literal"
+    assert re.search(
+        r'useradd.*--uid\s+"?\$AUDIOBOOKS_UID"?', body
+    ), "useradd must use $AUDIOBOOKS_UID build-arg, not a literal"
 
 
 def test_dockerfile_defaults_match():
@@ -131,6 +126,6 @@ def test_dockerfile_defaults_match():
     uid_match = re.search(r"ARG\s+AUDIOBOOKS_UID=(\d+)", body)
     gid_match = re.search(r"ARG\s+AUDIOBOOKS_GID=(\d+)", body)
     assert uid_match and gid_match
-    assert uid_match.group(1) == gid_match.group(1), (
-        f"Dockerfile UID/GID defaults do not match: {uid_match.group(1)} vs {gid_match.group(1)}"
-    )
+    assert uid_match.group(1) == gid_match.group(
+        1
+    ), f"Dockerfile UID/GID defaults do not match: {uid_match.group(1)} vs {gid_match.group(1)}"

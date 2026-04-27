@@ -68,9 +68,7 @@ def test_remote_success_returns_transcript(tmp_path: Path):
 
     remote = _make_remote()
     with patch.object(
-        VastaiServerlessSTT,
-        "transcribe",
-        return_value=_fake_transcript("vastai-serverless-ep"),
+        VastaiServerlessSTT, "transcribe", return_value=_fake_transcript("vastai-serverless-ep")
     ) as remote_mock:
         result = _transcribe_with_fallback(remote, audio, "en")
 

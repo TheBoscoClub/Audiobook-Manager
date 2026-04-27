@@ -699,9 +699,9 @@ class TestExceptionPaths:
                 response = app_client.get(f"/api/stream/{book_id}?format=webm")
                 assert response.status_code in (200, 500)
                 if response.status_code == 200:
-                    assert mock_subprocess.run.called, (
-                        "ffmpeg subprocess should be called for webm remux"
-                    )
+                    assert (
+                        mock_subprocess.run.called
+                    ), "ffmpeg subprocess should be called for webm remux"
                     assert mock_send.called, "send_file should be called after successful remux"
         finally:
             conn = sqlite3.connect(db_path)

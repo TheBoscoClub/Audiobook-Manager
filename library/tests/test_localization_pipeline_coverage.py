@@ -1080,12 +1080,7 @@ class TestVastaiServerlessSTT:
     def test_parse_word_timestamps_drops_empty_words(self):
         from localization.stt.vastai_serverless import _parse_word_timestamps
 
-        payload = {
-            "words": [
-                {"word": " "},
-                {"word": "keep", "start": 1.0, "end": 2.0},
-            ]
-        }
+        payload = {"words": [{"word": " "}, {"word": "keep", "start": 1.0, "end": 2.0}]}
         parsed = _parse_word_timestamps(payload)
         assert len(parsed) == 1
         assert parsed[0].word == "keep"

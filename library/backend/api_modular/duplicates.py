@@ -248,7 +248,9 @@ def _generate_checksums(scan_dir: str, output_file: str, pattern: str) -> dict:
             f' echo "${{checksum}}|${{f}}";'
             f' done > "{output_file}"'
         )
-        subprocess.run(["bash", "-c", cmd], check=True, timeout=600)  # noqa: S603,S607 — bash -c executes internal shell pipeline with config-controlled paths; no user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+        subprocess.run(
+            ["bash", "-c", cmd], check=True, timeout=600
+        )  # noqa: S603,S607 — bash -c executes internal shell pipeline with config-controlled paths; no user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
 
         # Count results
         with open(output_file, "r") as f:

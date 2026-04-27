@@ -37,9 +37,7 @@ def _read(path: str) -> str:
 def _audit_body() -> str:
     upgrade = _read("upgrade.sh")
     func_match = re.search(
-        r"^audit_and_cleanup\s*\(\)\s*\{\n(.*?)^\}",
-        upgrade,
-        re.DOTALL | re.MULTILINE,
+        r"^audit_and_cleanup\s*\(\)\s*\{\n(.*?)^\}", upgrade, re.DOTALL | re.MULTILINE
     )
     assert func_match, "audit_and_cleanup function not found in upgrade.sh"
     return func_match.group(1)
@@ -92,10 +90,7 @@ def test_audit_rejects_empty_candidate_dirs():
     positive that wiped dev + QA.
     """
     body = _audit_body()
-    assert re.search(
-        r'compgen\s+-G\s+["\']?\$\{?_candidate\}?/audiobook\*\.service',
-        body,
-    ), (
+    assert re.search(r'compgen\s+-G\s+["\']?\$\{?_candidate\}?/audiobook\*\.service', body), (
         "source-resolution must verify each candidate contains "
         "audiobook*.service files (compgen -G glob check). Without this, "
         "an empty $project/systemd dir is treated as valid and every "
@@ -123,9 +118,9 @@ def test_orphan_loop_skipped_when_no_trusted_source():
     )
     guarded_region = guard_match.group(1)
     # The rm -f must live inside the guarded region, not outside it.
-    assert "rm -f" in guarded_region, (
-        "rm -f of orphaned units must execute inside the [[ -n $project_systemd_dir ]] guard"
-    )
+    assert (
+        "rm -f" in guarded_region
+    ), "rm -f of orphaned units must execute inside the [[ -n $project_systemd_dir ]] guard"
 
 
 def test_caller_passes_project_to_audit():
@@ -133,10 +128,7 @@ def test_caller_passes_project_to_audit():
     upgrade = _read("upgrade.sh")
     # The single audit_and_cleanup call site inside do_upgrade must include
     # "$project" as the third positional argument.
-    assert re.search(
-        r'audit_and_cleanup\s+"\$target"\s+"\$use_sudo"\s+"\$project"',
-        upgrade,
-    ), (
+    assert re.search(r'audit_and_cleanup\s+"\$target"\s+"\$use_sudo"\s+"\$project"', upgrade), (
         "do_upgrade's call to audit_and_cleanup must pass $project as the "
         "third arg. Otherwise the from-github bootstrap (SCRIPT_DIR=/tmp) "
         "wipes every installed systemd unit."

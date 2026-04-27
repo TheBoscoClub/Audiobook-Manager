@@ -93,7 +93,9 @@ def get_embedded_tags(file_path: str) -> dict | None:
         str(file_path),
     ]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=30
+        )  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
         if result.returncode != 0:
             return None
         data = json.loads(result.stdout)
@@ -115,7 +117,9 @@ def compute_duration_hours(file_path: str) -> float | None:
     """Get actual audio duration in hours from ffprobe."""
     cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", str(file_path)]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
+        result = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=30
+        )  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
         if result.returncode != 0:
             return None
         data = json.loads(result.stdout)

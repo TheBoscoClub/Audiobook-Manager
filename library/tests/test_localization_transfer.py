@@ -111,10 +111,7 @@ def _build_db(db_path: Path) -> None:
 
 
 def _populate_source(
-    db_path: Path,
-    vtt_dir: Path,
-    audio_dir: Path,
-    streaming_audio_dir: Path | None = None,
+    db_path: Path, vtt_dir: Path, audio_dir: Path, streaming_audio_dir: Path | None = None
 ) -> None:
     """Seed the source DB + produce the VTT/audio files it references."""
     vtt_dir.mkdir(parents=True, exist_ok=True)
@@ -337,7 +334,9 @@ class TestBuildManifest:
             "strings": [],
             "queue": [],
             "streaming": [],
-            "books": {1: {"title": "x", "file_path": "/tmp/x"}},  # nosec B108 -- DB string fixture, no filesystem write
+            "books": {
+                1: {"title": "x", "file_path": "/tmp/x"}
+            },  # nosec B108 -- DB string fixture, no filesystem write
         }
         manifest = transfer._build_manifest(data)
         assert manifest["version"] == 3
@@ -577,7 +576,7 @@ class TestStreamingSegmentsRoundTrip:
         ).fetchone()
         conn.close()
         assert row is not None
-        (book_id, ch, seg, locale, state, worker, vtt, audio_path) = row
+        book_id, ch, seg, locale, state, worker, vtt, audio_path = row
         assert book_id == 101
         assert (ch, seg) == (0, 0)
         assert locale == "zh-Hans"
@@ -610,7 +609,11 @@ class TestStreamingSegmentsRoundTrip:
         conn.execute("DROP TABLE streaming_segments")
         conn.execute(
             "INSERT INTO audiobooks (id, title, file_path) VALUES (?, ?, ?)",
-            (101, "The Fellowship of the Ring", "/tmp/fellowship.opus"),  # nosec B108 -- DB string fixture, not a filesystem write
+            (
+                101,
+                "The Fellowship of the Ring",
+                "/tmp/fellowship.opus",
+            ),  # nosec B108 -- DB string fixture, not a filesystem write
         )
         conn.commit()
         conn.close()

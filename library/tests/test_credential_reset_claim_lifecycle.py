@@ -105,9 +105,9 @@ class TestAdminResetPasskeyThenClaim:
             "/auth/register/claim/validate",
             json={"username": "reset-claim-pk1", "claim_token": claim_token},
         )
-        assert resp.status_code == 200, (
-            f"Validate should succeed for reset token: {resp.get_json()}"
-        )
+        assert (
+            resp.status_code == 200
+        ), f"Validate should succeed for reset token: {resp.get_json()}"
         data = resp.get_json()
         assert data["valid"] is True
 
@@ -135,9 +135,9 @@ class TestAdminResetPasskeyThenClaim:
                 "auth_type": "passkey",
             },
         )
-        assert resp.status_code == 200, (
-            f"WebAuthn begin should succeed for reset token: {resp.get_json()}"
-        )
+        assert (
+            resp.status_code == 200
+        ), f"WebAuthn begin should succeed for reset token: {resp.get_json()}"
         data = resp.get_json()
         assert "options" in data
         assert "challenge" in data
@@ -159,9 +159,9 @@ class TestAdminResetPasskeyThenClaim:
                 "auth_method": "totp",
             },
         )
-        assert resp.status_code == 200, (
-            f"Claiming TOTP after passkey reset should work: {resp.get_json()}"
-        )
+        assert (
+            resp.status_code == 200
+        ), f"Claiming TOTP after passkey reset should work: {resp.get_json()}"
         data = resp.get_json()
         assert data["success"] is True
         assert "totp_secret" in data
@@ -218,9 +218,9 @@ class TestSelfServiceResetThenClaim:
             "/auth/register/claim",
             json={"username": "self-reset-pk1", "claim_token": claim_token, "auth_method": "totp"},
         )
-        assert resp.status_code == 200, (
-            f"Self-service reset claim should succeed: {resp.get_json()}"
-        )
+        assert (
+            resp.status_code == 200
+        ), f"Self-service reset claim should succeed: {resp.get_json()}"
         data = resp.get_json()
         assert data["success"] is True
         assert "totp_secret" in data
@@ -252,9 +252,9 @@ class TestClaimURLFormat:
         )
         assert resp.status_code == 201
         claim_url = resp.get_json()["setup_data"]["claim_url"]
-        assert claim_url.startswith("/claim.html?"), (
-            f"Claim URL must point to /claim.html, got: {claim_url}"
-        )
+        assert claim_url.startswith(
+            "/claim.html?"
+        ), f"Claim URL must point to /claim.html, got: {claim_url}"
         assert "username=" in claim_url
         assert "token=" in claim_url
         # Must NOT be the API endpoint
@@ -265,9 +265,9 @@ class TestClaimURLFormat:
         uid, _ = _create_user_via_admin(admin_client, "url-check-reset", auth_method="passkey")
         reset_data = _reset_credentials(admin_client, uid)
         claim_url = reset_data["setup_data"]["claim_url"]
-        assert claim_url.startswith("/claim.html?"), (
-            f"Reset claim URL must point to /claim.html, got: {claim_url}"
-        )
+        assert claim_url.startswith(
+            "/claim.html?"
+        ), f"Reset claim URL must point to /claim.html, got: {claim_url}"
         assert "username=url-check-reset" in claim_url
         assert "token=" in claim_url
         assert "/auth/register/claim" not in claim_url
@@ -291,9 +291,9 @@ class TestClaimURLFormat:
         resp = client.post("/auth/account/reset-credentials")
         assert resp.status_code == 200
         claim_url = resp.get_json()["setup_data"]["claim_url"]
-        assert claim_url.startswith("/claim.html?"), (
-            f"Self-service claim URL must point to /claim.html, got: {claim_url}"
-        )
+        assert claim_url.startswith(
+            "/claim.html?"
+        ), f"Self-service claim URL must point to /claim.html, got: {claim_url}"
         assert "/auth/register/claim" not in claim_url
 
     def test_invite_user_claim_url_format(self, admin_client):
@@ -314,18 +314,18 @@ class TestClaimURLFormat:
             data = resp.get_json()
             setup = data.get("setup_data", data)
             if "claim_url" in setup:
-                assert setup["claim_url"].startswith("/claim.html?"), (
-                    f"Invite claim URL must be /claim.html: {setup['claim_url']}"
-                )
+                assert setup["claim_url"].startswith(
+                    "/claim.html?"
+                ), f"Invite claim URL must be /claim.html: {setup['claim_url']}"
 
     def test_claim_token_format_matches_pattern(self, admin_client):
         """Claim tokens follow XXXX-XXXX-XXXX-XXXX format."""
         uid, _ = _create_user_via_admin(admin_client, "token-fmt-check", auth_method="passkey")
         reset_data = _reset_credentials(admin_client, uid)
         token = reset_data["setup_data"]["claim_token"]
-        assert re.match(r"^[A-Za-z0-9]{4}(-[A-Za-z0-9]{4}){3}$", token), (
-            f"Token format invalid: {token}"
-        )
+        assert re.match(
+            r"^[A-Za-z0-9]{4}(-[A-Za-z0-9]{4}){3}$", token
+        ), f"Token format invalid: {token}"
 
 
 # ──────────────────────────────────────────────────────────────────────

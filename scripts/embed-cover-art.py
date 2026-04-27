@@ -50,6 +50,7 @@ def _require_audiobooks_user() -> None:
     )
     sys.exit(1)
 
+
 # Configuration from environment with defaults
 LIBRARY_DIR = os.environ.get("AUDIOBOOKS_LIBRARY", "/srv/audiobooks/Library")
 LOG_DIR = os.environ.get("AUDIOBOOKS_LOGS", "/var/log/audiobooks")

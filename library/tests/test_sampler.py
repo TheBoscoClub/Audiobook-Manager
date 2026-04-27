@@ -19,7 +19,6 @@ from __future__ import annotations
 import sqlite3
 
 import pytest
-
 from localization.sampler import (
     SAMPLER_MAX_EXTEND_SECONDS,
     SAMPLER_MIN_SECONDS,
@@ -28,7 +27,6 @@ from localization.sampler import (
     compute_sampler_range,
     enqueue_sampler,
 )
-
 
 # ─── Pure algorithm — compute_sampler_range ─────────────────────────────────
 

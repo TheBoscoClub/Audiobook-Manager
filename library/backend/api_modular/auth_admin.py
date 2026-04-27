@@ -801,7 +801,9 @@ def _invite_claim_flow(db, username, email, can_download):
     )
 
 
-def _invite_magic_link_user(db, user_repo, username, email, can_download):  # pylint: disable=unused-argument  # user_repo reserved for future lookup/update path; currently saves directly via User.save(db)
+def _invite_magic_link_user(
+    db, user_repo, username, email, can_download
+):  # pylint: disable=unused-argument  # user_repo reserved for future lookup/update path; currently saves directly via User.save(db)
     """
     Create a magic_link user account directly and send activation email.
 

@@ -47,7 +47,9 @@ def fetch_series_from_audible(asin: str) -> list[dict]:
     Returns list of dicts: [{"title": "...", "sequence": "..."}]
     """
     url = f"{AUDIBLE_API}/{asin}?response_groups=series&marketplace={MARKETPLACE}"
-    req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})  # noqa: S310 — Request for fixed HTTPS Audible series API; no user-controlled scheme
+    req = urllib.request.Request(
+        url, headers={"User-Agent": "AudiobookManager/1.0"}
+    )  # noqa: S310 — Request for fixed HTTPS Audible series API; no user-controlled scheme
 
     try:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (AUDIBLE_API) + validated ASIN from internal DB; not user-controlled scheme

@@ -133,9 +133,7 @@ def insert_audiobook(
             import logging
 
             logging.getLogger(__name__).warning(
-                "sampler hook exception (non-fatal) for book=%s",
-                audiobook_id,
-                exc_info=True,
+                "sampler hook exception (non-fatal) for book=%s", audiobook_id, exc_info=True
             )
 
     return audiobook_id

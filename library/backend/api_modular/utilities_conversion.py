@@ -29,7 +29,9 @@ def get_ffmpeg_processes() -> tuple[list[int], dict[int, str]]:
     cmdlines = {}
 
     try:
-        ps_aux = subprocess.run(["ps", "aux"], capture_output=True, text=True)  # noqa: S603,S607 — pgrep/ps are system process inspection tools; args are hardcoded patterns, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+        ps_aux = subprocess.run(
+            ["ps", "aux"], capture_output=True, text=True
+        )  # noqa: S603,S607 — pgrep/ps are system process inspection tools; args are hardcoded patterns, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
 
         for line in ps_aux.stdout.split("\n"):
             if "ffmpeg" in line and "libopus" in line:
@@ -50,7 +52,9 @@ def get_ffmpeg_processes() -> tuple[list[int], dict[int, str]]:
 def get_ffmpeg_nice_value() -> str | None:
     """Get the nice value of ffmpeg processes."""
     try:
-        ps_ni = subprocess.run(["ps", "-eo", "ni,comm"], capture_output=True, text=True)  # noqa: S603,S607 — pgrep/ps are system process inspection tools; args are hardcoded patterns, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
+        ps_ni = subprocess.run(
+            ["ps", "-eo", "ni,comm"], capture_output=True, text=True
+        )  # noqa: S603,S607 — pgrep/ps are system process inspection tools; args are hardcoded patterns, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
         for line in ps_ni.stdout.split("\n"):
             if "ffmpeg" in line:
                 parts = line.strip().split()
@@ -161,7 +165,11 @@ def get_system_stats() -> dict:
 
         # tmpfs usage
         df_result = subprocess.run(  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-            ["df", "-h", "/tmp"],  # noqa: S108,S607 — df queries /tmp tmpfs disk usage (read-only, no temp file creation); "df" is a system tool on PATH  # nosec B108 — tmp path — config default only; production overrides via audiobooks.conf; service creates dir 0700
+            [
+                "df",
+                "-h",
+                "/tmp",
+            ],  # noqa: S108,S607 — df queries /tmp tmpfs disk usage (read-only, no temp file creation); "df" is a system tool on PATH  # nosec B108 — tmp path — config default only; production overrides via audiobooks.conf; service creates dir 0700
             capture_output=True,
             text=True,
         )  # nosec B108

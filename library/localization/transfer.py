@@ -410,10 +410,7 @@ def _import_audio(
 
 
 def _extract_streaming_audio(
-    tar: tarfile.TarFile,
-    members: dict,
-    arc_key: str | None,
-    dest_path: Path,
+    tar: tarfile.TarFile, members: dict, arc_key: str | None, dest_path: Path
 ) -> str:
     """Extract a streaming-audio tar entry to its prod-local nested path.
 

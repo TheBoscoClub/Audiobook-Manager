@@ -370,11 +370,7 @@ def get_chapter_subtitle(book_id, chapter_index, locale):
 
         stitched = _stitch_streaming_vtt(conn, book_id, chapter_index, locale)
         if stitched:
-            return (
-                stitched,
-                200,
-                {"Content-Type": "text/vtt; charset=utf-8"},
-            )
+            return (stitched, 200, {"Content-Type": "text/vtt; charset=utf-8"})
 
         if cached_file_missing:
             return jsonify({"error": "VTT file missing on disk"}), 404

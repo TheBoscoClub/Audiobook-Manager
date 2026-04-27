@@ -290,7 +290,9 @@ def update_audiobook(id: int) -> FlaskResponse:
     query = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608  # noqa: S608
 
     try:
-        cursor.execute(query, values)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        cursor.execute(
+            query, values
+        )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         conn.commit()
         rows_affected = cursor.rowcount
         conn.close()
@@ -379,7 +381,9 @@ def bulk_update_audiobooks() -> FlaskResponse:
         placeholders = ",".join("?" * len(ids))
         # CodeQL: field is validated against allowed_fields allowlist above
         query = f"UPDATE audiobooks SET {field} = ? WHERE id IN ({placeholders})"  # nosec B608  # nosemgrep: python.django.security.injection.tainted-sql-string.tainted-sql-string,python.flask.security.injection.tainted-sql-string.tainted-sql-string  # noqa: S608
-        cursor.execute(query, [value] + ids)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        cursor.execute(
+            query, [value] + ids
+        )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
         conn.commit()
         updated_count = cursor.rowcount
         conn.close()

@@ -143,8 +143,11 @@ def _synthesize_segment_audio(
     # `.` and crashed edge-tts which couldn't TTS them as Mandarin.
     import string as _string
     import unicodedata as _unicodedata
+
     stripped = "".join(
-        ch for ch in text if not (
+        ch
+        for ch in text
+        if not (
             ch.isspace()
             or ch in _string.punctuation
             or ch in "¶♪♫♩♬"
@@ -200,11 +203,7 @@ def _synthesize_segment_audio(
 
 
 def _synthesize_silent_segment_audio(
-    audiobook_id: int,
-    chapter_index: int,
-    segment_index: int,
-    locale: str,
-    duration_sec: float,
+    audiobook_id: int, chapter_index: int, segment_index: int, locale: str, duration_sec: float
 ) -> Path:
     """Generate a silent WebM-Opus segment of the given duration.
 
@@ -392,11 +391,7 @@ def split_audio_segment(
     # successfully. Replacement-on-decode keeps the stderr legible for the
     # error message below without crashing on tag bytes that don't matter.
     result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
-        cmd,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=60,
+        cmd, capture_output=True, encoding="utf-8", errors="replace", timeout=60
     )
     if result.returncode != 0:
         out_path.unlink(missing_ok=True)
@@ -714,7 +709,15 @@ def get_chapter_info(db_path: str, audiobook_id: int, chapter_index: int) -> tup
         # decode against non-UTF-8 metadata bytes — same pattern as the
         # ffmpeg call in split_audio_segment above.
         result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-            ["ffprobe", "-v", "quiet", "-show_format", "-print_format", "json", str(audio_path)],  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-show_format",
+                "-print_format",
+                "json",
+                str(audio_path),
+            ],  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled
             capture_output=True,
             encoding="utf-8",
             errors="replace",

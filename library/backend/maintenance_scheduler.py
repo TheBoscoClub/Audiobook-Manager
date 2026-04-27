@@ -66,13 +66,10 @@ def find_due_windows():
     """Find windows that are due for execution."""
     conn = get_db()
     try:
-        return [
-            dict(r)
-            for r in conn.execute("""SELECT * FROM maintenance_windows
+        return [dict(r) for r in conn.execute("""SELECT * FROM maintenance_windows
                    WHERE next_run_at <= datetime('now')
                      AND status = 'active'
-                   ORDER BY next_run_at ASC""").fetchall()
-        ]
+                   ORDER BY next_run_at ASC""").fetchall()]
     finally:
         conn.close()
 

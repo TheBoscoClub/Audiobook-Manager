@@ -24,8 +24,7 @@ UPGRADE_SH = PROJECT_ROOT / "upgrade.sh"
 def _make_prior_schema_db(db_path: Path) -> None:
     """Create a DB with pre-v8.3.2 streaming_segments shape (no retry_count)."""
     conn = sqlite3.connect(str(db_path))
-    conn.executescript(
-        """
+    conn.executescript("""
         CREATE TABLE IF NOT EXISTS audiobooks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             asin TEXT,
@@ -49,8 +48,7 @@ def _make_prior_schema_db(db_path: Path) -> None:
             source_vtt_content TEXT,
             UNIQUE(audiobook_id, chapter_index, segment_index, locale)
         );
-        """
-    )
+        """)
     conn.commit()
     conn.close()
 
@@ -72,9 +70,9 @@ def test_data_migration_dispatcher_invokes_function_pattern(tmp_path):
     db_dir.mkdir()
     db_path = db_dir / "audiobooks.db"
     _make_prior_schema_db(db_path)
-    assert not _column_exists(db_path, "streaming_segments", "retry_count"), (
-        "test setup: prior-schema DB should NOT have retry_count"
-    )
+    assert not _column_exists(
+        db_path, "streaming_segments", "retry_count"
+    ), "test setup: prior-schema DB should NOT have retry_count"
 
     # Minimal fake "installed" target at v8.3.1 so the 8.3.2 boundary triggers
     target_dir = tmp_path / "installed"
@@ -84,22 +82,15 @@ def test_data_migration_dispatcher_invokes_function_pattern(tmp_path):
     # Source upgrade.sh in source-only mode, then invoke the dispatcher
     # with DB_PATH pointing at our forged DB (takes precedence over any
     # /etc/audiobooks/audiobooks.conf on the host).
-    harness = textwrap.dedent(
-        f"""
+    harness = textwrap.dedent(f"""
         set -e
         export UPGRADE_SH_SOURCE_ONLY=1
         export DB_PATH={db_path}
         source {UPGRADE_SH}
         apply_data_migrations {PROJECT_ROOT} {target_dir} "" "false"
-        """
-    ).strip()
+        """).strip()
 
-    result = subprocess.run(
-        ["bash", "-c", harness],
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
+    result = subprocess.run(["bash", "-c", harness], capture_output=True, text=True, timeout=30)
 
     has_col = _column_exists(db_path, "streaming_segments", "retry_count")
     assert has_col, (

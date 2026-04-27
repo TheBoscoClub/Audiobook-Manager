@@ -52,10 +52,7 @@ def test_bumper_rewrites_cachebust_stamps(tmp_path):
     )
 
     result = subprocess.run(
-        [str(BUMPER), "STAMP42", str(tmp_path)],
-        capture_output=True,
-        text=True,
-        check=False,
+        [str(BUMPER), "STAMP42", str(tmp_path)], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, f"bumper failed: {result.stderr}"
 
@@ -88,14 +85,11 @@ def test_bumper_rejects_unsafe_stamp(tmp_path):
     (tmp_path / "index.html").write_text('<script src="x.js?v=old"></script>\n')
     for bad in ("; rm -rf /", "$(id)", "`whoami`", "foo bar", "a" * 40):
         result = subprocess.run(
-            [str(BUMPER), bad, str(tmp_path)],
-            capture_output=True,
-            text=True,
-            check=False,
+            [str(BUMPER), bad, str(tmp_path)], capture_output=True, text=True, check=False
         )
-        assert result.returncode != 0, (
-            f"bumper accepted unsafe stamp {bad!r} (should reject): {result.stdout}"
-        )
+        assert (
+            result.returncode != 0
+        ), f"bumper accepted unsafe stamp {bad!r} (should reject): {result.stdout}"
 
 
 def test_bumper_fails_on_missing_target_dir(tmp_path):
@@ -140,9 +134,6 @@ def test_bumper_shellcheck_clean():
 
         pytest.skip("shellcheck not installed")
     result = subprocess.run(
-        ["shellcheck", "-s", "bash", str(BUMPER)],
-        capture_output=True,
-        text=True,
-        check=False,
+        ["shellcheck", "-s", "bash", str(BUMPER)], capture_output=True, text=True, check=False
     )
     assert result.returncode == 0, f"shellcheck found issues:\n{result.stdout}"

@@ -34,7 +34,9 @@ audiobooks_bp = Blueprint("audiobooks", __name__)
 AUDIOBOOK_FILTER = "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
 
 
-def init_audiobooks_routes(db_path, project_root, database_path):  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
+def init_audiobooks_routes(
+    db_path, project_root, database_path
+):  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
     """Initialize audiobooks routes (no-op, kept for API compatibility).
 
     Database path is now resolved at request time via current_app.config.
@@ -845,7 +847,17 @@ def _remux_to_webm(source: Path, webm_path: Path, audiobook_id: int) -> str | No
     tmp_path = webm_path.with_suffix(".webm.tmp")
     try:  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
         result = subprocess.run(  # noqa: S603,S607  # nosec B603,B607
-            ["ffmpeg", "-y", "-i", str(source), "-c:a", "copy", "-f", "webm", str(tmp_path)],  # noqa: S607
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(source),
+                "-c:a",
+                "copy",
+                "-f",
+                "webm",
+                str(tmp_path),
+            ],  # noqa: S607
             capture_output=True,
             timeout=300,
         )

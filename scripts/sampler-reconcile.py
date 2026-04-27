@@ -107,8 +107,7 @@ def reconcile(
         existing_locales = {
             row["locale"]
             for row in conn.execute(
-                "SELECT locale FROM sampler_jobs WHERE audiobook_id = ?",
-                (audiobook_id,),
+                "SELECT locale FROM sampler_jobs WHERE audiobook_id = ?", (audiobook_id,)
             ).fetchall()
         }
         needed = [loc for loc in targets if loc not in existing_locales]
@@ -124,10 +123,7 @@ def reconcile(
                 chapter_durations = [c.duration_ms / 1000.0 for c in chapters]
             except Exception as e:  # noqa: BLE001
                 logging.warning(
-                    "extract_chapters failed for book=%d path=%s: %s",
-                    audiobook_id,
-                    file_path,
-                    e,
+                    "extract_chapters failed for book=%d path=%s: %s", audiobook_id, file_path, e
                 )
 
         if not chapter_durations:
@@ -138,9 +134,7 @@ def reconcile(
         for locale in needed:
             if dry_run:
                 logging.info(
-                    "[DRY RUN] would enqueue sampler: book=%d locale=%s",
-                    audiobook_id,
-                    locale,
+                    "[DRY RUN] would enqueue sampler: book=%d locale=%s", audiobook_id, locale
                 )
                 enqueued += 1
                 continue
@@ -170,12 +164,7 @@ def reconcile(
                     failed += 1
             except Exception as e:  # noqa: BLE001
                 failed += 1
-                logging.warning(
-                    "enqueue failed book=%d locale=%s err=%s",
-                    audiobook_id,
-                    locale,
-                    e,
-                )
+                logging.warning("enqueue failed book=%d locale=%s err=%s", audiobook_id, locale, e)
 
     conn.close()
     logging.info(
@@ -263,9 +252,8 @@ def main() -> int:
         logging.info("Exec'ing sampler-burst.sh with --workers %d", args.burst)
         # os.execvp replaces this Python process — sampler-burst handles its
         # own signal cleanup, so we don't need to wrap with subprocess.run.
-        os.execvp(  # nosec B606 — hardcoded sibling script path, int-validated workers
-            str(burst_script),
-            [str(burst_script), "--workers", str(args.burst)],
+        os.execvp(  # nosec B606 # nosemgrep: dangerous-os-exec-tainted-env-args  — hardcoded sibling script path, int-validated workers
+            str(burst_script), [str(burst_script), "--workers", str(args.burst)]
         )
 
     return 0

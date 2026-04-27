@@ -88,10 +88,7 @@ def test_probe_stt_warmth_vastai_only_unreachable():
         "AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY": "fake-vast-key",
         "AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT": "fake-endpoint-vast",
     }
-    for key in (
-        "AUDIOBOOKS_RUNPOD_API_KEY",
-        "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT",
-    ):
+    for key in ("AUDIOBOOKS_RUNPOD_API_KEY", "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT"):
         os.environ.pop(key, None)
     with patch.dict(os.environ, env, clear=False):
         cold, ready, providers = st._probe_stt_warmth()
@@ -281,11 +278,7 @@ def test_sampler_burst_accepts_valid_workers_arg_via_help():
     the script is callable and argument-parsing works at all."""
     script = SCRIPTS_DIR / "sampler-burst.sh"
     result = subprocess.run(
-        ["bash", str(script), "--help"],
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=5,
+        ["bash", str(script), "--help"], capture_output=True, text=True, check=False, timeout=5
     )
     assert result.returncode == 0
     assert "sampler-burst.sh" in result.stdout

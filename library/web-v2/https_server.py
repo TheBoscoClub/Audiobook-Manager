@@ -221,7 +221,10 @@ def main():
 
     # Create HTTPS server
     server = http.server.HTTPServer(
-        ("0.0.0.0", HTTPS_PORT),  # noqa: S104 — HTTPS server, all-interface bind intentional for multi-NIC deployments  # nosec B104 — bind 0.0.0.0 — intentional; service is fronted by Caddy/TLS reverse proxy, not exposed directly
+        (
+            "0.0.0.0",
+            HTTPS_PORT,
+        ),  # noqa: S104 — HTTPS server, all-interface bind intentional for multi-NIC deployments  # nosec B104 — bind 0.0.0.0 — intentional; service is fronted by Caddy/TLS reverse proxy, not exposed directly
         handler,
     )  # nosec B104
     server.socket = context.wrap_socket(server.socket, server_side=True)

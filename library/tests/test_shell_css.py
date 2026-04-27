@@ -50,9 +50,9 @@ class TestShellCSS:
         )
         # Banner CSS lives in shell.css.
         css = SHELL_CSS.read_text()
-        assert ".version-update-banner" in css, (
-            ".version-update-banner styles must exist in shell.css"
-        )
+        assert (
+            ".version-update-banner" in css
+        ), ".version-update-banner styles must exist in shell.css"
 
     def test_update_i18n_keys_present_in_both_locales(self):
         """Banner strings (`update.available`, `update.reload`,

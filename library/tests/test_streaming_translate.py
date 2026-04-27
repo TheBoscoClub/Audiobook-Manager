@@ -306,10 +306,7 @@ def streaming_db(flask_app, session_temp_dir):
     conn.execute("DELETE FROM streaming_sessions")
     conn.execute("DELETE FROM chapter_subtitles")
     conn.execute("DELETE FROM chapter_translations_audio")
-    conn.executemany(
-        "DELETE FROM audiobooks WHERE id = ?",
-        [(bid,) for bid in _SEEDED_BOOKS],
-    )
+    conn.executemany("DELETE FROM audiobooks WHERE id = ?", [(bid,) for bid in _SEEDED_BOOKS])
     conn.commit()
     conn.close()
     st._chapter_count_memo.clear()

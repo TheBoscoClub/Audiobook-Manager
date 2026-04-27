@@ -223,8 +223,12 @@ def get_activity():
 
     auth_db = get_auth_db()
     with auth_db.connection() as conn:
-        rows = _rows_to_dicts(conn.execute(data_sql, data_params))  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        total = conn.execute(count_sql, list(all_params)).fetchone()[0]  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        rows = _rows_to_dicts(
+            conn.execute(data_sql, data_params)
+        )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+        total = conn.execute(count_sql, list(all_params)).fetchone()[
+            0
+        ]  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
 
     # Resolve titles from library DB
     book_ids = {str(row["audiobook_id"]) for row in rows}

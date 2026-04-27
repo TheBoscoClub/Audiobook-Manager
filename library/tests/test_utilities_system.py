@@ -696,7 +696,9 @@ class TestGetHealth:
         """Health returns database: false when DATABASE_PATH points to missing file."""
         # Temporarily set DATABASE_PATH to a non-existent file
         original = flask_app.config.get("DATABASE_PATH")
-        flask_app.config["DATABASE_PATH"] = "/tmp/nonexistent-db-file.sqlite"  # nosec B108  # test fixture path
+        flask_app.config["DATABASE_PATH"] = (
+            "/tmp/nonexistent-db-file.sqlite"  # nosec B108  # test fixture path
+        )
         try:
             with flask_app.test_client() as client:
                 response = client.get("/api/system/health")

@@ -349,7 +349,9 @@ def _install_fake_pipeline(monkeypatch, stt, chapters_result=None, raise_on_pipe
             from pathlib import Path as _P
 
             on_complete(0, _P("/tmp/en-0.vtt"), _P("/tmp/zh-0.vtt"))  # nosec B108 -- test fixture
-        return chapters_result or [(0, "/tmp/en-0.vtt", "/tmp/zh-0.vtt")]  # nosec B108 -- test fixture
+        return chapters_result or [
+            (0, "/tmp/en-0.vtt", "/tmp/zh-0.vtt")
+        ]  # nosec B108 -- test fixture
 
     pipeline = types.SimpleNamespace(
         generate_book_subtitles=_gen_subs, get_stt_provider=lambda *a, **kw: stt

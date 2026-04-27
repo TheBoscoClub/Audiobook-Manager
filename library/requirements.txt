@@ -6,7 +6,7 @@ gevent-websocket>=0.10.1
 flask-sock>=0.7.0
 croniter>=6.0.0
 requests>=2.33.0
-cryptography>=46.0.7     # CVE-2026-39892
+cryptography>=47.0.0     # CVE-2026-39892
 webauthn>=2.3.0
 pyotp>=2.9.0
 qrcode[pil]>=8.0
@@ -14,7 +14,7 @@ sqlcipher3>=0.5.0
 # Security: Pin minimum versions for transitive deps with CVEs
 urllib3>=2.6.3      # CVE-2026-21441
 pyasn1>=0.6.3       # CVE-2026-23490, CVE-2026-30922
-pyopenssl>=26.0.0   # CVE-2026-27448, CVE-2026-27459
+pyopenssl>=26.1.0   # CVE-2026-27448, CVE-2026-27459
 filelock>=3.28.0    # CVE-2025-68146
 marshmallow>=4.0.0  # CVE-2025-68480 (actual installed: 4.x)
 pynacl>=1.6.2       # CVE-2025-69277

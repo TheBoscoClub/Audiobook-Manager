@@ -85,9 +85,7 @@ CAPACITY_WARNING_COOLDOWN_SEC = 300
 
 
 def reset_stuck_live_claims(
-    conn: sqlite3.Connection,
-    *,
-    timeout_sec: int = LIVE_CLAIM_TIMEOUT_SEC,
+    conn: sqlite3.Connection, *, timeout_sec: int = LIVE_CLAIM_TIMEOUT_SEC
 ) -> list[int]:
     """Reset live segments whose worker claim is older than ``timeout_sec``.
 
@@ -141,9 +139,7 @@ def reset_stuck_live_claims(
 
 
 def reset_stuck_sampler_claims(
-    conn: sqlite3.Connection,
-    *,
-    timeout_sec: int = SAMPLER_CLAIM_TIMEOUT_SEC,
+    conn: sqlite3.Connection, *, timeout_sec: int = SAMPLER_CLAIM_TIMEOUT_SEC
 ) -> list[int]:
     """Reset sampler/backlog segments whose claim has aged past ``timeout_sec``.
 
@@ -191,9 +187,7 @@ def reset_stuck_sampler_claims(
 
 
 def reset_stuck_sampler_jobs(
-    conn: sqlite3.Connection,
-    *,
-    timeout_sec: int = SAMPLER_JOB_RUNNING_TIMEOUT_SEC,
+    conn: sqlite3.Connection, *, timeout_sec: int = SAMPLER_JOB_RUNNING_TIMEOUT_SEC
 ) -> list[int]:
     """Reset sampler_jobs stuck in status='running' past ``timeout_sec``.
 
@@ -243,11 +237,7 @@ def reset_stuck_sampler_jobs(
 
 
 def sweep_retry_exhausted_segments(
-    conn: sqlite3.Connection,
-    *,
-    monitor: str,
-    origins: tuple[str, ...],
-    retry_cap: int = RETRY_CAP,
+    conn: sqlite3.Connection, *, monitor: str, origins: tuple[str, ...], retry_cap: int = RETRY_CAP
 ) -> list[int]:
     """Mark segments past the retry cap as state='failed'.
 
@@ -268,8 +258,10 @@ def sweep_retry_exhausted_segments(
         retry_cap: threshold for retry_count.
     """
     placeholders = ",".join("?" for _ in origins)
+    # B608 suppressed below: placeholders is a string of static '?' tokens;
+    # all values pass via parameterized query (params arg) — not user-controlled.
     sql = (
-        "SELECT id, audiobook_id, worker_id, retry_count, origin, error "
+        "SELECT id, audiobook_id, worker_id, retry_count, origin, error "  # nosec B608
         "FROM streaming_segments "
         f"WHERE origin IN ({placeholders}) "
         "  AND retry_count >= ? "
@@ -394,8 +386,7 @@ def alert_capacity_pressure(
     because conditions weren't met or the cooldown was active).
     """
     pending_count = conn.execute(
-        "SELECT COUNT(*) FROM streaming_segments "
-        "WHERE origin = 'live' AND state = 'pending'"
+        "SELECT COUNT(*) FROM streaming_segments WHERE origin = 'live' AND state = 'pending'"
     ).fetchone()[0]
 
     if pending_count <= pending_threshold:
@@ -441,9 +432,7 @@ def alert_capacity_pressure(
 
 
 def probe_gpu_instance_health(
-    conn: sqlite3.Connection,
-    *,
-    monitor: str = "live",
+    conn: sqlite3.Connection, *, monitor: str = "live"
 ) -> dict[str, object]:
     """Probe the configured inference backend(s) for instance health.
 
@@ -474,8 +463,4 @@ def probe_gpu_instance_health(
     """
     _ = conn  # reserved for future event logging
     _ = monitor
-    return {
-        "providers": {},
-        "any_healthy": True,  # optimistic until real probe lands
-        "stub": True,
-    }
+    return {"providers": {}, "any_healthy": True, "stub": True}  # optimistic until real probe lands

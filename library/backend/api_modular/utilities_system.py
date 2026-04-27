@@ -454,7 +454,9 @@ def _execute_cf_purge(zone_id: str, api_key: str, auth_email: str) -> FlaskRespo
     if not url.startswith("https://"):
         return jsonify({"success": False, "error": "Invalid URL scheme"}), 400
     data = b'{"purge_everything":true}'
-    req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310 — urllib.request.Request for fixed HTTPS Cloudflare API; URL scheme validated before this call
+    req = urllib.request.Request(
+        url, data=data, method="POST"
+    )  # noqa: S310 — urllib.request.Request for fixed HTTPS Cloudflare API; URL scheme validated before this call
     req.add_header("X-Auth-Key", api_key)
     req.add_header("X-Auth-Email", auth_email)
     req.add_header("Content-Type", "application/json")

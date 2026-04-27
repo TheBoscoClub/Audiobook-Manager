@@ -93,7 +93,11 @@ def _run_mediainfo(aaxc_file, inform_template):
     """Run mediainfo with a given --Inform template. Returns stdout or None."""
     try:
         result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-            ["mediainfo", f"--Inform=General;{inform_template}", str(aaxc_file)],  # noqa: S603,S607 — mediainfo is a system-installed media inspection tool; file path is from verified internal DB record
+            [
+                "mediainfo",
+                f"--Inform=General;{inform_template}",
+                str(aaxc_file),
+            ],  # noqa: S603,S607 — mediainfo is a system-installed media inspection tool; file path is from verified internal DB record
             capture_output=True,
             text=True,
             timeout=10,
@@ -126,7 +130,15 @@ def _extract_ffprobe_fields(aaxc_file, metadata):
     """Extract genre, date, series from ffprobe JSON output."""
     try:
         result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-            ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", str(aaxc_file)],  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_format",
+                str(aaxc_file),
+            ],  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled
             capture_output=True,
             text=True,
             timeout=10,
@@ -241,10 +253,14 @@ def _process_single_book(book, cursor, conn, stats):
             return
 
         params.append(book["id"])
-        update_query = f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608  # noqa: S608
+        update_query = (
+            f"UPDATE audiobooks SET {', '.join(updates)} WHERE id = ?"  # nosec B608  # noqa: S608
+        )
 
         try:
-            cursor.execute(update_query, params)  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+            cursor.execute(
+                update_query, params
+            )  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
             conn.commit()
             print(f"  \u2713 Updated {len(updates)} fields")
         except Exception as sql_err:

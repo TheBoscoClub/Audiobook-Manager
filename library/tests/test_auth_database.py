@@ -55,7 +55,9 @@ class TestSqlcipherImportFallback:
         """Line 63: AuthDatabase raises when sqlcipher is None."""
         with patch("auth.database.sqlcipher", None):
             with pytest.raises(AuthDatabaseError, match="SQLCipher not available"):
-                AuthDatabase(db_path="/tmp/test.db", key_path="/tmp/test.key")  # nosec B108  # test fixture path
+                AuthDatabase(
+                    db_path="/tmp/test.db", key_path="/tmp/test.key"
+                )  # nosec B108  # test fixture path
 
 
 class TestDefaultKeyPath:
@@ -63,7 +65,9 @@ class TestDefaultKeyPath:
 
     def test_dev_mode_key_path(self):
         """Line 78-80: Dev mode returns dev/auth-dev.key relative to db."""
-        db = AuthDatabase(db_path="/tmp/sub/test.db", is_dev=True)  # nosec B108  # test fixture path
+        db = AuthDatabase(
+            db_path="/tmp/sub/test.db", is_dev=True
+        )  # nosec B108  # test fixture path
         assert db.key_path == Path("/tmp/dev/auth-dev.key")  # nosec B108  # test fixture path
 
     def test_production_mode_key_path(self):
@@ -353,7 +357,9 @@ class TestGetAuthDb:
         with patch("auth.database.AuthDatabase") as MockDB:
             instance = MagicMock()
             MockDB.return_value = instance
-            result1 = get_auth_db(db_path="/tmp/test.db", key_path="/tmp/test.key")  # nosec B108  # test fixture path
+            result1 = get_auth_db(
+                db_path="/tmp/test.db", key_path="/tmp/test.key"
+            )  # nosec B108  # test fixture path
             result2 = get_auth_db()
             assert result1 is result2
             assert MockDB.call_count == 1

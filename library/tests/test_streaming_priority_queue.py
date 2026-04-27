@@ -14,7 +14,6 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
 from backend.api_modular.streaming_translate import handle_seek_impl, stop_streaming_impl
 
 BUFFER_AHEAD = 6

@@ -56,9 +56,7 @@ def test_upgrade_sh_reads_ports_from_conf():
 
     # Must read AUDIOBOOKS_WEB_PORT from the conf file.
     assert re.search(
-        r"grep\s+-oP\s+'?\^?AUDIOBOOKS_WEB_PORT.*?/etc/audiobooks/audiobooks\.conf",
-        body,
-        re.DOTALL,
+        r"grep\s+-oP\s+'?\^?AUDIOBOOKS_WEB_PORT.*?/etc/audiobooks/audiobooks\.conf", body, re.DOTALL
     ), "upgrade.sh must read AUDIOBOOKS_WEB_PORT from /etc/audiobooks/audiobooks.conf"
     assert re.search(
         r"grep\s+-oP\s+'?\^?AUDIOBOOKS_DOCKER_PORT.*?/etc/audiobooks/audiobooks\.conf",

@@ -832,12 +832,12 @@ class TestSsrfPrevention:
 
             parsed = _up.urlparse(req.full_url)
             assert parsed.scheme == "http", f"Expected http scheme, got {parsed.scheme!r}"
-            assert parsed.hostname == "127.0.0.1", (
-                f"Expected loopback host, got {parsed.hostname!r}"
-            )
-            assert parsed.port == proxy_server.API_PORT, (
-                f"Expected port {proxy_server.API_PORT}, got {parsed.port!r}"
-            )
+            assert (
+                parsed.hostname == "127.0.0.1"
+            ), f"Expected loopback host, got {parsed.hostname!r}"
+            assert (
+                parsed.port == proxy_server.API_PORT
+            ), f"Expected port {proxy_server.API_PORT}, got {parsed.port!r}"
 
 
 # ============================================================

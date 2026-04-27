@@ -114,9 +114,9 @@ class TestHelpTooltipSystem:
 
         # Count help icons
         help_icon_count = login_content.count('class="help-icon"')
-        assert help_icon_count >= 3, (
-            f"Login should have at least 3 help icons, found {help_icon_count}"
-        )
+        assert (
+            help_icon_count >= 3
+        ), f"Login should have at least 3 help icons, found {help_icon_count}"
 
     def test_login_page_has_help_tooltips(self):
         """Verify login page has help tooltip content."""
@@ -135,9 +135,9 @@ class TestHelpTooltipSystem:
         register_content = (WEB_DIR / "register.html").read_text()
 
         help_icon_count = register_content.count('class="help-icon"')
-        assert help_icon_count >= 5, (
-            f"Register should have at least 5 help icons, found {help_icon_count}"
-        )
+        assert (
+            help_icon_count >= 5
+        ), f"Register should have at least 5 help icons, found {help_icon_count}"
 
     def test_register_page_has_authenticator_help(self):
         """Verify register page explains authenticator apps."""
@@ -161,9 +161,9 @@ class TestHelpTooltipSystem:
 
         # Check for simple explanatory phrases
         assert "What is" in login_content, "Should use 'What is' explanations"
-        assert "How do I" in register_content or "How to" in register_content, (
-            "Should have how-to guidance"
-        )
+        assert (
+            "How do I" in register_content or "How to" in register_content
+        ), "Should have how-to guidance"
 
         # Check login help uses simple language
         assert "nickname" in login_content.lower(), "Should explain username simply"
@@ -241,9 +241,9 @@ class TestAuthCSS:
         register_content = (WEB_DIR / "register.html").read_text()
 
         assert "css/help-tooltips.css" in login_content, "Login should include help-tooltips.css"
-        assert "css/help-tooltips.css" in register_content, (
-            "Register should include help-tooltips.css"
-        )
+        assert (
+            "css/help-tooltips.css" in register_content
+        ), "Register should include help-tooltips.css"
 
 
 class TestAuthJavaScript:
@@ -311,9 +311,9 @@ class TestAuthJavaScript:
 
         # Check for basic validation
         assert "required" in login_content, "Form inputs should be required"
-        assert "pattern" in login_content or "maxlength" in login_content, (
-            "Should have input constraints"
-        )
+        assert (
+            "pattern" in login_content or "maxlength" in login_content
+        ), "Should have input constraints"
 
     def test_register_page_has_step_navigation(self):
         """Verify register page has step navigation logic."""
@@ -411,9 +411,9 @@ class TestVerifyPage:
         verify_content = (WEB_DIR / "verify.html").read_text()
 
         assert "URLSearchParams" in verify_content, "Should parse URL parameters"
-        assert ".get('token')" in verify_content or 'get("token")' in verify_content, (
-            "Should get token param"
-        )
+        assert (
+            ".get('token')" in verify_content or 'get("token")' in verify_content
+        ), "Should get token param"
 
     def test_verify_page_calls_correct_endpoint(self):
         """Verify page calls magic-link/verify endpoint."""
@@ -489,17 +489,17 @@ class TestAuthMethodSelection:
         """Verify register page has TOTP authenticator option."""
         register_content = (WEB_DIR / "register.html").read_text()
 
-        assert 'id="method-totp"' in register_content or "Authenticator App" in register_content, (
-            "Should have TOTP option"
-        )
+        assert (
+            'id="method-totp"' in register_content or "Authenticator App" in register_content
+        ), "Should have TOTP option"
 
     def test_register_page_has_passkey_option(self):
         """Verify register page shows passkey option as enabled."""
         register_content = (WEB_DIR / "register.html").read_text()
 
-        assert "Passkey" in register_content or "passkey" in register_content, (
-            "Should mention passkey option"
-        )
+        assert (
+            "Passkey" in register_content or "passkey" in register_content
+        ), "Should mention passkey option"
         # Passkey is now enabled with WebAuthn support
         assert "webauthn.js" in register_content, "Should include WebAuthn JavaScript"
         assert "WebAuthn.register" in register_content, "Should have WebAuthn registration handler"
@@ -509,9 +509,9 @@ class TestAuthMethodSelection:
         register_content = (WEB_DIR / "register.html").read_text()
 
         # Check for auth method related JavaScript
-        assert "authMethod" in register_content.lower() or "method" in register_content, (
-            "Should have auth method handling"
-        )
+        assert (
+            "authMethod" in register_content.lower() or "method" in register_content
+        ), "Should have auth method handling"
 
     def test_register_pending_verification_state(self):
         """Verify register page tracks pending verification between steps."""
@@ -528,17 +528,17 @@ class TestSecurityAttributes:
         login_content = (WEB_DIR / "login.html").read_text()
 
         assert 'autocomplete="username"' in login_content, "Username should have autocomplete"
-        assert 'autocomplete="one-time-code"' in login_content, (
-            "TOTP code should have one-time-code autocomplete"
-        )
+        assert (
+            'autocomplete="one-time-code"' in login_content
+        ), "TOTP code should have one-time-code autocomplete"
 
     def test_register_page_disables_autocomplete_for_token(self):
         """Verify sensitive fields disable autocomplete."""
         register_content = (WEB_DIR / "register.html").read_text()
 
-        assert 'autocomplete="off"' in register_content, (
-            "Verification token should disable autocomplete"
-        )
+        assert (
+            'autocomplete="off"' in register_content
+        ), "Verification token should disable autocomplete"
 
     def test_credentials_use_include(self):
         """Verify fetch calls include credentials for cookies."""

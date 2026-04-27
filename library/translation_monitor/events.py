@@ -44,6 +44,8 @@ ALLOWED_EVENT_TYPES = frozenset(
 ALLOWED_MONITORS = frozenset({"live", "sampler"})
 
 
+# pylint: disable=too-many-arguments
+# Audit-trail signature is intentional — every column is named for clarity.
 def log_event(
     conn: sqlite3.Connection,
     *,
@@ -76,15 +78,7 @@ def log_event(
             "(monitor, event_type, audiobook_id, segment_id, "
             " sampler_job_id, worker_id, details) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (
-                monitor,
-                event_type,
-                audiobook_id,
-                segment_id,
-                sampler_job_id,
-                worker_id,
-                payload,
-            ),
+            (monitor, event_type, audiobook_id, segment_id, sampler_job_id, worker_id, payload),
         )
         conn.commit()
         return cur.lastrowid

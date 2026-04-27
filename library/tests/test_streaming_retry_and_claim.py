@@ -26,8 +26,7 @@ SCHEMA_PATH = PROJECT_ROOT / "library" / "backend" / "schema.sql"
 
 def _load_worker():
     spec = importlib.util.spec_from_file_location(
-        "stream_translate_worker",
-        PROJECT_ROOT / "scripts" / "stream-translate-worker.py",
+        "stream_translate_worker", PROJECT_ROOT / "scripts" / "stream-translate-worker.py"
     )
     mod = importlib.util.module_from_spec(spec)
     sys.modules["stream_translate_worker"] = mod
@@ -275,14 +274,14 @@ def test_streaming_translate_js_has_chapter_advance_on_ended():
     src = js_path.read_text(encoding="utf-8")
     assert "function advanceChapter" in src, "advanceChapter function missing"
     assert 'addEventListener("ended"' in src, "enterStreaming must install an audio.ended listener"
-    assert 'removeEventListener("ended"' in src, (
-        "enterIdle (and advanceChapter mid-transition) must clean up the ended listener"
-    )
+    assert (
+        'removeEventListener("ended"' in src
+    ), "enterIdle (and advanceChapter mid-transition) must clean up the ended listener"
     # advanceChapter must actually attempt to POST /translate/stream with
     # the next chapter, not just log-and-quit
-    assert "chapter_index: nextChapter" in src, (
-        "advanceChapter must request streaming for nextChapter"
-    )
+    assert (
+        "chapter_index: nextChapter" in src
+    ), "advanceChapter must request streaming for nextChapter"
     assert "totalChapters" in src, "advanceChapter needs totalChapters to know when to stop"
 
 
