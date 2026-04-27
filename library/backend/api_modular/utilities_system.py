@@ -45,6 +45,13 @@ PREFLIGHT_FILE = CONTROL_DIR / "upgrade-preflight.json"
 # Preflight report is considered stale after this many seconds
 PREFLIGHT_STALE_SECONDS = 30 * 60  # 30 minutes
 
+# Upgrade-status lock is considered stale after this many seconds — covers
+# legitimate upgrades (typically 5–10 min) plus 3× safety margin. Used together
+# with a `systemctl is-active` check on the helper service: only auto-clear if
+# both conditions fire (mtime aged out AND helper not running). Defense in
+# depth so a slow-but-healthy upgrade is never falsely cleared.
+UPGRADE_HELPER_STALE_TIMEOUT_SEC = 30 * 60  # 30 minutes
+
 # Module-level state set by init_system_routes
 _project_root: str = ""
 
@@ -175,9 +182,98 @@ def _wait_for_completion(timeout: float = 30.0, poll_interval: float = 0.5) -> d
     }
 
 
+def _helper_service_active() -> bool:
+    """
+    Return True if audiobook-upgrade-helper.service is currently doing work.
+
+    `systemctl is-active` exit codes: 0 for active, non-zero otherwise.
+    We treat 'active' AND 'activating' as in-flight (the helper is starting
+    up or running). Everything else — 'inactive', 'failed', 'deactivating',
+    'unknown' — is treated as not-doing-work, which is the necessary condition
+    for safely clearing a stale lock.
+
+    Errors invoking systemctl (binary missing, not allowed, timeout) return
+    True conservatively — better to leave a stale lock alone than to clear a
+    real one because we couldn't verify.
+    """
+    try:
+        result = subprocess.run(  # nosec B603,B607 — systemctl on a hardcoded unit name
+            ["systemctl", "is-active", "audiobook-upgrade-helper.service"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+        state = result.stdout.strip()
+        return state in ("active", "activating")
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
+        logger.warning("Could not query helper service state, assuming active: %s", exc)
+        return True
+
+
+def _clear_stale_lock_if_safe(status: dict) -> bool:
+    """
+    Auto-clear an upgrade-status lock that's left over from a crashed helper.
+
+    Mirrors the structural pattern of
+    library/translation_monitor/probe.py::reset_stuck_live_claims — same
+    problem class (worker crashes mid-operation leaving a `running:true` flag),
+    same fix shape (timeout + liveness check, then idempotent reset).
+
+    Only clears when ALL of these are true:
+      1. status['running'] is true (something to clear)
+      2. status file's mtime is older than UPGRADE_HELPER_STALE_TIMEOUT_SEC
+      3. helper service is not active/activating
+
+    Returns True if the lock was cleared, False otherwise. Idempotent —
+    calling repeatedly with no helper activity in between is a no-op.
+    """
+    if not status.get("running"):
+        return False
+
+    try:
+        mtime = HELPER_STATUS_FILE.stat().st_mtime
+    except OSError:
+        # Status reports running but file is gone — treat as already cleared.
+        return False
+
+    age_sec = time.time() - mtime
+    if age_sec < UPGRADE_HELPER_STALE_TIMEOUT_SEC:
+        return False
+
+    if _helper_service_active():
+        # Helper is still working through a slow upgrade — leave it alone
+        # even though mtime is old. The two-condition gate exists for exactly
+        # this case.
+        return False
+
+    # Both conditions fired — safe to clear.
+    try:
+        HELPER_STATUS_FILE.write_text("")
+        logger.warning(
+            "Auto-cleared stale upgrade-status lock (age=%.0fs, threshold=%ds, "
+            "helper service inactive). Previous stage was %r — likely a crashed helper.",
+            age_sec,
+            UPGRADE_HELPER_STALE_TIMEOUT_SEC,
+            status.get("stage", ""),
+        )
+        return True
+    except (PermissionError, OSError) as exc:
+        logger.warning("Stale upgrade-status lock detected but could not clear: %s", exc)
+        return False
+
+
 def _check_not_running() -> FlaskResponse | None:
-    """Return an error response if an operation is already running, else None."""
+    """Return an error response if an operation is already running, else None.
+
+    Defensively auto-clears the lock first if it's stale (mtime aged out AND
+    helper service inactive) — covers the case where a previous helper crashed
+    mid-upgrade and left running:true behind. See Audiobook-Manager-ic4.
+    """
     current_status = _read_status()
+    if current_status.get("running") and _clear_stale_lock_if_safe(current_status):
+        # Re-read after clearing so subsequent calls see the cleared state.
+        current_status = _read_status()
     if current_status.get("running"):
         return jsonify({"error": "An operation is already in progress"}), 400
     return None

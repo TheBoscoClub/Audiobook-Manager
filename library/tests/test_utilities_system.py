@@ -881,3 +881,189 @@ class TestCheckUpgrade:
         data = response.get_json()
         assert data["success"] is True
         assert data["source"] == "project"
+
+
+class TestStaleLockAutoClear:
+    """
+    Auto-clear of a stale upgrade-status lock left behind by a crashed helper.
+
+    Regression guard for Audiobook-Manager-ic4 — prod incident 2026-04-27 where
+    a 21-hour-old running:true status from a v8.3.8.13 upgrade attempt that
+    crashed mid-operation was blocking subsequent /api/utilities/check-upgrade
+    calls with "An operation is already in progress".
+
+    The fix uses a two-condition gate (mtime aged out AND helper service
+    inactive) so a slow-but-healthy upgrade is never falsely cleared.
+    """
+
+    def _setup_status(self, temp_dir, running, age_sec):
+        """Write a status file with the given running flag and age in seconds."""
+        import os
+        import time
+
+        from backend.api_modular import utilities_system as module
+
+        status_file = temp_dir / "upgrade-status"
+        status_file.write_text(
+            json.dumps(
+                {
+                    "running": running,
+                    "stage": "starting_services",
+                    "message": "test fixture",
+                    "success": None,
+                    "output": [],
+                    "result": None,
+                }
+            )
+        )
+        # Age the file by setting mtime in the past.
+        target_mtime = time.time() - age_sec
+        st = status_file.stat()
+        os.utime(status_file, (st.st_atime, target_mtime))
+        module.HELPER_STATUS_FILE = status_file
+        return status_file
+
+    @patch("backend.api_modular.utilities_system._helper_service_active")
+    def test_clears_when_stale_and_helper_inactive(self, mock_active, temp_dir):
+        """Stale mtime + helper inactive → file is truncated and True returned."""
+        from backend.api_modular import utilities_system as module
+
+        mock_active.return_value = False
+        status_file = self._setup_status(temp_dir, running=True, age_sec=3600)
+        status = module._read_status()
+
+        cleared = module._clear_stale_lock_if_safe(status)
+
+        assert cleared is True
+        assert status_file.read_text() == ""
+
+    @patch("backend.api_modular.utilities_system._helper_service_active")
+    def test_does_not_clear_when_fresh(self, mock_active, temp_dir):
+        """Fresh mtime + running:true → not cleared (legitimate slow upgrade)."""
+        from backend.api_modular import utilities_system as module
+
+        mock_active.return_value = False  # would clear if mtime were stale
+        status_file = self._setup_status(temp_dir, running=True, age_sec=60)
+        original_text = status_file.read_text()
+        status = module._read_status()
+
+        cleared = module._clear_stale_lock_if_safe(status)
+
+        assert cleared is False
+        assert module.HELPER_STATUS_FILE.read_text() == original_text
+        # _helper_service_active must NOT be called when mtime is fresh
+        # (early-exit before the systemctl probe)
+        mock_active.assert_not_called()
+
+    @patch("backend.api_modular.utilities_system._helper_service_active")
+    def test_does_not_clear_when_helper_active(self, mock_active, temp_dir):
+        """Stale mtime + helper active → not cleared (slow upgrade in flight)."""
+        from backend.api_modular import utilities_system as module
+
+        mock_active.return_value = True
+        self._setup_status(temp_dir, running=True, age_sec=3600)
+        status = module._read_status()
+
+        cleared = module._clear_stale_lock_if_safe(status)
+
+        assert cleared is False
+        assert module.HELPER_STATUS_FILE.read_text() != ""
+
+    @patch("backend.api_modular.utilities_system._helper_service_active")
+    def test_no_op_when_not_running(self, mock_active, temp_dir):
+        """running:false status → no-op, no systemctl probe."""
+        from backend.api_modular import utilities_system as module
+
+        self._setup_status(temp_dir, running=False, age_sec=3600)
+        status = module._read_status()
+
+        cleared = module._clear_stale_lock_if_safe(status)
+
+        assert cleared is False
+        mock_active.assert_not_called()
+
+    @patch("backend.api_modular.utilities_system._helper_service_active")
+    def test_check_not_running_proceeds_after_auto_clear(self, mock_active, temp_dir):
+        """End-to-end: _check_not_running returns None after clearing a stale lock."""
+        from backend.api_modular import utilities_system as module
+
+        mock_active.return_value = False
+        self._setup_status(temp_dir, running=True, age_sec=3600)
+
+        response = module._check_not_running()
+
+        # None means "proceed" — request is allowed through.
+        assert response is None
+
+    @patch("backend.api_modular.utilities_system._helper_service_active")
+    def test_check_not_running_blocks_when_helper_active(self, mock_active, temp_dir, flask_app):
+        """End-to-end: _check_not_running still blocks when helper is genuinely active."""
+        from backend.api_modular import utilities_system as module
+
+        mock_active.return_value = True
+        self._setup_status(temp_dir, running=True, age_sec=3600)
+
+        # jsonify() in the error path requires a Flask app context.
+        with flask_app.app_context():
+            response = module._check_not_running()
+
+        assert response is not None
+        body, status_code = response
+        assert status_code == 400
+        assert "in progress" in body.get_json()["error"]
+
+
+class TestHelperServiceActive:
+    """
+    Tests for the _helper_service_active probe.
+
+    Verifies the systemctl is-active wrapper correctly classifies states and
+    fails closed (returns True) when systemctl can't be queried — better to
+    leave a stale lock alone than clear a real one because of probe failure.
+    """
+
+    @patch("backend.api_modular.utilities_system.subprocess.run")
+    def test_returns_true_when_active(self, mock_run):
+        from backend.api_modular import utilities_system as module
+
+        mock_run.return_value = MagicMock(stdout="active\n", returncode=0)
+        assert module._helper_service_active() is True
+
+    @patch("backend.api_modular.utilities_system.subprocess.run")
+    def test_returns_true_when_activating(self, mock_run):
+        from backend.api_modular import utilities_system as module
+
+        mock_run.return_value = MagicMock(stdout="activating\n", returncode=0)
+        assert module._helper_service_active() is True
+
+    @patch("backend.api_modular.utilities_system.subprocess.run")
+    def test_returns_false_when_inactive(self, mock_run):
+        from backend.api_modular import utilities_system as module
+
+        mock_run.return_value = MagicMock(stdout="inactive\n", returncode=3)
+        assert module._helper_service_active() is False
+
+    @patch("backend.api_modular.utilities_system.subprocess.run")
+    def test_returns_false_when_failed(self, mock_run):
+        from backend.api_modular import utilities_system as module
+
+        mock_run.return_value = MagicMock(stdout="failed\n", returncode=3)
+        assert module._helper_service_active() is False
+
+    @patch("backend.api_modular.utilities_system.subprocess.run")
+    def test_fails_closed_on_timeout(self, mock_run):
+        """Systemctl timeout → return True so we don't accidentally clear a real lock."""
+        import subprocess as sp
+
+        from backend.api_modular import utilities_system as module
+
+        mock_run.side_effect = sp.TimeoutExpired(cmd="systemctl", timeout=5)
+        assert module._helper_service_active() is True
+
+    @patch("backend.api_modular.utilities_system.subprocess.run")
+    def test_fails_closed_when_systemctl_missing(self, mock_run):
+        """FileNotFoundError → return True (fail closed)."""
+        from backend.api_modular import utilities_system as module
+
+        mock_run.side_effect = FileNotFoundError("systemctl: command not found")
+        assert module._helper_service_active() is True
