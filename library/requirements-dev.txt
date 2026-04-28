@@ -34,7 +34,7 @@ mando>=0.7.1,<0.9
 # (latest compatible is 4.0.4) until pylint 4.1.x releases upstream.
 # Re-visit this pin when pylint 4.1+ lands.
 astroid>=4.0.4,<4.2
-packaging>=26.1
+packaging>=26.2
 platformdirs>=4.9.6
 types-croniter>=6.2.2.20260408
 types-requests>=2.33.0.20260408
