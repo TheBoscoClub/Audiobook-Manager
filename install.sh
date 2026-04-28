@@ -1916,7 +1916,15 @@ EOF
                 done
             fi
             if [[ $has_runtime_target -eq 1 ]]; then
-                sudo systemctl enable --now "$unit" 2>/dev/null || true
+                # Mirror upgrade.sh's defensive reset-failed retry
+                # (Audiobook-Manager-0q0): if a transient permission window during
+                # install leaves the unit hitting StartLimitBurst, reset-failed
+                # clears the counter so a single retry — once everything has
+                # settled — succeeds.
+                if ! sudo systemctl enable --now "$unit" 2>/dev/null; then
+                    sudo systemctl reset-failed "$unit" 2>/dev/null || true
+                    sudo systemctl enable --now "$unit" 2>/dev/null || true
+                fi
             else
                 sudo systemctl enable "$unit" 2>/dev/null || true
             fi

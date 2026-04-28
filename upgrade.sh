@@ -939,7 +939,17 @@ _enable_unit_smart() {
     fi
 
     if [[ $has_runtime_target -eq 1 ]]; then
-        $use_sudo systemctl enable --now "$unit" 2>/dev/null || true
+        # Defensive belt-and-suspenders for Audiobook-Manager-0q0: if a transient
+        # filesystem-permission window during the upgrade leaves the unit hitting
+        # StartLimitBurst, `enable --now` returns non-zero. reset-failed clears
+        # the StartLimit counter so a single retry — once perms have settled —
+        # succeeds. The earlier verify_installation_permissions call in do_upgrade
+        # eliminates the race window in the v8.3.10+ upgrade path; this retry
+        # covers any future race we haven't yet seen.
+        if ! $use_sudo systemctl enable --now "$unit" 2>/dev/null; then
+            $use_sudo systemctl reset-failed "$unit" 2>/dev/null || true
+            $use_sudo systemctl enable --now "$unit" 2>/dev/null || true
+        fi
     else
         $use_sudo systemctl enable "$unit" 2>/dev/null || true
     fi
@@ -2072,10 +2082,22 @@ do_upgrade() {
         apply_data_migrations "$project" "$target" "${use_sudo}" "false"
     fi
 
-    # Enable the full audiobook unit set on every upgrade (not just major
-    # bumps). systemctl enable is idempotent; running it unconditionally cures
-    # the v8.3.1→8.3.2 class of bug where new units shipped in a patch release
-    # were never enabled, causing 502s after host reboot.
+    # Normalize ownership + permissions BEFORE enable_new_services, not after.
+    # Audiobook-Manager-0q0: when enable_new_services started using `enable --now`
+    # (Audiobook-Manager-hp2 in v8.3.10), the eager service-start hit a window
+    # where apply_config_migrations + apply_data_migrations had left root-owned
+    # files inside $target. audiobook-api's CHDIR into /opt/audiobooks/library/
+    # backend then failed with "Permission denied", systemd hit StartLimitBurst,
+    # and the smoke probe declared the upgrade broken even though the late-running
+    # verify_installation_permissions corrected everything immediately afterwards.
+    # Running the normalize BEFORE the eager enable closes the race entirely.
+    verify_installation_permissions "$target"
+
+    # Enable (and start, via `enable --now` for runtime units) the full audiobook
+    # unit set on every upgrade — not just major bumps. systemctl enable is
+    # idempotent; running it unconditionally cures the v8.3.1→8.3.2 class of bug
+    # where new units shipped in a patch release were never enabled, causing 502s
+    # after host reboot.
     enable_new_services "${use_sudo}"
 
     # Refresh /usr/local/bin symlinks to point to canonical scripts
@@ -2091,9 +2113,6 @@ do_upgrade() {
     echo ""
     echo -e "${GREEN}=== Upgrade Complete ===${NC}"
     echo "New version: $(get_version "$project")"
-
-    # Verify permissions after upgrade
-    verify_installation_permissions "$target"
 
     # Run audit & cleanup (every upgrade). Pass $project so the systemd-unit
     # orphan check has an authoritative source — the release being installed —
