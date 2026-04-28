@@ -26,5 +26,5 @@ werkzeug>=3.1.6     # CVE-2025-66221, CVE-2026-21860, GHSA-29vq-49wr-vm6x
 pillow>=12.1.1      # GHSA-cfh3-3jmp-rvhc (OOB write on PSD)
 pyopenssl>=26.1.0   # CVE-2026-27448, CVE-2026-27459
 cbor2>=5.9.0        # CVE-2026-26209 (DoS via CBOR recursion, used by webauthn)
-edge-tts>=7.0.0     # streaming TTS worker shells out to python -m edge_tts
+edge-tts>=7.2.8     # streaming TTS worker shells out to python -m edge_tts
 pypinyin>=0.55.0    # search_cjk uses pypinyin for Chinese character romanization
