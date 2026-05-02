@@ -111,6 +111,8 @@ class TestListeningHistoryModel:
         assert sessions[0].audiobook_id == "200"
 
     def test_get_open_session(self, mock_auth_db):
+        from datetime import timedelta
+
         from auth.models import ListeningHistoryRepository, UserListeningHistory
 
         repo = ListeningHistoryRepository(mock_auth_db)
@@ -118,18 +120,52 @@ class TestListeningHistoryModel:
         session = UserListeningHistory(user_id=1, audiobook_id="100", position_start_ms=0)
         session.save(mock_auth_db)
 
-        # Should find it
+        # Should find it (ended_at NULL)
         open_session = repo.get_open_session(1, "100")
         assert open_session is not None
         assert open_session.ended_at is None
 
-        # Close it
-        open_session.ended_at = datetime.now()
+        # Close it long ago (older than SESSION_IDLE_TIMEOUT_MINUTES). v8.3.10.1
+        # widened the predicate so a session is "open" if active in the last 30
+        # minutes — recently-closed sessions still count. Push ended_at well
+        # past the window to assert the not-found case.
+        open_session.ended_at = datetime.now() - timedelta(hours=2)
         open_session.duration_listened_ms = 60000
         open_session.save(mock_auth_db)
 
-        # Should not find open session anymore
+        # Should not find as open — ended >2h ago, well past the 30-min window
         assert repo.get_open_session(1, "100") is None
+
+    def test_get_open_session_extends_within_idle_window(self, mock_auth_db):
+        """Recently-active sessions stay 'open' for the idle window.
+
+        Regression guard for Audiobook-Manager-e62: each 5-second position
+        save in `_update_listening_history` sets ended_at=now. Before v8.3.10.1
+        `get_open_session` used `ended_at IS NULL` alone, so the very next
+        position save (5s later) found no open session and inserted a fresh
+        row — ballooning user_listening_history into thousands of rows per
+        book during a single listening session. The widened predicate keeps
+        the same row in use while the session is recently active.
+        """
+        from auth.models import ListeningHistoryRepository, UserListeningHistory
+
+        repo = ListeningHistoryRepository(mock_auth_db)
+        session = UserListeningHistory(user_id=1, audiobook_id="100", position_start_ms=0)
+        session.save(mock_auth_db)
+
+        # Simulate a position-save that sets ended_at=now (the buggy mutation).
+        session.ended_at = datetime.now()
+        session.position_end_ms = 5000
+        session.save(mock_auth_db)
+
+        # The session must STILL be findable as open — otherwise the next
+        # position save would create a fresh row (the row-explosion bug).
+        found = repo.get_open_session(1, "100")
+        assert found is not None
+        assert found.id == session.id, (
+            "get_open_session must reuse the existing session within the idle "
+            "window — fresh row creation per position save was the v8.3.10.1 bug"
+        )
 
 
 class TestDownloadModel:

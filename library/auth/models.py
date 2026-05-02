@@ -761,18 +761,47 @@ class ListeningHistoryRepository:
             )
             return [row[0] for row in cursor.fetchall()]
 
+    # Idle window after which an "open" session is considered ended. Position
+    # saves fire every ~5s during active playback, and `_update_listening_history`
+    # in position_sync.py used to set ended_at=now on every save — leaving the
+    # row no longer matchable by `ended_at IS NULL`. Result: every 5s position
+    # save created a brand-new history row, ballooning row counts (e.g. "A Dirty
+    # Job" had 3,671 rows on prod 2026-05-02 = ~5h continuous playback × 12
+    # saves/min × 60 min). This widened predicate treats any session with
+    # activity in the last SESSION_IDLE_TIMEOUT_MINUTES as still open, so
+    # extended playback reuses one session row.
+    SESSION_IDLE_TIMEOUT_MINUTES = 30
+
     def get_open_session(self, user_id: int, audiobook_id: str) -> Optional[UserListeningHistory]:
-        """Get the current open (not yet ended) listening session, if any."""
+        """Get the current open (or recently active) listening session, if any.
+
+        A session counts as "open" if either ``ended_at IS NULL`` or the last
+        activity (``ended_at``, which position_sync.py extends on every save)
+        is within ``SESSION_IDLE_TIMEOUT_MINUTES``. The 30-minute idle window
+        prevents the row-explosion bug where each 5-second position save
+        spawned a new history row because the previous save had set ended_at.
+        """
         cols = UserListeningHistory._COLUMNS
         with self.db.connection() as conn:
             cursor = conn.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                # Stored ended_at values come from Python's datetime.now()
+                # (local time, no tz suffix). SQLite's datetime('now') is UTC,
+                # so the comparison must use 'localtime' to align — without
+                # this modifier, the window never matches and every save still
+                # creates a new row.
                 f"""
                 SELECT {cols} FROM user_listening_history
-                WHERE user_id = ? AND audiobook_id = ? AND ended_at IS NULL
+                WHERE user_id = ? AND audiobook_id = ?
+                  AND (ended_at IS NULL
+                       OR datetime(ended_at) > datetime('now', 'localtime', ?))
                 ORDER BY started_at DESC
                 LIMIT 1
                 """,  # nosec B608  # noqa: S608
-                (user_id, audiobook_id),
+                (
+                    user_id,
+                    audiobook_id,
+                    f"-{self.SESSION_IDLE_TIMEOUT_MINUTES} minutes",
+                ),
             )
             row = cursor.fetchone()
             return UserListeningHistory.from_row(row) if row else None
