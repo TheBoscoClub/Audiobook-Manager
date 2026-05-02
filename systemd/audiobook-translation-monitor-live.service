@@ -4,9 +4,17 @@ Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
 After=network-online.target audiobook-api.service
 PartOf=audiobook.target
 RequiresMountsFor=/opt/audiobooks /var/lib/audiobooks
-# Generous interval caps restart storms if persistently broken
+# StartLimit caps restart storms if the service is persistently broken,
+# but MUST allow the timer's normal 30s cadence. 5 starts per 300s window
+# = 1 start/min, but the timer fires 2 starts/min, so Burst=5 saturated at
+# t≈150s and blocked the next 2-3 minutes — observed on prod 2026-05-02
+# (4-5 min stretches of "start-limit-hit" punctuated by single successful
+# runs). Burst=20 allows 20 starts/300s = 1 every 15s, 4× headroom over
+# the 30s timer cadence — still enforces a runaway cap if the service
+# entered a true fail-loop (would saturate at 20 in 5min instead of the
+# healthy 10/5min cadence).
 StartLimitIntervalSec=300
-StartLimitBurst=5
+StartLimitBurst=20
 
 [Service]
 Type=oneshot
