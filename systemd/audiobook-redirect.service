@@ -1,6 +1,14 @@
 [Unit]
 Description=Audiobooks Library HTTP to HTTPS Redirect
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
+Documentation=file:///opt/audiobooks/docs/TROUBLESHOOTING.md
+# Listens on AUDIOBOOKS_HTTP_REDIRECT_PORT (default 8080; production uses 8081
+# because Caddy is on :8080). Port 80 is intentionally NOT bound: the audiobooks
+# service account is unprivileged and cannot acquire CAP_NET_BIND_SERVICE without
+# weakening the systemd hardening posture. Public HTTP traffic reaches the host
+# via Cloudflare Tunnel, which terminates :80/:443 at the edge and forwards to
+# the HTTPS proxy port directly — direct-IP HTTP visitors are not a supported
+# entry point. See docs/TROUBLESHOOTING.md "HTTP redirect on port 8081".
 After=network-online.target audiobook-proxy.service
 Wants=audiobook-proxy.service network-online.target
 # Ensure /opt BTRFS subvolume is mounted before starting (prevents intermittent CHDIR failures)

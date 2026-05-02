@@ -56,11 +56,12 @@ sudo systemctl status 'audiobook*'
 |------|---------|---------|
 | 5001 | audiobook-api | REST API |
 | 8443 | audiobook-proxy | HTTPS web UI |
-| 8080 | redirect server | HTTP → HTTPS redirect |
+| 8080 | redirect server | HTTP → HTTPS redirect (default) |
+| 8081 | redirect server | HTTP → HTTPS redirect (alt — used in deployments where 8080 is taken by another proxy) |
 
 ```bash
 # Find what's using the port
-ss -tlnp | grep -E "5001|8443|8080"
+ss -tlnp | grep -E "5001|8443|8080|8081"
 
 # Kill stuck process (if safe)
 sudo fuser -k 5001/tcp
@@ -68,6 +69,30 @@ sudo fuser -k 5001/tcp
 # Restart
 sudo systemctl restart audiobook-api
 ```
+
+### Why HTTP redirect listens on 8080/8081, not port 80
+
+The `audiobook-redirect.service` runs as the unprivileged `audiobooks` user
+and intentionally does **not** bind to port 80. Two reasons:
+
+1. **No CAP_NET_BIND_SERVICE.** Granting the capability would weaken
+   `NoNewPrivileges=yes` and the rest of the systemd hardening posture
+   (`ProtectSystem=strict`, `ProtectHome=yes`, `PrivateTmp=yes`).
+2. **Cloudflare Tunnel terminates :80/:443 at the edge.** Production deployments
+   (`library.thebosco.club`, `qalib.thebosco.club`, `devlib.thebosco.club`,
+   `testlib.thebosco.club`) reach the host through `cloudflared`, which connects
+   outbound to Cloudflare's network and forwards traffic to the configured
+   service ports (`https://localhost:8443` / `http://localhost:5001`). The host
+   never publicly exposes :80, so a redirect there serves no real visitors.
+
+The redirect on :8080/:8081 is a fallback for direct-IP debug visits during
+development and for the `proxy → redirect` health chain inside the host. If a
+deployment requires native :80 binding (no Cloudflare Tunnel, public-IP HTTP),
+add `AmbientCapabilities=CAP_NET_BIND_SERVICE` and
+`CapabilityBoundingSet=CAP_NET_BIND_SERVICE` to a systemd drop-in, set
+`AUDIOBOOKS_HTTP_REDIRECT_PORT=80` in `/etc/audiobooks/audiobooks.conf`, and
+remove the `NoNewPrivileges=yes` directive from a drop-in (it conflicts with
+ambient capabilities for users without uid 0).
 
 ---
 

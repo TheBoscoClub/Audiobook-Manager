@@ -18,6 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - **`pip` upgraded `26.0.1` → `26.1` to resolve `CVE-2026-3219`** in the project venv. Verified clean with `pip-audit --skip-editable` returning "No known vulnerabilities found"
+- **Rolled in 7 Dependabot version-bump PRs** (`#37`–`#43`) as direct version-bump edits in this release rather than separate merge commits, since the staged-release branch is locally ahead of `origin/main`. PRs closed as `superseded by direct version bump in v8.3.10.1`. Bumps:
+  - `library/requirements.txt` + `library/requirements-docker.txt`: `werkzeug>=3.1.6 → >=3.1.8`, `edge-tts>=7.0.0 → >=7.2.8`
+  - `library/requirements-dev.txt`: `mypy>=1.18.0 → >=1.20.2`, `packaging>=26.1 → >=26.2`, `zope.interface>=8.3 → >=8.4`
+  - `Dockerfile`: `python:3.14-slim` digest pin refreshed `3989a23 → 5b3879b6f3cb77e712644d50262d05a7c146b7312d784a18eff7ff5462e77033` (eliminates 0 CRIT / 6 HIGH residual python base CVEs vs the previous digest — see Dockerfile comment)
+  - `.github/workflows/ci.yml`: `actions/setup-node@4.4.0 → 6.4.0` (digest `48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e`)
 
 ### Fixed
 
@@ -27,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`audiobook-redirect.service` now documents the design choice not to bind port 80** (`/test` Phase 4b finding): added a `[Unit]` block comment in `systemd/audiobook-redirect.service` plus a new "Why HTTP redirect listens on 8080/8081, not port 80" subsection in `docs/TROUBLESHOOTING.md` § 2. Production reaches the host via Cloudflare Tunnel (`cloudflared` connects outbound and forwards to the configured ports) — the host never publicly exposes :80, so a redirect there serves no real visitors. Granting `CAP_NET_BIND_SERVICE` to the unprivileged `audiobooks` service account would weaken the systemd hardening posture (`NoNewPrivileges=yes`, `ProtectSystem=strict`, `ProtectHome=yes`, `PrivateTmp=yes`). The 8081 port seen on prod is a `/etc/audiobooks/audiobooks.conf` override (8080 is taken by Caddy on that host); project default in `lib/audiobook-config.sh` and `library/config.py` remains 8080
 - **103 Python source files re-formatted** by `ruff format` to project canonical style (no semantic changes)
 - **3 shell scripts re-formatted** by `shfmt -w`: `upgrade.sh`, `install.sh`, `data-migrations/010_backfill_chapter_translations_audio.sh`
 - **`cbor2` upgraded `5.9.0` → `6.0.1`** (still satisfies the `>=5.9.0` pin in `library/requirements.txt` documenting `CVE-2026-26209`)
