@@ -546,6 +546,67 @@ rows become ~232 extracted files.
 
 ---
 
+## 14. v8.3.10.1 Known-Issue Fixes
+
+### Conversion Progress card shows >100% complete
+
+**Symptoms**: Back-office Conversion Progress card displays a percentage above 100%, e.g. "306% complete (5,829 in library / 1,901 sources)".
+
+**Root cause**: `_count_opus_files` was using `rglob("*.opus")` recursively and counting per-chapter translation artifacts under `Library/{Author}/{Book}/translated/{Book}.ch{NNN}.zh-Hans.opus` as well as the canonical top-level book files. A library with 1,867 books + 3,962 chapter translation files reports 5,829 "in library".
+
+**Fix**: Upgrade to v8.3.10.1+. Both `_count_opus_files` and `_collect_checksum_files` now exclude any path where `"translated"` is a directory component.
+
+**Verify**:
+
+```bash
+curl -sk https://localhost:8443/api/utilities/conversion-progress | jq .
+# "in_library" should now ≈ the number of source AAXC files, not 3× higher
+```
+
+---
+
+### Top Listened counts are inflated (thousands instead of single-digit hours)
+
+**Symptoms**: Back-office Top Listened card shows a book with 3,671 listens or similar absurd count. The count corresponds roughly to 5 s × saves/min × total playback time rather than actual session count.
+
+**Root cause**: `_update_listening_history` sets `session.ended_at = now` on every 5-second position save. The previous `get_open_session` predicate (`WHERE ended_at IS NULL`) then found no open session and inserted a fresh row on every save instead of updating the existing one.
+
+**Fix**: Upgrade to v8.3.10.1+. `get_open_session` now uses a 30-minute idle window (`ended_at IS NULL OR ended_at > datetime('now', 'localtime', '-30 minutes')`). Continuous listening reuses the same row; sessions idle >30 min create a new row.
+
+**Note**: Existing inflated rows in `user_listening_history` are not auto-repaired by the upgrade. The code fix stops the bleed; backfilling existing data requires a separate one-shot repair tool (planned).
+
+---
+
+### Book detail modal opens off-screen on mobile (Brave Android)
+
+**Symptoms**: Tapping a book cover from a deep-scrolled library grid opens the book-detail modal below the visible area. The user must scroll down to find the modal.
+
+**Root cause**: Brave Android's dynamic bottom URL bar can resize the visual viewport mid-mount. The modal is `position: fixed` but the resize causes it to land in a position that's no longer visible.
+
+**Fix**: Upgrade to v8.3.10.1+. The modal now applies a scroll-lock when it opens — the body is frozen at its current scroll position so the modal always opens in the visible viewport. The lock is released when the modal closes.
+
+---
+
+### `audiobook-translation-monitor-live` shows `start-limit-hit` in journal
+
+**Symptoms**: `journalctl -u audiobook-translation-monitor-live` shows repeated "Start request repeated too quickly" or "Failed with result 'start-limit-hit'" entries. The live tier monitor runs only ~5 times per 5 minutes instead of the intended 10.
+
+**Root cause**: The original unit had `StartLimitBurst=5` inside a `StartLimitIntervalSec=300` window. The timer fires every 30 s = 10 fires/window. `Burst=5` saturates at t≈150 s, and systemd silently blocks the next ~150 s of firings.
+
+**Fix**: Upgrade to v8.3.10.1+. `StartLimitBurst` raised to 20 (2× headroom over the 10 fires/window rate). `StartLimitIntervalSec=300` unchanged to preserve the runaway cap.
+
+**Verify**:
+
+```bash
+systemctl show audiobook-translation-monitor-live | grep StartLimit
+# StartLimitBurst=20
+# StartLimitIntervalSec=300000000
+journalctl -u audiobook-translation-monitor-live -n 20
+# Should show regular "Started" lines every 30s with no "start-limit-hit"
+```
+
+---
+
 ## Quick Reference
 
 | Issue | First Check | Fix |
@@ -561,3 +622,7 @@ rows become ~232 extracted files.
 | 字幕生成失败 on every first-open | `curl .../api/system/version` | Upgrade to 8.3.7+ |
 | Transcript snaps back while reading | Hard-refresh `subtitles.js?v=` | Upgrade to 8.3.7+ |
 | Streaming segments lost on transfer | Re-export from 8.3.7+ source | `audiobook-translations export` (nested format) |
+| Conversion Progress >100% | `_count_opus_files` counting `translated/` artifacts | Upgrade to 8.3.10.1+ |
+| Top Listened counts inflated | History row inserted on every 5 s save | Upgrade to 8.3.10.1+ |
+| Book modal off-screen on mobile | Viewport resize on modal mount | Upgrade to 8.3.10.1+ |
+| `translation-monitor-live` `start-limit-hit` | `StartLimitBurst=5` too low for 30 s cadence | Upgrade to 8.3.10.1+ |

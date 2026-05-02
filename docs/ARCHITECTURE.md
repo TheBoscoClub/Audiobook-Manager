@@ -304,6 +304,10 @@ Auth pages (`login.html`, `verify.html`, etc.) navigate to `/` rather than `shel
 
 **Mobile Viewport Handling** (v7.1.3+): The shell uses the `window.visualViewport` API to dynamically calculate actual visible height, compensating for mobile browser chrome (address bar, toolbar). The measured height is communicated to the iframe via `postMessage` and applied as the CSS custom property `--app-height`, preventing the player bar from being obscured by mobile browser UI.
 
+**Modal Scroll-Lock Pattern (v8.3.10.1+)**: When `showBookDetail` mounts the book-detail modal, `AudiobookLibraryV2._lockBodyScroll()` freezes the document body at its current scroll position via `position: fixed; top: -<scrollY>px; overflow: hidden; width: 100%`. Without this, Brave Android's dynamic bottom URL bar can resize the visual viewport mid-mount and leave a `position: fixed` modal outside the visible area. The lock is idempotent via a `data-modal-scroll-lock` body attribute so a modal-replace sequence doesn't double-save the scroll position. Both close paths (backdrop click and close button) call `_unlockBodyScrollIfLocked()` which restores `scrollY` via `window.scrollTo({ top, behavior: 'auto' })`.
+
+**Chapter-Skip Player Controls (v8.3.10.1+)**: The player bar carries two chapter-navigation buttons (`#sp-skip-back-chapter` ⏮, `#sp-skip-forward-chapter` ⏭) that are `display:none` by default and revealed in `ShellPlayer::playBook` only when client-side chapter boundaries are explicit (streaming MSE path OR `translatedEntries` legacy path). Three integration paths are handled: (1) streaming MSE — routes through `window.streamingTranslate.jumpToChapter(idx)`, which tears down the current MSE chain, clears `preloadedNextChapter`, then POSTs `/translate/stream` with the target index; (2) `translatedEntries` — decrements/increments `translatedChapterIdx` and swaps `audio.src` via `_loadTranslatedEntry`; (3) end-of-`translatedEntries` skip-forward — hands off to `streamingTranslate.check()` so a book with sampler tail + streaming bulk doesn't dead-end. The double-tap-back UX (Pattern A, matching Apple Books / Audible / Pocket Casts): tap within 3 seconds of chapter start = previous chapter; tap later = restart current chapter.
+
 **Header Forwarding** (v6.0+): When deployed behind an external reverse proxy (Caddy, nginx, Cloudflare), the proxy forwards client identity and protocol headers:
 
 ```python
@@ -716,6 +720,15 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 | `user_mgmt_bp` | `/auth/admin` | Admin user management: create, edit roles, switch auth, delete, audit log (v7.4.1+) |
 | `account_bp` | `/auth/account` | Self-service: view profile, edit username/email, switch auth, reset credentials, delete account (v7.4.1+) |
 
+### Collections Genre Classification (v8.3.10.1+)
+
+`library/backend/api_modular/collections.py` classifies books into Fiction / Non-fiction buckets using two sets (`FICTION_GENRES`, `NONFICTION_GENRES`) populated with raw Audible category names as they appear in the database (e.g., `"Literature & Fiction"`, `"Politics & Social Sciences"`, `"Religion & Spirituality"`) rather than display-mapped names. The `_classify_genre_children` function applies a two-pass strategy:
+
+1. **Exact set membership**: if the raw genre string is in `FICTION_GENRES` → fiction; if in `NONFICTION_GENRES` → non-fiction.
+2. **Keyword fallback via `categorize_genre()`**: for genres in neither set, keyword matching (autobiography, biography, history, science, cooking, business, technology, etc.) routes to non-fiction; everything else defaults to fiction.
+
+The sets must be updated when new Audible category names appear in imports. When expanding, add to `FICTION_GENRES` or `NONFICTION_GENRES` — do not add the same name to both. The `categorize_genre` fallback is the second-line defence, not a replacement for set membership.
+
 ### Utilities Operations Submodules
 
 The `utilities_ops/` package contains specialized operation handlers (refactored from monolithic `utilities_ops.py` in v3.9.8):
@@ -941,6 +954,12 @@ exhaustion (`retry_count >= 3`), and orphan `sampler_jobs` rows
 `translation_monitor_events` for operator audit. Implementation in
 `library/translation_monitor/{db,events,probe}.py`; full operator guide in
 `docs/TRANSLATION-MONITOR.md`.
+
+**Translation-monitor `StartLimitBurst` sizing (v8.3.10.1+)**: Timer-driven oneshot services that fire frequently must have `StartLimitBurst` set to at least twice their per-period invocation count, with margin. The live tier fires every 30 s inside a 300 s `StartLimitIntervalSec` window — 10 starts/window. The unit ships `StartLimitBurst=20` (2× headroom). The original value of 5 saturated at t≈150 s, causing `start-limit-hit` silences for ~150 s at a stretch. Rule: `Burst ≥ (IntervalSec / CadenceSec) × 2`. Never set `StartLimitIntervalSec=0` (removes the runaway cap entirely — see `feedback_systemd_startlimit.md`).
+
+**Canonical opus-file count (v8.3.10.1+)**: `_count_opus_files` in `utilities_conversion.py` and `_collect_checksum_files` in `utilities_ops/hashing.py` count files using `rglob("*.opus")` but exclude any path where `"translated"` is a directory component (`f.parts` check, exact directory name, not substring). Per-chapter translation artifacts live under `Library/{Author}/{Book}/translated/{Book}.ch{NNN}.zh-Hans.opus` (depth +1 below the canonical book file). Including them in the count inflates "Conversion Progress" beyond 100% and skews deduplication checksums. Books whose titles contain "Translated" are not excluded (the check matches the directory component name, not the path string).
+
+**Listening-session idle window (v8.3.10.1+)**: `ListeningHistoryRepository.get_open_session` finds a reusable session row using the predicate `ended_at IS NULL OR ended_at > datetime('now', 'localtime', '-30 minutes')`. The `SESSION_IDLE_TIMEOUT_MINUTES = 30` constant controls the window. SQLite's `datetime('now')` is UTC; the query uses `'localtime'` modifier to match Python's `datetime.now()` timestamps stored in `ended_at`. Without `'localtime'`, a CDT deployment would see a ~5-hour offset causing the window to never match, triggering a fresh `INSERT` on every position save.
 
 **Path- and log-injection defense (v8.3.7+).** `streaming_translate.py`
 exposes two boundary helpers used by every filesystem/DB write that accepts
