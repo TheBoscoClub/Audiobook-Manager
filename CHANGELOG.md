@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.10.1] - 2026-05-02
+
+### Fixed
+
+- **Chinese playback got stuck looping the last sampler chapter on prod (`library.thebosco.club`)**: when a streaming-translated book had a short tail of fully-translated leading chapters from the sampler (`All the Light We Cannot See`: 5 sampler-complete chapters of 193, with chapter 4 being a 3:05 prologue snippet), `library/web-v2/js/shell.js`'s `ended` handler walked `translatedEntries` correctly through chapters 0→1→2→3→4, then at chapter 4 (the last entry) fell through to `clearPosition(currentBook.id)` — declaring a 193-chapter book "complete" at chapter 4. With the audio element in end-of-media state, the listener's tap-play triggered the default `<audio>` replay behaviour: seek to 0 of the current `src` and replay the same chapter-4 sampler webm. Chapters 5+ exist in the underlying audio but the streaming MSE pipeline was never engaged for them because the path-selection logic in `playBook` (`useTranslatedAudio = (entries.length > 0)`) is decided once at book-open time and not re-evaluated per chapter. Prod-only because QA had every chapter fully pre-translated, so QA's `translatedEntries` covered the full book. Two-file JS-only fix: `shell.js`'s `ended` handler now hands off to `window.streamingTranslate.check(bookId, locale, lastEntry.chapter_index + 1)` when reaching the end of `translatedEntries` (instead of clearing position); `library/web-v2/js/streaming-translate.js::checkAndInitStreaming` accepts an optional `startChapter` parameter (defaults to 0 for the normal book-open flow) and threads it into the `chapter_index` field of the `/translate/stream` POST. The handoff also nulls `translatedEntries` / `translatedChapterIdx` so the legacy ended handler doesn't fight with the streaming pipeline's own end-of-stream signaling on the shared `<audio>` element. ESLint clean on the patched files; the v8.3.10 `test_streaming_preload_wiring.py` regression guard (6 structural assertions on `streaming-translate.js`) all pass
+
 ## [8.3.10] - 2026-04-28
 
 ### Added
@@ -3530,7 +3536,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.1...HEAD
+[8.3.10.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10...v8.3.10.1
 [8.3.10]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.9...v8.3.10
 [8.3.9]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.14...v8.3.9
 [8.3.8.14]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.13...v8.3.8.14
