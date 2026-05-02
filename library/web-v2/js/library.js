@@ -5,6 +5,44 @@ const API_BASE = "/api";
 // SessionPersistence is loaded from js/session-persistence.js (shared with login/verify pages)
 
 class AudiobookLibraryV2 {
+  // Body scroll-lock helpers shared across all modal opens. Audiobook-Manager-v2z:
+  // when the book-detail modal opens while the user has scrolled deep into the
+  // grid, Brave Android's dynamic bottom URL bar can resize the visual viewport
+  // mid-mount and leave the position:fixed modal rendered outside the visible
+  // area. Lock-on-open + restore-on-close eliminates the scroll/visual-viewport
+  // mismatch by freezing body at the user's scroll position while a modal is
+  // showing. Idempotent — second call to lock is a no-op so a modal-replace
+  // sequence doesn't double-save the lock position.
+  static _SCROLL_LOCK_ATTR = "data-modal-scroll-lock";
+
+  static _lockBodyScroll() {
+    if (document.body.hasAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR)) return;
+    const y = window.scrollY;
+    document.body.setAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR, String(y));
+    Object.assign(document.body.style, {
+      overflow: "hidden",
+      position: "fixed",
+      top: `-${y}px`,
+      width: "100%",
+    });
+  }
+
+  static _unlockBodyScrollIfLocked() {
+    const saved = document.body.getAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR);
+    if (saved === null) return;
+    document.body.removeAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR);
+    Object.assign(document.body.style, {
+      overflow: "",
+      position: "",
+      top: "",
+      width: "",
+    });
+    // Restore scroll synchronously — smooth would visibly animate to the
+    // saved position which feels jumpy. parseInt fallback handles malformed
+    // attribute values defensively (shouldn't happen but cheap insurance).
+    window.scrollTo({ top: parseInt(saved, 10) || 0, behavior: "auto" });
+  }
+
   constructor() {
     this.currentPage = 1;
     this.perPage = 50;
@@ -2259,8 +2297,13 @@ class AudiobookLibraryV2 {
     const quality = book.quality ? ` ${book.quality}` : "";
     const hasSupplement = book.supplement_count > 0;
 
-    // Remove existing detail modal if any
-    document.getElementById("book-detail-modal")?.remove();
+    // Remove existing detail modal if any — and release its scroll-lock
+    // before we apply a new one (otherwise the new lock would save the
+    // already-frozen scrollY=0 instead of the user's real scroll position).
+    if (document.getElementById("book-detail-modal")) {
+      document.getElementById("book-detail-modal").remove();
+      AudiobookLibraryV2._unlockBodyScrollIfLocked();
+    }
 
     // Build modal via DOM API for XSS safety on user-supplied fields
     const modal = document.createElement("div");
@@ -2404,11 +2447,26 @@ class AudiobookLibraryV2 {
     content.appendChild(body);
     modal.appendChild(content);
 
+    // Scroll-lock pattern (Audiobook-Manager-v2z): when the modal opens
+    // we freeze the body at its current scroll position and unfreeze on
+    // close. Without this, on mobile (especially Brave Android with its
+    // dynamic bottom URL bar) the position:fixed modal can land outside
+    // the visible viewport because the visual viewport shifts after the
+    // modal mounts. Bosco reported scrolling deep into the grid, tapping
+    // a cover, and then needing to scroll a screen-height to find the
+    // modal — the scroll-lock + restore-on-close eliminates that.
+    AudiobookLibraryV2._lockBodyScroll();
+
+    const _closeModal = () => {
+      modal.remove();
+      AudiobookLibraryV2._unlockBodyScrollIfLocked();
+    };
+
     // Close on backdrop click
     modal.addEventListener("click", (e) => {
-      if (e.target === modal) modal.remove();
+      if (e.target === modal) _closeModal();
     });
-    closeBtn.addEventListener("click", () => modal.remove());
+    closeBtn.addEventListener("click", _closeModal);
 
     document.body.appendChild(modal);
 
