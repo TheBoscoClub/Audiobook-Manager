@@ -433,6 +433,58 @@ class TestRequestStreamingTranslation:
         )
         assert isinstance(body["segment_bitmap"], dict)
 
+    def test_session_state_flips_buffering_to_streaming_when_cached(
+        self, app_client, streaming_db
+    ):
+        """Cosmetic regression guard: prior to v8.3.10.1, no code path ever
+        wrote ``streaming_sessions.state = 'streaming'`` despite the column
+        existing and being filtered for in WHERE clauses elsewhere. Every
+        active session was perpetually stuck at 'buffering'. The 2026-05-02
+        prod incident surfaced this — operators inspecting the table during
+        debugging saw ``state='buffering'`` for every book Qing was actually
+        listening to. Now ``_fully_cached_response`` flips a buffering
+        session to 'streaming' on the way out.
+        """
+        # Book 4 is pre-seeded by the fixture with chapter_count=3.
+        # Seed chapter 0 as fully cached + a buffering session that should flip.
+        conn = sqlite3.connect(str(streaming_db))
+        conn.execute(
+            "INSERT INTO chapter_subtitles "
+            "(audiobook_id, chapter_index, locale, vtt_path, stt_provider) "
+            "VALUES (4, 0, 'zh-Hans', '/tmp/x.vtt', 'test')"
+        )
+        conn.execute(
+            "INSERT INTO chapter_translations_audio "
+            "(audiobook_id, chapter_index, locale, audio_path, tts_provider) "
+            "VALUES (4, 0, 'zh-Hans', '/tmp/x.webm', 'test')"
+        )
+        conn.execute(
+            "INSERT INTO streaming_sessions (audiobook_id, locale, state) "
+            "VALUES (4, 'zh-Hans', 'buffering')"
+        )
+        conn.commit()
+        conn.close()
+
+        resp = app_client.post(
+            "/api/translate/stream",
+            json={"audiobook_id": 4, "locale": "zh-Hans", "chapter_index": 0},
+        )
+        assert resp.status_code == 200
+        assert resp.get_json()["state"] == "cached"
+
+        # Verify the session row transitioned
+        conn = sqlite3.connect(str(streaming_db))
+        row = conn.execute(
+            "SELECT state FROM streaming_sessions "
+            "WHERE audiobook_id = 4 AND locale = 'zh-Hans'"
+        ).fetchone()
+        conn.close()
+        assert row is not None
+        assert row[0] == "streaming", (
+            f"Session state should be 'streaming' after fully-cached response "
+            f"but got '{row[0]}' — regression of the v8.3.10.1 cosmetic fix"
+        )
+
     def test_all_cached_returns_cached_state(self, app_client, streaming_db):
         # Book 3 is seeded by the fixture with chapter_count=2
         conn = sqlite3.connect(str(streaming_db))

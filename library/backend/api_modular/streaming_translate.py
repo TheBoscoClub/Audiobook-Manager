@@ -891,10 +891,38 @@ def _parse_stream_request(data):
     return audiobook_id, locale, chapter_index, None
 
 
+def _mark_session_streaming(db, audiobook_id, locale):
+    """Transition a buffering session to ``state='streaming'``.
+
+    The schema defaults ``streaming_sessions.state`` to ``'buffering'`` and
+    only ``handle_seek`` (back to buffering) and ``stop_streaming`` (to
+    stopped) ever wrote it — leaving every active session perpetually at
+    ``'buffering'`` despite WHERE clauses elsewhere assuming a real
+    ``'streaming'`` transition exists. Cosmetic but observable: the
+    ``streaming_sessions`` table never reflected actual playback state, so
+    operators inspecting prod (e.g. during the v8.3.10 incident) saw
+    ``state='buffering'`` for every book Qing was actually listening to.
+
+    Idempotent — only updates rows currently in ``'buffering'``.
+    """
+    db.execute(
+        "UPDATE streaming_sessions SET state = 'streaming', "
+        "updated_at = CURRENT_TIMESTAMP "
+        "WHERE audiobook_id = ? AND locale = ? AND state = 'buffering'",
+        (audiobook_id, locale),
+    )
+    db.commit()
+
+
 def _fully_cached_response(db, audiobook_id, chapter_index, locale):
     """Build the response when the active chapter is cached. Enumerates
     all chapters to report which others are cached.
     """
+    # Active chapter is cached → player will start playing immediately.
+    # Transition any buffering session to streaming so the DB reflects
+    # actual state.
+    _mark_session_streaming(db, audiobook_id, locale)
+
     chapter_count = _resolve_chapter_count(db, audiobook_id)
     all_cached = True
     cached_chapters = []
@@ -998,6 +1026,17 @@ def request_streaming_translation():
         if chapter_count and chapter_index + 1 < chapter_count:
             _ensure_chapter_segments(db, audiobook_id, chapter_index + 1, locale, priority=1)
 
+        bitmap = _get_segment_bitmap(db, audiobook_id, chapter_index, locale)
+
+        # If the buffer threshold is already met, the client is going to
+        # transition to STREAMING state on receipt — flip the session row
+        # to match. Without this, the session perpetually shows
+        # state='buffering' even though playback is active. Cosmetic but
+        # observable in prod (v8.3.10 incident showed every of Qing's
+        # active sessions stuck at 'buffering').
+        if len(bitmap.get("completed", [])) >= BUFFER_THRESHOLD:
+            _mark_session_streaming(db, audiobook_id, locale)
+
         return jsonify(
             {
                 "state": "buffering",
@@ -1006,7 +1045,7 @@ def request_streaming_translation():
                 "chapter_index": chapter_index,
                 "locale": locale,
                 "buffer_threshold": BUFFER_THRESHOLD,
-                "segment_bitmap": _get_segment_bitmap(db, audiobook_id, chapter_index, locale),
+                "segment_bitmap": bitmap,
                 "phase": _derive_phase(db, audiobook_id, locale),
                 "current_segment": _get_current_segment(db, audiobook_id, chapter_index, locale),
                 # total_chapters is what the frontend uses to know when to
