@@ -947,7 +947,7 @@
 
   // ── Integration with ShellPlayer.playBook() ──
 
-  function checkAndInitStreaming(bookId, locale) {
+  function checkAndInitStreaming(bookId, locale, startChapter) {
     if (locale === "en") {
       enterIdle();
       return;
@@ -967,6 +967,13 @@
       audio.pause();
     }
 
+    // startChapter lets shell.js hand off to streaming after exhausting the
+    // translatedEntries chain (e.g. ATLWCS: chapters 0-4 are sampler-built
+    // complete short chapters, chapter 5+ needs live streaming). Defaults to
+    // 0 for the normal book-open flow.
+    var initialChapter =
+      typeof startChapter === "number" && startChapter >= 0 ? startChapter : 0;
+
     // Ask the coordinator if this book needs streaming
     fetch(API_BASE + "/translate/stream", {
       method: "POST",
@@ -974,7 +981,7 @@
       body: JSON.stringify({
         audiobook_id: bookId,
         locale: locale,
-        chapter_index: 0,
+        chapter_index: initialChapter,
       }),
     })
       .then(function (r) { return r.json(); })

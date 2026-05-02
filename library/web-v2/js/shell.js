@@ -180,6 +180,36 @@ class ShellPlayer {
         return;
       }
 
+      // End of translatedEntries reached. The sampler often produces a
+      // short tail of fully-translated leading chapters (intro / dedication /
+      // prologue parts) while the bulk of the book remains untranslated and
+      // must come from the streaming MSE pipeline. Hand off to streaming
+      // for the next chapter rather than declaring the book done — without
+      // this, books like "All the Light We Cannot See" (5 sampler chapters
+      // of 193) get stuck looping the last sampler chapter after audio.ended
+      // (default <audio> tap-play after end-of-media seeks to 0). v8.3.10
+      // regression: prod-only because QA had full pre-translation cached.
+      if (
+        this.translatedEntries &&
+        this.translatedEntries.length > 0 &&
+        this.currentBook &&
+        typeof window.streamingTranslate !== "undefined" &&
+        typeof window.streamingTranslate.check === "function"
+      ) {
+        const lastEntry = this.translatedEntries[this.translatedEntries.length - 1];
+        const nextChapter =
+          (lastEntry.chapter_index ?? this.translatedEntries.length - 1) + 1;
+        const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
+        const bookId = this.currentBook.bookId || this.currentBook.id;
+        // Drop the cached-chapter chain so this ended handler doesn't fight
+        // with the streaming pipeline's own end-of-stream signaling on the
+        // shared <audio> element.
+        this.translatedEntries = null;
+        this.translatedChapterIdx = 0;
+        window.streamingTranslate.check(bookId, locale, nextChapter);
+        return;
+      }
+
       if (this.currentBook) this.clearPosition(this.currentBook.id);
     });
 
