@@ -742,6 +742,8 @@
   "player.muteUnmute": "Mute / Unmute",
   "player.originalAudio": "Original (English)",
   "player.playPause": "Play / Pause",
+  "player.skipBackChapterTitle": "Restart chapter (or previous chapter if near start)",
+  "player.skipForwardChapterTitle": "Skip to next chapter",
   "player.speed": "Speed",
   "player.switchLanguage": "Switch narrator",
   "player.switchToOriginal": "Switch to original audio",

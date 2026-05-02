@@ -742,6 +742,8 @@
   "player.muteUnmute": "静音 / 取消静音",
   "player.originalAudio": "原声（英语）",
   "player.playPause": "播放 / 暂停",
+  "player.skipBackChapterTitle": "重新开始本章（接近章首时跳到上一章）",
+  "player.skipForwardChapterTitle": "跳到下一章",
   "player.speed": "倍速",
   "player.switchLanguage": "切换朗读者",
   "player.switchToOriginal": "切换到原声音频",

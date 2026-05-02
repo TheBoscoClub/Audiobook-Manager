@@ -703,6 +703,62 @@
       });
   }
 
+  // ── User-initiated chapter jump (Audiobook-Manager-9by) ──
+  //
+  // Called from shell.js's skip-back-chapter / skip-forward-chapter button
+  // handlers when the player is in a streaming-MSE session. Tears down the
+  // current chapter's chain, POSTs /translate/stream for the target chapter,
+  // and re-enters BUFFERING with the new bitmap. Slow-path only — tap-to-jump
+  // is initiated by a fresh user gesture, so the iOS gesture-chain
+  // optimization (cd92fe47 fast-path) isn't needed here.
+  //
+  // No-op if state is IDLE, target is out of range, or target equals current
+  // (caller is expected to handle "restart current chapter" via a direct
+  // currentTime=0 seek before calling this).
+
+  function jumpToChapter(targetChapter) {
+    if (state === State.IDLE) return;
+    if (!currentBookId || !currentLocale) return;
+    if (typeof targetChapter !== "number" || targetChapter < 0) return;
+    if (totalChapters > 0 && targetChapter >= totalChapters) return;
+    if (targetChapter === currentChapter) return;
+
+    var bookId = currentBookId;
+    var locale = currentLocale;
+
+    // Tear down current chapter's chain (mirrors advanceChapter teardown).
+    if (mseChain) {
+      mseChain.teardown();
+      mseChain = null;
+    }
+    var audio = document.getElementById("audio-element");
+    if (audio && endedHandler) {
+      audio.removeEventListener("ended", endedHandler);
+      endedHandler = null;
+    }
+    detachPreloadListener(audio);
+    clearPreload();
+
+    fetch(API_BASE + "/translate/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        audiobook_id: bookId,
+        locale: locale,
+        chapter_index: targetChapter,
+      }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.state === "cached" || data.state === "buffering") {
+          enterBuffering(bookId, locale, data.chapter_index, data.segment_bitmap);
+        }
+      })
+      .catch(function () {
+        enterIdle();
+      });
+  }
+
   function enterIdle() {
     // Tear down the polling fallback before we null out book/locale —
     // pollOnce() guards against missing currentBookId but it's cleaner
@@ -1069,7 +1125,10 @@
   window.streamingTranslate = {
     check: checkAndInitStreaming,
     handleSeek: handleSeek,
+    jumpToChapter: jumpToChapter,
     getState: function () { return state; },
+    getCurrentChapter: function () { return currentChapter; },
+    getTotalChapters: function () { return totalChapters; },
     isBuffering: function () { return state === State.BUFFERING; },
     isStreaming: function () { return state === State.STREAMING; },
     isIdle: function () { return state === State.IDLE; },

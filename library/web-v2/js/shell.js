@@ -56,6 +56,19 @@ class ShellPlayer {
         window.streamingTranslate.handleSeek(this.audio.currentTime);
       }
     });
+    // Chapter-level navigation (Audiobook-Manager-9by). Skip-back is a
+    // double-tap-aware "restart current chapter" — within RESTART_THRESHOLD_SEC
+    // of chapter start it falls through to the previous chapter, matching the
+    // standard audiobook UX (Apple Books, Audible, Pocket Casts). Skip-forward
+    // is a single-action jump to the next chapter. Buttons are display:none in
+    // the HTML and revealed in playBook() only when chapter boundaries are
+    // explicit (streaming MSE OR legacy translatedEntries paths).
+    document.getElementById("sp-skip-back-chapter").addEventListener("click", () => {
+      this._skipBackChapter();
+    });
+    document.getElementById("sp-skip-forward-chapter").addEventListener("click", () => {
+      this._skipForwardChapter();
+    });
     const speedBtn = document.getElementById("sp-speed");
     speedBtn.addEventListener("click", (e) =>
       this.cycleSpeed(e.shiftKey ? -1 : 1),
@@ -162,21 +175,7 @@ class ShellPlayer {
         this.currentBook
       ) {
         this.translatedChapterIdx += 1;
-        const entry = this.translatedEntries[this.translatedChapterIdx];
-        const chapterIdx = entry.chapter_index ?? this.translatedChapterIdx;
-        const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
-        const bookId = this.currentBook.bookId || this.currentBook.id;
-        this.audio.src = `${API_BASE}/audiobooks/${bookId}/translated-audio/${chapterIdx}/${encodeURIComponent(locale)}`;
-        if (typeof window.subtitles !== "undefined" && window.subtitles.load) {
-          window.subtitles.load(bookId, chapterIdx);
-        }
-        this._lastSaveTime = Date.now();
-        try {
-          await this.audio.play();
-        } catch (error) {
-          console.error("Failed to play next translated chapter:", error);
-          this.showPlayerError(this._errorKeyForPlayRejection(error));
-        }
+        this._loadTranslatedEntry(this.translatedChapterIdx);
         return;
       }
 
@@ -446,6 +445,17 @@ class ShellPlayer {
       this.audio.src = `${API_BASE}/stream/${bookId}${needsWebm ? "?format=webm" : ""}`;
     }
 
+    // Show chapter-skip buttons only when chapter boundaries are explicit —
+    // streaming MSE engages per-chapter, and translatedEntries is one URL per
+    // chapter. The English single-stream path (/stream/{id}) has no chapter
+    // boundaries on the client, so the buttons are hidden there. Audiobook-
+    // Manager-9by — see _skipBackChapter / _skipForwardChapter for behaviour.
+    const chapterNavAvailable = streamingNeeded || useTranslatedAudio;
+    const skipBackBtn = document.getElementById("sp-skip-back-chapter");
+    const skipFwdBtn = document.getElementById("sp-skip-forward-chapter");
+    if (skipBackBtn) skipBackBtn.style.display = chapterNavAvailable ? "" : "none";
+    if (skipFwdBtn) skipFwdBtn.style.display = chapterNavAvailable ? "" : "none";
+
     // Load saved speed
     const savedSpeed = this.getSpeed();
     const speedIdx = this.playbackRates.indexOf(savedSpeed);
@@ -649,6 +659,129 @@ class ShellPlayer {
         this.audio.duration,
       );
     }
+  }
+
+  // Chapter-level skip-back. Tap when mid-chapter restarts the current chapter
+  // (audio.currentTime = 0). Tap within RESTART_THRESHOLD_SEC of chapter start
+  // jumps to the previous chapter — standard audiobook double-tap pattern. The
+  // chapter buttons are only shown when chapter boundaries are explicit (the
+  // streaming MSE path or legacy translatedEntries path); see playBook().
+  _skipBackChapter() {
+    const RESTART_THRESHOLD_SEC = 3;
+    const t = this.audio.currentTime || 0;
+
+    // Streaming MSE path
+    if (
+      typeof window.streamingTranslate !== "undefined" &&
+      !window.streamingTranslate.isIdle()
+    ) {
+      if (t > RESTART_THRESHOLD_SEC) {
+        this.audio.currentTime = 0;
+        window.streamingTranslate.handleSeek(0);
+        return;
+      }
+      const cur = window.streamingTranslate.getCurrentChapter();
+      if (cur > 0) {
+        window.streamingTranslate.jumpToChapter(cur - 1);
+      } else {
+        // Already at chapter 0 — just restart it.
+        this.audio.currentTime = 0;
+      }
+      return;
+    }
+
+    // Legacy translatedEntries path
+    if (this.translatedEntries && this.translatedEntries.length > 0 && this.currentBook) {
+      if (t > RESTART_THRESHOLD_SEC) {
+        this.audio.currentTime = 0;
+        this.saveAfterSeek();
+        return;
+      }
+      if (this.translatedChapterIdx > 0) {
+        this.translatedChapterIdx -= 1;
+        this._loadTranslatedEntry(this.translatedChapterIdx);
+      } else {
+        // Already at first translated chapter — just restart it.
+        this.audio.currentTime = 0;
+      }
+      return;
+    }
+
+    // English single-stream — buttons are hidden in this case but defensively
+    // restart the audio source.
+    this.audio.currentTime = 0;
+    this.saveAfterSeek();
+  }
+
+  // Chapter-level skip-forward. Single tap jumps to the next chapter. Routes
+  // through whichever pathway is active (streaming MSE, legacy translatedEntries,
+  // or — at end of translatedEntries — hands off to streaming for the next
+  // chapter, mirroring the v8.3.10.1 ended-handler logic).
+  _skipForwardChapter() {
+    // Streaming MSE path
+    if (
+      typeof window.streamingTranslate !== "undefined" &&
+      !window.streamingTranslate.isIdle()
+    ) {
+      const cur = window.streamingTranslate.getCurrentChapter();
+      const total = window.streamingTranslate.getTotalChapters();
+      if (total > 0 && cur + 1 < total) {
+        window.streamingTranslate.jumpToChapter(cur + 1);
+      }
+      return;
+    }
+
+    // Legacy translatedEntries path — advance within the cached chapter list
+    if (
+      this.translatedEntries &&
+      this.translatedChapterIdx < this.translatedEntries.length - 1 &&
+      this.currentBook
+    ) {
+      this.translatedChapterIdx += 1;
+      this._loadTranslatedEntry(this.translatedChapterIdx);
+      return;
+    }
+
+    // End of translatedEntries — hand off to streaming pipeline for next
+    // chapter (same flow as the v8.3.10.1 ended-handler fix).
+    if (
+      this.translatedEntries &&
+      this.translatedEntries.length > 0 &&
+      this.currentBook &&
+      typeof window.streamingTranslate !== "undefined" &&
+      typeof window.streamingTranslate.check === "function"
+    ) {
+      const lastEntry = this.translatedEntries[this.translatedEntries.length - 1];
+      const nextChapter =
+        (lastEntry.chapter_index ?? this.translatedEntries.length - 1) + 1;
+      const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
+      const bookId = this.currentBook.bookId || this.currentBook.id;
+      this.translatedEntries = null;
+      this.translatedChapterIdx = 0;
+      window.streamingTranslate.check(bookId, locale, nextChapter);
+      return;
+    }
+    // English single-stream — no chapter info, button is hidden in playBook.
+  }
+
+  // Load the translatedEntries[idx] entry into the audio element. Shared
+  // between the ended-handler chapter advance and the user-initiated skip
+  // forward / back. Caller is responsible for updating translatedChapterIdx
+  // before invoking.
+  _loadTranslatedEntry(idx) {
+    const entry = this.translatedEntries[idx];
+    const chapterIdx = entry.chapter_index ?? idx;
+    const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
+    const bookId = this.currentBook.bookId || this.currentBook.id;
+    this.audio.src = `${API_BASE}/audiobooks/${bookId}/translated-audio/${chapterIdx}/${encodeURIComponent(locale)}`;
+    if (typeof window.subtitles !== "undefined" && window.subtitles.load) {
+      window.subtitles.load(bookId, chapterIdx);
+    }
+    this._lastSaveTime = Date.now();
+    this.audio.play().catch((error) => {
+      console.error("Failed to play translated chapter:", error);
+      this.showPlayerError(this._errorKeyForPlayRejection(error));
+    });
   }
 
   queueAPISave(fileId, positionSeconds) {
