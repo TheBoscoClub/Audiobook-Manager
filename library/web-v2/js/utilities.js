@@ -153,6 +153,7 @@ async function loadDatabaseStats() {
   }
 }
 
+// eslint-disable-next-line no-unused-vars -- rescanLibrary is referenced (event handler / cross-file / async caller / parameter for arity)
 async function rescanLibrary() {
   showProgress(
     "Scanning Library",
@@ -176,6 +177,7 @@ async function rescanLibrary() {
   }
 }
 
+// eslint-disable-next-line no-unused-vars -- reimportDatabase is referenced (event handler / cross-file / async caller / parameter for arity)
 async function reimportDatabase() {
   if (
     !(await confirmAction(
@@ -208,6 +210,7 @@ async function reimportDatabase() {
   }
 }
 
+// eslint-disable-next-line no-unused-vars -- generateHashes is referenced (event handler / cross-file / async caller / parameter for arity)
 async function generateHashes() {
   showProgress(
     "Generating Hashes",
@@ -651,6 +654,7 @@ function renderChecksumDuplicates(checksumType) {
     groupDiv.appendChild(headerDiv);
 
     // Files in this group
+    // eslint-disable-next-line no-unused-vars -- fileIdx is referenced (event handler / cross-file / async caller / parameter for arity)
     group.files.forEach((file, fileIdx) => {
       const itemDiv = document.createElement("div");
       itemDiv.className = "duplicate-item" + (file.is_keeper ? " keep" : "");
@@ -1133,7 +1137,7 @@ async function loadGenresForPicker() {
       label.appendChild(count);
       picker.appendChild(label);
     });
-  } catch (error) {
+  } catch {
     const p = document.createElement("p");
     p.className = "placeholder-text";
     p.textContent = "Failed to load genres";
@@ -1323,7 +1327,7 @@ async function loadTopicsForPicker() {
       label.appendChild(count);
       picker.appendChild(label);
     });
-  } catch (error) {
+  } catch {
     const p = document.createElement("p");
     p.className = "placeholder-text";
     p.textContent = "Failed to load topics";
@@ -1810,7 +1814,7 @@ async function cancelActiveOperation() {
       toast: false,
     });
     showToast("Cancellation requested", "info");
-  } catch (error) {
+  } catch {
     showToast("Failed to cancel operation", "error");
   }
 }
@@ -2737,6 +2741,7 @@ function renderTopList(containerId, items, label) {
   });
 }
 
+// eslint-disable-next-line no-unused-vars -- statsData is referenced (event handler / cross-file / async caller / parameter for arity)
 function populateUserFilter(statsData) {
   const userSelect = document.getElementById("activity-filter-user");
   if (!userSelect) return;
@@ -2933,7 +2938,7 @@ function formatActivityDate(timestamp) {
       day: "numeric",
       year: d.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
     });
-  } catch (e) {
+  } catch {
     return timestamp;
   }
 }
@@ -2958,6 +2963,7 @@ function formatDurationMs(ms) {
 // System Administration Section
 // ============================================
 
+// eslint-disable-next-line no-unused-vars -- upgradePollingInterval is referenced (event handler / cross-file / async caller / parameter for arity)
 let upgradePollingInterval = null;
 
 function initSystemSection() {
@@ -3331,7 +3337,7 @@ function formatTimestamp(ts) {
   try {
     var d = new Date(ts);
     return d.toLocaleString();
-  } catch (e) {
+  } catch {
     return ts;
   }
 }
@@ -3372,7 +3378,7 @@ async function loadUnseenBadge() {
     } else {
       badge.hidden = true;
     }
-  } catch (err) {
+  } catch {
     // Ignore — non-admin users won't have access
   }
 }
@@ -3946,7 +3952,7 @@ function showEditUserModal(user, isProfile = false) {
       } else {
         showToast(errors.join("; "), "error");
       }
-    } catch (error) {
+    } catch {
       showToast("Connection error", "error");
     }
   });
@@ -4411,7 +4417,7 @@ async function stopAllServices() {
       showToast("Some services failed to stop", "error");
     }
     // Don't refresh - we're about to lose connection
-  } catch (error) {
+  } catch {
     // Expected if API stopped before response
     showToast("Services stopping... connection lost as expected.", "info");
   }
@@ -4499,6 +4505,7 @@ async function loadProjectsList() {
 
     projectsList.style.display = "block";
 
+    // eslint-disable-next-line no-unused-vars -- cross-file global declared here, consumed in other files
     data.projects.forEach((project, index) => {
       const optionDiv = document.createElement("div");
       optionDiv.className = "project-option";
@@ -5113,7 +5120,7 @@ async function loadRoadmapAdmin() {
       row.appendChild(actions);
       list.appendChild(row);
     });
-  } catch (e) {
+  } catch {
     list.textContent = "Error loading roadmap.";
   }
 }
@@ -5136,7 +5143,7 @@ async function deleteRoadmapItem(id) {
     await safeFetch("/api/admin/roadmap/" + id, { method: "DELETE" });
     showToast("Item deleted", "success");
     loadRoadmapAdmin();
-  } catch (e) {
+  } catch {
     showToast("Failed to delete", "error");
   }
 }

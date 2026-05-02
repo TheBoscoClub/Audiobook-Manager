@@ -24,9 +24,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 SHELL_HTML = (REPO / "library" / "web-v2" / "shell.html").read_text()
 SHELL_JS = (REPO / "library" / "web-v2" / "js" / "shell.js").read_text()
-STREAMING_JS = (
-    REPO / "library" / "web-v2" / "js" / "streaming-translate.js"
-).read_text()
+STREAMING_JS = (REPO / "library" / "web-v2" / "js" / "streaming-translate.js").read_text()
 EN_JSON = json.loads((REPO / "library" / "locales" / "en.json").read_text())
 ZH_JSON = json.loads((REPO / "library" / "locales" / "zh-Hans.json").read_text())
 
@@ -93,9 +91,9 @@ def test_shell_skip_back_uses_double_tap_threshold():
     """Skip-back uses RESTART_THRESHOLD_SEC for the within-3s previous-chapter
     fall-through. Without this constant the standard audiobook double-tap UX
     pattern would be broken."""
-    assert re.search(
-        r"RESTART_THRESHOLD_SEC\s*=\s*\d+", SHELL_JS
-    ), "RESTART_THRESHOLD_SEC missing — skip-back can't distinguish restart-current vs prev-chapter"
+    assert re.search(r"RESTART_THRESHOLD_SEC\s*=\s*\d+", SHELL_JS), (
+        "RESTART_THRESHOLD_SEC missing — skip-back can't distinguish restart-current vs prev-chapter"
+    )
 
 
 def test_shell_visibility_toggled_in_play_book():
@@ -124,17 +122,17 @@ def test_shell_load_translated_entry_helper_used():
 def test_streaming_jump_to_chapter_function_defined():
     """jumpToChapter is the public entry point for shell.js to ask the
     streaming pipeline to load a specific chapter."""
-    assert re.search(
-        r"function jumpToChapter\(targetChapter\)", STREAMING_JS
-    ), "jumpToChapter function not defined in streaming-translate.js"
+    assert re.search(r"function jumpToChapter\(targetChapter\)", STREAMING_JS), (
+        "jumpToChapter function not defined in streaming-translate.js"
+    )
 
 
 def test_streaming_jump_to_chapter_exposed_on_public_api():
     """window.streamingTranslate.jumpToChapter must be exposed; otherwise
     shell.js can't invoke it."""
-    assert re.search(
-        r"jumpToChapter:\s*jumpToChapter", STREAMING_JS
-    ), "jumpToChapter not exposed on window.streamingTranslate public API"
+    assert re.search(r"jumpToChapter:\s*jumpToChapter", STREAMING_JS), (
+        "jumpToChapter not exposed on window.streamingTranslate public API"
+    )
 
 
 def test_streaming_chapter_getters_exposed():

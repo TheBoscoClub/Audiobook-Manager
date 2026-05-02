@@ -234,13 +234,13 @@ const WebAuthn = {
       });
     } catch (e) {
       if (e.name === "NotAllowedError") {
-        throw new Error(_wat("webauthn.js.regCancelled", "Registration was cancelled or timed out"));
+        throw new Error(_wat("webauthn.js.regCancelled", "Registration was cancelled or timed out"), { cause: e });
       } else if (e.name === "InvalidStateError") {
-        throw new Error(_wat("webauthn.js.deviceAlreadyRegistered", "This device is already registered"));
+        throw new Error(_wat("webauthn.js.deviceAlreadyRegistered", "This device is already registered"), { cause: e });
       } else if (e.name === "NotSupportedError") {
-        throw new Error(_wat("webauthn.js.authenticatorUnsupported", "This authenticator is not supported"));
+        throw new Error(_wat("webauthn.js.authenticatorUnsupported", "This authenticator is not supported"), { cause: e });
       }
-      throw new Error(_wat("webauthn.js.createPasskeyFailed", "Failed to create passkey") + ": " + e.message);
+      throw new Error(_wat("webauthn.js.createPasskeyFailed", "Failed to create passkey") + ": " + e.message, { cause: e });
     }
 
     if (!credential) {
@@ -330,9 +330,9 @@ const WebAuthn = {
       });
     } catch (e) {
       if (e.name === "NotAllowedError") {
-        throw new Error(_wat("webauthn.js.authCancelled", "Authentication was cancelled or timed out"));
+        throw new Error(_wat("webauthn.js.authCancelled", "Authentication was cancelled or timed out"), { cause: e });
       }
-      throw new Error(_wat("webauthn.js.authFailed", "Failed to authenticate") + ": " + e.message);
+      throw new Error(_wat("webauthn.js.authFailed", "Failed to authenticate") + ": " + e.message, { cause: e });
     }
 
     if (!credential) {

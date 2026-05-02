@@ -239,9 +239,9 @@ class TestGroupedByAuthor:
 
         for group in data["groups"]:
             titles = [b["title"] for b in group["books"]]
-            assert titles == sorted(
-                titles, key=str.lower
-            ), f"Books in group '{group['key']['name']}' not sorted by title: {titles}"
+            assert titles == sorted(titles, key=str.lower), (
+                f"Books in group '{group['key']['name']}' not sorted by title: {titles}"
+            )
 
     def test_orphan_books_in_unknown_author_group(self, app_client, grouped_db):
         """Books with no junction rows appear in 'Unknown Author' group."""

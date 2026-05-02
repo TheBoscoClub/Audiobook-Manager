@@ -17,7 +17,7 @@
     if (!audioCtx) {
       try {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      } catch (e) {
+      } catch {
         return null;
       }
     }

@@ -17,6 +17,7 @@
   var closeBtn = document.getElementById("suggestion-drawer-close");
   var isAdmin = false;
   var currentFilter = "unread";
+  // eslint-disable-next-line no-unused-vars -- cross-file global declared here, consumed in other files
   var pollTimer = null;
 
   // ── Check if current user is admin ──

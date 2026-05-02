@@ -23,7 +23,7 @@
     if (!audioCtx) {
       try {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      } catch (e) {
+      } catch {
         return null;
       }
     }
@@ -258,7 +258,7 @@
     var map;
     try {
       map = await window.i18n.translateStrings(fragments);
-    } catch (e) {
+    } catch {
       return;
     }
     if (!map) return;

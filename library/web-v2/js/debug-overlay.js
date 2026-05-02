@@ -27,20 +27,20 @@
     try {
       var u = new URL(window.location.href);
       return u.searchParams.get(name);
-    } catch (e) { return null; }
+    } catch { return null; }
   }
 
   var qsDebug = qsParam("debug");
   if (qsDebug === "0") {
-    try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignored */ }
     window.__debugLog = function () {};
     return;
   }
   if (qsDebug === "1") {
-    try { localStorage.setItem(STORAGE_KEY, "1"); } catch (e) {}
+    try { localStorage.setItem(STORAGE_KEY, "1"); } catch { /* ignored */ }
   }
   var enabled = false;
-  try { enabled = localStorage.getItem(STORAGE_KEY) === "1"; } catch (e) {}
+  try { enabled = localStorage.getItem(STORAGE_KEY) === "1"; } catch { /* ignored */ }
   if (!enabled) {
     window.__debugLog = function () {};
     return;
@@ -67,7 +67,7 @@
         if (val instanceof Map) return Array.from(val.entries());
         return val;
       });
-    } catch (e) { return String(v); }
+    } catch { return String(v); }
   }
 
   function mseProbes() {
@@ -115,10 +115,10 @@
     var st = window.streamingTranslate;
     if (!st) return { loaded: false };
     var out = { loaded: true };
-    try { out.state = st.getState && st.getState(); } catch (e) {}
-    try { out.isIdle = st.isIdle && st.isIdle(); } catch (e) {}
-    try { out.isBuffering = st.isBuffering && st.isBuffering(); } catch (e) {}
-    try { out.isStreaming = st.isStreaming && st.isStreaming(); } catch (e) {}
+    try { out.state = st.getState && st.getState(); } catch { /* ignored */ }
+    try { out.isIdle = st.isIdle && st.isIdle(); } catch { /* ignored */ }
+    try { out.isBuffering = st.isBuffering && st.isBuffering(); } catch { /* ignored */ }
+    try { out.isStreaming = st.isStreaming && st.isStreaming(); } catch { /* ignored */ }
     return out;
   }
 
@@ -262,7 +262,7 @@
           document.execCommand("copy");
           document.body.removeChild(ta);
           btnCopy.textContent = "Copied!";
-        } catch (e) { btnCopy.textContent = "Copy failed"; }
+        } catch { btnCopy.textContent = "Copy failed"; }
         setTimeout(function () { btnCopy.textContent = "Copy"; }, 1500);
       }
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -276,7 +276,7 @@
     });
 
     btnClose.addEventListener("click", function () {
-      try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+      try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignored */ }
       panel.remove();
       var url = new URL(location.href);
       url.searchParams.delete("debug");

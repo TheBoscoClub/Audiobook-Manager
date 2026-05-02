@@ -423,7 +423,7 @@ class ShellPlayer {
             this.audio.src = `${API_BASE}/audiobooks/${bookId}/translated-audio/${entry.chapter_index || 0}/${encodeURIComponent(locale)}`;
           }
         }
-      } catch (e) { /* fall through to original audio */ }
+      } catch { /* fall through to original audio */ }
 
       if (!useTranslatedAudio) {
         fetch(`${API_BASE}/translation/bump`, {
@@ -871,7 +871,7 @@ class ShellPlayer {
       const pct = (parsed.position / parsed.duration) * 100;
       if (pct > 95 || parsed.position < 5) return null;
       return parsed;
-    } catch (e) {
+    } catch {
       return null;
     }
   }

@@ -122,8 +122,8 @@ def _delete_audiobook_entry(cursor, audiobook_id):
     """Delete an audiobook and its related junction table rows."""
     for table in ("audiobook_topics", "audiobook_eras", "audiobook_genres"):
         cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"DELETE FROM {table} WHERE audiobook_id = ?",  # nosec B608 — table from code-defined tuple literal at L123; audiobook_id is parameter-bound
-            (audiobook_id,),  # noqa: S608
+            f"DELETE FROM {table} WHERE audiobook_id = ?",  # nosec B608 — table from code-defined tuple literal at L123; audiobook_id is parameter-bound  # noqa: S608
+            (audiobook_id,),
         )
     cursor.execute("DELETE FROM audiobooks WHERE id = ?", (audiobook_id,))
 

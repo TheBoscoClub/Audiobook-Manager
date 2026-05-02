@@ -252,9 +252,7 @@ def run_ffprobe(filepath: Path, timeout: int = 30) -> dict | None:
     ]
 
     try:
-        result = subprocess.run(
-            cmd, capture_output=True, text=True, timeout=timeout
-        )  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
         if result.returncode != 0:
             print(f"Error reading {filepath}: {result.stderr}", file=sys.stderr)
             return None
@@ -525,9 +523,7 @@ def _cover_path_for_file(filepath: Path, output_dir: Path) -> Path:
 def _extract_embedded_cover(filepath: Path, cover_path: Path, timeout: int) -> str | None:
     """Try extracting embedded cover art via ffmpeg. Returns filename or None."""
     cmd = ["ffmpeg", "-v", "quiet", "-i", str(filepath), "-an", "-vcodec", "copy", str(cover_path)]
-    result = subprocess.run(
-        cmd, capture_output=True, timeout=timeout
-    )  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
+    result = subprocess.run(cmd, capture_output=True, timeout=timeout)  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input
     if result.returncode == 0 and cover_path.exists():
         return cover_path.name
     if result.returncode == 0 and not cover_path.exists():

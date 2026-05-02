@@ -932,7 +932,7 @@ _enable_unit_smart() {
     else
         for tgt in $wanted_by; do
             case "$tgt" in
-                halt.target|reboot.target|shutdown.target) ;;
+                halt.target | reboot.target | shutdown.target) ;;
                 *) has_runtime_target=1 ;;
             esac
         done
@@ -1015,10 +1015,10 @@ enable_new_services() {
 
     # (2) Standalone units not declared in audiobook.target Wants=
     local standalone_units=(
-        audiobook-enrichment.timer                       # backfill un-enriched metadata
-        audiobook-shutdown-saver.service                 # saves tmpfs staging before reboot/halt (shutdown-only)
-        audiobook-translation-monitor-live.timer         # v8.3.9: 30s live-tier monitor
-        audiobook-translation-monitor-sampler.timer      # v8.3.9: 5min sampler-tier monitor
+        audiobook-enrichment.timer                  # backfill un-enriched metadata
+        audiobook-shutdown-saver.service            # saves tmpfs staging before reboot/halt (shutdown-only)
+        audiobook-translation-monitor-live.timer    # v8.3.9: 30s live-tier monitor
+        audiobook-translation-monitor-sampler.timer # v8.3.9: 5min sampler-tier monitor
     )
     for unit in "${standalone_units[@]}"; do
         if [[ -f "/etc/systemd/system/${unit}" ]]; then
@@ -1896,8 +1896,8 @@ do_upgrade() {
         # Reconcile UFW rules for the audiobook stack — idempotent. Catches up
         # existing installs whose UFW preset diverged from the canonical port
         # set (see install.sh for the same block + incident note).
-        if [[ "$DRY_RUN" == "false" ]] && command -v ufw &>/dev/null && \
-           sudo ufw status 2>/dev/null | head -1 | grep -q "active"; then
+        if [[ "$DRY_RUN" == "false" ]] && command -v ufw &>/dev/null \
+            && sudo ufw status 2>/dev/null | head -1 | grep -q "active"; then
             for port in 5001/tcp 8090/tcp 8080/tcp 8443/tcp 8084/tcp 8085/tcp; do
                 if ! sudo ufw status 2>/dev/null | awk '{print $1}' | grep -qx "$port"; then
                     sudo ufw allow "$port" >/dev/null 2>&1 && echo -e "${BLUE}UFW allow: $port${NC}"

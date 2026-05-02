@@ -268,8 +268,8 @@ def _apply_book_update(cursor, book_id, book_updates):
     set_clauses = ", ".join(f"{k} = ?" for k in book_updates.keys())
     values = list(book_updates.values()) + [book_id]
     cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        f"UPDATE audiobooks SET {set_clauses} WHERE id = ?",  # nosec B608 — book_updates keys are code-defined literals from _compute_book_updates (author_last_name/narrator_last_name/series_sequence/edition/acquired_date); values+book_id parameter-bound
-        values,  # noqa: S608
+        f"UPDATE audiobooks SET {set_clauses} WHERE id = ?",  # nosec B608 — book_updates keys are code-defined literals from _compute_book_updates (author_last_name/narrator_last_name/series_sequence/edition/acquired_date); values+book_id parameter-bound  # noqa: S608
+        values,
     )
 
 

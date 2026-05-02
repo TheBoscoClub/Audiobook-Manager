@@ -261,7 +261,7 @@ def sweep_retry_exhausted_segments(
     # B608 suppressed below: placeholders is a string of static '?' tokens;
     # all values pass via parameterized query (params arg) — not user-controlled.
     sql = (
-        "SELECT id, audiobook_id, worker_id, retry_count, origin, error "  # nosec B608
+        "SELECT id, audiobook_id, worker_id, retry_count, origin, error "  # nosec B608  # noqa: S608
         "FROM streaming_segments "
         f"WHERE origin IN ({placeholders}) "
         "  AND retry_count >= ? "

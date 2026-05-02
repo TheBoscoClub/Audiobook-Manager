@@ -709,7 +709,7 @@ def get_chapter_info(db_path: str, audiobook_id: int, chapter_index: int) -> tup
         # decode against non-UTF-8 metadata bytes — same pattern as the
         # ffmpeg call in split_audio_segment above.
         result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-            [
+            [  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled
                 "ffprobe",
                 "-v",
                 "quiet",
@@ -717,7 +717,7 @@ def get_chapter_info(db_path: str, audiobook_id: int, chapter_index: int) -> tup
                 "-print_format",
                 "json",
                 str(audio_path),
-            ],  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled
+            ],
             capture_output=True,
             encoding="utf-8",
             errors="replace",

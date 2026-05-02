@@ -15,7 +15,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [8.3.10.1] - 2026-05-02
 
-### Added
+### Security
+
+- **`pip` upgraded `26.0.1` → `26.1` to resolve `CVE-2026-3219`** in the project venv. Verified clean with `pip-audit --skip-editable` returning "No known vulnerabilities found"
+
+### Fixed
+
+- **Two pre-existing Py2-style `except A, B:` clauses silently swallowing the wrong exception**: `library/translation_monitor/db.py:41` and `library/backend/api_modular/collections.py:345` used the Py2 syntax `except ImportError, AttributeError:` which Python 3 parses as `except ImportError as AttributeError:` — i.e., it only catches `ImportError` and rebinds it to a variable named `AttributeError`. `AttributeError` was never actually being caught. Converted both to `except (ImportError, AttributeError):`. Caught by the `test_no_py2_except_comma_regression` regression test during the /test Phase 6 audit
+- **`# noqa: SXXX` annotations were on the wrong lines** in 36 subprocess and SQL-construction sites across `library/backend/api_modular/*`, `library/scanner/`, `library/scripts/`, `scripts/`, and 2 server bind sites — ruff requires the suppression on the line where the violation is reported (the f-string or `0.0.0.0` literal), not on the trailing args/closing-bracket line. Migrated 23 `S608` (SQL f-string), 10 `S607` (subprocess partial-path), 2 `S104` (0.0.0.0 bind), 2 `S310` (urllib URL), 1 `S606` (os.execvp), 1 `S311` (random for load-balancing), and 1 `S108` (`/tmp` path) to their correct violation lines
+- **mypy `[misc]` error**: `library/tests/test_translation_monitor.py::db` fixture used `-> sqlite3.Connection` return type but `yield`s a connection — now correctly typed as `Generator[sqlite3.Connection, None, None]`
+
+### Changed
+
+- **103 Python source files re-formatted** by `ruff format` to project canonical style (no semantic changes)
+- **3 shell scripts re-formatted** by `shfmt -w`: `upgrade.sh`, `install.sh`, `data-migrations/010_backfill_chapter_translations_audio.sh`
+- **`cbor2` upgraded `5.9.0` → `6.0.1`** (still satisfies the `>=5.9.0` pin in `library/requirements.txt` documenting `CVE-2026-26209`)
+- **ESLint warnings reduced from 113 → 0** across 17 files in `library/web-v2/js/`:
+  - 91 `no-unused-vars` catch-block parameters dropped (modern JS optional catch binding: `catch (e)` → `catch` where `e` was unused)
+  - 16 `no-empty` empty catch bodies annotated with `/* ignored */` to communicate intentional swallowing
+  - 6 `preserve-caught-error` violations in `library/web-v2/js/webauthn.js` fixed by adding `, { cause: e }` to all `throw new Error(...)` rethrows in the registration and authentication catch blocks (preserves the original WebAuthn error chain for debugging)
+  - Cross-file global declarations (e.g., `api`, `formatDateTime`, `pollOperation`, `SessionPersistence`) annotated with `// eslint-disable-next-line no-unused-vars` — these are declared in one file and consumed in others via the `globals` allowlist in `eslint.config.js`, but ESLint with `sourceType: "script"` cannot see cross-file references and falsely flagged the owning declarations
 
 - **'Forthcoming' navigation button on `help.html`** (`Audiobook-Manager-u5f`): new compact nav link inserted between the existing 'About' button and 'Suggestions' button in `library/web-v2/help.html`'s `.help-header-actions` row, linking to the in-page `#roadmap` anchor. Quick-nav alternative to the verbose 'Coming soon to your local branch library' link that already exists at the end of the row (kept for backward compatibility). i18n: `help.forthcoming` / `help.title.forthcoming` added to `en.json` and curated zh-Hans translations to `zh-Hans.json` per `feedback_in_app_docs_i18n_parity.md` (即将推出 / 跳转到即将推出的内容). Source: Bosco request 2026-05-02
 

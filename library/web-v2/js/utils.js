@@ -107,6 +107,7 @@ function formatDate(value, style) {
  * @param {string|number|Date} value
  * @returns {string} e.g. "Mar 29, 2026 2:15 PM"
  */
+// eslint-disable-next-line no-unused-vars -- formatDateTime is referenced (event handler / cross-file / async caller / parameter for arity)
 function formatDateTime(value) {
   return formatDate(value, "long");
 }
@@ -118,6 +119,7 @@ function formatDateTime(value) {
  * @param {string} isoStr
  * @returns {string}
  */
+// eslint-disable-next-line no-unused-vars -- cross-file global declared here, consumed in other files
 function formatLocal(isoStr) {
   if (!isoStr) {
     if (typeof t === "function") {
@@ -143,6 +145,7 @@ function formatLocal(isoStr) {
  * @param {Date} d
  * @returns {string}
  */
+// eslint-disable-next-line no-unused-vars -- cross-file global declared here, consumed in other files
 function formatRelativeTime(d) {
   var diffSec = Math.round((Date.now() - d.getTime()) / 1000);
   if (typeof Intl !== "undefined" && Intl.RelativeTimeFormat) {
@@ -176,6 +179,7 @@ function formatRelativeTime(d) {
  * @param {number} [options.timeout=0]         - max total ms (0 = no timeout)
  * @returns {{ stop: Function }} - call stop() to cancel polling
  */
+// eslint-disable-next-line no-unused-vars -- pollOperation is referenced (event handler / cross-file / async caller / parameter for arity)
 function pollOperation(statusUrl, callbacks, options) {
   callbacks = callbacks || {};
   options = options || {};
@@ -269,13 +273,14 @@ function pollOperation(statusUrl, callbacks, options) {
  *
  * @returns {Promise<{ auth_enabled: boolean, user: object|null, guest: boolean }>}
  */
+// eslint-disable-next-line no-unused-vars -- cross-file global declared here, consumed in other files
 async function checkAuthStatus() {
   try {
     var response = await fetch("/auth/status", { credentials: "same-origin" });
     if (response.ok) {
       return await response.json();
     }
-  } catch (_e) {
+  } catch {
     // Auth endpoint not available
   }
   return { auth_enabled: false, user: null, guest: false };

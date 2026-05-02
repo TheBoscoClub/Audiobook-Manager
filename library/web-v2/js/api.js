@@ -20,6 +20,7 @@
  *   - signal:   AbortSignal — pass through to fetch
  *   - headers:  object — merged with defaults
  */
+// eslint-disable-next-line no-unused-vars -- cross-file global declared here, consumed in other files
 const api = {
   /**
    * Perform a GET request.
@@ -154,7 +155,7 @@ const api = {
       } else if (data.message) {
         errorMessage = data.message;
       }
-    } catch (_e) {
+    } catch {
       // Response wasn't JSON — use default
     }
     return errorMessage;

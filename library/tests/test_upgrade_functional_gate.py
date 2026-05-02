@@ -139,9 +139,9 @@ def test_release_requirements_declares_required_arrays():
         "REQUIRED_DB_COLUMNS",
         "validate_release_requirements",
     ):
-        assert re.search(
-            rf"\b{sym}\b", body
-        ), f"release-requirements.sh must define {sym} — validator contract broken"
+        assert re.search(rf"\b{sym}\b", body), (
+            f"release-requirements.sh must define {sym} — validator contract broken"
+        )
 
 
 def test_release_requirements_contains_streaming_db_columns():
@@ -181,25 +181,25 @@ def test_smoke_probe_script_exists_and_is_executable():
 
 def test_smoke_probe_sources_release_requirements():
     body = _read("scripts/smoke_probe.sh")
-    assert re.search(
-        r'source\s+"?\$\{?SCRIPT_DIR\}?/release-requirements\.sh"?', body
-    ), "smoke_probe.sh must source release-requirements.sh for shared arrays"
+    assert re.search(r'source\s+"?\$\{?SCRIPT_DIR\}?/release-requirements\.sh"?', body), (
+        "smoke_probe.sh must source release-requirements.sh for shared arrays"
+    )
 
 
 def test_smoke_probe_defines_run_smoke_probe():
     body = _read("scripts/smoke_probe.sh")
-    assert re.search(
-        r"^run_smoke_probe\s*\(\)", body, re.MULTILINE
-    ), "smoke_probe.sh must define run_smoke_probe as its entry point"
+    assert re.search(r"^run_smoke_probe\s*\(\)", body, re.MULTILINE), (
+        "smoke_probe.sh must define run_smoke_probe as its entry point"
+    )
 
 
 def test_smoke_probe_exits_nonzero_on_failure():
     """Probe must return 1 on any hard failure (upgrade.sh relies on this)."""
     body = _read("scripts/smoke_probe.sh")
     # run_smoke_probe's last meaningful branch: if _smoke_fail > 0 → return 1.
-    assert re.search(
-        r"if\s+\[\[\s+\$_smoke_fail\s+-eq\s+0\s+\]\]", body
-    ), "smoke_probe.sh must distinguish pass from fail via _smoke_fail counter"
+    assert re.search(r"if\s+\[\[\s+\$_smoke_fail\s+-eq\s+0\s+\]\]", body), (
+        "smoke_probe.sh must distinguish pass from fail via _smoke_fail counter"
+    )
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -247,9 +247,9 @@ def test_upgrade_sh_aborts_on_smoke_probe_failure():
     """
     upgrade = _read("upgrade.sh")
     invocations = list(re.finditer(r'bash\s+"[^"]*smoke_probe\.sh"', upgrade))
-    assert (
-        len(invocations) >= 2
-    ), f"Expected smoke_probe.sh invocations in at least 2 places, found {len(invocations)}."
+    assert len(invocations) >= 2, (
+        f"Expected smoke_probe.sh invocations in at least 2 places, found {len(invocations)}."
+    )
     for m in invocations:
         window = upgrade[m.start() : m.start() + 1500]
         assert re.search(r"exit\s+1", window), (

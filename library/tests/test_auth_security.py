@@ -428,6 +428,6 @@ class TestBoundaryConditions:
         for payload, description in edge_case_payloads:
             # Should not crash — either reject or return None for nonexistent user
             result = repo.get_by_username(payload)
-            assert (
-                result is None
-            ), f"Unicode edge case matched unexpectedly ({description}): {repr(payload)}"
+            assert result is None, (
+                f"Unicode edge case matched unexpectedly ({description}): {repr(payload)}"
+            )

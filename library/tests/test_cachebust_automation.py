@@ -87,9 +87,9 @@ def test_bumper_rejects_unsafe_stamp(tmp_path):
         result = subprocess.run(
             [str(BUMPER), bad, str(tmp_path)], capture_output=True, text=True, check=False
         )
-        assert (
-            result.returncode != 0
-        ), f"bumper accepted unsafe stamp {bad!r} (should reject): {result.stdout}"
+        assert result.returncode != 0, (
+            f"bumper accepted unsafe stamp {bad!r} (should reject): {result.stdout}"
+        )
 
 
 def test_bumper_fails_on_missing_target_dir(tmp_path):

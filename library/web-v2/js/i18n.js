@@ -89,14 +89,14 @@
         catalog = data;
         try {
           localStorage.setItem(CATALOG_KEY, JSON.stringify(data));
-        } catch (e) {
+        } catch {
           // localStorage full — non-fatal
         }
       })
       .catch(function () {
         var cached = localStorage.getItem(CATALOG_KEY);
         if (cached) {
-          try { catalog = JSON.parse(cached); } catch (e) { catalog = {}; }
+          try { catalog = JSON.parse(cached); } catch { catalog = {}; }
         }
       });
   }
@@ -164,7 +164,7 @@
 
   var cached = localStorage.getItem(CATALOG_KEY);
   if (cached) {
-    try { catalog = JSON.parse(cached); } catch (e) { /* ignore */ }
+    try { catalog = JSON.parse(cached); } catch { /* ignore */ }
   }
 
   loadCatalog(currentLocale).then(function () {

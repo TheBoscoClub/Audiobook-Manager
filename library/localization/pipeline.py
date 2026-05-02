@@ -203,7 +203,7 @@ def _select_from_candidates(candidates: list[STTProvider]) -> STTProvider:
     if mode == "primary":
         return candidates[0]
     if mode == "random":
-        return random.choice(candidates)  # nosec B311 — load balancing, not security
+        return random.choice(candidates)  # noqa: S311  # nosec B311 — load balancing, not security
 
     # round_robin (default)
     global _RR_COUNTER

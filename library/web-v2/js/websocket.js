@@ -20,6 +20,7 @@
   var heartbeatTimer = null;
   var pollTimer = null;
   var retryCount = 0;
+  // eslint-disable-next-line no-unused-vars -- assigned below; ESLint flow analysis misses the conditional assignment
   var retryTimer = null;
   var usingPolling = false;
   var isIframe = window.parent !== window;
@@ -42,7 +43,7 @@
             { source: "audiobook-ws", eventName: eventName, detail: detail },
             location.origin
           );
-        } catch (e) { /* iframe may not be ready */ }
+        } catch { /* iframe may not be ready */ }
       }
     }
   }
@@ -60,15 +61,15 @@
     window.audioWs = {
       isConnected: function () {
         try { return window.parent.audioWs && window.parent.audioWs.isConnected(); }
-        catch (e) { return false; }
+        catch { return false; }
       },
       isPolling: function () {
         try { return window.parent.audioWs && window.parent.audioWs.isPolling(); }
-        catch (e) { return false; }
+        catch { return false; }
       },
       reconnect: function () {
         try { if (window.parent.audioWs) window.parent.audioWs.reconnect(); }
-        catch (e) { /* cross-frame access failed */ }
+        catch { /* cross-frame access failed */ }
       },
     };
     return; // Do not open a WebSocket from iframe
@@ -86,7 +87,7 @@
 
     try {
       ws = new WebSocket(url);
-    } catch (e) {
+    } catch {
       onFail();
       return;
     }
@@ -122,7 +123,7 @@
         } else if (msg.type === "buffer_progress") {
           dispatch("buffer-progress", msg);
         }
-      } catch (e) {
+      } catch {
         // ignore malformed messages
       }
     };

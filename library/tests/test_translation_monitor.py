@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import sqlite3
 import time
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -46,7 +47,7 @@ SCHEMA_PATH = PROJECT_ROOT / "library" / "backend" / "schema.sql"
 
 
 @pytest.fixture
-def db(tmp_path) -> sqlite3.Connection:
+def db(tmp_path) -> Generator[sqlite3.Connection, None, None]:
     """Fresh DB with the canonical schema applied."""
     conn = sqlite3.connect(str(tmp_path / "monitor.db"))
     conn.row_factory = sqlite3.Row

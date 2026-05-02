@@ -350,6 +350,7 @@
       .catch(function () {});
   }
 
+  // eslint-disable-next-line no-unused-vars -- startGeneration is referenced (event handler / cross-file / async caller / parameter for arity)
   function startGeneration(bookId, locale) {
     setGenUi("progress");
     renderGenStatus({ phase: "queued", message: (typeof t === "function" ? t("subtitleGen.queued") : "Queued…") });
@@ -631,6 +632,7 @@
       .catch(function () {});
   }
 
+  // eslint-disable-next-line no-unused-vars -- startTtsGeneration is referenced (event handler / cross-file / async caller / parameter for arity)
   function startTtsGeneration(bookId, locale) {
     setTtsUi("progress");
     renderTtsStatus({ phase: "queued", message: (typeof t === "function" ? t("ttsGen.queued") : "Queued…") });

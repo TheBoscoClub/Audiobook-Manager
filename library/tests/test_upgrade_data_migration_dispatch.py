@@ -70,9 +70,9 @@ def test_data_migration_dispatcher_invokes_function_pattern(tmp_path):
     db_dir.mkdir()
     db_path = db_dir / "audiobooks.db"
     _make_prior_schema_db(db_path)
-    assert not _column_exists(
-        db_path, "streaming_segments", "retry_count"
-    ), "test setup: prior-schema DB should NOT have retry_count"
+    assert not _column_exists(db_path, "streaming_segments", "retry_count"), (
+        "test setup: prior-schema DB should NOT have retry_count"
+    )
 
     # Minimal fake "installed" target at v8.3.1 so the 8.3.2 boundary triggers
     target_dir = tmp_path / "installed"

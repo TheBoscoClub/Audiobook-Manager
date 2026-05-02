@@ -241,9 +241,9 @@ class TestProgressTrackerIntegration:
 
         # Verify monotonically increasing
         for i in range(1, len(updates)):
-            assert (
-                updates[i] >= updates[i - 1]
-            ), f"Progress decreased: {updates[i - 1]} -> {updates[i]}"
+            assert updates[i] >= updates[i - 1], (
+                f"Progress decreased: {updates[i - 1]} -> {updates[i]}"
+            )
 
     def test_skip_redundant_updates(self):
         """Test that redundant progress updates are skipped."""
@@ -505,6 +505,6 @@ class TestModuleImports:
         for module in [audible, maintenance, hashing, library]:
             source = inspect.getsource(module)
             # Should have Popen (streaming) or run_with_progress (shared helper)
-            assert (
-                "subprocess.Popen" in source or "run_with_progress" in source
-            ), f"{module.__name__} missing subprocess.Popen or run_with_progress"
+            assert "subprocess.Popen" in source or "run_with_progress" in source, (
+                f"{module.__name__} missing subprocess.Popen or run_with_progress"
+            )

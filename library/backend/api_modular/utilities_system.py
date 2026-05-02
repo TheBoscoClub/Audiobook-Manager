@@ -198,7 +198,7 @@ def _helper_service_active() -> bool:
     """
     try:
         result = subprocess.run(  # nosec B603,B607 — systemctl on a hardcoded unit name
-            ["systemctl", "is-active", "audiobook-upgrade-helper.service"],
+            ["systemctl", "is-active", "audiobook-upgrade-helper.service"],  # noqa: S607
             capture_output=True,
             text=True,
             timeout=5,
@@ -387,18 +387,18 @@ def _get_service_status_entry(service: str) -> dict:
     """Get the status of a single systemd service."""
     try:
         result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-            ["systemctl", "is-active", service],
+            ["systemctl", "is-active", service],  # noqa: S603,S607 — systemctl is the system service manager; args are hardcoded service names, not user input
             capture_output=True,
             text=True,
-            timeout=5,  # noqa: S603,S607 — systemctl is the system service manager; args are hardcoded service names, not user input
+            timeout=5,
         )
         is_active = result.stdout.strip() == "active"
 
         result_enabled = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-            ["systemctl", "is-enabled", service],
+            ["systemctl", "is-enabled", service],  # noqa: S603,S607 — systemctl is the system service manager; args are hardcoded service names, not user input
             capture_output=True,
             text=True,
-            timeout=5,  # noqa: S603,S607 — systemctl is the system service manager; args are hardcoded service names, not user input
+            timeout=5,
         )
         is_enabled = result_enabled.stdout.strip() == "enabled"
 
@@ -550,9 +550,7 @@ def _execute_cf_purge(zone_id: str, api_key: str, auth_email: str) -> FlaskRespo
     if not url.startswith("https://"):
         return jsonify({"success": False, "error": "Invalid URL scheme"}), 400
     data = b'{"purge_everything":true}'
-    req = urllib.request.Request(
-        url, data=data, method="POST"
-    )  # noqa: S310 — urllib.request.Request for fixed HTTPS Cloudflare API; URL scheme validated before this call
+    req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310 — urllib.request.Request for fixed HTTPS Cloudflare API; URL scheme validated before this call
     req.add_header("X-Auth-Key", api_key)
     req.add_header("X-Auth-Email", auth_email)
     req.add_header("Content-Type", "application/json")

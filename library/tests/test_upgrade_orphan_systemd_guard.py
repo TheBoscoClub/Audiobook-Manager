@@ -118,9 +118,9 @@ def test_orphan_loop_skipped_when_no_trusted_source():
     )
     guarded_region = guard_match.group(1)
     # The rm -f must live inside the guarded region, not outside it.
-    assert (
-        "rm -f" in guarded_region
-    ), "rm -f of orphaned units must execute inside the [[ -n $project_systemd_dir ]] guard"
+    assert "rm -f" in guarded_region, (
+        "rm -f of orphaned units must execute inside the [[ -n $project_systemd_dir ]] guard"
+    )
 
 
 def test_caller_passes_project_to_audit():

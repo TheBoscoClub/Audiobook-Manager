@@ -252,7 +252,7 @@ def main() -> int:
         logging.info("Exec'ing sampler-burst.sh with --workers %d", args.burst)
         # os.execvp replaces this Python process — sampler-burst handles its
         # own signal cleanup, so we don't need to wrap with subprocess.run.
-        os.execvp(  # nosec B606 # nosemgrep: dangerous-os-exec-tainted-env-args  — hardcoded sibling script path, int-validated workers
+        os.execvp(  # nosec B606 # nosemgrep: dangerous-os-exec-tainted-env-args  — hardcoded sibling script path, int-validated workers  # noqa: S606
             str(burst_script), [str(burst_script), "--workers", str(args.burst)]
         )
 

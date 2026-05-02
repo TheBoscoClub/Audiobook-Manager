@@ -31,9 +31,7 @@ admin_authors_bp = Blueprint("admin_authors", __name__, url_prefix="/api/admin")
 
 def init_admin_authors_routes(
     database_path: str,
-) -> (
-    None
-):  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
+) -> None:  # pylint: disable=unused-argument  # kept for API compatibility — path now resolved via current_app.config
     """Initialize admin author routes (no-op, kept for API compatibility).
 
     Database path is now resolved at request time via current_app.config.
@@ -100,8 +98,8 @@ def _get_affected_book_ids(conn: sqlite3.Connection, entity_type: str, entity_id
         table = "book_narrators"
         col = "narrator_id"
     rows = conn.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        f"SELECT book_id FROM {table} WHERE {col} = ?",  # nosec B608 — table/col from code-defined {author|narrator} branch above; entity_id is int parameter-bound
-        (entity_id,),  # noqa: S608
+        f"SELECT book_id FROM {table} WHERE {col} = ?",  # nosec B608 — table/col from code-defined {author|narrator} branch above; entity_id is int parameter-bound  # noqa: S608
+        (entity_id,),
     ).fetchall()
     return [r["book_id"] for r in rows]
 
@@ -275,8 +273,8 @@ def _merge_entities(
             books_reassigned += 1
 
         conn.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"DELETE FROM {entity_table} WHERE id = ?",  # nosec B608 — entity_table is "authors" or "narrators" literal from code-defined caller at L356/L516; sid is int parameter-bound
-            (sid,),  # noqa: S608
+            f"DELETE FROM {entity_table} WHERE id = ?",  # nosec B608 — entity_table is "authors" or "narrators" literal from code-defined caller at L356/L516; sid is int parameter-bound  # noqa: S608
+            (sid,),
         )
 
     for bid in affected_book_ids:
@@ -319,16 +317,16 @@ def _validate_merge_request(data, entity_label):
 def _verify_entities_exist(conn, entity_table, target_id, source_ids, label):
     """Verify target and all source entities exist. Returns error response or None."""
     target = conn.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        f"SELECT * FROM {entity_table} WHERE id = ?",  # nosec B608 — entity_table is "authors" or "narrators" literal from callers at L356/L516; target_id is parameter-bound
-        (target_id,),  # noqa: S608
+        f"SELECT * FROM {entity_table} WHERE id = ?",  # nosec B608 — entity_table is "authors" or "narrators" literal from callers at L356/L516; target_id is parameter-bound  # noqa: S608
+        (target_id,),
     ).fetchone()
     if not target:
         return jsonify({"error": f"Target {label} not found"}), 404
 
     for sid in source_ids:
         src = conn.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"SELECT id FROM {entity_table} WHERE id = ?",  # nosec B608 — same allowlist as above; sid is parameter-bound
-            (sid,),  # noqa: S608
+            f"SELECT id FROM {entity_table} WHERE id = ?",  # nosec B608 — same allowlist as above; sid is parameter-bound  # noqa: S608
+            (sid,),
         ).fetchone()
         if not src:
             return jsonify({"error": f"Source {label} {sid} not found"}), 404

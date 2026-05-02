@@ -274,14 +274,14 @@ def test_streaming_translate_js_has_chapter_advance_on_ended():
     src = js_path.read_text(encoding="utf-8")
     assert "function advanceChapter" in src, "advanceChapter function missing"
     assert 'addEventListener("ended"' in src, "enterStreaming must install an audio.ended listener"
-    assert (
-        'removeEventListener("ended"' in src
-    ), "enterIdle (and advanceChapter mid-transition) must clean up the ended listener"
+    assert 'removeEventListener("ended"' in src, (
+        "enterIdle (and advanceChapter mid-transition) must clean up the ended listener"
+    )
     # advanceChapter must actually attempt to POST /translate/stream with
     # the next chapter, not just log-and-quit
-    assert (
-        "chapter_index: nextChapter" in src
-    ), "advanceChapter must request streaming for nextChapter"
+    assert "chapter_index: nextChapter" in src, (
+        "advanceChapter must request streaming for nextChapter"
+    )
     assert "totalChapters" in src, "advanceChapter needs totalChapters to know when to stop"
 
 

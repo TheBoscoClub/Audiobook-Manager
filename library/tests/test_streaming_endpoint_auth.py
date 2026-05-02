@@ -82,9 +82,9 @@ def test_segment_complete_rejects_non_localhost(app_client, streaming_db, flask_
         environ_base={"REMOTE_ADDR": "203.0.113.1"},  # TEST-NET-3, RFC 5737 — not localhost
     )
     # admin_or_localhost in AUTH_ENABLED=False mode returns 404 for non-localhost
-    assert (
-        resp.status_code == 404
-    ), f"Expected 404 (non-localhost blocked), got {resp.status_code}: {resp.get_data(as_text=True)}"
+    assert resp.status_code == 404, (
+        f"Expected 404 (non-localhost blocked), got {resp.status_code}: {resp.get_data(as_text=True)}"
+    )
 
     # Confirm the segment row was NOT mutated (state must still be 'pending')
     conn = sqlite3.connect(str(streaming_db))
@@ -106,9 +106,9 @@ def test_chapter_complete_rejects_non_localhost(app_client, streaming_db, flask_
         json={"audiobook_id": 43, "chapter_index": 0, "locale": "zh-Hans"},
         environ_base={"REMOTE_ADDR": "198.51.100.1"},  # TEST-NET-2, RFC 5737 — not localhost
     )
-    assert (
-        resp.status_code == 404
-    ), f"Expected 404 (non-localhost blocked), got {resp.status_code}: {resp.get_data(as_text=True)}"
+    assert resp.status_code == 404, (
+        f"Expected 404 (non-localhost blocked), got {resp.status_code}: {resp.get_data(as_text=True)}"
+    )
 
 
 def test_segment_complete_allows_localhost(app_client, streaming_db):
@@ -127,7 +127,7 @@ def test_segment_complete_allows_localhost(app_client, streaming_db):
         "/api/translate/segment-complete",
         json={"audiobook_id": 44, "chapter_index": 0, "segment_index": 0, "locale": "zh-Hans"},
     )
-    assert (
-        resp.status_code == 200
-    ), f"Localhost request should be allowed, got {resp.status_code}: {resp.get_data(as_text=True)}"
+    assert resp.status_code == 200, (
+        f"Localhost request should be allowed, got {resp.status_code}: {resp.get_data(as_text=True)}"
+    )
     assert resp.get_json()["status"] == "ok"

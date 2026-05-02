@@ -100,7 +100,7 @@
                     if (prefs.contrast === 'medium') iBody.classList.add('a11y-contrast-medium');
                     if (prefs.contrast === 'high') iBody.classList.add('a11y-contrast-high');
                 }
-            } catch (e) { /* cross-origin iframe — ignore */ }
+            } catch { /* cross-origin iframe — ignore */ }
         }
     }
 
@@ -139,7 +139,7 @@
         }
 
         // Also save to localStorage as fallback
-        try { localStorage.setItem('a11y_' + key, value); } catch (e) {}
+        try { localStorage.setItem('a11y_' + key, value); } catch { /* ignored */ }
     }
 
     // ── Wire up controls ────────────────────────────────────────────────────
@@ -190,7 +190,7 @@
 
         // Clear localStorage fallbacks
         Object.keys(DEFAULTS).forEach(function (k) {
-            try { localStorage.removeItem('a11y_' + k); } catch (e) {}
+            try { localStorage.removeItem('a11y_' + k); } catch { /* ignored */ }
         });
     });
 
@@ -201,7 +201,7 @@
             try {
                 var val = localStorage.getItem('a11y_' + k);
                 if (val !== null) prefs[k] = val;
-            } catch (e) {}
+            } catch { /* ignored */ }
         });
     }
 

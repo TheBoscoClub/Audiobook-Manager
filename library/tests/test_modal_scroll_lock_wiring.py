@@ -37,26 +37,22 @@ JS = (REPO / "library" / "web-v2" / "js" / "library.js").read_text()
 
 
 def test_lock_helpers_defined_as_static_methods():
-    assert re.search(
-        r"static\s+_lockBodyScroll\(\)\s*\{", JS
-    ), "_lockBodyScroll static helper missing"
-    assert re.search(
-        r"static\s+_unlockBodyScrollIfLocked\(\)\s*\{", JS
-    ), "_unlockBodyScrollIfLocked static helper missing"
+    assert re.search(r"static\s+_lockBodyScroll\(\)\s*\{", JS), (
+        "_lockBodyScroll static helper missing"
+    )
+    assert re.search(r"static\s+_unlockBodyScrollIfLocked\(\)\s*\{", JS), (
+        "_unlockBodyScrollIfLocked static helper missing"
+    )
 
 
 def test_lock_uses_data_attribute_for_idempotency():
     """The lock helper must guard against double-lock via a body attribute.
     Double-lock would corrupt the saved scrollY (replace real position with
     the already-frozen 0)."""
-    body = re.search(
-        r"static\s+_lockBodyScroll\(\)\s*\{(.+?)\n  \}\n", JS, re.DOTALL
-    )
+    body = re.search(r"static\s+_lockBodyScroll\(\)\s*\{(.+?)\n  \}\n", JS, re.DOTALL)
     assert body, "could not extract _lockBodyScroll body"
     fn = body.group(1)
-    assert "hasAttribute" in fn, (
-        "lock must guard via hasAttribute() to be idempotent"
-    )
+    assert "hasAttribute" in fn, "lock must guard via hasAttribute() to be idempotent"
     assert "_SCROLL_LOCK_ATTR" in fn, "lock must reference the attribute constant"
 
 
@@ -91,9 +87,7 @@ def test_unlock_restores_scroll_position():
 
 def test_show_book_detail_calls_lock():
     """showBookDetail must call _lockBodyScroll when mounting the modal."""
-    detail_section = re.search(
-        r"showBookDetail\(bookId\)\s*\{(.+?)\n  \}", JS, re.DOTALL
-    )
+    detail_section = re.search(r"showBookDetail\(bookId\)\s*\{(.+?)\n  \}", JS, re.DOTALL)
     assert detail_section, "could not extract showBookDetail body"
     fn = detail_section.group(1)
     assert "AudiobookLibraryV2._lockBodyScroll()" in fn, (
@@ -103,9 +97,7 @@ def test_show_book_detail_calls_lock():
 
 def test_close_paths_call_unlock():
     """Both close paths (backdrop click AND close button) must unlock."""
-    detail_section = re.search(
-        r"showBookDetail\(bookId\)\s*\{(.+?)\n  \}", JS, re.DOTALL
-    )
+    detail_section = re.search(r"showBookDetail\(bookId\)\s*\{(.+?)\n  \}", JS, re.DOTALL)
     fn = detail_section.group(1)
     # Counts the unlock call sites — should appear at least twice within
     # showBookDetail (1: existing-modal cleanup, 2+: in _closeModal which
@@ -124,9 +116,7 @@ def test_existing_modal_cleanup_unlocks_first():
     """
     # Look for the cleanup-then-unlock-then-lock sequence
     # Extract the showBookDetail function body and check ordering within it.
-    detail_section = re.search(
-        r"showBookDetail\(bookId\)\s*\{(.+?)\n  \}", JS, re.DOTALL
-    )
+    detail_section = re.search(r"showBookDetail\(bookId\)\s*\{(.+?)\n  \}", JS, re.DOTALL)
     assert detail_section, "could not extract showBookDetail body"
     fn = detail_section.group(1)
 
@@ -134,9 +124,7 @@ def test_existing_modal_cleanup_unlocks_first():
     assert cleanup_idx >= 0, "cleanup of existing modal must exist in showBookDetail"
     unlock_idx = fn.find("_unlockBodyScrollIfLocked()", cleanup_idx)
     lock_idx = fn.find("_lockBodyScroll()", cleanup_idx)
-    assert unlock_idx > cleanup_idx, (
-        "unlock must be called after the existing-modal cleanup site"
-    )
+    assert unlock_idx > cleanup_idx, "unlock must be called after the existing-modal cleanup site"
     assert lock_idx > unlock_idx, (
         "lock must come AFTER unlock — otherwise the double-lock corrupts "
         "the saved scrollY (new lock saves the already-frozen 0 instead of "

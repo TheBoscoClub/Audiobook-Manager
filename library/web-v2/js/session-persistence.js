@@ -3,6 +3,7 @@
  * Stores session tokens in localStorage and IndexedDB so the session
  * can be recovered even if the browser clears cookies.
  */
+// eslint-disable-next-line no-unused-vars -- cross-file global declared here, consumed in other files
 const SessionPersistence = {
   _DB_NAME: "library_auth",
   _STORE_NAME: "session",
@@ -12,12 +13,12 @@ const SessionPersistence = {
   async store(token) {
     try {
       localStorage.setItem(this._LS_KEY, token);
-    } catch (e) {
+    } catch {
       /* localStorage unavailable */
     }
     try {
       await this._idbPut(token);
-    } catch (e) {
+    } catch {
       /* IndexedDB unavailable */
     }
   },
@@ -27,13 +28,13 @@ const SessionPersistence = {
     try {
       const lsToken = localStorage.getItem(this._LS_KEY);
       if (lsToken) return lsToken;
-    } catch (e) {
+    } catch {
       /* localStorage unavailable */
     }
     // Fall back to IndexedDB
     try {
       return await this._idbGet();
-    } catch (e) {
+    } catch {
       return null;
     }
   },
@@ -41,10 +42,10 @@ const SessionPersistence = {
   async clear() {
     try {
       localStorage.removeItem(this._LS_KEY);
-    } catch (e) {}
+    } catch { /* ignored */ }
     try {
       await this._idbDelete();
-    } catch (e) {}
+    } catch { /* ignored */ }
   },
 
   _openDB() {

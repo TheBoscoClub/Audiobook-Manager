@@ -91,7 +91,7 @@ run_migration() {
     fi
 
     echo "  [010] Scanning $root for orphan chapter.webm files..."
-    if ! $sudo_prefix "$py" - <<PYEOF
+    if ! $sudo_prefix "$py" - <<PYEOF; then
 import json, re, sqlite3, subprocess, sys
 from pathlib import Path
 
@@ -160,7 +160,6 @@ conn.commit()
 conn.close()
 print(f"  [010] backfilled {inserted} chapter_translations_audio rows")
 PYEOF
-    then
         echo "  [010] ERROR: backfill helper failed"
         return 1
     fi

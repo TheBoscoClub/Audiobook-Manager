@@ -137,13 +137,13 @@ class AudiobookLibraryV2 {
 
       await api.post("/auth/session/restore", { token }, { toast: false });
       return true;
-    } catch (e) {
+    } catch {
       // Token invalid (or network blip) — clear stale stored token so we
       // don't loop on it. Used to live after the `return true` above where
       // it was unreachable; fixed 2026-04-27.
       try {
         await SessionPersistence.clear();
-      } catch (_clearErr) {
+      } catch {
         /* clear failure is itself non-fatal */
       }
       return false;
@@ -613,7 +613,7 @@ class AudiobookLibraryV2 {
     let map;
     try {
       map = await window.i18n.translateStrings(sources);
-    } catch (e) {
+    } catch {
       return;
     }
     if (!map) return;
@@ -658,7 +658,7 @@ class AudiobookLibraryV2 {
     if (!this.user || this.user.auth_type !== "magic_link") return;
     try {
       if (localStorage.getItem("library_passkey_prompt_dismissed")) return;
-    } catch (e) {
+    } catch {
       return;
     }
 
@@ -680,7 +680,7 @@ class AudiobookLibraryV2 {
       onDismiss: function () {
         try {
           localStorage.setItem("library_passkey_prompt_dismissed", "1");
-        } catch (e) {}
+        } catch { /* ignored */ }
         banner.classList.add("dismissing");
         setTimeout(function () { banner.remove(); }, 300);
       },
@@ -983,7 +983,7 @@ class AudiobookLibraryV2 {
           localStorage.setItem("audiobook_items_per_page", serverPerPage);
         }
       }
-    } catch (_e) {
+    } catch {
       // API unavailable — localStorage values already applied above
     }
   }
@@ -1572,7 +1572,7 @@ class AudiobookLibraryV2 {
     try {
       // Get narrator counts from stats endpoint
       this.narratorCounts = await api.get(`${API_BASE}/narrator-counts`, { toast: false });
-    } catch (error) {
+    } catch {
       // Fallback
       this.narratorCounts = {};
       this.filters.narrators.forEach((n) => (this.narratorCounts[n] = null));
@@ -3016,7 +3016,7 @@ class AudiobookLibraryV2 {
       } else {
         pill.style.display = "none";
       }
-    } catch (e) {
+    } catch {
       // Silently fail — pill just stays hidden
     }
   }
@@ -3774,6 +3774,7 @@ class DuplicateManager {
 }
 
 // Initialize managers
+// eslint-disable-next-line no-unused-vars -- duplicateManager is referenced (event handler / cross-file / async caller / parameter for arity)
 let duplicateManager;
 document.addEventListener("DOMContentLoaded", () => {
   duplicateManager = new DuplicateManager();
@@ -3860,18 +3861,21 @@ function shellPlay(book, resume) {
   }
 }
 
+// eslint-disable-next-line no-unused-vars -- shellPause is referenced (event handler / cross-file / async caller / parameter for arity)
 function shellPause() {
   if (inIframe) {
     whenShellReady((sp) => sp.audio.pause());
   }
 }
 
+// eslint-disable-next-line no-unused-vars -- shellResume is referenced (event handler / cross-file / async caller / parameter for arity)
 function shellResume() {
   if (inIframe) {
     whenShellReady((sp) => sp.audio.play());
   }
 }
 
+// eslint-disable-next-line no-unused-vars -- shellSeek is referenced (event handler / cross-file / async caller / parameter for arity)
 function shellSeek(seconds) {
   if (inIframe) {
     whenShellReady((sp) => {

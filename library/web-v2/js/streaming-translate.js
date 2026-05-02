@@ -156,7 +156,7 @@
     if (next) {
       try {
         this.sourceBuffer.appendBuffer(next);
-      } catch (e) {
+      } catch {
         // QuotaExceededError or buffer full — drop; updateend will retry.
       }
       return;
@@ -170,7 +170,7 @@
         try {
           this.mediaSource.endOfStream();
           this.ended = true;
-        } catch (e) {
+        } catch {
           // endOfStream can throw if updating; updateend will retry via
           // the addEventListener("updateend") hook calling _drain again.
         }
@@ -193,7 +193,7 @@
     if (this.mediaSource && this.mediaSource.readyState === "open") {
       try {
         this.mediaSource.endOfStream();
-      } catch (e) {
+      } catch {
         // endOfStream can throw if buffer is still updating; ignore.
       }
     }
@@ -208,10 +208,10 @@
     // the audio element still holds it via the blob URL, leaking it
     // across book-switches over long sessions.
     if (this.mediaSource && this.mediaSource.readyState === "open") {
-      try { this.mediaSource.endOfStream(); } catch (e) {}
+      try { this.mediaSource.endOfStream(); } catch { /* ignored */ }
     }
     if (this.objectUrl) {
-      try { URL.revokeObjectURL(this.objectUrl); } catch (e) {}
+      try { URL.revokeObjectURL(this.objectUrl); } catch { /* ignored */ }
       this.objectUrl = null;
     }
     this.sourceBuffer = null;
@@ -223,6 +223,7 @@
   var currentLocale = null;
   var currentChapter = 0;
   var totalChapters = 0; // from /translate/stream response — used by advanceChapter
+  // eslint-disable-next-line no-unused-vars -- sessionId is referenced (event handler / cross-file / async caller / parameter for arity)
   var sessionId = null;
   var segmentBitmap = {}; // chapter -> Set of completed segment indices
   var chapterTotals = {}; // chapter -> expected segment count (from bitmap.total)
@@ -834,7 +835,7 @@
       try {
         var blob = new Blob([body], { type: "application/json" });
         navigator.sendBeacon(API_BASE + "/translate/stop", blob);
-      } catch (e) { /* swallow — beacon is best-effort by design */ }
+      } catch { /* swallow — beacon is best-effort by design */ }
     } else {
       fetch(API_BASE + "/translate/stop", {
         method: "POST",

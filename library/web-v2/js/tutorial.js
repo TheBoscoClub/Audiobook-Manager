@@ -156,7 +156,7 @@ class LibraryTutorial {
         const h = await hashSource(src);
         if (map[h]) this._translations[src] = map[h];
       }
-    } catch (e) {
+    } catch {
       // Non-fatal — tooltips fall back to English.
     }
   }

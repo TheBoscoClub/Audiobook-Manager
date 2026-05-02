@@ -27,6 +27,6 @@ class TestProxyRootRedirect:
         """Proxy must NOT redirect /index.html — iframe loads it directly."""
         content = (WEB_DIR / "proxy_server.py").read_text()
         # The redirect condition should only match "/" not "/index.html"
-        assert (
-            'self.path == "/index.html"' not in content
-        ), "proxy must not redirect /index.html — the iframe loads it"
+        assert 'self.path == "/index.html"' not in content, (
+            "proxy must not redirect /index.html — the iframe loads it"
+        )

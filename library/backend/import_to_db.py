@@ -111,8 +111,8 @@ def _ensure_entity(cursor, cleaned, entity_map, table):
     if dedup_key not in entity_map:
         sn = generate_sort_name(cleaned) or cleaned
         cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-            f"INSERT INTO {table} (name, sort_name) VALUES (?, ?)",  # nosec B608 — table is code-defined literal ("authors"/"narrators"/etc.) from callers in _populate_names_and_junctions; cleaned+sn are parameter-bound
-            (cleaned, sn),  # noqa: S608
+            f"INSERT INTO {table} (name, sort_name) VALUES (?, ?)",  # nosec B608 — table is code-defined literal ("authors"/"narrators"/etc.) from callers in _populate_names_and_junctions; cleaned+sn are parameter-bound  # noqa: S608
+            (cleaned, sn),
         )
         entity_map[dedup_key] = cursor.lastrowid
     return entity_map[dedup_key]
@@ -411,8 +411,8 @@ def _insert_taxonomy_items(cursor, audiobook_id, items, entity_map, table, junct
     for item_name in items:
         if item_name not in entity_map:
             cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                f"INSERT INTO {table} (name) VALUES (?)",  # nosec B608 — table is code-defined literal ("genres"/"eras"/"topics") from _insert_taxonomy_items callers at L538/541/544; item_name is parameter-bound
-                (item_name,),  # noqa: S608
+                f"INSERT INTO {table} (name) VALUES (?)",  # nosec B608 — table is code-defined literal ("genres"/"eras"/"topics") from _insert_taxonomy_items callers at L538/541/544; item_name is parameter-bound  # noqa: S608
+                (item_name,),
             )
             entity_map[item_name] = cursor.lastrowid
         cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query

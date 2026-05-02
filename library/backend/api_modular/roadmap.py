@@ -129,8 +129,8 @@ def update_roadmap_item(item_id):
     params.append(item_id)
 
     conn.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        f"UPDATE roadmap_items SET {', '.join(fields)} WHERE id = ?",  # nosec B608 — fields built from the code-defined allowlist ("title","description","status","priority","sort_order") at L112; status/priority values validated against VALID_STATUSES/VALID_PRIORITIES at L114/L117; params is parameter-bound
-        params,  # noqa: S608
+        f"UPDATE roadmap_items SET {', '.join(fields)} WHERE id = ?",  # nosec B608 — fields built from the code-defined allowlist ("title","description","status","priority","sort_order") at L112; status/priority values validated against VALID_STATUSES/VALID_PRIORITIES at L114/L117; params is parameter-bound  # noqa: S608
+        params,
     )
     conn.commit()
     conn.close()

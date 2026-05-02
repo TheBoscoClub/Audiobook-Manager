@@ -314,9 +314,7 @@ class TestInitNotificationPoller:
             # Second call should be a no-op
             ws_module.init_notification_poller("/tmp/other.db")  # nosec B108  # test fixture path
             # db_path should still be the first one
-            assert (
-                ws_module._db_path_for_poller == "/tmp/fake.db"
-            )  # nosec B108  # test fixture path
+            assert ws_module._db_path_for_poller == "/tmp/fake.db"  # nosec B108  # test fixture path
 
         # Reset for other tests
         ws_module._poller_started = False
@@ -341,9 +339,7 @@ class TestInitNotificationPoller:
                     return original_import(name, *args, **kwargs)
 
                 with patch("builtins.__import__", side_effect=fake_import):
-                    ws_module.init_notification_poller(
-                        "/tmp/test.db"
-                    )  # nosec B108  # test fixture path
+                    ws_module.init_notification_poller("/tmp/test.db")  # nosec B108  # test fixture path
                     mock_logger.warning.assert_called_once()
 
         ws_module._poller_started = False
@@ -371,9 +367,7 @@ class TestNotificationPollerWithGevent:
 
             with patch("builtins.__import__", side_effect=fake_import):
                 ws_module._poller_started = False
-                ws_module.init_notification_poller(
-                    "/tmp/test_gevent.db"
-                )  # nosec B108  # test fixture path
+                ws_module.init_notification_poller("/tmp/test_gevent.db")  # nosec B108  # test fixture path
                 mock_gevent.spawn.assert_called_once()
 
         ws_module._poller_started = False

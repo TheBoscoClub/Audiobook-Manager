@@ -1910,7 +1910,7 @@ EOF
             else
                 for tgt in $wanted_by; do
                     case "$tgt" in
-                        halt.target|reboot.target|shutdown.target) ;;
+                        halt.target | reboot.target | shutdown.target) ;;
                         *) has_runtime_target=1 ;;
                     esac
                 done

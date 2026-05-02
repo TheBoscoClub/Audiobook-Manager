@@ -108,7 +108,7 @@
       showAuthenticatedState(accountData);
       populateModal(accountData);
       return;
-    } catch (_e) {
+    } catch {
       // Network error or not authenticated — fall through to status check
     }
 
@@ -124,7 +124,7 @@
         showAuthenticatedState(statusData.user);
         return;
       }
-    } catch (_e2) {
+    } catch {
       // Both endpoints failed — API is down, keep default button state
     }
 
@@ -137,7 +137,7 @@
     try {
       accountData = await api.get("/auth/account", { toast: false });
       populateModal(accountData);
-    } catch (_e) {
+    } catch {
       // keep existing modal data
     }
   }
@@ -275,6 +275,7 @@
     }
   }
 
+  // eslint-disable-next-line no-unused-vars -- cross-file global declared here, consumed in other files
   function showSetupResult(setupData, authMethod) {
     var result = document.getElementById("auth-setup-result");
     result.hidden = false;
@@ -489,7 +490,7 @@
       document.dispatchEvent(new CustomEvent('audiobooks:preference-changed', {
         detail: { key: key, value: value }
       }));
-    } catch (_e) { /* legacy browser — user can still hard-refresh */ }
+    } catch { /* legacy browser — user can still hard-refresh */ }
   }
 
   function loadPreferencesIntoModal() {

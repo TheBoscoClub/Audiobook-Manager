@@ -61,7 +61,7 @@ def _chapters_from_ffprobe(audio_path: Path) -> list[Chapter]:
         # metadata (chapter titles authored in legacy single-byte encodings).
         # See companion comment in scripts/stream-translate-worker.py.
         result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-            [
+            [  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled
                 "ffprobe",
                 "-v",
                 "quiet",
@@ -69,7 +69,7 @@ def _chapters_from_ffprobe(audio_path: Path) -> list[Chapter]:
                 "json",
                 "-show_chapters",
                 str(audio_path),
-            ],  # noqa: S603,S607 — ffmpeg/ffprobe are system-installed media tools; inputs are internal paths and config values, not user-controlled
+            ],
             capture_output=True,
             encoding="utf-8",
             errors="replace",

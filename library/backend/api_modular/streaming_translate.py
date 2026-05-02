@@ -1208,13 +1208,11 @@ def _probe_stt_warmth() -> tuple[bool, int, list[dict]]:
         if not api_key or not endpoint:
             return None
         url = f"{base_url}/v2/{endpoint}/health"
-        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}"})
+        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}"})  # noqa: S310
         entry = {"name": name, "ready": 0, "endpoint_id": endpoint}
         try:
             # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-            with urllib.request.urlopen(
-                req, timeout=3
-            ) as resp:  # nosec B310 — trusted provider hosts
+            with urllib.request.urlopen(req, timeout=3) as resp:  # nosec B310 — trusted provider hosts  # noqa: S310
                 import json as _json
 
                 payload = _json.loads(resp.read().decode())
@@ -2008,9 +2006,7 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
     # leaves the VTT-side cache intact.
     try:
         _consolidate_chapter_audio(db, audiobook_id, chapter_index, locale)
-    except (
-        Exception
-    ) as exc:  # pylint: disable=broad-except  # defense in depth — audio side must never break VTT path
+    except Exception as exc:  # pylint: disable=broad-except  # defense in depth — audio side must never break VTT path
         logger.warning(
             "Chapter audio consolidation raised unexpected exception: "
             "book=%d ch=%d locale=%s err=%s",

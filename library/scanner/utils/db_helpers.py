@@ -34,15 +34,15 @@ def get_or_create_lookup_id(cursor: sqlite3.Cursor, table: str, name: str) -> in
         raise ValueError(f"Invalid table name: {table}. Must be one of: {ALLOWED_LOOKUP_TABLES}")
 
     cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        f"SELECT id FROM {table} WHERE name = ?",  # nosec B608 — table validated against ALLOWED_LOOKUP_TABLES allowlist at L33; name is parameter-bound
-        (name,),  # noqa: S608
+        f"SELECT id FROM {table} WHERE name = ?",  # nosec B608 — table validated against ALLOWED_LOOKUP_TABLES allowlist at L33; name is parameter-bound  # noqa: S608
+        (name,),
     )
     row = cursor.fetchone()
     if row:
         return row[0]
     cursor.execute(  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-        f"INSERT INTO {table} (name) VALUES (?)",  # nosec B608 — table validated against ALLOWED_LOOKUP_TABLES allowlist at L33; name is parameter-bound
-        (name,),  # noqa: S608
+        f"INSERT INTO {table} (name) VALUES (?)",  # nosec B608 — table validated against ALLOWED_LOOKUP_TABLES allowlist at L33; name is parameter-bound  # noqa: S608
+        (name,),
     )
     lastrowid = cursor.lastrowid
     if lastrowid is None:

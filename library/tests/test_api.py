@@ -561,9 +561,9 @@ class TestAPIResponseFormats:
         ]
         for field in expected_fields:
             assert field in data, f"Missing field: {field}"
-            assert isinstance(
-                data[field], (int, float)
-            ), f"Field {field} should be numeric, got {type(data[field]).__name__}"
+            assert isinstance(data[field], (int, float)), (
+                f"Field {field} should be numeric, got {type(data[field]).__name__}"
+            )
 
     def test_narrator_counts_response_format(self, app_client):
         """Test narrator counts endpoint response format."""

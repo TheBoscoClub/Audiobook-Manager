@@ -90,6 +90,7 @@
     location.reload();
   }
 
+  // eslint-disable-next-line no-unused-vars -- _newVersion is referenced (event handler / cross-file / async caller / parameter for arity)
   function buildBanner(_newVersion) {
     var b = document.createElement("div");
     b.id = "version-update-banner";

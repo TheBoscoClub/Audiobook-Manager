@@ -145,9 +145,7 @@ def test_upgrade_parses_target_wants():
     # Loop body must invoke the enabling helper (or systemctl enable directly).
     # Either pattern keeps stream-translate / scheduler / api / etc. wired up
     # at upgrade time.
-    loop_body = re.search(
-        r"for\s+svc\s+in\s+\$target_wants.*?done", upgrade, re.DOTALL
-    )
+    loop_body = re.search(r"for\s+svc\s+in\s+\$target_wants.*?done", upgrade, re.DOTALL)
     assert loop_body is not None, "upgrade.sh Wants= loop missing"
     body = loop_body.group(0)
     enables_via_helper = re.search(r'_enable_unit_smart\s+"\$svc"', body) is not None
@@ -159,9 +157,9 @@ def test_upgrade_parses_target_wants():
     # The helper itself must end up calling `systemctl enable` somewhere in
     # upgrade.sh — guards against the helper being inadvertently no-op'd.
     if enables_via_helper:
-        assert (
-            re.search(r"systemctl\s+enable(?:\s+--now)?\s+\"\$unit\"", upgrade) is not None
-        ), "_enable_unit_smart helper no longer calls systemctl enable internally"
+        assert re.search(r"systemctl\s+enable(?:\s+--now)?\s+\"\$unit\"", upgrade) is not None, (
+            "_enable_unit_smart helper no longer calls systemctl enable internally"
+        )
 
 
 def test_target_declares_expected_wants():
@@ -176,9 +174,9 @@ def test_target_declares_expected_wants():
         # .timer tokens end in .timer, .service tokens are implicit
         if not unit.endswith(".timer"):
             unit = f"{unit}.service"
-        assert re.search(
-            rf"^Wants={re.escape(unit)}\s*$", target, re.MULTILINE
-        ), f"audiobook.target missing Wants={unit}"
+        assert re.search(rf"^Wants={re.escape(unit)}\s*$", target, re.MULTILINE), (
+            f"audiobook.target missing Wants={unit}"
+        )
 
 
 def test_all_standalone_timer_unit_files_exist():

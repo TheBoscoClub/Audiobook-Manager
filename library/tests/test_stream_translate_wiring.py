@@ -38,9 +38,7 @@ def test_install_sh_copies_unit():
     # new ``_enable_unit_smart "audiobook-stream-translate.service"`` helper
     # (v8.3.10+, which decides `--now` vs plain enable from WantedBy=).
     legacy = re.search(r"systemctl\s+enable(?:\s+--now)?\s+audiobook-stream-translate", install)
-    helper = re.search(
-        r'_enable_unit_smart\s+"audiobook-stream-translate\.service"', install
-    )
+    helper = re.search(r'_enable_unit_smart\s+"audiobook-stream-translate\.service"', install)
     assert legacy or helper, (
         "install.sh no longer wires audiobook-stream-translate "
         "(neither `systemctl enable` literal nor `_enable_unit_smart` helper found)"

@@ -433,9 +433,7 @@ class TestRequestStreamingTranslation:
         )
         assert isinstance(body["segment_bitmap"], dict)
 
-    def test_session_state_flips_buffering_to_streaming_when_cached(
-        self, app_client, streaming_db
-    ):
+    def test_session_state_flips_buffering_to_streaming_when_cached(self, app_client, streaming_db):
         """Cosmetic regression guard: prior to v8.3.10.1, no code path ever
         wrote ``streaming_sessions.state = 'streaming'`` despite the column
         existing and being filtered for in WHERE clauses elsewhere. Every
@@ -475,8 +473,7 @@ class TestRequestStreamingTranslation:
         # Verify the session row transitioned
         conn = sqlite3.connect(str(streaming_db))
         row = conn.execute(
-            "SELECT state FROM streaming_sessions "
-            "WHERE audiobook_id = 4 AND locale = 'zh-Hans'"
+            "SELECT state FROM streaming_sessions WHERE audiobook_id = 4 AND locale = 'zh-Hans'"
         ).fetchone()
         conn.close()
         assert row is not None
