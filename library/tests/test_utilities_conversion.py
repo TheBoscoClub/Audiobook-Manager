@@ -5,8 +5,118 @@ This module monitors FFmpeg conversion processes and provides
 real-time status updates including I/O stats and progress.
 """
 
+import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock, mock_open, patch
+
+
+class TestCountOpusFiles:
+    """Regression guard for Audiobook-Manager-94p — conversion progress 306%.
+
+    ``_count_opus_files`` recursively counts ``.opus`` in the library tree.
+    Each book directory may have a ``translated/`` subdirectory containing
+    per-chapter translation artifacts (e.g. ``{Book}.ch004.zh-Hans.opus``).
+    On prod 2026-05-02 those inflated the count from 1,867 actual books to
+    5,829, causing the Conversion Progress card to show 306% complete.
+    """
+
+    def test_counts_canonical_book_opus_only(self):
+        from backend.api_modular.utilities_conversion import _count_opus_files
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            # Two books, each with one canonical .opus + translated chapters
+            for author, book, chapter_count in [
+                ("Stephen King", "It", 5),
+                ("Anthony Burgess", "A Clockwork Orange", 3),
+            ]:
+                book_dir = root / author / book
+                book_dir.mkdir(parents=True)
+                (book_dir / f"{book}.opus").touch()
+                (book_dir / f"{book}.cover.opus").touch()  # excluded by name
+                translated = book_dir / "translated"
+                translated.mkdir()
+                for ch in range(chapter_count):
+                    (translated / f"{book}.ch{ch:03d}.zh-Hans.opus").touch()
+
+            count = _count_opus_files(root)
+            # 2 canonical opus files, NOT 2 + 8 chapter files + 2 cover files
+            assert count == 2, (
+                f"_count_opus_files should exclude translated/ chapter artifacts "
+                f"and cover files, got {count} (expected 2 canonical book files)"
+            )
+
+    def test_excludes_translated_subdir(self):
+        from backend.api_modular.utilities_conversion import _count_opus_files
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            book = root / "Author" / "Book"
+            book.mkdir(parents=True)
+            (book / "Book.opus").touch()
+            translated = book / "translated"
+            translated.mkdir()
+            # 50 chapter files in translated/ — the bug-trigger pattern
+            for i in range(50):
+                (translated / f"Book.ch{i:03d}.zh-Hans.opus").touch()
+
+            assert _count_opus_files(root) == 1
+
+    def test_excludes_cover_opus(self):
+        from backend.api_modular.utilities_conversion import _count_opus_files
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            book = root / "Author" / "Book"
+            book.mkdir(parents=True)
+            (book / "Book.opus").touch()
+            (book / "Book.cover.opus").touch()
+            assert _count_opus_files(root) == 1
+
+    def test_book_named_translated_word_not_excluded(self):
+        """Defensive: only the directory NAMED 'translated' is excluded, not
+        any path containing the substring 'translated' (e.g. a book with
+        'Translated' in its title)."""
+        from backend.api_modular.utilities_conversion import _count_opus_files
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            book = root / "Author" / "The Translated Soldier"
+            book.mkdir(parents=True)
+            (book / "The Translated Soldier.opus").touch()
+            assert _count_opus_files(root) == 1
+
+    def test_returns_zero_for_missing_dir(self):
+        from backend.api_modular.utilities_conversion import _count_opus_files
+
+        assert _count_opus_files(Path("/nonexistent/path/xyz")) == 0
+
+
+class TestCollectChecksumFilesExclusions:
+    """Same translated/ exclusion in `_collect_checksum_files` (Audiobook-Manager-94p)."""
+
+    def test_checksum_collection_excludes_translated_chapters(self):
+        from backend.api_modular.utilities_ops.hashing import _collect_checksum_files
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            sources = root / "Sources"
+            library = root / "Library"
+            sources.mkdir()
+            library.mkdir()
+            (sources / "B0001.aaxc").touch()
+            book = library / "Author" / "Book"
+            book.mkdir(parents=True)
+            (book / "Book.opus").touch()
+            (book / "Book.cover.opus").touch()
+            (book / "translated").mkdir()
+            for ch in range(20):
+                (book / "translated" / f"Book.ch{ch:03d}.zh-Hans.opus").touch()
+
+            sources_files, library_files = _collect_checksum_files(sources, library)
+            assert len(sources_files) == 1
+            # Only the canonical Book.opus — not 21 (1 base + 20 translated)
+            assert len(library_files) == 1
 
 
 class TestGetFfmpegProcesses:

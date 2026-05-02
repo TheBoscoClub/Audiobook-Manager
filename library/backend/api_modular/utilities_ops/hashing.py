@@ -116,8 +116,19 @@ def _collect_checksum_files(sources_dir, library_dir):
         Tuple of (source_files, library_files).
     """
     source_files = list(sources_dir.rglob("*.aaxc")) if sources_dir.exists() else []
+    # Library files: canonical audiobook .opus only. Exclude .cover.opus cover-
+    # art derivatives AND anything under a translated/ subdirectory (those are
+    # regenerable per-chapter translation artifacts; checksumming them serves
+    # no integrity purpose since they're rebuilt from the canonical source).
+    # Same exclusion as utilities_conversion._count_opus_files. See
+    # Audiobook-Manager-94p — translated chapters were also inflating the
+    # checksum file list.
     library_files = (
-        [f for f in library_dir.rglob("*.opus") if ".cover.opus" not in f.name]
+        [
+            f
+            for f in library_dir.rglob("*.opus")
+            if not f.name.endswith(".cover.opus") and "translated" not in f.parts
+        ]
         if library_dir.exists()
         else []
     )

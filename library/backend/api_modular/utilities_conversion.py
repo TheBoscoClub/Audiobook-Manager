@@ -187,13 +187,26 @@ def get_system_stats() -> dict:
 
 
 def _count_opus_files(directory: Path) -> int:
-    """Count opus files in a directory, excluding cover files."""
+    """Count CANONICAL audiobook opus files in a directory.
+
+    Excludes:
+      - ``*.cover.opus`` cover-art derivatives
+      - Anything under a ``translated/`` subdirectory — those are per-chapter
+        translation artifacts (e.g. ``{Book}.ch004.zh-Hans.opus``) generated
+        by the chapter-translation pipeline. Counting them inflated the
+        Conversion Progress card to absurd values: prod 2026-05-02 showed
+        5,829 'in library' for 1,867 actual books (1867 base + 3962 chapter
+        translation files). See Audiobook-Manager-94p.
+    """
     if not directory.exists():
         return 0
     count = 0
     for f in directory.rglob("*.opus"):
-        if not f.name.endswith(".cover.opus"):
-            count += 1
+        if f.name.endswith(".cover.opus"):
+            continue
+        if "translated" in f.parts:
+            continue
+        count += 1
     return count
 
 
