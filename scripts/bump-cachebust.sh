@@ -48,6 +48,23 @@
 
 set -uo pipefail
 
+# --help / -h short-circuit. Without this, `bump-cachebust.sh --help` was
+# treated as a literal stamp `--help` which passed the [a-zA-Z0-9._-]{1,32}
+# regex (the `-` is in the character class), and 13 HTML files got rewritten
+# with `?v=--help` before the operator noticed (caught and reverted on prod
+# 2026-05-02 during the v8.3.10 incident).
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    cat <<'USAGE'
+Usage: bump-cachebust.sh [STAMP] [TARGET_DIR]
+  STAMP      — cachebust value (default: $(date +%s)). Must NOT start with `-`.
+               Allowed character set: [a-zA-Z0-9._] for first char,
+               [a-zA-Z0-9._-] for the rest, total length 1–32.
+  TARGET_DIR — directory containing the HTML files (default: web-v2 relative
+               to this script's install path).
+USAGE
+    exit 0
+fi
+
 STAMP="${1:-$(date +%s)}"
 
 # Default TARGET_DIR: library/web-v2 relative to this script's install path.
@@ -66,11 +83,16 @@ if [[ ! -d "$TARGET_DIR" ]]; then
     exit 2
 fi
 
-# Validate STAMP — only digits, dots, or short SHAs are allowed in the
-# output. Defense against command injection if the caller passes something
-# weird as $1.
-if [[ ! "$STAMP" =~ ^[a-zA-Z0-9._-]{1,32}$ ]]; then
-    echo "ERROR: invalid stamp (must match [a-zA-Z0-9._-]{1,32}): $STAMP" >&2
+# Validate STAMP — explicit leading-character check first so `-`-prefixed
+# arguments like `--help` or `--workers` get a clear error instead of being
+# silently written into every HTML file (see header comment for incident).
+# Then a full character-class check on the remainder.
+if [[ "$STAMP" == -* ]]; then
+    echo "ERROR: stamp must not start with '-' (got: $STAMP). See --help." >&2
+    exit 2
+fi
+if [[ ! "$STAMP" =~ ^[a-zA-Z0-9._][a-zA-Z0-9._-]{0,31}$ ]]; then
+    echo "ERROR: invalid stamp (first char [a-zA-Z0-9._], then [a-zA-Z0-9._-]{0,31}): $STAMP" >&2
     exit 2
 fi
 
