@@ -20,17 +20,67 @@ collections_bp = Blueprint("collections", __name__)
 
 
 # ─── Genre classification ────────────────────────────────────────────────────
-# Reverse map: display-name genre → "fiction" or "non-fiction".
-# Genres not in this map are classified as "uncategorized" and appear under
-# whichever top-level category they best fit, or are omitted.
+# Genre → fiction / non-fiction bucket for the Collections sidebar.
+#
+# Two name sources land in the genres table:
+#   1. Canonical display names from scanner/metadata_utils.py::GENRE_DISPLAY_NAMES
+#      (when categorize_genre runs, e.g. live scanner pass).
+#   2. Raw Audible category names (when the bulk-import path in
+#      backend/import_to_db.py preserves book["genres"] verbatim).
+# Both name sources must be classified here, otherwise books fall into the
+# wrong sidebar bucket — the v8.3.10.1 lpq bug surfaced because lists below
+# only covered (1), so high-volume non-fiction names like "Politics & Social
+# Sciences" (78 books on prod) defaulted to fiction.
 
-# These come from scanner/metadata_utils.py GENRE_DISPLAY_NAMES values
 FICTION_GENRES = frozenset(
-    {"Mystery", "Science Fiction", "Fantasy", "Literary Fiction", "Horror", "Romance"}
+    {
+        # Canonical display names (scanner-categorized path)
+        "Mystery",
+        "Science Fiction",
+        "Fantasy",
+        "Literary Fiction",
+        "Horror",
+        "Romance",
+        # Raw Audible category names (bulk-import path)
+        "Literature & Fiction",
+        "Thriller & Suspense",
+        "Science Fiction & Fantasy",
+        "Genre Fiction",
+        "Suspense",
+        "Classics",
+        "Crime Fiction",
+        "Historical Fiction",
+        "Adventure",
+        "Action & Adventure",
+        "Anthologies & Short Stories",
+        "Comedy & Humor",
+        "Crime Thrillers",
+        "Police Procedurals",
+        "Spies & Politics",
+        "Paranormal & Urban",
+        "Espionage",
+        "Epic",
+        "Historical",
+        "Westerns",
+        "War & Military",
+        "LGBTQ+",
+        "Erotica",
+        "Drama",
+        "Plays",
+        "Poetry",
+        "Mythology",
+        "Fairy Tales",
+        "Fables",
+        "Folklore",
+        "Children's",
+        "Children's Audiobooks",
+        "Teen & Young Adult",
+    }
 )
 
 NONFICTION_GENRES = frozenset(
     {
+        # Canonical display names
         "Biographies & Memoirs",
         "History",
         "Science",
@@ -38,6 +88,47 @@ NONFICTION_GENRES = frozenset(
         "Personal Development",
         "Business & Careers",
         "True Crime",
+        # Raw Audible category names
+        "Politics & Social Sciences",
+        "Social Sciences",
+        "Religion & Spirituality",
+        "Religion",
+        "Self-Help",
+        "Self Development",
+        "Self-Development",
+        "Health & Wellness",
+        "Health, Fitness & Diet",
+        "Cookbooks, Food & Wine",
+        "Cooking",
+        "Education & Teaching",
+        "Education",
+        "Reference",
+        "Computers & Technology",
+        "Engineering & Transportation",
+        "Sports & Outdoors",
+        "Travel",
+        "Arts & Photography",
+        "Crafts, Hobbies & Home",
+        "Parenting & Families",
+        "Parenting & Relationships",
+        "Christian Books & Bibles",
+        "Money & Finance",
+        "Business & Money",
+        "Politics & Government",
+        "Law",
+        "Medical",
+        "Nature & Ecology",
+        "Mathematics",
+        "Astronomy",
+        "Physics",
+        "Biology",
+        "Chemistry",
+        "Memoirs",
+        "Biographies",
+        "Autobiographies",
+        "Journalism",
+        "Essays",
+        "Documentary",
     }
 )
 
@@ -236,10 +327,29 @@ def _classify_genre_children(genre_rows):
         if name in NONFICTION_GENRES:
             nonfiction_children.append(child)
             nonfiction_names.append(name)
-        else:
-            # Unknown genres default to fiction (most Audible genres are fiction)
+        elif name in FICTION_GENRES:
             fiction_children.append(child)
             fiction_names.append(name)
+        else:
+            # Genre not in either explicit list. Apply a conservative fallback
+            # using `categorize_genre` keyword matching from scanner/metadata_utils
+            # — same logic the scanner uses to bucket raw Audible genres into
+            # fiction vs non-fiction. Anything still ambiguous goes to fiction
+            # (most uncategorized audiobook genres are fiction; this matches
+            # the historical behaviour). Avoids misclassifying real non-fiction
+            # categories that aren't yet in the explicit lists. v8.3.10.1 lpq.
+            try:
+                from scanner.metadata_utils import categorize_genre
+
+                cat = categorize_genre(name).get("main", "")
+            except (ImportError, AttributeError):
+                cat = ""
+            if cat == "non-fiction":
+                nonfiction_children.append(child)
+                nonfiction_names.append(name)
+            else:
+                fiction_children.append(child)
+                fiction_names.append(name)
 
     return fiction_children, nonfiction_children, fiction_names, nonfiction_names
 

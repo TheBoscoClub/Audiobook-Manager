@@ -236,6 +236,78 @@ class TestGenreClassification:
         assert "Science" in NONFICTION_GENRES
         assert "True Crime" in NONFICTION_GENRES
 
+    def test_high_volume_audible_nonfiction_in_set(self):
+        """Regression guard for Audiobook-Manager-lpq.
+
+        The bulk-import path preserves raw Audible category names verbatim,
+        so the genre table holds names like 'Politics & Social Sciences'
+        that aren't in the canonical GENRE_DISPLAY_NAMES. Before v8.3.10.1
+        these defaulted to fiction via the else branch, mixing 78+ books
+        into the wrong sidebar bucket. The expanded set must cover the
+        observed prod genres.
+        """
+        for raw_audible_nonfiction in (
+            "Politics & Social Sciences",
+            "Social Sciences",
+            "Religion & Spirituality",
+            "Self-Help",
+            "Health & Wellness",
+            "Cooking",
+            "Education & Teaching",
+            "Computers & Technology",
+            "Travel",
+            "Biographies & Memoirs",
+        ):
+            assert raw_audible_nonfiction in NONFICTION_GENRES, (
+                f"{raw_audible_nonfiction!r} should be classified as non-fiction "
+                f"— missing from NONFICTION_GENRES means it would default to "
+                f"fiction in the sidebar (lpq regression)"
+            )
+
+    def test_high_volume_audible_fiction_in_set(self):
+        """Common raw Audible fiction names must also be in FICTION_GENRES,
+        not just the canonical GENRE_DISPLAY_NAMES values."""
+        for raw_audible_fiction in (
+            "Literature & Fiction",
+            "Thriller & Suspense",
+            "Science Fiction & Fantasy",
+            "Genre Fiction",
+            "Suspense",
+            "Crime Fiction",
+            "Historical Fiction",
+            "Action & Adventure",
+            "Comedy & Humor",
+        ):
+            assert raw_audible_fiction in FICTION_GENRES
+
+    def test_classify_uses_categorize_genre_fallback(self):
+        """When a genre is in NEITHER explicit list, fall back to
+        scanner.metadata_utils.categorize_genre keyword matching rather than
+        defaulting blindly to fiction. Books with unmapped non-fiction
+        genres like 'Cookbooks, Food & Wine' still need to land in the
+        non-fiction bucket if the explicit list doesn't cover them.
+        """
+        from backend.api_modular.collections import _classify_genre_children
+
+        # 'Cooking' IS in NONFICTION_GENRES (explicit list), so use a
+        # deliberately obscure unmapped name that categorize_genre also
+        # won't match — it should fall through to fiction.
+        rows = [{"name": "Made-Up Fiction Genre Xyz", "cnt": 5}]
+        fic, nfic, fic_names, nfic_names = _classify_genre_children(rows)
+        assert "Made-Up Fiction Genre Xyz" in fic_names
+        assert "Made-Up Fiction Genre Xyz" not in nfic_names
+
+        # A non-fiction-keyword name not in the explicit list (like
+        # 'autobiography') should hit the categorize_genre fallback and
+        # bucket as non-fiction (categorize_genre matches "biography"/
+        # "memoir"/"autobiography" → main='non-fiction').
+        rows2 = [{"name": "An Autobiography of Someone", "cnt": 3}]
+        _fic2, _nfic2, fic_names2, nfic_names2 = _classify_genre_children(rows2)
+        assert "An Autobiography of Someone" in nfic_names2, (
+            "categorize_genre fallback should route 'autobiography' to non-fiction"
+        )
+        assert "An Autobiography of Someone" not in fic_names2
+
 
 # ─── Integration tests: _build_dynamic_collections ───────────────────────────
 
