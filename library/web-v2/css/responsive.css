@@ -497,6 +497,17 @@ body {
    Shows: icon cover, full title, author, play button
    Hides: narrator, format, duration, resume
    ============================================ */
+/* Mobile + small-tablet pre-grid trim (≤768px). Targets the redundant
+   top-pagination duplicate that sits above the book grid. The bottom
+   pagination at the page footer covers the same function and pagination-
+   above-grid on small viewports just pushes the first card further below
+   the fold (Audiobook-Manager-v2z, 2026-05-02). */
+@media (max-width: 768px) {
+    #top-pagination {
+        display: none;
+    }
+}
+
 @media (max-width: 480px) {
     /* Compact header */
     .library-header {
