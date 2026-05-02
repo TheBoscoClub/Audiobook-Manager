@@ -342,7 +342,7 @@ def _classify_genre_children(genre_rows):
                 from scanner.metadata_utils import categorize_genre
 
                 cat = categorize_genre(name).get("main", "")
-            except (ImportError, AttributeError):
+            except ImportError, AttributeError:
                 cat = ""
             if cat == "non-fiction":
                 nonfiction_children.append(child)
