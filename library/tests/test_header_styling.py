@@ -33,7 +33,7 @@ def _locale_select_rule() -> str:
     marker = ".locale-switcher select {"
     start = css.index(marker)
     end = css.index("}", start)
-    return css[start:end + 1]
+    return css[start : end + 1]
 
 
 class TestLocaleSelectStyling:
@@ -45,16 +45,14 @@ class TestLocaleSelectStyling:
         native chrome together."""
         rule = _locale_select_rule()
         assert "appearance: none" in rule, (
-            "i18n.css `.locale-switcher select` must set `appearance: none` "
-            "(spec-compliant)"
+            "i18n.css `.locale-switcher select` must set `appearance: none` (spec-compliant)"
         )
         assert "-webkit-appearance: none" in rule, (
             "i18n.css `.locale-switcher select` must set "
             "`-webkit-appearance: none` (Safari/Chromium)"
         )
         assert "-moz-appearance: none" in rule, (
-            "i18n.css `.locale-switcher select` must set "
-            "`-moz-appearance: none` (Firefox)"
+            "i18n.css `.locale-switcher select` must set `-moz-appearance: none` (Firefox)"
         )
 
     def test_locale_select_has_custom_arrow_background_image(self):
@@ -86,7 +84,7 @@ class TestLocaleSelectStyling:
         marker = ".locale-switcher select option {"
         start = css.index(marker)
         end = css.index("}", start)
-        option_rule = css[start:end + 1]
+        option_rule = css[start : end + 1]
         assert "background" in option_rule, (
             "`.locale-switcher select option` must set a `background` so "
             "the OS dropdown popup matches the theme"
@@ -117,9 +115,7 @@ class TestGlobeIconReplaced:
         # appearing together. The replacement icon must drop at least one
         # (in practice, all three) so this combined fingerprint disappears.
         old_pattern_intact = (
-            old_meridian in content
-            and old_long_right in content
-            and old_long_left in content
+            old_meridian in content and old_long_right in content and old_long_left in content
         )
         assert not old_pattern_intact, (
             "The old wireframe globe SVG (circle + meridian + 2 longitude "

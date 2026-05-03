@@ -59,9 +59,7 @@ class TestShellJS:
 
         fetches = len(re.findall(r"fetch\(", stripped))
         creds = len(re.findall(r"credentials\s*:\s*['\"]include['\"]", content))
-        assert creds >= fetches, (
-            f"Found {fetches} fetch calls but only {creds} with credentials"
-        )
+        assert creds >= fetches, f"Found {fetches} fetch calls but only {creds} with credentials"
 
     def test_has_media_session(self):
         content = SHELL_JS.read_text()

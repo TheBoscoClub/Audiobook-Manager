@@ -339,7 +339,7 @@ class TestPlayBookGestureActivationOrder:
                 depth -= 1
             i += 1
         assert depth == 0, "Unbalanced braces in playBook"
-        return SHELL_JS[brace_open : i]
+        return SHELL_JS[brace_open:i]
 
     @staticmethod
     def _main_play_await_idx(body: str) -> int:
@@ -418,10 +418,12 @@ class TestPlayBookGestureActivationOrder:
         src = re.sub(r"/\*.*?\*/", lambda m: " " * len(m.group(0)), src, flags=re.DOTALL)
         # Remove line comments — `//` to end of line
         src = re.sub(r"//[^\n]*", lambda m: " " * len(m.group(0)), src)
+
         # Remove string literals (single, double, backtick) — preserve length
         # to keep offsets stable for error messages.
         def _blank(m):
             return m.group(0)[0] + " " * (len(m.group(0)) - 2) + m.group(0)[-1]
+
         src = re.sub(r'"(?:\\.|[^"\\\n])*"', _blank, src)
         src = re.sub(r"'(?:\\.|[^'\\\n])*'", _blank, src)
         src = re.sub(r"`(?:\\.|[^`\\])*`", _blank, src, flags=re.DOTALL)

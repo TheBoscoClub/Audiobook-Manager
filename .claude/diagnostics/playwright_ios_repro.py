@@ -40,9 +40,7 @@ from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
 # prepend /usr/local/lib to LD_LIBRARY_PATH so the dynamic loader resolves
 # by filename instead of SONAME.
 _existing_ld = os.environ.get("LD_LIBRARY_PATH", "")
-os.environ["LD_LIBRARY_PATH"] = (
-    "/usr/local/lib" + (":" + _existing_ld if _existing_ld else "")
-)
+os.environ["LD_LIBRARY_PATH"] = "/usr/local/lib" + (":" + _existing_ld if _existing_ld else "")
 
 ROOT = Path(__file__).resolve().parents[2]
 SECRETS = ROOT / ".claude" / "secrets" / "totp-secret"
@@ -135,8 +133,7 @@ def run(browser_name: str, headless: bool) -> int:
             page.click("#login-button")
 
             # Successful login redirects to /
-            page.wait_for_url(re.compile(rf"{re.escape(QA_HOST)}/?(\?.*)?$"),
-                              timeout=20_000)
+            page.wait_for_url(re.compile(rf"{re.escape(QA_HOST)}/?(\?.*)?$"), timeout=20_000)
             log("login OK")
 
             # 2. Pre-seed localStorage on the QA origin so the first-visit
@@ -154,8 +151,7 @@ def run(browser_name: str, headless: bool) -> int:
             # <iframe id="content-frame" name="content-frame" src="index.html">
             # Same origin so localStorage is shared, but DOM is NOT — all
             # .book-card queries must target the iframe's Frame object.
-            page.goto(f"{QA_HOST}/?debug=1", wait_until="domcontentloaded",
-                      timeout=45_000)
+            page.goto(f"{QA_HOST}/?debug=1", wait_until="domcontentloaded", timeout=45_000)
             page.wait_for_selector("iframe#content-frame", timeout=15_000)
             # Prefer name-based lookup; fall back to element_handle for frames
             # whose name attribute hasn't been wired yet.
@@ -199,6 +195,7 @@ def run(browser_name: str, headless: bool) -> int:
                 )
                 diag = OUT_DIR / f"repro-{browser_name}-{ts}-dom-diag.json"
                 import json
+
                 diag.write_text(json.dumps(sample, indent=2))
                 log(f"DOM diag → {diag.relative_to(ROOT)}")
                 raise
@@ -239,11 +236,11 @@ def run(browser_name: str, headless: bool) -> int:
             # 7. Harvest overlay body + screenshot
             overlay_txt = ""
             try:
-                overlay_txt = page.locator("#debug-overlay-body").text_content(
-                    timeout=5_000
-                ) or ""
+                overlay_txt = page.locator("#debug-overlay-body").text_content(timeout=5_000) or ""
             except PWTimeout:
-                overlay_txt = "(debug overlay element not found — ?debug=1 may have failed to activate)"
+                overlay_txt = (
+                    "(debug overlay element not found — ?debug=1 may have failed to activate)"
+                )
 
             text_path.write_text(overlay_txt, encoding="utf-8")
             page.screenshot(path=str(shot_path), full_page=True)

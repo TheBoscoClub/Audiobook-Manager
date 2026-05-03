@@ -92,9 +92,7 @@ def read_browserstack_creds() -> tuple[str, str]:
     # we want a loud failure, not a silent credential leak.
     mode = CREDS_FILE.stat().st_mode & 0o777
     if mode != 0o600:
-        raise RuntimeError(
-            f"{CREDS_FILE} has mode {oct(mode)}; expected 0o600"
-        )
+        raise RuntimeError(f"{CREDS_FILE} has mode {oct(mode)}; expected 0o600")
     text = CREDS_FILE.read_text()
     lines = [ln.rstrip() for ln in text.splitlines()]
     # Find service account block — 'Identifier:' followed by 'claude-code'
@@ -218,7 +216,9 @@ def run(
         options=opts,
     )
     session_id = driver.session_id
-    log(f"session {session_id} live — dashboard: https://automate.browserstack.com/dashboard/v2/sessions/{session_id}")
+    log(
+        f"session {session_id} live — dashboard: https://automate.browserstack.com/dashboard/v2/sessions/{session_id}"
+    )
 
     meta: dict = {
         "session_id": session_id,
@@ -252,16 +252,12 @@ def run(
         driver.find_element(By.ID, "login-button").click()
 
         # Wait for redirect to / (or /?something)
-        wait.until(lambda d: re.match(
-            rf"^{re.escape(QA_HOST)}/?(\?.*)?$", d.current_url
-        ))
+        wait.until(lambda d: re.match(rf"^{re.escape(QA_HOST)}/?(\?.*)?$", d.current_url))
         log(f"login OK — landed at {driver.current_url}")
 
         # 2. Prime localStorage (dismiss feature announce banner + enable debug)
         driver.get(f"{QA_HOST}/?debug=1")
-        wait.until(
-            lambda d: d.execute_script("return document.readyState === 'complete'")
-        )
+        wait.until(lambda d: d.execute_script("return document.readyState === 'complete'"))
         driver.execute_script(
             "localStorage.setItem('feature-announce-v8.1-dismissed', '1');"
             "localStorage.setItem('debugOverlay', '1');"
@@ -457,18 +453,24 @@ def run(
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
-    ap.add_argument("--device", default="iPhone 15",
-                    help="iOS device name (default: 'iPhone 15')")
-    ap.add_argument("--os-version", default="18",
-                    help="iOS major version (default: '18')")
-    ap.add_argument("--browser", choices=["safari", "chrome"], default="safari",
-                    help="Mobile browser (default: safari)")
-    ap.add_argument("--book-id", default=None,
-                    help="Specific book data-id to open; default = first card")
-    ap.add_argument("--search", default=None,
-                    help="Text to type into the library search box (title/author) "
-                         "to surface a lazy-rendered card; pair with --book-id "
-                         "to confirm the target")
+    ap.add_argument("--device", default="iPhone 15", help="iOS device name (default: 'iPhone 15')")
+    ap.add_argument("--os-version", default="18", help="iOS major version (default: '18')")
+    ap.add_argument(
+        "--browser",
+        choices=["safari", "chrome"],
+        default="safari",
+        help="Mobile browser (default: safari)",
+    )
+    ap.add_argument(
+        "--book-id", default=None, help="Specific book data-id to open; default = first card"
+    )
+    ap.add_argument(
+        "--search",
+        default=None,
+        help="Text to type into the library search box (title/author) "
+        "to surface a lazy-rendered card; pair with --book-id "
+        "to confirm the target",
+    )
     args = ap.parse_args()
     return run(
         device=args.device,
