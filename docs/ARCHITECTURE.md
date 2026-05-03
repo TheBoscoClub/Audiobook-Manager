@@ -729,6 +729,19 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 
 The sets must be updated when new Audible category names appear in imports. When expanding, add to `FICTION_GENRES` or `NONFICTION_GENRES` — do not add the same name to both. The `categorize_genre` fallback is the second-line defence, not a replacement for set membership.
 
+### Path resolution: stored paths vs local resolution (v8.3.10.4+)
+
+`audiobooks.file_path` carries the absolute path captured by whichever environment originally scanned the file. This is the **production-parity model**: dev and QA installs run with the same DB rows as production so smoke tests exercise the same data, even though their local library roots (set via `AUDIOBOOKS_LIBRARY`) differ from production's.
+
+A naive `Path(row["file_path"]).exists()` only succeeds when the local install's library root happens to match the scan root. On any non-prod install the same call returns `False` and every audio-serving endpoint (`/api/stream/<id>`, `/api/download/<id>`, `/api/audiobooks/<id>/chapters`) responds 404 — even though the actual file is present on disk under the local root.
+
+`library/backend/api_modular/audiobooks.py::resolve_local_audio_path()` handles this:
+
+1. **Identity** — return the stored path if it exists (the prod-mirror case where DB and disk roots agree).
+2. **Rebase** — split the stored path at the canonical `Library/` segment, take the relative subpath after it, and join under the local `AUDIOBOOKS_LIBRARY` root (defaulting to `/srv/audiobooks/Library`, the project install convention).
+
+The helper is defensive against `..` traversal in the rebased subpath (rejects candidates that escape the local root) and contains zero operator-specific path literals — the `Library/` segment is the canonical project convention; the env var and its default are agnostic project install constants. Both unit tests (`library/tests/test_audio_path_resolution.py`) and the audio routes themselves stay portable across any install topology.
+
 ### Utilities Operations Submodules
 
 The `utilities_ops/` package contains specialized operation handlers (refactored from monolithic `utilities_ops.py` in v3.9.8):

@@ -6,6 +6,7 @@ Note: All queries filter by content_type to exclude non-audiobook content
 """
 
 import logging
+import os
 import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import sys
 from collections import OrderedDict
@@ -26,6 +27,66 @@ from .search_cjk import cjk_bigram_like_clause, contains_cjk
 logger = logging.getLogger(__name__)
 
 audiobooks_bp = Blueprint("audiobooks", __name__)
+
+
+# ─── Path resolution: stored paths vs local resolution ────────────────────
+#
+# Production-parity model: the audiobooks DB row carries the absolute
+# path from whichever environment scanned the file. The local install may
+# have its library at a different absolute root (set via the
+# AUDIOBOOKS_LIBRARY env var). The DB stays identical across environments;
+# this helper resolves the actual on-disk location at request time.
+#
+# This block contains zero operator-specific path literals. The "Library/"
+# segment is a project convention (see AUDIOBOOKS_LIBRARY default in
+# library/config.py); the env var is operator-supplied; the
+# DEFAULT_AUDIOBOOKS_LIBRARY constant matches the canonical project install
+# default already used by duplicates.py.
+DEFAULT_AUDIOBOOKS_LIBRARY = "/srv/audiobooks/Library"
+LIBRARY_SEGMENT = "Library"  # Canonical project convention for the library root
+
+
+def resolve_local_audio_path(stored_path: str | os.PathLike[str]) -> Path | None:
+    """Resolve a DB-stored audiobook ``file_path`` to an existing local path.
+
+    Resolution order:
+      1. Identity — return the stored path if it exists on disk (covers any
+         environment whose library root matches the scan root).
+      2. Rebase — split the stored path at the canonical ``Library/``
+         segment, take the relative subpath after it, and join under the
+         local ``AUDIOBOOKS_LIBRARY`` root (env var, falls back to
+         ``DEFAULT_AUDIOBOOKS_LIBRARY``).
+
+    Returns ``None`` if neither candidate exists. Callers should treat
+    ``None`` as "file not found on disk" and respond accordingly (HTTP 404).
+
+    Defensive: rejects rebased candidates that escape the local root via
+    ``..`` traversal. No operator-specific path literals appear in this
+    helper.
+    """
+    stored = Path(stored_path)
+    if stored.exists():
+        return stored
+
+    parts = stored.parts
+    if LIBRARY_SEGMENT not in parts:
+        return None
+
+    library_idx = parts.index(LIBRARY_SEGMENT)
+    relative = Path(*parts[library_idx + 1 :])
+
+    local_root = Path(os.environ.get("AUDIOBOOKS_LIBRARY", DEFAULT_AUDIOBOOKS_LIBRARY))
+    candidate = (local_root / relative).resolve()
+
+    # Defensive: ensure the resolved candidate is actually under the local
+    # root (no traversal escape via ".." segments in the relative subpath).
+    try:
+        candidate.relative_to(local_root.resolve())
+    except ValueError:
+        return None
+
+    return candidate if candidate.exists() else None
+
 
 # Per-worker LRU cache of ffprobe chapter results, keyed by
 # (audiobook_id, file_mtime_ns). Cache invalidates automatically when the
@@ -903,26 +964,33 @@ def get_audiobook_chapters(audiobook_id: int) -> FlaskResponse:
         # consumer can show "no chapters" without UI breaking.
         chapters: list[dict] = []
     else:
-        file_path = Path(file_path_str)
-        try:
-            mtime_ns = file_path.stat().st_mtime_ns
-        except OSError:
-            # File missing or unreadable — return empty list, same rationale.
-            mtime_ns = 0
+        # Resolve the DB-stored path against the local install (production-
+        # parity model — same DB across environments, different on-disk roots).
+        file_path = resolve_local_audio_path(file_path_str)
+        if file_path is None:
+            # File missing on disk — degrade to empty chapter list rather
+            # than 404, matching the existing OSError fallback below.
             chapters = []
         else:
-            cache_key = (audiobook_id, mtime_ns)
-            cached = _chapters_cache.get(cache_key)
-            if cached is not None:
-                # Mark as recently used so it survives eviction.
-                _chapters_cache.move_to_end(cache_key)
-                chapters = cached
+            try:
+                mtime_ns = file_path.stat().st_mtime_ns
+            except OSError:
+                # File became unreadable between resolve and stat — return
+                # empty list, same rationale.
+                chapters = []
             else:
-                chapters = _ffprobe_chapters(file_path)
-                _chapters_cache[cache_key] = chapters
-                # Bound the cache: evict oldest when over the limit.
-                while len(_chapters_cache) > _CHAPTERS_CACHE_MAX:
-                    _chapters_cache.popitem(last=False)
+                cache_key = (audiobook_id, mtime_ns)
+                cached = _chapters_cache.get(cache_key)
+                if cached is not None:
+                    # Mark as recently used so it survives eviction.
+                    _chapters_cache.move_to_end(cache_key)
+                    chapters = cached
+                else:
+                    chapters = _ffprobe_chapters(file_path)
+                    _chapters_cache[cache_key] = chapters
+                    # Bound the cache: evict oldest when over the limit.
+                    while len(_chapters_cache) > _CHAPTERS_CACHE_MAX:
+                        _chapters_cache.popitem(last=False)
 
     response = jsonify({"chapters": chapters})
     response.headers["Cache-Control"] = "public, max-age=86400"
@@ -1017,8 +1085,10 @@ def stream_audiobook(audiobook_id: int) -> FlaskResponse:
     if not row:
         return jsonify({"error": "Audiobook not found"}), 404
 
-    file_path = Path(row["file_path"])
-    if not file_path.exists():
+    # Resolve the DB-stored path against the local install (production-parity
+    # model — same DB across environments, different on-disk roots).
+    file_path = resolve_local_audio_path(row["file_path"])
+    if file_path is None:
         return jsonify({"error": "File not found on disk"}), 404
 
     file_format = row["format"] or file_path.suffix.lower().lstrip(".")
@@ -1055,8 +1125,10 @@ def download_audiobook(audiobook_id: int) -> FlaskResponse:
     if not row:
         return jsonify({"error": "Audiobook not found"}), 404
 
-    file_path = Path(row["file_path"])
-    if not file_path.exists():
+    # Resolve the DB-stored path against the local install (production-parity
+    # model — same DB across environments, different on-disk roots).
+    file_path = resolve_local_audio_path(row["file_path"])
+    if file_path is None:
         return jsonify({"error": "File not found on disk"}), 404
 
     # Build a clean filename from title and author
