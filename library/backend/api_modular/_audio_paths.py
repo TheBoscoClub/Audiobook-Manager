@@ -79,7 +79,13 @@ def _resolve_under_root(
     segment_idx = parts.index(segment)
     relative = Path(*parts[segment_idx + 1 :])
 
-    local_root = Path(os.environ.get(env_var, default_root))
+    # Read the operator-overridable root from the environment. systemd's
+    # ``EnvironmentFile=`` directive does NOT perform shell variable
+    # expansion, so a value like ``${AUDIOBOOKS_DATA}/Library`` arrives
+    # here as a literal string. Run it through ``expandvars`` so the
+    # helper resolves correctly under the standard install convention.
+    raw_root = os.environ.get(env_var, default_root)
+    local_root = Path(os.path.expandvars(raw_root))
     candidate = (local_root / relative).resolve()
 
     # Defensive: ensure the resolved candidate is actually under the local

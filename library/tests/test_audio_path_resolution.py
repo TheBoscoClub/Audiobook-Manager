@@ -142,6 +142,31 @@ class TestResolveLocalAudioPath:
         assert DEFAULT_AUDIOBOOKS_LIBRARY.endswith("/Library")
         assert DEFAULT_AUDIOBOOKS_LIBRARY == str(CFG_LIB)
 
+    def test_rebase_expands_unexpanded_shell_vars_in_env_value(self, tmp_path, monkeypatch):
+        """Helper expands ``${VAR}`` references in ``AUDIOBOOKS_LIBRARY``.
+
+        systemd's ``EnvironmentFile=`` directive does NOT perform shell
+        variable expansion. So when the operator's ``audiobooks.conf`` has
+        ``AUDIOBOOKS_LIBRARY="${AUDIOBOOKS_DATA}/Library"``, the gunicorn
+        worker reads the literal string ``"${AUDIOBOOKS_DATA}/Library"``
+        from ``os.environ``. The helper must run that through
+        ``os.path.expandvars`` so the rebase actually resolves.
+        """
+        # Set both env vars so expandvars has a substitution to make.
+        env_data_root = tmp_path / "env_b"
+        env_data_root.mkdir()
+        monkeypatch.setenv("AUDIOBOOKS_DATA", str(env_data_root))
+        monkeypatch.setenv("AUDIOBOOKS_LIBRARY", "${AUDIOBOOKS_DATA}/Library")
+
+        deep = env_data_root / "Library" / "Author" / "Book" / "book.opus"
+        deep.parent.mkdir(parents=True)
+        deep.write_bytes(b"x")
+
+        # Stored DB path uses a different absolute prefix.
+        env_a_root = tmp_path / "env_a" / "Library"
+        stored = env_a_root / "Author" / "Book" / "book.opus"
+        assert resolve_local_audio_path(str(stored)) == deep.resolve()
+
 
 # ─── Unit tests for resolve_local_supplement_path ─────────────────────────
 
