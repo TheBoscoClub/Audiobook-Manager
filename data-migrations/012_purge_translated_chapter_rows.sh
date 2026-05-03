@@ -43,7 +43,8 @@ _dm011_purge_translated_rows() {
     # FK cascades only fire when foreign_keys is ON for this connection.
     # Wrap the DELETE in a transaction so a partial failure rolls back cleanly.
     local sql
-    sql="$(cat <<'SQL'
+    sql="$(
+        cat <<'SQL'
 PRAGMA foreign_keys = ON;
 BEGIN;
 DELETE FROM audiobooks WHERE file_path LIKE '%/translated/%';

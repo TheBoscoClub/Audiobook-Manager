@@ -1291,9 +1291,22 @@ audit_and_cleanup() {
     fi
 
     # --- (f) Legacy app directory ---
+    # /usr/local/lib/audiobooks is INTENTIONALLY created by install.sh as a
+    # backward-compat symlink → ${APP_DIR}/lib (the canonical lib location).
+    # Only flag as legacy if it's a real directory (not the expected symlink).
     echo -e "${BLUE}Checking for legacy install location...${NC}"
-    if [[ -d "/usr/local/lib/audiobooks" ]]; then
-        echo -e "  ${YELLOW}WARNING: Legacy install directory /usr/local/lib/audiobooks still exists${NC}"
+    if [[ -L "/usr/local/lib/audiobooks" ]]; then
+        # Symlink — confirm it points to the canonical location
+        local link_target
+        link_target="$(readlink -f /usr/local/lib/audiobooks 2>/dev/null)"
+        if [[ "$link_target" == "${target}/lib" ]] || [[ "$link_target" == "/opt/audiobooks/lib" ]]; then
+            echo -e "  ${GREEN}Legacy compat symlink OK (→ $link_target)${NC}"
+        else
+            echo -e "  ${YELLOW}WARNING: /usr/local/lib/audiobooks is a symlink to unexpected path: $link_target${NC}"
+            issues=$((issues + 1))
+        fi
+    elif [[ -d "/usr/local/lib/audiobooks" ]]; then
+        echo -e "  ${YELLOW}WARNING: Legacy install directory /usr/local/lib/audiobooks still exists (real dir, not symlink)${NC}"
         echo -e "  ${YELLOW}  This is the old install location. Consider removing it:${NC}"
         echo -e "  ${YELLOW}  sudo rm -rf /usr/local/lib/audiobooks${NC}"
         issues=$((issues + 1))
@@ -2220,18 +2233,51 @@ purge_cloudflare_cache() {
 
     echo -e "${BLUE}Purging Cloudflare CDN cache...${NC}"
 
-    # Delegate to the standalone script if available
+    # Delegate to the standalone script if available.
+    # Prefer the INSTALLED copy (/usr/local/bin/audiobook-purge-cache →
+    # /opt/audiobooks/scripts/audiobook-purge-cache) over the project tree
+    # copy: the installed script's adjacent lib/ + config files are owned by
+    # the audiobooks user and readable when we drop privileges below, while
+    # the project tree's config.env is typically 0600 owned by the operator
+    # (bosco) and unreadable by the audiobooks service account.
     local purge_script=""
-    if [[ -x "${SCRIPT_DIR}/scripts/audiobook-purge-cache" ]]; then
+    if command -v audiobook-purge-cache &>/dev/null; then
+        purge_script="audiobook-purge-cache"
+    elif [[ -x "${SCRIPT_DIR}/scripts/audiobook-purge-cache" ]]; then
         purge_script="${SCRIPT_DIR}/scripts/audiobook-purge-cache"
     elif [[ -x "$(dirname "$SCRIPT_DIR")/scripts/audiobook-purge-cache" ]]; then
         purge_script="$(dirname "$SCRIPT_DIR")/scripts/audiobook-purge-cache"
-    elif command -v audiobook-purge-cache &>/dev/null; then
-        purge_script="audiobook-purge-cache"
     fi
 
     if [[ -n "$purge_script" ]]; then
-        if "$purge_script" 2>&1; then
+        # The purge script enforces `require_audiobooks_user` (the audiobooks DB
+        # and config files are 0640 audiobooks:audiobooks). When upgrade.sh is
+        # invoked as root or the operator (e.g., `bosco`/`claude`), we must
+        # re-invoke under sudo -u audiobooks. Credentials live in the calling
+        # user's $HOME/.config/api-keys.env, so we forward them as env vars
+        # (audiobooks's own home has no .config/). CF_ZONE_ID may come from
+        # /etc/audiobooks/audiobooks.conf which the audiobooks user can read.
+        local current_user
+        current_user="$(id -un)"
+        local -a run_purge
+        if [[ "$current_user" == "audiobooks" ]]; then
+            # Already running as audiobooks (rare — install.sh edge case)
+            run_purge=("$purge_script")
+        elif command -v sudo &>/dev/null && sudo -n -u audiobooks true 2>/dev/null; then
+            # Forward Cloudflare credentials so the dropped-privilege child can use them
+            run_purge=(
+                sudo -u audiobooks
+                env
+                "CF_GLOBAL_API_KEY=${CF_GLOBAL_API_KEY:-}"
+                "CF_AUTH_EMAIL=${CF_AUTH_EMAIL:-}"
+                "CF_ZONE_ID=${CF_ZONE_ID:-}"
+                "$purge_script"
+            )
+        else
+            echo -e "${YELLOW}  CDN cache purge skipped (cannot sudo to audiobooks user)${NC}"
+            return 0
+        fi
+        if "${run_purge[@]}" 2>&1; then
             echo -e "${GREEN}  CDN cache purged${NC}"
         else
             echo -e "${YELLOW}  CDN cache purge failed (non-fatal)${NC}"

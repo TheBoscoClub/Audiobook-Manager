@@ -173,8 +173,7 @@ def test_skip_back_handler_uses_chapters_array():
         "skip-back will dead-end at the defensive currentTime=0 fallback"
     )
     assert "RESTART_THRESHOLD_MS" in fn, (
-        "_skipBackChapter chapters-array path missing the millisecond "
-        "double-tap threshold check"
+        "_skipBackChapter chapters-array path missing the millisecond double-tap threshold check"
     )
 
 
