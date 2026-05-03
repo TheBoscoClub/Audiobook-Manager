@@ -8,6 +8,7 @@ Note: All queries filter by content_type to exclude non-audiobook content
 import logging
 import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import sys
+from collections import OrderedDict
 from pathlib import Path
 
 from flask import Blueprint, Response, current_app, jsonify, request, send_file, send_from_directory
@@ -25,6 +26,15 @@ from .search_cjk import cjk_bigram_like_clause, contains_cjk
 logger = logging.getLogger(__name__)
 
 audiobooks_bp = Blueprint("audiobooks", __name__)
+
+# Per-worker LRU cache of ffprobe chapter results, keyed by
+# (audiobook_id, file_mtime_ns). Cache invalidates automatically when the
+# underlying file is replaced (mtime changes). Each gunicorn worker keeps its
+# own cache — worst case is N ffprobe runs across N workers on first request,
+# which is fine. No locking needed: ffprobe is idempotent and a few redundant
+# calls during a first-hit race are cheaper than contention on every lookup.
+_CHAPTERS_CACHE_MAX = 256
+_chapters_cache: OrderedDict[tuple[int, int], list[dict]] = OrderedDict()
 
 # Filter condition for main library (excludes non-audiobook content)
 # Include: Product, Performance, Speech (all valid audiobook content)
@@ -829,6 +839,94 @@ def get_audiobook(audiobook_id: int) -> FlaskResponse:
     conn.close()
 
     return jsonify(book)
+
+
+def _ffprobe_chapters(file_path: Path) -> list[dict]:
+    """Run ffprobe -show_chapters and return a normalized chapter list.
+
+    Wraps ``localization.chapters.extract_chapters`` so the API response
+    shape stays decoupled from the internal ``Chapter`` dataclass. Returns
+    ``[]`` for chapterless files or any ffprobe failure (the helper itself
+    swallows subprocess errors and logs them).
+    """
+    # Local import keeps the audiobooks blueprint's import cost down — the
+    # localization package only loads when this endpoint is actually hit.
+    from localization.chapters import extract_chapters
+
+    chapters = extract_chapters(file_path)
+    out: list[dict] = []
+    for ch in chapters:
+        entry: dict = {
+            "index": ch.index,
+            "start_ms": ch.start_ms,
+            "end_ms": ch.end_ms,
+        }
+        # Only include title when ffprobe actually returned tags.title;
+        # extract_chapters synthesizes "Chapter N" placeholders, so we
+        # check whether the title looks synthesized before emitting it.
+        # The synthesized form is "Chapter <N>" where N is 1-indexed.
+        synthesized = f"Chapter {ch.index + 1}"
+        if ch.title and ch.title != synthesized:
+            entry["title"] = ch.title
+        out.append(entry)
+    return out
+
+
+@audiobooks_bp.route("/api/audiobooks/<int:audiobook_id>/chapters", methods=["GET"])
+@auth_if_enabled
+def get_audiobook_chapters(audiobook_id: int) -> FlaskResponse:
+    """Return the chapter list for an audiobook.
+
+    Source: ``ffprobe -show_chapters`` on ``audiobooks.file_path``.
+    Cached per-worker keyed by (audiobook_id, file_mtime_ns) so the cache
+    invalidates automatically when the file is replaced. Returns
+    ``{"chapters": []}`` for files with no chapter metadata. 404 when the
+    audiobook id does not exist.
+
+    Response is marked ``Cache-Control: public, max-age=86400`` because the
+    chapter boundaries embedded in an audiobook file are immutable for the
+    lifetime of that file.
+    """
+    conn = _get_audiobooks_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT file_path FROM audiobooks WHERE id = ?", (audiobook_id,))
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return jsonify({"error": "Audiobook not found"}), 404
+
+    file_path_str = row["file_path"]
+    if not file_path_str:
+        # Row exists but has no file_path — degrade to empty chapter list
+        # rather than 500. The book is technically known to the system; the
+        # consumer can show "no chapters" without UI breaking.
+        chapters: list[dict] = []
+    else:
+        file_path = Path(file_path_str)
+        try:
+            mtime_ns = file_path.stat().st_mtime_ns
+        except OSError:
+            # File missing or unreadable — return empty list, same rationale.
+            mtime_ns = 0
+            chapters = []
+        else:
+            cache_key = (audiobook_id, mtime_ns)
+            cached = _chapters_cache.get(cache_key)
+            if cached is not None:
+                # Mark as recently used so it survives eviction.
+                _chapters_cache.move_to_end(cache_key)
+                chapters = cached
+            else:
+                chapters = _ffprobe_chapters(file_path)
+                _chapters_cache[cache_key] = chapters
+                # Bound the cache: evict oldest when over the limit.
+                while len(_chapters_cache) > _CHAPTERS_CACHE_MAX:
+                    _chapters_cache.popitem(last=False)
+
+    response = jsonify({"chapters": chapters})
+    response.headers["Cache-Control"] = "public, max-age=86400"
+    return response
 
 
 @audiobooks_bp.route("/covers/<path:filename>")

@@ -84,9 +84,13 @@ def _chapters_from_ffprobe(audio_path: Path) -> list[Chapter]:
 
     chapters: list[Chapter] = []
     for ch in data.get("chapters", []):
-        start_ms = int(float(ch.get("start_time", 0)) * 1000)
-        end_ms = int(float(ch.get("end_time", 0)) * 1000)
-        tags = ch.get("tags", {})
+        # Round (not truncate) to absorb ffprobe float artifacts. ffprobe emits
+        # start_time/end_time as decimal strings like "36.453875"; truncation
+        # could shave a millisecond off boundaries which then mismatch the
+        # actual chapter splits when downstream code multiplies back to ms.
+        start_ms = int(round(float(ch.get("start_time", 0)) * 1000))
+        end_ms = int(round(float(ch.get("end_time", 0)) * 1000))
+        tags = ch.get("tags") or {}
         title = tags.get("title", f"Chapter {ch.get('id', len(chapters)) + 1}")
         chapters.append(Chapter(index=len(chapters), title=title, start_ms=start_ms, end_ms=end_ms))
     return chapters
