@@ -13,6 +13,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.3.10.4] - 2026-05-03
+
+### Fixed
+
+- **Audio routes resolve stored DB paths against local `AUDIOBOOKS_LIBRARY`**: Added `resolve_local_audio_path()` in `library/backend/api_modular/_audio_paths.py` (extracted as a shared helper) and applied it at `/api/stream/<id>` (`stream_audiobook`), `/api/download/<id>` (`download_audiobook`), and `/api/audiobooks/<id>/chapters` (`get_audiobook_chapters`). Previously these endpoints called `Path(row["file_path"]).exists()` literally, so non-prod installs whose `AUDIOBOOKS_LIBRARY` differed from the path captured at scan time would 404 every English single-stream play, download, and chapter request — breaking QA-cycle smoke tests for English-content player features. The helper tries the stored path first (identity case) then rebases the relative subpath after the canonical `Library/` segment under the local `AUDIOBOOKS_LIBRARY` root, with `..` traversal defense. Extended to the supplement download endpoint (`/api/supplements/<id>/download`), the subtitle generation endpoints (`/api/subtitles/generate` and `/api/user/subtitles/request`), and the absolute-`vtt_path` branch of the chapter-subtitle serving endpoint — all four had the same dev/QA 404 because they read DB-stored absolute paths literally; sibling helper `resolve_local_supplement_path()` anchored at the canonical `Supplements/` segment / `AUDIOBOOKS_SUPPLEMENTS` env var. Helper and tests contain no operator-specific path literals — production-parity is preserved by keeping DB rows identical across environments and resolving locally at request time. 20 unit + integration tests in `library/tests/test_audio_path_resolution.py` (Audiobook-Manager-h3z)
+
 ## [8.3.10.3] - 2026-05-03
 
 ### Changed
@@ -3635,7 +3641,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.3...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.4...HEAD
+[8.3.10.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.3...v8.3.10.4
 [8.3.10.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.2...v8.3.10.3
 [8.3.10.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.1...v8.3.10.2
 [8.3.10.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10...v8.3.10.1
