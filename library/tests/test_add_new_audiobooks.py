@@ -5,6 +5,7 @@ This module adds new audiobooks to the database without doing a full rescan.
 It queries existing paths from the DB and only processes new files.
 """
 
+import hashlib
 import sqlite3
 from unittest.mock import patch
 
@@ -609,3 +610,202 @@ class TestMainCLI:
         captured = capsys.readouterr()
         assert "RESULTS" in captured.out
         assert "Added:" in captured.out
+
+
+# =============================================================================
+# Tests for hash auto-generation post-insert hook (Audiobook-Manager-f5e)
+# =============================================================================
+
+
+class TestHashAutoGeneration:
+    """Regression guard for Audiobook-Manager-f5e — newly-ingested audiobooks
+    were missing ``sha256_hash`` because no post-insert hook was wiring the
+    hash worker. This test passes ``calculate_hashes=False`` so the metadata
+    path does NOT pre-populate the hash, forcing the post-insert hook to do
+    the work — proving the hook is what wires it up.
+    """
+
+    @patch("scanner.add_new_audiobooks.get_file_metadata")
+    @patch("scanner.add_new_audiobooks.extract_cover_art")
+    def test_new_ingest_auto_generates_hash(self, mock_cover, mock_metadata, temp_dir):
+        from scanner.add_new_audiobooks import add_new_audiobooks
+        from tests.conftest import init_test_database
+
+        db_path = temp_dir / "test.db"
+        init_test_database(db_path)
+
+        library_dir = temp_dir / "library"
+        library_dir.mkdir()
+        cover_dir = temp_dir / "covers"
+
+        # Create a real file with deterministic content so we can verify
+        # the SHA-256 the hook should compute matches what's stored.
+        test_file = library_dir / "auto_hash_book.opus"
+        content = b"deterministic audiobook payload for hash verification"
+        test_file.write_bytes(content)
+        expected_hash = hashlib.sha256(content).hexdigest()
+
+        mock_metadata.return_value = {
+            "title": "Auto Hash Book",
+            "author": "Test Author",
+            "narrator": "Test Narrator",
+            "file_path": str(test_file),
+            "duration_hours": 2.5,
+            "duration_formatted": "2h 30m",
+            "file_size_mb": 0.0001,
+            "format": "opus",
+            "genre": "Fiction",
+            "year": "2026",
+            "description": "A book that should be auto-hashed on ingest",
+            # NB: no sha256_hash key here — post-insert hook must populate it.
+        }
+        mock_cover.return_value = None
+
+        # calculate_hashes=False ensures the metadata path does NOT
+        # pre-populate the hash. If the hook is wired correctly,
+        # sha256_hash will still be set after insert.
+        result = add_new_audiobooks(
+            library_dir=library_dir,
+            db_path=db_path,
+            cover_dir=cover_dir,
+            calculate_hashes=False,
+        )
+
+        assert result["added"] == 1, (
+            f"Expected 1 book added, got {result['added']} (errors={result['errors']})"
+        )
+
+        # Verify the hash was written by the post-insert hook
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT sha256_hash, hash_verified_at FROM audiobooks WHERE file_path = ?",
+            (str(test_file),),
+        )
+        row = cursor.fetchone()
+        conn.close()
+
+        assert row is not None, "Inserted audiobook row not found in DB"
+        stored_hash, hash_verified_at = row
+        assert stored_hash is not None, (
+            "sha256_hash was not populated by the post-insert hook — "
+            "Audiobook-Manager-f5e regression"
+        )
+        assert stored_hash == expected_hash, (
+            f"Stored hash {stored_hash} does not match expected SHA-256 of file content"
+        )
+        assert hash_verified_at is not None, (
+            "hash_verified_at should be set when sha256_hash is populated"
+        )
+
+    @patch("scanner.add_new_audiobooks.get_file_metadata")
+    @patch("scanner.add_new_audiobooks.extract_cover_art")
+    def test_hash_failure_does_not_block_insert(self, mock_cover, mock_metadata, temp_dir):
+        """The hash hook is non-fatal — a hash failure must not roll back the
+        insert or count as an error. The book is still in the DB; only the
+        sha256_hash column stays NULL."""
+        from scanner.add_new_audiobooks import add_new_audiobooks
+        from tests.conftest import init_test_database
+
+        db_path = temp_dir / "test.db"
+        init_test_database(db_path)
+
+        library_dir = temp_dir / "library"
+        library_dir.mkdir()
+        cover_dir = temp_dir / "covers"
+
+        test_file = library_dir / "book_with_failing_hash.opus"
+        test_file.write_bytes(b"some content")
+
+        mock_metadata.return_value = {
+            "title": "Book With Failing Hash",
+            "author": "Author",
+            "file_path": str(test_file),
+            "duration_hours": 1.0,
+            "format": "opus",
+        }
+        mock_cover.return_value = None
+
+        # Force the hash helper to raise — simulates a transient I/O error.
+        with patch(
+            "scripts.generate_hashes.generate_hash_for_book",
+            side_effect=RuntimeError("simulated hash failure"),
+        ):
+            result = add_new_audiobooks(
+                library_dir=library_dir,
+                db_path=db_path,
+                cover_dir=cover_dir,
+                calculate_hashes=False,
+            )
+
+        # Insert still succeeded — hashing is non-fatal
+        assert result["added"] == 1
+        assert result["errors"] == 0
+
+
+class TestGenerateHashForBook:
+    """Direct tests of the single-book hash helper exposed by
+    ``scripts/generate_hashes.py`` (Audiobook-Manager-f5e)."""
+
+    def test_returns_hash_for_existing_row(self, temp_dir):
+        from scripts.generate_hashes import generate_hash_for_book
+        from tests.conftest import init_test_database
+
+        db_path = temp_dir / "test.db"
+        init_test_database(db_path)
+
+        # Create a real file and insert a row pointing at it
+        audio = temp_dir / "x.opus"
+        content = b"hello world"
+        audio.write_bytes(content)
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO audiobooks (title, author, file_path, duration_hours) VALUES (?, ?, ?, ?)",
+            ("Title", "Author", str(audio), 1.0),
+        )
+        book_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        result = generate_hash_for_book(book_id, db_path)
+        assert result == hashlib.sha256(content).hexdigest()
+
+        # And it persisted to the DB
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute("SELECT sha256_hash FROM audiobooks WHERE id = ?", (book_id,))
+        stored = cursor.fetchone()[0]
+        conn.close()
+        assert stored == result
+
+    def test_returns_none_for_missing_row(self, temp_dir):
+        from scripts.generate_hashes import generate_hash_for_book
+        from tests.conftest import init_test_database
+
+        db_path = temp_dir / "test.db"
+        init_test_database(db_path)
+
+        result = generate_hash_for_book(99999, db_path)
+        assert result is None
+
+    def test_returns_none_when_file_missing(self, temp_dir):
+        from scripts.generate_hashes import generate_hash_for_book
+        from tests.conftest import init_test_database
+
+        db_path = temp_dir / "test.db"
+        init_test_database(db_path)
+
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO audiobooks (title, author, file_path, duration_hours) VALUES (?, ?, ?, ?)",
+            ("Ghost Book", "Author", "/nonexistent/path/ghost.opus", 1.0),
+        )
+        book_id = cursor.lastrowid
+        conn.commit()
+        conn.close()
+
+        result = generate_hash_for_book(book_id, db_path)
+        assert result is None

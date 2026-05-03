@@ -104,6 +104,48 @@ def update_hash(conn: sqlite3.Connection, audiobook_id: int, hash_value: str):
     conn.commit()
 
 
+def generate_hash_for_book(audiobook_id: int, db_path: Path) -> str | None:
+    """Compute and store the SHA-256 hash for a single audiobook row.
+
+    Used by the post-insert hook in ``add_new_audiobooks._run_post_insert_hooks``
+    so that newly-ingested books get their integrity hash without waiting for
+    the bulk hash worker to be triggered manually.
+
+    Args:
+        audiobook_id: Primary key of the audiobook row to hash.
+        db_path: Path to the audiobooks SQLite database.
+
+    Returns:
+        The hex digest on success, or ``None`` if the row is missing, the
+        file is missing, or the hash calculation failed. Caller is expected
+        to log/swallow the failure — hashing is non-fatal.
+    """
+    conn = sqlite3.connect(db_path)
+    try:
+        _ensure_hash_columns(conn)
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT file_path FROM audiobooks WHERE id = ?",
+            (audiobook_id,),
+        )
+        row = cursor.fetchone()
+        if not row or not row[0]:
+            return None
+
+        file_path = Path(row[0])
+        if not file_path.exists():
+            return None
+
+        hash_value = calculate_sha256(file_path)
+        if not hash_value:
+            return None
+
+        update_hash(conn, audiobook_id, hash_value)
+        return hash_value
+    finally:
+        conn.close()
+
+
 def find_duplicates(conn: sqlite3.Connection) -> list:
     """Find audiobooks with duplicate hashes"""
     cursor = conn.cursor()
