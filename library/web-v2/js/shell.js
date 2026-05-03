@@ -405,6 +405,11 @@ class ShellPlayer {
     // list must not leak into the new book's ended handler.
     this.translatedEntries = null;
     this.translatedChapterIdx = 0;
+    // Reset per-book chapter list — populated below via
+    // /api/audiobooks/<id>/chapters. Without this reset the previous book's
+    // chapters would leak into _skipBackChapter / _skipForwardChapter on the
+    // English single-stream path.
+    this.chapters = [];
 
     if (locale !== "en") {
       try {
@@ -445,16 +450,37 @@ class ShellPlayer {
       this.audio.src = `${API_BASE}/stream/${bookId}${needsWebm ? "?format=webm" : ""}`;
     }
 
-    // Show chapter-skip buttons only when chapter boundaries are explicit —
-    // streaming MSE engages per-chapter, and translatedEntries is one URL per
-    // chapter. The English single-stream path (/stream/{id}) has no chapter
-    // boundaries on the client, so the buttons are hidden there. Audiobook-
-    // Manager-9by — see _skipBackChapter / _skipForwardChapter for behaviour.
-    const chapterNavAvailable = streamingNeeded || useTranslatedAudio;
-    const skipBackBtn = document.getElementById("sp-skip-back-chapter");
-    const skipFwdBtn = document.getElementById("sp-skip-forward-chapter");
-    if (skipBackBtn) skipBackBtn.style.display = chapterNavAvailable ? "" : "none";
-    if (skipFwdBtn) skipFwdBtn.style.display = chapterNavAvailable ? "" : "none";
+    // Show chapter-skip buttons whenever chapter boundaries are available —
+    // either via the streaming MSE pipeline, the legacy translatedEntries
+    // path, OR the new /api/audiobooks/<id>/chapters endpoint that exposes
+    // ffprobe-derived boundaries for the English single-stream path
+    // (Audiobook-Manager-6ub). Visibility is recomputed by
+    // _applyChapterButtonVisibility() after the chapters fetch resolves.
+    // _streamingNeeded is captured here so the helper can evaluate the
+    // playBook-time decision even before streamingTranslate has flipped to
+    // an active state on its own schedule.
+    this._streamingNeeded = streamingNeeded;
+    this._applyChapterButtonVisibility();
+
+    // Fetch chapter boundaries for the English single-stream path. The
+    // streaming MSE and translatedEntries paths already have their own
+    // chapter accounting; this endpoint covers the ~90% of the library that
+    // plays via /stream/<id> with no client-side chapter info. The fetch is
+    // intentionally non-blocking — if it fails or the book has no chapters,
+    // visibility falls back to streaming/translated state.
+    fetch(`${API_BASE}/audiobooks/${bookId}/chapters`, { credentials: "include" })
+      .then((resp) => (resp.ok ? resp.json() : { chapters: [] }))
+      .then((data) => {
+        // Discard if user already switched to a different book mid-flight.
+        if (!this.currentBook || this.currentBook.bookId !== bookId) return;
+        this.chapters = Array.isArray(data.chapters) ? data.chapters : [];
+        this._applyChapterButtonVisibility();
+      })
+      .catch(() => {
+        if (!this.currentBook || this.currentBook.bookId !== bookId) return;
+        this.chapters = [];
+        this._applyChapterButtonVisibility();
+      });
 
     // Load saved speed
     const savedSpeed = this.getSpeed();
@@ -661,16 +687,75 @@ class ShellPlayer {
     }
   }
 
-  // Chapter-level skip-back. Tap when mid-chapter restarts the current chapter
-  // (audio.currentTime = 0). Tap within RESTART_THRESHOLD_SEC of chapter start
-  // jumps to the previous chapter — standard audiobook double-tap pattern. The
-  // chapter buttons are only shown when chapter boundaries are explicit (the
-  // streaming MSE path or legacy translatedEntries path); see playBook().
+  // Recompute chapter-skip button visibility. Buttons show whenever ANY of
+  // these is true: the new chapters array (English single-stream + ffprobe
+  // boundaries via /api/audiobooks/<id>/chapters), an active streaming MSE
+  // session, or cached translatedEntries. Called from playBook() at load
+  // time AND again after the chapters fetch resolves — the fetch is async
+  // so first-paint may run before chapters are known. Audiobook-Manager-6ub.
+  _applyChapterButtonVisibility() {
+    const streamingActive =
+      this._streamingNeeded ||
+      (typeof window.streamingTranslate !== "undefined" &&
+        typeof window.streamingTranslate.isStreaming === "function" &&
+        window.streamingTranslate.isStreaming());
+    const chapterNavAvailable =
+      (this.chapters && this.chapters.length > 0) ||
+      streamingActive ||
+      (this.translatedEntries && this.translatedEntries.length > 0);
+    const skipBackBtn = document.getElementById("sp-skip-back-chapter");
+    const skipFwdBtn = document.getElementById("sp-skip-forward-chapter");
+    if (skipBackBtn) skipBackBtn.style.display = chapterNavAvailable ? "" : "none";
+    if (skipFwdBtn) skipFwdBtn.style.display = chapterNavAvailable ? "" : "none";
+  }
+
+  // Chapter-level skip-back. Tap when mid-chapter restarts the current chapter.
+  // Tap within RESTART_THRESHOLD_SEC of chapter start jumps to the previous
+  // chapter — standard audiobook double-tap pattern. Three pathways, in
+  // priority order:
+  //   1. this.chapters (Audiobook-Manager-6ub) — covers English single-stream
+  //      via /api/audiobooks/<id>/chapters ffprobe boundaries
+  //   2. streaming MSE — chapter accounting lives in streamingTranslate
+  //   3. legacy translatedEntries — one URL per cached translated chapter
   _skipBackChapter() {
     const RESTART_THRESHOLD_SEC = 3;
     const t = this.audio.currentTime || 0;
 
-    // Streaming MSE path
+    // 1. Generic chapters array (covers EN single-stream + any path with
+    //    explicit boundary metadata). audio.currentTime is in seconds;
+    //    chapter boundaries are in milliseconds.
+    if (this.chapters && this.chapters.length > 0) {
+      const nowMs = t * 1000;
+      const RESTART_THRESHOLD_MS = RESTART_THRESHOLD_SEC * 1000;
+      const currentIdx = this.chapters.findIndex(
+        (ch) => ch.start_ms <= nowMs && nowMs < ch.end_ms,
+      );
+      // Edge case: clicked past the last chapter's end_ms (rare — typically
+      // means audio is at duration and 'ended' is about to fire). Treat as
+      // "restart last chapter".
+      if (currentIdx === -1) {
+        const last = this.chapters[this.chapters.length - 1];
+        this.audio.currentTime = last.start_ms / 1000;
+        this.saveAfterSeek();
+        return;
+      }
+      const current = this.chapters[currentIdx];
+      const intoChapterMs = nowMs - current.start_ms;
+      if (intoChapterMs > RESTART_THRESHOLD_MS) {
+        // Mid-chapter: restart current chapter.
+        this.audio.currentTime = current.start_ms / 1000;
+      } else if (currentIdx > 0) {
+        // Near start: jump to previous chapter's start.
+        this.audio.currentTime = this.chapters[currentIdx - 1].start_ms / 1000;
+      } else {
+        // First chapter, near start: just go to 0.
+        this.audio.currentTime = 0;
+      }
+      this.saveAfterSeek();
+      return;
+    }
+
+    // 2. Streaming MSE path
     if (
       typeof window.streamingTranslate !== "undefined" &&
       !window.streamingTranslate.isIdle()
@@ -690,7 +775,7 @@ class ShellPlayer {
       return;
     }
 
-    // Legacy translatedEntries path
+    // 3. Legacy translatedEntries path
     if (this.translatedEntries && this.translatedEntries.length > 0 && this.currentBook) {
       if (t > RESTART_THRESHOLD_SEC) {
         this.audio.currentTime = 0;
@@ -707,18 +792,32 @@ class ShellPlayer {
       return;
     }
 
-    // English single-stream — buttons are hidden in this case but defensively
-    // restart the audio source.
+    // Defensive: no chapter info at all — restart the audio source.
     this.audio.currentTime = 0;
     this.saveAfterSeek();
   }
 
   // Chapter-level skip-forward. Single tap jumps to the next chapter. Routes
-  // through whichever pathway is active (streaming MSE, legacy translatedEntries,
-  // or — at end of translatedEntries — hands off to streaming for the next
-  // chapter, mirroring the v8.3.10.1 ended-handler logic).
+  // through whichever pathway is active, in the same priority order as
+  // _skipBackChapter: chapters array → streaming MSE → translatedEntries.
   _skipForwardChapter() {
-    // Streaming MSE path
+    // 1. Generic chapters array (covers EN single-stream + any path with
+    //    explicit boundary metadata). Find first chapter whose start > now.
+    if (this.chapters && this.chapters.length > 0) {
+      const nowMs = (this.audio.currentTime || 0) * 1000;
+      const nextChapter = this.chapters.find((ch) => ch.start_ms > nowMs);
+      if (nextChapter) {
+        this.audio.currentTime = nextChapter.start_ms / 1000;
+      } else {
+        // Already in last chapter — seek to its end so 'ended' fires.
+        const last = this.chapters[this.chapters.length - 1];
+        this.audio.currentTime = last.end_ms / 1000;
+      }
+      this.saveAfterSeek();
+      return;
+    }
+
+    // 2. Streaming MSE path
     if (
       typeof window.streamingTranslate !== "undefined" &&
       !window.streamingTranslate.isIdle()

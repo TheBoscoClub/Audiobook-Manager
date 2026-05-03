@@ -1,14 +1,17 @@
-"""Regression guard for Audiobook-Manager-9by — chapter-level navigation.
+"""Regression guard for Audiobook-Manager-9by + 6ub — chapter-level navigation.
 
 Pattern A: single button each, double-tap-back convention.
 - ⏮ Skip-back: tap mid-chapter restarts current chapter; within 3s of start
   jumps to previous chapter (Apple Books / Audible / Pocket Casts UX).
 - ⏭ Skip-forward: jumps to next chapter.
 
-Buttons are display:none in the HTML and revealed in playBook() only when
-chapter boundaries are explicit (streaming MSE OR translatedEntries paths).
-The English single-stream path (/stream/{id}) has no client-side chapter
-boundaries, so the buttons stay hidden there.
+Buttons are display:none in the HTML and revealed in playBook() whenever
+chapter boundaries are available via ANY of three pathways:
+  1. The new /api/audiobooks/<id>/chapters endpoint (Audiobook-Manager-6ub) —
+     covers the ~90% of the library that plays via the English single-stream
+     /stream/<id> path.
+  2. Active streaming MSE pipeline (one chapter per MSE chain).
+  3. Cached translatedEntries (one URL per pre-translated chapter).
 
 Tests are STRUCTURAL — runtime UI behaviour gets verified by Qing on her
 iPhone Chrome / Safari and Bosco on desktop Brave. Structural assertions
@@ -96,14 +99,104 @@ def test_shell_skip_back_uses_double_tap_threshold():
     )
 
 
-def test_shell_visibility_toggled_in_play_book():
-    """playBook reveals the chapter buttons only when streamingNeeded or
-    useTranslatedAudio is true (chapter boundaries are explicit). English
-    single-stream keeps them hidden."""
+def test_shell_visibility_helper_defined():
+    """playBook delegates chapter-button visibility to the
+    _applyChapterButtonVisibility helper, which is also called after the
+    chapters fetch resolves. Without the helper, buttons would only update
+    at playBook entry — before the chapters API responds — so the EN
+    single-stream path would never light them up. (Audiobook-Manager-6ub)"""
+    assert "_applyChapterButtonVisibility(" in SHELL_JS, (
+        "_applyChapterButtonVisibility helper missing — visibility cannot "
+        "be recomputed after the async /api/audiobooks/<id>/chapters fetch "
+        "resolves"
+    )
+
+
+def test_shell_visibility_includes_chapters_array():
+    """Visibility decision must consider this.chapters.length, not just
+    streaming/translated state. This is the core of the 6ub fix — without
+    it the buttons stay hidden on the EN single-stream path even when
+    chapter boundaries are available."""
     assert re.search(
-        r"chapterNavAvailable\s*=\s*streamingNeeded\s*\|\|\s*useTranslatedAudio",
+        r"this\.chapters\s*&&\s*this\.chapters\.length\s*>\s*0",
         SHELL_JS,
-    ), "Visibility logic missing or wrong — buttons may show on English single-stream"
+    ), (
+        "Visibility logic must include this.chapters.length > 0 — buttons "
+        "won't show on EN single-stream playback otherwise (the common case)"
+    )
+
+
+# ── Chapters API integration (Audiobook-Manager-6ub) ──
+
+
+def test_chapters_fetch_called_in_play_book():
+    """playBook must fetch /api/audiobooks/<id>/chapters so the EN
+    single-stream path can populate this.chapters and reveal the buttons.
+    Pattern asserts the template-literal URL exactly as it is built."""
+    assert re.search(
+        r"/api/audiobooks/\$\{bookId\}/chapters",
+        SHELL_JS,
+    ) or re.search(
+        r"\$\{API_BASE\}/audiobooks/\$\{bookId\}/chapters",
+        SHELL_JS,
+    ), (
+        "playBook must fetch /api/audiobooks/<id>/chapters — without it the "
+        "chapters array stays empty and buttons stay hidden on EN single-stream"
+    )
+
+
+def test_chapters_reset_on_new_book():
+    """this.chapters MUST be reset to [] when a new book starts so the
+    previous book's chapters don't leak into _skipBackChapter /
+    _skipForwardChapter on the EN single-stream path before the fetch
+    resolves."""
+    assert re.search(r"this\.chapters\s*=\s*\[\]", SHELL_JS), (
+        "this.chapters reset to [] missing — previous book's chapters "
+        "would leak into the new book's skip handlers"
+    )
+
+
+def test_skip_back_handler_uses_chapters_array():
+    """_skipBackChapter must consult this.chapters before falling through
+    to streaming / translatedEntries paths. Asserts both the chapters
+    reference and the millisecond-threshold check that distinguishes
+    restart-current vs jump-to-prev."""
+    body = re.search(
+        r"_skipBackChapter\(\)\s*\{(.+?)\n  \}\n",
+        SHELL_JS,
+        re.DOTALL,
+    )
+    assert body, "Could not extract _skipBackChapter function body"
+    fn = body.group(1)
+    assert "this.chapters" in fn, (
+        "_skipBackChapter doesn't reference this.chapters — EN single-stream "
+        "skip-back will dead-end at the defensive currentTime=0 fallback"
+    )
+    assert "RESTART_THRESHOLD_MS" in fn, (
+        "_skipBackChapter chapters-array path missing the millisecond "
+        "double-tap threshold check"
+    )
+
+
+def test_skip_forward_handler_uses_chapters_array():
+    """_skipForwardChapter must consult this.chapters before falling through
+    to streaming / translatedEntries paths. Asserts the next-chapter find
+    pattern (start_ms > nowMs)."""
+    body = re.search(
+        r"_skipForwardChapter\(\)\s*\{(.+?)\n  \}\n",
+        SHELL_JS,
+        re.DOTALL,
+    )
+    assert body, "Could not extract _skipForwardChapter function body"
+    fn = body.group(1)
+    assert "this.chapters" in fn, (
+        "_skipForwardChapter doesn't reference this.chapters — EN "
+        "single-stream skip-forward is a no-op"
+    )
+    assert "start_ms > nowMs" in fn or "ch.start_ms > nowMs" in fn, (
+        "_skipForwardChapter chapters-array path missing the next-chapter "
+        "find pattern (start_ms > nowMs)"
+    )
 
 
 def test_shell_load_translated_entry_helper_used():
