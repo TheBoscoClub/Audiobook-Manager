@@ -1,5 +1,5 @@
 #!/bin/bash
-# Data migration 011: purge translated/ chapter-artifact rows from audiobooks
+# Data migration 012: purge translated/ chapter-artifact rows from audiobooks
 # (v8.3.10.1)
 #
 # The scanner historically ingested ``.opus`` files under ``<book>/translated/``
