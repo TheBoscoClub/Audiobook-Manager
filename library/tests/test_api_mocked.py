@@ -670,6 +670,7 @@ class TestExceptionPaths:
 
         try:
             with (
+                patch("backend.api_modular.audiobooks.resolve_local_audio_path") as mock_resolve,
                 patch("backend.api_modular.audiobooks.Path") as MockPath,
                 patch("backend.api_modular.audiobooks.send_file") as mock_send,
                 patch("backend.api_modular.audiobooks.subprocess") as mock_subprocess,
@@ -681,6 +682,12 @@ class TestExceptionPaths:
                 mock_path_instance.suffix = ".opus"
                 mock_path_instance.stat.return_value = MagicMock(st_mtime=1000)
                 MockPath.return_value = mock_path_instance
+
+                # v8.3.10.4+: stream endpoint uses resolve_local_audio_path() helper
+                # to rebase DB-stored paths under the local AUDIOBOOKS_LIBRARY root.
+                # Return the mocked Path so downstream code (suffix/stat/send_file)
+                # operates on the same mock as before.
+                mock_resolve.return_value = mock_path_instance
 
                 # Mock cache path — file doesn't exist yet (needs remux)
                 mock_webm_path = MagicMock()
@@ -741,6 +748,7 @@ class TestExceptionPaths:
 
         try:
             with (
+                patch("backend.api_modular.audiobooks.resolve_local_audio_path") as mock_resolve,
                 patch("backend.api_modular.audiobooks.Path") as MockPath,
                 patch("backend.api_modular.audiobooks.send_file") as mock_send,
             ):
@@ -748,6 +756,8 @@ class TestExceptionPaths:
                 mock_path_instance.exists.return_value = True
                 mock_path_instance.suffix = ".mp3"
                 MockPath.return_value = mock_path_instance
+                # v8.3.10.4+: stream endpoint uses resolve_local_audio_path() helper
+                mock_resolve.return_value = mock_path_instance
                 mock_send.return_value = MagicMock()
 
                 # ?format=webm on mp3 should serve mp3 normally (no remux)

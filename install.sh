@@ -1853,9 +1853,9 @@ EOF
 
         # Reconcile UFW rules for the audiobook stack — idempotent.
         # Without this, dev/QA/test VMs end up with diverged UFW presets and a
-        # tunnel→origin path silently 404s/times-out (see incident 2026-04-26
-        # where Dev's UFW was missing 8085/tcp, breaking devdocker.thebosco.club
-        # while qadocker worked fine because QA's UFW had 8085 from a manual fix).
+        # tunnel→origin path silently 404s/times-out (e.g., a missing
+        # 8085/tcp rule will break the Docker-stack hostname while the native
+        # hostname keeps working because its port was opened separately).
         if command -v ufw &>/dev/null && sudo ufw status 2>/dev/null | head -1 | grep -q "active"; then
             echo -e "${BLUE}Reconciling UFW firewall rules for audiobook stack...${NC}"
             for port in \

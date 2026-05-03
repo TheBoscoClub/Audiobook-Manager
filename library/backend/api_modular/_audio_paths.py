@@ -25,14 +25,19 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-# ─── Canonical project defaults (NOT operator-specific) ────────────────────
+# ─── Canonical project defaults sourced from library.config ────────────────
 #
-# These match ``library/config.py``'s defaults and the project's documented
-# install convention. They serve only as fallbacks when the corresponding
-# env var is unset; operators override via ``AUDIOBOOKS_LIBRARY`` /
-# ``AUDIOBOOKS_SUPPLEMENTS`` in ``/etc/audiobooks/audiobooks.conf``.
-DEFAULT_AUDIOBOOKS_LIBRARY = "/srv/audiobooks/Library"
-DEFAULT_AUDIOBOOKS_SUPPLEMENTS = "/srv/audiobooks/Supplements"
+# Single source of truth for path defaults is ``library/config.py``. This
+# helper imports from there so the canonical install convention has exactly
+# one definition (per the project's no-hardcoded-paths rule). Operators
+# override at runtime via ``AUDIOBOOKS_LIBRARY`` / ``AUDIOBOOKS_SUPPLEMENTS``
+# in ``/etc/audiobooks/audiobooks.conf``; this module reads the env var at
+# request time and only falls back to the config-defined default.
+from config import AUDIOBOOKS_LIBRARY as _CFG_LIBRARY
+from config import AUDIOBOOKS_SUPPLEMENTS as _CFG_SUPPLEMENTS
+
+DEFAULT_AUDIOBOOKS_LIBRARY = str(_CFG_LIBRARY)
+DEFAULT_AUDIOBOOKS_SUPPLEMENTS = str(_CFG_SUPPLEMENTS)
 
 # Canonical project conventions for the directory segment that anchors
 # the relative subpath used during rebase.

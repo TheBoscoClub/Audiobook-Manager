@@ -133,13 +133,14 @@ class TestResolveLocalAudioPath:
     def test_default_constant_is_canonical_project_default(self):
         """``DEFAULT_AUDIOBOOKS_LIBRARY`` matches the canonical project install path.
 
-        This isn't operator-specific — it's the default path the project's own
-        ``library/config.py`` and ``duplicates.py`` use when the operator hasn't
-        overridden via env var. Asserting it stays in sync prevents accidental
-        drift.
+        The helper sources its default from ``library/config.py`` (single
+        source of truth for path defaults). Verify both ends agree so the
+        helper can never drift independently from the rest of the codebase.
         """
+        from config import AUDIOBOOKS_LIBRARY as CFG_LIB
+
         assert DEFAULT_AUDIOBOOKS_LIBRARY.endswith("/Library")
-        assert "/srv/audiobooks" in DEFAULT_AUDIOBOOKS_LIBRARY
+        assert DEFAULT_AUDIOBOOKS_LIBRARY == str(CFG_LIB)
 
 
 # ─── Unit tests for resolve_local_supplement_path ─────────────────────────
@@ -211,12 +212,15 @@ class TestResolveLocalSupplementPath:
         assert result is None
 
     def test_default_constant_is_canonical_project_default(self):
-        """``DEFAULT_AUDIOBOOKS_SUPPLEMENTS`` matches the canonical install path.
+        """``DEFAULT_AUDIOBOOKS_SUPPLEMENTS`` matches ``library/config.py``'s value.
 
-        Mirrors the audiobooks-library default check; agnostic of operator.
+        Mirrors the audiobooks-library default check; agnostic of operator
+        (the shared source of truth is ``library/config.py``).
         """
+        from config import AUDIOBOOKS_SUPPLEMENTS as CFG_SUP
+
         assert DEFAULT_AUDIOBOOKS_SUPPLEMENTS.endswith("/Supplements")
-        assert "/srv/audiobooks" in DEFAULT_AUDIOBOOKS_SUPPLEMENTS
+        assert DEFAULT_AUDIOBOOKS_SUPPLEMENTS == str(CFG_SUP)
 
 
 # ─── Integration: stream_audiobook resolves a foreign DB path ─────────────
@@ -432,6 +436,12 @@ def test_subtitle_user_request_resolves_foreign_db_path(
     monkeypatch.setenv("AUDIOBOOKS_LIBRARY", str(env_b_root))
 
     db_path = flask_app.config["DATABASE_PATH"]
+    # Re-initialize subtitles module's _db_path against the session-scoped
+    # flask_app DB. Other tests (e.g., auth fixtures) may have rebound it
+    # to a per-test tmpdir DB that no longer exists by the time this runs.
+    from backend.api_modular.subtitles import init_subtitles_routes
+
+    init_subtitles_routes(db_path, Path(__file__).resolve().parent.parent)
     audiobook_id = 7044
     _insert_book_row(db_path, audiobook_id, foreign_stored)
 

@@ -79,11 +79,11 @@ and intentionally does **not** bind to port 80. Two reasons:
    `NoNewPrivileges=yes` and the rest of the systemd hardening posture
    (`ProtectSystem=strict`, `ProtectHome=yes`, `PrivateTmp=yes`).
 2. **Cloudflare Tunnel terminates :80/:443 at the edge.** Production deployments
-   (`library.thebosco.club`, `qalib.thebosco.club`, `devlib.thebosco.club`,
-   `testlib.thebosco.club`) reach the host through `cloudflared`, which connects
-   outbound to Cloudflare's network and forwards traffic to the configured
-   service ports (`https://localhost:8443` / `http://localhost:5001`). The host
-   never publicly exposes :80, so a redirect there serves no real visitors.
+   that front the app with a Cloudflare Tunnel reach the host through
+   `cloudflared`, which connects outbound to Cloudflare's network and forwards
+   traffic to the configured service ports (`https://localhost:8443` /
+   `http://localhost:5001`). The host never publicly exposes :80, so a redirect
+   there serves no real visitors.
 
 The redirect on :8080/:8081 is a fallback for direct-IP debug visits during
 development and for the `proxy → redirect` health chain inside the host. If a
