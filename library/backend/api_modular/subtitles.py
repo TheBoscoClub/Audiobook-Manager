@@ -22,6 +22,7 @@ from pathlib import Path
 
 from flask import Blueprint, g, jsonify, request, send_file
 
+from ._audio_paths import resolve_local_audio_path
 from .auth import admin_or_localhost, guest_allowed
 
 subtitles_bp = Blueprint("subtitles", __name__)
@@ -361,11 +362,21 @@ def get_chapter_subtitle(book_id, chapter_index, locale):
 
         cached_file_missing = False
         if row:
-            vtt_path = Path(row["vtt_path"])
-            if not vtt_path.is_absolute() and _library_path:
-                vtt_path = _library_path / vtt_path
-            if vtt_path.exists():
-                return send_file(vtt_path, mimetype="text/vtt; charset=utf-8", as_attachment=False)
+            stored_vtt = Path(row["vtt_path"])
+            if stored_vtt.is_absolute():
+                # Absolute path stored at scan/generation time; rebase via
+                # the production-parity helper so dev/QA installs whose
+                # AUDIOBOOKS_LIBRARY differs still find the on-disk VTT.
+                resolved = resolve_local_audio_path(stored_vtt)
+            elif _library_path:
+                # Relative path was joined to the local library root;
+                # legacy storage style — keep the existing behavior.
+                candidate = _library_path / stored_vtt
+                resolved = candidate if candidate.exists() else None
+            else:
+                resolved = stored_vtt if stored_vtt.exists() else None
+            if resolved is not None:
+                return send_file(resolved, mimetype="text/vtt; charset=utf-8", as_attachment=False)
             cached_file_missing = True
 
         stitched = _stitch_streaming_vtt(conn, book_id, chapter_index, locale)
@@ -413,8 +424,8 @@ def generate_subtitles_endpoint():
         if not book:
             return jsonify({"error": "Audiobook not found"}), 404
 
-        audio_path = Path(book["file_path"])
-        if not audio_path.exists():
+        audio_path = resolve_local_audio_path(book["file_path"])
+        if audio_path is None:
             return jsonify({"error": "Audio file not found on disk"}), 404
 
         existing_chapters = {
@@ -493,8 +504,8 @@ def _load_book_for_subtitle_request(book_id):
         ).fetchone()
         if not book:
             return (jsonify({"error": "Audiobook not found"}), 404)
-        audio_path = Path(book["file_path"])
-        if not audio_path.exists():
+        audio_path = resolve_local_audio_path(book["file_path"])
+        if audio_path is None:
             return (jsonify({"error": "Audio file not found on disk"}), 404)
         existing_chapters = {
             row[0]

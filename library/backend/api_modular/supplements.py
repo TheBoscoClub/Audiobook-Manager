@@ -6,6 +6,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, send_file
 
+from ._audio_paths import resolve_local_supplement_path
 from .auth import admin_if_enabled, download_permission_required, guest_allowed
 from .core import FlaskResponse, get_db
 
@@ -188,8 +189,8 @@ def download_supplement(supplement_id: int) -> FlaskResponse:
     if not row:
         return jsonify({"error": "Supplement not found"}), 404
 
-    file_path = Path(row["file_path"])
-    if not file_path.exists():
+    file_path = resolve_local_supplement_path(row["file_path"])
+    if file_path is None:
         return jsonify({"error": "File not found on disk"}), 404
 
     ext = file_path.suffix.lower().lstrip(".")

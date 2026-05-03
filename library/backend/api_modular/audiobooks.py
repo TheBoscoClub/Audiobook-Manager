@@ -6,7 +6,6 @@ Note: All queries filter by content_type to exclude non-audiobook content
 """
 
 import logging
-import os
 import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import sys
 from collections import OrderedDict
@@ -18,6 +17,11 @@ from flask import Blueprint, Response, current_app, jsonify, request, send_file,
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from config import AUDIOBOOKS_WEBM_CACHE, COVER_DIR
 
+from ._audio_paths import (
+    DEFAULT_AUDIOBOOKS_LIBRARY,
+    LIBRARY_SEGMENT,
+    resolve_local_audio_path,
+)
 from .auth import auth_if_enabled, download_permission_required, guest_allowed
 from .collections import get_collections_lookup
 from .core import FlaskResponse, get_db
@@ -35,57 +39,16 @@ audiobooks_bp = Blueprint("audiobooks", __name__)
 # path from whichever environment scanned the file. The local install may
 # have its library at a different absolute root (set via the
 # AUDIOBOOKS_LIBRARY env var). The DB stays identical across environments;
-# this helper resolves the actual on-disk location at request time.
-#
-# This block contains zero operator-specific path literals. The "Library/"
-# segment is a project convention (see AUDIOBOOKS_LIBRARY default in
-# library/config.py); the env var is operator-supplied; the
-# DEFAULT_AUDIOBOOKS_LIBRARY constant matches the canonical project install
-# default already used by duplicates.py.
-DEFAULT_AUDIOBOOKS_LIBRARY = "/srv/audiobooks/Library"
-LIBRARY_SEGMENT = "Library"  # Canonical project convention for the library root
-
-
-def resolve_local_audio_path(stored_path: str | os.PathLike[str]) -> Path | None:
-    """Resolve a DB-stored audiobook ``file_path`` to an existing local path.
-
-    Resolution order:
-      1. Identity — return the stored path if it exists on disk (covers any
-         environment whose library root matches the scan root).
-      2. Rebase — split the stored path at the canonical ``Library/``
-         segment, take the relative subpath after it, and join under the
-         local ``AUDIOBOOKS_LIBRARY`` root (env var, falls back to
-         ``DEFAULT_AUDIOBOOKS_LIBRARY``).
-
-    Returns ``None`` if neither candidate exists. Callers should treat
-    ``None`` as "file not found on disk" and respond accordingly (HTTP 404).
-
-    Defensive: rejects rebased candidates that escape the local root via
-    ``..`` traversal. No operator-specific path literals appear in this
-    helper.
-    """
-    stored = Path(stored_path)
-    if stored.exists():
-        return stored
-
-    parts = stored.parts
-    if LIBRARY_SEGMENT not in parts:
-        return None
-
-    library_idx = parts.index(LIBRARY_SEGMENT)
-    relative = Path(*parts[library_idx + 1 :])
-
-    local_root = Path(os.environ.get("AUDIOBOOKS_LIBRARY", DEFAULT_AUDIOBOOKS_LIBRARY))
-    candidate = (local_root / relative).resolve()
-
-    # Defensive: ensure the resolved candidate is actually under the local
-    # root (no traversal escape via ".." segments in the relative subpath).
-    try:
-        candidate.relative_to(local_root.resolve())
-    except ValueError:
-        return None
-
-    return candidate if candidate.exists() else None
+# the resolve_local_audio_path helper (extracted to ._audio_paths) resolves
+# the actual on-disk location at request time. The constants above are
+# re-exported here so existing imports (and the test module) keep working.
+__all__ = [
+    "audiobooks_bp",
+    "init_audiobooks_routes",
+    "resolve_local_audio_path",
+    "DEFAULT_AUDIOBOOKS_LIBRARY",
+    "LIBRARY_SEGMENT",
+]
 
 
 # Per-worker LRU cache of ffprobe chapter results, keyed by
