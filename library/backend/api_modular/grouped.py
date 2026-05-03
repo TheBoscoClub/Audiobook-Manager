@@ -21,6 +21,13 @@ from .core import FlaskResponse, get_db
 # This constant is safe for SQL - hardcoded, not user input
 AUDIOBOOK_FILTER = "(content_type IN ('Product', 'Performance', 'Speech') OR content_type IS NULL)"
 
+# Defense-in-depth: never surface translated/ chapter artifacts even if the
+# scanner write-side filter is bypassed (e.g. by a manual INSERT or a legacy
+# DB row from before the scanner fix). Parameter-bound at query time — see
+# the LIKE pattern '%/translated/%' below. See Audiobook-Manager-2sw.
+TRANSLATED_PATH_EXCLUSION = "a.file_path NOT LIKE ?"
+TRANSLATED_PATH_PATTERN = "%/translated/%"
+
 VALID_GROUP_BY = {"author", "narrator"}
 
 grouped_bp = Blueprint("grouped", __name__)
@@ -164,14 +171,14 @@ def _group_by_author(
         " JOIN book_authors ba ON a.id = ba.book_id"
         " JOIN authors auth ON ba.author_id = auth.id"
         f"{join_clause}"
-        f" WHERE {AUDIOBOOK_FILTER}"
+        f" WHERE {AUDIOBOOK_FILTER} AND {TRANSLATED_PATH_EXCLUSION}"
         " ORDER BY auth.sort_name COLLATE NOCASE,"
         " COALESCE(a.published_date, a.release_date,"
         " CAST(a.published_year AS TEXT) || '-01-01',"
         " '9999-12-31') ASC,"
         f" {title_sort_expr}"
     )
-    cursor.execute(query, sort_params)
+    cursor.execute(query, sort_params + [TRANSLATED_PATH_PATTERN])
     rows = cursor.fetchall()
 
     # Build groups preserving query order
@@ -199,11 +206,11 @@ def _group_by_author(
         f"SELECT {book_cols}"  # nosec B608  # noqa: S608
         " FROM audiobooks a"
         f"{join_clause}"
-        f" WHERE {AUDIOBOOK_FILTER}"
+        f" WHERE {AUDIOBOOK_FILTER} AND {TRANSLATED_PATH_EXCLUSION}"
         " AND a.id NOT IN (SELECT book_id FROM book_authors)"
         f" ORDER BY {title_sort_expr}"
     )
-    cursor.execute(query, sort_params)
+    cursor.execute(query, sort_params + [TRANSLATED_PATH_PATTERN])
     orphan_rows = cursor.fetchall()
 
     if orphan_rows:
@@ -255,14 +262,14 @@ def _group_by_narrator(
         " JOIN book_narrators bn ON a.id = bn.book_id"
         " JOIN narrators narr ON bn.narrator_id = narr.id"
         f"{join_clause}"
-        f" WHERE {AUDIOBOOK_FILTER}"
+        f" WHERE {AUDIOBOOK_FILTER} AND {TRANSLATED_PATH_EXCLUSION}"
         " ORDER BY narr.sort_name COLLATE NOCASE,"
         " COALESCE(a.published_date, a.release_date,"
         " CAST(a.published_year AS TEXT) || '-01-01',"
         " '9999-12-31') ASC,"
         f" {title_sort_expr}"
     )
-    cursor.execute(query, sort_params)
+    cursor.execute(query, sort_params + [TRANSLATED_PATH_PATTERN])
     rows = cursor.fetchall()
 
     groups: list[dict] = []
@@ -289,11 +296,11 @@ def _group_by_narrator(
         f"SELECT {book_cols}"  # nosec B608  # noqa: S608
         " FROM audiobooks a"
         f"{join_clause}"
-        f" WHERE {AUDIOBOOK_FILTER}"
+        f" WHERE {AUDIOBOOK_FILTER} AND {TRANSLATED_PATH_EXCLUSION}"
         " AND a.id NOT IN (SELECT book_id FROM book_narrators)"
         f" ORDER BY {title_sort_expr}"
     )
-    cursor.execute(query, sort_params)
+    cursor.execute(query, sort_params + [TRANSLATED_PATH_PATTERN])
     orphan_rows = cursor.fetchall()
 
     if orphan_rows:

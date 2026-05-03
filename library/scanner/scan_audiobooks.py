@@ -156,10 +156,16 @@ class ProgressTracker:
 
 
 def _collect_files_by_format(base_dir: Path, formats: list[str]) -> list[Path]:
-    """Collect all audio files across formats, printing per-format counts."""
+    """Collect all audio files across formats, printing per-format counts.
+
+    Excludes anything under a ``translated/`` subdirectory — those are
+    per-chapter translation artifacts (e.g. ``Book.ch001.zh-Hans.opus``)
+    that are regenerable from the canonical source and must never be
+    ingested as standalone audiobooks. See Audiobook-Manager-2sw.
+    """
     all_files = []
     for ext in formats:
-        files = list(base_dir.rglob(f"*{ext}"))
+        files = [f for f in base_dir.rglob(f"*{ext}") if "translated" not in f.parts]
         print(f"  Found {len(files)} {ext} files")
         all_files.extend(files)
     return all_files

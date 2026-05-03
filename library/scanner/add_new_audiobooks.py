@@ -94,11 +94,21 @@ def get_existing_paths(db_path: Path) -> set[str]:
 
 
 def _collect_audio_files(library_dir: Path) -> list[Path]:
-    """Collect all audio files from library, filtering cover art."""
+    """Collect all audio files from library, filtering cover art and translated chapters.
+
+    Excludes:
+    - ``.cover.<ext>`` cover-art sidecars
+    - Anything under a ``translated/`` subdirectory (per-chapter translation
+      artifacts that are regenerable from the canonical source). Same
+      exclusion as ``utilities_conversion._count_opus_files`` and
+      ``utilities_ops.hashing._collect_checksum_files``. See
+      Audiobook-Manager-2sw — translated chapter files were being ingested
+      as standalone audiobooks and appearing in the library grid.
+    """
     all_files: list[Path] = []
     for ext in SUPPORTED_FORMATS:
         all_files.extend(library_dir.rglob(f"*{ext}"))
-    return [f for f in all_files if not is_cover_art_file(f)]
+    return [f for f in all_files if not is_cover_art_file(f) and "translated" not in f.parts]
 
 
 def _deduplicate_audiobook_files(all_files: list[Path]) -> list[Path]:
@@ -118,7 +128,7 @@ def find_new_audiobooks(library_dir: Path, existing_paths: set[str]) -> list[Pat
 
 
 def _run_post_insert_hooks(audiobook_id: int, db_path: Path) -> None:
-    """Run enrichment, verification, and translation hooks after a successful insert."""
+    """Run enrichment, verification, translation, and hash hooks after a successful insert."""
     enrich_fn = _get_enrich_module()
     if enrich_fn and audiobook_id:
         try:
@@ -140,6 +150,21 @@ def _run_post_insert_hooks(audiobook_id: int, db_path: Path) -> None:
             enqueue_book_all_locales(audiobook_id)
         except Exception as e:
             print(f"  ⚠ Translation queue error (non-fatal): {e}", file=sys.stderr)
+
+    # Hash auto-generation. Restored in v8.3.10.1 — newly-ingested books were
+    # being inserted without sha256_hash because the per-file hash was only
+    # computed when ``calculate_hashes=True`` was passed to ``get_file_metadata``.
+    # If the metadata path already populated ``sha256_hash``, this is an
+    # idempotent no-op (the row's current hash is overwritten with the same
+    # value). Hashing is non-fatal — a failure here must not block the insert.
+    # See Audiobook-Manager-f5e.
+    if audiobook_id:
+        try:
+            from scripts.generate_hashes import generate_hash_for_book
+
+            generate_hash_for_book(audiobook_id, db_path)
+        except Exception as e:
+            print(f"  ⚠ Hash generation error (non-fatal): {e}", file=sys.stderr)
 
 
 def _insert_one_audiobook(

@@ -349,14 +349,27 @@ def _build_filter_clauses(params: dict) -> tuple[list[str], list]:
     Handles collection lookup, content-type bypass, search, author/narrator/
     publisher/genre/format filters, collection query injection, and
     sort-specific filters (e.g., series-only).
+
+    Always applies the ``translated/`` chapter-artifact exclusion as a
+    defense-in-depth layer — even if the scanner ever lets a translated/
+    chapter file slip into the audiobooks table, it will not surface in the
+    library grid. See Audiobook-Manager-2sw.
     """
     collection_data = _resolve_collection(params.get("collection"))
 
     bypasses = collection_data and collection_data.get("bypasses_filter", False)
     where_clauses: list[str] = [] if bypasses else [AUDIOBOOK_FILTER]
 
-    param_clauses, sql_params = _apply_param_filters(params)
+    # Defense-in-depth: never surface translated/ chapter artifacts even if
+    # the scanner write-side filter is bypassed (e.g. by a manual INSERT or a
+    # legacy DB row from before the scanner fix). Parameter-bound to keep
+    # the LIKE pattern out of the SQL string.
+    where_clauses.append("file_path NOT LIKE ?")
+    sql_params: list = ["%/translated/%"]
+
+    param_clauses, more_params = _apply_param_filters(params)
     where_clauses.extend(param_clauses)
+    sql_params.extend(more_params)
 
     if collection_data:
         where_clauses.append(f"({collection_data['query']})")
