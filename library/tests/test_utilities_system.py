@@ -256,6 +256,66 @@ class TestGetServicesStatus:
         assert "services" in data
         assert any(s["status"] == "error" for s in data["services"])
 
+    @patch("backend.api_modular.utilities_system.subprocess.run")
+    def test_enumerates_full_audiobook_unit_roster(self, mock_run, flask_app):
+        """Audiobook-Manager-b7p: Service Status must report the full
+        audiobook unit graph (target + api + proxy + redirect + scheduler +
+        converter + mover + stream-translate + monitors + helpers + timers),
+        not just the 3 control-allowlisted services."""
+        mock_run.return_value = MagicMock(stdout="active\n", returncode=0)
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/system/services")
+
+        assert response.status_code == 200
+        data = response.get_json()
+        names = {s["name"] for s in data["services"]}
+        # Spot-check every category of unit that must appear
+        for expected in (
+            "audiobook.target",
+            "audiobook-api.service",
+            "audiobook-proxy.service",
+            "audiobook-redirect.service",
+            "audiobook-stream-translate.service",
+            "audiobook-converter.service",
+            "audiobook-mover.service",
+            "audiobook-scheduler.service",
+            "audiobook-shutdown-saver.service",
+            "audiobook-translation-monitor-live.timer",
+            "audiobook-translation-monitor-sampler.timer",
+            "audiobook-downloader.timer",
+            "audiobook-enrichment.timer",
+            "audiobook-upgrade-helper.path",
+            "audiobook-upgrade-helper.service",
+        ):
+            assert expected in names, f"missing {expected} from service status roster"
+        # Sanity floor: previously only 3 services showed up; assert >= 12.
+        assert len(data["services"]) >= 12
+
+    @patch("backend.api_modular.utilities_system.subprocess.run")
+    def test_marks_controllable_vs_readonly_services(self, mock_run, flask_app):
+        """Audiobook-Manager-b7p: each service entry must carry a
+        `controllable` flag — only the control-allowlisted set may be
+        toggled from the UI; api/proxy/helpers etc. are read-only."""
+        mock_run.return_value = MagicMock(stdout="active\n", returncode=0)
+
+        with flask_app.test_client() as client:
+            response = client.get("/api/system/services")
+
+        data = response.get_json()
+        by_name = {s["name"]: s for s in data["services"]}
+
+        # Controllable units (match SERVICES allowlist)
+        assert by_name["audiobook-converter.service"]["controllable"] is True
+        assert by_name["audiobook-mover.service"]["controllable"] is True
+        assert by_name["audiobook-downloader.timer"]["controllable"] is True
+
+        # Read-only units (excluded from SERVICES)
+        assert by_name["audiobook-api.service"]["controllable"] is False
+        assert by_name["audiobook-proxy.service"]["controllable"] is False
+        assert by_name["audiobook.target"]["controllable"] is False
+        assert by_name["audiobook-upgrade-helper.path"]["controllable"] is False
+
 
 class TestStartService:
     """Test the start_service route."""

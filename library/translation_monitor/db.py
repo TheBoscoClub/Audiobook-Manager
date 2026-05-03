@@ -38,7 +38,7 @@ def _canonical_default_db() -> str:
         from config import AUDIOBOOKS_DATABASE  # type: ignore[import-not-found]
 
         return str(AUDIOBOOKS_DATABASE)
-    except ImportError, AttributeError:
+    except (ImportError, AttributeError):  # fmt: skip
         return fallback
 
 

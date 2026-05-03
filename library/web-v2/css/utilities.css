@@ -2089,6 +2089,15 @@ body.back-office {
     background: var(--red-ink);
 }
 
+/* Read-only marker for services excluded from the UI control allowlist
+   (Audiobook-Manager-b7p) — keeps the controls column visually aligned. */
+.service-readonly {
+    color: var(--ink-faded);
+    font-size: 1rem;
+    padding: 0 0.5rem;
+    user-select: none;
+}
+
 .service-name {
     font-weight: bold;
     color: var(--ink);
@@ -2965,6 +2974,40 @@ body.back-office {
     .table-container {
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+    }
+
+    /* Conversion stats — reflow 3-col → 2-col so 'In Staging' / 'Conversion
+       Rate' labels stop truncating at the right edge on narrow phones
+       (Audiobook-Manager-xld). Tighten label/value sizing so 6 cells fit. */
+    .conversion-stats {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.6rem;
+    }
+
+    .conversion-stats .stat-row {
+        padding: 0.55rem 0.4rem;
+        min-width: 0;
+    }
+
+    .conversion-stats .stat-row .stat-label {
+        font-size: 0.78rem;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        line-height: 1.2;
+    }
+
+    .conversion-stats .stat-row .stat-value {
+        font-size: 1.25rem;
+    }
+
+    /* Duplicates list — wrap long filesystem paths inside placeholder/error
+       messages (e.g. 'Index file not found: /var/lib/...') instead of
+       overflowing horizontally on narrow viewports (Audiobook-Manager-889). */
+    .duplicates-list .placeholder-text {
+        overflow-wrap: anywhere;
+        word-break: break-word;
+        padding: 1.25rem 0.75rem;
+        text-align: left;
     }
 
     /* Service items — tighter */

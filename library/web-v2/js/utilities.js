@@ -2148,18 +2148,35 @@ function formatBytes(bytes, decimals = 1) {
 
 /**
  * Update the conversion progress bar UI
+ *
+ * When `source_count === 0` we have nothing to convert — render a definitive
+ * 100% bar instead of the indeterminate "0% Calculating..." state that was
+ * shipped before (Audiobook-Manager-pgb). The percent shown is dashed out
+ * because there is no meaningful ratio when the denominator is zero.
  */
 function updateConversionProgressBar(status) {
   const progressFill = document.getElementById("conv-progress-fill");
   const percentDisplay = document.getElementById("conv-percent");
   if (!progressFill || !percentDisplay) return;
 
-  progressFill.style.width = `${status.percent_complete}%`;
-  percentDisplay.textContent = `${status.percent_complete}%`;
+  const noSources = (status.source_count || 0) === 0;
+
+  if (noSources) {
+    progressFill.style.width = "100%";
+    percentDisplay.textContent = "—";
+  } else {
+    progressFill.style.width = `${status.percent_complete}%`;
+    percentDisplay.textContent = `${status.percent_complete}%`;
+  }
 
   const container = progressFill.closest(".conversion-progress-container");
   if (container) {
-    container.classList.toggle("conversion-complete", status.is_complete);
+    // Treat 'no sources' as a complete state visually so the bar styling
+    // matches a fully-converted library rather than an in-progress run.
+    container.classList.toggle(
+      "conversion-complete",
+      status.is_complete || noSources,
+    );
   }
 }
 
@@ -2199,6 +2216,9 @@ function calculateConversionRate(status) {
  * Get display text for conversion rate
  */
 function getConversionRateText(status, processes) {
+  // No sources to convert — definitive empty state, not "measuring..."
+  // (Audiobook-Manager-pgb).
+  if ((status.source_count || 0) === 0) return "—";
   if (status.is_complete) return "complete";
   if (conversionRateTracker.rate > 0)
     return `${conversionRateTracker.rate.toFixed(1)} books/min`;
@@ -2209,8 +2229,13 @@ function getConversionRateText(status, processes) {
 
 /**
  * Get display text for ETA
+ *
+ * When there are zero source files, the ETA cannot be computed (no work to
+ * estimate). Show a definitive empty-state message instead of perpetually
+ * displaying "Calculating..." (Audiobook-Manager-pgb).
  */
 function getETAText(status) {
+  if ((status.source_count || 0) === 0) return "No sources to convert";
   if (status.is_complete) return "Complete!";
   if (conversionRateTracker.rate > 0 && status.remaining > 0) {
     const etaMins = status.remaining / conversionRateTracker.rate;
@@ -4237,11 +4262,20 @@ async function loadServicesStatus() {
       infoDiv.appendChild(textDiv);
       serviceDiv.appendChild(infoDiv);
 
-      // Controls section
+      // Controls section — only render start/stop/restart for services on
+      // the backend's control allowlist. Read-only units (api, proxy,
+      // helper.path, oneshots) are still shown for status visibility but
+      // can't be toggled from the UI (Audiobook-Manager-b7p).
       const controlsDiv = document.createElement("div");
       controlsDiv.className = "service-controls";
 
-      if (service.active) {
+      if (service.controllable === false) {
+        const lockedSpan = document.createElement("span");
+        lockedSpan.className = "service-readonly";
+        lockedSpan.title = "Read-only — managed by systemd";
+        lockedSpan.textContent = "—";
+        controlsDiv.appendChild(lockedSpan);
+      } else if (service.active) {
         const stopBtn = document.createElement("button");
         stopBtn.className = "service-btn stop";
         stopBtn.title = "Stop";

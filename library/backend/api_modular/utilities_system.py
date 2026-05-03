@@ -55,10 +55,35 @@ UPGRADE_HELPER_STALE_TIMEOUT_SEC = 30 * 60  # 30 minutes
 # Module-level state set by init_system_routes
 _project_root: str = ""
 
-# List of services that can be controlled
-# Note: audiobook-api and audiobook-proxy are intentionally excluded -
-# they are core infrastructure that should not be stopped via the UI
+# List of services that can be controlled (start/stop/restart) via the UI.
+# Note: audiobook-api and audiobook-proxy are intentionally excluded —
+# they are core infrastructure that should not be stopped via the UI.
 SERVICES = ["audiobook-converter", "audiobook-mover", "audiobook-downloader.timer"]
+
+# Full unit roster shown read-only on the Service Status card. Covers every
+# `audiobook-*` unit + the umbrella `audiobook.target` that an installed app
+# is expected to ship — see `systemd/` and the project CLAUDE.md "Systemd
+# Services" list. Display-only; control endpoints still gate on `SERVICES`.
+# Audiobook-Manager-b7p — previously only the 3 SERVICES showed up, so the
+# card claimed "3/3 RUNNING" while ignoring API/proxy/scheduler/translation
+# units that were also running.
+STATUS_SERVICES = [
+    "audiobook.target",
+    "audiobook-api.service",
+    "audiobook-proxy.service",
+    "audiobook-redirect.service",
+    "audiobook-stream-translate.service",
+    "audiobook-converter.service",
+    "audiobook-mover.service",
+    "audiobook-scheduler.service",
+    "audiobook-shutdown-saver.service",
+    "audiobook-translation-monitor-live.timer",
+    "audiobook-translation-monitor-sampler.timer",
+    "audiobook-downloader.timer",
+    "audiobook-enrichment.timer",
+    "audiobook-upgrade-helper.path",
+    "audiobook-upgrade-helper.service",
+]
 
 
 # =========================================================================
@@ -383,6 +408,22 @@ def _write_request_or_error() -> FlaskResponse:
     return (jsonify({"error": "Failed to write request (permission denied)"}), 500)
 
 
+def _is_controllable(service: str) -> bool:
+    """Whether the UI may issue start/stop/restart for this unit.
+
+    The control allowlist (`SERVICES`) keys off bare names (no `.service`
+    suffix). Strip the suffix when matching so the broader STATUS_SERVICES
+    list (which includes `.service`/`.target`/`.timer`/`.path` qualifiers)
+    can resolve correctly.
+    """
+    bare = service
+    for suffix in (".service", ".target", ".timer", ".path", ".socket"):
+        if bare.endswith(suffix):
+            bare = bare[: -len(suffix)]
+            break
+    return bare in SERVICES or service in SERVICES
+
+
 def _get_service_status_entry(service: str) -> dict:
     """Get the status of a single systemd service."""
     try:
@@ -392,7 +433,12 @@ def _get_service_status_entry(service: str) -> dict:
             text=True,
             timeout=5,
         )
-        is_active = result.stdout.strip() == "active"
+        # `.target` / `.path` / `.timer` units report "active" when armed and
+        # "waiting" for paths idling on inotify — both count as healthy.
+        # Oneshot services with RemainAfterExit return "active"; without it
+        # they return "inactive" after exiting cleanly.
+        status_str = result.stdout.strip()
+        is_active = status_str in ("active", "waiting")
 
         result_enabled = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
             ["systemctl", "is-enabled", service],  # noqa: S603,S607 — systemctl is the system service manager; args are hardcoded service names, not user input
@@ -400,13 +446,14 @@ def _get_service_status_entry(service: str) -> dict:
             text=True,
             timeout=5,
         )
-        is_enabled = result_enabled.stdout.strip() == "enabled"
+        is_enabled = result_enabled.stdout.strip() in ("enabled", "static", "alias")
 
         return {
             "name": service,
             "active": is_active,
             "enabled": is_enabled,
-            "status": result.stdout.strip(),
+            "status": status_str,
+            "controllable": _is_controllable(service),
         }
     except subprocess.TimeoutExpired:
         return {
@@ -415,6 +462,7 @@ def _get_service_status_entry(service: str) -> dict:
             "enabled": False,
             "status": "timeout",
             "error": "Timeout checking service status",
+            "controllable": _is_controllable(service),
         }
     except Exception as e:
         logger.exception("Error checking service status for %s: %s", service, e)
@@ -424,6 +472,7 @@ def _get_service_status_entry(service: str) -> dict:
             "enabled": False,
             "status": "error",
             "error": "Service status check failed",
+            "controllable": _is_controllable(service),
         }
 
 
@@ -579,8 +628,14 @@ def _execute_cf_purge(zone_id: str, api_key: str, auth_email: str) -> FlaskRespo
 @utilities_system_bp.route("/api/system/services", methods=["GET"])
 @admin_or_localhost
 def get_services_status() -> FlaskResponse:
-    """Get status of all audiobook services."""
-    services = [_get_service_status_entry(svc) for svc in SERVICES]
+    """Get status of all audiobook services.
+
+    Reports the full `STATUS_SERVICES` roster so the UI's "N/M RUNNING" badge
+    reflects the entire audiobook unit graph (api, proxy, redirect, scheduler,
+    converter, mover, translation worker, monitor timers, helpers, etc.) —
+    not just the 3 control-allowlisted services. Audiobook-Manager-b7p.
+    """
+    services = [_get_service_status_entry(svc) for svc in STATUS_SERVICES]
     return jsonify({"services": services, "all_active": all(s["active"] for s in services)})
 
 
