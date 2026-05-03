@@ -51,21 +51,38 @@ html.cjk h1, html.cjk h2, html.cjk h3 {
 }
 
 .locale-switcher select {
-  background: transparent;
+  background-color: transparent;
   border: 1px solid var(--deco-gold, #c5a55a);
   color: var(--deco-gold, #c5a55a);
+  font-family: inherit;
   font-size: 0.8rem;
-  padding: 2px 6px;
+  padding: 2px 22px 2px 8px;
   border-radius: 4px;
   cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  min-width: 60px;
+  -moz-appearance: none;
+  min-width: 64px;
   text-align: center;
+  /* Custom gold dropdown chevron — replaces the native arrow stripped
+     by `appearance: none`. Inline SVG keeps the icon a single canonical
+     asset (no external file) and lets us reuse the deco-gold colour. */
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8' fill='none' stroke='%23c5a55a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'><path d='M1 1l5 5 5-5'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 10px 6px;
+}
+
+/* Drop-down menu (popped open): browsers only honour background-color
+   and color on <option>. Keeping these dark-on-gold prevents the OS
+   default white popup from clashing with the Art Deco theme. */
+.locale-switcher select option {
+  background-color: var(--deco-charcoal, #1a1206);
+  color: var(--deco-gold, #c5a55a);
 }
 
 .locale-switcher select:hover {
-  background: rgba(197, 165, 90, 0.15);
+  background-color: rgba(197, 165, 90, 0.15);
 }
 
 .locale-switcher select:focus {

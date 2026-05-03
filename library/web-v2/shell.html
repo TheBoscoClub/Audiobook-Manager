@@ -72,11 +72,23 @@
             </button>
             <!-- Locale switcher -->
             <div class="locale-switcher" id="locale-switcher" title="Language / 语言" data-i18n-title="chrome.title.language">
-                <svg class="locale-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                    <circle cx="12" cy="12" r="10"/>
-                    <path d="M2 12h20"/>
-                    <path d="M12 2c3 3.6 3 16.4 0 20"/>
-                    <path d="M12 2c-3 3.6-3 16.4 0 20"/>
+                <svg class="locale-icon" viewBox="0 0 256 256" fill="none" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <!-- Earth globe — Phosphor "globe-hemisphere-west" icon
+                         (MIT licence, https://github.com/phosphor-icons/core,
+                         regular/globe-hemisphere-west.svg). The sphere is the
+                         outer circle and three stroked paths trace the visible
+                         continent contours on the Americas-facing hemisphere
+                         (North America, Central America/Caribbean isthmus,
+                         South America). The 256x256 viewBox + stroke-width 16
+                         is Phosphor's native sizing — the relative stroke stays
+                         crisp at the 16px chrome-header render size. Replaces
+                         the prior abstract wireframe globe (circle + meridian
+                         + 2 longitude curves) flagged on Bosco's 2026-05-03
+                         screenshot as not reading as Earth (Audiobook-Manager-bc0). -->
+                    <circle cx="128" cy="128" r="96"/>
+                    <path d="M75.88,123.26,89.2,100a8,8,0,0,1,6.94-4h16.71a7.9,7.9,0,0,0,3.86-1L129,88.24a7.12,7.12,0,0,0,1.49-1.07l26.92-24.33A8,8,0,0,0,159,53l-10.5-18.81"/>
+                    <path d="M67.78,53.23,56,81.08A8,8,0,0,0,55.88,87l11.5,30.67a8,8,0,0,0,5.81,5l21.43,4.61a8,8,0,0,1,5.52,4.33l3.8,7.87a8,8,0,0,0,7.2,4.51h13.8"/>
+                    <path d="M213.09,172.48l-52.38-32.22a8.11,8.11,0,0,0-3.12-1.11l-22.82-3.08a8,8,0,0,0-8.38,4.67l-13.7,30.74a8,8,0,0,0,1.44,8.69l19.74,20.33a8,8,0,0,1,2,6.95l-3.17,16.44"/>
                 </svg>
                 <select id="locale-select" aria-label="Language">
                     <option value="en">EN</option>
