@@ -246,17 +246,26 @@ def get_activity_stats():
     Get aggregate activity statistics.
 
     Returns:
-        total_listens: Total number of listening sessions
+        total_hours_listened: Total hours of listening across all users (float)
         total_downloads: Total number of downloads
         active_users: Distinct users with any activity
-        top_listened: Top 10 most-listened audiobooks [{audiobook_id, title, count}]
+        top_listened: Top 10 most-listened audiobooks [{audiobook_id, title, total_ms}]
+            — ranked by SUM(duration_listened_ms), grouped by title to collapse
+            stale audiobook_id values left over from library re-imports.
         top_downloaded: Top 10 most-downloaded audiobooks [{audiobook_id, title, count}]
+            — grouped by title for the same stale-id reason. COUNT(*) is the right
+            metric here because each row is one discrete download event.
     """
     auth_db = get_auth_db()
 
     with auth_db.connection() as conn:
-        # Total listens
-        total_listens = conn.execute("SELECT COUNT(*) FROM user_listening_history").fetchone()[0]
+        # Total hours listened — SUM(duration) is the meaningful aggregate.
+        # COUNT(*) over user_listening_history is misleading because each row is
+        # a ~5-second position-update slice, not a real listening session.
+        total_ms_row = conn.execute(
+            "SELECT COALESCE(SUM(duration_listened_ms), 0) FROM user_listening_history"
+        ).fetchone()
+        total_hours_listened = (total_ms_row[0] or 0) / 3600000.0
 
         # Total downloads
         total_downloads = conn.execute("SELECT COUNT(*) FROM user_downloads").fetchone()[0]
@@ -271,23 +280,35 @@ def get_activity_stats():
         ).fetchone()[0]
 
         # Top 10 most-listened audiobooks
-        # MAX(title) picks a stored title from any row in the group
+        # GROUP BY title collapses stale audiobook_id values from library
+        # re-imports (the same book can appear under multiple ids in history).
+        # MAX(audiobook_id) picks the most-recent canonical id (highest
+        # autoincrement = newest). COALESCE defends against NULL durations.
+        # WHERE excludes legacy rows from before the title denormalization.
         top_listened_rows = _rows_to_dicts(
             conn.execute(
-                "SELECT audiobook_id, MAX(title) AS stored_title, COUNT(*) AS cnt "
+                "SELECT MAX(audiobook_id) AS audiobook_id, "
+                "       title AS stored_title, "
+                "       SUM(COALESCE(duration_listened_ms, 0)) AS total_ms "
                 "FROM user_listening_history "
-                "GROUP BY audiobook_id "
-                "ORDER BY cnt DESC "
+                "WHERE title IS NOT NULL AND title != '' "
+                "GROUP BY title "
+                "ORDER BY total_ms DESC "
                 "LIMIT 10"
             )
         )
 
         # Top 10 most-downloaded audiobooks
+        # Same stale-id collapse via title grouping, but COUNT(*) is the
+        # correct metric — each row is one discrete download event.
         top_downloaded_rows = _rows_to_dicts(
             conn.execute(
-                "SELECT audiobook_id, MAX(title) AS stored_title, COUNT(*) AS cnt "
+                "SELECT MAX(audiobook_id) AS audiobook_id, "
+                "       title AS stored_title, "
+                "       COUNT(*) AS cnt "
                 "FROM user_downloads "
-                "GROUP BY audiobook_id "
+                "WHERE title IS NOT NULL AND title != '' "
+                "GROUP BY title "
                 "ORDER BY cnt DESC "
                 "LIMIT 10"
             )
@@ -307,7 +328,7 @@ def get_activity_stats():
         {
             "audiobook_id": str(row["audiobook_id"]),
             "title": titles.get(str(row["audiobook_id"])) or row.get("stored_title"),
-            "count": row["cnt"],
+            "total_ms": row["total_ms"],
         }
         for row in top_listened_rows
     ]
@@ -323,7 +344,7 @@ def get_activity_stats():
 
     return jsonify(
         {
-            "total_listens": total_listens,
+            "total_hours_listened": total_hours_listened,
             "total_downloads": total_downloads,
             "active_users": active_users,
             "top_listened": top_listened,

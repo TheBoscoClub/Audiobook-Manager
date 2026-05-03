@@ -7,6 +7,24 @@
 // This allows the proxy server to properly route requests
 const API_BASE = "";
 
+/**
+ * Format a millisecond duration as a compact "Xh Ym" / "Xh" / "Ym" string.
+ * Used by the activity stats widgets where each unit is hours/minutes of
+ * actual listening time (not session counts).
+ *
+ * @param {number} ms - Duration in milliseconds
+ * @returns {string} - Formatted string e.g. "5h 12m", "2h", "47m", "0m"
+ */
+function formatHours(ms) {
+  if (!ms || ms < 0) return "0m";
+  const totalMin = Math.round(ms / 60000);
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  if (h === 0) return `${m}m`;
+  if (m === 0) return `${h}h`;
+  return `${h}h ${m}m`;
+}
+
 // ============================================
 // Safe Fetch Wrapper — delegates to shared api client (api.js)
 // ============================================
@@ -2679,13 +2697,19 @@ async function loadActivityStats() {
     const data = await safeFetch(`${API_BASE}/api/admin/activity/stats`);
 
     // Update stat cards
-    const totalListensEl = document.getElementById("audit-total-listens");
+    const totalHoursEl = document.getElementById("audit-total-listens");
     const totalDownloadsEl = document.getElementById("audit-total-downloads");
     const activeUsersEl = document.getElementById("audit-active-users");
     const topListenedEl = document.getElementById("audit-top-listened");
 
-    if (totalListensEl)
-      totalListensEl.textContent = (data.total_listens || 0).toLocaleString();
+    if (totalHoursEl) {
+      const hours = data.total_hours_listened || 0;
+      // Show one decimal place for compact display, e.g. "1,234.5h"
+      totalHoursEl.textContent = `${hours.toLocaleString(undefined, {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1,
+      })}h`;
+    }
     if (totalDownloadsEl)
       totalDownloadsEl.textContent = (
         data.total_downloads || 0
@@ -2698,24 +2722,24 @@ async function loadActivityStats() {
       if (data.top_listened && data.top_listened.length > 0) {
         const top = data.top_listened[0];
         topListenedEl.textContent = top.title || `Book #${top.audiobook_id}`;
-        topListenedEl.title = `${top.count} listens`;
+        topListenedEl.title = formatHours(top.total_ms);
       } else {
         topListenedEl.textContent = "None";
       }
     }
 
-    // Render top listened list
+    // Render top listened list — per-item formatter shows hours
     renderTopList(
       "audit-top-listened-list",
       data.top_listened || [],
-      "listens",
+      (item) => formatHours(item.total_ms),
     );
 
-    // Render top downloaded list
+    // Render top downloaded list — per-item formatter shows count
     renderTopList(
       "audit-top-downloaded-list",
       data.top_downloaded || [],
-      "downloads",
+      (item) => `${item.count} downloads`,
     );
 
     // Populate user filter dropdown from activity data
@@ -2726,7 +2750,15 @@ async function loadActivityStats() {
   }
 }
 
-function renderTopList(containerId, items, label) {
+/**
+ * Render a Top-N audit list.
+ *
+ * @param {string} containerId - id of the container element
+ * @param {Array<object>} items - rows from the stats endpoint
+ * @param {(item: object) => string} formatter - per-item value renderer
+ *   (e.g. (i) => formatHours(i.total_ms), or (i) => `${i.count} downloads`)
+ */
+function renderTopList(containerId, items, formatter) {
   const container = document.getElementById(containerId);
   if (!container) return;
 
@@ -2757,7 +2789,7 @@ function renderTopList(containerId, items, label) {
 
     const count = document.createElement("span");
     count.className = "audit-top-count";
-    count.textContent = `${item.count} ${label}`;
+    count.textContent = formatter(item);
 
     row.appendChild(rank);
     row.appendChild(title);

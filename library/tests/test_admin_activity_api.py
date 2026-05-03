@@ -373,20 +373,21 @@ class TestActivityStats:
         resp = client.get("/api/admin/activity/stats")
         assert resp.status_code == 200
         data = resp.get_json()
-        assert "total_listens" in data
+        assert "total_hours_listened" in data
         assert "total_downloads" in data
         assert "active_users" in data
         assert "top_listened" in data
         assert "top_downloaded" in data
 
-    def test_total_listens_count(self, client, activity_seeded):
-        """total_listens reflects the seeded data."""
+    def test_total_hours_listened(self, client, activity_seeded):
+        """total_hours_listened reflects SUM(duration_listened_ms) / 3600000."""
         _login_admin(client, activity_seeded)
         resp = client.get("/api/admin/activity/stats")
         data = resp.get_json()
-        # We seeded 4 listens for test user + 2 for admin = 6 minimum
-        # (may be more from other test files' seeded data)
-        assert data["total_listens"] >= 6
+        # Seeded: 4 listens of 10min for test user + 2 listens of 60min for admin
+        # = 40 + 120 = 160 min = ~2.667 hours minimum (may be more from other tests)
+        assert isinstance(data["total_hours_listened"], (int, float))
+        assert data["total_hours_listened"] >= 2.5
 
     def test_total_downloads_count(self, client, activity_seeded):
         """total_downloads reflects the seeded data."""
@@ -405,15 +406,17 @@ class TestActivityStats:
         assert data["active_users"] >= 2
 
     def test_top_listened_format(self, client, activity_seeded):
-        """top_listened is a list of {audiobook_id, title, count} objects."""
+        """top_listened is a list of {audiobook_id, title, total_ms} objects."""
         _login_admin(client, activity_seeded)
         resp = client.get("/api/admin/activity/stats")
         data = resp.get_json()
         assert isinstance(data["top_listened"], list)
-        assert len(data["top_listened"]) > 0
-        item = data["top_listened"][0]
-        assert "audiobook_id" in item
-        assert "count" in item
+        # May be empty if no rows have title set (e.g. legacy seeded rows
+        # from other test files lack the title denormalization).
+        if data["top_listened"]:
+            item = data["top_listened"][0]
+            assert "audiobook_id" in item
+            assert "total_ms" in item
 
     def test_top_downloaded_format(self, client, activity_seeded):
         """top_downloaded is a list of {audiobook_id, title, count} objects."""
@@ -421,10 +424,10 @@ class TestActivityStats:
         resp = client.get("/api/admin/activity/stats")
         data = resp.get_json()
         assert isinstance(data["top_downloaded"], list)
-        assert len(data["top_downloaded"]) > 0
-        item = data["top_downloaded"][0]
-        assert "audiobook_id" in item
-        assert "count" in item
+        if data["top_downloaded"]:
+            item = data["top_downloaded"][0]
+            assert "audiobook_id" in item
+            assert "count" in item
 
     def test_top_listened_limit(self, client, activity_seeded):
         """top_listened returns at most 10 items."""
@@ -440,13 +443,13 @@ class TestActivityStats:
         data = resp.get_json()
         assert len(data["top_downloaded"]) <= 10
 
-    def test_top_listened_sorted_by_count(self, client, activity_seeded):
-        """top_listened is sorted by count descending."""
+    def test_top_listened_sorted_by_total_ms(self, client, activity_seeded):
+        """top_listened is sorted by total_ms descending."""
         _login_admin(client, activity_seeded)
         resp = client.get("/api/admin/activity/stats")
         data = resp.get_json()
-        counts = [item["count"] for item in data["top_listened"]]
-        assert counts == sorted(counts, reverse=True)
+        totals = [item["total_ms"] for item in data["top_listened"]]
+        assert totals == sorted(totals, reverse=True)
 
     def test_top_downloaded_sorted_by_count(self, client, activity_seeded):
         """top_downloaded is sorted by count descending."""
@@ -455,3 +458,118 @@ class TestActivityStats:
         data = resp.get_json()
         counts = [item["count"] for item in data["top_downloaded"]]
         assert counts == sorted(counts, reverse=True)
+
+
+# ============================================================
+# Top-listened semantic regression tests (Audiobook-Manager-ptj)
+# ============================================================
+
+
+class TestTopListenedSemantics:
+    """Tests covering the v8.3.10.1 semantic shift:
+
+    1. Top Listened sums duration_listened_ms instead of counting slice rows
+       (each row in user_listening_history is a ~5-second position-update
+       slice, not a real listening session — COUNT(*) inflates wildly).
+    2. Top Listened groups by title to collapse stale audiobook_id values
+       that occur when the library is re-imported and books get new ids.
+    """
+
+    @pytest.fixture
+    def isolated_seed(self, auth_app):
+        """Seed a known-isolated dataset for a unique title and clean up after.
+
+        We can't reset the shared session-scoped DB, so we use unique titles
+        ("ptj-*") that other tests don't touch.
+        """
+        auth_db = auth_app.auth_db
+        user_id = auth_app.test_user_id
+        seeded_titles: list[str] = []
+
+        def _seed(title: str, audiobook_id: str, duration_ms: int, count: int = 1):
+            seeded_titles.append(title)
+            base = datetime.now() - timedelta(hours=24)
+            for i in range(count):
+                h = UserListeningHistory(
+                    user_id=user_id,
+                    audiobook_id=audiobook_id,
+                    title=title,
+                    started_at=base + timedelta(seconds=i * 5),
+                    ended_at=base + timedelta(seconds=(i + 1) * 5),
+                    position_start_ms=i * 1000,
+                    position_end_ms=(i + 1) * 1000,
+                    duration_listened_ms=duration_ms,
+                )
+                h.save(auth_db)
+
+        yield auth_app, _seed
+
+        # Cleanup — remove only the rows we added (by title)
+        with auth_db.connection() as conn:
+            for title in seeded_titles:
+                conn.execute("DELETE FROM user_listening_history WHERE title = ?", (title,))
+
+    def test_top_listened_sums_duration_not_count(self, isolated_seed):
+        """5 slices of 10s each = 50000 ms total, not count=5."""
+        auth_app, seed = isolated_seed
+        title = "ptj-sum-vs-count-test-book"
+        # 5 slices, each 10 seconds (10000 ms)
+        seed(title=title, audiobook_id="999001", duration_ms=10000, count=5)
+
+        client = auth_app.test_client()
+        _login_admin(client, auth_app)
+        resp = client.get("/api/admin/activity/stats")
+        data = resp.get_json()
+
+        matching = [r for r in data["top_listened"] if r["title"] == title]
+        assert len(matching) == 1, f"Expected 1 row for '{title}', got {matching}"
+        assert matching[0]["total_ms"] == 50000
+        # And critically, the field is total_ms — not "count"
+        assert "count" not in matching[0]
+
+    def test_top_listened_collapses_stale_audiobook_ids(self, isolated_seed):
+        """Same title under two different audiobook_ids rolls up to ONE entry."""
+        auth_app, seed = isolated_seed
+        title = "ptj-stale-id-test-book"
+        # Mimic a re-import: same title appears under id 999100 (old) and 999200 (new)
+        seed(title=title, audiobook_id="999100", duration_ms=20000, count=3)  # 60000 ms
+        seed(title=title, audiobook_id="999200", duration_ms=15000, count=2)  # 30000 ms
+
+        client = auth_app.test_client()
+        _login_admin(client, auth_app)
+        resp = client.get("/api/admin/activity/stats")
+        data = resp.get_json()
+
+        matching = [r for r in data["top_listened"] if r["title"] == title]
+        # Critical assertion: ONE entry, not two
+        assert len(matching) == 1, (
+            f"Stale-id collapse failed — expected 1 entry for '{title}', got: {matching}"
+        )
+        # Sum of all slices: 60000 + 30000 = 90000
+        assert matching[0]["total_ms"] == 90000
+        # MAX(audiobook_id) should pick the higher (newer) id
+        assert matching[0]["audiobook_id"] == "999200"
+
+    def test_total_hours_listened_metric(self, isolated_seed):
+        """total_hours_listened is the SUM in hours, with float precision."""
+        auth_app, seed = isolated_seed
+        title = "ptj-total-hours-test-book"
+        # One row of 7,200,000 ms = 2.0 hours
+        seed(title=title, audiobook_id="999300", duration_ms=7200000, count=1)
+
+        client = auth_app.test_client()
+        _login_admin(client, auth_app)
+        resp = client.get("/api/admin/activity/stats")
+        data = resp.get_json()
+
+        # The seeded 2 hours must be reflected — but other tests may have added
+        # data too, so just check that our 2 hours pushed the total up by >=2.
+        # (We can't isolate "total" because it's global. Instead, find our row
+        # in top_listened and verify it shows 7,200,000 ms.)
+        matching = [r for r in data["top_listened"] if r["title"] == title]
+        assert len(matching) == 1
+        assert matching[0]["total_ms"] == 7200000
+        # And the global total is at least 2 hours (our contribution)
+        assert data["total_hours_listened"] >= 2.0
+        # And it's a number, not a count
+        assert isinstance(data["total_hours_listened"], (int, float))
