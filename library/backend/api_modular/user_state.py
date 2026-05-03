@@ -449,7 +449,7 @@ def get_new_books():
                 }
             )
 
-        return jsonify(
+        response = jsonify(
             {
                 "books": books,
                 "total": len(books),
@@ -458,6 +458,14 @@ def get_new_books():
                 ),
             }
         )
+        # Per-user mutable state — must never be cached by browser or
+        # intermediate proxies. Without this, browsers retain the previous
+        # response in their HTTP cache (heuristic freshness on JSON with no
+        # Cache-Control), which left stale phantom titles in the marquee
+        # after a chapter-artifact DB cleanup on prod 2026-05-03.
+        response.headers["Cache-Control"] = "no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        return response
     finally:
         conn.close()
 
@@ -483,4 +491,9 @@ def dismiss_new_books():
     prefs.new_books_seen_at = now
     prefs.save(auth_db)
 
-    return jsonify({"success": True, "new_books_seen_at": now.isoformat()})
+    response = jsonify({"success": True, "new_books_seen_at": now.isoformat()})
+    # Per-user mutable state — never cache. Mirrors the GET companion
+    # so a stale POST response can't ever satisfy a subsequent revalidation.
+    response.headers["Cache-Control"] = "no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    return response

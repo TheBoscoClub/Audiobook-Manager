@@ -310,6 +310,36 @@ class TestDismissNewBooks:
 
 
 # ============================================================
+# Cache-Control header regression (Audiobook-Manager-5gf)
+# ============================================================
+
+
+class TestNewBooksNoCache:
+    """Per-user mutable endpoints must set Cache-Control: no-store.
+
+    Regression for Audiobook-Manager-5gf: after a prod chapter-artifact
+    cleanup on 2026-05-03, the marquee continued to show stale phantom
+    titles in open browser tabs because `/api/user/new-books` returned
+    JSON without any Cache-Control header — browsers applied heuristic
+    freshness and held the stale response across reloads.
+    """
+
+    def test_new_books_response_has_no_store_cache_control(self, client, user_state_seeded):
+        _login(client, user_state_seeded, user_state_seeded.test_user_secret)
+        resp = client.get("/api/user/new-books")
+        assert resp.status_code == 200
+        assert resp.headers.get("Cache-Control") == "no-store, must-revalidate"
+        assert resp.headers.get("Pragma") == "no-cache"
+
+    def test_new_books_dismiss_response_has_no_store_cache_control(self, client, user_state_seeded):
+        _login(client, user_state_seeded, user_state_seeded.test_user_secret)
+        resp = client.post("/api/user/new-books/dismiss")
+        assert resp.status_code == 200
+        assert resp.headers.get("Cache-Control") == "no-store, must-revalidate"
+        assert resp.headers.get("Pragma") == "no-cache"
+
+
+# ============================================================
 # Position Sync creates history entry
 # ============================================================
 
