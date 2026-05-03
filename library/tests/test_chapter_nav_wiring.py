@@ -299,3 +299,168 @@ def test_i18n_zh_hans_actually_translated():
             f"zh-Hans value for {key!r} has no CJK characters — likely "
             f"copy-pasted from en. Value: {val!r}"
         )
+
+
+# ── playBook user-gesture activation order (Audiobook-Manager-8mm) ──
+#
+# v8.3.10.2 P0 regression: the chapters fetch + _applyChapterButtonVisibility
+# call were placed on the user-gesture stack BEFORE `await this.audio.play()`.
+# The fetch's .then() microtask chain consumed the gesture activation, so
+# audio.play() rejected with NotAllowedError on prod Chromium and the play
+# button silently did nothing. v8.3.10.3 defers both via queueMicrotask AFTER
+# audio.play() has already been awaited. These structural tests catch that
+# class of regression — never let chapters wiring run before play() again.
+
+
+class TestPlayBookGestureActivationOrder:
+    """Structural guards that nothing async runs on the gesture stack between
+    `audio.src = ...` and `await this.audio.play()` in playBook(). Browsers
+    require audio.play() to be the first async consumer of the gesture
+    activation; intervening fetch/.then() microtasks invalidate it on
+    Chromium and audio.play() rejects with NotAllowedError."""
+
+    @staticmethod
+    def _play_book_body() -> str:
+        """Extract the full playBook function body for slicing."""
+        # async playBook(book, resume = true) { ... }  — find via the unique
+        # signature, then bracket-balance to the matching closing brace.
+        start = SHELL_JS.find("async playBook(book, resume")
+        assert start != -1, "Could not locate playBook function"
+        # Find opening brace
+        brace_open = SHELL_JS.find("{", start)
+        assert brace_open != -1
+        depth = 1
+        i = brace_open + 1
+        while i < len(SHELL_JS) and depth > 0:
+            ch = SHELL_JS[i]
+            if ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+            i += 1
+        assert depth == 0, "Unbalanced braces in playBook"
+        return SHELL_JS[brace_open : i]
+
+    @staticmethod
+    def _main_play_await_idx(body: str) -> int:
+        """Return offset of the MAIN `await this.audio.play()` call in
+        playBook — the one that starts new-book playback (NOT the early
+        resume-paused fast-path at the top of the function). The main
+        play() lives inside the `if (!streamingNeeded)` block and is the
+        one that must beat the chapters-fetch microtask to the gesture
+        activation."""
+        # All occurrences (there are two: the resume-paused fast-path early
+        # in the function, then the main one). We want the last one.
+        matches = [m.start() for m in re.finditer(r"await this\.audio\.play\(\)", body)]
+        assert matches, "Could not locate any `await this.audio.play()` in playBook"
+        return matches[-1]
+
+    def test_chapter_fetch_runs_after_audio_play_await(self):
+        """The /api/audiobooks/<id>/chapters fetch MUST appear AFTER the
+        main `await this.audio.play()` line in playBook. If it appears
+        before, its .then() microtasks consume the user-gesture activation
+        and play() rejects with NotAllowedError on Chromium prod."""
+        body = self._play_book_body()
+        play_await_idx = self._main_play_await_idx(body)
+        # Find the chapters-endpoint fetch call (template-literal form)
+        chapters_fetch_match = re.search(
+            r"fetch\(\s*`\$\{API_BASE\}/audiobooks/\$\{bookId\}/chapters`",
+            body,
+        )
+        assert chapters_fetch_match, (
+            "Chapters fetch missing from playBook entirely — Audiobook-Manager-6ub feature is broken"
+        )
+        chapters_fetch_idx = chapters_fetch_match.start()
+        assert chapters_fetch_idx > play_await_idx, (
+            "Chapters fetch appears BEFORE `await this.audio.play()` "
+            f"(fetch at offset {chapters_fetch_idx}, play at {play_await_idx}). "
+            "This is the v8.3.10.2 regression — the fetch's microtask chain "
+            "will consume the gesture activation and play() will reject with "
+            "NotAllowedError on prod Chromium. Defer the fetch via "
+            "queueMicrotask AFTER play(). (Audiobook-Manager-8mm)"
+        )
+
+    def test_apply_chapter_button_visibility_call_after_audio_play_await(self):
+        """The first _applyChapterButtonVisibility() call inside playBook MUST
+        appear AFTER the main `await this.audio.play()`, OR be inside a
+        queueMicrotask/setTimeout block deferred past it. A bare synchronous
+        call before play() is a gesture-activation violation."""
+        body = self._play_book_body()
+        play_await_idx = self._main_play_await_idx(body)
+        # All occurrences of the visibility helper call inside playBook
+        calls = [m.start() for m in re.finditer(r"this\._applyChapterButtonVisibility\(", body)]
+        # OK if there are zero calls before play_await OR if every call
+        # before play_await sits inside a queueMicrotask/setTimeout block.
+        for call_idx in calls:
+            if call_idx >= play_await_idx:
+                continue
+            # Look backwards from this call site for an enclosing
+            # queueMicrotask( or setTimeout( on the same code path. Bounded
+            # search of the 400 chars before the call.
+            window = body[max(0, call_idx - 400) : call_idx]
+            if "queueMicrotask(" in window or "setTimeout(" in window:
+                continue
+            raise AssertionError(
+                f"_applyChapterButtonVisibility() called synchronously "
+                f"BEFORE `await this.audio.play()` at offset {call_idx} "
+                f"(play at {play_await_idx}). Defer via queueMicrotask "
+                "AFTER play(). (Audiobook-Manager-8mm)"
+            )
+
+    @staticmethod
+    def _strip_js_comments(src: str) -> str:
+        """Strip // line comments and /* block */ comments from JS source.
+        String/template-literal contents are also nuked to whitespace so
+        false-positive substring matches (e.g. the word `fetch(` inside a
+        comment or string literal) don't trip the structural assertions.
+        Crude but adequate for the bounded slice this test inspects."""
+        # Remove block comments first
+        src = re.sub(r"/\*.*?\*/", lambda m: " " * len(m.group(0)), src, flags=re.DOTALL)
+        # Remove line comments — `//` to end of line
+        src = re.sub(r"//[^\n]*", lambda m: " " * len(m.group(0)), src)
+        # Remove string literals (single, double, backtick) — preserve length
+        # to keep offsets stable for error messages.
+        def _blank(m):
+            return m.group(0)[0] + " " * (len(m.group(0)) - 2) + m.group(0)[-1]
+        src = re.sub(r'"(?:\\.|[^"\\\n])*"', _blank, src)
+        src = re.sub(r"'(?:\\.|[^'\\\n])*'", _blank, src)
+        src = re.sub(r"`(?:\\.|[^`\\])*`", _blank, src, flags=re.DOTALL)
+        return src
+
+    def test_no_synchronous_dom_or_fetch_between_audio_src_and_audio_play(self):
+        """Between the line that assigns `this.audio.src = ${API_BASE}/stream/...`
+        (the EN single-stream path) and the main `await this.audio.play()`,
+        no synchronous fetch() or _applyChapterButtonVisibility() call may
+        appear in EXECUTABLE code (comments and string literals are
+        stripped before scanning). Both fetch and the visibility helper
+        vector microtasks that consume the user-gesture activation.
+        document.getElementById is exempted — pure DOM access doesn't
+        consume gesture activation, only async operations do.
+        (Audiobook-Manager-8mm)"""
+        body = self._play_book_body()
+        # Slice between the EN single-stream src assignment and the MAIN
+        # play() await (not the early resume-paused fast-path).
+        src_match = re.search(
+            r"this\.audio\.src\s*=\s*`\$\{API_BASE\}/stream/",
+            body,
+        )
+        assert src_match, "Could not locate `this.audio.src = ${API_BASE}/stream/` assignment"
+        play_idx = self._main_play_await_idx(body)
+        assert play_idx > src_match.end(), (
+            "audio.play() await must come after the audio.src assignment"
+        )
+        slice_ = self._strip_js_comments(body[src_match.end() : play_idx])
+        # Forbidden patterns — each is a documented gesture-loss vector.
+        forbidden = [
+            (r"\bfetch\(", "fetch() call"),
+            (r"this\._applyChapterButtonVisibility\(", "_applyChapterButtonVisibility() call"),
+        ]
+        for pattern, label in forbidden:
+            match = re.search(pattern, slice_)
+            assert not match, (
+                f"Forbidden synchronous {label} found between `audio.src = ...` "
+                f"and `await audio.play()` (offset {match.start()} in slice). "
+                "This consumes user-gesture activation and audio.play() will "
+                "reject with NotAllowedError. Defer to queueMicrotask AFTER "
+                "play(). (Audiobook-Manager-8mm)"
+            )

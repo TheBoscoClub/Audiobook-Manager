@@ -450,37 +450,22 @@ class ShellPlayer {
       this.audio.src = `${API_BASE}/stream/${bookId}${needsWebm ? "?format=webm" : ""}`;
     }
 
-    // Show chapter-skip buttons whenever chapter boundaries are available —
-    // either via the streaming MSE pipeline, the legacy translatedEntries
-    // path, OR the new /api/audiobooks/<id>/chapters endpoint that exposes
-    // ffprobe-derived boundaries for the English single-stream path
-    // (Audiobook-Manager-6ub). Visibility is recomputed by
-    // _applyChapterButtonVisibility() after the chapters fetch resolves.
-    // _streamingNeeded is captured here so the helper can evaluate the
-    // playBook-time decision even before streamingTranslate has flipped to
-    // an active state on its own schedule.
+    // _streamingNeeded is captured synchronously so _applyChapterButtonVisibility
+    // (called after audio.play() resolves below) can evaluate the playBook-time
+    // streaming decision even before streamingTranslate flips to active.
+    // Synchronous assignment only — DO NOT call _applyChapterButtonVisibility
+    // or issue the chapters API call here. (Audiobook-Manager-8mm)
+    //
+    // Both the chapters fetch and the visibility recompute are deferred to a
+    // queueMicrotask block AFTER `await this.audio.play()` (or, on the
+    // streaming-needed branch, right after streamingTranslate.check()). Why:
+    // the user-gesture activation that authorises audio.play() is consumed by
+    // the FIRST async operation that runs on the gesture stack. v8.3.10.2
+    // shipped the chapters fetch BEFORE audio.play() — its .then() microtask
+    // chain stole the gesture, and audio.play() rejected with NotAllowedError
+    // on prod Chromium. Symptom: user clicks Play, nothing happens. See the
+    // gesture-activation comment immediately above the audio.play() try block.
     this._streamingNeeded = streamingNeeded;
-    this._applyChapterButtonVisibility();
-
-    // Fetch chapter boundaries for the English single-stream path. The
-    // streaming MSE and translatedEntries paths already have their own
-    // chapter accounting; this endpoint covers the ~90% of the library that
-    // plays via /stream/<id> with no client-side chapter info. The fetch is
-    // intentionally non-blocking — if it fails or the book has no chapters,
-    // visibility falls back to streaming/translated state.
-    fetch(`${API_BASE}/audiobooks/${bookId}/chapters`, { credentials: "include" })
-      .then((resp) => (resp.ok ? resp.json() : { chapters: [] }))
-      .then((data) => {
-        // Discard if user already switched to a different book mid-flight.
-        if (!this.currentBook || this.currentBook.bookId !== bookId) return;
-        this.chapters = Array.isArray(data.chapters) ? data.chapters : [];
-        this._applyChapterButtonVisibility();
-      })
-      .catch(() => {
-        if (!this.currentBook || this.currentBook.bookId !== bookId) return;
-        this.chapters = [];
-        this._applyChapterButtonVisibility();
-      });
 
     // Load saved speed
     const savedSpeed = this.getSpeed();
@@ -543,7 +528,12 @@ class ShellPlayer {
 
     // Start playback — must happen within user gesture window.
     // Cross-frame calls (iframe → parent) lose gesture activation if async
-    // operations (like API fetch) run first.
+    // operations (like API fetch) run first. v8.3.10.2 broke this by issuing
+    // /api/audiobooks/<id>/chapters on the gesture stack BEFORE audio.play();
+    // the chapters fetch's microtask chain stole the gesture and play()
+    // rejected with NotAllowedError. Chapters fetch + visibility recompute
+    // are now deferred via queueMicrotask AFTER play() (or, on the streaming
+    // branch, after streamingTranslate.check()). (Audiobook-Manager-8mm)
     // When streaming is needed we skip play() here; MseAudioChain in
     // streaming-translate.js calls audio.play() once enough segments are
     // buffered. Skipping the English play() avoids audible bleed-through.
@@ -555,6 +545,39 @@ class ShellPlayer {
         this.showPlayerError(this._errorKeyForPlayRejection(error));
       }
     }
+
+    // Deferred chapter-button wiring (Audiobook-Manager-8mm).
+    // Runs as a microtask AFTER audio.play() has already consumed (or failed
+    // to consume) the user-gesture activation. Order:
+    //   1. Initial visibility pass — reflects streaming/translatedEntries
+    //      state. For the EN single-stream path this.chapters is still []
+    //      so the buttons stay hidden until the fetch below resolves.
+    //   2. Fetch /api/audiobooks/<id>/chapters and recompute visibility
+    //      once the chapters array is populated. The 6ub feature
+    //      (chapter-skip buttons for the EN single-stream path) is
+    //      preserved — it just lights up one event-loop turn later than
+    //      it did in v8.3.10.2.
+    // For the streaming-needed branch chapter buttons may flash hidden →
+    // visible briefly during streaming setup; that's acceptable — the
+    // streaming MSE pipeline has its own chapter accounting and does not
+    // depend on this fetch.
+    queueMicrotask(() => {
+      // Discard if user already switched to a different book mid-flight.
+      if (!this.currentBook || this.currentBook.bookId !== bookId) return;
+      this._applyChapterButtonVisibility();
+      fetch(`${API_BASE}/audiobooks/${bookId}/chapters`, { credentials: "include" })
+        .then((resp) => (resp.ok ? resp.json() : { chapters: [] }))
+        .then((data) => {
+          if (!this.currentBook || this.currentBook.bookId !== bookId) return;
+          this.chapters = Array.isArray(data.chapters) ? data.chapters : [];
+          this._applyChapterButtonVisibility();
+        })
+        .catch(() => {
+          if (!this.currentBook || this.currentBook.bookId !== bookId) return;
+          this.chapters = [];
+          this._applyChapterButtonVisibility();
+        });
+    });
 
     // Check API for a further-ahead position (async, adjusts after play starts)
     if (resume) {

@@ -36,16 +36,32 @@ class TestShellJS:
         assert "playerState" in content
 
     def test_has_credentials_on_api_calls(self):
-        """Any fetch calls in shell.js must include credentials."""
-        content = SHELL_JS.read_text()
-        if "fetch(" in content:
-            import re
+        """Any fetch calls in shell.js must include credentials. Comments
+        and string-literal references to `fetch(` (e.g. inline docs of the
+        gesture-activation rationale in playBook) are stripped before
+        counting so they don't false-positive."""
+        import re
 
-            fetches = len(re.findall(r"fetch\(", content))
-            creds = len(re.findall(r"credentials\s*:\s*['\"]include['\"]", content))
-            assert creds >= fetches, (
-                f"Found {fetches} fetch calls but only {creds} with credentials"
-            )
+        content = SHELL_JS.read_text()
+        if "fetch(" not in content:
+            return
+        # Strip block comments, line comments, and string literals (preserve
+        # length so error messages stay actionable).
+        stripped = re.sub(r"/\*.*?\*/", lambda m: " " * len(m.group(0)), content, flags=re.DOTALL)
+        stripped = re.sub(r"//[^\n]*", lambda m: " " * len(m.group(0)), stripped)
+
+        def _blank(m):
+            return m.group(0)[0] + " " * (len(m.group(0)) - 2) + m.group(0)[-1]
+
+        stripped = re.sub(r'"(?:\\.|[^"\\\n])*"', _blank, stripped)
+        stripped = re.sub(r"'(?:\\.|[^'\\\n])*'", _blank, stripped)
+        stripped = re.sub(r"`(?:\\.|[^`\\])*`", _blank, stripped, flags=re.DOTALL)
+
+        fetches = len(re.findall(r"fetch\(", stripped))
+        creds = len(re.findall(r"credentials\s*:\s*['\"]include['\"]", content))
+        assert creds >= fetches, (
+            f"Found {fetches} fetch calls but only {creds} with credentials"
+        )
 
     def test_has_media_session(self):
         content = SHELL_JS.read_text()

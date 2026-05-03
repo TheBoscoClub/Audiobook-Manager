@@ -54,6 +54,7 @@ export default [
         clearTimeout: "readonly",
         setInterval: "readonly",
         clearInterval: "readonly",
+        queueMicrotask: "readonly",
         requestAnimationFrame: "readonly",
         cancelAnimationFrame: "readonly",
         // ── Media/asset constructors ───────────────────────────────
