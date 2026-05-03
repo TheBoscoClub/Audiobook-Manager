@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.3.10.2] - 2026-05-03
+
+### Added
+
 - **Chapter-list API endpoint**: New `GET /api/audiobooks/<id>/chapters` returns `{"chapters":[{"index","start_ms","end_ms","title?"}]}` derived from `ffprobe -show_chapters` against `audiobooks.file_path`, with per-worker `OrderedDict` LRU cache (cap 256) keyed by `(audiobook_id, file_mtime_ns)` so the cache invalidates automatically when the source file is replaced — unblocks the v8.3.10.1 client-side chapter-skip buttons on the English single-stream `/stream/<id>` path (~90% of library), `Cache-Control: public, max-age=86400` because chapter boundaries are immutable per file, `@auth_if_enabled` posture matches `/api/stream/<id>`. Reuses existing `library/localization/chapters.py::extract_chapters` (already used by `streaming_translate.py::_resolve_chapters`) as the single source of truth — only a thin adapter shapes the dataclasses to JSON and strips synthesized placeholder titles. Helper switched from truncation to rounding for the ms conversion (sub-ms shift, backward-compatible since downstream consumers divide by 1000.0) (Audiobook-Manager-7bf)
 
 ### Changed
@@ -3614,7 +3622,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.2...HEAD
+[8.3.10.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.1...v8.3.10.2
 [8.3.10.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10...v8.3.10.1
 [8.3.10]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.9...v8.3.10
 [8.3.9]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.8.14...v8.3.9
