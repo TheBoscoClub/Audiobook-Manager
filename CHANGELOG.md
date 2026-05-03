@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+## [8.3.10.3] - 2026-05-03
+
+### Changed
+
 - **Header chrome polish**: Replaced the featureless wireframe globe in `library/web-v2/shell.html` with the Phosphor `globe-hemisphere-west` SVG (MIT licence) — three stroked paths trace the Americas-hemisphere continent contours, so the icon now reads as Earth at the 16 px chrome size instead of an abstract circle. Restored the locale `<select>` to the Art Deco theme in `library/web-v2/css/i18n.css`: added `-moz-appearance: none` for Firefox parity with `-webkit-appearance: none`, supplied a custom gold inline-SVG dropdown chevron via `background-image` to replace the native arrow stripped by `appearance: none`, set `background` and `color` on `.locale-switcher select option` so the popped-open menu shows gold text on `--deco-charcoal` instead of OS-default white, and inherited the surrounding font family. Locked by `library/tests/test_header_styling.py` (5 tests). Source: Bosco screenshot 2026-05-03 — header showed default browser dropdown styling outside the Art Deco theme (Audiobook-Manager-bc0)
 
 ### Fixed
@@ -3628,7 +3634,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.3...HEAD
+[8.3.10.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.2...v8.3.10.3
 [8.3.10.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.1...v8.3.10.2
 [8.3.10.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10...v8.3.10.1
 [8.3.10]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.9...v8.3.10
