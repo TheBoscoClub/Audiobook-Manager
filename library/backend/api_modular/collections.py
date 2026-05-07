@@ -519,7 +519,7 @@ def invalidate_collections_cache():
 
 
 # Backward compatibility: COLLECTIONS is initially empty, populated on first use
-COLLECTIONS = {}
+COLLECTIONS: dict[str, dict[str, list[int]]] = {}
 
 
 def init_collections_routes(db_path):
