@@ -30,7 +30,7 @@ import logging
 import sqlite3
 from typing import Any
 
-from translation_monitor.events import log_event
+from .events import log_event
 
 logger = logging.getLogger(__name__)
 

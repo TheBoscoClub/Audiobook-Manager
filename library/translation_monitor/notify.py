@@ -32,7 +32,7 @@ import sqlite3
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from translation_monitor.events import log_event
+from .events import log_event
 
 logger = logging.getLogger(__name__)
 

@@ -28,10 +28,10 @@ The package itself contains no I/O — all DB access goes through
 tmp_path SQLite DB without touching the real one.
 """
 
-from translation_monitor.db import connect  # noqa: F401
-from translation_monitor.events import log_event  # noqa: F401
-from translation_monitor.notify import send_chapter_starvation_alert  # noqa: F401
-from translation_monitor.probe import (  # noqa: F401
+from .db import connect  # noqa: F401
+from .events import log_event  # noqa: F401
+from .notify import send_chapter_starvation_alert  # noqa: F401
+from .probe import (  # noqa: F401
     CAPACITY_WARNING_COOLDOWN_SEC,
     LIVE_AGE_ALERT_SEC,
     LIVE_CLAIM_TIMEOUT_SEC,
