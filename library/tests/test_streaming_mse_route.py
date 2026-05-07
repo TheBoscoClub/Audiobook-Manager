@@ -123,10 +123,13 @@ def test_streaming_audio_route_serves_webm(app_client, seeded_segment):
         f"/{seeded_segment['seg']}"
         f"/{seeded_segment['locale']}"
     )
-    assert r.status_code == 200
-    assert "audio/webm" in r.headers["Content-Type"]
-    # Body starts with the EBML header magic we wrote
-    assert r.data.startswith(b"\x1a\x45\xdf\xa3")
+    try:
+        assert r.status_code == 200
+        assert "audio/webm" in r.headers["Content-Type"]
+        # Body starts with the EBML header magic we wrote
+        assert r.data.startswith(b"\x1a\x45\xdf\xa3")
+    finally:
+        r.close()  # Flask send_file: close to release file handle
 
 
 # ── Range request support (MSE requirement) ──
@@ -147,10 +150,13 @@ def test_streaming_audio_route_supports_range_requests(app_client, seeded_segmen
         f"/{seeded_segment['locale']}",
         headers={"Range": "bytes=0-9"},
     )
-    assert r.status_code == 206
-    assert "Content-Range" in r.headers
-    # First 10 bytes of the fake file we wrote
-    assert len(r.data) == 10
+    try:
+        assert r.status_code == 206
+        assert "Content-Range" in r.headers
+        # First 10 bytes of the fake file we wrote
+        assert len(r.data) == 10
+    finally:
+        r.close()  # Flask send_file: close to release file handle
 
 
 # ── Root-not-configured handling ──

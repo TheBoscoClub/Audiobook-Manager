@@ -632,6 +632,76 @@ journalctl -u audiobook-translation-monitor-live -n 20
 
 ---
 
+## 15. v8.3.10.5 Known-Issue Fixes
+
+### "Your session expired — sign in again to keep your progress saved." toast appears while listening
+
+**Symptoms**: A gold notification banner appears at the bottom of the player during playback. Audio continues, but the message indicates your progress is no longer being saved.
+
+**Root cause**: Non-persistent sessions (i.e., signed in without "Stay logged in") have an inactivity grace period. Before v8.3.10.5 this was 30 minutes — shorter than most audiobook listening sessions. Audio streams (`/streaming-audio/*`, `/audio/*`) bypass the `/api/*` middleware that normally refreshes `last_seen`, so any session lasting more than 30 continuous minutes would expire silently mid-listen. The `PUT /api/position` 5-second saves then returned 401, which was previously discarded with a silent `console.warn`.
+
+**Fix** (v8.3.10.5+): Two changes together:
+
+1. Session grace period raised to 120 minutes (`Session.DEFAULT_GRACE_MINUTES = 120` in `library/auth/models.py`), covering typical listening sessions
+2. `shell.js::savePositionToAPI()` now intercepts 401 responses and shows a one-time toast with a sign-in prompt (suppressed for 5 minutes to avoid repeated alerts during a long stale-session run)
+
+**If you see the toast**, your session has expired. Sign in again — your playback position up to the point of expiry was already saved; only subsequent progress saves were silently dropped. After signing in, the position auto-resumes correctly.
+
+**If you see the toast frequently on every session**, upgrade to v8.3.10.5+ so the 120-minute grace period applies. Alternatively, enable "Stay logged in on this device" during sign-in — persistent sessions never expire due to inactivity.
+
+**Verify**:
+
+```bash
+# Confirm the new default is active (should print 120)
+grep "DEFAULT_GRACE_MINUTES" /opt/audiobooks/library/auth/models.py
+```
+
+### Operator alert email never arrives on chapter starvation
+
+**Symptoms**: `journalctl -u audiobook-translation-monitor-live` shows lines like `… N age-alert(s), 0 operator-email(s), …` even though there are stale segments on a book.
+
+**Root causes** (in order of likelihood):
+
+1. **No recipient configured** — neither `ADMIN_EMAIL` nor `SMTP_FROM` is set in `/etc/audiobooks/audiobooks.conf`. The monitor logs `operator alert suppressed for audiobook N: no ADMIN_EMAIL or SMTP_FROM configured`.
+2. **Cooldown active** — an alert for the same `audiobook_id` was already sent within the last 60 minutes; the dedup row in `translation_monitor_events` (event_type `live_age_alert_emailed`) blocks the second send. This is intentional. Wait it out, or query the table to see when the cooldown expires.
+3. **SMTP failure** — the monitor logs `Failed to send operator alert to <addr>: <err>` and the tick exits 0 anyway (so the timer keeps running). Common causes: wrong `SMTP_HOST`/`SMTP_PORT`, wrong `SMTP_USER`/`SMTP_PASS`, recipient address rejected by the relay.
+
+**Verify**:
+
+```bash
+# Check the recipient resolution
+grep -E '^(ADMIN_EMAIL|SMTP_FROM)=' /etc/audiobooks/audiobooks.conf
+# Inspect cooldown rows for a specific book (replace N)
+sudo -u audiobooks sqlite3 /var/lib/audiobooks/db/audiobooks.db \
+  "SELECT created_at, audiobook_id, details FROM translation_monitor_events \
+   WHERE event_type='live_age_alert_emailed' ORDER BY created_at DESC LIMIT 10;"
+# Confirm SMTP works (uses the same env vars as the monitor)
+sudo -u audiobooks bash -c 'set -a; source /etc/audiobooks/audiobooks.conf; \
+  python3 -c "import smtplib,os; s=smtplib.SMTP(os.environ[\"SMTP_HOST\"],int(os.environ.get(\"SMTP_PORT\",25))); s.starttls(); s.login(os.environ[\"SMTP_USER\"],os.environ[\"SMTP_PASS\"]); print(\"ok\"); s.quit()"'
+```
+
+### `gpu=unhealthy` in monitor logs but workers seem fine
+
+**Symptoms**: `journalctl -u audiobook-translation-monitor-live` shows `gpu=unhealthy` despite the worker producing segments normally.
+
+**Root cause**: One of the configured providers is failing the 3-second `/v2/<endpoint>/health` probe. The probe is pessimistic — *any* provider failing pulls `any_healthy` to False even if another provider is fine. Since v8.3.10.5 the GPU probe is real (was a stub returning True).
+
+**Verify**:
+
+```bash
+# Manual probe — replace ENDPOINT and KEY
+curl -sS -m 3 -H "Authorization: Bearer $AUDIOBOOKS_RUNPOD_API_KEY" \
+  "https://api.runpod.ai/v2/$AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT/health"
+# Inspect probe failure events (transient network errors etc.)
+sudo -u audiobooks sqlite3 /var/lib/audiobooks/db/audiobooks.db \
+  "SELECT created_at, details FROM translation_monitor_events \
+   WHERE event_type='gpu_probe_failed' ORDER BY created_at DESC LIMIT 10;"
+```
+
+If the manual `curl` returns `{"workers":{"ready":N,...}}` with N>0 but the monitor logs `gpu=unhealthy`, something is filtering the request between the gunicorn worker and api.runpod.ai (egress firewall, DNS, expired cert, etc.). If the manual probe also fails, fix the upstream first — workers are still going to run jobs they're already serving, but new ones may not start.
+
+---
+
 ## Quick Reference
 
 | Issue | First Check | Fix |
@@ -647,7 +717,11 @@ journalctl -u audiobook-translation-monitor-live -n 20
 | 字幕生成失败 on every first-open | `curl .../api/system/version` | Upgrade to 8.3.7+ |
 | Transcript snaps back while reading | Hard-refresh `subtitles.js?v=` | Upgrade to 8.3.7+ |
 | Streaming segments lost on transfer | Re-export from 8.3.7+ source | `audiobook-translations export` (nested format) |
+| "Session expired" toast mid-listen | `grep DEFAULT_GRACE /opt/audiobooks/library/auth/models.py` | Upgrade to 8.3.10.5+ or use "Stay logged in" |
+| Translation buffering on chapter advance | `journalctl -u audiobook-stream-translate-worker` | Upgrade to 8.3.10.5+ (active-chapter preference in worker) |
 | Conversion Progress >100% | `_count_opus_files` counting `translated/` artifacts | Upgrade to 8.3.10.1+ |
 | Top Listened counts inflated | History row inserted on every 5 s save | Upgrade to 8.3.10.1+ |
 | Book modal off-screen on mobile | Viewport resize on modal mount | Upgrade to 8.3.10.1+ |
 | `translation-monitor-live` `start-limit-hit` | `StartLimitBurst=5` too low for 30 s cadence | Upgrade to 8.3.10.1+ |
+| Operator alert email never arrives on chapter starvation | `grep -E '^(ADMIN_EMAIL\|SMTP_FROM)=' /etc/audiobooks/audiobooks.conf` | Set `ADMIN_EMAIL` (or rely on `SMTP_FROM` fallback) and verify SMTP credentials |
+| Monitor logs `gpu=unhealthy` while workers serve traffic | Manual `curl /v2/<endpoint>/health` from the host | Fix egress / DNS / cert chain to `api.runpod.ai` or `run.vast.ai`; review `gpu_probe_failed` events |

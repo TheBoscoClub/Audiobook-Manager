@@ -7,7 +7,11 @@
 One pass:
   1. Reset stuck live-segment claims (claimed >60s, still not completed)
   2. Sweep retry-exhausted live segments (retry_count >= 3) to state=failed
-  3. (Future) GPU instance health probe — stubbed in v8.3.9
+  3. Flag aged live segments (>120s pending/processing) and email the
+     operator, grouped by audiobook with a 60-min cooldown
+  4. Capacity-pressure warning when pending live > threshold with active workers
+  5. GPU instance health probe (RunPod / Vast.ai) — pessimistic when no
+     provider is configured or all configured providers report 0 ready
 
 Triggered by ``audiobook-translation-monitor-live.timer`` (every 30s).
 Always exits 0 — errors are logged but never fail the timer, because a
@@ -51,6 +55,7 @@ from translation_monitor import (  # noqa: E402
     connect,
     probe_gpu_instance_health,
     reset_stuck_live_claims,
+    send_chapter_starvation_alert,
     sweep_retry_exhausted_segments,
 )
 from translation_monitor.db import db_exists, schema_has_monitor_table  # noqa: E402
@@ -79,15 +84,40 @@ def main() -> int:
             capacity_event = alert_capacity_pressure(conn)
             health = probe_gpu_instance_health(conn, monitor="live")
 
-            if reset_segs or failed_segs or aged_segs or capacity_event:
+            # Escalate fresh age-alerts to operator email, grouped by audiobook
+            # so a single book with N stuck segments produces one email, not N.
+            # Cooldown is enforced per-book inside send_chapter_starvation_alert.
+            emails_sent = 0
+            if aged_segs:
+                placeholders = ",".join("?" for _ in aged_segs)
+                rows = conn.execute(
+                    f"SELECT id, audiobook_id FROM streaming_segments "  # nosec B608  # noqa: S608
+                    f"WHERE id IN ({placeholders})",
+                    tuple(aged_segs),
+                ).fetchall()
+                by_book: dict[int, list[int]] = {}
+                for r in rows:
+                    by_book.setdefault(int(r["audiobook_id"]), []).append(int(r["id"]))
+                for book_id, seg_ids in by_book.items():
+                    if send_chapter_starvation_alert(conn, book_id, seg_ids):
+                        emails_sent += 1
+
+            health_status = (
+                "ok"
+                if health.get("any_healthy")
+                else ("stub" if health.get("stub") else "unhealthy")
+            )
+
+            if reset_segs or failed_segs or aged_segs or capacity_event or emails_sent:
                 logger.info(
                     "pass complete: %d claim reset(s), %d retry-exhausted, "
-                    "%d age-alert(s), capacity_warning=%s, gpu=%s",
+                    "%d age-alert(s), %d operator-email(s), capacity_warning=%s, gpu=%s",
                     len(reset_segs),
                     len(failed_segs),
                     len(aged_segs),
+                    emails_sent,
                     "yes" if capacity_event else "no",
-                    "stub" if health.get("stub") else "ok",
+                    health_status,
                 )
             else:
                 logger.debug("pass complete: no action needed")

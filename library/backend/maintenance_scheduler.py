@@ -252,7 +252,9 @@ def run_auth_cleanup():
 
         db = AuthDatabase()
         cleaned = 0
-        cleaned += SessionRepository(db).cleanup_stale(grace_minutes=30)
+        # Uses Session.DEFAULT_GRACE_MINUTES (120) — bumped from 30 in v8.3.10.5
+        # to avoid sweeping out sessions of users mid-audio-listen.
+        cleaned += SessionRepository(db).cleanup_stale()
         cleaned += PendingRegistrationRepository(db).cleanup_expired()
         cleaned += PendingRecoveryRepository(db).cleanup_expired()
         db.close()

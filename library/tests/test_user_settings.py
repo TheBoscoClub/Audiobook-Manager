@@ -31,7 +31,16 @@ def settings_db():
         db.initialize()
 
         user = _create_test_user(db)
-        yield db, user
+        try:
+            yield db, user
+        finally:
+            # Close before tmpdir teardown so SQLite handle releases the
+            # underlying file. Without this, GC fires after pytest sees
+            # the warning, and we get "unclosed database in <sqlite3...>".
+            try:
+                db.close()
+            except Exception:
+                pass
 
 
 class TestUserSettingsRepository:
@@ -198,7 +207,20 @@ class TestPreferencesAPI:
         client = app.test_client()
         client.set_cookie("audiobooks_session", raw_token)
 
-        yield client
+        try:
+            yield client
+        finally:
+            # Close the test client and the auth DB explicitly. Without
+            # this, the AuthDatabase's sqlite3.Connection lingers until
+            # GC and emits "unclosed database in <sqlite3...>" warnings.
+            try:
+                client.close()
+            except Exception:
+                pass
+            try:
+                auth_db.close()
+            except Exception:
+                pass
 
     def test_get_defaults(self, client):
         """GET /api/user/preferences returns defaults for new user."""
@@ -306,6 +328,12 @@ class TestPreferencesAPI:
         )
         app.config["TESTING"] = True
 
-        with app.test_client() as c:
-            resp = c.get("/api/user/preferences")
-            assert resp.status_code in (401, 302)
+        try:
+            with app.test_client() as c:
+                resp = c.get("/api/user/preferences")
+                assert resp.status_code in (401, 302)
+        finally:
+            try:
+                auth_db.close()
+            except Exception:
+                pass

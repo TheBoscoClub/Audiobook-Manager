@@ -921,11 +921,59 @@ class ShellPlayer {
         body: JSON.stringify({ position_ms: positionMs }),
         credentials: "include",
       });
-      if (!response.ok)
+      if (!response.ok) {
         console.warn(`Failed to save position: ${response.status}`);
+        // 401 = session expired (typically because the user's grace
+        // period ran out — audio streams bypass /api/* so they don't
+        // refresh last_seen). Surface a one-time toast so the user
+        // knows their progress is no longer being saved. Audio playback
+        // continues unimpeded — only persistence is affected.
+        if (response.status === 401) {
+          this._showSessionExpiredToast();
+        }
+      }
     } catch (error) {
       console.warn("Error saving position to API:", error);
     }
+  }
+
+  // Surface a session-expired toast at most once every 5 minutes so we
+  // don't spam the user during a long stale-session run.
+  _showSessionExpiredToast() {
+    const SUPPRESS_MS = 5 * 60 * 1000;
+    const now = Date.now();
+    if (this._lastSessionExpiredToast && now - this._lastSessionExpiredToast < SUPPRESS_MS) {
+      return;
+    }
+    this._lastSessionExpiredToast = now;
+    const message =
+      typeof t === "function"
+        ? t("shell.sessionExpired", {
+            defaultValue:
+              "Your session expired — sign in again to keep your progress saved.",
+          })
+        : "Your session expired — sign in again to keep your progress saved.";
+    this._showShellToast(message, "error");
+  }
+
+  // Shell-level toast. Uses the #toast-container in shell.html and the
+  // .toast/.toast.error styles from notifications.css. Mirrors the
+  // pattern in library.js::showToast() so the visual is identical.
+  _showShellToast(message, type = "info") {
+    const container = document.getElementById("toast-container");
+    if (!container) {
+      console.warn("[shell] toast container missing:", message);
+      return;
+    }
+    const toast = document.createElement("div");
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.transition = "opacity 0.3s ease";
+      setTimeout(() => toast.remove(), 300);
+    }, 6000);
   }
 
   async getPositionFromAPI(fileId) {

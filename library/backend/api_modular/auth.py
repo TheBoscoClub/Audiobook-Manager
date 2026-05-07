@@ -362,8 +362,10 @@ def get_current_user() -> Optional[User]:
     if session is None:
         return None
 
-    # Check if session is stale (30 minute grace period)
-    if session.is_stale(grace_minutes=30):
+    # Check if session is stale. Uses Session.DEFAULT_GRACE_MINUTES (120)
+    # so audio listening — which bypasses /api/* and doesn't refresh
+    # last_seen — doesn't trigger a silent 401 mid-chapter.
+    if session.is_stale():
         session.invalidate(db)
         return None
 

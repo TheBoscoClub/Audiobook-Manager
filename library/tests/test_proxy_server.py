@@ -607,12 +607,20 @@ class TestProxyToApi:
             hdrs=err_headers,
             fp=io.BytesIO(error_body),
         )
+        try:
+            with patch("urllib.request.urlopen", side_effect=http_error):
+                handler.proxy_to_api("GET")
 
-        with patch("urllib.request.urlopen", side_effect=http_error):
-            handler.proxy_to_api("GET")
-
-        assert handler._response_code == 404
-        assert handler.wfile.getvalue() == error_body
+            assert handler._response_code == 404
+            assert handler.wfile.getvalue() == error_body
+        finally:
+            # Defensive close — production code closes via finally in
+            # proxy_to_api, but if a refactor broke that we still don't
+            # want this test to leak ResourceWarnings.
+            try:
+                http_error.close()
+            except Exception:
+                pass
 
     def test_url_error_returns_503(self):
         handler = _make_handler(path="/api/books")
@@ -656,13 +664,20 @@ class TestProxyToApi:
         # Make read() raise an exception to trigger fallback
         http_error.read = MagicMock(side_effect=Exception("read failed"))
 
-        with patch("urllib.request.urlopen", side_effect=http_error):
-            handler.proxy_to_api("GET")
+        try:
+            with patch("urllib.request.urlopen", side_effect=http_error):
+                handler.proxy_to_api("GET")
 
-        assert handler._response_code == 500
-        body = json.loads(handler.wfile.getvalue())
-        assert body["code"] == 500
-        assert body["error"] == "Internal Server Error"
+            assert handler._response_code == 500
+            body = json.loads(handler.wfile.getvalue())
+            assert body["code"] == 500
+            assert body["error"] == "Internal Server Error"
+        finally:
+            # Defensive close (see test_http_error_forwarded above)
+            try:
+                http_error.close()
+            except Exception:
+                pass
 
 
 # ============================================================

@@ -199,9 +199,12 @@ class TestStreamTranslatedChapter:
         conn.close()
 
         resp = app_client.get("/api/audiobooks/1/translated-audio/0/zh-Hans")
-        assert resp.status_code == 200
-        assert resp.mimetype == "audio/opus"
-        assert b"fake-opus-bytes" in resp.data
+        try:
+            assert resp.status_code == 200
+            assert resp.mimetype == "audio/opus"
+            assert b"fake-opus-bytes" in resp.data
+        finally:
+            resp.close()  # Flask send_file: close to release file handle
 
     def test_mp3_mime_type(self, app_client, audio_db, tmp_path):
         mp3_file = tmp_path / "chapter.mp3"
@@ -218,8 +221,11 @@ class TestStreamTranslatedChapter:
         conn.close()
 
         resp = app_client.get("/api/audiobooks/1/translated-audio/0/zh-Hans")
-        assert resp.status_code == 200
-        assert resp.mimetype == "audio/mpeg"
+        try:
+            assert resp.status_code == 200
+            assert resp.mimetype == "audio/mpeg"
+        finally:
+            resp.close()  # Flask send_file: close to release file handle
 
 
 class TestGenerateTranslatedAudio:

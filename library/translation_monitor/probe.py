@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+from typing import Any
 
 from translation_monitor.events import log_event
 
@@ -267,7 +268,7 @@ def sweep_retry_exhausted_segments(
         "  AND retry_count >= ? "
         "  AND state NOT IN ('failed','completed')"
     )
-    params: list[object] = list(origins) + [retry_cap]
+    params: list[Any] = list(origins) + [retry_cap]
     rows = conn.execute(sql, params).fetchall()
 
     affected: list[int] = []
@@ -428,39 +429,65 @@ def alert_capacity_pressure(
     )
 
 
-# ─── GPU instance health probe (stub) ─────────────────────────────────────
+# ─── GPU instance health probe ────────────────────────────────────────────
 
 
-def probe_gpu_instance_health(
-    conn: sqlite3.Connection, *, monitor: str = "live"
-) -> dict[str, object]:
+def probe_gpu_instance_health(conn: sqlite3.Connection, *, monitor: str = "live") -> dict[str, Any]:
     """Probe the configured inference backend(s) for instance health.
 
-    A future release will integrate with whichever inference backend(s) the
-    operator has configured for STT/translation/TTS work, surfacing instance
-    status in a provider-agnostic combined dict:
+    Calls :func:`library.localization.gpu_health.probe_all_streaming_providers`
+    (the canonical implementation also used by the live API path) and
+    transforms the result into a provider-agnostic dict keyed by name:
 
         {
           "providers": {
-            "<provider-key>": {"healthy": True, "running": 1, "endpoint": "..."},
+            "<provider-key>": {"healthy": bool, "ready": int, "endpoint": str},
             ...
           },
-          "any_healthy": True,
+          "any_healthy": bool,
+          "stub": False,
         }
 
-    Multiple providers are supported because some installations run more than
-    one inference backend in parallel for redundancy.
+    Multiple providers are supported because some installations run more
+    than one inference backend in parallel for redundancy.
 
-    For now this is a no-op stub returning a structurally-correct empty
-    payload so the monitor scripts can call it without branching. When the
-    real probe lands, the existing call sites in
-    ``scripts/translation-monitor-{live,sampler}.py`` continue working
-    unchanged — they only inspect ``any_healthy``.
+    Pessimistic semantics: ``any_healthy`` is False whenever no provider
+    is configured, every configured provider has 0 ready workers, or the
+    probe itself raises. The pre-v8.3.10.5 stub returned ``True``
+    optimistically, which masked the 2026-05-04 prod incident.
 
-    The ``monitor`` and ``conn`` arguments are accepted so the eventual
-    implementation can write ``backend_probe_failed`` events without
-    changing any call site.
+    On unexpected exceptions a ``gpu_probe_failed`` event is logged to
+    ``translation_monitor_events`` and an empty pessimistic payload is
+    returned so the timer keeps advancing.
     """
-    _ = conn  # reserved for future event logging
-    _ = monitor
-    return {"providers": {}, "any_healthy": True, "stub": True}  # optimistic until real probe lands
+    try:
+        # Script-style import: works in both the Flask gunicorn context
+        # (project root on sys.path via api_modular/__init__.py) and the
+        # systemd-driven monitor context (library/ on sys.path via the
+        # script's path-bootstrap). A `library.localization` form would
+        # only work in the Flask context — see scripts/stream-translate-worker.py
+        # for the same convention.
+        from localization.gpu_health import probe_all_streaming_providers
+
+        result = probe_all_streaming_providers()
+        providers_by_name: dict[str, dict] = {
+            p["name"]: {
+                "healthy": p["ready"] > 0,
+                "ready": p["ready"],
+                "endpoint": p["endpoint_id"],
+            }
+            for p in result["providers"]
+        }
+        return {
+            "providers": providers_by_name,
+            "any_healthy": bool(result["any_healthy"]),
+            "stub": False,
+        }
+    except Exception as exc:  # noqa: BLE001 — never let a probe failure crash the timer
+        log_event(
+            conn,
+            monitor=monitor,
+            event_type="gpu_probe_failed",
+            details={"error": str(exc)},
+        )
+        return {"providers": {}, "any_healthy": False, "stub": False}

@@ -318,10 +318,15 @@ def test_stream_endpoint_resolves_foreign_db_path_to_local_file(app_client, fore
     every play would 404.
     """
     resp = app_client.get(f"/api/stream/{foreign_path_book['id']}")
-    assert resp.status_code == 200
-    assert resp.mimetype == "audio/ogg"
-    # Body should be the bytes we wrote into the local file
-    assert resp.data == b"fake opus data"
+    try:
+        assert resp.status_code == 200
+        assert resp.mimetype == "audio/ogg"
+        # Body should be the bytes we wrote into the local file
+        assert resp.data == b"fake opus data"
+    finally:
+        # Flask send_file responses hold the file open until close() is
+        # called; without this, pytest emits ResourceWarning at GC time.
+        resp.close()
 
 
 def test_stream_endpoint_returns_404_when_neither_path_exists(
@@ -400,12 +405,16 @@ def test_supplement_endpoint_resolves_foreign_db_path_to_local_file(
     supplement_id = 8042
     _insert_supplement_row(db_path, supplement_id, foreign_stored, relative_name)
 
+    resp = None
     try:
         resp = app_client.get(f"/api/supplements/{supplement_id}/download")
         assert resp.status_code == 200
         assert resp.mimetype == "application/pdf"
         assert resp.data == b"fake pdf bytes"
     finally:
+        # Flask send_file responses hold the file open until close().
+        if resp is not None:
+            resp.close()
         _delete_supplement_row(db_path, supplement_id)
 
 

@@ -30,6 +30,7 @@ tmp_path SQLite DB without touching the real one.
 
 from translation_monitor.db import connect  # noqa: F401
 from translation_monitor.events import log_event  # noqa: F401
+from translation_monitor.notify import send_chapter_starvation_alert  # noqa: F401
 from translation_monitor.probe import (  # noqa: F401
     CAPACITY_WARNING_COOLDOWN_SEC,
     LIVE_AGE_ALERT_SEC,
@@ -63,5 +64,6 @@ __all__ = [
     "reset_stuck_live_claims",
     "reset_stuck_sampler_claims",
     "reset_stuck_sampler_jobs",
+    "send_chapter_starvation_alert",
     "sweep_retry_exhausted_segments",
 ]

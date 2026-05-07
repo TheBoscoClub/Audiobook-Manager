@@ -157,3 +157,14 @@ def run_with_progress(cmd, *, line_callback, timeout_secs, operation_name="Opera
             timed_out=True,
             error=f"{operation_name} process did not exit cleanly",
         )
+    finally:
+        # Close PIPE'd stdout/stderr explicitly so Python 3.14 doesn't
+        # emit ResourceWarning ("unclosed file <_io.TextIOWrapper>") at
+        # GC time. Popen.__del__ does this lazily but only when the
+        # process object is garbage-collected, which can be much later.
+        for stream in (process.stdout, process.stderr):
+            if stream is not None:
+                try:
+                    stream.close()
+                except Exception:
+                    pass

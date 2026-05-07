@@ -179,6 +179,42 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         guessed = mimetypes.guess_type(filename)[0] or "image/jpeg"
         return guessed if guessed in self._ALLOWED_COVER_TYPES else "image/jpeg"
 
+    def _resolve_cors_origin(self) -> str:
+        """Determine the value to send for Access-Control-Allow-Origin.
+
+        When ``CORS_ORIGIN`` is the wildcard ``*`` AND the request carries
+        an ``Origin`` header, echo that origin instead. The wildcard is
+        invalid alongside ``Access-Control-Allow-Credentials: true`` per
+        the CORS spec, and we always pair the two for credentialed
+        requests (cookies-based auth). Echoing the request Origin is the
+        spec-compliant way to support credentialed cross-origin requests.
+
+        If no Origin header is present (e.g., same-origin or non-browser
+        clients) we keep the configured value (which is the wildcard by
+        default — harmless without credentials).
+        """
+        origin_header = self.headers.get("Origin")
+        if CORS_ORIGIN == "*" and origin_header:
+            return origin_header
+        return CORS_ORIGIN
+
+    def _send_cors_headers(self):
+        """Emit the canonical CORS header pair for credentialed requests.
+
+        Always paired: ``Access-Control-Allow-Origin`` + ``Access-Control-
+        Allow-Credentials: true``. The fetch() calls in the web UI use
+        ``credentials: "include"`` to ride the session cookie across the
+        proxy boundary, and Allow-Credentials must be true for the browser
+        to expose the response to JS.
+        """
+        self.send_header("Access-Control-Allow-Origin", self._resolve_cors_origin())
+        self.send_header("Access-Control-Allow-Credentials", "true")
+        # When echoing a specific origin (not wildcard), Vary: Origin tells
+        # caches that the response varies by Origin so they don't serve a
+        # cached response with the wrong A-C-A-O header to a different
+        # cross-origin caller.
+        self.send_header("Vary", "Origin")
+
     def _send_cover_response(self, cover_path: Path, content_type: str):
         """Send the HTTP response with cover data and cache headers."""
         file_size = cover_path.stat().st_size
@@ -187,7 +223,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(file_size))
         self.send_header("Cache-Control", "public, max-age=31536000, immutable")
-        self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
+        self._send_cors_headers()
         self.end_headers()
 
         with open(cover_path, "rb") as f:
@@ -246,7 +282,7 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         """Handle CORS preflight requests."""
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", CORS_ORIGIN)
+        self._send_cors_headers()
         self.send_header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, Range")
         self.send_header(
@@ -434,6 +470,15 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
                 error_body = e.read()
             except Exception:
                 error_body = json.dumps({"error": e.reason, "code": e.code}).encode()
+            finally:
+                # HTTPError holds an underlying http.client.HTTPResponse / fp
+                # that must be closed explicitly. Without close(), Python 3.14
+                # emits "ResourceWarning: Implicitly cleaning up <HTTPError ...>"
+                # at GC time. close() is idempotent and safe to call.
+                try:
+                    e.close()
+                except Exception:
+                    pass
             self.wfile.write(error_body)
 
         except urllib.error.URLError as e:

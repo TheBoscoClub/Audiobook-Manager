@@ -174,3 +174,138 @@ class TestProxyPrefixes:
         instance = object.__new__(handler_cls)
         instance.path = "/covers/123.jpg"
         assert instance._is_proxy_path() is False
+
+
+class TestCorsHeaders:
+    """Test that the CORS header pair is correctly emitted together.
+
+    Both sides of the pair must be present whenever the proxy emits CORS
+    headers — Access-Control-Allow-Origin AND Access-Control-Allow-
+    Credentials: true. Since the web UI uses credentials:include for all
+    fetch() calls, missing Allow-Credentials would silently break
+    cross-origin scenarios. Wildcard Allow-Origin is invalid alongside
+    Allow-Credentials per the CORS spec, so when the configured origin is
+    "*" we echo the request Origin instead.
+    """
+
+    def _get_handler_class(self):
+        proxy_path = LIBRARY_DIR / "web-v2"
+        if str(proxy_path) not in sys.path:
+            sys.path.insert(0, str(proxy_path))
+        import types
+
+        mock_config = types.ModuleType("config")
+        mock_config.AUDIOBOOKS_API_PORT = 5001
+        mock_config.AUDIOBOOKS_BIND_ADDRESS = "0.0.0.0"  # nosec B104  # test fixture
+        mock_config.AUDIOBOOKS_CERTS = Path("/tmp/certs")  # nosec B108  # test fixture
+        mock_config.AUDIOBOOKS_WEB_PORT = 8443
+        mock_config.COVER_DIR = Path("/tmp/covers")  # nosec B108  # test fixture
+        sys.modules["config"] = mock_config
+        try:
+            import importlib
+
+            if "proxy_server" in sys.modules:
+                importlib.reload(sys.modules["proxy_server"])
+            else:
+                import proxy_server  # noqa: F401
+            return sys.modules["proxy_server"].ReverseProxyHandler
+        finally:
+            del sys.modules["config"]
+
+    def _make_handler(self, headers_dict, cors_origin="*"):
+        """Construct a handler stub that records send_header calls."""
+        from email.message import Message
+
+        # Force CORS_ORIGIN module-level constant for the test
+        proxy_mod = sys.modules.get("proxy_server")
+        if proxy_mod is not None:
+            proxy_mod.CORS_ORIGIN = cors_origin
+
+        handler_cls = self._get_handler_class()
+        if proxy_mod is not None:
+            proxy_mod.CORS_ORIGIN = cors_origin
+        instance = object.__new__(handler_cls)
+
+        msg = Message()
+        for k, v in headers_dict.items():
+            msg[k] = v
+        instance.headers = msg
+
+        instance._sent_headers = []
+
+        def fake_send_header(name, value):
+            instance._sent_headers.append((name, value))
+
+        instance.send_header = fake_send_header  # type: ignore[assignment]
+        return instance
+
+    def test_resolve_cors_origin_wildcard_with_origin_header_echoes(self):
+        """When CORS_ORIGIN='*' and an Origin header is present, echo it."""
+        h = self._make_handler({"Origin": "https://example.thebosco.club"}, cors_origin="*")
+        assert h._resolve_cors_origin() == "https://example.thebosco.club"
+
+    def test_resolve_cors_origin_wildcard_no_origin_header_keeps_wildcard(self):
+        """When CORS_ORIGIN='*' and no Origin header, keep wildcard (non-browser caller)."""
+        h = self._make_handler({}, cors_origin="*")
+        assert h._resolve_cors_origin() == "*"
+
+    def test_resolve_cors_origin_specific_value_passes_through(self):
+        """When CORS_ORIGIN is a specific value, it is used regardless of Origin."""
+        h = self._make_handler(
+            {"Origin": "https://attacker.example"}, cors_origin="https://library.thebosco.club"
+        )
+        assert h._resolve_cors_origin() == "https://library.thebosco.club"
+
+    def test_send_cors_headers_emits_origin_credentials_and_vary(self):
+        """_send_cors_headers must emit all three: Allow-Origin, Allow-Credentials, Vary."""
+        h = self._make_handler({"Origin": "https://library.thebosco.club"}, cors_origin="*")
+        h._send_cors_headers()
+        names = [n for n, _ in h._sent_headers]
+        assert "Access-Control-Allow-Origin" in names
+        assert "Access-Control-Allow-Credentials" in names
+        assert "Vary" in names
+
+    def test_send_cors_headers_credentials_is_true(self):
+        """Allow-Credentials must literally be 'true' for browsers to expose response."""
+        h = self._make_handler({}, cors_origin="*")
+        h._send_cors_headers()
+        for name, value in h._sent_headers:
+            if name == "Access-Control-Allow-Credentials":
+                assert value == "true"
+                return
+        raise AssertionError("Access-Control-Allow-Credentials header missing")
+
+    def test_send_cors_headers_no_wildcard_when_credentials_true(self):
+        """Allow-Origin MUST NOT be '*' when Allow-Credentials=true (CORS spec).
+
+        With Origin header present, the wildcard config must be replaced
+        with the echoed origin. Browsers reject A-C-A-O='*' alongside
+        A-C-A-C='true' as a security safeguard.
+        """
+        h = self._make_handler({"Origin": "https://library.thebosco.club"}, cors_origin="*")
+        h._send_cors_headers()
+        for name, value in h._sent_headers:
+            if name == "Access-Control-Allow-Origin":
+                assert value != "*", (
+                    "Allow-Origin='*' alongside Allow-Credentials=true is invalid per CORS spec"
+                )
+                assert value == "https://library.thebosco.club"
+                return
+        raise AssertionError("Access-Control-Allow-Origin header missing")
+
+    def test_do_options_emits_credentials_header(self):
+        """The CORS preflight (do_OPTIONS) must emit Allow-Credentials together with Allow-Origin."""
+        from unittest.mock import MagicMock
+
+        h = self._make_handler({"Origin": "https://library.thebosco.club"}, cors_origin="*")
+        h.send_response = MagicMock()
+        h.end_headers = MagicMock()
+        h.do_OPTIONS()
+        names = [n for n, _ in h._sent_headers]
+        # Both headers must be present
+        assert "Access-Control-Allow-Origin" in names
+        assert "Access-Control-Allow-Credentials" in names
+        # Allow-Methods, Allow-Headers, Expose-Headers must still be present
+        assert "Access-Control-Allow-Methods" in names
+        assert "Access-Control-Allow-Headers" in names
+        assert "Access-Control-Expose-Headers" in names

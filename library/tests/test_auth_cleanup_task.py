@@ -252,10 +252,15 @@ class TestExecuteWithCleanup:
         assert result.success is True
         assert "8 old access requests" in result.message
 
-    def test_session_repo_called_with_grace_minutes(self):
-        """SessionRepository.cleanup_stale is called with grace_minutes=30."""
+    def test_session_repo_called_with_default_grace(self):
+        """SessionRepository.cleanup_stale is called with no explicit kwargs.
+
+        The default (Session.DEFAULT_GRACE_MINUTES=120) is used, which avoids
+        sweeping out sessions of users mid-audio-listen. Bumped from 30 →
+        120 in v8.3.10.5.
+        """
         _, _, _, mock_session_repo, *_ = self._run_execute(stale=1)
-        mock_session_repo.return_value.cleanup_stale.assert_called_once_with(grace_minutes=30)
+        mock_session_repo.return_value.cleanup_stale.assert_called_once_with()
 
     def test_registration_repo_cleanup_called(self):
         """PendingRegistrationRepository.cleanup_expired is called."""

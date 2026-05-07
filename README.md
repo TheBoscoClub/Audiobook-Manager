@@ -16,7 +16,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![8](https://img.shields.io/badge/8-brightgreen)![3](https://img.shields.io/badge/3-darkgreen)![10](https://img.shields.io/badge/10-green)![4](https://img.shields.io/badge/4-yellow) | Latest tweak | [v8.3.10.4](../../releases/tag/v8.3.10.4) |
+| ![8](https://img.shields.io/badge/8-brightgreen)![3](https://img.shields.io/badge/3-darkgreen)![10](https://img.shields.io/badge/10-green)![5](https://img.shields.io/badge/5-yellow) | Latest tweak | [v8.3.10.5](../../releases/tag/v8.3.10.5) |
+| ![8](https://img.shields.io/badge/8-brightred)![3](https://img.shields.io/badge/3-darkred)![10](https://img.shields.io/badge/10-red)![4](https://img.shields.io/badge/4-orange) | Prior tweak | [v8.3.10.4](../../releases/tag/v8.3.10.4) |
 | ![8](https://img.shields.io/badge/8-brightred)![3](https://img.shields.io/badge/3-darkred)![10](https://img.shields.io/badge/10-red)![3](https://img.shields.io/badge/3-orange) | Prior tweak | [v8.3.10.3](../../releases/tag/v8.3.10.3) |
 | ![8](https://img.shields.io/badge/8-brightred)![3](https://img.shields.io/badge/3-darkred)![10](https://img.shields.io/badge/10-red)![2](https://img.shields.io/badge/2-orange) | Prior tweak | [v8.3.10.2](../../releases/tag/v8.3.10.2) |
 | ![8](https://img.shields.io/badge/8-brightred)![3](https://img.shields.io/badge/3-darkred)![10](https://img.shields.io/badge/10-red)![1](https://img.shields.io/badge/1-orange) | Prior tweak | [v8.3.10.1](../../releases/tag/v8.3.10.1) |
@@ -2353,6 +2354,7 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 - ~~**Real-time chapter-level streaming translation**~~: ✅ Cursor-buffer-fill model with 30s segments, MSE-driven playback, WebSocket progress updates, and chapter auto-advance on EOF
 - ~~**Pre-translation sampler**~~: ✅ 6-minute first-listen pre-translation per book at scan-time so cold-start latency is invisible to listeners; cost-discovery via DB-enforced priority invariant (sampler segments are p2; live playback p0/p1 always wins)
 - ~~**Translation monitor (v8.3.9)**~~: ✅ Two-tier systemd-timer watchdog that resets stuck claims (60s live / 2h sampler), sweeps retry-budget exhaustion, and emits `live_age_alert` / `capacity_warning` events to the `translation_monitor_events` audit trail. Prevents queue stalls when workers crash or disconnect
+- ~~**Translation monitor — operator email alerts + real GPU health probe (v8.3.10.5)**~~: ✅ Aged-segment alerts now escalate to a per-audiobook operator email (recipient: `ADMIN_EMAIL` with `SMTP_FROM` fallback) on a 60-min cooldown — detection without escalation was the gap that let the 2026-05-04 prod incident go un-investigated for 10+ minutes. The previously-stubbed GPU instance health probe now performs a real HTTP probe of every configured streaming inference provider (RunPod, Vast.ai serverless), pessimistic by default — `any_healthy=False` when no provider is configured or all probes return 0 ready workers
 
 ### Planned Features
 

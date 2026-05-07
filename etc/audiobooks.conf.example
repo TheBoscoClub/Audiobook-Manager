@@ -176,6 +176,11 @@ AUDIOBOOKS_DEV_MODE="false"
 #SMTP_USER=""
 #SMTP_PASS=""
 #SMTP_FROM="library@example.com"
+
+# Operator alert recipient — receives translation-monitor escalations
+# (chapter-starvation alerts, aged streaming segments). Falls back to
+# SMTP_FROM when unset, so a configured SMTP block alone is enough to
+# get monitor alerts to the same address that sends invitation emails.
 #ADMIN_EMAIL=""
 
 # =============================================================================

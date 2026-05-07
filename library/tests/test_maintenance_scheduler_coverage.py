@@ -636,7 +636,9 @@ class TestRunAuthCleanup:
         ):
             scheduler.run_auth_cleanup()
 
-        mock_session_repo.cleanup_stale.assert_called_once_with(grace_minutes=30)
+        # v8.3.10.5: default grace bumped 30→120 min so audio-listening users
+        # don't get swept; test now asserts call with no explicit kwargs (uses default).
+        mock_session_repo.cleanup_stale.assert_called_once_with()
         mock_reg_repo.cleanup_expired.assert_called_once()
         mock_rec_repo.cleanup_expired.assert_called_once()
         mock_db.close.assert_called_once()

@@ -648,3 +648,74 @@ def test_capacity_warning_records_pending_and_worker_counts(db):
 def test_capacity_warning_constants():
     assert LIVE_PENDING_PRESSURE_THRESHOLD > 0
     assert CAPACITY_WARNING_COOLDOWN_SEC >= 60
+
+
+# ─── GPU instance health probe (v8.3.10.5 — no longer a stub) ─────────────
+
+
+def test_probe_gpu_instance_health_no_provider_configured(db, monkeypatch):
+    """No env vars → pessimistic: any_healthy=False, providers={}, stub=False.
+    The pre-v8.3.10.5 stub returned True optimistically, masking the
+    2026-05-04 prod incident."""
+    from translation_monitor import probe_gpu_instance_health
+
+    for key in (
+        "AUDIOBOOKS_RUNPOD_API_KEY",
+        "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT",
+        "AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY",
+        "AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    health = probe_gpu_instance_health(db, monitor="live")
+    assert health["any_healthy"] is False
+    assert health["providers"] == {}
+    assert health["stub"] is False
+
+
+def test_probe_gpu_instance_health_dict_keyed_by_provider_name(db, monkeypatch):
+    """Provider entries appear as a dict keyed by name (not a list — the
+    transformation from the canonical list-shape happens in probe.py)."""
+    from unittest.mock import patch
+
+    from translation_monitor import probe_gpu_instance_health
+
+    monkeypatch.setenv("AUDIOBOOKS_RUNPOD_API_KEY", "k")
+    monkeypatch.setenv("AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT", "ep")
+
+    fake_payload = {
+        "providers": [{"name": "runpod", "ready": 2, "endpoint_id": "ep"}],
+        "any_healthy": True,
+    }
+    with patch(
+        "localization.gpu_health.probe_all_streaming_providers",
+        return_value=fake_payload,
+    ):
+        health = probe_gpu_instance_health(db, monitor="live")
+
+    assert health["any_healthy"] is True
+    assert health["stub"] is False
+    assert "runpod" in health["providers"]
+    assert health["providers"]["runpod"]["healthy"] is True
+    assert health["providers"]["runpod"]["ready"] == 2
+    assert health["providers"]["runpod"]["endpoint"] == "ep"
+
+
+def test_probe_gpu_instance_health_logs_event_on_exception(db):
+    """A probe failure writes a backend_probe_failed event and returns
+    a pessimistic empty payload — the timer keeps advancing."""
+    from unittest.mock import patch
+
+    from translation_monitor import probe_gpu_instance_health
+
+    with patch(
+        "localization.gpu_health.probe_all_streaming_providers",
+        side_effect=RuntimeError("boom"),
+    ):
+        health = probe_gpu_instance_health(db, monitor="live")
+
+    assert health["any_healthy"] is False
+    assert health["providers"] == {}
+    assert health["stub"] is False
+    events = recent_events(db, event_type="gpu_probe_failed")
+    assert len(events) == 1
+    assert events[0]["monitor"] == "live"

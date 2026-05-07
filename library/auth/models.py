@@ -496,7 +496,14 @@ class Session:
             return False
         return True
 
-    def is_stale(self, grace_minutes: int = 30) -> bool:
+    # Default grace period for non-persistent sessions. Bumped from 30 → 120
+    # minutes (v8.3.10.5) because audio listening sessions routinely run
+    # 30+ minutes during which the audio stream bypasses /api/* (so it
+    # doesn't refresh last_seen). 30 minutes was too aggressive and caused
+    # silent PUT /api/position 401s mid-listen.
+    DEFAULT_GRACE_MINUTES = 120
+
+    def is_stale(self, grace_minutes: int = DEFAULT_GRACE_MINUTES) -> bool:
         """Check if session is stale (no activity within grace period).
 
         Persistent sessions never expire from inactivity — they last
@@ -537,7 +544,7 @@ class SessionRepository:
             cursor = conn.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
             return cursor.rowcount
 
-    def cleanup_stale(self, grace_minutes: int = 30) -> int:
+    def cleanup_stale(self, grace_minutes: int = Session.DEFAULT_GRACE_MINUTES) -> int:
         """Remove stale sessions. Returns count of deleted sessions.
 
         Persistent sessions never expire from inactivity — only

@@ -177,8 +177,11 @@ class TestGetChapterSubtitle:
         conn.close()
 
         resp = app_client.get("/api/audiobooks/20/subtitles/0/en")
-        assert resp.status_code == 200
-        assert "vtt" in resp.headers.get("Content-Type", "").lower()
+        try:
+            assert resp.status_code == 200
+            assert "vtt" in resp.headers.get("Content-Type", "").lower()
+        finally:
+            resp.close()  # Flask send_file: close to release file handle
 
 
 # ── POST /api/subtitles/generate (validation only) ──

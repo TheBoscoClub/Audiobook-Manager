@@ -278,6 +278,14 @@ def claim_next_segment(db_path: str) -> dict | None:
     - ``1`` = P1 forward chase (segments past buffer toward end-of-chapter)
     - ``2`` = P2 back-fill (segments behind cursor — side panel / resume completeness)
 
+    Within a priority tier, segments matching the most-recent
+    ``streaming_sessions.active_chapter`` for the same ``(audiobook_id, locale)``
+    are claimed before other chapters. This prevents previous-chapter starvation
+    when the player advances mid-book: pre-fix, the worker FIFO'd by
+    ``chapter_index ASC`` so a P0 row in chapter N continued to win over a P0 row
+    in chapter N+1 even after the player crossed into N+1, leaving the user
+    buffering for the duration of the older chapter's drain.
+
     The authoritative source of priority semantics (promotion/demotion on
     play/seek/stop) lives in
     ``library/backend/api_modular/streaming_translate.py::handle_seek_impl``.
@@ -325,7 +333,11 @@ def claim_next_segment(db_path: str) -> dict | None:
             "                   OR sess.state IS NULL "
             "                   OR sess.state NOT IN "
             "                      ('stopped','cancelled','error')) "
-            "            ORDER BY s.priority ASC, s.chapter_index ASC, "
+            "            ORDER BY s.priority ASC, "
+            "                     CASE WHEN sess.active_chapter IS NOT NULL "
+            "                               AND s.chapter_index = sess.active_chapter "
+            "                          THEN 0 ELSE 1 END, "
+            "                     s.chapter_index ASC, "
             "                     s.segment_index ASC "
             "            LIMIT 1) "
             "RETURNING *",

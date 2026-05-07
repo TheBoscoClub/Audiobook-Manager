@@ -1189,8 +1189,8 @@ def _probe_stt_warmth() -> tuple[bool, int, list[dict]]:
     callers that unpack only the first two still work.
     """
     import time
-    import urllib.error
-    import urllib.request
+
+    from library.localization.gpu_health import probe_all_streaming_providers
 
     now = time.time()
     if now - _STT_WARMTH_CACHE["ts"] < _STT_WARMTH_TTL_SEC:
@@ -1200,52 +1200,12 @@ def _probe_stt_warmth() -> tuple[bool, int, list[dict]]:
             list(_STT_WARMTH_CACHE["providers"]),
         )
 
-    providers: list[dict] = []
-    total_ready = 0
-
-    def _probe_one(name: str, api_key: str, endpoint: str, base_url: str) -> dict | None:
-        """Probe a single {api_key, endpoint} pair; return summary dict or None."""
-        if not api_key or not endpoint:
-            return None
-        url = f"{base_url}/v2/{endpoint}/health"
-        req = urllib.request.Request(url, headers={"Authorization": f"Bearer {api_key}"})  # noqa: S310
-        entry = {"name": name, "ready": 0, "endpoint_id": endpoint}
-        try:
-            # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-            with urllib.request.urlopen(req, timeout=3) as resp:  # nosec B310 — trusted provider hosts  # noqa: S310
-                import json as _json
-
-                payload = _json.loads(resp.read().decode())
-            workers = payload.get("workers", {}) or {}
-            entry["ready"] = int(workers.get("ready", 0))
-        except (urllib.error.URLError, TimeoutError, ValueError) as e:
-            logger.debug("%s warmth probe failed: %s", name, e)
-        return entry
-
-    # RunPod serverless — trusted host api.runpod.ai
-    runpod_entry = _probe_one(
-        name="runpod",
-        api_key=os.environ.get("AUDIOBOOKS_RUNPOD_API_KEY", ""),
-        endpoint=os.environ.get("AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT", ""),
-        base_url="https://api.runpod.ai",
-    )
-    if runpod_entry is not None:
-        providers.append(runpod_entry)
-        total_ready += runpod_entry["ready"]
-
-    # Vast.ai serverless — trusted host run.vast.ai
-    vastai_entry = _probe_one(
-        name="vastai",
-        api_key=os.environ.get("AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY", ""),
-        endpoint=os.environ.get("AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT", ""),
-        base_url="https://run.vast.ai",
-    )
-    if vastai_entry is not None:
-        providers.append(vastai_entry)
-        total_ready += vastai_entry["ready"]
-
+    result = probe_all_streaming_providers()
+    providers: list[dict] = list(result["providers"])
+    total_ready = sum(p["ready"] for p in providers)
     # Cold = no provider configured, or every configured provider has 0 ready.
     is_cold = total_ready == 0
+
     _STT_WARMTH_CACHE.update(
         {"ts": now, "streaming_ready": total_ready, "cold": is_cold, "providers": providers}
     )

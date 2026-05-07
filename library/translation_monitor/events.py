@@ -36,6 +36,7 @@ ALLOWED_EVENT_TYPES = frozenset(
         "spend_pause_book",
         "spend_pause_global",
         "live_age_alert",
+        "live_age_alert_emailed",
         "capacity_warning",
         "gpu_probe_failed",
     }

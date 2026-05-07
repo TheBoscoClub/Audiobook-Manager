@@ -320,7 +320,7 @@ Auth pages (`login.html`, `verify.html`, etc.) navigate to `/` rather than `shel
 
 These headers are essential for `admin_or_localhost` to correctly identify localhost requests that arrive through a reverse proxy chain, and for WebAuthn origin validation.
 
-**CORS Configuration** (v6.0+): CORS origin is locked to the value of the `CORS_ORIGIN` environment variable. Defaults to `*` (permissive, safe for standalone mode). For internet-facing deployments, set to the exact public URL (e.g., `https://library.example.com`).
+**CORS Configuration** (v6.0+): CORS origin is controlled via `_resolve_cors_origin()` in `proxy_server.py`. When a request carries an `Origin` header and credentials are in scope (all web-UI fetches use `credentials: "include"`), the proxy echoes the request `Origin` exactly — the CORS spec forbids `Access-Control-Allow-Origin: *` alongside `Access-Control-Allow-Credentials: true`. When no `Origin` header is present (non-browser callers), `*` is returned unchanged. `_send_cors_headers()` always emits all three required headers together: `Access-Control-Allow-Origin`, `Access-Control-Allow-Credentials: true`, and `Vary: Origin` (v8.3.10.5+; prior versions emitted only `Allow-Origin: *` without credentials support). For internet-facing deployments, no additional `CORS_ORIGIN` configuration is needed — the echo behaviour is spec-compliant and deployment-agnostic.
 
 A critical requirement is filtering **hop-by-hop headers** per RFC 2616 and PEP 3333:
 
@@ -506,7 +506,7 @@ library/auth/
 | **Storage** | SHA-256 hash in `sessions` table |
 | **Cookie flags** | `HttpOnly`, `Secure`, `SameSite=Lax` |
 | **Policy** | Single session by default; multi-session opt-in via global setting and per-user override (v8.0.1.2+) |
-| **Staleness** | 30-minute inactivity grace period (non-persistent sessions only) |
+| **Staleness** | 120-minute inactivity grace period (non-persistent sessions only) — `Session.DEFAULT_GRACE_MINUTES = 120` in `library/auth/models.py` (v8.3.10.5+; was 30 min, raised because audio streams bypass `/api/*` and never refresh `last_seen`, so a 30-min session would expire mid-listen before the next `PUT /api/position`) |
 
 ### WebAuthn Auto-Configuration
 
@@ -915,7 +915,7 @@ fill the cache.
 |-----------|------|---------|
 | Coordinator API | `library/backend/api_modular/streaming_translate.py` | 7 endpoints: stream, seek, warmup, segment bitmap, session state, worker callbacks |
 | Frontend state machine | `library/web-v2/js/streaming-translate.js` | IDLE → BUFFERING → STREAMING transitions, overlay UI, WebSocket event handling |
-| GPU segment worker | `scripts/stream-translate-worker.py` | Polls `streaming_segments`, splits audio, runs STT + translation, reports completion |
+| GPU segment worker | `scripts/stream-translate-worker.py` | Polls `streaming_segments`, splits audio, runs STT + translation, reports completion — `claim_next_segment()` uses active-chapter preference within each priority tier (v8.3.10.5+) |
 | Buffering overlay | `library/web-v2/shell.html` + `css/shell.css` | Gold-themed progress bar with segment count |
 | Notification audio | `library/web-v2/audio/translation-buffering-*.mp3` | Localized edge-tts clips played during buffering |
 
@@ -965,12 +965,39 @@ started_at` past tier-specific timeout — 60s live, 2h sampler), retry-budget
 exhaustion (`retry_count >= 3`), and orphan `sampler_jobs` rows
 (`status='running'` and `updated_at >2h`). Every action writes one row to
 `translation_monitor_events` for operator audit. Implementation in
-`library/translation_monitor/{db,events,probe}.py`; full operator guide in
+`library/translation_monitor/{db,events,probe,notify}.py`; full operator guide in
 `docs/TRANSLATION-MONITOR.md`.
+
+**Operator email escalation on chapter starvation (v8.3.10.5+)**: detection
+alone is insufficient — the 2026-05-04 prod incident saw `live_age_alert`
+events accumulating in the audit table while no human looked at it.
+`scripts/translation-monitor-live.py` now groups alerted segment IDs by
+`audiobook_id` and calls `library.translation_monitor.notify.send_chapter_starvation_alert()`,
+which delivers a plain-text email per book over the existing SMTP env
+contract (`SMTP_*`) to `ADMIN_EMAIL` (falls back to `SMTP_FROM`).
+Idempotent within a 60-minute cooldown via the new `live_age_alert_emailed`
+event type — survives the timer-driven oneshot's process exit. SMTP
+failures are caught and logged so a transient mail outage does not crash
+the timer.
+
+**Real GPU instance health (v8.3.10.5+)**: `library.translation_monitor.probe.probe_gpu_instance_health()`
+was previously a stub returning `any_healthy=True` regardless of state.
+It now delegates to the canonical `library.localization.gpu_health.probe_all_streaming_providers()`,
+which performs an HTTP GET against each configured provider's
+`/v2/<endpoint>/health` (RunPod and Vast.ai serverless via existing
+`AUDIOBOOKS_RUNPOD_*` / `AUDIOBOOKS_VASTAI_SERVERLESS_*` env vars) with
+a 3-second timeout. Pessimistic by default: `any_healthy=False` when no
+provider is configured or every probe returns 0 ready workers. The same
+canonical helper backs `streaming_translate.py::_probe_stt_warmth()` so
+the API and timer share one provider-discovery path.
+
+**Worker active-chapter preference in `claim_next_segment()` (v8.3.10.5+)**: `stream-translate-worker.py::claim_next_segment()` uses a three-tier `ORDER BY` that inserts an active-chapter preference tier between `priority ASC` and `chapter_index ASC`. A `LEFT JOIN streaming_sessions sess` (already present in the claim query) provides `sess.active_chapter` for the same `(audiobook_id, locale)`. Within each P0/P1/P2 priority bucket, the worker prefers rows whose `chapter_index` matches `sess.active_chapter` — so when the player advances from chapter N to N+1 mid-book, the worker stops draining N's remaining queue and starts filling N+1 immediately. This makes the "active chapter wins" behaviour — which `handle_seek_impl`'s seek-driven reprioritization already produced indirectly for seek events — the default for ANY chapter advance, including the v8.3.10 `translatedEntries`-end handoff path (which routes through `POST /api/translate/stream`, not `seek`, and therefore never triggered the prior reprioritization). No schema, API, or client change; the fix is a pure `ORDER BY` adjustment. Prior to this fix, a user advancing from chapter 5 to 6 while the worker still had 12 P0 segments queued on chapter 5 would see the buffering spinner for the duration of chapter 5's drain (~10 min in the worst observed case).
 
 **Translation-monitor `StartLimitBurst` sizing (v8.3.10.1+)**: Timer-driven oneshot services that fire frequently must have `StartLimitBurst` set to at least twice their per-period invocation count, with margin. The live tier fires every 30 s inside a 300 s `StartLimitIntervalSec` window — 10 starts/window. The unit ships `StartLimitBurst=20` (2× headroom). The original value of 5 saturated at t≈150 s, causing `start-limit-hit` silences for ~150 s at a stretch. Rule: `Burst ≥ (IntervalSec / CadenceSec) × 2`. Never set `StartLimitIntervalSec=0` (removes the runaway cap entirely — see `feedback_systemd_startlimit.md`).
 
 **Canonical opus-file count (v8.3.10.1+)**: `_count_opus_files` in `utilities_conversion.py` and `_collect_checksum_files` in `utilities_ops/hashing.py` count files using `rglob("*.opus")` but exclude any path where `"translated"` is a directory component (`f.parts` check, exact directory name, not substring). Per-chapter translation artifacts live under `Library/{Author}/{Book}/translated/{Book}.ch{NNN}.zh-Hans.opus` (depth +1 below the canonical book file). Including them in the count inflates "Conversion Progress" beyond 100% and skews deduplication checksums. Books whose titles contain "Translated" are not excluded (the check matches the directory component name, not the path string).
+
+**Session-expired toast on `PUT /api/position` 401 (v8.3.10.5+)**: `shell.js::savePositionToAPI()` intercepts HTTP 401 responses and routes them through `_showSessionExpiredToast()` — a one-time notification (suppressed for 5 minutes to avoid spam during a stale-session run) that surfaces "Your session expired — sign in again to keep your progress saved." Audio playback continues unimpeded; only progress persistence is affected. `shell.html` loads `css/notifications.css` and includes a shell-level `#toast-container` (iframe content pages keep their own). The i18n key `shell.sessionExpired` in `locales/{en,zh-Hans}.json` drives the message. Prior to this fix the 401 was silently discarded with a `console.warn` — the user had no indication their progress had stopped being saved.
 
 **Listening-session idle window (v8.3.10.1+)**: `ListeningHistoryRepository.get_open_session` finds a reusable session row using the predicate `ended_at IS NULL OR ended_at > datetime('now', 'localtime', '-30 minutes')`. The `SESSION_IDLE_TIMEOUT_MINUTES = 30` constant controls the window. SQLite's `datetime('now')` is UTC; the query uses `'localtime'` modifier to match Python's `datetime.now()` timestamps stored in `ended_at`. Without `'localtime'`, a CDT deployment would see a ~5-hour offset causing the window to never match, triggering a fresh `INSERT` on every position save.
 

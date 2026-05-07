@@ -141,6 +141,7 @@ def init_notification_poller(db_path):
 
     def _poll_loop():
         while True:
+            conn = None
             try:
                 conn = sqlite3.connect(str(_db_path_for_poller))
                 conn.row_factory = sqlite3.Row
@@ -162,9 +163,16 @@ def init_notification_poller(db_path):
                         logger.error("Failed to deliver notification %d: %s", row["id"], e)
 
                 conn.commit()
-                conn.close()
             except Exception as e:
                 logger.error("Notification poll error: %s", e)
+            finally:
+                # Always close — try/finally guards against leaks if an
+                # exception fires before the original close() was reached.
+                if conn is not None:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
 
             gevent.sleep(5)
 

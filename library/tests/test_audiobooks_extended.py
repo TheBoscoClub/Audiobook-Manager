@@ -609,8 +609,11 @@ class TestStreamAudiobook:
             mock_db.return_value = mock_conn
 
             resp = client.get("/api/stream/102")
-            assert resp.status_code == 200
-            assert resp.content_type in ("audio/mp4", "audio/mp4; charset=utf-8")
+            try:
+                assert resp.status_code == 200
+                assert resp.content_type in ("audio/mp4", "audio/mp4; charset=utf-8")
+            finally:
+                resp.close()  # Flask send_file: close to release file handle
 
 
 # ─── download_audiobook: lines 771, 778-803 ───────────────────────────────
@@ -649,12 +652,15 @@ class TestDownloadAudiobook:
             mock_db.return_value = mock_conn
 
             resp = client.get("/api/download/102")
-            assert resp.status_code == 200
-            # Check Content-Disposition header for sanitized filename
-            cd = resp.headers.get("Content-Disposition", "")
-            assert "attachment" in cd
-            # Problematic chars should be replaced with '-'
-            assert "/" not in cd.split("filename=")[-1].replace("UTF-8''", "")
+            try:
+                assert resp.status_code == 200
+                # Check Content-Disposition header for sanitized filename
+                cd = resp.headers.get("Content-Disposition", "")
+                assert "attachment" in cd
+                # Problematic chars should be replaced with '-'
+                assert "/" not in cd.split("filename=")[-1].replace("UTF-8''", "")
+            finally:
+                resp.close()  # Flask send_file: close to release file handle
 
     def test_download_without_author(self, client, tmp_path):
         """Lines 791-792: download when author is None."""
@@ -674,11 +680,14 @@ class TestDownloadAudiobook:
             mock_db.return_value = mock_conn
 
             resp = client.get("/api/download/103")
-            assert resp.status_code == 200
-            cd = resp.headers.get("Content-Disposition", "")
-            assert "attachment" in cd
-            # Should not contain " - " author separator
-            assert "Orphan Book" in cd or "orphan" in cd.lower()
+            try:
+                assert resp.status_code == 200
+                cd = resp.headers.get("Content-Disposition", "")
+                assert "attachment" in cd
+                # Should not contain " - " author separator
+                assert "Orphan Book" in cd or "orphan" in cd.lower()
+            finally:
+                resp.close()  # Flask send_file: close to release file handle
 
     def test_download_unknown_format_mimetype(self, client, tmp_path):
         """Lines 795-801: unknown format falls back to application/octet-stream."""
@@ -698,11 +707,14 @@ class TestDownloadAudiobook:
             mock_db.return_value = mock_conn
 
             resp = client.get("/api/download/999")
-            assert resp.status_code == 200
-            assert resp.content_type in (
-                "application/octet-stream",
-                "application/octet-stream; charset=utf-8",
-            )
+            try:
+                assert resp.status_code == 200
+                assert resp.content_type in (
+                    "application/octet-stream",
+                    "application/octet-stream; charset=utf-8",
+                )
+            finally:
+                resp.close()  # Flask send_file: close to release file handle
 
 
 # ─── health: line 819 ─────────────────────────────────────────────────────

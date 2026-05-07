@@ -351,7 +351,19 @@ def flask_app(session_temp_dir):
         True  # nosemgrep: python.flask.security.audit.hardcoded-config.avoid_hardcoded_config_TESTING — test-only fixture, required for Flask test client
     )
 
-    return app
+    yield app
+
+    # Session-scope teardown: run an explicit garbage collection sweep so
+    # any sqlite3.Connection / file handles still held by Flask blueprint
+    # globals (or by helper modules using module-level _db_path patterns
+    # without teardown_appcontext) are closed deterministically before
+    # pytest's own atexit handlers fire. Without this, Python 3.14 emits
+    # "ResourceWarning: unclosed database in <sqlite3.Connection ...>" at
+    # interpreter shutdown for every connection that wasn't explicitly
+    # closed by per-request handlers.
+    import gc
+
+    gc.collect()
 
 
 @pytest.fixture

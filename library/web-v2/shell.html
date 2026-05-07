@@ -18,6 +18,8 @@
     <link rel="stylesheet" href="css/account.css?v=1776702766">
     <link rel="stylesheet" href="css/accessibility.css?v=1776702766">
     <link rel="stylesheet" href="css/i18n.css?v=1776891943">
+    <!-- toast-container styles for shell-level notifications (e.g., session expired) -->
+    <link rel="stylesheet" href="css/notifications.css?v=1776702766">
     <style>
         .instance-badge {
             display: inline-block;
@@ -434,6 +436,11 @@
             </div>
         </div>
     </div>
+
+    <!-- Shell-level toast container (used by ShellPlayer for session-expired -->
+    <!-- and other persistent-shell notifications). Iframe content has its    -->
+    <!-- own toast-container in index.html / utilities.html.                  -->
+    <div class="toast-container" id="toast-container"></div>
 
     <script data-cfasync="false">
         fetch('/api/system/version').then(r => r.json()).then(d => {

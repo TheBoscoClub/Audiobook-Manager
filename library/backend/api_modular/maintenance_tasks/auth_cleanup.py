@@ -24,14 +24,16 @@ def _get_auth_db():
 
 
 def _cleanup_stale_sessions(db, results, progress_callback):
-    """Clean up non-persistent sessions inactive > 30 min."""
+    """Clean up non-persistent sessions inactive past Session.DEFAULT_GRACE_MINUTES (120 min)."""
     if progress_callback:
         progress_callback(0.1, "Cleaning stale sessions...")
 
     from models import SessionRepository
 
     sessions = SessionRepository(db)
-    results["stale_sessions"] = sessions.cleanup_stale(grace_minutes=30)
+    # Uses Session.DEFAULT_GRACE_MINUTES (120) — bumped from 30 in v8.3.10.5
+    # to avoid sweeping out sessions of users mid-audio-listen.
+    results["stale_sessions"] = sessions.cleanup_stale()
 
 
 def _cleanup_expired_registrations(db, results, progress_callback):
