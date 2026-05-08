@@ -7,8 +7,20 @@
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    /* Viewport units (not 100%) so modal sizing is INDEPENDENT of any
+       containing-block weirdness. Brave Android (and historically several
+       other Chromium-derived mobile browsers) treats `position: fixed` on
+       body as creating a containing block for descendants' `position: fixed`
+       — contrary to CSS spec — which made `width/height: 100%` resolve
+       against body's content box (often thousands of px tall) instead of
+       the viewport. The result was modal centering-math that placed
+       `.modal-content` ~2250 px below the visible area, clipped by body's
+       overflow:hidden. Viewport units sidestep the entire containing-block
+       question. `100dvh` handles the dynamic-URL-bar resize on mobile.
+       Audiobook-Manager-n9x (2026-05-08). */
+    width: 100vw;
+    height: 100vh;
+    height: 100dvh;
     background: rgba(0, 0, 0, 0.8);
     z-index: 2000;
     justify-content: center;

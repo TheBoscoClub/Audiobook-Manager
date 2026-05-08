@@ -17,30 +17,26 @@ class AudiobookLibraryV2 {
 
   static _lockBodyScroll() {
     if (document.body.hasAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR)) return;
-    const y = window.scrollY;
-    document.body.setAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR, String(y));
-    Object.assign(document.body.style, {
-      overflow: "hidden",
-      position: "fixed",
-      top: `-${y}px`,
-      width: "100%",
-    });
+    document.body.setAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR, "1");
+    // Use only `overflow: hidden` on html+body — never `position: fixed`.
+    // Brave Android (Chromium-derived) treats `position: fixed` on body as
+    // creating a containing block for descendants' `position: fixed`,
+    // contrary to CSS spec. With body fixed, the modal's `height: 100%`
+    // computed against body's tall content box (~5000 px) instead of the
+    // viewport (~701 px), and `align-items: center` placed `.modal-content`
+    // ~2250 px below the viewport — clipped by body's overflow:hidden, so
+    // the user saw only the dim backdrop with no card body. Pinned by
+    // diagnostic banner showing top=2251 height=459 vh=701 in
+    // Audiobook-Manager-n9x (2026-05-08, Bosco's Pixel 10 Pro XL Brave).
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
   }
 
   static _unlockBodyScrollIfLocked() {
-    const saved = document.body.getAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR);
-    if (saved === null) return;
+    if (!document.body.hasAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR)) return;
     document.body.removeAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR);
-    Object.assign(document.body.style, {
-      overflow: "",
-      position: "",
-      top: "",
-      width: "",
-    });
-    // Restore scroll synchronously — smooth would visibly animate to the
-    // saved position which feels jumpy. parseInt fallback handles malformed
-    // attribute values defensively (shouldn't happen but cheap insurance).
-    window.scrollTo({ top: parseInt(saved, 10) || 0, behavior: "auto" });
+    document.documentElement.style.overflow = "";
+    document.body.style.overflow = "";
   }
 
   constructor() {
