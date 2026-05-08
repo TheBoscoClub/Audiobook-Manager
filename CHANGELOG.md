@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+## [8.3.10.5] - 2026-05-08
+
+### Added
+
+### Changed
+
 - **`gunicorn` venv-installed 25.3.0 upgraded to 26.0.0 to match the latest stable release**. No requirements file change — floor pin in `library/requirements.txt` (`gunicorn>=23.0.0`) was already correct, drift was venv-only and resolved with `pip install --upgrade gunicorn`. Full `pytest library/tests/ --vm` sweep (5057 passed) confirmed no regressions introduced by the major bump (Audiobook-Manager /test Phase 6)
 - **`mypy` dev-floor bumped 1.20.2 → 2.0.0**: `library/requirements-dev.txt` raised to `mypy>=2.0.0` after verifying mypy 2.0 produced exactly one new error (`library/backend/api_modular/collections.py:522` — `COLLECTIONS = {}` lacked an annotation), which was fixed in the same change to `dict[str, dict[str, list[int]]]`. After the fix mypy 2.0's error count matches mypy 1.20.2's pre-existing single error in `test_gpu_health.py:189`. Major bump is a no-regression migration on this codebase (Audiobook-Manager /test Phase 6)
 - **`docker/whisper-server/Dockerfile` CUDA base bumped 12.2.2-cudnn8-runtime-ubuntu22.04 → 12.9.1-cudnn-runtime-ubuntu22.04**: 12.2.2 was 2 years stale and the explicit `cudnn8` suffix is no longer the upstream convention (single `cudnn` tag rolls cuDNN forward with the CUDA point release). Stays inside the CUDA 12.x line — `ctranslate2==4.4.0` and `faster-whisper==1.0.3` both support CUDA 12.x, no application-side change needed. Skipped CUDA 13.x bump because that would require independent verification of ctranslate2's CUDA 13 wheel availability and is out of scope for a routine base-image refresh. Base image pull verified against Docker Hub (digest `sha256:59e37e...`) (Audiobook-Manager /test Phase 6)
@@ -3668,7 +3676,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.4...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.5...HEAD
+[8.3.10.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.4...v8.3.10.5
 [8.3.10.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.3...v8.3.10.4
 [8.3.10.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.2...v8.3.10.3
 [8.3.10.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.1...v8.3.10.2
