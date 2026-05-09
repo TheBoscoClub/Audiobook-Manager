@@ -266,44 +266,47 @@ def generate_hashes(force: bool = False, limit: int | None = None, parallel: int
         sys.exit(1)
 
     conn = sqlite3.connect(DB_PATH)
-    _ensure_hash_columns(conn)
-
-    pending = get_pending_files(conn, force)
-    if limit:
-        pending = pending[:limit]
-
-    if not pending:
-        print("All audiobooks already have hashes.")
-        print("\nRun with --force to recalculate all hashes.")
-        show_stats(conn)
-        conn.close()
-        return
-
-    total_files = len(pending)
-    total_size = sum(row[2] or 0 for row in pending)
-
-    if parallel:
-        conn.close()
-        generate_hashes_parallel(pending, total_files, total_size, parallel)
-        return
-
-    _print_hash_header(total_files, total_size)
-    print(f"{'=' * 60}\n")
-
     try:
-        processed, processed_size, errors, elapsed = _process_sequential(
-            pending, total_files, total_size, conn
-        )
-    except KeyboardInterrupt:
-        print("\n\nInterrupted! Progress has been saved.")
-        print(f"Processed {len(pending)}/{total_files} files.")
-        print("Run again to continue where you left off.")
-        conn.close()
-        sys.exit(0)
+        _ensure_hash_columns(conn)
 
-    _print_hash_completion(processed, processed_size, elapsed, errors)
-    show_stats(conn)
-    conn.close()
+        pending = get_pending_files(conn, force)
+        if limit:
+            pending = pending[:limit]
+
+        if not pending:
+            print("All audiobooks already have hashes.")
+            print("\nRun with --force to recalculate all hashes.")
+            show_stats(conn)
+            return
+
+        total_files = len(pending)
+        total_size = sum(row[2] or 0 for row in pending)
+
+        if parallel:
+            # Close before forking — forked processes must not inherit this connection
+            conn.close()
+            conn = None
+            generate_hashes_parallel(pending, total_files, total_size, parallel)
+            return
+
+        _print_hash_header(total_files, total_size)
+        print(f"{'=' * 60}\n")
+
+        try:
+            processed, processed_size, errors, elapsed = _process_sequential(
+                pending, total_files, total_size, conn
+            )
+        except KeyboardInterrupt:
+            print("\n\nInterrupted! Progress has been saved.")
+            print(f"Processed {len(pending)}/{total_files} files.")
+            print("Run again to continue where you left off.")
+            sys.exit(0)
+
+        _print_hash_completion(processed, processed_size, elapsed, errors)
+        show_stats(conn)
+    finally:
+        if conn is not None:
+            conn.close()
 
 
 def _process_parallel_results(futures, total_files, total_size, cursor, conn):
@@ -350,29 +353,30 @@ def generate_hashes_parallel(pending: list, total_files: int, total_size: float,
     print(f"{'=' * 60}\n")
 
     conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-
     try:
-        with ProcessPoolExecutor(max_workers=workers) as executor:
-            futures = {executor.submit(hash_file_worker, task): task for task in pending}
-            processed, processed_size, errors, elapsed = _process_parallel_results(
-                futures, total_files, total_size, cursor, conn
-            )
-    except KeyboardInterrupt:
-        print("\n\nInterrupted! Saving progress...")
+        cursor = conn.cursor()
+
+        try:
+            with ProcessPoolExecutor(max_workers=workers) as executor:
+                futures = {executor.submit(hash_file_worker, task): task for task in pending}
+                processed, processed_size, errors, elapsed = _process_parallel_results(
+                    futures, total_files, total_size, cursor, conn
+                )
+        except KeyboardInterrupt:
+            print("\n\nInterrupted! Saving progress...")
+            conn.commit()
+            print(f"Processed {total_files}/{total_files} files.")
+            print("Run again to continue where you left off.")
+            sys.exit(0)
+
         conn.commit()
+
+        _print_hash_completion(
+            processed, processed_size, elapsed, errors, extra_lines=[f"Workers used: {workers}"]
+        )
+        show_stats(conn)
+    finally:
         conn.close()
-        print(f"Processed {total_files}/{total_files} files.")
-        print("Run again to continue where you left off.")
-        sys.exit(0)
-
-    conn.commit()
-
-    _print_hash_completion(
-        processed, processed_size, elapsed, errors, extra_lines=[f"Workers used: {workers}"]
-    )
-    show_stats(conn)
-    conn.close()
 
 
 def show_stats(conn: sqlite3.Connection):
@@ -436,69 +440,70 @@ def verify_hashes(sample_size: int = 10):
         sys.exit(1)
 
     conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
+    try:
+        cursor = conn.cursor()
 
-    cursor.execute(
-        """
-        SELECT id, file_path, sha256_hash, title, file_size_mb
-        FROM audiobooks
-        WHERE sha256_hash IS NOT NULL
-        ORDER BY RANDOM()
-        LIMIT ?
-    """,
-        (sample_size,),
-    )
+        cursor.execute(
+            """
+            SELECT id, file_path, sha256_hash, title, file_size_mb
+            FROM audiobooks
+            WHERE sha256_hash IS NOT NULL
+            ORDER BY RANDOM()
+            LIMIT ?
+        """,
+            (sample_size,),
+        )
 
-    samples = cursor.fetchall()
+        samples = cursor.fetchall()
 
-    if not samples:
-        print("No hashed files found to verify.")
-        return
+        if not samples:
+            print("No hashed files found to verify.")
+            return
 
-    print(f"\n{'=' * 60}")
-    print(f"Verifying {len(samples)} random files...")
-    print(f"{'=' * 60}\n")
+        print(f"\n{'=' * 60}")
+        print(f"Verifying {len(samples)} random files...")
+        print(f"{'=' * 60}\n")
 
-    passed = 0
-    failed = 0
-    missing = 0
+        passed = 0
+        failed = 0
+        missing = 0
 
-    for _audiobook_id, file_path, stored_hash, title, _file_size in samples:
-        display_title = _truncate_title(title)
-        print(f"Checking: {display_title}")
+        for _audiobook_id, file_path, stored_hash, title, _file_size in samples:
+            display_title = _truncate_title(title)
+            print(f"Checking: {display_title}")
 
-        filepath = Path(file_path)
-        if not filepath.exists():
-            print("  \u26a0 File missing")
-            missing += 1
-            continue
+            filepath = Path(file_path)
+            if not filepath.exists():
+                print("  \u26a0 File missing")
+                missing += 1
+                continue
 
-        current_hash = calculate_sha256(filepath)
+            current_hash = calculate_sha256(filepath)
 
-        if current_hash == stored_hash:
-            print("  \u2713 Hash verified")
-            passed += 1
-        else:
-            print("  \u2717 HASH MISMATCH!")
-            print(f"    Stored:  {stored_hash[:32]}...")
-            if current_hash:
-                print(f"    Current: {current_hash[:32]}...")
+            if current_hash == stored_hash:
+                print("  \u2713 Hash verified")
+                passed += 1
             else:
-                print("    Current: (failed to calculate)")
-            failed += 1
+                print("  \u2717 HASH MISMATCH!")
+                print(f"    Stored:  {stored_hash[:32]}...")
+                if current_hash:
+                    print(f"    Current: {current_hash[:32]}...")
+                else:
+                    print("    Current: (failed to calculate)")
+                failed += 1
 
-    print(f"\n{'=' * 60}")
-    print("VERIFICATION RESULTS")
-    print(f"{'=' * 60}")
-    print(f"Passed: {passed}")
-    print(f"Failed: {failed}")
-    print(f"Missing files: {missing}")
+        print(f"\n{'=' * 60}")
+        print("VERIFICATION RESULTS")
+        print(f"{'=' * 60}")
+        print(f"Passed: {passed}")
+        print(f"Failed: {failed}")
+        print(f"Missing files: {missing}")
 
-    if failed > 0:
-        print("\n\u26a0 Some files have changed since hashing!")
-        print("This could indicate corruption or modification.")
-
-    conn.close()
+        if failed > 0:
+            print("\n\u26a0 Some files have changed since hashing!")
+            print("This could indicate corruption or modification.")
+    finally:
+        conn.close()
 
 
 def main():

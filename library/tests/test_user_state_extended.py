@@ -127,10 +127,9 @@ class TestUserLibraryHiddenBooks:
         _session, raw_token = Session.create_for_user(
             db=auth_db, user_id=user.id, user_agent="pytest", ip_address="127.0.0.1"
         )
-        client = auth_app.test_client()
-        client.set_cookie("audiobooks_session", raw_token)
-
-        resp = client.get("/api/user/library")
+        with auth_app.test_client() as client:
+            client.set_cookie("audiobooks_session", raw_token)
+            resp = client.get("/api/user/library")
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["books"] == []
@@ -283,4 +282,5 @@ def user_state_seeded(auth_app):
 @pytest.fixture
 def client(user_state_seeded):
     """Create test client for legacy-style tests using TOTP login."""
-    return user_state_seeded.test_client()
+    with user_state_seeded.test_client() as c:
+        yield c
