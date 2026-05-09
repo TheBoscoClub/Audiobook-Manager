@@ -68,10 +68,10 @@ def reconcile(
 ) -> int:
     """Scan DB, enqueue sampler for missing (book, locale) pairs. Returns
     count of enqueues performed (or would-be-performed in dry-run)."""
-    from localization.sampler import enqueue_sampler  # type: ignore
+    from localization.sampler import enqueue_sampler  # type: ignore[import-not-found]  # localization.* is only on sys.path inside the installed app
 
     try:
-        from localization.chapters import extract_chapters  # type: ignore
+        from localization.chapters import extract_chapters  # type: ignore[import-not-found]  # localization.* is only on sys.path inside the installed app
     except ImportError:
         extract_chapters = None  # type: ignore
 

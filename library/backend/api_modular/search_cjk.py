@@ -40,13 +40,13 @@ logger = logging.getLogger(__name__)
 
 _PYPINYIN_AVAILABLE: bool
 try:
-    from pypinyin import Style, lazy_pinyin  # type: ignore
+    from pypinyin import Style, lazy_pinyin
 
     _PYPINYIN_AVAILABLE = True
 except ImportError:  # pragma: no cover — handled gracefully at runtime
     _PYPINYIN_AVAILABLE = False
-    lazy_pinyin = None  # type: ignore
-    Style = None  # type: ignore
+    lazy_pinyin = None  # type: ignore[assignment]  # None sentinel when pypinyin absent; callers guard via _PYPINYIN_AVAILABLE
+    Style = None  # type: ignore[assignment]  # None sentinel when pypinyin absent; callers guard via _PYPINYIN_AVAILABLE
 
 
 def pinyin_sort_key(text: str | None) -> str | None:

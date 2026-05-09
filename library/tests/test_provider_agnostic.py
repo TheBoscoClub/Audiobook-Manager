@@ -35,7 +35,7 @@ def _reset_warmth_cache(module) -> None:
 
 def test_probe_stt_warmth_no_provider():
     """No keys → cold=True, ready=0, providers=[] (streaming disabled)."""
-    from library.backend.api_modular import streaming_translate as st  # type: ignore
+    from library.backend.api_modular import streaming_translate as st  # type: ignore[import-not-found]  # library.* only resolvable from project root; pytest adds it via conftest
 
     _reset_warmth_cache(st)
     with patch.dict(os.environ, {}, clear=False):
@@ -52,7 +52,7 @@ def test_probe_stt_warmth_no_provider():
 
 def test_probe_stt_warmth_runpod_configured_unreachable():
     """RunPod keys set but unreachable endpoint → cold, 0 ready, 1 provider entry."""
-    from library.backend.api_modular import streaming_translate as st  # type: ignore
+    from library.backend.api_modular import streaming_translate as st  # type: ignore[import-not-found]  # library.* only resolvable from project root; pytest adds it via conftest
 
     _reset_warmth_cache(st)
     env = {
@@ -70,7 +70,7 @@ def test_probe_stt_warmth_runpod_configured_unreachable():
 
 def test_probe_runpod_warmth_backcompat_shim():
     """Legacy two-tuple caller sees (cold, ready) unpacked without error."""
-    from library.backend.api_modular import streaming_translate as st  # type: ignore
+    from library.backend.api_modular import streaming_translate as st  # type: ignore[import-not-found]  # library.* only resolvable from project root; pytest adds it via conftest
 
     _reset_warmth_cache(st)
     result = st._probe_runpod_warmth()
