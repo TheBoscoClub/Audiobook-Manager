@@ -78,14 +78,30 @@ from .auth_email import (  # noqa: F401  (re-export)
 )
 
 # All of the shared auth contract — Blueprint, decorators, session helpers,
-# validators, the _auth_db handle, cookie helpers, and the _pending_* dicts —
-# lives in auth_shared.py. Re-exported here so callers and test patches that
-# target `backend.api_modular.auth.<name>` keep working unchanged.
+# validators, the cookie helpers, and the _pending_* dicts — lives in
+# auth_shared.py. Re-exported here so callers and test patches that target
+# `backend.api_modular.auth.<name>` keep working unchanged.
+#
+# IMPORTANT: ``_auth_db`` is the one shared name that gets *rebound* (not just
+# mutated) in auth_shared at runtime — ``init_auth_routes()`` runs
+# ``_auth_db = AuthDatabase(...)`` mid-process, and tests rebind it again via
+# fixtures. A direct ``from .auth_shared import _auth_db`` here would snapshot
+# the value at import time, so the rebind would never propagate. ``_auth_db``
+# is therefore handled via the PEP 562 module ``__getattr__`` hook below,
+# which forwards attribute lookup to auth_shared at call time. Tests that do
+# ``monkeypatch.setattr("backend.api_modular.auth._auth_db", X)`` still work
+# because Python checks the module ``__dict__`` before falling back to
+# ``__getattr__``.
+#
+# The ``_pending_*`` dicts and ``_session_cookie_*`` flags are imported
+# directly: the dicts are mutated (same object identity, so a snapshot is
+# fine), and the cookie flags are read-only after init from this module's
+# perspective (only ``set_session_cookie`` / ``clear_session_cookie`` in
+# auth_shared write them, and they read auth_shared's own bindings).
 from .auth_shared import (  # noqa: F401  (re-export)
     INVITATION_EXPIRY_HOURS,
     SESSION_DURATION_DEFAULT,
     SESSION_DURATION_REMEMBER,
-    _auth_db,
     _extract_recovery_fields,
     _format_claim_token,
     _pending_totp_secrets,
@@ -124,6 +140,39 @@ from .auth_shared import (  # noqa: F401  (re-export)
     require_current_user_id,
     set_session_cookie,
 )
+
+
+# ``_auth_db`` is rebound (not just mutated) in auth_shared at runtime, so
+# its lookup must defer to auth_shared at access time rather than snapshot at
+# import time. See module-level note above.
+_DEFERRED_ATTRS = frozenset({"_auth_db"})
+
+
+def __getattr__(name):
+    """Forward access of rebindable auth_shared state to the live module.
+
+    Direct ``from .auth_shared import _auth_db`` would snapshot the value
+    at import time; subsequent rebinding in auth_shared (e.g. via
+    ``init_auth_routes``) would not be visible here. The module
+    ``__getattr__`` hook (PEP 562) forwards attribute access to the
+    matching-path auth_shared at call time, keeping callers and
+    ``monkeypatch.setattr("...auth._auth_db", ...)`` semantics in sync.
+
+    The ``from . import auth_shared`` resolution intentionally uses
+    THIS module's package — long-path ``backend.api_modular.auth``
+    forwards to long-path ``backend.api_modular.auth_shared``, and
+    short-path ``api_modular.auth`` forwards to short-path
+    ``api_modular.auth_shared``. This preserves pre-W-A8 isolation:
+    each Flask app (one created from each path) has its own
+    independently-initialized ``_auth_db`` and the two apps do not
+    cross-contaminate. ``init_auth_routes`` rebinds only the
+    matching-path auth_shared._auth_db, so each path's
+    ``__getattr__`` returns the correct live handle for its app.
+    """
+    if name in _DEFERRED_ATTRS:
+        from . import auth_shared
+        return getattr(auth_shared, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 logger = logging.getLogger(__name__)
 

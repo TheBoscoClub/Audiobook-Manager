@@ -101,20 +101,37 @@ def init_auth_routes(auth_db_path: Path, auth_key_path: Path, is_dev: bool = Fal
     _auth_db = AuthDatabase(db_path=str(auth_db_path), key_path=str(auth_key_path), is_dev=is_dev)
     _auth_db.initialize()
 
-    # Mirror the live handle onto the parent ``api_modular.auth`` module so
-    # callers that read ``auth._auth_db`` directly (and tests that monkeypatch
-    # the parent module's attribute) see the same instance. Resolved through
-    # ``sys.modules`` to avoid a module-load-time cyclic import edge.
+    # NOTE: pre-W-A8, ``_auth_db`` lived directly in ``auth.py`` and each
+    # loaded copy of that module (long-path ``backend.api_modular.auth``
+    # and short-path ``api_modular.auth``) had its own independent
+    # ``_auth_db``. The W-A8 refactor moved ``_auth_db`` here to
+    # ``auth_shared.py``. Per Python's import system, the same source
+    # file loaded under two different module names creates two distinct
+    # module objects — so each loaded auth_shared still gets its own
+    # ``_auth_db`` global. That preserves the pre-W-A8 isolation: when
+    # ``backend.api_modular.create_app`` runs, it calls THIS init (in the
+    # long-path auth_shared) which rebinds ONLY long-path
+    # auth_shared._auth_db. The short-path auth_shared (used by a
+    # separate test app created via ``from api_modular import create_app``)
+    # is unaffected. The PEP-562 ``__getattr__`` in the matching auth.py
+    # resolves ``_auth_db`` via sys.modules at the matching path, keeping
+    # each Flask app's auth handle isolated from the others.
+    #
+    # Wipe any stale direct binding on the matching parent ``auth`` alias
+    # so the PEP-562 ``__getattr__`` forwarding (not a snapshotted value)
+    # handles attribute lookup — this matters for tests that
+    # monkeypatched ``...auth._auth_db = <prev_db>`` directly into the
+    # module's __dict__ and didn't clean up.
     import sys as _sys
 
-    for _name in (
-        "api_modular.auth",
-        "backend.api_modular.auth",
-        "library.backend.api_modular.auth",
-    ):
-        _mod = _sys.modules.get(_name)
-        if _mod is not None:
-            _mod._auth_db = _auth_db
+    # Only target the auth.py alias that matches THIS auth_shared's
+    # package — long-path auth_shared's init touches only long-path
+    # auth.py's __dict__, preserving isolation between Flask apps.
+    _own_pkg = __name__.rsplit(".", 1)[0] if "." in __name__ else ""
+    _own_auth_alias = f"{_own_pkg}.auth" if _own_pkg else "auth"
+    _mod = _sys.modules.get(_own_auth_alias)
+    if _mod is not None and "_auth_db" in _mod.__dict__:
+        del _mod.__dict__["_auth_db"]
 
     # In dev mode, allow non-secure cookies for localhost
     if is_dev:
@@ -143,29 +160,25 @@ def init_auth_routes(auth_db_path: Path, auth_key_path: Path, is_dev: bool = Fal
 def get_auth_db() -> AuthDatabase:
     """Get the auth database instance.
 
-    Walks every known module-name binding for ``_auth_db`` so that tests
-    which ``monkeypatch.setattr("backend.api_modular.auth._auth_db", db)``
-    (under the long-path name) AND code that uses the short-path name
-    both find a live handle. ``init_auth_routes`` mirrors the handle to
-    every loaded ``api_modular.auth`` alias to keep them in sync. The
-    monkeypatch then overrides one alias for the duration of the test.
+    Honor any explicit override on the matching-path ``auth`` module
+    (e.g. ``monkeypatch.setattr("backend.api_modular.auth._auth_db",
+    db)``). Only the matching-path alias is checked — pre-W-A8 each
+    auth.py module had its own ``_auth_db`` and Flask-app isolation
+    relied on that, so we don't cross paths here.
     """
     import sys as _sys
 
-    # Honor any explicit override on a parent ``api_modular.auth`` alias
-    # before falling back to this module's own ``_auth_db``. The test
-    # fixture in ``test_multi_session`` monkeypatches the long-path name;
-    # other tests use the short-path. Whichever module holds the override
-    # wins — we just need to find it.
-    for _name in (
-        "backend.api_modular.auth",
-        "api_modular.auth",
-        "library.backend.api_modular.auth",
-    ):
-        _mod = _sys.modules.get(_name)
-        if _mod is None:
-            continue
-        _override = getattr(_mod, "_auth_db", None)
+    # Look up matching-path auth.py only (the auth module that lives
+    # in the SAME package as this auth_shared). A monkeypatch that
+    # lands in the matching-path module's ``__dict__`` shadows the
+    # PEP-562 ``__getattr__`` and is honored here. Other path aliases
+    # (e.g. short-path when this is long-path) belong to a different
+    # Flask app's auth handle and must not contaminate this lookup.
+    _own_pkg = __name__.rsplit(".", 1)[0] if "." in __name__ else ""
+    _own_auth_alias = f"{_own_pkg}.auth" if _own_pkg else "auth"
+    _mod = _sys.modules.get(_own_auth_alias)
+    if _mod is not None and "_auth_db" in _mod.__dict__:
+        _override = _mod.__dict__["_auth_db"]
         if _override is not None and _override is not _auth_db:
             return _override
     if _auth_db is None:
