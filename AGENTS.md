@@ -20,10 +20,18 @@ For the full policy, read `~/.claude/rules/beads.md`.
 
 ALWAYS use non-interactive flags with file operations to avoid hanging on confirmation prompts. Some shells alias `cp`, `mv`, `rm` to include `-i` (interactive) mode.
 
-Shell commands like `cp`, `mv`, and `rm` may be aliased to include `-i` (interactive) mode on some systems, causing the agent to hang indefinitely waiting for y/n input.
+```bash
+cp -f source dest           # NOT: cp source dest
+mv -f source dest           # NOT: mv source dest
+rm -f file                  # NOT: rm file
+rm -rf directory            # NOT: rm -r directory
+cp -rf source dest          # NOT: cp -r source dest
+```
 
-**Use these forms instead:**
-
+Other prompting commands:
+- `scp` / `ssh` — use `-o BatchMode=yes`
+- `apt-get` — use `-y`
+- `brew` — use `HOMEBREW_NO_AUTO_UPDATE=1`
 
 <!-- BEGIN BEADS INTEGRATION v:1 profile:claude-rules-managed hash:managed-by-beads-md -->
 ## bd (beads) — Cross-Session Task Graph
@@ -56,28 +64,5 @@ bd doctor             # Health check
 
 For session end, follow the project's `/close` workflow (defined in `~/.claude/rules/session-workflow.md`). It already handles the project's push restrictions, security checks, and CHANGELOG updates. Do NOT follow bd's default "git push or not done" mandate — it does not understand the push-restriction rules in `~/.claude/rules/projects.md`.
 
-**MANDATORY WORKFLOW:**
-
-1. **File issues for remaining work** - Create issues for anything that needs follow-up
-2. **Run quality gates** (if code changed) - Tests, linters, builds
-3. **Update issue status** - Close finished work, update in-progress items
-4. **PUSH TO REMOTE** - This is MANDATORY:
-
-   ```bash
-   git pull --rebase
-   bd dolt push
-   git push
-   git status  # MUST show "up to date with origin"
-   ```
-
-5. **Clean up** - Clear stashes, prune remote branches
-6. **Verify** - All changes committed AND pushed
-7. **Hand off** - Provide context for next session
-
-**CRITICAL RULES:**
-
-- Work is NOT complete until `git push` succeeds
-- NEVER stop before pushing - that leaves work stranded locally
-- NEVER say "ready to push when you are" - YOU must push
-- If push fails, resolve and retry until it succeeds
+If this project is on the push-restriction list (hardware-pinned, fork-clone, local-only), do NOT run `bd dolt push`. Issues remain on this workstation only.
 <!-- END BEADS INTEGRATION -->
