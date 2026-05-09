@@ -680,6 +680,42 @@ sudo -u audiobooks bash -c 'set -a; source /etc/audiobooks/audiobooks.conf; \
   python3 -c "import smtplib,os; s=smtplib.SMTP(os.environ[\"SMTP_HOST\"],int(os.environ.get(\"SMTP_PORT\",25))); s.starttls(); s.login(os.environ[\"SMTP_USER\"],os.environ[\"SMTP_PASS\"]); print(\"ok\"); s.quit()"'
 ```
 
+### `protonmail-bridge` is inactive (known state — Resend is canonical SMTP)
+
+**Observed state**: `systemctl --user status protonmail-bridge` shows `inactive (dead)`.
+The service is **intentionally not running** — this is not a defect.
+
+**Background**: Protonmail Bridge wraps all outgoing mail in PGP/MIME
+(`multipart/signed; protocol="application/pgp-signature"`). Apple iCloud/mac.com
+rejects this envelope with `554 5.7.1 [CS01]`. All transactional mail from the
+application goes through **Resend** (SMTP relay at `smtp.resend.com:587`) which
+delivers via Amazon SES without the PGP wrapper.
+
+**Canonical SMTP path** (set in `/etc/audiobooks/audiobooks.conf`):
+
+```
+SMTP_HOST=smtp.resend.com
+SMTP_PORT=587
+SMTP_USER=resend
+SMTP_PASS=<send-only Resend API key>
+SMTP_FROM=library@thebosco.club
+```
+
+**Protonmail Bridge status history**: Last stopped cleanly on 2026-05-06 after the
+`secret-service` (KWallet/gnome-keyring) became unavailable in the headless session
+context following a system restart. The service unit is `disabled` (not started on
+login) and will remain so unless explicitly re-enabled for local IMAP use.
+
+**If Bridge is needed for local mail** (not the application): ensure KWallet or
+gnome-keyring is running (`systemctl --user status plasma-kwalletd5`), then:
+```bash
+systemctl --user start protonmail-bridge
+```
+
+**If application email fails**, check Resend credentials — Bridge is not involved.
+
+---
+
 ### `gpu=unhealthy` in monitor logs but workers seem fine
 
 **Symptoms**: `journalctl -u audiobook-translation-monitor-live` shows `gpu=unhealthy` despite the worker producing segments normally.
@@ -724,4 +760,5 @@ If the manual `curl` returns `{"workers":{"ready":N,...}}` with N>0 but the moni
 | Book modal off-screen on mobile | Viewport resize on modal mount | Upgrade to 8.3.10.1+ |
 | `translation-monitor-live` `start-limit-hit` | `StartLimitBurst=5` too low for 30 s cadence | Upgrade to 8.3.10.1+ |
 | Operator alert email never arrives on chapter starvation | `grep -E '^(ADMIN_EMAIL\|SMTP_FROM)=' /etc/audiobooks/audiobooks.conf` | Set `ADMIN_EMAIL` (or rely on `SMTP_FROM` fallback) and verify SMTP credentials |
+| `protonmail-bridge` inactive | `systemctl --user status protonmail-bridge` | Known state — Resend is canonical SMTP; Bridge only needed for local IMAP |
 | Monitor logs `gpu=unhealthy` while workers serve traffic | Manual `curl /v2/<endpoint>/health` from the host | Fix egress / DNS / cert chain to `api.runpod.ai`; review `gpu_probe_failed` events |
