@@ -445,6 +445,10 @@ def streaming_db(flask_app, session_temp_dir):
     conn.execute("DELETE FROM chapter_subtitles")
     conn.execute("DELETE FROM chapter_translations_audio")
     conn.execute("DELETE FROM translation_queue")
+    try:
+        conn.execute("DELETE FROM sampler_jobs")
+    except sqlite3.OperationalError:
+        pass  # older test schema may not have the table
     conn.commit()
     conn.close()
 
@@ -960,3 +964,322 @@ def test_process_segment_runs_full_stt_when_vtt_content_empty(tmp_path):
         assert result is True, f"vtt_case={vtt_case!r} should still succeed"
         assert split_calls, f"split_audio_segment must run for empty vtt_case={vtt_case!r}"
         assert subtitles_calls, f"generate_subtitles must run for empty vtt_case={vtt_case!r}"
+
+
+# ── v8.3.10.6: sampler-completion triggers chapter consolidation (iOS audio fix) ──
+
+
+class TestSamplerCompletionTriggersConsolidation:
+    """Sampler-completion → consolidate-chapter integration.
+
+    iOS WebKit (Safari + Chrome iOS, both WKWebView) cannot play WebM via
+    MSE, so iOS users dead-end on the per-segment streaming pipeline. The
+    fix is to consolidate sampler segments into a chapter.webm as soon as
+    the sampler completes (not waiting for the whole chapter to stream),
+    so iOS clients can play it via native ``<audio src=…>`` immediately.
+
+    These tests pin the integration: when the segment-complete API hits
+    the running→complete boundary on a sampler_job, the chapter audio
+    consolidation MUST fire for every chapter the sampler covered.
+    """
+
+    @staticmethod
+    def _seed_sampler_book(
+        streaming_db, streaming_root, monkeypatch, *, book_id=950600, locale="zh-Hans", segments=12
+    ):
+        """Insert audiobook + 12 sampler segments + sampler_jobs row at
+        segments_done = segments_target - 1. The next /segment-complete
+        call (sent by the test) flips status to 'complete' and SHOULD
+        trigger consolidation.
+
+        Returns the (book_id, locale, last_seg_idx) tuple the test calls
+        the API with.
+        """
+        import sqlite3
+
+        from backend.api_modular import streaming_translate as st
+
+        monkeypatch.setattr(st, "_streaming_audio_root", streaming_root)
+        subtitles_root = streaming_root.parent / "streaming-subtitles"
+        subtitles_root.mkdir(exist_ok=True)
+        monkeypatch.setattr(st, "_streaming_subtitles_root", subtitles_root)
+
+        # Clear module-level memoization so per-test seeded chapter
+        # metadata (duration_hours, chapter_count) takes effect rather
+        # than reusing a stale value from a prior test in the same
+        # session.
+        st._chapter_count_memo.pop(book_id, None)
+        st._chapters_memo.pop(book_id, None)
+
+        # Create per-segment WebM files for ALL sampler segments (the
+        # last one will be written when the API call is made; we can
+        # write all of them up front because the helper just reads them).
+        seg_dir = streaming_root / str(book_id) / "ch000" / locale
+        seg_dir.mkdir(parents=True, exist_ok=True)
+        for i in range(segments):
+            (seg_dir / f"seg{i:04d}.webm").write_bytes(b"fake-opus-" + str(i).encode())
+
+        conn = sqlite3.connect(str(streaming_db))
+        # Seed audiobook row so FK constraints in sampler_jobs hold.
+        # duration_hours + chapter_count drive _get_chapter_duration_sec —
+        # 1 hour / 6 chapters = 600s per chapter = 20 segments expected.
+        # Sampler completes at 12 segments, so the chapter is NOT fully
+        # streamed (12 < 19 = expected - 1 slack). This lets us verify
+        # ONLY the sampler-completion hook fires consolidation, not the
+        # general all_cached path.
+        conn.execute(
+            "INSERT OR IGNORE INTO audiobooks "
+            "(id, title, file_path, duration_hours, chapter_count) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (book_id, "Sampler Test Book", f"/test/sampler_{book_id}.opus", 1.0, 6),
+        )
+        # First N-1 segments already completed.
+        for i in range(segments - 1):
+            conn.execute(
+                "INSERT INTO streaming_segments "
+                "(audiobook_id, chapter_index, segment_index, locale, state, "
+                " priority, origin, vtt_content, audio_path) "
+                "VALUES (?, 0, ?, ?, 'completed', 2, 'sampler', ?, ?)",
+                (
+                    book_id,
+                    i,
+                    locale,
+                    f"WEBVTT\n\n1\n00:00:00.000 --> 00:00:30.000\nseg{i}",
+                    f"{book_id}/ch000/{locale}/seg{i:04d}.webm",
+                ),
+            )
+        # Final segment is pending — about to be completed by the test.
+        conn.execute(
+            "INSERT INTO streaming_segments "
+            "(audiobook_id, chapter_index, segment_index, locale, state, "
+            " priority, origin) "
+            "VALUES (?, 0, ?, ?, 'pending', 2, 'sampler')",
+            (book_id, segments - 1, locale),
+        )
+        # sampler_jobs row at running, segments_done = segments - 1
+        conn.execute(
+            "INSERT INTO sampler_jobs "
+            "(audiobook_id, locale, status, segments_target, segments_done) "
+            "VALUES (?, ?, 'running', ?, ?)",
+            (book_id, locale, segments, segments - 1),
+        )
+        conn.commit()
+        conn.close()
+        return book_id, locale, segments - 1
+
+    def test_sampler_completion_triggers_chapter_consolidation(
+        self, app_client, streaming_db, tmp_path, monkeypatch
+    ):
+        """Final sampler segment-complete must INSERT chapter_translations_audio."""
+        import sqlite3
+
+        from backend.api_modular import streaming_translate as st
+
+        streaming_root = tmp_path / "streaming-audio"
+        streaming_root.mkdir()
+
+        book_id, locale, last_seg_idx = self._seed_sampler_book(
+            streaming_db, streaming_root, monkeypatch, book_id=950601
+        )
+
+        # Stub ffmpeg / ffprobe — we don't need a real concat for this test.
+        # The probe in the consolidation helper uses
+        # `-show_entries format=duration -of csv=p=0`, returning a bare
+        # number on stdout; the chapter-extract helper uses
+        # `-show_chapters -print_format json`, returning JSON. Distinguish
+        # the two by looking for the format flags in the cmd args.
+        ffmpeg_calls: list = []
+
+        def fake_run(cmd, **kwargs):
+            if cmd and cmd[0] == "ffmpeg":
+                ffmpeg_calls.append(cmd)
+                out = Path(cmd[-1])
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(b"fake-chapter-webm")
+
+                class _R:
+                    returncode = 0
+                    stdout = ""
+                    stderr = ""
+
+                return _R()
+            if cmd and cmd[0] == "ffprobe":
+                if "-show_chapters" in cmd:
+                    # JSON shape expected by extract_chapters
+                    class _RC:
+                        returncode = 0
+                        stdout = '{"chapters": []}'
+                        stderr = ""
+
+                    return _RC()
+
+                class _R:
+                    returncode = 0
+                    stdout = "180.0\n"
+                    stderr = ""
+
+                return _R()
+
+            class _Other:
+                returncode = 0
+                stdout = ""
+                stderr = ""
+
+            return _Other()
+
+        # ALSO patch the chapters module's subprocess (used by extract_chapters
+        # on a different module-level reference).
+        import localization.chapters as _ch_mod
+
+        monkeypatch.setattr(st.subprocess, "run", fake_run)
+        monkeypatch.setattr(_ch_mod.subprocess, "run", fake_run)
+
+        # Send the final segment-complete payload (sampler-origin).
+        rel_path = f"{book_id}/ch000/{locale}/seg{last_seg_idx:04d}.webm"
+        resp = app_client.post(
+            "/api/translate/segment-complete",
+            json={
+                "audiobook_id": book_id,
+                "chapter_index": 0,
+                "segment_index": last_seg_idx,
+                "locale": locale,
+                "vtt_content": (f"WEBVTT\n\n1\n00:00:00.000 --> 00:00:30.000\nseg{last_seg_idx}"),
+                "audio_path": rel_path,
+            },
+        )
+        assert resp.status_code == 200, resp.data
+
+        # sampler_jobs flipped to complete
+        conn = sqlite3.connect(str(streaming_db))
+        conn.row_factory = sqlite3.Row
+        sj = conn.execute(
+            "SELECT status, segments_done FROM sampler_jobs WHERE audiobook_id = ? AND locale = ?",
+            (book_id, locale),
+        ).fetchone()
+        assert sj is not None
+        assert sj["status"] == "complete"
+        assert sj["segments_done"] == 12
+
+        # chapter_translations_audio row was inserted by the consolidation hook
+        cta = conn.execute(
+            "SELECT audio_path, tts_provider, tts_voice, duration_seconds "
+            "FROM chapter_translations_audio "
+            "WHERE audiobook_id = ? AND chapter_index = 0 AND locale = ?",
+            (book_id, locale),
+        ).fetchone()
+        conn.close()
+
+        assert cta is not None, (
+            "chapter_translations_audio row missing after sampler completion — "
+            "consolidation hook did not fire"
+        )
+        assert cta["tts_provider"] == "streaming"
+        assert cta["tts_voice"] == "zh-CN-XiaoxiaoNeural"
+        assert cta["duration_seconds"] == 180.0
+        # ffmpeg was called exactly once (one chapter consolidated)
+        assert len(ffmpeg_calls) == 1, (
+            f"expected one ffmpeg invocation; got {len(ffmpeg_calls)}: {ffmpeg_calls}"
+        )
+
+    def test_sampler_completion_consolidation_is_idempotent(
+        self, app_client, streaming_db, tmp_path, monkeypatch
+    ):
+        """Re-running segment-complete on an already-complete sampler must NOT
+        re-trigger consolidation (the running→complete UPDATE has rowcount=0).
+
+        Without this, every duplicate segment-complete callback would call
+        ffmpeg again on prod and accumulate IO load needlessly.
+        """
+        import sqlite3
+
+        from backend.api_modular import streaming_translate as st
+
+        streaming_root = tmp_path / "streaming-audio"
+        streaming_root.mkdir()
+        book_id, locale, last_seg_idx = self._seed_sampler_book(
+            streaming_db, streaming_root, monkeypatch, book_id=950602
+        )
+
+        # Pre-flip the sampler_jobs to 'complete' BEFORE the API call so the
+        # transition-detection in segment_complete sees a no-op UPDATE.
+        conn = sqlite3.connect(str(streaming_db))
+        conn.execute(
+            "UPDATE sampler_jobs SET status='complete' WHERE audiobook_id = ? AND locale = ?",
+            (book_id, locale),
+        )
+        # Pre-mark the final segment as completed too — this is the
+        # idempotency case (worker re-emits a callback after restart).
+        conn.execute(
+            "UPDATE streaming_segments SET state='completed', audio_path = ? "
+            "WHERE audiobook_id = ? AND chapter_index = 0 AND segment_index = ? "
+            "AND locale = ?",
+            (
+                f"{book_id}/ch000/{locale}/seg{last_seg_idx:04d}.webm",
+                book_id,
+                last_seg_idx,
+                locale,
+            ),
+        )
+        conn.commit()
+        conn.close()
+
+        ffmpeg_calls: list = []
+
+        def fake_run(cmd, **kwargs):
+            if cmd and cmd[0] == "ffmpeg":
+                ffmpeg_calls.append(cmd)
+                out = Path(cmd[-1])
+                out.parent.mkdir(parents=True, exist_ok=True)
+                out.write_bytes(b"x")
+
+                class _R:
+                    returncode = 0
+                    stdout = ""
+                    stderr = ""
+
+                return _R()
+            if cmd and cmd[0] == "ffprobe" and "-show_chapters" in cmd:
+
+                class _RC:
+                    returncode = 0
+                    stdout = '{"chapters": []}'
+                    stderr = ""
+
+                return _RC()
+
+            class _Other:
+                returncode = 0
+                stdout = "180.0\n"
+                stderr = ""
+
+            return _Other()
+
+        import localization.chapters as _ch_mod
+
+        monkeypatch.setattr(st.subprocess, "run", fake_run)
+        monkeypatch.setattr(_ch_mod.subprocess, "run", fake_run)
+
+        # Re-send segment-complete (worker restart simulation).
+        rel_path = f"{book_id}/ch000/{locale}/seg{last_seg_idx:04d}.webm"
+        resp = app_client.post(
+            "/api/translate/segment-complete",
+            json={
+                "audiobook_id": book_id,
+                "chapter_index": 0,
+                "segment_index": last_seg_idx,
+                "locale": locale,
+                "vtt_content": "WEBVTT\n\n1\n00:00:00.000 --> 00:00:30.000\nseg",
+                "audio_path": rel_path,
+            },
+        )
+        assert resp.status_code == 200
+
+        # ffmpeg must NOT have been called from the sampler-completion path —
+        # the running→complete UPDATE was a no-op (already 'complete').
+        # The general all_cached path may still call ffmpeg if it judges the
+        # chapter fully streamed; this test seeds only 12 segments which
+        # is below the typical 20+ for a real chapter, so all_cached should
+        # be False and no ffmpeg call is expected.
+        assert ffmpeg_calls == [], (
+            f"ffmpeg unexpectedly invoked on duplicate sampler-complete: {ffmpeg_calls}"
+        )

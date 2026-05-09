@@ -164,6 +164,25 @@ class ShellPlayer {
     this.audio.addEventListener("ended", async () => {
       this.setPlayPauseIcon(false);
 
+      // Partial-chapter detection — iOS WKWebView (Safari + Chrome iOS)
+      // cannot play WebM via MSE, so iOS clients are served the
+      // sampler-consolidated chapter.webm via native <audio src=…>. That
+      // file initially contains only the first ~6 minutes of audio
+      // (sampler scope), with the rest of the chapter still streaming
+      // server-side. When 'ended' fires before the chapter's true
+      // duration, do NOT advance — re-fetch the same URL with a cachebust
+      // and resume; the server will have grown the consolidated file as
+      // more segments completed. See _maybeRetryPartialChapter for the
+      // full heuristic. We do this BEFORE the translatedEntries advance
+      // branch so partial chapters at indices > 0 also recover.
+      if (
+        this.translatedEntries &&
+        this.currentBook &&
+        (await this._maybeRetryPartialChapter())
+      ) {
+        return;
+      }
+
       // Cached translated audio is delivered one chapter per URL. Advance to
       // the next chapter in the sorted list before declaring the book done —
       // otherwise multi-chapter translated playback halts after chapter 0.
@@ -904,6 +923,122 @@ class ShellPlayer {
       console.error("Failed to play translated chapter:", error);
       this.showPlayerError(this._errorKeyForPlayRejection(error));
     });
+  }
+
+  // Detect a partial chapter (audio.duration shorter than the source
+  // chapter's true duration) and re-fetch the translated-audio URL with a
+  // cachebust query string so the browser refreshes its HTTP cache. This is
+  // the iOS-WebKit safety net: iPhone clients are served a sampler-only
+  // chapter.webm initially (~6 minutes), and as more segments stream in
+  // server-side, the consolidated file grows. Without this retry, audio
+  // 'ended' would fire at the partial duration and advance to the next
+  // chapter, skipping the remainder of the current chapter.
+  //
+  // Returns true if a partial was detected and a re-fetch was scheduled
+  // (caller should NOT advance the chapter). Returns false in all other
+  // cases — chapter played to its full duration, no chapter metadata
+  // available to compare against, or partial-retry budget exhausted.
+  //
+  // Tunables:
+  //   FULL_TOLERANCE = 0.95 — accept up to 5% short for trailing-silence
+  //   trim and rounding (real chapters never end exactly on a 30-second
+  //   sampler boundary, so the threshold also forgives small mismatches)
+  //   STALL_RETRY_DELAY_MS = 30_000 — if the re-fetch returns the same
+  //   short audio, wait 30s and try once more before giving up
+  //   MAX_RETRIES = 2 — bound the loop so a stuck pipeline doesn't burn
+  //   CPU forever on a stale URL
+  async _maybeRetryPartialChapter() {
+    if (!this.translatedEntries || !this.currentBook) return false;
+    const entry = this.translatedEntries[this.translatedChapterIdx];
+    if (!entry) return false;
+    const chapterIdx = entry.chapter_index ?? this.translatedChapterIdx;
+
+    // Resolve the chapter's true duration from this.chapters (populated by
+    // playBook from /api/audiobooks/<id>/chapters). If it's missing, we
+    // cannot tell partial from full — fall through to normal advance.
+    let trueDurationSec = null;
+    if (Array.isArray(this.chapters) && this.chapters.length > 0) {
+      const ch = this.chapters[chapterIdx];
+      if (ch && typeof ch.start_ms === "number" && typeof ch.end_ms === "number") {
+        trueDurationSec = (ch.end_ms - ch.start_ms) / 1000;
+      }
+    }
+    if (!trueDurationSec || !(trueDurationSec > 0)) return false;
+
+    const playedDurationSec = this.audio.duration || 0;
+    if (!(playedDurationSec > 0)) return false;
+
+    const FULL_TOLERANCE = 0.95;
+    if (playedDurationSec >= trueDurationSec * FULL_TOLERANCE) {
+      // Played the full chapter — clear any retry state and let the
+      // normal chapter-advance branch run.
+      this._partialRetry = null;
+      return false;
+    }
+
+    // We have a partial. Track per-chapter retry state.
+    const retryKey = `${this.currentBook.bookId || this.currentBook.id}:${chapterIdx}`;
+    const STALL_RETRY_DELAY_MS = 30_000;
+    const MAX_RETRIES = 2;
+    if (!this._partialRetry || this._partialRetry.key !== retryKey) {
+      this._partialRetry = { key: retryKey, attempts: 0, lastDuration: 0 };
+    }
+    const retry = this._partialRetry;
+
+    if (retry.attempts >= MAX_RETRIES && playedDurationSec <= retry.lastDuration) {
+      // Two retries with no growth — surface a one-time toast and stop.
+      const message =
+        typeof t === "function"
+          ? t("shell.translationCatchingUp", {
+              defaultValue:
+                "Translation still catching up — refresh in a moment to keep listening.",
+            })
+          : "Translation still catching up — refresh in a moment to keep listening.";
+      this._showShellToast(message, "info");
+      this._partialRetry = null;
+      return false;
+    }
+
+    retry.attempts += 1;
+    retry.lastDuration = playedDurationSec;
+
+    const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
+    const bookId = this.currentBook.bookId || this.currentBook.id;
+    const cacheBust = Date.now();
+    const newSrc = `${API_BASE}/audiobooks/${bookId}/translated-audio/${chapterIdx}/${encodeURIComponent(locale)}?_=${cacheBust}`;
+
+    // Resume at the position we just played to (end of partial). Use
+    // loadedmetadata so we seek before play resumes. The audio element
+    // resets currentTime to 0 on src change — we restore it once metadata
+    // for the new URL has loaded.
+    const resumeSec = Math.max(0, playedDurationSec - 0.5);
+    const onMeta = () => {
+      try {
+        this.audio.currentTime = resumeSec;
+      } catch (_e) {
+        /* seek may fail if new audio is also short — let play try anyway */
+      }
+    };
+    this.audio.addEventListener("loadedmetadata", onMeta, { once: true });
+
+    const triggerLoad = () => {
+      this.audio.src = newSrc;
+      this._lastSaveTime = Date.now();
+      this.audio.play().catch((error) => {
+        console.error("Failed to resume partial chapter:", error);
+        this.showPlayerError(this._errorKeyForPlayRejection(error));
+      });
+    };
+
+    if (retry.attempts === 1) {
+      // First retry — go now.
+      triggerLoad();
+    } else {
+      // Subsequent retry — wait STALL_RETRY_DELAY_MS so the server has
+      // time to grow the consolidated file with newly-streamed segments.
+      setTimeout(triggerLoad, STALL_RETRY_DELAY_MS);
+    }
+    return true;
   }
 
   queueAPISave(fileId, positionSeconds) {

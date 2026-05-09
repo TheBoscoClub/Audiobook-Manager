@@ -23,10 +23,17 @@ The shape we're locking down:
   2. Lock is applied when showBookDetail mounts the modal
   3. Unlock is called on backdrop click, close button, AND when an existing
      modal is removed before opening a new one (otherwise the new lock
-     would save the already-frozen scrollY=0 instead of the real position)
+     could overlap with the in-flight modal mount)
   4. Lock is idempotent — guarded by the data attribute check
-  5. Restore uses scrollTo with behavior:auto (instant) — smooth would feel
-     jumpy
+  5. v8.3.10.5 round-7 (Audiobook-Manager-n9x): the lock body uses ONLY
+     ``overflow: hidden`` on html+body — never ``position: fixed``. Brave
+     Android treats ``position: fixed`` on body as creating a containing
+     block for descendants' ``position: fixed``, contrary to CSS spec, so
+     the modal's ``height: 100%`` resolved against body's tall content box
+     instead of the viewport and the centered card landed below the
+     screen. Removing ``position: fixed`` also removed the ``saved
+     scrollY`` save/restore (``scrollTo``) logic — there is no scroll
+     position to restore because body never moved.
 """
 
 import re
@@ -58,7 +65,10 @@ def test_lock_uses_data_attribute_for_idempotency():
 
 def test_unlock_no_op_when_not_locked():
     """Unlock must early-return if the body isn't locked — calling unlock
-    on an unlocked body would otherwise reset scroll to 0."""
+    on an unlocked body would otherwise clear the inline overflow style on
+    a body that never set it (a no-op-style write but pollutes attribute
+    history). The guard is a ``hasAttribute`` check on the lock attribute.
+    """
     body = re.search(
         r"static\s+_unlockBodyScrollIfLocked\(\)\s*\{(.+?)\n  \}\n",
         JS,
@@ -66,23 +76,37 @@ def test_unlock_no_op_when_not_locked():
     )
     assert body
     fn = body.group(1)
-    assert "if (saved === null) return" in fn or "saved == null" in fn, (
-        "unlock must early-return if no lock attribute set"
+    assert "hasAttribute" in fn, (
+        "unlock must early-return when the lock attribute is absent — "
+        "guard is a hasAttribute() check"
+    )
+    # The early return must come before the inline-style writes.
+    hasattr_pos = fn.find("hasAttribute")
+    return_pos = fn.find("return", hasattr_pos)
+    style_pos = fn.find(".style.overflow")
+    assert 0 <= return_pos < style_pos, (
+        "early-return must precede inline-style writes (otherwise the guard does nothing)"
     )
 
 
-def test_unlock_restores_scroll_position():
+def test_unlock_clears_overflow_styles():
+    """Unlock must clear the inline ``overflow: hidden`` set by lock on
+    both ``documentElement`` and ``body`` so the page scrolls again. The
+    pre-v8.3.10.5-round-7 implementation also restored a saved scrollY
+    via ``scrollTo``; that's gone because lock no longer sets
+    ``position: fixed`` (and therefore body never moved). See module
+    docstring for the Brave-Android rationale.
+    """
     body = re.search(
         r"static\s+_unlockBodyScrollIfLocked\(\)\s*\{(.+?)\n  \}\n",
         JS,
         re.DOTALL,
     )
     fn = body.group(1)
-    assert "scrollTo" in fn, "unlock must call scrollTo to restore position"
-    assert 'behavior: "auto"' in fn or "behavior: 'auto'" in fn, (
-        "scroll restore must be instant (auto), not smooth — smooth animates "
-        "back to the saved position which feels jumpy"
+    assert "documentElement.style.overflow" in fn, (
+        "unlock must clear html element's inline overflow style"
     )
+    assert "body.style.overflow" in fn, "unlock must clear body's inline overflow style"
 
 
 def test_show_book_detail_calls_lock():

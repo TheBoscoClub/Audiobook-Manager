@@ -1559,6 +1559,7 @@ def segment_complete():
     # Sampler accounting: if this completed segment came from the sampler,
     # bump the matching sampler_jobs.segments_done counter and flip status
     # to 'complete' once all target segments are in.
+    sampler_just_completed = False
     if segment_origin == "sampler":
         now = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
         db.execute(
@@ -1567,14 +1568,71 @@ def segment_complete():
             "WHERE audiobook_id = ? AND locale = ?",
             (now, audiobook_id, locale),
         )
-        # Flip to 'complete' when segments_done >= segments_target.
-        db.execute(
+        # Flip to 'complete' when segments_done >= segments_target. Capture
+        # whether this UPDATE actually crossed the running→complete boundary
+        # (rowcount > 0 only on the transition; subsequent calls see
+        # status='complete' and the WHERE clause fails). We use the
+        # transition-detection to fire the iOS partial-chapter consolidation
+        # path without re-running on every redundant segment-complete call.
+        cur_flip = db.execute(
             "UPDATE sampler_jobs SET status = 'complete', updated_at = ? "
             "WHERE audiobook_id = ? AND locale = ? "
             "AND status = 'running' AND segments_done >= segments_target",
             (now, audiobook_id, locale),
         )
+        sampler_just_completed = cur_flip.rowcount > 0
     db.commit()
+
+    # iOS WebKit (Safari + Chrome iOS, both WKWebView) cannot play WebM via
+    # MediaSource Extensions, so the per-segment MSE pipeline that drives
+    # mid-streaming playback for non-iOS clients dead-ends on Qing's iPhone
+    # with a perpetual spinner. The fix is to surface the sampler-translated
+    # audio as a single concatenated chapter.webm served via native
+    # <audio src=…>, which iOS plays fine.
+    #
+    # The general "all segments done → consolidate" path below already does
+    # this, but it is gated on the WHOLE chapter being streamed (~10-30 minutes
+    # of segments, all translated). The sampler completes after only the first
+    # 6 minutes (12 sampler segments), and at that point we already have a
+    # playable subset that can be consolidated. We trigger the same
+    # consolidation here, scoped to whichever chapters carry sampler-origin
+    # segments (sampler scope can span chapters 0+1 for short chapters).
+    #
+    # This produces a "partial" chapter_translations_audio row whose
+    # duration_seconds reflects the sampler scope, NOT the full chapter. The
+    # translated_audio.py /translated-audio endpoint already filters
+    # sampler-origin rows when sampler_jobs.status != 'complete' — once we
+    # flip to 'complete' above, the row is exposed. The player's "audio
+    # ended early" handler (introduced in v8.3.10.6 alongside this change)
+    # detects that audio.duration < expected chapter duration and re-fetches
+    # to pick up the upgraded full-chapter row when streaming completes
+    # downstream.
+    #
+    # We use INSERT OR REPLACE inside _consolidate_chapter_audio so the later
+    # full-chapter consolidation (when ALL segments stream in) overwrites the
+    # partial row transparently.
+    if sampler_just_completed:
+        sampler_chapters = [
+            r["chapter_index"]
+            for r in db.execute(
+                "SELECT DISTINCT chapter_index FROM streaming_segments "
+                "WHERE audiobook_id = ? AND locale = ? AND origin = 'sampler' "
+                "AND state = 'completed' "
+                "ORDER BY chapter_index",
+                (audiobook_id, locale),
+            ).fetchall()
+        ]
+        for sampler_ch in sampler_chapters:
+            try:
+                _consolidate_chapter_audio(db, audiobook_id, int(sampler_ch), locale)
+            except Exception as exc:  # noqa: BLE001 — defensive; consolidation failure must not abort the request
+                logger.warning(
+                    "Sampler-completion consolidation failed for book=%d ch=%s locale=%s err=%s",
+                    int(audiobook_id),
+                    _safe_log_value(sampler_ch),
+                    _safe_log_value(locale),
+                    _safe_log_value(exc),
+                )
 
     # Broadcast to WebSocket clients
     _broadcast_segment_ready(audiobook_id, chapter_index, segment_index, locale)

@@ -945,6 +945,7 @@
   "shell.narratedBy": "Narrated by {narrator}",
   "shell.sessionExpired": "Your session expired — sign in again to keep your progress saved.",
   "shell.signIn": "Sign In",
+  "shell.translationCatchingUp": "Translation still catching up — refresh in a moment to keep listening.",
   "sort.authorFirstAZ": "Author First Name (A-Z)",
   "sort.authorFirstZA": "Author First Name (Z-A)",
   "sort.authorFullAZ": "Author Full Name (A-Z)",

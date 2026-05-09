@@ -945,6 +945,7 @@
   "shell.narratedBy": "朗读者：{narrator}",
   "shell.sessionExpired": "您的会话已过期 — 请重新登录以继续保存您的播放进度。",
   "shell.signIn": "登录",
+  "shell.translationCatchingUp": "翻译还在生成中 — 请稍后刷新页面以继续收听。",
   "sort.authorFirstAZ": "作者名字 (A-Z)",
   "sort.authorFirstZA": "作者名字 (Z-A)",
   "sort.authorFullAZ": "作者全名 (A-Z)",
