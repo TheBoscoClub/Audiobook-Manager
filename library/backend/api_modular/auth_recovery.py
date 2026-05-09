@@ -32,7 +32,7 @@ from auth.backup_codes import BackupCodeRepository
 from auth.totp import setup_totp
 from flask import current_app, jsonify, request
 
-from .auth import (
+from .auth_shared import (
     _user_allows_multi_session,
     auth_bp,
     get_auth_db,

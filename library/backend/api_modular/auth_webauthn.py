@@ -11,7 +11,7 @@ Test-patch compatibility:
     test_auth_webauthn_flows.py, test_credential_reset_claim_lifecycle.py, and
     test_auth_email_and_config.py). To keep those patches effective after this
     extraction, the routes below look up `get_webauthn_config` dynamically via
-    `_auth_module.get_webauthn_config()` instead of binding the name at import
+    `_auth_mod().get_webauthn_config()` instead of binding the name at import
     time. `auth.py` re-exports `get_webauthn_config` at its bottom via
     `from .auth_webauthn import get_webauthn_config`, so
     `api_modular.auth.get_webauthn_config` remains a valid patch target that
@@ -35,8 +35,7 @@ from auth import (
 from auth.backup_codes import BackupCodeRepository
 from flask import Blueprint, jsonify, request
 
-from . import auth as _auth_module
-from .auth import (
+from .auth_shared import (
     _extract_recovery_fields,
     _recovery_warning,
     _user_allows_multi_session,
@@ -45,9 +44,34 @@ from .auth import (
     get_auth_db,
     set_session_cookie,
 )
+from .auth_shared import auth_bp as _shared_bp
 
 # Re-bind auth_bp with explicit type so mypy can resolve @auth_bp.route decorators.
-auth_bp: Blueprint = cast(Blueprint, _auth_module.auth_bp)  # type: ignore[has-type]
+auth_bp: Blueprint = cast(Blueprint, _shared_bp)  # type: ignore[has-type]
+
+
+def _auth_mod():
+    """Late-binding handle to the parent ``api_modular.auth`` module.
+
+    Routes here look up names like ``get_webauthn_config``,
+    ``webauthn_registration_options``, ``webauthn_verify_authentication``,
+    and ``webauthn_verify_registration`` via this accessor so tests that do
+    ``@patch("api_modular.auth.<name>")`` see their mocks at call time.
+    Resolved through ``sys.modules`` rather than a top-level ``import auth``
+    to avoid a module-load-time cyclic edge with ``auth.py``.
+    """
+    import sys as _sys
+
+    # Both forms appear depending on how the package was loaded ("library."
+    # prefix in tests, plain "backend." prefix in the deployed app).
+    # Prefer "api_modular.auth" (short-path) over "backend.api_modular.auth"
+    # because tests patch the short-path name and the Flask app's registered
+    # routes are bound to that module's globals.
+    return (
+        _sys.modules.get("api_modular.auth")
+        or _sys.modules.get("backend.api_modular.auth")
+        or _sys.modules.get("library.backend.api_modular.auth")
+    )
 
 logger = logging.getLogger(__name__)
 
@@ -154,11 +178,11 @@ def register_webauthn_begin():
         reg.consume(db)
         return jsonify({"error": "Verification token has expired"}), 400
 
-    rp_id, rp_name, _ = _auth_module.get_webauthn_config()
+    rp_id, rp_name, _ = _auth_mod().get_webauthn_config()
 
     authenticator_type = "platform" if auth_type == "passkey" else "cross-platform"
 
-    options_json, challenge = _auth_module.webauthn_registration_options(
+    options_json, challenge = _auth_mod().webauthn_registration_options(
         username=reg.username, rp_id=rp_id, rp_name=rp_name, authenticator_type=authenticator_type
     )
 
@@ -211,7 +235,7 @@ def register_webauthn_complete():
         reg.consume(db)
         return jsonify({"error": "Verification token has expired"}), 400
 
-    rp_id, _, origin = _auth_module.get_webauthn_config()
+    rp_id, _, origin = _auth_mod().get_webauthn_config()
     webauthn_cred, _, verify_err = _verify_webauthn_credential(data, origin, rp_id)
     if verify_err:
         return verify_err
@@ -304,9 +328,9 @@ def login_webauthn_begin():
         )
         return jsonify({"error": "Invalid stored credential"}), 500
 
-    rp_id, _, _ = _auth_module.get_webauthn_config()
+    rp_id, _, _ = _auth_mod().get_webauthn_config()
 
-    options_json, challenge = _auth_module.webauthn_authentication_options(
+    options_json, challenge = _auth_mod().webauthn_authentication_options(
         user_id=user.ensured_id,
         credential_id=webauthn_cred.credential_id,
         rp_id=rp_id,
@@ -352,10 +376,10 @@ def login_webauthn_complete():
     if webauthn_cred is None:
         return jsonify({"error": "Invalid credentials"}), 401
 
-    rp_id, _, origin = _auth_module.get_webauthn_config()
+    rp_id, _, origin = _auth_mod().get_webauthn_config()
     credential_json = json.dumps(credential) if isinstance(credential, dict) else credential
 
-    new_sign_count = _auth_module.webauthn_verify_authentication(
+    new_sign_count = _auth_mod().webauthn_verify_authentication(
         credential_json=credential_json,
         expected_challenge=challenge,
         credential_public_key=webauthn_cred.public_key,

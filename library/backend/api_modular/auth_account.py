@@ -18,7 +18,7 @@ from auth import AuthType, UserRepository
 from auth.totp import generate_qr_code, setup_totp
 from flask import jsonify, make_response, request
 
-from .auth import (
+from .auth_shared import (
     INVITATION_EXPIRY_HOURS,
     _switch_auth_method,
     _validate_username,

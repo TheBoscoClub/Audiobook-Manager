@@ -35,14 +35,9 @@ from auth.models import SystemSettingsRepository
 from auth.totp import generate_qr_code, get_provisioning_uri, secret_to_base32, setup_totp
 from flask import jsonify, request
 
-from .auth import (
+from .auth_shared import (
     INVITATION_EXPIRY_HOURS,
     _format_claim_token,
-    _send_activation_email,
-    _send_approval_email,
-    _send_denial_email,
-    _send_invitation_email,
-    _send_reply_email,
     _setup_passkey_data,
     _setup_totp_data,
     _switch_auth_method,
@@ -55,6 +50,30 @@ from .auth import (
     get_auth_db,
     require_current_user,
 )
+
+
+def _auth_mod():
+    """Late-binding handle to the parent ``api_modular.auth`` module.
+
+    Routes here invoke email senders (``_send_activation_email``,
+    ``_send_approval_email``, ``_send_denial_email``,
+    ``_send_invitation_email``, ``_send_reply_email``) via this accessor
+    so tests that ``@patch("backend.api_modular.auth._send_*_email")`` see
+    their mocks at call time. ``auth.py`` re-exports those senders from
+    ``auth_email.py`` for back-compat with the patch targets. Resolved
+    through ``sys.modules`` rather than a top-level ``import auth`` to
+    avoid a module-load-time cyclic edge with ``auth.py``.
+    """
+    import sys as _sys
+
+    # Prefer "api_modular.auth" (short-path) over "backend.api_modular.auth"
+    # because tests patch the short-path name and the Flask app's registered
+    # routes are bound to that module's globals.
+    return (
+        _sys.modules.get("api_modular.auth")
+        or _sys.modules.get("backend.api_modular.auth")
+        or _sys.modules.get("library.backend.api_modular.auth")
+    )
 
 # =============================================================================
 # Admin Endpoints (localhost only in production)
@@ -315,7 +334,7 @@ def reply_to_message(message_id: int):
 
     if message.reply_via == ReplyMethod.EMAIL and message.reply_email:
         # Send email reply
-        success = _send_reply_email(message.reply_email, username, reply_text)
+        success = _auth_mod()._send_reply_email(message.reply_email, username, reply_text)
         if not success:
             return jsonify({"error": "Failed to send email reply"}), 500
     else:
@@ -444,7 +463,7 @@ def approve_access_request(request_id: int):
     # Send email notification if user provided email
     email_sent = False
     if access_req.contact_email:
-        email_sent = _send_approval_email(
+        email_sent = _auth_mod()._send_approval_email(
             to_email=access_req.contact_email, username=access_req.username
         )
 
@@ -504,7 +523,7 @@ def deny_access_request(request_id: int):
     # Send email notification if user provided email
     email_sent = False
     if access_req.contact_email:
-        email_sent = _send_denial_email(
+        email_sent = _auth_mod()._send_denial_email(
             to_email=access_req.contact_email, username=access_req.username, reason=reason
         )
 
@@ -771,7 +790,7 @@ def _invite_claim_flow(db, username, email, can_download):
     request_repo.store_invite_metadata(access_request.ensured_id, can_download)
     request_repo.approve(access_request.ensured_id, admin_username)
 
-    email_sent = _send_invitation_email(
+    email_sent = _auth_mod()._send_invitation_email(
         to_email=email,
         username=username,
         claim_token=formatted_token,
@@ -825,7 +844,7 @@ def _invite_magic_link_user(db, user_repo, username, email, can_download):  # py
     )
 
     # Send activation email
-    email_sent = _send_activation_email(
+    email_sent = _auth_mod()._send_activation_email(
         to_email=email,
         username=username,
         activation_token=raw_token,

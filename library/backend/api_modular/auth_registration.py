@@ -8,7 +8,7 @@ triggers registration via `from . import auth_registration` at its bottom.
 Test-patch compatibility:
     `api_modular.auth.get_webauthn_config` is the patch target used by
     `test_auth_webauthn_flows.py` and sibling suites. Routes here look it up
-    dynamically through `_auth_module.get_webauthn_config()` so the patch
+    dynamically through `_auth_mod().get_webauthn_config()` so the patch
     installed on the `auth` namespace remains effective when execution
     reaches this module's routes.
 """
@@ -29,8 +29,7 @@ from flask import jsonify, request
 # "AccessRequestRepository", "BackupCodeRepository", "setup_totp",
 # "generate_qr_code", "base32_to_secret", "User" — look them up dynamically
 # through _auth_module so patches on the `auth` namespace remain effective.
-from . import auth as _auth_module
-from .auth import (
+from .auth_shared import (
     _extract_recovery_fields,
     _format_claim_token,
     _recovery_warning,
@@ -41,6 +40,32 @@ from .auth import (
     get_auth_db,
     set_session_cookie,
 )
+
+
+def _auth_mod():
+    """Late-binding handle to the parent ``api_modular.auth`` module.
+
+    Routes here look up names like ``UserRepository``,
+    ``AccessRequestRepository``, ``BackupCodeRepository``, ``setup_totp``,
+    ``generate_qr_code``, ``base32_to_secret``, ``User``, and
+    ``get_webauthn_config`` via this accessor so tests that do
+    ``patch.object(auth_mod, ...)`` or ``@patch("api_modular.auth.<name>")``
+    see their mocks at call time. Resolved through ``sys.modules`` rather
+    than a top-level ``import auth`` to avoid a module-load-time cyclic
+    edge with ``auth.py``.
+    """
+    import sys as _sys
+
+    # Prefer "api_modular.auth" — the short-path import used by create_app
+    # (and therefore by the running Flask app) — over "backend.api_modular.auth"
+    # because Python registers them as DIFFERENT module objects when sys.path
+    # contains both library/ and library/backend/. Tests patch the short-path
+    # name, and that's the one whose globals back the registered routes.
+    return (
+        _sys.modules.get("api_modular.auth")
+        or _sys.modules.get("backend.api_modular.auth")
+        or _sys.modules.get("library.backend.api_modular.auth")
+    )
 
 # =============================================================================
 # Claim-flow helpers (moved from auth.py)
@@ -87,7 +112,7 @@ def _apply_claim_credentials_reset(
         existing_user.save(db)
         obj.consume(db)
 
-        backup_codes = _auth_module.BackupCodeRepository(db).create_codes_for_user(existing_user.id)
+        backup_codes = _auth_mod().BackupCodeRepository(db).create_codes_for_user(existing_user.id)
 
         return jsonify(
             {
@@ -107,7 +132,7 @@ def _apply_claim_credentials_reset(
             }
         )
 
-    totp_secret, totp_base32, totp_uri = _auth_module.setup_totp(username)
+    totp_secret, totp_base32, totp_uri = _auth_mod().setup_totp(username)
     existing_user.auth_type = AuthType.TOTP
     existing_user.auth_credential = totp_secret
     if recovery_email:
@@ -118,7 +143,7 @@ def _apply_claim_credentials_reset(
     existing_user.save(db)
     obj.consume(db)
 
-    backup_codes = _auth_module.BackupCodeRepository(db).create_codes_for_user(existing_user.id)
+    backup_codes = _auth_mod().BackupCodeRepository(db).create_codes_for_user(existing_user.id)
 
     response_data = {
         "success": True,
@@ -140,7 +165,7 @@ def _apply_claim_credentials_reset(
     }
 
     try:
-        qr_png = _auth_module.generate_qr_code(_auth_module.base32_to_secret(totp_base32), username)
+        qr_png = _auth_mod().generate_qr_code(_auth_mod().base32_to_secret(totp_base32), username)
         response_data["totp_qr"] = base64.b64encode(qr_png).decode("ascii")
     except ImportError:
         pass
@@ -152,9 +177,9 @@ def _apply_claim_new_user_totp(
     db, username, can_download, recovery_email, recovery_phone, recovery_enabled, access_req_id
 ):
     """Create a new TOTP user during claim flow. Returns Flask JSON response."""
-    totp_secret, totp_base32, totp_uri = _auth_module.setup_totp(username)
+    totp_secret, totp_base32, totp_uri = _auth_mod().setup_totp(username)
 
-    new_user = _auth_module.User(
+    new_user = _auth_mod().User(
         username=username,
         auth_type=AuthType.TOTP,
         auth_credential=totp_secret,
@@ -166,8 +191,8 @@ def _apply_claim_new_user_totp(
     )
     new_user.save(db)
 
-    backup_codes = _auth_module.BackupCodeRepository(db).create_codes_for_user(new_user.ensured_id)
-    _auth_module.AccessRequestRepository(db).mark_credentials_claimed(access_req_id)
+    backup_codes = _auth_mod().BackupCodeRepository(db).create_codes_for_user(new_user.ensured_id)
+    _auth_mod().AccessRequestRepository(db).mark_credentials_claimed(access_req_id)
 
     response_data = {
         "success": True,
@@ -189,7 +214,7 @@ def _apply_claim_new_user_totp(
     }
 
     try:
-        qr_png = _auth_module.generate_qr_code(_auth_module.base32_to_secret(totp_base32), username)
+        qr_png = _auth_mod().generate_qr_code(_auth_mod().base32_to_secret(totp_base32), username)
         response_data["totp_qr"] = base64.b64encode(qr_png).decode("ascii")
     except ImportError:
         pass
@@ -201,7 +226,7 @@ def _apply_claim_new_user_magic_link(
     db, username, can_download, recovery_email, recovery_phone, access_req_id
 ):
     """Create a new magic_link user during claim flow. Returns Flask JSON response."""
-    new_user = _auth_module.User(
+    new_user = _auth_mod().User(
         username=username,
         auth_type=AuthType.MAGIC_LINK,
         auth_credential=b"",
@@ -213,8 +238,8 @@ def _apply_claim_new_user_magic_link(
     )
     new_user.save(db)
 
-    backup_codes = _auth_module.BackupCodeRepository(db).create_codes_for_user(new_user.ensured_id)
-    _auth_module.AccessRequestRepository(db).mark_credentials_claimed(access_req_id)
+    backup_codes = _auth_mod().BackupCodeRepository(db).create_codes_for_user(new_user.ensured_id)
+    _auth_mod().AccessRequestRepository(db).mark_credentials_claimed(access_req_id)
 
     return jsonify(
         {
@@ -274,8 +299,8 @@ def start_registration():
         return jsonify({"error": "Invalid email address format"}), 400
 
     db = get_auth_db()
-    user_repo = _auth_module.UserRepository(db)
-    request_repo = _auth_module.AccessRequestRepository(db)
+    user_repo = _auth_mod().UserRepository(db)
+    request_repo = _auth_mod().AccessRequestRepository(db)
 
     if user_repo.username_exists(username):
         return jsonify({"error": "Username already taken"}), 400
@@ -301,8 +326,8 @@ def _check_duplicate_request(request_repo, username):
 
 def _bootstrap_first_user(db, username):
     """Create the first user as admin with TOTP. Returns JSON response."""
-    totp_secret, totp_base32, totp_uri = _auth_module.setup_totp(username)
-    new_user = _auth_module.User(
+    totp_secret, totp_base32, totp_uri = _auth_mod().setup_totp(username)
+    new_user = _auth_mod().User(
         username=username,
         auth_type=AuthType.TOTP,
         auth_credential=totp_secret,
@@ -311,8 +336,8 @@ def _bootstrap_first_user(db, username):
     )
     new_user.save(db)
 
-    codes = _auth_module.BackupCodeRepository(db).create_codes_for_user(new_user.ensured_id)
-    qr_png = _auth_module.generate_qr_code(_auth_module.base32_to_secret(totp_base32), username)
+    codes = _auth_mod().BackupCodeRepository(db).create_codes_for_user(new_user.ensured_id)
+    qr_png = _auth_mod().generate_qr_code(_auth_mod().base32_to_secret(totp_base32), username)
     qr_base64 = base64.b64encode(qr_png).decode("ascii")
 
     return jsonify(
@@ -370,8 +395,8 @@ def _resolve_claim_token(username, claim_token):
     """
     clean_token = claim_token.replace("-", "")
     db = get_auth_db()
-    request_repo = _auth_module.AccessRequestRepository(db)
-    user_repo = _auth_module.UserRepository(db)
+    request_repo = _auth_mod().AccessRequestRepository(db)
+    user_repo = _auth_mod().UserRepository(db)
     claim_token_hash = hash_token(clean_token)
 
     access_req = request_repo.get_pending_by_username_and_token(username, claim_token_hash)
@@ -591,11 +616,11 @@ def claim_webauthn_begin():
     if error:
         return error
 
-    rp_id, rp_name, _ = _auth_module.get_webauthn_config()
+    rp_id, rp_name, _ = _auth_mod().get_webauthn_config()
 
     authenticator_type = "platform" if auth_type == "passkey" else "cross-platform"
 
-    options_json, challenge = _auth_module.webauthn_registration_options(
+    options_json, challenge = _auth_mod().webauthn_registration_options(
         username=username, rp_id=rp_id, rp_name=rp_name, authenticator_type=authenticator_type
     )
 
@@ -641,7 +666,7 @@ def claim_webauthn_complete():
     if error:
         return error
 
-    rp_id, _, origin = _auth_module.get_webauthn_config()
+    rp_id, _, origin = _auth_mod().get_webauthn_config()
     webauthn_cred, _, verify_err = _verify_webauthn_credential(data, origin, rp_id)
     if verify_err:
         return verify_err
@@ -716,7 +741,7 @@ def _claim_webauthn_reset(
     existing_user.save(db)
     obj.consume(db)
 
-    backup_codes = _auth_module.BackupCodeRepository(db).create_codes_for_user(existing_user.id)
+    backup_codes = _auth_mod().BackupCodeRepository(db).create_codes_for_user(existing_user.id)
     allow_multi = _user_allows_multi_session(existing_user, db)
     _, token = Session.create_for_user(
         db,
@@ -743,7 +768,7 @@ def _claim_webauthn_new_user(
     """Create new user via WebAuthn claim flow. Returns (data, token)."""
     can_download = _parse_invite_meta(obj.backup_codes_json)
 
-    new_user = _auth_module.User(
+    new_user = _auth_mod().User(
         username=username,
         auth_type=AuthType.PASSKEY if auth_type == "passkey" else AuthType.FIDO2,
         auth_credential=webauthn_cred.to_json().encode("utf-8"),
@@ -755,8 +780,8 @@ def _claim_webauthn_new_user(
     )
     new_user.save(db)
 
-    backup_codes = _auth_module.BackupCodeRepository(db).create_codes_for_user(new_user.ensured_id)
-    _auth_module.AccessRequestRepository(db).mark_credentials_claimed(obj.id)
+    backup_codes = _auth_mod().BackupCodeRepository(db).create_codes_for_user(new_user.ensured_id)
+    _auth_mod().AccessRequestRepository(db).mark_credentials_claimed(obj.id)
 
     allow_multi = _user_allows_multi_session(new_user, db)
     _, token = Session.create_for_user(
@@ -799,8 +824,8 @@ def check_request_status():
         return jsonify({"error": "Username required"}), 400
 
     db = get_auth_db()
-    request_repo = _auth_module.AccessRequestRepository(db)
-    user_repo = _auth_module.UserRepository(db)
+    request_repo = _auth_mod().AccessRequestRepository(db)
+    user_repo = _auth_mod().UserRepository(db)
 
     if user_repo.username_exists(username):
         return jsonify(
@@ -866,8 +891,8 @@ def verify_registration():
         reg.consume(db)
         return jsonify({"error": "Verification token has expired"}), 400
 
-    secret, base32_secret, uri = _auth_module.setup_totp(reg.username)
-    user = _auth_module.User(
+    secret, base32_secret, uri = _auth_mod().setup_totp(reg.username)
+    user = _auth_mod().User(
         username=reg.username,
         auth_type=AuthType.TOTP,
         auth_credential=secret,
@@ -878,7 +903,7 @@ def verify_registration():
         recovery_enabled=recovery_enabled,
     )
     user.save(db)
-    backup_codes = _auth_module.BackupCodeRepository(db).create_codes_for_user(user.ensured_id)
+    backup_codes = _auth_mod().BackupCodeRepository(db).create_codes_for_user(user.ensured_id)
     reg.consume(db)
 
     response_data = {
@@ -894,7 +919,7 @@ def verify_registration():
     }
 
     if include_qr:
-        qr_png = _auth_module.generate_qr_code(secret, user.username)
+        qr_png = _auth_mod().generate_qr_code(secret, user.username)
         response_data["totp_qr"] = base64.b64encode(qr_png).decode("ascii")
 
     return jsonify(response_data)
@@ -923,7 +948,7 @@ def get_auth_type():
         return jsonify({"error": "Username required"}), 400
 
     db = get_auth_db()
-    user_repo = _auth_module.UserRepository(db)
+    user_repo = _auth_mod().UserRepository(db)
 
     user = user_repo.get_by_username(username)
     if user is None:
