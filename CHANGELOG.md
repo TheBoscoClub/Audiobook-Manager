@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.3.10.6] - 2026-05-09
+
+### Added
+
 - **`pyrightconfig.json`** added to project root — sets `extraPaths` to match the runtime `sys.path` manipulation in `library/web-v2/proxy_server.py` and `library/web-v2/redirect_server.py` so pyright can resolve their sibling imports without reporting false-positive "module not found" errors
 - **Test coverage backfilled for `library/scripts/generate_hashes.py`** (18% → 88%) and `library/scanner/utils/sampler_hook.py` (56% → 100%) — both modules had minimal coverage because their command-line entry-points were never invoked from the test suite; new fixtures drive them end-to-end. 21 `ResourceWarning` unclosed `sqlite3` connections eliminated across both modules and their test fixtures by wrapping connections in `with` context managers
 - **`docs/STORAGE-CAPACITY.md`** — new reference document capturing the `AUDIOBOOKS_DATABASE` target (`/var/lib/audiobooks`) NVMe capacity constraints (400 GB usable), a table of major storage consumers (`streaming-audio/` segment cache, `db/`, `auth.db`, covers, logs), and an operator retention proposal for `streaming-audio/` segments (safe to prune once `chapter_translations_audio` row exists for a `(audiobook_id, chapter_index, locale)` triple)
@@ -3701,7 +3709,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.5...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.6...HEAD
+[8.3.10.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.5...v8.3.10.6
 [8.3.10.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.4...v8.3.10.5
 [8.3.10.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.3...v8.3.10.4
 [8.3.10.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.2...v8.3.10.3
