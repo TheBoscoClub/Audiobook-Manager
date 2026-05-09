@@ -18,6 +18,7 @@ from __future__ import annotations
 import io
 import json
 import os
+import types
 import urllib.error
 from unittest.mock import patch
 
@@ -164,5 +165,5 @@ def test_aggregate_pessimistic_when_all_zero(monkeypatch):
 
 
 # ─── Use of io kept for future stream-shaped responses ────────────────────
-_ = io  # prevent unused-import lint if a future test needs BytesIO bodies
-_ = os  # available for environ probing in future scenarios
+_io: types.ModuleType = io  # prevent unused-import lint if a future test needs BytesIO bodies
+_os: types.ModuleType = os  # available for environ probing in future scenarios

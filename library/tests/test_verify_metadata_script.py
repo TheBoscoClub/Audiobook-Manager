@@ -312,6 +312,7 @@ class TestGetEmbeddedTags:
             ),
         )
         result = get_embedded_tags(str(fake_file))
+        assert result is not None
         assert result["title"] == "Stream Title"
 
 

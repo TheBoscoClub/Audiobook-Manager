@@ -71,6 +71,7 @@ class TestJobStatusRegistry:
     def test_set_and_get_roundtrip(self):
         sub._set_status(99, "ja", state="running", phase="transcribing")
         s = sub._get_status(99, "ja")
+        assert s is not None
         assert s["state"] == "running"
         assert s["phase"] == "transcribing"
         assert "updated_at" in s
@@ -79,14 +80,18 @@ class TestJobStatusRegistry:
         sub._set_status(99, "zh-Hans", state="starting")
         sub._set_status(99, "zh-Hans", phase="gpu_spinup")
         s = sub._get_status(99, "zh-Hans")
+        assert s is not None
         assert s["state"] == "starting"
         assert s["phase"] == "gpu_spinup"
 
     def test_returns_copy_not_reference(self):
         sub._set_status(50, "zh-Hans", state="running")
         snap = sub._get_status(50, "zh-Hans")
+        assert snap is not None
         snap["state"] = "MUTATED"
-        assert sub._get_status(50, "zh-Hans")["state"] == "running"
+        final = sub._get_status(50, "zh-Hans")
+        assert final is not None
+        assert final["state"] == "running"
 
 
 # ── GET /api/audiobooks/<id>/subtitles ──
@@ -411,6 +416,7 @@ class TestStartGenerationClosure:
         from backend.api_modular.subtitles import _get_status
 
         status = _get_status(1, "zh-Hans")
+        assert status is not None
         assert status["state"] == "completed"
         assert status["phase"] == "done"
 
@@ -428,5 +434,6 @@ class TestStartGenerationClosure:
         from backend.api_modular.subtitles import _get_status
 
         status = _get_status(2, "zh-Hans")
+        assert status is not None
         assert status["state"] == "failed"
         assert "gpu dead" in status.get("error", "")

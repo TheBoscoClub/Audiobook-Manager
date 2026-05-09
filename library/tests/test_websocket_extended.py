@@ -27,6 +27,7 @@ class TestRegisterEdgeCases:
         ws = MagicMock()
         self.mgr.register("s1", ws)
         conn = self.mgr.get_connection("s1")
+        assert conn is not None
         assert conn["username"] == "anonymous"
 
     def test_register_replaces_old_silently(self):
@@ -63,12 +64,14 @@ class TestRegisterEdgeCases:
         self.mgr.register("s1", ws, "alice")
         after = time.time()
         conn = self.mgr.get_connection("s1")
+        assert conn is not None
         assert before <= conn["connected_at"] <= after
 
     def test_register_initial_state_browsing(self):
         ws = MagicMock()
         self.mgr.register("s1", ws, "alice")
         conn = self.mgr.get_connection("s1")
+        assert conn is not None
         assert conn["state"] == "browsing"
 
     def test_register_multiple_sessions(self):
@@ -113,6 +116,7 @@ class TestHeartbeatEdgeCases:
         ws = MagicMock()
         self.mgr.register("s1", ws, "alice")
         old_conn = self.mgr.get_connection("s1")
+        assert old_conn is not None
         old_last_seen = old_conn["last_seen"]
 
         # Small sleep to ensure time difference
@@ -120,6 +124,7 @@ class TestHeartbeatEdgeCases:
         self.mgr.heartbeat("s1", state="listening")
 
         new_conn = self.mgr.get_connection("s1")
+        assert new_conn is not None
         assert new_conn["last_seen"] >= old_last_seen
         assert new_conn["state"] == "listening"
 
@@ -129,6 +134,7 @@ class TestHeartbeatEdgeCases:
         self.mgr.heartbeat("s1", state="listening")
         self.mgr.heartbeat("s1")  # default state
         conn = self.mgr.get_connection("s1")
+        assert conn is not None
         assert conn["state"] == "browsing"
 
 
@@ -140,12 +146,14 @@ class TestGetConnection:
         ws = MagicMock()
         self.mgr.register("s1", ws, "alice")
         conn = self.mgr.get_connection("s1")
+        assert conn is not None
         assert "ws" not in conn
 
     def test_get_connection_has_expected_keys(self):
         ws = MagicMock()
         self.mgr.register("s1", ws, "alice")
         conn = self.mgr.get_connection("s1")
+        assert conn is not None
         assert set(conn.keys()) == {"username", "state", "last_seen", "connected_at"}
 
     def test_get_connection_nonexistent_returns_none(self):

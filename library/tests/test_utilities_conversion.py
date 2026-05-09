@@ -355,6 +355,7 @@ class TestParseConversionJob:
                 mock_stat.return_value = MagicMock(st_size=2000000)  # Less than read
                 result = parse_conversion_job(1234, cmdline)
 
+        assert result is not None
         assert result["percent"] == 99  # Capped, not 150
 
 

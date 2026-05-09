@@ -27,6 +27,7 @@ class TestConnectionManager:
         self.manager.register("session-1", ws, username="alice")
         self.manager.heartbeat("session-1", state="listening")
         conn = self.manager.get_connection("session-1")
+        assert conn is not None
         assert conn["state"] == "listening"
 
     def test_stale_connections_detected(self):
