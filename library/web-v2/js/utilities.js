@@ -321,6 +321,7 @@ async function searchForEdit(query) {
   if (!query.trim()) return;
 
   const resultsContainer = document.getElementById("edit-search-results");
+  // nosec: static placeholder markup, no user data
   resultsContainer.innerHTML = '<p class="placeholder-text">Searching...</p>';
 
   try {
@@ -364,10 +365,12 @@ async function searchForEdit(query) {
         resultsContainer.appendChild(item);
       });
     } else {
+      // nosec: static markup, no user data
       resultsContainer.innerHTML =
         '<p class="placeholder-text">No audiobooks found</p>';
     }
   } catch (error) {
+    // nosec: static markup, no user data
     resultsContainer.innerHTML =
       '<p class="placeholder-text">Search failed</p>';
     showToast("Search failed: " + error.message, "error");
@@ -461,6 +464,7 @@ async function deleteAudiobook() {
     if (result.success) {
       showToast("Audiobook deleted from database", "success");
       closeEditForm();
+      // nosec: static markup, no user data
       document.getElementById("edit-search-results").innerHTML =
         '<p class="placeholder-text">Enter a search term to find audiobooks</p>';
       loadDatabaseStats();
@@ -607,6 +611,7 @@ async function findDuplicates() {
 function renderDuplicates() {
   const listContainer = document.getElementById("duplicates-list");
 
+  // nosec: group.title/hash, item.title/author/file_path all pass through escapeHtml(); group/item indices and file_size_mb are numeric (id is rendered into data-id attribute, source is API)
   listContainer.innerHTML = duplicatesData
     .map(
       (group, groupIdx) => `
@@ -938,6 +943,7 @@ async function loadBulkAudiobooks() {
   }
 
   const listContainer = document.getElementById("bulk-list");
+  // nosec: static markup, no user data
   listContainer.innerHTML = '<p class="placeholder-text">Loading...</p>';
 
   try {
@@ -951,12 +957,14 @@ async function loadBulkAudiobooks() {
       document.getElementById("bulk-selection-bar").style.display = "flex";
       document.getElementById("bulk-actions-card").style.display = "block";
     } else {
+      // nosec: static markup, no user data
       listContainer.innerHTML =
         '<p class="placeholder-text">No audiobooks found</p>';
       document.getElementById("bulk-selection-bar").style.display = "none";
       document.getElementById("bulk-actions-card").style.display = "none";
     }
   } catch (error) {
+    // nosec: static markup, no user data
     listContainer.innerHTML =
       '<p class="placeholder-text">Failed to load audiobooks</p>';
     showToast("Failed to load: " + error.message, "error");
@@ -966,6 +974,7 @@ async function loadBulkAudiobooks() {
 function renderBulkList(audiobooks) {
   const listContainer = document.getElementById("bulk-list");
 
+  // nosec: book.title, book.author, book.narrator, book.series all pass through escapeHtml(); book.id is integer from DB schema (used in data-id attribute)
   listContainer.innerHTML = audiobooks
     .map(
       (book) => `
@@ -3194,6 +3203,7 @@ function renderSetupData(setupData, username, authMethod) {
   var downloadBtn = document.getElementById("download-setup-btn");
 
   panel.hidden = false;
+  // nosec: clearing only (empty string, no user data)
   qrContainer.innerHTML = "";
   manualKey.textContent = "";
   claimUrl.textContent = "";
@@ -3303,6 +3313,7 @@ async function loadAuditLog(actionFilter, offset) {
     });
 
     var tbody = document.getElementById("audit-table-body");
+    // nosec: clearing only (empty string, no user data)
     tbody.innerHTML = "";
 
     if (!data.entries || data.entries.length === 0) {
@@ -3402,6 +3413,7 @@ function formatTimestamp(ts) {
 function renderAuditPagination(total, currentOffset, actionFilter) {
   var container = document.getElementById("audit-pagination");
   if (!container) return;
+  // nosec: clearing only (empty string, no user data)
   container.innerHTML = "";
 
   var totalPages = Math.ceil(total / auditPageSize);

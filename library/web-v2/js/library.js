@@ -1494,7 +1494,7 @@ class AudiobookLibraryV2 {
       });
     }
 
-    // XSS safe: All dynamic content passes through escapeHtml() (lines 433, highlightMatch->escapeHtml)
+    // nosec: author.name/sort_name and query pass through this.escapeHtml() and this.highlightMatch() (which escapes); i18n labels via t() are static
     dropdown.innerHTML = html;
 
     // Add click handlers to options
@@ -1710,7 +1710,7 @@ class AudiobookLibraryV2 {
       });
     }
 
-    // XSS safe: All dynamic content passes through escapeHtml() (lines 626, highlightMatch->escapeHtml)
+    // nosec: narrator name and query pass through this.escapeHtml() and this.highlightMatch() (which escapes); count is numeric, i18n labels via t() are static
     dropdown.innerHTML = html;
 
     // Add click handlers to options
@@ -1885,6 +1885,7 @@ class AudiobookLibraryV2 {
     const allOption = select.options[0];
 
     // Clear existing options except first
+    // nosec: clearing only (empty string, no user data)
     select.innerHTML = "";
     select.appendChild(allOption);
 
@@ -1987,6 +1988,7 @@ class AudiobookLibraryV2 {
       return;
     }
 
+    // nosec: createBookCard() escapes all user-supplied book fields via this.escapeHtml()
     grid.innerHTML = books.map((book) => this.createBookCard(book)).join("");
   }
 
@@ -2202,14 +2204,17 @@ class AudiobookLibraryV2 {
           const data = await api.get(`${API_BASE}/audiobooks/${bookId}/editions`, { toast: false });
 
           if (data.editions && data.editions.length > 0) {
+            // nosec: renderEditions/renderEditionItem escape all user fields via this.escapeHtml()
             editionsContainer.innerHTML = this.renderEditions(data.editions);
             editionsContainer.dataset.loaded = "true";
           } else {
+            // nosec: static markup, no user data
             editionsContainer.innerHTML =
               '<p style="padding: 1rem; text-align: center;">No other editions found.</p>';
           }
         } catch (error) {
           console.error("Error loading editions:", error);
+          // nosec: static markup, no user data
           editionsContainer.innerHTML =
             '<p style="padding: 1rem; color: #c0392b;">Error loading editions.</p>';
         }
@@ -2545,7 +2550,9 @@ class AudiobookLibraryV2 {
 
   renderPagination(pagination) {
     const html = this.createPaginationHTML(pagination);
+    // nosec: createPaginationHTML uses only numeric page indices and static i18n labels via t()
     document.getElementById("top-pagination").innerHTML = html;
+    // nosec: same html (numeric indices + i18n labels)
     document.getElementById("bottom-pagination").innerHTML = html;
   }
 
@@ -3451,6 +3458,7 @@ class DuplicateManager {
   async showHashStats() {
     this.openModal("hash-stats-modal");
     const content = document.getElementById("hash-stats-content");
+    // nosec: static markup, no user data
     content.innerHTML =
       '<div class="loading-spinner"></div><p>Loading statistics...</p>';
 
@@ -3458,6 +3466,7 @@ class DuplicateManager {
       const stats = await api.get(`${API_BASE}/hash-stats`, { toast: false });
 
       if (!stats.hash_column_exists) {
+        // nosec: static markup, no user data
         content.innerHTML = `
                     <p>Hash column not found in database. Run hash generation first:</p>
                     <pre class="cli-command">cd library && python3 scripts/generate_hashes.py</pre>
@@ -3465,6 +3474,7 @@ class DuplicateManager {
         return;
       }
 
+      // nosec: only numeric stats (counts, percentages) interpolated; toLocaleString() returns safe digit/separator strings
       content.innerHTML = `
                 <div class="stats-grid">
                     <div class="stat-box">
@@ -3504,6 +3514,7 @@ class DuplicateManager {
       const errorP = document.createElement("p");
       errorP.style.color = "#c0392b";
       errorP.textContent = `Error loading statistics: ${error.message}`;
+      // nosec: clearing only (empty string, no user data)
       content.innerHTML = "";
       content.appendChild(errorP);
     }
@@ -3574,6 +3585,7 @@ class DuplicateManager {
         label: savingsLabel,
       });
 
+      // nosec: renderDuplicateGroup escapes file.title/file_path/format/duration/group.title via this.escapeHtml(); badge/keep labels via t() are static i18n strings
       content.innerHTML = data.duplicate_groups
         .map((group) => this.renderDuplicateGroup(group, currentMode))
         .join("");
@@ -3597,6 +3609,7 @@ class DuplicateManager {
     } catch (error) {
       summary.textContent = t("duplicates.error");
       // Use safe DOM methods to avoid XSS - error.message could contain malicious content
+      // nosec: clearing only (empty string, no user data)
       content.innerHTML = "";
       const errorP = document.createElement("p");
       errorP.style.color = "#c0392b";
