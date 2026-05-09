@@ -75,6 +75,7 @@ class ReuseHTTPServer(http.server.HTTPServer):
 
 def main():
     """Run HTTP redirect server."""
+    httpd: ReuseHTTPServer | None = None
     try:
         server_address = (BIND_ADDRESS, HTTP_PORT)
         httpd = ReuseHTTPServer(server_address, HTTPToHTTPSRedirectHandler)
@@ -86,7 +87,8 @@ def main():
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("\nShutting down...")
-        httpd.shutdown()
+        if httpd is not None:
+            httpd.shutdown()
     except Exception as e:
         print(f"Error starting redirect server: {e}", file=sys.stderr)
         sys.exit(1)

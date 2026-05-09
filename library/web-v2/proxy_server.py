@@ -13,6 +13,7 @@ import http.server
 import json
 import logging
 import os
+import re
 import ssl
 import sys
 import traceback
@@ -40,6 +41,23 @@ CERT_FILE = CERT_DIR / "server.crt"
 KEY_FILE = CERT_DIR / "server.key"
 BIND_ADDRESS = AUDIOBOOKS_BIND_ADDRESS
 CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "*")
+
+# Reject any Origin header containing CR, LF, NUL, or other control chars.
+# These would enable HTTP response splitting if echoed into Access-Control-
+# Allow-Origin (CodeQL py/http-response-splitting). Length cap prevents
+# pathological inputs.
+_ORIGIN_CRLF_PATTERN = re.compile(r"[\r\n\x00-\x1f\x7f]")
+_ORIGIN_MAX_LENGTH = 256
+
+
+def _origin_is_safe(origin: str) -> bool:
+    """Reject Origin values that would enable response-header splitting."""
+    return (
+        bool(origin)
+        and len(origin) <= _ORIGIN_MAX_LENGTH
+        and _ORIGIN_CRLF_PATTERN.search(origin) is None
+    )
+
 
 # Hop-by-hop headers that must not be forwarded by proxies (RFC 2616 Section 13.5.1)
 HOP_BY_HOP_HEADERS = {
@@ -189,12 +207,17 @@ class ReverseProxyHandler(http.server.SimpleHTTPRequestHandler):
         requests (cookies-based auth). Echoing the request Origin is the
         spec-compliant way to support credentialed cross-origin requests.
 
+        Origin values containing CR/LF/NUL/control chars are rejected to
+        prevent HTTP response-header splitting (CodeQL #531
+        py/http-response-splitting). Unsafe values fall back to the
+        configured ``CORS_ORIGIN`` default.
+
         If no Origin header is present (e.g., same-origin or non-browser
         clients) we keep the configured value (which is the wildcard by
         default — harmless without credentials).
         """
         origin_header = self.headers.get("Origin")
-        if CORS_ORIGIN == "*" and origin_header:
+        if CORS_ORIGIN == "*" and origin_header and _origin_is_safe(origin_header):
             return origin_header
         return CORS_ORIGIN
 

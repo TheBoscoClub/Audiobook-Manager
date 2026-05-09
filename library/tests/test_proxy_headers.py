@@ -309,3 +309,139 @@ class TestCorsHeaders:
         assert "Access-Control-Allow-Methods" in names
         assert "Access-Control-Allow-Headers" in names
         assert "Access-Control-Expose-Headers" in names
+
+
+class TestCorsOriginCrlfRejection:
+    """Test CRLF / control-character rejection in _resolve_cors_origin().
+
+    Mitigates CodeQL #531 (py/http-response-splitting). A malicious caller
+    can submit an Origin header containing CR/LF/NUL bytes; if echoed into
+    the Access-Control-Allow-Origin response header without sanitization,
+    this would let the attacker inject arbitrary headers (or a fake
+    response body) into the proxy's HTTP response stream.
+
+    The fix in _resolve_cors_origin() validates the Origin header via
+    _origin_is_safe() and falls back to the configured CORS_ORIGIN when
+    the value is unsafe.
+    """
+
+    def _get_module(self):
+        proxy_path = Path(__file__).parent.parent / "web-v2"
+        if str(proxy_path) not in sys.path:
+            sys.path.insert(0, str(proxy_path))
+        import types
+
+        mock_config = types.ModuleType("config")
+        mock_config.AUDIOBOOKS_API_PORT = 5001
+        mock_config.AUDIOBOOKS_BIND_ADDRESS = "0.0.0.0"  # nosec B104  # test fixture
+        mock_config.AUDIOBOOKS_CERTS = Path("/tmp/certs")  # nosec B108  # test fixture
+        mock_config.AUDIOBOOKS_WEB_PORT = 8443
+        mock_config.COVER_DIR = Path("/tmp/covers")  # nosec B108  # test fixture
+        sys.modules["config"] = mock_config
+        try:
+            import importlib
+
+            if "proxy_server" in sys.modules:
+                importlib.reload(sys.modules["proxy_server"])
+            else:
+                import proxy_server  # noqa: F401
+            return sys.modules["proxy_server"]
+        finally:
+            del sys.modules["config"]
+
+    def _make_handler(self, headers_dict, cors_origin="*"):
+        from email.message import Message
+
+        proxy_mod = self._get_module()
+        proxy_mod.CORS_ORIGIN = cors_origin
+        handler_cls = proxy_mod.ReverseProxyHandler
+        instance = object.__new__(handler_cls)
+
+        msg = Message()
+        for k, v in headers_dict.items():
+            msg[k] = v
+        instance.headers = msg
+        instance._sent_headers = []
+
+        def fake_send_header(name, value):
+            instance._sent_headers.append((name, value))
+
+        instance.send_header = fake_send_header  # type: ignore[assignment]
+        return instance
+
+    def test_origin_is_safe_helper_accepts_normal_origin(self):
+        proxy_mod = self._get_module()
+        assert proxy_mod._origin_is_safe("https://library.thebosco.club") is True
+
+    def test_origin_is_safe_helper_rejects_empty(self):
+        proxy_mod = self._get_module()
+        assert proxy_mod._origin_is_safe("") is False
+
+    def test_origin_is_safe_helper_rejects_crlf(self):
+        proxy_mod = self._get_module()
+        assert proxy_mod._origin_is_safe("http://evil.com\r\nX-Injected: 1") is False
+
+    def test_origin_is_safe_helper_rejects_lf_only(self):
+        proxy_mod = self._get_module()
+        assert proxy_mod._origin_is_safe("http://evil.com\nX-Injected: 1") is False
+
+    def test_origin_is_safe_helper_rejects_cr_only(self):
+        proxy_mod = self._get_module()
+        assert proxy_mod._origin_is_safe("http://evil.com\rX-Injected: 1") is False
+
+    def test_origin_is_safe_helper_rejects_null_byte(self):
+        proxy_mod = self._get_module()
+        assert proxy_mod._origin_is_safe("http://evil.com\x00") is False
+
+    def test_origin_is_safe_helper_rejects_other_control_chars(self):
+        proxy_mod = self._get_module()
+        # Tab (\x09), vertical tab (\x0b), form feed (\x0c), DEL (\x7f)
+        for bad in ("\x09", "\x0b", "\x0c", "\x7f"):
+            assert proxy_mod._origin_is_safe(f"http://evil.com{bad}foo") is False
+
+    def test_origin_is_safe_helper_rejects_overlong(self):
+        proxy_mod = self._get_module()
+        # Anything beyond 256 chars is rejected as pathological
+        assert proxy_mod._origin_is_safe("https://" + "a" * 300) is False
+
+    def test_resolve_cors_origin_falls_back_when_origin_has_crlf(self):
+        """Malicious Origin with CRLF must fall back to configured CORS_ORIGIN."""
+        h = self._make_handler({"Origin": "http://evil.com\r\nX-Injected: 1"}, cors_origin="*")
+        assert h._resolve_cors_origin() == "*"
+
+    def test_resolve_cors_origin_falls_back_when_origin_has_null(self):
+        h = self._make_handler({"Origin": "http://evil.com\x00"}, cors_origin="*")
+        assert h._resolve_cors_origin() == "*"
+
+    def test_send_cors_headers_does_not_echo_injected_header(self):
+        """Crucial end-to-end test: the malicious Origin's injected header value
+        must not appear anywhere in the emitted response headers."""
+        h = self._make_handler({"Origin": "http://evil.com\r\nX-Injected: 1"}, cors_origin="*")
+        h._send_cors_headers()
+        # The injected header name must not appear in any emitted header
+        all_emitted = "\n".join(f"{n}: {v}" for n, v in h._sent_headers)
+        assert "X-Injected" not in all_emitted
+        # The Allow-Origin header must NOT contain the malicious value
+        for name, value in h._sent_headers:
+            if name == "Access-Control-Allow-Origin":
+                assert "\r" not in value
+                assert "\n" not in value
+                assert "X-Injected" not in value
+                # When the configured value is "*" and credentials are
+                # paired, it's still a CORS-spec violation, but the test's
+                # focus is preventing CRLF injection — the "*" fallback is
+                # the safe baseline (no injected headers).
+                assert value == "*"
+                return
+        raise AssertionError("Access-Control-Allow-Origin header missing")
+
+    def test_resolve_cors_origin_falls_back_to_configured_specific_when_unsafe(self):
+        """When CORS_ORIGIN is a specific allowlisted value and Origin is
+        malicious, the configured value still wins (already covered by the
+        existing wildcard-bypass logic, but explicitly covered for CRLF)."""
+        h = self._make_handler(
+            {"Origin": "http://evil.com\r\nX-Injected: 1"},
+            cors_origin="https://library.thebosco.club",
+        )
+        # Specific configured value short-circuits regardless of Origin
+        assert h._resolve_cors_origin() == "https://library.thebosco.club"
