@@ -693,7 +693,7 @@ delivers via Amazon SES without the PGP wrapper.
 
 **Canonical SMTP path** (set in `/etc/audiobooks/audiobooks.conf`):
 
-```
+```ini
 SMTP_HOST=smtp.resend.com
 SMTP_PORT=587
 SMTP_USER=resend
@@ -708,6 +708,7 @@ login) and will remain so unless explicitly re-enabled for local IMAP use.
 
 **If Bridge is needed for local mail** (not the application): ensure KWallet or
 gnome-keyring is running (`systemctl --user status plasma-kwalletd5`), then:
+
 ```bash
 systemctl --user start protonmail-bridge
 ```

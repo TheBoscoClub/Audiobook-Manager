@@ -410,6 +410,28 @@ library/auth/
 └── schema.sql        # Auth database schema (20 tables, v9)
 ```
 
+**API-layer auth blueprint layout** (`library/backend/api_modular/`, v8.3.10.6+):
+
+The auth-related blueprints that serve the API live in `api_modular/` and are organized around a shared leaf module to break cyclic imports:
+
+```text
+library/backend/api_modular/
+├── auth_shared.py       # Leaf module — shared contract, zero intra-auth imports
+│                        # Owns: auth_bp Blueprint, _auth_db handle, session-cookie
+│                        # helpers, all @*_required decorators, get_current_user,
+│                        # require_current_user, validation helpers
+├── auth.py              # Re-exports every auth_shared public name; uses PEP 562
+│                        # __getattr__ for rebindable state so test patches to
+│                        # auth_shared propagate through auth.* call sites
+├── auth_registration.py # POST /auth/register/*, /auth/register/claim
+├── auth_account.py      # GET/PUT /auth/account/*, self-service profile changes
+├── auth_admin.py        # GET/POST /auth/admin/*, admin user management
+├── auth_recovery.py     # POST /auth/recovery/*, magic-link flow
+└── auth_webauthn.py     # POST /auth/passkey/*, WebAuthn ceremony endpoints
+```
+
+`auth_shared.py` is intentionally a leaf — it imports from `library/auth/` (the ORM/DB layer) but never from any other `auth_*` file in `api_modular/`. This breaks the import cycle that caused intermittent `ImportError` under certain pytest isolation orderings.
+
 ### Authentication Flow
 
 ```text
