@@ -11,7 +11,6 @@ from pathlib import Path
 from typing import Optional
 
 from scanner.metadata_utils import extract_asin
-
 from scripts.enrichment.base import EnrichmentProvider
 
 # Title-based series parsing patterns (from populate_series_from_audible.py)

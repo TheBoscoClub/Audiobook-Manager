@@ -16,6 +16,7 @@ class TestGetExistingPaths:
     def test_returns_empty_set_for_empty_db(self, temp_dir):
         """Test empty database returns empty set."""
         from scanner.add_new_audiobooks import get_existing_paths
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -28,6 +29,7 @@ class TestGetExistingPaths:
     def test_returns_existing_paths(self, temp_dir):
         """Test returns file paths from database."""
         from scanner.add_new_audiobooks import get_existing_paths
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -133,6 +135,7 @@ class TestGetOrCreateLookupId:
     def test_creates_new_entry(self, temp_dir):
         """Test creates new entry in lookup table."""
         from scanner.add_new_audiobooks import get_or_create_lookup_id
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -149,6 +152,7 @@ class TestGetOrCreateLookupId:
     def test_returns_existing_entry(self, temp_dir):
         """Test returns existing entry ID without creating duplicate."""
         from scanner.add_new_audiobooks import get_or_create_lookup_id
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -168,6 +172,7 @@ class TestGetOrCreateLookupId:
     def test_works_with_different_tables(self, temp_dir):
         """Test works with genres, eras, and topics tables."""
         from scanner.add_new_audiobooks import get_or_create_lookup_id
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -190,6 +195,7 @@ class TestInsertAudiobook:
     def test_inserts_complete_metadata(self, temp_dir):
         """Test inserts audiobook with all metadata fields."""
         from scanner.add_new_audiobooks import insert_audiobook
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -232,6 +238,7 @@ class TestInsertAudiobook:
     def test_inserts_genre_era_topics(self, temp_dir):
         """Test creates entries in related tables."""
         from scanner.add_new_audiobooks import insert_audiobook
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -290,6 +297,7 @@ class TestAddNewAudiobooks:
     def test_returns_empty_result_when_no_new_files(self, mock_cover, mock_metadata, temp_dir):
         """Test returns zero counts when no new files found."""
         from scanner.add_new_audiobooks import add_new_audiobooks
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -311,6 +319,7 @@ class TestAddNewAudiobooks:
     def test_adds_new_audiobook(self, mock_cover, mock_metadata, temp_dir):
         """Test successfully adds a new audiobook."""
         from scanner.add_new_audiobooks import add_new_audiobooks
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -354,6 +363,7 @@ class TestAddNewAudiobooks:
     def test_handles_metadata_extraction_failure(self, mock_cover, mock_metadata, temp_dir):
         """Test counts errors when metadata extraction fails."""
         from scanner.add_new_audiobooks import add_new_audiobooks
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -379,6 +389,7 @@ class TestAddNewAudiobooks:
     def test_calls_progress_callback(self, mock_cover, mock_metadata, temp_dir):
         """Test calls progress callback with status updates."""
         from scanner.add_new_audiobooks import add_new_audiobooks
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -410,6 +421,7 @@ class TestAddNewAudiobooks:
     def test_creates_cover_directory(self, mock_cover, mock_metadata, temp_dir):
         """Test creates cover directory if it doesn't exist."""
         from scanner.add_new_audiobooks import add_new_audiobooks
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -485,6 +497,7 @@ class TestErrorHandling:
     def test_handles_integrity_error(self, mock_insert, mock_cover, mock_metadata, temp_dir):
         """Test handles IntegrityError (duplicate file path)."""
         from scanner.add_new_audiobooks import add_new_audiobooks
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -517,6 +530,7 @@ class TestErrorHandling:
     def test_handles_generic_exception(self, mock_insert, mock_cover, mock_metadata, temp_dir):
         """Test handles generic exceptions during insert."""
         from scanner.add_new_audiobooks import add_new_audiobooks
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -629,6 +643,7 @@ class TestHashAutoGeneration:
     @patch("scanner.add_new_audiobooks.extract_cover_art")
     def test_new_ingest_auto_generates_hash(self, mock_cover, mock_metadata, temp_dir):
         from scanner.add_new_audiobooks import add_new_audiobooks
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -705,6 +720,7 @@ class TestHashAutoGeneration:
         insert or count as an error. The book is still in the DB; only the
         sha256_hash column stays NULL."""
         from scanner.add_new_audiobooks import add_new_audiobooks
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -749,6 +765,7 @@ class TestGenerateHashForBook:
 
     def test_returns_hash_for_existing_row(self, temp_dir):
         from scripts.generate_hashes import generate_hash_for_book
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -782,6 +799,7 @@ class TestGenerateHashForBook:
 
     def test_returns_none_for_missing_row(self, temp_dir):
         from scripts.generate_hashes import generate_hash_for_book
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -792,6 +810,7 @@ class TestGenerateHashForBook:
 
     def test_returns_none_when_file_missing(self, temp_dir):
         from scripts.generate_hashes import generate_hash_for_book
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"

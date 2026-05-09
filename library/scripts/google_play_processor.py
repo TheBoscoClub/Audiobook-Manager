@@ -62,8 +62,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from config import AUDIOBOOKS_LIBRARY  # noqa: E402
-from config import AUDIOBOOKS_COVERS, DATABASE_PATH
+from config import (
+    AUDIOBOOKS_COVERS,
+    AUDIOBOOKS_LIBRARY,  # noqa: E402
+    DATABASE_PATH,
+)
 
 
 def _set_low_priority():

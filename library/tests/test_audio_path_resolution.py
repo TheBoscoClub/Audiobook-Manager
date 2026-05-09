@@ -17,14 +17,12 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
 from backend.api_modular._audio_paths import (
     DEFAULT_AUDIOBOOKS_LIBRARY,
     DEFAULT_AUDIOBOOKS_SUPPLEMENTS,
     resolve_local_audio_path,
     resolve_local_supplement_path,
 )
-
 
 # ─── Unit tests for resolve_local_audio_path ──────────────────────────────
 

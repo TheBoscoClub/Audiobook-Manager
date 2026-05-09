@@ -24,7 +24,6 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-
 from translation_monitor.events import recent_events
 from translation_monitor.notify import (
     EMAIL_COOLDOWN_SEC,

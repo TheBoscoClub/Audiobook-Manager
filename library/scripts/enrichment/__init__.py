@@ -13,7 +13,6 @@ from typing import Any
 
 from backend.name_parser import generate_sort_name
 from scanner.metadata_utils import extract_topics
-
 from scripts.enrichment.base import EnrichmentProvider
 from scripts.enrichment.provider_audible import AudibleProvider
 from scripts.enrichment.provider_google import GoogleBooksProvider

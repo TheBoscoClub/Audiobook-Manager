@@ -24,13 +24,11 @@ from flask import Blueprint, Response, current_app, g, jsonify, redirect, reques
 # Add parent paths for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from auth import AccessRequestRepository  # noqa: F401  (re-export for tests)
-from auth import BackupCodeRepository  # noqa: F401  (re-export for tests)
-from auth import webauthn_authentication_options  # noqa: F401  (re-export for tests)
-from auth import webauthn_verify_authentication  # noqa: F401  (re-export for tests)
 from auth import (  # Re-exported for tests that patch.object(auth_mod, "...") or; @patch("api_modular.auth....") — submodules look these up; dynamically via _auth_module so the patch target lives on this module.
+    AccessRequestRepository,  # noqa: F401  (re-export for tests)
     AuthDatabase,
     AuthType,
+    BackupCodeRepository,  # noqa: F401  (re-export for tests)
     InboxMessage,
     NotificationRepository,
     ReplyMethod,
@@ -38,7 +36,9 @@ from auth import (  # Re-exported for tests that patch.object(auth_mod, "...") o
     SessionRepository,
     User,
     UserRepository,
+    webauthn_authentication_options,  # noqa: F401  (re-export for tests)
     webauthn_registration_options,
+    webauthn_verify_authentication,  # noqa: F401  (re-export for tests)
     webauthn_verify_registration,
 )
 from auth.models import SystemSettingsRepository
@@ -1340,10 +1340,10 @@ def send_contact_message():
 # MUST stay at the bottom — they import helpers defined above (_user_dict,
 # _switch_auth_method, etc.), so those bindings must exist before import runs.
 # ---------------------------------------------------------------------------
-from . import auth_account  # noqa: F401,E402  — registers /account/* routes
-from . import auth_admin  # noqa: F401,E402  — registers /admin/* routes
-from . import auth_recovery  # noqa: F401,E402  — registers /recover/* and /magic-link/* routes
 from . import (  # noqa: F401,E402  — registers /register/* + /login/auth-type routes; noqa: F401,E402  — registers /register/webauthn/* + /login/webauthn/* routes
+    auth_account,  # noqa: F401,E402  — registers /account/* routes
+    auth_admin,  # noqa: F401,E402  — registers /admin/* routes
+    auth_recovery,  # noqa: F401,E402  — registers /recover/* and /magic-link/* routes
     auth_registration,
     auth_webauthn,
 )

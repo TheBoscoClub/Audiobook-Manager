@@ -84,6 +84,9 @@ certs/
 SESSION_RECORD*
 AUDIT_REPORT*
 upgrade.sh
+.snapshots/
+.btrbk-snapshots/
+library/.test-sandbox/
 
 # Test suite (not needed in production image)
 library/tests/

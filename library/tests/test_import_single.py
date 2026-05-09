@@ -17,6 +17,7 @@ class TestGetOrCreateLookupId:
     def test_creates_new_entry(self, temp_dir):
         """Test creates new entry in lookup table."""
         from scanner.import_single import get_or_create_lookup_id
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -33,6 +34,7 @@ class TestGetOrCreateLookupId:
     def test_returns_existing_entry(self, temp_dir):
         """Test returns existing entry without creating duplicate."""
         from scanner.import_single import get_or_create_lookup_id
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -54,6 +56,7 @@ class TestInsertAudiobook:
     def test_inserts_audiobook(self, temp_dir):
         """Test inserts audiobook with metadata."""
         from scanner.import_single import insert_audiobook
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -98,6 +101,7 @@ class TestImportDirectory:
     def test_returns_error_for_nonexistent_directory(self, temp_dir):
         """Test returns error for non-existent directory."""
         from scanner.import_single import import_directory
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -113,6 +117,7 @@ class TestImportDirectory:
     def test_returns_message_when_no_audio_files(self, temp_dir):
         """Test returns message when directory has no audio files."""
         from scanner.import_single import import_directory
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -131,6 +136,7 @@ class TestImportDirectory:
     def test_skips_existing_files(self, temp_dir):
         """Test skips files already in database."""
         from scanner.import_single import import_directory
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -165,6 +171,7 @@ class TestImportDirectory:
     def test_imports_new_audiobook(self, mock_cover, mock_metadata, temp_dir):
         """Test successfully imports new audiobook."""
         from scanner.import_single import import_directory
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -201,6 +208,7 @@ class TestImportDirectory:
     def test_handles_metadata_failure(self, mock_cover, mock_metadata, temp_dir):
         """Test handles metadata extraction failure gracefully."""
         from scanner.import_single import import_directory
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -223,6 +231,7 @@ class TestImportDirectory:
     def test_handles_integrity_error(self, mock_insert, mock_cover, mock_metadata, temp_dir):
         """Test handles IntegrityError (duplicate)."""
         from scanner.import_single import import_directory
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -252,6 +261,7 @@ class TestImportDirectory:
     def test_handles_generic_exception(self, mock_insert, mock_cover, mock_metadata, temp_dir):
         """Test handles generic exceptions during insert."""
         from scanner.import_single import import_directory
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -278,6 +288,7 @@ class TestImportDirectory:
     def test_filters_cover_art_files(self, temp_dir):
         """Test filters out .cover. files from import."""
         from scanner.import_single import import_directory
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"
@@ -296,6 +307,7 @@ class TestImportDirectory:
     def test_creates_cover_directory(self, temp_dir):
         """Test creates cover directory if not exists."""
         from scanner.import_single import import_directory
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"

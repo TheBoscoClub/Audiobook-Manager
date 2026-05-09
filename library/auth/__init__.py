@@ -62,9 +62,8 @@ from .passkey import create_registration_options as webauthn_registration_option
 from .passkey import get_pending_challenge as webauthn_get_pending_challenge
 from .passkey import verify_authentication as webauthn_verify_authentication
 from .passkey import verify_registration as webauthn_verify_registration
-from .totp import TOTPAuthenticator
+from .totp import TOTPAuthenticator, get_provisioning_uri, secret_to_base32, setup_totp
 from .totp import generate_secret as generate_totp_secret
-from .totp import get_provisioning_uri, secret_to_base32, setup_totp
 from .totp import verify_code as verify_totp_code
 
 __all__ = [

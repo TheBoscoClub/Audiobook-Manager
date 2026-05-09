@@ -71,6 +71,7 @@ class TestGetDb:
     def test_returns_connection_when_initialized(self, temp_dir):
         """Test returns connection when properly initialized."""
         from backend.api_modular import position_sync
+
         from tests.conftest import init_test_database
 
         db_path = temp_dir / "test.db"

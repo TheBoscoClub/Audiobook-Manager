@@ -13,7 +13,6 @@ from unittest.mock import patch
 
 import pytest
 
-
 # ──────────────────────────────────────────────────────────────────────────
 # resolve_db_path — explicit / env / canonical fallback
 # ──────────────────────────────────────────────────────────────────────────

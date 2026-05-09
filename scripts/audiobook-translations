@@ -14,7 +14,7 @@
 #   audiobook-translations import -a translations.tar.gz
 #
 # Backlog translation work is dispatched on-demand via `scripts/batch-translate.py`
-# against serverless STT endpoints (RunPod + Vast.ai serverless) — there is no
+# against serverless STT endpoints (RunPod serverless) — there is no
 # dedicated translation daemon to start/stop; the queue is drained by whichever
 # process invokes batch-translate.py.
 #

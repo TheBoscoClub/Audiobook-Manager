@@ -43,9 +43,7 @@ def test_timeout_raises_after_retries(tmp_path: Path):
     audio.write_bytes(b"\x00")
 
     remote = _make_remote()
-    with patch.object(
-        WhisperSTT, "transcribe", side_effect=requests.exceptions.Timeout("slow")
-    ):
+    with patch.object(WhisperSTT, "transcribe", side_effect=requests.exceptions.Timeout("slow")):
         with pytest.raises(requests.exceptions.Timeout, match="slow"):
             _transcribe_with_fallback(remote, audio, "en")
 
@@ -55,9 +53,7 @@ def test_oserror_raises_after_retries(tmp_path: Path):
     audio.write_bytes(b"\x00")
 
     remote = _make_remote()
-    with patch.object(
-        WhisperSTT, "transcribe", side_effect=OSError("network unreachable")
-    ):
+    with patch.object(WhisperSTT, "transcribe", side_effect=OSError("network unreachable")):
         with pytest.raises(OSError, match="network unreachable"):
             _transcribe_with_fallback(remote, audio, "en")
 
@@ -82,9 +78,7 @@ def test_non_network_error_propagates_immediately(tmp_path: Path):
     audio.write_bytes(b"\x00")
 
     remote = _make_remote()
-    with patch.object(
-        WhisperSTT, "transcribe", side_effect=ValueError("bad audio format")
-    ):
+    with patch.object(WhisperSTT, "transcribe", side_effect=ValueError("bad audio format")):
         with pytest.raises(ValueError, match="bad audio format"):
             _transcribe_with_fallback(remote, audio, "en")
 

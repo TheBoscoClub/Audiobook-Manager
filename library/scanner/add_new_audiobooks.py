@@ -24,6 +24,7 @@ from typing import Callable, Optional
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 # Import shared utilities from scanner package
+from config import AUDIOBOOK_DIR, COVER_DIR, DATABASE_PATH
 from scanner.metadata_utils import extract_cover_art, get_file_metadata
 from scanner.utils.constants import SUPPORTED_FORMATS, is_cover_art_file
 from scanner.utils.db_helpers import (
@@ -31,8 +32,6 @@ from scanner.utils.db_helpers import (
     get_or_create_lookup_id,
     insert_audiobook,
 )
-
-from config import AUDIOBOOK_DIR, COVER_DIR, DATABASE_PATH
 
 # Public API — includes re-exports for backward compatibility with older call sites.
 __all__ = [
