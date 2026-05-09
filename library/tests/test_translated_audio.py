@@ -51,20 +51,28 @@ class TestJobStatusRegistry:
         _set_status(2, "ja", state="starting")
         _set_status(2, "ja", phase="gpu_spinup")
         st = _get_status(2, "ja")
+        assert st is not None
         assert st["state"] == "starting"
         assert st["phase"] == "gpu_spinup"
 
     def test_status_is_isolated_per_locale(self):
         _set_status(3, "ja", state="running")
         _set_status(3, "zh-Hans", state="completed")
-        assert _get_status(3, "ja")["state"] == "running"
-        assert _get_status(3, "zh-Hans")["state"] == "completed"
+        ja_status = _get_status(3, "ja")
+        zh_status = _get_status(3, "zh-Hans")
+        assert ja_status is not None
+        assert zh_status is not None
+        assert ja_status["state"] == "running"
+        assert zh_status["state"] == "completed"
 
     def test_returns_copy_not_reference(self):
         _set_status(4, "zh-Hans", state="running")
         snapshot = _get_status(4, "zh-Hans")
+        assert snapshot is not None
         snapshot["state"] = "MUTATED"
-        assert _get_status(4, "zh-Hans")["state"] == "running"
+        reread = _get_status(4, "zh-Hans")
+        assert reread is not None
+        assert reread["state"] == "running"
 
 
 # ── HTTP endpoints ──
@@ -408,17 +416,27 @@ class TestCheckUserCooldown:
 
 
 class TestLoadTranslatedAudioContext:
-    """_load_translated_audio_context — prerequisite validation for user-facing TTS."""
+    """_load_translated_audio_context — prerequisite validation for user-facing TTS.
+
+    Updated for the v8.3.10.6 refactor: the helper now raises
+    ``_TranslatedAudioContextError`` for early-return paths instead of
+    returning a ``(response, status_code)`` tuple. The exception carries
+    ``.response`` and ``.status_code`` for the caller to bubble up. The
+    happy path returns ``(vtt_path, audio_file_path)`` typed as
+    ``tuple[Path, Path]`` (no more `Path | int` ambiguity).
+    """
 
     def test_book_not_found(self, app_client, audio_db):
         with app_client.application.app_context():
-            resp, status = ta._load_translated_audio_context(99999, "zh-Hans")
-        assert status == 404
+            with pytest.raises(ta._TranslatedAudioContextError) as excinfo:
+                ta._load_translated_audio_context(99999, "zh-Hans")
+        assert excinfo.value.status_code == 404
 
     def test_no_subtitles(self, app_client, audio_db):
         with app_client.application.app_context():
-            resp, status = ta._load_translated_audio_context(1, "zh-Hans")
-        assert status == 400
+            with pytest.raises(ta._TranslatedAudioContextError) as excinfo:
+                ta._load_translated_audio_context(1, "zh-Hans")
+        assert excinfo.value.status_code == 400
 
     def test_audio_already_exists(self, app_client, audio_db):
         conn = sqlite3.connect(str(audio_db))
@@ -436,9 +454,10 @@ class TestLoadTranslatedAudioContext:
         conn.close()
 
         with app_client.application.app_context():
-            resp, status = ta._load_translated_audio_context(1, "zh-Hans")
-        assert status == 200
-        assert resp.get_json()["status"] == "exists"
+            with pytest.raises(ta._TranslatedAudioContextError) as excinfo:
+                ta._load_translated_audio_context(1, "zh-Hans")
+        assert excinfo.value.status_code == 200
+        assert excinfo.value.response.get_json()["status"] == "exists"
 
     def test_happy_path_returns_paths(self, app_client, audio_db):
         conn = sqlite3.connect(str(audio_db))
@@ -579,6 +598,7 @@ class TestAdminGenerateClosure:
         assert len(threading_capture) == 1
         threading_capture[0]()
         status = _get_status(1, "zh-Hans")
+        assert status is not None
         assert status["state"] == "failed"
         assert status["phase"] == "error"
 
@@ -612,6 +632,7 @@ class TestAdminGenerateClosure:
         assert resp.status_code == 200
         threading_capture[0]()
         status = _get_status(1, "zh-Hans")
+        assert status is not None
         assert status["state"] == "completed"
 
         conn = sqlite3.connect(str(audio_db))
@@ -637,6 +658,7 @@ class TestAdminGenerateClosure:
         threading_capture[0]()
         # No "completed" state; closure exits early
         status = _get_status(1, "zh-Hans")
+        assert status is not None
         # The only statuses the closure set are "starting" (loading_tts) and
         # "running" (gpu_spinup); closure returns after detecting missing VTT.
         assert status["state"] == "running"
@@ -653,6 +675,7 @@ class TestAdminGenerateClosure:
         assert resp.status_code == 200
         threading_capture[0]()
         status = _get_status(1, "zh-Hans")
+        assert status is not None
         # Closure returns after detecting no text; last status was "running"
         assert status["state"] == "running"
 
@@ -678,6 +701,7 @@ class TestAdminGenerateClosure:
         assert resp.status_code == 200
         threading_capture[0]()
         status = _get_status(1, "zh-Hans")
+        assert status is not None
         assert status["state"] == "completed"
         # Intermediate should remain because transcode failed
         intermediate = (
@@ -718,6 +742,7 @@ class TestAdminGenerateClosure:
         assert resp.status_code == 200
         threading_capture[0]()
         status = _get_status(1, "zh-Hans")
+        assert status is not None
         assert status["state"] == "failed"
         assert "network dead" in status.get("error", "")
 
@@ -775,6 +800,7 @@ class TestUserRequestClosure:
         assert resp.status_code == 200
         threading_capture[0]()
         status = _get_status(1, "zh-Hans")
+        assert status is not None
         assert status["state"] == "completed"
 
     def test_user_request_missing_vtt_sets_failed(
@@ -789,6 +815,7 @@ class TestUserRequestClosure:
         assert resp.status_code == 200
         threading_capture[0]()
         status = _get_status(1, "zh-Hans")
+        assert status is not None
         # User flow sets explicit failed state when VTT is missing on disk.
         assert status["state"] == "failed"
         assert "missing" in status["message"].lower()
@@ -805,6 +832,7 @@ class TestUserRequestClosure:
         assert resp.status_code == 200
         threading_capture[0]()
         status = _get_status(1, "zh-Hans")
+        assert status is not None
         assert status["state"] == "failed"
 
     def test_user_request_synth_exception_sets_failed(
@@ -820,6 +848,7 @@ class TestUserRequestClosure:
         assert resp.status_code == 200
         threading_capture[0]()
         status = _get_status(1, "zh-Hans")
+        assert status is not None
         assert status["state"] == "failed"
         assert "gpu gone" in status["error"]
 

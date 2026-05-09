@@ -107,35 +107,23 @@ def _run_backfill_helper(db_path: Path, streaming_root: Path) -> dict:
 
     counts = {"ffmpeg": 0, "ffprobe": 0}
 
-    def fake_run(cmd, **kwargs):
+    class _FakeProc:
+        def __init__(self, stdout: str = "") -> None:
+            self.returncode = 0
+            self.stdout = stdout
+            self.stderr = ""
+
+    def fake_run(cmd, **_kwargs):
         if cmd and cmd[0] == "ffmpeg":
             counts["ffmpeg"] += 1
             out = Path(cmd[-1])
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_bytes(b"fake-chapter-webm")
-
-            class _R:
-                returncode = 0
-                stdout = ""
-                stderr = ""
-
-            return _R()
+            return _FakeProc()
         if cmd and cmd[0] == "ffprobe":
             counts["ffprobe"] += 1
-
-            class _R:
-                returncode = 0
-                stdout = "180.0\n"
-                stderr = ""
-
-            return _R()
-
-        class _Other:
-            returncode = 0
-            stdout = ""
-            stderr = ""
-
-        return _Other()
+            return _FakeProc(stdout="180.0\n")
+        return _FakeProc()
 
     with patch.object(st.subprocess, "run", side_effect=fake_run):
         conn = sqlite3.connect(str(db_path), timeout=30)

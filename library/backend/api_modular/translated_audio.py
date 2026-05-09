@@ -537,15 +537,37 @@ def _check_user_cooldown(user_id, book_id):
     return None
 
 
-def _load_translated_audio_context(book_id, locale):
-    """Return (vtt_path, audio_file_path) or a (response, status_code) error tuple."""
+class _TranslatedAudioContextError(Exception):
+    """Raised by ``_load_translated_audio_context`` to signal an early-return path.
+
+    Carries the Flask response + HTTP status the caller should bubble up. Using
+    an exception (rather than a ``tuple[Path, Path] | tuple[Response, int]``
+    union return) keeps the success path's static type as ``tuple[Path, Path]``
+    so callers can use ``audio_file_path.stem`` etc. without pyright losing
+    the type narrow on tuple unpack.
+    """
+
+    def __init__(self, response, status_code: int) -> None:
+        super().__init__(f"translated-audio context error ({status_code})")
+        self.response = response
+        self.status_code = status_code
+
+
+def _load_translated_audio_context(book_id, locale) -> tuple[Path, Path]:
+    """Return ``(vtt_path, audio_file_path)`` or raise ``_TranslatedAudioContextError``.
+
+    Errors raise — the caller catches and returns ``(err.response, err.status_code)``.
+    The 200-status "audio already exists" case is also raised (via the exception)
+    because, from the caller's perspective, it's an early-return-with-response
+    flow indistinguishable from 4xx errors.
+    """
     conn = _get_db()
     try:
         book = conn.execute(
             "SELECT id, title, file_path FROM audiobooks WHERE id = ?", (book_id,)
         ).fetchone()
         if not book:
-            return (jsonify({"error": "Audiobook not found"}), 404)
+            raise _TranslatedAudioContextError(jsonify({"error": "Audiobook not found"}), 404)
 
         sub_row = conn.execute(
             "SELECT vtt_path FROM chapter_subtitles "
@@ -553,7 +575,9 @@ def _load_translated_audio_context(book_id, locale):
             (book_id, locale),
         ).fetchone()
         if not sub_row:
-            return (jsonify({"error": "Translated subtitles required first."}), 400)
+            raise _TranslatedAudioContextError(
+                jsonify({"error": "Translated subtitles required first."}), 400
+            )
 
         existing_audio = conn.execute(
             "SELECT id FROM chapter_translations_audio "
@@ -561,7 +585,7 @@ def _load_translated_audio_context(book_id, locale):
             (book_id, locale),
         ).fetchone()
         if existing_audio:
-            return (
+            raise _TranslatedAudioContextError(
                 jsonify(
                     {
                         "audiobook_id": book_id,
@@ -611,10 +635,10 @@ def user_request_translated_audio():
             {"audiobook_id": book_id, "locale": locale, "status": "already_running", **existing_job}
         )
 
-    loaded = _load_translated_audio_context(book_id, locale)
-    if isinstance(loaded[1], int):
-        return loaded
-    vtt_path, audio_file_path = loaded
+    try:
+        vtt_path, audio_file_path = _load_translated_audio_context(book_id, locale)
+    except _TranslatedAudioContextError as err:
+        return err.response, err.status_code
 
     db_path = str(_db_path)
     voice = "zh-CN-XiaoxiaoNeural"

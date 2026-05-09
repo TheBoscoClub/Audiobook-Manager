@@ -1007,6 +1007,18 @@ def request_streaming_translation():
     )
     if err:
         return err
+    # The `if err: return err` guard above runs at runtime, but pyright cannot
+    # see across the `_parse_stream_request` boundary that successful parses
+    # always produce non-None tuple elements. Asserting locally narrows the
+    # static types for the rest of the handler so downstream call sites can
+    # accept `int` / `str` parameters without each one needing its own
+    # type-narrowing dance. The asserts are also runtime safety net — if a
+    # future change to _parse_stream_request returns `(None, None, None, None)`
+    # without setting err, the assert raises rather than silently passing
+    # None to functions that don't expect it.
+    assert audiobook_id is not None  # noqa: S101 — runtime contract reinforcement
+    assert chapter_index is not None  # noqa: S101
+    assert locale is not None  # noqa: S101
 
     db = _get_db()
 
