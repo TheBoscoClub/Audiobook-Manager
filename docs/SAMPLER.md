@@ -50,7 +50,7 @@ A matching UPDATE trigger catches attempts to demote a sampler row after the fac
 
 When a user plays a cached sample in `zh-Hans`, we need to fire the live-translation pipeline early enough that the buffer catches up before the sample ends. Too early and we waste GPU money on casual browsers; too late and the GPU cold-start extends past the end of the sample and the listener sees a spinner.
 
-We resolve this adaptively based on **current STT provider warmth** — aggregated across every STT backend the operator has configured (RunPod, Vast.ai, self-hosted whisper-gpu, etc.):
+We resolve this adaptively based on **current STT provider warmth** — aggregated across every STT backend the operator has configured (RunPod serverless, self-hosted whisper-gpu, etc.):
 
 | State | Threshold | Runway |
 |---|---|---|
@@ -68,7 +68,6 @@ Warmth probe is cached server-side for 60s to bound provider /health traffic. De
 The project treats STT backend choice as an **operator deployment decision**, not a project contract. Any of the following work:
 
 - **RunPod serverless** — pay-per-second, no minimum spend, `AUDIOBOOKS_RUNPOD_*` keys
-- **Vast.ai serverless** — cheaper on some GPU classes, `AUDIOBOOKS_VASTAI_SERVERLESS_*` keys
 - **Self-hosted GPU Whisper service** — CUDA/ROCm/Apple Silicon machine on the LAN, `AUDIOBOOKS_WHISPER_GPU_HOST` + `AUDIOBOOKS_WHISPER_GPU_PORT`
 - **CPU-only `faster-whisper`** — no GPU, slower but zero operating cost; advanced deployment (requires wiring in the provider, see `library/localization/stt/`)
 
@@ -157,12 +156,12 @@ Books users don't touch past the sample never incur full-book cost. This is the 
 |---|---|---|
 | Sample button never appears on any card | No sampler has been enqueued for your locale. | Run `scripts/sampler-reconcile.py --locale X` |
 | Status stays `pending` forever | Streaming worker dead / start-limit-hit. | `systemctl status audiobook-stream-translate`; check recent journal |
-| Status stays `running` for hours | Worker can't reach any configured STT backend (network / key wrong / no providers configured). | Check worker logs for HTTP 401/timeout against whichever backends the operator configured (api.runpod.ai, run.vast.ai, self-hosted whisper-gpu host, etc.) |
+| Status stays `running` for hours | Worker can't reach any configured STT backend (network / key wrong / no providers configured). | Check worker logs for HTTP 401/timeout against whichever backends the operator configured (api.runpod.ai, self-hosted whisper-gpu host, etc.) |
 | Status = `failed` | Worker hit an error it couldn't recover from on any segment. | Look at `sampler_jobs.error`; re-enqueue via the admin prefetch endpoint |
 | Sample plays but live buffer never fills | Adaptive threshold never fired — maybe JS error. | Browser dev tools: look for POST `/api/translate/sampler/activate` after segment 3 or 4 |
 
 ## Related docs
 
 - `docs/STREAMING-TRANSLATION.md` — how the live streaming pipeline works end-to-end
-- `docs/SERVERLESS-OPS.md` — STT backend endpoint provisioning (RunPod, Vast.ai, self-hosted GPU recipes)
+- `docs/SERVERLESS-OPS.md` — STT backend endpoint provisioning (RunPod, self-hosted GPU recipes)
 - `docs/MULTI-LANGUAGE-SETUP.md` — enabling new locales

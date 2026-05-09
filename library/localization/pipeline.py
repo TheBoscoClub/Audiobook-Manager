@@ -2,9 +2,9 @@
 
 Coordinates STT → Translation → VTT subtitle generation for audiobook
 chapters. Provider selection is workload-aware and GPU-only: remote GPU
-providers (Vast.ai, RunPod, local GPU service) handle all STT work.
-There is no CPU fallback — if no GPU is reachable, the worker fails
-loudly so fleet monitoring can detect and restart it.
+providers (RunPod serverless, optional local GPU service) handle all
+STT work. There is no CPU fallback — if no GPU is reachable, the
+worker fails loudly so fleet monitoring can detect and restart it.
 
 Full-book generation splits the audio into chapters (via embedded
 metadata or Audible sidecar) and transcribes each individually,
@@ -27,9 +27,6 @@ from .config import (
     RUNPOD_STREAMING_WHISPER_ENDPOINT,
     RUNPOD_WHISPER_ENDPOINT,
     STT_PROVIDER,
-    VASTAI_SERVERLESS_API_KEY,
-    VASTAI_SERVERLESS_BACKLOG_ENDPOINT,
-    VASTAI_SERVERLESS_STREAMING_ENDPOINT,
     WHISPER_GPU_HOST,
     WHISPER_GPU_PORT,
 )
@@ -37,7 +34,6 @@ from .fallback import with_local_fallback
 from .selection import WorkloadHint
 from .stt.base import STTProvider, Transcript
 from .stt.local_gpu_whisper import LocalGPUWhisperSTT
-from .stt.vastai_serverless import VastaiServerlessSTT
 from .stt.whisper_stt import WhisperSTT
 from .subtitles.sync import align_translations
 from .subtitles.vtt_generator import VTTCue, generate_vtt
@@ -60,42 +56,32 @@ def _transcribe_with_fallback(
 
 
 def _remote_stt_candidates(workload: WorkloadHint = WorkloadHint.ANY) -> list[STTProvider]:
-    """Return configured remote STT providers in D+C priority order.
+    """Return configured remote STT providers in priority order.
 
-    D+C hybrid routing (dual-provider, asymmetric min_workers):
+    Asymmetric-pool routing on RunPod serverless:
 
-    - ``STREAMING`` → RunPod streaming endpoint (warm pool, min_workers>=1)
-      → Vast.ai serverless streaming endpoint. Latency-critical per-segment
-      inference feeding the live player.
+    - ``STREAMING`` → RunPod streaming endpoint (warm pool, min_workers>=1).
+      Latency-critical per-segment inference feeding the live player.
     - ``LONG_FORM`` / ``SHORT_CLIP`` / ``ANY`` → RunPod backlog endpoint
-      (cold pool, min_workers=0) → Vast.ai serverless backlog endpoint.
-      Batch work where the user isn't waiting on first-segment latency.
+      (cold pool, min_workers=0). Batch work where the user isn't waiting
+      on first-segment latency.
 
     Transitional fallbacks (single RunPod endpoint, local GPU service)
     are appended last for deployments that haven't yet migrated to the
-    D+C endpoint pair. The dedicated Vast.ai instance path was retired
-    in v8.3.2 — serverless only.
+    streaming/backlog endpoint pair.
     """
     providers: list[STTProvider] = []
 
     if workload == WorkloadHint.STREAMING:
         if RUNPOD_API_KEY and RUNPOD_STREAMING_WHISPER_ENDPOINT:
             providers.append(WhisperSTT(RUNPOD_API_KEY, RUNPOD_STREAMING_WHISPER_ENDPOINT))
-        if VASTAI_SERVERLESS_API_KEY and VASTAI_SERVERLESS_STREAMING_ENDPOINT:
-            providers.append(
-                VastaiServerlessSTT(VASTAI_SERVERLESS_API_KEY, VASTAI_SERVERLESS_STREAMING_ENDPOINT)
-            )
     else:
         if RUNPOD_API_KEY and RUNPOD_BACKLOG_WHISPER_ENDPOINT:
             providers.append(WhisperSTT(RUNPOD_API_KEY, RUNPOD_BACKLOG_WHISPER_ENDPOINT))
-        if VASTAI_SERVERLESS_API_KEY and VASTAI_SERVERLESS_BACKLOG_ENDPOINT:
-            providers.append(
-                VastaiServerlessSTT(VASTAI_SERVERLESS_API_KEY, VASTAI_SERVERLESS_BACKLOG_ENDPOINT)
-            )
 
     # Transitional fallback — single RunPod endpoint, still serverless but
-    # non-D+C. Kept callable for deployments where only RUNPOD_WHISPER_ENDPOINT
-    # is configured.
+    # not split across streaming/backlog tiers. Kept callable for deployments
+    # where only RUNPOD_WHISPER_ENDPOINT is configured.
     if RUNPOD_API_KEY and RUNPOD_WHISPER_ENDPOINT:
         providers.append(WhisperSTT(RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT))
     if WHISPER_GPU_HOST:
@@ -117,13 +103,13 @@ def get_stt_provider(
     """Pick an STT provider based on configuration and workload shape.
 
     Explicit overrides (``provider_name`` or the ``STT_PROVIDER`` env var)
-    always win. In auto mode, selection is workload-aware (D+C routing):
+    always win. In auto mode, selection is workload-aware:
 
-    - ``STREAMING`` → RunPod streaming endpoint (warm, min_workers>=1) →
-      Vast.ai serverless streaming. First segment returns in seconds.
+    - ``STREAMING`` → RunPod streaming endpoint (warm, min_workers>=1).
+      First segment returns in seconds.
     - ``LONG_FORM`` / ``SHORT_CLIP`` / ``ANY`` → RunPod backlog endpoint
-      (cold, min_workers=0) → Vast.ai serverless backlog. Cheapest GPU
-      time; user isn't waiting on first-segment latency.
+      (cold, min_workers=0). Cheapest GPU time; user isn't waiting on
+      first-segment latency.
 
     DeepL STT is intentionally NOT in the auto chain: its transcribe
     endpoint rejects payloads above ~100 MB, and audiobooks are routinely
@@ -131,8 +117,7 @@ def get_stt_provider(
 
     Args:
         provider_name: Override — ``"local-gpu"``, ``"whisper"`` (RunPod
-            single-endpoint), ``"vastai-serverless"``, ``"deepl"``, or
-            empty for auto mode.
+            single-endpoint), ``"deepl"``, or empty for auto mode.
         workload: Hint describing the work shape. Defaults to ``ANY``.
 
     Returns:
@@ -148,25 +133,21 @@ def get_stt_provider(
     remote = _remote_stt_candidates(workload)
     if not remote:
         raise RuntimeError(
-            "No STT provider configured. For D+C routing set "
-            "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT + "
-            "AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT (streaming) and/or "
-            "AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT + "
-            "AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT (backlog)."
+            "No STT provider configured. Set "
+            "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT (streaming) "
+            "and/or AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT (backlog)."
         )
 
-    # Dual-farm load sharing: when 2+ providers are configured, rotate between
-    # them so parallel workers naturally fan out across farms instead of
-    # hammering whichever one happens to be first in the priority list.
-    # Distribution mode is tunable:
+    # Multi-candidate load sharing: when 2+ providers are configured (e.g.
+    # a streaming endpoint plus a transitional single-endpoint, or RunPod
+    # plus a self-hosted local-GPU host), rotate between them so parallel
+    # workers naturally fan out instead of hammering whichever one happens
+    # to be first in the priority list. Distribution mode is tunable:
     #
     #   AUDIOBOOKS_STT_DISTRIBUTION=round_robin  (default) — deterministic
-    #     cycling across a process-wide atomic counter. Best for N-worker burst
-    #     backfills where you want exact 50/50 split.
+    #     cycling across a process-wide atomic counter.
     #   AUDIOBOOKS_STT_DISTRIBUTION=random       — uniform random choice.
-    #     Best when workers are spawned in waves / uneven lifetimes.
-    #   AUDIOBOOKS_STT_DISTRIBUTION=primary      — always pick remote[0]
-    #     (the pre-8.3.8 legacy behavior).
+    #   AUDIOBOOKS_STT_DISTRIBUTION=primary      — always pick remote[0].
     #
     # In every mode the RETURNED provider is picked up from the full candidate
     # list, so any provider-level fallback inside _transcribe_with_fallback
@@ -222,13 +203,7 @@ def _stt_by_explicit_name(name: str) -> STTProvider | None:
     if name == "local":
         raise ValueError(
             "Local CPU Whisper has been removed. Use a serverless GPU provider "
-            "(vastai-serverless, whisper/runpod, local-gpu) or auto mode."
-        )
-    if name == "vastai":
-        raise ValueError(
-            "Dedicated Vast.ai Whisper instances were retired in v8.3.2. "
-            "Use 'vastai-serverless' instead and configure "
-            "AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY + a STREAMING/BACKLOG endpoint."
+            "(whisper/runpod, local-gpu) or auto mode."
         )
     if name == "local-gpu":
         return LocalGPUWhisperSTT(WHISPER_GPU_HOST, WHISPER_GPU_PORT)
@@ -238,20 +213,6 @@ def _stt_by_explicit_name(name: str) -> STTProvider | None:
         raise ValueError(
             "RunPod Whisper requested but AUDIOBOOKS_RUNPOD_API_KEY / "
             "AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT not configured"
-        )
-    if name == "vastai-serverless":
-        # Prefer streaming endpoint when both are set; fall back to backlog.
-        if VASTAI_SERVERLESS_API_KEY and VASTAI_SERVERLESS_STREAMING_ENDPOINT:
-            return VastaiServerlessSTT(
-                VASTAI_SERVERLESS_API_KEY, VASTAI_SERVERLESS_STREAMING_ENDPOINT
-            )
-        if VASTAI_SERVERLESS_API_KEY and VASTAI_SERVERLESS_BACKLOG_ENDPOINT:
-            return VastaiServerlessSTT(
-                VASTAI_SERVERLESS_API_KEY, VASTAI_SERVERLESS_BACKLOG_ENDPOINT
-            )
-        raise ValueError(
-            "Vast.ai serverless requested but AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY "
-            "and a STREAMING/BACKLOG endpoint are not configured"
         )
     if name == "deepl":
         from .stt.deepl_stt import DeepLSTT

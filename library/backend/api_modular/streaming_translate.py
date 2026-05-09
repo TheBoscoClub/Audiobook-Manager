@@ -138,7 +138,7 @@ SAMPLER_PRIORITY = 2
 # Adaptive buffer-fill threshold: when a user plays past this many segments
 # of the sample, fire the live-pipeline buffer fill so the STT pipeline has
 # runway to catch up before the sample ends. Adaptive on STT provider warmth
-# (aggregate across every configured provider — RunPod, Vast.ai, etc.):
+# (aggregate across every configured provider):
 #   - cold (no provider has ready workers): fire at segment 3 (more runway needed)
 #   - warm (at least one provider has ready workers): fire at segment 4 (more cost-aware)
 # See docs/SAMPLER.md for the cold-start runway math.
@@ -1171,7 +1171,7 @@ _STT_WARMTH_TTL_SEC = 60
 def _probe_stt_warmth() -> tuple[bool, int, list[dict]]:
     """Query every configured STT provider's streaming /health endpoint.
 
-    Iterates known provider families (RunPod, Vast.ai serverless) — each
+    Iterates the known provider families (RunPod serverless today) — each
     reports the RunPod-compatible ``{"workers": {"ready": N, ...}}`` shape.
     Returns ``(is_cold, total_ready_workers, per_provider_list)``.
 
@@ -1179,7 +1179,8 @@ def _probe_stt_warmth() -> tuple[bool, int, list[dict]]:
       (or none are configured).
     - ``total_ready_workers`` is the sum across providers.
     - ``per_provider_list`` is a list of ``{"name", "ready", "endpoint_id"}``
-      dicts for each configured provider, in the order RunPod → Vast.ai.
+      dicts for each configured provider, in the order declared by
+      :data:`library.localization.gpu_health._PROVIDERS`.
 
     Cached for 60s to bound cost. If a provider can't be queried (network
     error, timeout), that provider contributes 0 ready workers but does not

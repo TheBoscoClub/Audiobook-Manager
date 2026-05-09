@@ -280,7 +280,7 @@
 
   // ── On-demand subtitle generation banner ──
   // When a translated-locale user opens a book without subtitles, offer to
-  // generate them. Because STT (Whisper on Vast.ai) + translation is slow and
+  // generate them. Because STT (Whisper on RunPod) + translation is slow and
   // involves a GPU cold start, we poll /api/subtitles/status and surface a
   // human-readable phase so the user isn't staring at a silent spinner.
 

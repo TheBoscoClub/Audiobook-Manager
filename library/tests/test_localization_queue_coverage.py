@@ -5,7 +5,7 @@ enqueue variants, priority bumping, status reads, stale-job recovery, job
 lifecycle via ``_next_job`` and ``_finish_job``, and the ``_set_current``
 in-memory/DB bridge. The long-running worker paths
 (``_process_job``/``_run_stt_and_translate``/``_run_tts``) are intentionally
-out of scope here — those are network-bound (Vast.ai GPU) and exercised
+out of scope here — those are network-bound (RunPod GPU) and exercised
 via integration fixtures on the test VM, not the unit suite.
 """
 
@@ -634,8 +634,8 @@ class TestShutdown:
 class TestRunSttAndTranslate:
     """Exercise the STT+translate closure including its nested progress +
     chapter-complete callbacks. Uses ``sys.modules`` injection to stub
-    ``.pipeline`` and ``.selection`` without loading the real Vast.ai /
-    RunPod-backed providers."""
+    ``.pipeline`` and ``.selection`` without loading the real RunPod-backed
+    providers."""
 
     def _install_fake_pipeline(self, monkeypatch, stt_name: str = "fake-stt", driver=None):
         """Inject fake `.pipeline` + `.selection` modules so the imports

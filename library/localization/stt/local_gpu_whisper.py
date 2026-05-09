@@ -6,8 +6,8 @@ see docs/MULTI-LANGUAGE-SETUP.md for supported hardware); this provider
 can run anywhere (VM, container, or host) as long as it can reach the
 service endpoint.
 
-Architecturally identical to the RunPod/Vast.ai providers but with zero
-latency and no billing — the GPU is local.
+Architecturally identical to the RunPod provider but with zero latency
+and no billing — the GPU is local.
 """
 
 import logging

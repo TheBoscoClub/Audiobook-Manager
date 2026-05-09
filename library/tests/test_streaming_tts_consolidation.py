@@ -720,8 +720,7 @@ def test_process_segment_skips_stt_when_vtt_content_already_present(tmp_path):
     regenerate only the per-segment TTS. This preserves the translated
     text (saves DeepL per-char cost and is the only way to recover the
     400 legacy .opus rows whose source audio may no longer exist) and
-    avoids a RunPod/Vast.ai GPU hit (~$0.30-1/hr, unnecessary for
-    recovery work).
+    avoids a RunPod GPU hit (~$0.30-1/hr, unnecessary for recovery work).
 
     The test pins: (1) generate_subtitles is NOT called, (2)
     split_audio_segment is NOT called, (3) _synthesize_segment_audio IS

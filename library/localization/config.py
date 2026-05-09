@@ -9,13 +9,9 @@ SUPPORTED_LOCALES = os.environ.get("AUDIOBOOKS_SUPPORTED_LOCALES", "en,zh-Hans")
 # STT provider: "deepl", "whisper", or "auto"
 STT_PROVIDER = os.environ.get("AUDIOBOOKS_STT_PROVIDER", "auto")
 
-# TTS provider: "edge-tts", "xtts-runpod", or "xtts-vastai"
+# TTS provider: "edge-tts" or "xtts-runpod"
 TTS_PROVIDER = os.environ.get("AUDIOBOOKS_TTS_PROVIDER", "edge-tts")
 TTS_VOICE_ZH = os.environ.get("AUDIOBOOKS_TTS_VOICE_ZH", "zh-CN-XiaoxiaoNeural")
-
-# Vast.ai XTTS server (alternative to RunPod for GPU-backed cloning)
-VASTAI_XTTS_HOST = os.environ.get("AUDIOBOOKS_VASTAI_XTTS_HOST", "")
-VASTAI_XTTS_PORT = int(os.environ.get("AUDIOBOOKS_VASTAI_XTTS_PORT", "8020"))
 
 # API keys (loaded from ~/.config/api-keys.env by the calling service)
 DEEPL_API_KEY = os.environ.get("AUDIOBOOKS_DEEPL_API_KEY", "")
@@ -23,21 +19,13 @@ RUNPOD_API_KEY = os.environ.get("AUDIOBOOKS_RUNPOD_API_KEY", "")
 RUNPOD_WHISPER_ENDPOINT = os.environ.get("AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT", "")
 RUNPOD_XTTS_ENDPOINT = os.environ.get("AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT", "")
 
-# D+C dual-provider serverless endpoints (asymmetric min_workers).
-# Streaming endpoints keep min_workers=1 (warm) for latency-critical per-segment
-# inference; backlog endpoints keep min_workers=0 (cold) for cheap batch work.
-# Either provider may be unset — the pipeline falls back to the other.
+# Asymmetric-pool RunPod serverless endpoints. Streaming keeps min_workers=1
+# (warm) for latency-critical per-segment inference; backlog keeps
+# min_workers=0 (cold) for cheap batch work.
 RUNPOD_STREAMING_WHISPER_ENDPOINT = os.environ.get(
     "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT", ""
 )
 RUNPOD_BACKLOG_WHISPER_ENDPOINT = os.environ.get("AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT", "")
-VASTAI_SERVERLESS_API_KEY = os.environ.get("AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY", "")
-VASTAI_SERVERLESS_STREAMING_ENDPOINT = os.environ.get(
-    "AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT", ""
-)
-VASTAI_SERVERLESS_BACKLOG_ENDPOINT = os.environ.get(
-    "AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT", ""
-)
 
 # Local GPU Whisper service — host and port of the optional whisper-gpu
 # systemd service (see extras/whisper-gpu/). Unset by default; installers

@@ -1,17 +1,16 @@
 """Tests for the canonical streaming-GPU health probe (v8.3.10.5).
 
 Validates :func:`library.localization.gpu_health.probe_all_streaming_providers`
-across the same four configuration scenarios that
-``test_provider_agnostic.py`` exercises against ``_probe_stt_warmth``:
+across the configuration scenarios that the API-side
+``_probe_stt_warmth`` exercises:
 
   1. No provider configured  → empty providers list, any_healthy=False
-  2. RunPod only, unreachable → 1 entry with ready=0, any_healthy=False
-  3. Vast.ai only, unreachable → 1 entry with ready=0, any_healthy=False
-  4. Both configured, mocked  → 2 entries; any_healthy mirrors the mocks
+  2. RunPod configured, unreachable → 1 entry with ready=0, any_healthy=False
+  3. RunPod configured, healthy → 1 entry with ready>0, any_healthy=True
 
 The HTTP probe is mocked at ``urllib.request.urlopen`` — no real network
 traffic and no real GPU provider is contacted (per the project rule
-forbidding live RunPod/Vast.ai calls during /test or in dev/QA).
+forbidding live RunPod calls during /test or in dev/QA).
 """
 
 from __future__ import annotations
@@ -33,8 +32,6 @@ from library.localization.gpu_health import (
 PROVIDER_ENV_KEYS = (
     "AUDIOBOOKS_RUNPOD_API_KEY",
     "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT",
-    "AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY",
-    "AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT",
 )
 
 
@@ -122,7 +119,7 @@ def test_aggregate_no_provider_configured():
     assert result == {"providers": [], "any_healthy": False}
 
 
-def test_aggregate_runpod_only_unreachable(monkeypatch):
+def test_aggregate_runpod_configured_unreachable(monkeypatch):
     monkeypatch.setenv("AUDIOBOOKS_RUNPOD_API_KEY", "k")
     monkeypatch.setenv("AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT", "ep")
     with patch(
@@ -135,38 +132,20 @@ def test_aggregate_runpod_only_unreachable(monkeypatch):
     assert result["any_healthy"] is False
 
 
-def test_aggregate_vastai_only_unreachable(monkeypatch):
-    monkeypatch.setenv("AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY", "k")
-    monkeypatch.setenv("AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT", "ep")
-    with patch(
-        "urllib.request.urlopen",
-        side_effect=urllib.error.URLError("unreachable"),
-    ):
-        result = probe_all_streaming_providers()
-    assert [p["name"] for p in result["providers"]] == ["vastai"]
-    assert result["any_healthy"] is False
-
-
-def test_aggregate_both_configured_one_healthy(monkeypatch):
-    """RunPod returns ready=2, Vast.ai returns ready=0 → any_healthy=True."""
+def test_aggregate_runpod_healthy(monkeypatch):
+    """RunPod returns ready=2 → any_healthy=True."""
     monkeypatch.setenv("AUDIOBOOKS_RUNPOD_API_KEY", "k")
     monkeypatch.setenv("AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT", "ep-rp")
-    monkeypatch.setenv("AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY", "k")
-    monkeypatch.setenv("AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT", "ep-vast")
 
     def fake_urlopen(req, timeout):  # noqa: ARG001
-        if "api.runpod.ai" in req.full_url:
-            return _fake_response({"workers": {"ready": 2}})
-        return _fake_response({"workers": {"ready": 0}})
+        return _fake_response({"workers": {"ready": 2}})
 
     with patch("urllib.request.urlopen", side_effect=fake_urlopen):
         result = probe_all_streaming_providers()
 
     names = [p["name"] for p in result["providers"]]
-    assert names == ["runpod", "vastai"]  # deterministic order
-    by_name = {p["name"]: p for p in result["providers"]}
-    assert by_name["runpod"]["ready"] == 2
-    assert by_name["vastai"]["ready"] == 0
+    assert names == ["runpod"]
+    assert result["providers"][0]["ready"] == 2
     assert result["any_healthy"] is True
 
 

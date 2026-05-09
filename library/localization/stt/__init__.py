@@ -3,7 +3,6 @@
 from .base import STTProvider, Transcript, WordTimestamp
 from .deepl_stt import DeepLSTT
 from .local_gpu_whisper import LocalGPUWhisperSTT
-from .vastai_serverless import VastaiServerlessSTT
 from .whisper_stt import WhisperSTT
 
 __all__ = [
@@ -12,6 +11,5 @@ __all__ = [
     "WordTimestamp",
     "DeepLSTT",
     "LocalGPUWhisperSTT",
-    "VastaiServerlessSTT",
     "WhisperSTT",
 ]

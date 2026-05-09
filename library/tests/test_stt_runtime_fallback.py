@@ -8,10 +8,10 @@ import requests
 
 from library.localization.pipeline import _transcribe_with_fallback
 from library.localization.stt.base import Transcript, WordTimestamp
-from library.localization.stt.vastai_serverless import VastaiServerlessSTT
+from library.localization.stt.whisper_stt import WhisperSTT
 
 
-def _fake_transcript(provider_name: str = "vastai-serverless-ep") -> Transcript:
+def _fake_transcript(provider_name: str = "whisper") -> Transcript:
     return Transcript(
         words=[WordTimestamp(word="hello", start_ms=0, end_ms=500)],
         language="en",
@@ -20,8 +20,8 @@ def _fake_transcript(provider_name: str = "vastai-serverless-ep") -> Transcript:
     )
 
 
-def _make_remote() -> VastaiServerlessSTT:
-    return VastaiServerlessSTT(api_key="k", endpoint_name="ep")
+def _make_remote() -> WhisperSTT:
+    return WhisperSTT(api_key="k", endpoint_id="ep")
 
 
 def test_connection_error_raises_after_retries(tmp_path: Path):
@@ -30,7 +30,7 @@ def test_connection_error_raises_after_retries(tmp_path: Path):
 
     remote = _make_remote()
     with patch.object(
-        VastaiServerlessSTT,
+        WhisperSTT,
         "transcribe",
         side_effect=requests.exceptions.ConnectionError("refused"),
     ):
@@ -44,7 +44,7 @@ def test_timeout_raises_after_retries(tmp_path: Path):
 
     remote = _make_remote()
     with patch.object(
-        VastaiServerlessSTT, "transcribe", side_effect=requests.exceptions.Timeout("slow")
+        WhisperSTT, "transcribe", side_effect=requests.exceptions.Timeout("slow")
     ):
         with pytest.raises(requests.exceptions.Timeout, match="slow"):
             _transcribe_with_fallback(remote, audio, "en")
@@ -56,7 +56,7 @@ def test_oserror_raises_after_retries(tmp_path: Path):
 
     remote = _make_remote()
     with patch.object(
-        VastaiServerlessSTT, "transcribe", side_effect=OSError("network unreachable")
+        WhisperSTT, "transcribe", side_effect=OSError("network unreachable")
     ):
         with pytest.raises(OSError, match="network unreachable"):
             _transcribe_with_fallback(remote, audio, "en")
@@ -68,11 +68,11 @@ def test_remote_success_returns_transcript(tmp_path: Path):
 
     remote = _make_remote()
     with patch.object(
-        VastaiServerlessSTT, "transcribe", return_value=_fake_transcript("vastai-serverless-ep")
+        WhisperSTT, "transcribe", return_value=_fake_transcript("whisper")
     ) as remote_mock:
         result = _transcribe_with_fallback(remote, audio, "en")
 
-    assert result.provider == "vastai-serverless-ep"
+    assert result.provider == "whisper"
     remote_mock.assert_called_once()
 
 
@@ -83,7 +83,7 @@ def test_non_network_error_propagates_immediately(tmp_path: Path):
 
     remote = _make_remote()
     with patch.object(
-        VastaiServerlessSTT, "transcribe", side_effect=ValueError("bad audio format")
+        WhisperSTT, "transcribe", side_effect=ValueError("bad audio format")
     ):
         with pytest.raises(ValueError, match="bad audio format"):
             _transcribe_with_fallback(remote, audio, "en")
@@ -97,7 +97,7 @@ def test_retries_before_raising(tmp_path: Path):
     remote = _make_remote()
     with (
         patch.object(
-            VastaiServerlessSTT,
+            WhisperSTT,
             "transcribe",
             side_effect=requests.exceptions.ConnectionError("refused"),
         ) as remote_mock,

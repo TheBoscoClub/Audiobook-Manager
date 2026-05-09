@@ -46,8 +46,8 @@ RELEASE_REQUIREMENTS_VERSION="8.3.9"
 # No literal secrets or endpoint IDs here — those are per-deployment.
 #
 # STT backend keys are deliberately NOT listed as project-level requirements.
-# The project supports multiple interchangeable STT backends — RunPod serverless,
-# Vast.ai serverless, local whisper-gpu service (CUDA/ROCm), or CPU-only
+# The project supports multiple interchangeable STT backends — RunPod
+# serverless, local whisper-gpu service (CUDA/ROCm), or CPU-only
 # faster-whisper — and the choice is an operator deployment decision, not a
 # project contract. Functional readiness of whichever backend(s) the operator
 # configured is validated by smoke_probe.sh (_probe_stt_providers), not

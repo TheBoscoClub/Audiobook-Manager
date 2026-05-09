@@ -10,8 +10,7 @@ A comprehensive guide for adding multi-language support to your Audiobook Manage
 - [Architecture Overview](#architecture-overview)
 - [Provider Setup Instructions](#provider-setup-instructions)
   - [DeepL (Translation)](#deepl-translation)
-  - [Serverless Whisper STT (RunPod and Vast.ai — peer providers)](#serverless-whisper-stt-runpod-and-vastai--peer-providers)
-  - [Vast.ai XTTS (Voice-Cloning TTS)](#vastai-xtts-voice-cloning-tts)
+  - [Serverless Whisper STT (RunPod)](#serverless-whisper-stt-runpod)
   - [Optional RunPod XTTS endpoint](#optional-runpod-xtts-endpoint)
   - [Local GPU (Optional)](#local-gpu-optional)
 - [Configuration Reference](#configuration-reference)
@@ -93,9 +92,9 @@ The localization module lives in `library/localization/` (~3,900 lines of Python
 
 | Subpackage | Purpose |
 |------------|---------|
-| `stt/` | Speech-to-text providers (Whisper via Vast.ai, RunPod, local GPU, local CPU) |
+| `stt/` | Speech-to-text providers (Whisper via RunPod serverless, local GPU, DeepL fallback) |
 | `translation/` | DeepL translation, glossary management, quota tracking |
-| `tts/` | Text-to-speech providers (edge-tts, XTTS via Vast.ai/RunPod) |
+| `tts/` | Text-to-speech providers (edge-tts, XTTS via RunPod) |
 | `subtitles/` | VTT subtitle generation and chapter synchronization |
 | `metadata/` | Book metadata translation (title, author, description) and Douban lookup |
 | `glossary/` | Domain-specific translation glossaries for consistency |
@@ -106,12 +105,12 @@ The STT layer uses OpenAI's Whisper model. When `AUDIOBOOKS_STT_PROVIDER` is set
 
 | Provider | Best For | Tradeoffs |
 |----------|----------|-----------|
-| **Vast.ai Whisper** | Long-form audiobook transcription | Most reliable throughput. Dedicated GPU instances. Requires manual instance management. |
-| **RunPod Whisper** | Burst workloads, occasional use | Serverless (scales to zero, pay only when processing). Can be resource-constrained under heavy load. |
+| **RunPod Whisper (streaming)** | Real-time per-segment inference for the live player | Warm pool (`min_workers>=1`) — first segment returns in seconds. Small ongoing hourly cost for the resident worker. |
+| **RunPod Whisper (backlog)** | Long-form audiobook transcription, sampler/backfill jobs | Cold pool (`min_workers=0`) — scales to zero, pay only when processing. 10-30 s cold start on the first request after idle. |
 | **Local GPU Whisper** | Testing, small batches, users with known-good AI hardware | Uses host GPU. Safe only on hardware classes designed for sustained AI inference (NVIDIA CUDA, enterprise AMD Instinct/ROCm). **Consumer AMD Radeon RDNA 2/3 + ROCm is known-unstable — see the cautionary tale in [Local GPU (Optional)](#local-gpu-optional).** |
-| **Local CPU Whisper** | Fallback only | Always available, no external dependencies. Very slow -- unsuitable for full library transcription. |
+| **DeepL transcription** | Tiny clips only | Fallback path — DeepL's transcribe endpoint rejects payloads above ~100 MB, so it cannot handle a whole audiobook. |
 
-The workload-aware selection system (`library/localization/selection.py`) distinguishes between short clips (prefer local to avoid cold-start latency) and long-form batch work (prefer remote GPU for throughput).
+The workload-aware selection system (`library/localization/selection.py`) distinguishes between short clips (prefer local to avoid cold-start latency) and long-form batch work (prefer the cold backlog endpoint for cheapest throughput).
 
 ### Translation Provider
 
@@ -126,11 +125,11 @@ The workload-aware selection system (`library/localization/selection.py`) distin
 | Provider | Quality | Cost | Use Case |
 |----------|---------|------|----------|
 | **edge-tts** (default) | High -- Microsoft Neural TTS voices | Free, no API key | Standard narration. Excellent quality for most languages. |
-| **XTTS (Coqui)** | Highest -- preserves original narrator voice | GPU rental ($0.20-0.50/hr) | Voice cloning. Reproduces the original narrator's characteristics in the target language. Requires GPU (Vast.ai or RunPod). |
+| **XTTS (Coqui)** | Highest -- preserves original narrator voice | GPU rental ($0.20-0.50/hr) | Voice cloning. Reproduces the original narrator's characteristics in the target language. Requires GPU (RunPod). |
 
 ### Fallback System
 
-If a remote provider (Vast.ai, RunPod) is unreachable, the system automatically falls back to a local provider for the current request. Local provider failures are not retried -- the error is real and propagates to the caller. This means a misconfigured remote provider degrades gracefully rather than blocking the entire pipeline.
+If the remote provider (RunPod) is unreachable, the system automatically falls back to a local provider for the current request. Local provider failures are not retried -- the error is real and propagates to the caller. This means a misconfigured remote provider degrades gracefully rather than blocking the entire pipeline.
 
 ---
 
@@ -162,26 +161,23 @@ DeepL handles all text translation (UI strings, book metadata, subtitle text).
 
 **Note**: DeepL also offers an STT service, but it is NOT recommended for audiobooks because it rejects audio files larger than 100 MB. Most audiobook chapters exceed this limit.
 
-### Serverless Whisper STT (RunPod and Vast.ai — peer providers)
+### Serverless Whisper STT (RunPod)
 
-STT runs through serverless Whisper endpoints at RunPod and/or Vast.ai. Either (or both) may be configured — they are peers, not primary+fallback. Endpoints scale to zero automatically, so idle cost on cold pools is $0. For the full operator reference, see `docs/SERVERLESS-OPS.md`.
+STT runs through serverless Whisper endpoints on RunPod. Endpoints scale to zero automatically, so idle cost on cold pools is $0. For the full operator reference, see `docs/SERVERLESS-OPS.md`.
 
-The pipeline uses a **D+C endpoint split**: a STREAMING pool (warm, `min_workers>=1`) for per-segment playback translation, and a BACKLOG pool (cold, `min_workers=0`) for batch chapter translation. Create both per provider in the provider dashboard.
+The pipeline uses a **streaming/backlog endpoint split**: a STREAMING pool (warm, `min_workers>=1`) for per-segment playback translation, and a BACKLOG pool (cold, `min_workers=0`) for batch chapter translation. Create both in the RunPod dashboard.
 
-1. **Sign up** at [runpod.io](https://www.runpod.io/) and/or [vast.ai](https://vast.ai/) and add credits.
+1. **Sign up** at [runpod.io](https://www.runpod.io/) and add credits.
 
-2. **Deploy the endpoint pairs** (Whisper / `faster-whisper` template, `large-v3` model):
+2. **Deploy the endpoint pair** (Whisper / `faster-whisper` template, `large-v3` model):
    - **STREAMING**: `min_workers=1` — always-warm worker for live playback
    - **BACKLOG**: `min_workers=0` — scale-to-zero for chapter batch runs
 
-3. **Configure API keys** in `~/.config/api-keys.env`:
+3. **Configure API key** in `~/.config/api-keys.env`:
 
    ```bash
    # RunPod — serverless API key
    AUDIOBOOKS_RUNPOD_API_KEY=your-runpod-api-key
-
-   # Vast.ai — serverless (NOT console) API key
-   AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY=your-vastai-serverless-api-key
    ```
 
 4. **Configure endpoint IDs** in `~/.config/api-keys.env` or `/etc/audiobooks/audiobooks.conf`:
@@ -190,31 +186,11 @@ The pipeline uses a **D+C endpoint split**: a STREAMING pool (warm, `min_workers
    # RunPod serverless Whisper endpoints
    AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT=your-streaming-endpoint-id
    AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT=your-backlog-endpoint-id
-
-   # Vast.ai serverless Whisper endpoints
-   AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT=your-streaming-endpoint-id
-   AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT=your-backlog-endpoint-id
    ```
 
-   Configure one provider, the other, or both. The pipeline tries configured providers in order and falls through on transient failure.
+   Configure either, both, or neither. The pipeline picks the right tier per workload (streaming vs. backlog) and falls through to whatever else is configured (single-endpoint legacy mode, local GPU host) on transient failure.
 
-5. **Cost**: Approximately $0.00026/second of GPU time on RunPod; Vast.ai pricing is comparable. STREAMING pools at `min_workers=1` incur a small ongoing hourly cost for the resident worker; BACKLOG pools at `min_workers=0` are $0 while idle. Cold starts on BACKLOG add 10-30 seconds of latency on the first request after a period of inactivity — acceptable for batch work, which is why streaming uses a warm pool.
-
-### Vast.ai XTTS (Voice-Cloning TTS)
-
-Voice-cloned narration via XTTS remains on a dedicated Vast.ai GPU instance (this is a separate, self-hosted TTS server and is unrelated to the retired dedicated-Whisper path).
-
-1. **Rent an XTTS-capable GPU** on [vast.ai](https://vast.ai/) and note its IP/port.
-
-2. **Configure**:
-
-   ```bash
-   # Vast.ai — XTTS voice cloning GPU instance
-   AUDIOBOOKS_VASTAI_XTTS_HOST=203.0.113.42
-   AUDIOBOOKS_VASTAI_XTTS_PORT=8020
-   ```
-
-3. **IMPORTANT: Shut down the XTTS instance when not in use.** GPU rental is per-hour. An idle RTX 3090 at $0.30/hour costs $7.20/day or $216/month if left running.
+5. **Cost**: Approximately $0.00026/second of GPU time on RunPod. STREAMING at `min_workers=1` incurs a small ongoing hourly cost for the resident worker; BACKLOG at `min_workers=0` is $0 while idle. Cold starts on BACKLOG add 10-30 seconds of latency on the first request after a period of inactivity — acceptable for batch work, which is why streaming uses a warm pool.
 
 ### Optional RunPod XTTS endpoint
 
@@ -226,7 +202,7 @@ AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT=your-xtts-endpoint-id
 
 ### Local GPU (Optional)
 
-If your host machine has a GPU that is **known-good for sustained AI inference**, you can run Whisper locally instead of (or in addition to) remote providers. The project's default and only maintainer-tested path is remote GPU (Vast.ai / RunPod) — local GPU is an opt-in option and the safety of it depends entirely on your hardware class.
+If your host machine has a GPU that is **known-good for sustained AI inference**, you can run Whisper locally instead of (or in addition to) the remote provider. The project's default and only maintainer-tested path is remote GPU (RunPod serverless) — local GPU is an opt-in option and the safety of it depends entirely on your hardware class.
 
 > ⚠️ **Hardware compatibility matters. Not all GPUs are safe for AI workloads.**
 
@@ -234,7 +210,7 @@ If your host machine has a GPU that is **known-good for sustained AI inference**
 
 | Hardware | Status | Notes |
 |----------|--------|-------|
-| NVIDIA consumer/workstation (RTX 30xx, 40xx, A-series, L-series) + CUDA | ✅ Expected to work | Mature CUDA stack, production-grade for AI inference. Same silicon class as Vast.ai/RunPod nodes. |
+| NVIDIA consumer/workstation (RTX 30xx, 40xx, A-series, L-series) + CUDA | ✅ Expected to work | Mature CUDA stack, production-grade for AI inference. Same silicon class as RunPod's nodes. |
 | NVIDIA data center (H100, A100, L40S) + CUDA | ✅ Expected to work | Designed for sustained AI workloads. |
 | Enterprise AMD Instinct (MI-series / CDNA) + ROCm | ✅ Expected to work | Purpose-built for compute; ROCm is first-class on this class. |
 | Apple Silicon (M-series) + MPS | ⚠️ Not integrated | Whisper runs on MPS via PyTorch, but this project's local-GPU path targets Linux + CUDA/ROCm. |
@@ -247,7 +223,7 @@ The maintainer attempted this pipeline on an **AMD Radeon 6800 XT (RDNA 2) + ROC
 
 The maintainer **does not have and cannot afford** a GPU that is known-good for local AI inference. Consequently:
 
-- Remote GPU (Vast.ai, RunPod) is the **only path the maintainer tests end-to-end**.
+- Remote GPU (RunPod serverless) is the **only path the maintainer tests end-to-end**.
 - Local GPU remains available in the codebase for users whose hardware actually supports sustained AI workloads.
 - If you have retail AMD Radeon RDNA 2 or RDNA 3 hardware: **do not assume it will work**. Short test jobs first, monitor GPU reset counts (`dmesg | grep amdgpu`), keep your project under version control pushed to a remote, and have filesystem/BIOS backups.
 
@@ -295,13 +271,13 @@ All localization settings are environment variables, read from `/etc/audiobooks/
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AUDIOBOOKS_STT_PROVIDER` | `auto` | Provider selection: `auto`, `whisper` (RunPod single-endpoint transitional path), `vastai-serverless`, `local-gpu`, or `deepl`. Auto is the default and dispatches via workload hint (STREAMING vs BACKLOG) across configured serverless providers. |
+| `AUDIOBOOKS_STT_PROVIDER` | `auto` | Provider selection: `auto`, `whisper` (RunPod single-endpoint transitional path), `local-gpu`, or `deepl`. Auto is the default and dispatches via workload hint (STREAMING vs BACKLOG) across the configured serverless endpoints. |
 
 ### TTS (Text-to-Speech)
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AUDIOBOOKS_TTS_PROVIDER` | `edge-tts` | Provider: `edge-tts`, `xtts-runpod`, or `xtts-vastai` |
+| `AUDIOBOOKS_TTS_PROVIDER` | `edge-tts` | Provider: `edge-tts` or `xtts-runpod` |
 | `AUDIOBOOKS_TTS_VOICE_ZH` | `zh-CN-XiaoxiaoNeural` | Microsoft Neural TTS voice for Chinese narration (edge-tts) |
 
 For additional languages, set `AUDIOBOOKS_TTS_VOICE_<LANG>` where `<LANG>` is the uppercase language subtag. For example, `AUDIOBOOKS_TTS_VOICE_JA` for Japanese, `AUDIOBOOKS_TTS_VOICE_KO` for Korean.
@@ -318,7 +294,6 @@ edge-tts --list-voices
 |----------|---------|-------------|
 | `AUDIOBOOKS_DEEPL_API_KEY` | (none) | DeepL API authentication key |
 | `AUDIOBOOKS_RUNPOD_API_KEY` | (none) | RunPod serverless API key |
-| `AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY` | (none) | Vast.ai serverless API key |
 
 ### Provider Endpoints
 
@@ -326,12 +301,8 @@ edge-tts --list-voices
 |----------|---------|-------------|
 | `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT` | (none) | RunPod warm (`min_workers>=1`) Whisper endpoint — streaming playback |
 | `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT` | (none) | RunPod cold (`min_workers=0`) Whisper endpoint — batch backfill |
-| `AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT` | (none) | Vast.ai warm Whisper endpoint — streaming playback |
-| `AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT` | (none) | Vast.ai cold Whisper endpoint — batch backfill |
-| `AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT` | (none) | Transitional single-endpoint RunPod fallback — unset once D+C pair is configured |
+| `AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT` | (none) | Transitional single-endpoint RunPod fallback — unset once the streaming/backlog pair is configured |
 | `AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT` | (none) | RunPod serverless XTTS endpoint ID |
-| `AUDIOBOOKS_VASTAI_XTTS_HOST` | (none) | Vast.ai XTTS instance IP/hostname |
-| `AUDIOBOOKS_VASTAI_XTTS_PORT` | `8020` | Vast.ai XTTS instance port |
 | `AUDIOBOOKS_WHISPER_GPU_HOST` | (none) | Local GPU Whisper service host (unset disables local-GPU path) |
 | `AUDIOBOOKS_WHISPER_GPU_PORT` | `8765` | Local GPU Whisper service port |
 
@@ -605,7 +576,6 @@ The localization system was built using the following open-source and commercial
 | [DeepL](https://www.deepl.com/) | Neural machine translation | Commercial API (free tier available) |
 | [Microsoft Edge TTS](https://github.com/rany2/edge-tts) | Neural text-to-speech synthesis | MIT License (library); Microsoft terms (service) |
 | [XTTS / Coqui TTS](https://github.com/coqui-ai/TTS) | Multilingual voice cloning | MPL-2.0 License |
-| [Vast.ai](https://vast.ai/) | Peer-to-peer GPU marketplace | Commercial |
 | [RunPod](https://www.runpod.io/) | Serverless GPU platform | Commercial |
 | [Hugging Face](https://huggingface.co/) | Model hosting (Whisper, XTTS models) | Various open licenses |
 
@@ -619,7 +589,6 @@ The localization system was built using the following open-source and commercial
 
 | Provider | Common Cause | Fix |
 |----------|-------------|-----|
-| Vast.ai | Instance not running or IP changed | Check instance status on vast.ai dashboard. Instance IPs change on restart -- update config. |
 | RunPod | Serverless cold start timeout | First request after idle period takes 10-30 seconds. Increase client timeout or send a warm-up request. |
 | Local GPU | Service not started | Verify the Whisper service is running on the configured host and port. |
 | DeepL | Invalid or expired API key | Verify key at [deepl.com/account](https://www.deepl.com/account). Free keys end with `:fx`. |
@@ -638,8 +607,7 @@ The localization system was built using the following open-source and commercial
 
 **Symptom**: First transcription request takes 30-120 seconds before processing begins.
 
-- **Vast.ai**: Dedicated instances have no cold start once running. The delay is model loading on first use.
-- **RunPod serverless**: Cold start is inherent to serverless -- the GPU spins up on demand. Subsequent requests within the keep-alive window are fast.
+- **RunPod serverless**: Cold start is inherent to serverless -- the GPU spins up on demand. Subsequent requests within the keep-alive window are fast. The streaming endpoint at `min_workers>=1` keeps a worker warm to avoid this on live playback.
 - **Mitigation**: For batch processing, send a short test file first to warm the instance before queuing long audiobooks.
 
 ### CJK Font Rendering

@@ -5,7 +5,7 @@ Covers the HTTP endpoints that expose TTS-generated translated chapter
 audio, plus the internal job-status registry used by the admin
 generate / user request / status-poll endpoints.
 
-The actual TTS + FFmpeg paths are heavyweight and network-bound (Vast.ai
+The actual TTS + FFmpeg paths are heavyweight and network-bound (RunPod
 / RunPod), so those async code paths are intentionally not exercised
 here; instead we verify the synchronous request-validation layer and
 status-tracking infrastructure that wraps them.
@@ -659,7 +659,7 @@ class TestAdminGenerateClosure:
     def test_transcode_failure_keeps_intermediate(
         self, app_client, audio_db, closure_prereqs, threading_capture, monkeypatch
     ):
-        self._stub_tts_imports(monkeypatch, _DummyTTS("xtts-vastai"))  # wav intermediate
+        self._stub_tts_imports(monkeypatch, _DummyTTS("xtts-runpod"))  # wav intermediate
 
         def _run(cmd, **kw):
             if cmd[0] == "ffmpeg":
@@ -693,7 +693,7 @@ class TestAdminGenerateClosure:
         import sys
         import types
 
-        tts = _DummyTTS("xtts-vastai")
+        tts = _DummyTTS("xtts-runpod")
 
         def _raise_synth(*a, **kw):
             raise RuntimeError("network dead")
@@ -811,7 +811,7 @@ class TestUserRequestClosure:
         self, app_client, audio_db, closure_prereqs, threading_capture, monkeypatch
     ):
         self._stub_tts_imports(
-            monkeypatch, _DummyTTS("xtts-vastai"), synth_raises=RuntimeError("gpu gone")
+            monkeypatch, _DummyTTS("xtts-runpod"), synth_raises=RuntimeError("gpu gone")
         )
 
         resp = app_client.post(

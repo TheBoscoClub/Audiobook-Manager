@@ -10,10 +10,9 @@ which transforms the result into the
 ``{"providers": {...}, "any_healthy": ..., "stub": False}`` shape used
 by operator-facing health logging).
 
-Two provider families are recognized today — RunPod serverless on
-``api.runpod.ai`` and Vast.ai serverless on ``run.vast.ai`` — both
-expose a RunPod-compatible ``GET /v2/<endpoint>/health`` returning
-``{"workers": {"ready": N, "running": M, ...}}``. Adding a new
+The recognized provider family today is RunPod serverless on
+``api.runpod.ai`` — it exposes ``GET /v2/<endpoint>/health`` returning
+``{"workers": {"ready": N, "running": M, ...}}``. Adding a future
 provider family is a one-line addition to ``_PROVIDERS``.
 
 This module is provider-agnostic at the call-site level — callers that
@@ -45,12 +44,6 @@ _PROVIDERS: tuple[tuple[str, str, str, str], ...] = (
         "AUDIOBOOKS_RUNPOD_API_KEY",
         "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT",
         "https://api.runpod.ai",
-    ),
-    (
-        "vastai",
-        "AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY",
-        "AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT",
-        "https://run.vast.ai",
     ),
 )
 
@@ -89,8 +82,8 @@ def probe_all_streaming_providers() -> dict:
 
     ``providers`` — list of ``{"name", "ready", "endpoint_id"}`` dicts,
     one per provider whose env-var pair is configured. Order matches
-    :data:`_PROVIDERS` (RunPod first, Vast.ai second) for determinism.
-    Unconfigured providers are absent — *not* present with ready=0.
+    :data:`_PROVIDERS` for determinism. Unconfigured providers are
+    absent — *not* present with ready=0.
 
     ``any_healthy`` — True iff at least one configured provider has
     ``ready > 0``. False when no providers are configured, every probe

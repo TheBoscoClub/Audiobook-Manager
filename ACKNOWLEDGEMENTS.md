@@ -4,10 +4,9 @@ The maintainer uses the following external services and open-source tools in the
 
 ## GPU / inference (operator's personal choice)
 
-- **[RunPod](https://runpod.io)** — serverless GPU endpoints for Whisper STT, used in the maintainer's production.
-- **[Vast.ai](https://vast.ai)** — peer serverless GPU marketplace, used alongside RunPod for dual-provider redundancy in the maintainer's production.
+- **[RunPod](https://runpod.io)** — serverless GPU endpoints for Whisper STT and XTTS narration, used in the maintainer's production.
 
-Audiobook-Manager's STT layer is provider-agnostic — it accepts any Whisper-compatible backend (the two listed above, self-hosted `whisper-gpu`, CPU `faster-whisper`, or anything else you can reach from Python).
+Audiobook-Manager's STT layer is provider-agnostic — it accepts any Whisper-compatible backend (RunPod, self-hosted `whisper-gpu`, CPU `faster-whisper`, or anything else you can reach from Python).
 
 ## Development tooling
 

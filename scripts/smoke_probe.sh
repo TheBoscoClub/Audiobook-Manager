@@ -18,7 +18,7 @@
 #   2. The API responds to /api/system/health with 200.
 #   3. The API returns the version we just installed (not a cached value).
 #   4. The DB has every REQUIRED_DB_COLUMNS entry from release-requirements.sh.
-#   5. Whichever STT provider(s) the operator configured — RunPod, Vast.ai,
+#   5. Whichever STT provider(s) the operator configured — RunPod,
 #      local whisper-gpu — each configured endpoint's /health responds with a
 #      non-error payload (workers may be idle; we don't wake them, just verify
 #      the endpoint is reachable and auth succeeds). No configured provider is
@@ -217,8 +217,8 @@ _probe_db_schema() {
 
 # ─── Probe 4: STT providers (provider-agnostic) ──────────────────────────────
 # Discovers STT backends from audiobooks.conf and probes each one's readiness.
-# Supported: RunPod serverless (streaming+backlog endpoints), Vast.ai serverless
-# (streaming+backlog endpoints), and local whisper-gpu service (host:port).
+# Supported: RunPod serverless (streaming+backlog endpoints) and a local
+# whisper-gpu service (host:port).
 # If NO provider is configured → INFO "streaming disabled" (not a failure).
 # If at least one is reachable → PASS. If all configured are unreachable →
 # WARN (feature unavailable); non-streaming paths still work so no hard fail.
@@ -243,11 +243,6 @@ _probe_stt_providers() {
     runpod_api=$(_read_conf_val "AUDIOBOOKS_RUNPOD_API_KEY")
     runpod_stream=$(_read_conf_val "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT")
     runpod_backlog=$(_read_conf_val "AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT")
-
-    local vast_api vast_stream vast_backlog
-    vast_api=$(_read_conf_val "AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY")
-    vast_stream=$(_read_conf_val "AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT")
-    vast_backlog=$(_read_conf_val "AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT")
 
     local whisper_gpu_host whisper_gpu_port
     whisper_gpu_host=$(_read_conf_val "AUDIOBOOKS_WHISPER_GPU_HOST")
@@ -289,38 +284,6 @@ _probe_stt_providers() {
         fi
     }
 
-    # — Vast.ai serverless endpoints —
-    # Vast.ai serverless exposes the same RunPod-compatible /health shape on
-    # its /v2/{endpoint}/health API. If Vast.ai's API host changes, update
-    # the URL here. Anchoring to a short list of trusted hosts keeps this
-    # probe SSRF-safe.
-    _probe_vastai_endpoint() {
-        local label="$1" ep_id="$2"
-        [[ -z "$ep_id" ]] || [[ -z "$vast_api" ]] && return 1
-        configured=$((configured + 1))
-        local response
-        response=$(curl -s --max-time 5 \
-            -H "Authorization: Bearer ${vast_api}" \
-            "https://run.vast.ai/v2/${ep_id}/health" 2>/dev/null || echo "")
-        if [[ -z "$response" ]]; then
-            _warn "Vast.ai $label endpoint $ep_id: unreachable or timeout"
-            return 1
-        elif echo "$response" | grep -qE '"(workers|status|ready)"'; then
-            local ready
-            ready=$(echo "$response" | grep -oP '"ready"\s*:\s*\K[0-9]+' | head -1)
-            if [[ -z "$ready" ]] || [[ "$ready" == "0" ]]; then
-                _warn "Vast.ai $label endpoint $ep_id: reachable, 0 ready workers (cold-start on first request)"
-            else
-                _pass "Vast.ai $label endpoint $ep_id: $ready worker(s) ready"
-            fi
-            reachable=$((reachable + 1))
-            return 0
-        else
-            _warn "Vast.ai $label endpoint $ep_id: unexpected response: ${response:0:100}"
-            return 1
-        fi
-    }
-
     # — Local GPU Whisper service —
     _probe_local_gpu() {
         [[ -z "$whisper_gpu_host" ]] && return 1
@@ -338,7 +301,7 @@ _probe_stt_providers() {
     }
 
     # Check if any provider key is set before printing the section header.
-    if [[ -z "$runpod_api$runpod_stream$runpod_backlog$vast_api$vast_stream$vast_backlog$whisper_gpu_host" ]]; then
+    if [[ -z "$runpod_api$runpod_stream$runpod_backlog$whisper_gpu_host" ]]; then
         echo -e "${_blue}STT provider probe: no backend configured — streaming translation disabled (this is fine).${_nc}"
         return
     fi
@@ -347,8 +310,6 @@ _probe_stt_providers() {
 
     _probe_runpod_endpoint "streaming" "$runpod_stream" || true
     _probe_runpod_endpoint "backlog" "$runpod_backlog" || true
-    _probe_vastai_endpoint "streaming" "$vast_stream" || true
-    _probe_vastai_endpoint "backlog" "$vast_backlog" || true
     _probe_local_gpu || true
 
     if [[ $configured -eq 0 ]]; then

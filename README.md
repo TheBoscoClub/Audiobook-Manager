@@ -220,7 +220,7 @@ This is enough to scan a library, convert AAX/AAXC files, and serve the web UI o
 
 ### Optional — local GPU transcription (advanced)
 
-The translation/subtitles pipeline needs a GPU for Whisper inference, but **you do not need a local one**. The maintainer-tested path is remote GPU via Vast.ai or RunPod — rent a GPU by the minute, run the job, tear it down. That keeps the upfront cost to near zero.
+The translation/subtitles pipeline needs a GPU for Whisper inference, but **you do not need a local one**. The maintainer-tested path is remote GPU via RunPod serverless — rent a GPU by the second, run the job, scale back to zero. That keeps the upfront cost to near zero.
 
 If you want to run Whisper locally instead, only proceed with **known-good** hardware:
 
@@ -307,7 +307,7 @@ Web-based audiobook library browser with:
 - **Account preferences UI** — user-facing settings page for display, notification, and accessibility preferences (v8.0+)
 - **Multi-session login** — admin-configurable concurrent device sessions with global default and per-user override (v8.0.1.2+)
 - **Multi-language support** — full i18n with Simplified Chinese (zh-Hans) as first non-English locale; catalog-based UI strings with DeepL-powered dynamic content translation. All user-facing content is translated (1,038 keys per locale); admin/backoffice UI remains English-only by design since only the operator sees it. See [Multi-Language Setup Guide](docs/MULTI-LANGUAGE-SETUP.md) for installation, provider setup, and cost estimates (v8.1.0+)
-- **Bilingual subtitles** — on-demand STT transcription via Whisper (Vast.ai/RunPod/local GPU) with DeepL translation, producing per-chapter VTT files with word-level timestamps. Inline translated banner + bilingual transcript side panel (v8.1.0+)
+- **Bilingual subtitles** — on-demand STT transcription via Whisper (RunPod serverless or local GPU) with DeepL translation, producing per-chapter VTT files with word-level timestamps. Inline translated banner + bilingual transcript side panel (v8.1.0+)
 - **Text-to-speech translated audio** — TTS generation via edge-tts (CPU) or XTTS v2 (GPU) producing translated Opus audio tracks per chapter (v8.1.0+)
 - **Translation pipeline** — three-step chain (STT → Translation → TTS) with background queue processing, priority bumping on book open, and chapter-by-chapter progress reporting (v8.1.0+)
 - **Pinyin sort order** — Chinese locale uses pypinyin-based sort for natural Han character ordering with English title fallback (v8.1.0+)
@@ -633,13 +633,13 @@ audiobook-config   # Show configuration
 If localization features are enabled (subtitles, translations for non-English locales) and your host has a GPU that is **known-good for sustained AI inference workloads**, you can run a local Whisper transcription service for GPU-accelerated speech-to-text. This avoids cloud provider costs and latency.
 
 > ⚠️ **Hardware compatibility matters. Not all GPUs are safe for AI workloads.**
-> The project's default and maintainer-tested path is **remote GPU** (Vast.ai or RunPod). Local GPU is an opt-in option that the maintainer cannot test end-to-end on production-grade hardware.
+> The project's default and maintainer-tested path is **remote GPU** (RunPod serverless). Local GPU is an opt-in option that the maintainer cannot test end-to-end on production-grade hardware.
 
 **Hardware compatibility matrix:**
 
 | Hardware | Status | Notes |
 |----------|--------|-------|
-| NVIDIA consumer/workstation (RTX 30xx, 40xx, A-series, L-series) + CUDA | ✅ Expected to work | Mature CUDA stack, production-grade for AI inference. Remote providers (Vast.ai/RunPod) run these — same class of silicon. |
+| NVIDIA consumer/workstation (RTX 30xx, 40xx, A-series, L-series) + CUDA | ✅ Expected to work | Mature CUDA stack, production-grade for AI inference. Remote providers (RunPod) run these — same class of silicon. |
 | NVIDIA data center (H100, A100, L40S) + CUDA | ✅ Expected to work | Designed for sustained AI workloads. |
 | Enterprise AMD Instinct (MI-series / CDNA) + ROCm | ✅ Expected to work | Purpose-built for compute; ROCm is first-class on this class. |
 | Apple Silicon (M-series) + MPS | ⚠️ Likely works, not integrated here | Whisper runs on MPS via PyTorch, but this project's local-GPU path targets Linux + CUDA/ROCm. Would need adaptation. |
@@ -652,7 +652,7 @@ The maintainer attempted this pipeline on an **AMD Radeon 6800 XT (RDNA 2) + ROC
 
 The maintainer **does not have and cannot afford** a GPU that is known-good for local AI inference. Consequently:
 
-- Remote GPU (Vast.ai, RunPod) is the **only path the maintainer tests end-to-end**.
+- Remote GPU (RunPod serverless) is the **only path the maintainer tests end-to-end**.
 - Local GPU remains available in the codebase for users whose hardware actually supports sustained AI workloads.
 - If you have retail AMD Radeon RDNA 2 or RDNA 3 hardware: **do not assume it will work**. At minimum, run short jobs first, monitor GPU reset counts (`dmesg | grep amdgpu`), keep your project under version control pushed to a remote, and have filesystem/BIOS backups.
 
@@ -681,7 +681,7 @@ AUDIOBOOKS_WHISPER_GPU_PORT=8765
 
 **Removal:** `sudo ./setup.sh --uninstall`
 
-This is entirely optional — the application works without it, falling back to remote GPU (Vast.ai/RunPod) or CPU-based transcription.
+This is entirely optional — the application works without it, falling back to remote GPU (RunPod) or CPU-based transcription.
 
 ## Upgrading
 
@@ -2354,7 +2354,7 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 - ~~**Real-time chapter-level streaming translation**~~: ✅ Cursor-buffer-fill model with 30s segments, MSE-driven playback, WebSocket progress updates, and chapter auto-advance on EOF
 - ~~**Pre-translation sampler**~~: ✅ 6-minute first-listen pre-translation per book at scan-time so cold-start latency is invisible to listeners; cost-discovery via DB-enforced priority invariant (sampler segments are p2; live playback p0/p1 always wins)
 - ~~**Translation monitor (v8.3.9)**~~: ✅ Two-tier systemd-timer watchdog that resets stuck claims (60s live / 2h sampler), sweeps retry-budget exhaustion, and emits `live_age_alert` / `capacity_warning` events to the `translation_monitor_events` audit trail. Prevents queue stalls when workers crash or disconnect
-- ~~**Translation monitor — operator email alerts + real GPU health probe (v8.3.10.5)**~~: ✅ Aged-segment alerts now escalate to a per-audiobook operator email (recipient: `ADMIN_EMAIL` with `SMTP_FROM` fallback) on a 60-min cooldown — detection without escalation was the gap that let the 2026-05-04 prod incident go un-investigated for 10+ minutes. The previously-stubbed GPU instance health probe now performs a real HTTP probe of every configured streaming inference provider (RunPod, Vast.ai serverless), pessimistic by default — `any_healthy=False` when no provider is configured or all probes return 0 ready workers
+- ~~**Translation monitor — operator email alerts + real GPU health probe (v8.3.10.5)**~~: ✅ Aged-segment alerts now escalate to a per-audiobook operator email (recipient: `ADMIN_EMAIL` with `SMTP_FROM` fallback) on a 60-min cooldown — detection without escalation was the gap that let the 2026-05-04 prod incident go un-investigated for 10+ minutes. The previously-stubbed GPU instance health probe now performs a real HTTP probe of every configured streaming inference provider (RunPod serverless), pessimistic by default — `any_healthy=False` when no provider is configured or all probes return 0 ready workers
 
 ### Planned Features
 

@@ -16,9 +16,9 @@ class WorkloadHint(Enum):
     - SHORT_CLIP: short, interactive work (<30s). Prefer local to avoid
       GPU instance cold-start latency and billing minimum charges.
     - STREAMING: real-time per-segment inference (30s chunks) feeding
-      the live player. Latency-critical: routes to warm-pool endpoints
-      (RunPod min_workers=1, Vast.ai streaming endpoint) so the first
-      segment returns in seconds, not minutes.
+      the live player. Latency-critical: routes to a warm-pool endpoint
+      (RunPod min_workers=1) so the first segment returns in seconds,
+      not minutes.
     - LONG_FORM: long-running batch work (chapters, full books). Prefer
       cold-start-acceptable endpoints (min_workers=0) for cheapest GPU
       throughput — the user is not waiting on the first token.

@@ -662,8 +662,6 @@ def test_probe_gpu_instance_health_no_provider_configured(db, monkeypatch):
     for key in (
         "AUDIOBOOKS_RUNPOD_API_KEY",
         "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT",
-        "AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY",
-        "AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT",
     ):
         monkeypatch.delenv(key, raising=False)
     health = probe_gpu_instance_health(db, monitor="live")

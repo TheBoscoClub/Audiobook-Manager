@@ -10,8 +10,8 @@ One pass:
   3. Flag aged live segments (>120s pending/processing) and email the
      operator, grouped by audiobook with a 60-min cooldown
   4. Capacity-pressure warning when pending live > threshold with active workers
-  5. GPU instance health probe (RunPod / Vast.ai) — pessimistic when no
-     provider is configured or all configured providers report 0 ready
+  5. GPU instance health probe (RunPod) — pessimistic when no provider
+     is configured or all configured providers report 0 ready
 
 Triggered by ``audiobook-translation-monitor-live.timer`` (every 30s).
 Always exits 0 — errors are logged but never fail the timer, because a

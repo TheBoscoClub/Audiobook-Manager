@@ -1,10 +1,11 @@
 """Runtime retry helpers for remote STT and TTS providers.
 
-Remote GPU providers (Vast.ai, RunPod) can be unreachable when instances
-aren't running or the host is misconfigured. The RunPod HTTPS proxy in
-particular produces intermittent ConnectionError/HTTPError bursts even
-when the underlying pod is fully healthy. We retry the remote call a
-few times with exponential backoff before raising the error.
+Remote GPU providers (RunPod serverless) can be unreachable when
+endpoints aren't warm or the host is misconfigured. The RunPod HTTPS
+proxy in particular produces intermittent ConnectionError/HTTPError
+bursts even when the underlying pod is fully healthy. We retry the
+remote call a few times with exponential backoff before raising the
+error.
 
 For TTS, a ``local_call`` fallback to edge-tts is supported (lightweight,
 no GPU). STT has no local fallback — GPU is required.

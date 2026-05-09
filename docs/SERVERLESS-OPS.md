@@ -1,14 +1,12 @@
 # Serverless STT Operations — Setup & Health
 
 Operator reference for the translation pipeline's serverless Whisper STT path.
-Replaces the retired dedicated-instance Vast.ai Whisper topology (removed in
-v8.3.2).
 
 ## Table of Contents
 
 1. [Overview](#overview)
 2. [Prerequisites](#prerequisites)
-3. [D+C Endpoint Topology](#dc-endpoint-topology)
+3. [Streaming/Backlog Endpoint Topology](#streamingbacklog-endpoint-topology)
 4. [Configuration](#configuration)
 5. [Routing & Provider Selection](#routing--provider-selection)
 6. [Health & Monitoring](#health--monitoring)
@@ -21,47 +19,38 @@ v8.3.2).
 
 ## Overview
 
-All STT traffic flows through serverless GPU endpoints at RunPod and/or Vast.ai.
-Neither provider is a primary/fallback — they are peers. Either (or both) may be
-configured. The pipeline picks whichever is available for the requested
-workload, and gracefully continues if only one provider is set.
-
-There is no fleet daemon, no SSH tunnel, no dedicated-instance rental, and no
-teardown script. The providers manage worker lifecycle internally; scale-to-zero
-on cold endpoints means idle cost is zero.
+All STT traffic flows through serverless GPU endpoints on RunPod. There is no
+fleet daemon, no SSH tunnel, no dedicated-instance rental, and no teardown
+script. The provider manages worker lifecycle internally; scale-to-zero on
+cold endpoints means idle cost is zero.
 
 ---
 
 ## Prerequisites
 
-### API keys (`~/.config/api-keys.env`)
+### API key (`~/.config/api-keys.env`)
 
 ```bash
 # RunPod — serverless API key
 AUDIOBOOKS_RUNPOD_API_KEY=<runpod-api-key>
-
-# Vast.ai — serverless (NOT console) API key
-AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY=<vastai-serverless-api-key>
 ```
 
-Permissions: `chmod 600 ~/.config/api-keys.env`. Either key may be omitted — the
-pipeline uses whatever is configured.
+Permissions: `chmod 600 ~/.config/api-keys.env`.
 
 ### Endpoints
 
-For each provider you intend to use, create two serverless Whisper endpoints in
-the provider dashboard:
+Create two serverless Whisper endpoints in the RunPod dashboard:
 
 - A **STREAMING** endpoint with `min_workers >= 1` (warm pool)
 - A **BACKLOG** endpoint with `min_workers = 0` (cold pool)
 
-The D+C ("dual-endpoint") split is the operational shape of this project's
-workload — interactive listening needs a warm worker, batch backfill tolerates a
-cold start in exchange for zero idle burn.
+The streaming/backlog split is the operational shape of this project's
+workload — interactive listening needs a warm worker, batch backfill tolerates
+a cold start in exchange for zero idle burn.
 
 ---
 
-## D+C Endpoint Topology
+## Streaming/Backlog Endpoint Topology
 
 | Endpoint role | `min_workers` | Used by | Why |
 |---------------|---------------|---------|-----|
@@ -83,23 +72,14 @@ Set the endpoints your deployment uses in `/etc/audiobooks/audiobooks.conf` (or
 # RunPod serverless
 AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT=<runpod-streaming-endpoint-id>
 AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT=<runpod-backlog-endpoint-id>
-
-# Vast.ai serverless
-AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT=<vastai-streaming-endpoint-id>
-AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT=<vastai-backlog-endpoint-id>
 ```
-
-A deployment may configure one provider, the other, or both. If only RunPod is
-set, the pipeline dispatches exclusively to RunPod; likewise for Vast.ai. If
-both are set, routing picks whichever is available for the requested workload
-first, with the unused provider as an implicit fallback.
 
 ### Transitional single-endpoint fallback
 
 `AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT` is retained for deployments that have not
-yet split into streaming + backlog endpoints. When the D+C endpoint pair is
-unset, the pipeline falls back to this single endpoint for both workloads. New
-deployments should configure the D+C pair directly.
+yet split into streaming + backlog endpoints. When the streaming/backlog pair
+is unset, the pipeline falls back to this single endpoint for both workloads.
+New deployments should configure the pair directly.
 
 ---
 
@@ -108,21 +88,15 @@ deployments should configure the D+C pair directly.
 `library/localization/pipeline.py::_remote_stt_candidates(workload)` performs
 workload-aware dispatch:
 
-- `WorkloadHint.STREAMING` → the STREAMING endpoint pool (warm, `min_workers>=1`)
-- `WorkloadHint.LONG_FORM` / `WorkloadHint.ANY` → the BACKLOG endpoint pool
+- `WorkloadHint.STREAMING` → the STREAMING endpoint (warm, `min_workers>=1`)
+- `WorkloadHint.LONG_FORM` / `WorkloadHint.ANY` → the BACKLOG endpoint
   (cold, `min_workers=0`)
-
-Within a workload tier, configured providers are tried in order, so a transient
-failure on RunPod falls through to Vast.ai (or vice versa) without failing the
-job.
 
 `get_stt_provider(workload=...)` is the single call site. Explicit overrides
 via `AUDIOBOOKS_STT_PROVIDER`:
 
-- `vastai-serverless` — force Vast.ai serverless, prefer STREAMING over BACKLOG
 - `whisper` — force the transitional RunPod single-endpoint path
 - `local-gpu` — force the self-hosted `whisper-gpu` service (see below)
-- `vastai` (retired) — raises a migration error pointing at `vastai-serverless`
 
 Auto mode (the default) is preferred. Explicit overrides are for debugging.
 
@@ -139,16 +113,9 @@ curl -s -H "Authorization: Bearer $AUDIOBOOKS_RUNPOD_API_KEY" \
     | python3 -m json.tool
 ```
 
-```bash
-# Vast.ai serverless — check API key + endpoint status
-curl -s -H "Authorization: Bearer $AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY" \
-    "https://serverless.vast.ai/v1/endpoints/$AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT" \
-    | python3 -m json.tool
-```
-
-Both providers expose dashboards showing recent request counts, cold-start
-rate, and spend. Use those for at-a-glance health; the API responses above are
-sufficient for scripted checks.
+The RunPod dashboard shows recent request counts, cold-start rate, and spend.
+Use that for at-a-glance health; the API response above is sufficient for
+scripted checks.
 
 ### Application-side journal
 
@@ -171,13 +138,13 @@ sudo journalctl -t audiobook-batch-translate -f
 
 ## Cost & Teardown
 
-Serverless endpoints scale to zero automatically. Cold (BACKLOG) endpoints
-charge only while a request is in-flight. Warm (STREAMING) endpoints hold one
-or more workers resident — small ongoing cost proportional to `min_workers`.
+Serverless endpoints scale to zero automatically. The cold (BACKLOG) endpoint
+charges only while a request is in-flight. The warm (STREAMING) endpoint holds
+one or more workers resident — small ongoing cost proportional to `min_workers`.
 
 There is no teardown script because there is nothing to tear down. To stop
-spending entirely, set `min_workers=0` on the STREAMING endpoint(s) in the
-provider dashboard or delete the endpoints.
+spending entirely, set `min_workers=0` on the STREAMING endpoint in the
+RunPod dashboard or delete the endpoints.
 
 ---
 
@@ -194,8 +161,8 @@ AUDIOBOOKS_WHISPER_GPU_PORT=8765
 
 See `docs/MULTI-LANGUAGE-SETUP.md#local-gpu-optional` for hardware compatibility
 (NVIDIA + CUDA and enterprise AMD Instinct + ROCm are the supported classes).
-Local GPU is automatically deprioritized for long-form work when serverless
-providers are configured.
+Local GPU is automatically deprioritized for long-form work when the serverless
+provider is configured.
 
 ---
 
@@ -224,9 +191,7 @@ serves free on all future playbacks.
 |----------|---------|
 | `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT` | RunPod warm (`min_workers>=1`) endpoint — streaming playback |
 | `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT` | RunPod cold (`min_workers=0`) endpoint — batch backfill |
-| `AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT` | Vast.ai warm endpoint — streaming playback |
-| `AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT` | Vast.ai cold endpoint — batch backfill |
-| `AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT` | Transitional single-endpoint RunPod fallback — unset once the D+C pair is configured |
+| `AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT` | Transitional single-endpoint RunPod fallback — unset once the streaming/backlog pair is configured |
 | `AUDIOBOOKS_WHISPER_GPU_HOST` | Self-hosted `whisper-gpu` service host (optional) |
 | `AUDIOBOOKS_WHISPER_GPU_PORT` | Self-hosted `whisper-gpu` service port (default `8765`) |
 
@@ -235,7 +200,6 @@ serves free on all future playbacks.
 | Variable | Required by |
 |----------|-------------|
 | `AUDIOBOOKS_RUNPOD_API_KEY` | All RunPod endpoint calls |
-| `AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY` | All Vast.ai serverless endpoint calls |
 
 ### Key files
 
@@ -243,13 +207,7 @@ serves free on all future playbacks.
 |------|---------|
 | `library/localization/pipeline.py` | `_remote_stt_candidates()` + `get_stt_provider()` — dispatches STREAMING vs BACKLOG |
 | `library/localization/stt/whisper_stt.py` | `WhisperSTT` — RunPod serverless client |
-| `library/localization/stt/vastai_serverless.py` | `VastaiServerlessSTT` — Vast.ai serverless client |
 | `library/localization/stt/local_gpu_whisper.py` | `LocalGPUWhisperSTT` — self-hosted `whisper-gpu` client |
 | `scripts/stream-translate-worker.py` | Streaming segment worker (consumes STREAMING endpoints) |
 | `scripts/batch-translate.py` | Batch chapter worker (consumes BACKLOG endpoints) |
 | `systemd/audiobook-stream-translate.service` | Streaming worker unit |
-
----
-
-*Document Version: 8.3.7*
-*Last Updated: 2026-04-22*

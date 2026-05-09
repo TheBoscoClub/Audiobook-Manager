@@ -4,10 +4,10 @@
 # Why this exists:
 #   When a sampler reconcile enqueues dozens of pending segments, the single
 #   audiobook-stream-translate.service systemd unit processes them serially.
-#   With dual-farm routing (Bundle B), parallel workers naturally spread
-#   across whichever STT providers the operator configured (RunPod + Vast.ai,
-#   local GPU, etc.) giving an N× speedup on backfills without any code
-#   changes to the worker. This script spawns N stream-translate-worker.py
+#   Spawning multiple workers gives an N× speedup on backfills without any
+#   code changes to the worker — they round-robin across whichever STT
+#   endpoint(s) the operator configured (RunPod streaming + backlog, or a
+#   local GPU host). This script spawns N stream-translate-worker.py
 #   processes, waits until the sampler_jobs + streaming_segments queues are
 #   both drained, then gracefully signals them to exit.
 #
@@ -48,8 +48,8 @@ fi
 [[ -f "$CONFIG_LIB" ]] && source "$CONFIG_LIB"
 
 # Operator overrides + provider credentials. set -a exports every assignment
-# so the spawned Python workers inherit AUDIOBOOKS_RUNPOD_*, AUDIOBOOKS_VASTAI_*,
-# AUDIOBOOKS_DEEPL_API_KEY, etc.
+# so the spawned Python workers inherit AUDIOBOOKS_RUNPOD_*,
+# AUDIOBOOKS_DEEPL_API_KEY, AUDIOBOOKS_WHISPER_GPU_*, etc.
 CONFIG_ENV="${AUDIOBOOKS_CONFIG:-/etc/audiobooks/audiobooks.conf}"
 if [[ -f "$CONFIG_ENV" ]]; then
     set -a

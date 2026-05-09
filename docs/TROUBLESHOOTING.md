@@ -724,4 +724,4 @@ If the manual `curl` returns `{"workers":{"ready":N,...}}` with N>0 but the moni
 | Book modal off-screen on mobile | Viewport resize on modal mount | Upgrade to 8.3.10.1+ |
 | `translation-monitor-live` `start-limit-hit` | `StartLimitBurst=5` too low for 30 s cadence | Upgrade to 8.3.10.1+ |
 | Operator alert email never arrives on chapter starvation | `grep -E '^(ADMIN_EMAIL\|SMTP_FROM)=' /etc/audiobooks/audiobooks.conf` | Set `ADMIN_EMAIL` (or rely on `SMTP_FROM` fallback) and verify SMTP credentials |
-| Monitor logs `gpu=unhealthy` while workers serve traffic | Manual `curl /v2/<endpoint>/health` from the host | Fix egress / DNS / cert chain to `api.runpod.ai` or `run.vast.ai`; review `gpu_probe_failed` events |
+| Monitor logs `gpu=unhealthy` while workers serve traffic | Manual `curl /v2/<endpoint>/health` from the host | Fix egress / DNS / cert chain to `api.runpod.ai`; review `gpu_probe_failed` events |

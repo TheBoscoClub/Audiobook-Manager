@@ -33,10 +33,9 @@ gradually fill the cache, and batch fills the rest during idle time.
 When the app opens and the user's locale is not English, the frontend sends
 `POST /api/translate/warmup`. This writes a hint to the database so the
 streaming worker can dispatch a priming request to the STREAMING serverless
-endpoint pool (RunPod and/or Vast.ai — peer providers, selected per
-availability and price, not a primary/fallback pair). STREAMING endpoints run
-with `min_workers>=1`, so a worker is already resident; the warmup ping
-verifies connectivity and reduces first-segment latency further. See
+endpoint (RunPod). STREAMING endpoints run with `min_workers>=1`, so a worker
+is already resident; the warmup ping verifies connectivity and reduces
+first-segment latency further. See
 `docs/SERVERLESS-OPS.md` for the dual-provider D+C topology and the
 warmup-expiry (15 min) / stuck-segment-reclaim (10 min) contracts.
 
@@ -207,8 +206,8 @@ one.
 │  │  → POST /api/translate/segment-complete                 │      │
 │  └─────────────────────────────────────────────────────────┘      │
 │                                                                    │
-│  Dispatches to: RunPod AND/OR Vast.ai serverless STREAMING         │
-│  endpoints (peer providers) — or self-hosted whisper-gpu service   │
+│  Dispatches to: RunPod serverless STREAMING endpoint —             │
+│  or self-hosted whisper-gpu service                                │
 └───────────────────────────────────────────────────────────────────┘
 ```
 

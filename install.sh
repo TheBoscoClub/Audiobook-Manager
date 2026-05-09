@@ -1537,26 +1537,19 @@ AUTH_KEY_FILE="/etc/audiobooks/auth.key"
 # Translation backend — DeepL is currently the only supported translator.
 #AUDIOBOOKS_DEEPL_API_KEY=""                        # Get one at https://www.deepl.com/pro-api
 #
-# STT backend — choose ONE OR MORE of the options below. Configuring multiple
-# providers gives peer redundancy (if one farm is down the others keep serving)
-# and load sharing (parallel workers naturally spread across farms). Endpoint
-# IDs must be provisioned separately per deployment.
+# STT backend — choose ONE OR MORE of the options below. Endpoint IDs must
+# be provisioned separately per deployment.
 #
 # Option 1 — RunPod serverless (pay-per-second, no minimum spend)
 #AUDIOBOOKS_RUNPOD_API_KEY=""                       # https://www.runpod.io/console/user/settings
 #AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT=""    # Streaming endpoint ID (warm pool, min_workers>=1)
 #AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT=""      # Backlog endpoint ID (cold pool, min_workers=0)
 #
-# Option 2 — Vast.ai serverless (cheaper on some GPU classes)
-#AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY=""            # https://cloud.vast.ai/ → Account → API Keys
-#AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT="" # Vast.ai serverless endpoint ID for streaming STT
-#AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT=""   # Vast.ai serverless endpoint ID for backlog STT
-#
-# Option 3 — Self-hosted GPU Whisper service (CUDA/ROCm/Apple Silicon)
+# Option 2 — Self-hosted GPU Whisper service (CUDA/ROCm/Apple Silicon)
 #AUDIOBOOKS_WHISPER_GPU_HOST=""                     # e.g., 192.168.1.50 or whisper.lan
 #AUDIOBOOKS_WHISPER_GPU_PORT="8080"                 # HTTP port of the whisper-gpu-service
 #
-# Option 4 — CPU-only faster-whisper (no GPU; slower but zero cost)
+# Option 3 — CPU-only faster-whisper (no GPU; slower but zero cost)
 #   Currently requires code changes to wire in; see library/localization/stt/
 #   for the provider interface. Treat as an advanced deployment option.
 #
@@ -2247,26 +2240,19 @@ AUTH_ENABLED="false"
 # Translation backend — DeepL is currently the only supported translator.
 #AUDIOBOOKS_DEEPL_API_KEY=""                        # Get one at https://www.deepl.com/pro-api
 #
-# STT backend — choose ONE OR MORE of the options below. Configuring multiple
-# providers gives peer redundancy (if one farm is down the others keep serving)
-# and load sharing (parallel workers naturally spread across farms). Endpoint
-# IDs must be provisioned separately per deployment.
+# STT backend — choose ONE OR MORE of the options below. Endpoint IDs must
+# be provisioned separately per deployment.
 #
 # Option 1 — RunPod serverless (pay-per-second, no minimum spend)
 #AUDIOBOOKS_RUNPOD_API_KEY=""                       # https://www.runpod.io/console/user/settings
 #AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT=""    # Streaming endpoint ID (warm pool, min_workers>=1)
 #AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT=""      # Backlog endpoint ID (cold pool, min_workers=0)
 #
-# Option 2 — Vast.ai serverless (cheaper on some GPU classes)
-#AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY=""            # https://cloud.vast.ai/ → Account → API Keys
-#AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT="" # Vast.ai serverless endpoint ID for streaming STT
-#AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT=""   # Vast.ai serverless endpoint ID for backlog STT
-#
-# Option 3 — Self-hosted GPU Whisper service (CUDA/ROCm/Apple Silicon)
+# Option 2 — Self-hosted GPU Whisper service (CUDA/ROCm/Apple Silicon)
 #AUDIOBOOKS_WHISPER_GPU_HOST=""                     # e.g., 192.168.1.50 or whisper.lan
 #AUDIOBOOKS_WHISPER_GPU_PORT="8080"                 # HTTP port of the whisper-gpu-service
 #
-# Option 4 — CPU-only faster-whisper (no GPU; slower but zero cost)
+# Option 3 — CPU-only faster-whisper (no GPU; slower but zero cost)
 #   Currently requires code changes to wire in; see library/localization/stt/
 #   for the provider interface. Treat as an advanced deployment option.
 #

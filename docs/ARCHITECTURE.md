@@ -131,7 +131,7 @@ Audiobook-Manager is designed to run well on modest hardware. The only hard requ
 
 ### Optional: local GPU transcription
 
-Chinese translation (and any future language localization) transcribes source audio with Whisper. The default path uses remote GPU providers (Vast.ai, RunPod) — this is what the maintainer uses in production and what the application is tested against. A local `whisper-gpu` systemd service is available for installers who prefer to keep transcription on-prem.
+Chinese translation (and any future language localization) transcribes source audio with Whisper. The default path uses a remote GPU provider (RunPod serverless) — this is what the maintainer uses in production and what the application is tested against. A local `whisper-gpu` systemd service is available for installers who prefer to keep transcription on-prem.
 
 | Local-GPU hardware | Support status |
 |-------------------|----------------|
@@ -843,12 +843,11 @@ Audio Chapter ──► STT (Whisper) ──► Translation (DeepL) ──► TT
 
 | Provider | Class | Config Key | Use Case |
 |----------|-------|------------|----------|
-| RunPod serverless Whisper | `WhisperSTT` | `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT` / `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT` | Peer serverless provider — warm pool for streaming, cold pool for backlog |
-| Vast.ai serverless Whisper | `VastaiServerlessSTT` | `AUDIOBOOKS_VASTAI_SERVERLESS_STREAMING_ENDPOINT` / `AUDIOBOOKS_VASTAI_SERVERLESS_BACKLOG_ENDPOINT` | Peer serverless provider — warm pool for streaming, cold pool for backlog |
+| RunPod serverless Whisper | `WhisperSTT` | `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT` / `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT` | Serverless GPU — warm pool for streaming, cold pool for backlog |
 | Local GPU | `LocalGPUWhisperSTT` | `AUDIOBOOKS_WHISPER_GPU_HOST` | Self-hosted on known-good AI hardware (NVIDIA CUDA or enterprise AMD Instinct/ROCm); consumer Radeon RDNA 2/3 is unsupported — see docs/MULTI-LANGUAGE-SETUP.md#local-gpu-optional |
 | DeepL Transcription | `DeepLSTT` | `DEEPL_API_KEY` | Legacy fallback (100 MB limit) |
 
-Auto mode (`AUDIOBOOKS_STT_PROVIDER=auto`) dispatches via `_remote_stt_candidates(workload)` in `library/localization/pipeline.py`: `WorkloadHint.STREAMING` → STREAMING endpoint pool (warm, `min_workers>=1`); `WorkloadHint.LONG_FORM` / `ANY` → BACKLOG endpoint pool (cold, `min_workers=0`). Either provider (RunPod, Vast.ai) may be configured — they are peers, not primary+fallback. Dedicated-instance Vast.ai Whisper was retired in v8.3.2; see `docs/SERVERLESS-OPS.md`.
+Auto mode (`AUDIOBOOKS_STT_PROVIDER=auto`) dispatches via `_remote_stt_candidates(workload)` in `library/localization/pipeline.py`: `WorkloadHint.STREAMING` → STREAMING endpoint (warm, `min_workers>=1`); `WorkloadHint.LONG_FORM` / `ANY` → BACKLOG endpoint (cold, `min_workers=0`). RunPod serverless is the sole inference backend; see `docs/SERVERLESS-OPS.md`.
 
 #### TTS Provider Factory (`library/localization/tts/factory.py`)
 
@@ -856,7 +855,6 @@ Auto mode (`AUDIOBOOKS_STT_PROVIDER=auto`) dispatches via `_remote_stt_candidate
 |----------|-------------|--------|----------|
 | edge-tts | `edge-tts` (default) | MP3 → Opus | CPU, no GPU required, always available |
 | XTTS v2 (RunPod) | `xtts-runpod` | WAV → Opus | GPU serverless, natural voice |
-| XTTS v2 (Vast.ai) | `xtts-vastai` | WAV → Opus | Self-hosted GPU |
 
 #### Translation Queue (`library/localization/queue.py`)
 
@@ -984,12 +982,12 @@ the timer.
 was previously a stub returning `any_healthy=True` regardless of state.
 It now delegates to the canonical `library.localization.gpu_health.probe_all_streaming_providers()`,
 which performs an HTTP GET against each configured provider's
-`/v2/<endpoint>/health` (RunPod and Vast.ai serverless via existing
-`AUDIOBOOKS_RUNPOD_*` / `AUDIOBOOKS_VASTAI_SERVERLESS_*` env vars) with
-a 3-second timeout. Pessimistic by default: `any_healthy=False` when no
-provider is configured or every probe returns 0 ready workers. The same
-canonical helper backs `streaming_translate.py::_probe_stt_warmth()` so
-the API and timer share one provider-discovery path.
+`/v2/<endpoint>/health` (RunPod serverless via existing
+`AUDIOBOOKS_RUNPOD_*` env vars) with a 3-second timeout. Pessimistic by
+default: `any_healthy=False` when no provider is configured or every
+probe returns 0 ready workers. The same canonical helper backs
+`streaming_translate.py::_probe_stt_warmth()` so the API and timer
+share one provider-discovery path.
 
 **Worker active-chapter preference in `claim_next_segment()` (v8.3.10.5+)**: `stream-translate-worker.py::claim_next_segment()` uses a three-tier `ORDER BY` that inserts an active-chapter preference tier between `priority ASC` and `chapter_index ASC`. A `LEFT JOIN streaming_sessions sess` (already present in the claim query) provides `sess.active_chapter` for the same `(audiobook_id, locale)`. Within each P0/P1/P2 priority bucket, the worker prefers rows whose `chapter_index` matches `sess.active_chapter` — so when the player advances from chapter N to N+1 mid-book, the worker stops draining N's remaining queue and starts filling N+1 immediately. This makes the "active chapter wins" behaviour — which `handle_seek_impl`'s seek-driven reprioritization already produced indirectly for seek events — the default for ANY chapter advance, including the v8.3.10 `translatedEntries`-end handoff path (which routes through `POST /api/translate/stream`, not `seek`, and therefore never triggered the prior reprioritization). No schema, API, or client change; the fix is a pure `ORDER BY` adjustment. Prior to this fix, a user advancing from chapter 5 to 6 while the worker still had 12 P0 segments queued on chapter 5 would see the buffering spinner for the duration of chapter 5's drain (~10 min in the worst observed case).
 

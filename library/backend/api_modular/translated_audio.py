@@ -237,7 +237,7 @@ def generate_translated_audio():
             "audiobook_id": 42,
             "locale": "zh-Hans",
             "voice": "zh-CN-XiaoxiaoNeural",
-            "provider": "xtts-vastai"   # optional — overrides config
+            "provider": "xtts-runpod"   # optional — overrides config
         }
     """
     data = request.get_json()
@@ -372,7 +372,7 @@ def generate_translated_audio():
 
             # Generate audio to a provider-appropriate intermediate format,
             # then transcode to Opus for consistency with the rest of the library.
-            # edge-tts writes MP3; XTTS (RunPod + Vast.ai) writes WAV.
+            # edge-tts writes MP3; XTTS (RunPod) writes WAV.
             output_dir = audio_file_path.parent / "translated"
             output_dir.mkdir(parents=True, exist_ok=True)
             intermediate_ext = "mp3" if tts.name == "edge-tts" else "wav"

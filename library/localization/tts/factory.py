@@ -4,8 +4,8 @@ Explicit overrides (`provider_name` or `AUDIOBOOKS_TTS_PROVIDER`) always win
 and raise on misconfiguration so the admin sees the real problem. Auto mode
 is workload-aware and mirrors the STT selection policy: short/interactive
 synthesis prefers edge-tts (no cold-start), long-form synthesis prefers a
-GPU backend (XTTS on RunPod → Vast.ai) and falls through to edge-tts when
-nothing remote is configured.
+GPU backend (XTTS on RunPod) and falls through to edge-tts when nothing
+remote is configured.
 """
 
 import logging
@@ -26,8 +26,8 @@ logger = logging.getLogger(__name__)
 def _remote_tts_candidates() -> list[TTSProvider]:
     """Return configured remote TTS providers in preferred order.
 
-    RunPod XTTS is preferred because its serverless endpoint scales to
-    zero. Vast.ai XTTS needs a pinned instance and is opt-in.
+    RunPod XTTS is the only configured remote backend. Its serverless
+    endpoint scales to zero, so idle cost is $0.
     """
     from .. import config as loc_config
 
@@ -39,12 +39,6 @@ def _remote_tts_candidates() -> list[TTSProvider]:
             XTTSProvider(
                 api_key=loc_config.RUNPOD_API_KEY, endpoint_id=loc_config.RUNPOD_XTTS_ENDPOINT
             )
-        )
-    if loc_config.VASTAI_XTTS_HOST:
-        from .vastai_xtts import VastaiXTTSProvider
-
-        providers.append(
-            VastaiXTTSProvider(host=loc_config.VASTAI_XTTS_HOST, port=loc_config.VASTAI_XTTS_PORT)
         )
     return providers
 
@@ -64,8 +58,8 @@ def get_tts_provider(
     - ``ANY`` → first configured GPU backend if any, else edge-tts
 
     Args:
-        provider_name: Override — ``"edge-tts"``, ``"xtts-runpod"``,
-            ``"xtts-vastai"``, or None/empty for auto mode.
+        provider_name: Override — ``"edge-tts"``, ``"xtts-runpod"``, or
+            None/empty for auto mode.
         workload: Hint describing the work shape. Defaults to ``ANY``.
 
     Raises:
@@ -111,14 +105,6 @@ def _tts_by_explicit_name(name: str, loc_config) -> TTSProvider | None:
             )
         return XTTSProvider(
             api_key=loc_config.RUNPOD_API_KEY, endpoint_id=loc_config.RUNPOD_XTTS_ENDPOINT
-        )
-    if name in ("xtts-vastai", "vastai", "vast"):
-        from .vastai_xtts import VastaiXTTSProvider
-
-        if not loc_config.VASTAI_XTTS_HOST:
-            raise ValueError("xtts-vastai requires AUDIOBOOKS_VASTAI_XTTS_HOST in audiobooks.conf")
-        return VastaiXTTSProvider(
-            host=loc_config.VASTAI_XTTS_HOST, port=loc_config.VASTAI_XTTS_PORT
         )
     raise ValueError(f"Unknown TTS provider: {name}")
 

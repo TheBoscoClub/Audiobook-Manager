@@ -5,8 +5,8 @@ Polls the streaming_segments table for pending work, processes each
 segment through STT → Translation → VTT, and reports completion back
 to the coordinator API via HTTP callbacks. Designed to run under the
 audiobook-stream-translate.service systemd unit; inference is dispatched
-to serverless STT providers (RunPod + Vast.ai serverless) — no dedicated
-GPU host lifecycle to manage.
+to a serverless STT provider (RunPod) — no dedicated GPU host lifecycle
+to manage.
 
 Active chapters stream segment-by-segment (30s each) for low-latency
 playback. Prefetch chapters process as a single unit via the batch
@@ -471,13 +471,11 @@ def process_segment(
 
             # Run STT + translation on the segment. Workload hint routes to the
             # right endpoint tier:
-            #   - origin='live' (real user playback) → STREAMING → warm pool (RunPod
-            #     min_workers=1, Vast.ai streaming if configured) for sub-second
-            #     first-segment latency.
-            #   - origin='sampler' / 'backlog' (pretranslation backfill) → LONG_FORM
-            #     → backlog pool (min_workers=0) so Vast.ai scale-to-zero cold
-            #     endpoints participate alongside RunPod backlog, giving dual-farm
-            #     throughput for bulk work without burning warm-instance cost.
+            #   - origin='live' (real user playback) → STREAMING → warm pool
+            #     (RunPod min_workers=1) for sub-second first-segment latency.
+            #   - origin='sampler' / 'backlog' (pretranslation backfill) →
+            #     LONG_FORM → backlog pool (RunPod min_workers=0) so cold
+            #     endpoints handle bulk work without burning warm-instance cost.
             origin = segment.get("origin", "live")
             workload = WorkloadHint.STREAMING if origin == "live" else WorkloadHint.LONG_FORM
             stt = get_stt_provider("", workload=workload)
