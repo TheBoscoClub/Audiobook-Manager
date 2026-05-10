@@ -27,6 +27,35 @@ After running `upgrade.sh`:
 2. Verify API responds: `curl -s http://localhost:5001/api/system/version`
 3. Verify web UI loads and buttons work
 
+## Test VM Lifecycle — Always Shut Down at End of /test
+
+**`test-audiobook-cachyos` is EXCLUSIVELY for `/test` audits.** It has no other purpose, no continuous workload, and no other user. Therefore the VM MUST be shut down at the end of every `/test` audit — regardless of whether `/test` was the process that started it.
+
+This contrasts with the general `/test` cleanup logic in `~/.claude/skills/test-phases/phase-11-cleanup.md` which preserves VMs `/test` did not start (the assumption is that some other workload may need them). That logic is correct for shared VMs but wrong for Audiobook-Manager's exclusive test VM.
+
+**Authoritative source**: `~/.claude/config/project-vm-map.json` carries `"post_test_restore": true` for both:
+- `vms.test-audiobook-cachyos` (the VM)
+- `projects.Audiobook-Manager` (the project mapping)
+
+`post_test_restore: true` is the contract. Cleanup must honor it.
+
+**Required Phase 11 behavior for Audiobook-Manager:**
+
+| VM (per project-vm-map.json) | post_test_restore | Cleanup action |
+|------------------------------|--------------------|----------------|
+| `test-audiobook-cachyos` | true | **ALWAYS shut down** (and revert to pristine BTRFS snapshot on next /test start) |
+| `qa-audiobook-cachyos` | false | Leave running (QA mirror for released-version smoke testing) |
+| `dev-audiobook-cachyos` | false | Leave running ONLY if user started it; user owns dev VM lifecycle |
+
+**Implementation**: phase-11-cleanup.md reads `project-vm-map.json` for the current project; if any matching VM entry carries `post_test_restore: true`, the cleanup runs `virsh shutdown` unconditionally — overriding the "leave it running if /test didn't start it" default.
+
+**Verification at end of every /test run on this project**:
+```bash
+sudo virsh domstate test-audiobook-cachyos  # must be "shut off"
+```
+
+If it's still running, Phase 11 has a bug — fix the bug, do not work around it by manually shutting down.
+
 ## CRITICAL: Test/QA Data Isolation
 
 **No test VM, QA VM, or test/QA Docker container may have LIVE ACCESS (mounts) to production storage.**
