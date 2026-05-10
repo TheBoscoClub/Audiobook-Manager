@@ -16,8 +16,6 @@ import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 # Ensure scanner package is importable
 LIBRARY_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
