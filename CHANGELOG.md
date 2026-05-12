@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.3.10.7] - 2026-05-12
+
+### Added
+
 - **`library/scanner/utils/text_normalize.py`** — `normalize_freetext(value)` helper wrapping `html.unescape()` with `None`/non-string passthrough. Single canonical entry point for decoding HTML entities (`&quot;`, `&nbsp;`, `&amp;`, numeric and hex forms) that arrive in free-text fields from external sources (Opus comment tags, Audible API). Idempotent; 12 unit tests in `library/tests/test_text_normalize.py` pin the contract, including a regression case reproducing the literal description prefix that broke prod row 116208 on 2026-05-12
 
 ### Changed
@@ -25,6 +33,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`library/scripts/generate_hashes.py` parallel-fork branch unbound variable fixed**: replaced `conn = None` (which mypy couldn't narrow across the fork) with a `conn_closed` bool flag so mypy retains narrowing without losing the connection handle
 - **`library/tests/test_generate_hashes.py` bandit B108 resolved**: hardcoded `/tmp` path replaced with `tempfile.gettempdir()` so the test is portable and passes bandit's insecure-tempfile check
 - **Ruff format + isort applied to 7 files** (5 auth modules, 2 test files) and Prettier applied to `library/web-v2/js/library.js`; `shell.js:1018` uses optional catch binding instead of unused `_e` variable — commit `3d987c6d`
+- **`install.sh` no longer generates an unexpanded `${AUDIOBOOKS_DATA}` directory under `/opt/audiobooks/`**: the system-install and user-install heredocs wrote `AUDIOBOOKS_LIBRARY="${AUDIOBOOKS_DATA}/Library"` (and the matching `SOURCES`/`SUPPLEMENTS` keys) into `/etc/audiobooks/audiobooks.conf`. `systemd`'s `EnvironmentFile=` parser does NOT expand `${VAR}` references, so any shell script started by `audiobook-mover` / `audiobook-converter` inherited the literal string and then `mkdir -p "$AUDIOBOOKS_LIBRARY"` produced `/opt/audiobooks/${AUDIOBOOKS_DATA}/Library`. Fix: omit those three keys from the generated conf so the values fall through to `lib/audiobook-config.sh`'s shell-expanded defaults (the Python side already computes the same paths in `library/config.py`). Operators who want a non-default layout still override via `AUDIOBOOKS_DATA` itself or by uncommenting the per-key lines in `etc/audiobooks.conf.example`
+- **`install.sh` `AUTH_ENABLED` default flipped `"false" → "true"`** in both heredocs so fresh installs (including the `/test` test VM) match prod/QA's authenticated posture out of the box. Single-user Docker remains `false` per `feedback_docker_single_user.md` — that path is in `docker-compose.yml`, not in `install.sh`
+- **`scripts/smoke_probe.sh` no longer false-negatives on the DB schema check**: pending writes in `audiobooks.db-wal` could leave the main file out of sync when the probe ran. Added `PRAGMA wal_checkpoint(TRUNCATE)` before each schema query, plus switched the column/table membership check from `grep -x` to `grep -Fxq` with an awk whitespace-trim so column or table names containing regex metacharacters match exactly. Result: `install.sh` exits 0 on a clean install (previously, the smoke-probe failure masked the real exit-code semantics)
 
 ### Security
 
