@@ -1487,9 +1487,15 @@ do_system_install() {
 
 # Data directories
 AUDIOBOOKS_DATA="${data_dir}"
-AUDIOBOOKS_LIBRARY="\${AUDIOBOOKS_DATA}/Library"
-AUDIOBOOKS_SOURCES="\${AUDIOBOOKS_DATA}/Sources"
-AUDIOBOOKS_SUPPLEMENTS="\${AUDIOBOOKS_DATA}/Supplements"
+# NOTE: AUDIOBOOKS_LIBRARY/SOURCES/SUPPLEMENTS are intentionally NOT set here.
+# systemd's EnvironmentFile= does NOT expand \${VAR} references, so writing
+# AUDIOBOOKS_LIBRARY="\${AUDIOBOOKS_DATA}/Library" would inject the LITERAL
+# string into shell scripts launched by systemd, causing "mkdir -p
+# \${AUDIOBOOKS_DATA}/Library" to create a directory named literally
+# "\${AUDIOBOOKS_DATA}". They fall through to the canonical defaults in
+# lib/audiobook-config.sh and library/config.py, both of which derive them
+# from AUDIOBOOKS_DATA above. Override only if you need a non-default location
+# (and only then with a fully-expanded absolute path).
 
 # Application directories
 # NOTE: AUDIOBOOKS_COVERS, AUDIOBOOKS_DATABASE, AUDIOBOOKS_CERTS, and
@@ -1516,9 +1522,12 @@ AUDIOBOOKS_HTTPS_ENABLED="true"
 AUDIOBOOKS_HTTP_REDIRECT_ENABLED="true"
 
 # Authentication (multi-user support)
-# Set AUTH_ENABLED="true" to require login for remote access
-# When disabled (default), admin endpoints are restricted to localhost
-AUTH_ENABLED="false"
+# AUTH_ENABLED="true" requires login for remote access and exercises the full
+# auth code path (admin_or_localhost). Default is "true" so test/QA installs
+# mirror production behavior (per QA cycle policy). Set to "false" only for
+# single-user single-host deployments where admin endpoints can be restricted
+# to localhost.
+AUTH_ENABLED="true"
 AUTH_DATABASE="/var/lib/audiobooks/auth.db"
 AUTH_KEY_FILE="/etc/audiobooks/auth.key"
 
@@ -2200,9 +2209,13 @@ do_user_install() {
 
 # Data directories
 AUDIOBOOKS_DATA="${data_dir}"
-AUDIOBOOKS_LIBRARY="\${AUDIOBOOKS_DATA}/Library"
-AUDIOBOOKS_SOURCES="\${AUDIOBOOKS_DATA}/Sources"
-AUDIOBOOKS_SUPPLEMENTS="\${AUDIOBOOKS_DATA}/Supplements"
+# NOTE: AUDIOBOOKS_LIBRARY/SOURCES/SUPPLEMENTS are intentionally NOT set here.
+# systemd's EnvironmentFile= does NOT expand \${VAR} references, so writing
+# AUDIOBOOKS_LIBRARY="\${AUDIOBOOKS_DATA}/Library" would inject the LITERAL
+# string into shell scripts launched by systemd, causing "mkdir -p
+# \${AUDIOBOOKS_DATA}/Library" to create a directory named literally
+# "\${AUDIOBOOKS_DATA}". They fall through to canonical defaults in
+# lib/audiobook-config.sh and library/config.py.
 
 # Application directories
 # NOTE: AUDIOBOOKS_COVERS, AUDIOBOOKS_DATABASE, and AUDIOBOOKS_VENV are
@@ -2221,9 +2234,11 @@ AUDIOBOOKS_HTTPS_ENABLED="true"
 AUDIOBOOKS_HTTP_REDIRECT_ENABLED="true"
 
 # Authentication (multi-user support)
-# Set AUTH_ENABLED="true" to require login for remote access
-# When disabled (default), admin endpoints are restricted to localhost
-AUTH_ENABLED="false"
+# AUTH_ENABLED="true" requires login for remote access and exercises the full
+# auth code path. Default is "true" so test/QA installs mirror production.
+# Set to "false" only for single-user single-host deployments where admin
+# endpoints can be restricted to localhost.
+AUTH_ENABLED="true"
 
 # Remote access (only needed when AUTH_ENABLED="true")
 # See audiobooks.conf.example for full documentation

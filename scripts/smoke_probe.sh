@@ -187,11 +187,21 @@ _probe_db_schema() {
         _sqlite_cmd="sudo -u audiobooks sqlite3"
     fi
 
+    # Flush WAL before probing — a freshly-migrated DB may still have pending
+    # writes in -wal/-shm. Probing PRAGMA table_info on the main file before
+    # checkpoint can miss columns added by the migration. TRUNCATE forces the
+    # WAL into the main file and resets the WAL log. Failure is non-fatal
+    # (read-only DB, no WAL, etc.) — we just degrade gracefully.
+    $_sqlite_cmd "$db_path" "PRAGMA wal_checkpoint(TRUNCATE);" >/dev/null 2>&1 || true
+
     for entry in "${REQUIRED_DB_COLUMNS[@]}"; do
         local table="${entry%%.*}"
         local column="${entry##*.}"
+        # Trim whitespace from awk output to defend against version-dependent
+        # PRAGMA formatting variations; grep -F -x for exact-string match.
         if $_sqlite_cmd "$db_path" "PRAGMA table_info(${table});" 2>/dev/null \
-            | awk -F'|' '{print $2}' | grep -qx "$column"; then
+            | awk -F'|' '{gsub(/^[ \t]+|[ \t]+$/, "", $2); print $2}' \
+            | grep -Fxq "$column"; then
             _pass "DB column: $entry"
         else
             _fail "DB column missing: $entry (data-migration did not apply)"
@@ -206,7 +216,8 @@ _probe_db_schema() {
         for tbl in "${REQUIRED_DB_TABLES[@]}"; do
             if $_sqlite_cmd "$db_path" \
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='${tbl}';" \
-                2>/dev/null | grep -qx "$tbl"; then
+                2>/dev/null | awk '{gsub(/^[ \t]+|[ \t]+$/, ""); print}' \
+                | grep -Fxq "$tbl"; then
                 _pass "DB table: $tbl"
             else
                 _fail "DB table missing: $tbl (data-migration did not apply)"
