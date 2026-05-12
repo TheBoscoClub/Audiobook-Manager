@@ -80,6 +80,17 @@ class AudiobookLibraryV2 {
     this.myLibraryBooks = [];
     this.browseBooks = [];
 
+    // Play-button lookup tables — populated as books/editions render. The
+    // play action used to embed JSON.stringify(book) directly into the
+    // onclick attribute, which broke when a free-text field (e.g.
+    // description) contained an HTML entity like `&quot;` — the browser
+    // would HTML-decode it twice, producing a JS SyntaxError that silently
+    // killed playback. Storing the object by id and looking it up in the
+    // delegated click handler eliminates that entire failure mode.
+    // Incident: 2026-05-12 (audiobook 116208).
+    this.booksById = new Map();
+    this.editionsById = new Map();
+
     // Hide/unhide state
     this.selectedBookIds = new Set();
     this.viewingHidden = false;
@@ -1996,6 +2007,9 @@ class AudiobookLibraryV2 {
     // XSS hardening: coerce numeric ids and escape all server-supplied strings
     // that appear inside attributes or raw template interpolation.
     const bookId = Number(book.id) || 0;
+    // Index by id so the delegated play-click handler can look the book up
+    // without round-tripping it through an HTML attribute (incident 2026-05-12).
+    if (bookId) this.booksById.set(bookId, book);
     const formatQuality = book.format
       ? this.escapeHtml(String(book.format).toUpperCase())
       : "M4B";
@@ -2047,8 +2061,8 @@ class AudiobookLibraryV2 {
                     : ""
                 }
                 <div class="book-actions">
-                    <button class="btn-play" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, "&quot;")}, true)" title="${this.escapeHtml(hasContinue ? t("book.resumeFrom", { position: formatPlaybackTime(savedPosition.position) }) : t("book.playFromBeginning"))}">${this.escapeHtml(t("book.playFull"))}</button>
-                    <button class="btn-sample" style="display: none;" data-sample-status="unknown" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(book).replace(/"/g, "&quot;")}, true)" title="${this.escapeHtml(t("book.playSampleTooltip"))}">${this.escapeHtml(t("book.playSample"))}</button>
+                    <button class="btn-play" data-book-id="${bookId}" title="${this.escapeHtml(hasContinue ? t("book.resumeFrom", { position: formatPlaybackTime(savedPosition.position) }) : t("book.playFromBeginning"))}">${this.escapeHtml(t("book.playFull"))}</button>
+                    <button class="btn-sample" style="display: none;" data-sample-status="unknown" data-book-id="${bookId}" title="${this.escapeHtml(t("book.playSampleTooltip"))}">${this.escapeHtml(t("book.playSample"))}</button>
                     <button class="btn-download download-button" style="display: none;" onclick="event.stopPropagation(); library.downloadAudiobook(${bookId})" title="${this.escapeHtml(t("book.downloadTooltip"))}">
                         ${this.escapeHtml(t("book.downloadFull"))}
                     </button>
@@ -2224,6 +2238,13 @@ class AudiobookLibraryV2 {
   }
 
   renderEditions(editions) {
+    // Index by id so the delegated play-click handler can look the edition
+    // up by data-edition-id without round-tripping it through an HTML
+    // attribute (incident 2026-05-12).
+    editions.forEach((edition) => {
+      const eid = Number(edition.id) || 0;
+      if (eid) this.editionsById.set(eid, edition);
+    });
     return `
             <div class="editions-header">Available Editions</div>
             <div class="editions-list">
@@ -2258,7 +2279,7 @@ class AudiobookLibraryV2 {
                     </div>
                 </div>
                 <div class="edition-actions">
-                    <button class="btn-play-edition" onclick="event.stopPropagation(); shellPlay(${JSON.stringify(edition).replace(/"/g, "&quot;")}, true)">▶ Play</button>
+                    <button class="btn-play-edition" data-edition-id="${Number(edition.id) || 0}">▶ Play</button>
                 </div>
             </div>
         `;
@@ -3193,6 +3214,42 @@ class AudiobookLibraryV2 {
         this._translateNotifications(notifContainer).catch(() => {});
       }
     });
+
+    // Delegated play-button click handler. Replaces the per-card inline
+    // `onclick="...shellPlay(JSON.stringify(book)...)"` pattern, which
+    // exploded into a JS SyntaxError whenever a free-text field contained
+    // an HTML entity such as `&quot;` (incident 2026-05-12, book 116208).
+    // Books and editions are looked up by numeric id from the in-memory
+    // maps populated during render — no JSON ever crosses an HTML
+    // attribute boundary.
+    const grid = document.getElementById("books-grid");
+    if (grid) {
+      grid.addEventListener("click", (event) => {
+        const playBtn = event.target.closest(".btn-play[data-book-id], .btn-sample[data-book-id]");
+        if (playBtn) {
+          event.stopPropagation();
+          const bookId = Number(playBtn.dataset.bookId) || 0;
+          const book = this.booksById.get(bookId);
+          if (book) {
+            shellPlay(book, true);
+          } else {
+            console.error("Play click for unknown book id:", bookId);
+          }
+          return;
+        }
+        const editionBtn = event.target.closest(".btn-play-edition[data-edition-id]");
+        if (editionBtn) {
+          event.stopPropagation();
+          const editionId = Number(editionBtn.dataset.editionId) || 0;
+          const edition = this.editionsById.get(editionId);
+          if (edition) {
+            shellPlay(edition, true);
+          } else {
+            console.error("Play click for unknown edition id:", editionId);
+          }
+        }
+      });
+    }
   }
 
   async refreshLibrary() {

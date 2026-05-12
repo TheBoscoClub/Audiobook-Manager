@@ -10,7 +10,17 @@ import time
 import urllib.error
 import urllib.request
 
+from scanner.utils.text_normalize import normalize_freetext
 from scripts.enrichment.base import EnrichmentProvider
+
+# Free-text fields whose values arrive HTML-entity-encoded from Audible (e.g.
+# ``&quot;``, ``&nbsp;``) and must be decoded before storage, otherwise they
+# break downstream HTML-attribute rendering. See incident 2026-05-12.
+_AUDIBLE_FREETEXT_FIELDS = (
+    "publisher_summary",
+    "merchandising_summary",
+    "subtitle",
+)
 
 # ── Audible API constants ──
 AUDIBLE_API = "https://api.audible.com/1.0/catalog/products"
@@ -121,13 +131,18 @@ def _extract_categories(product: dict) -> list[dict]:
 
 
 def _extract_editorial_reviews(product: dict) -> list[dict]:
-    """Extract editorial reviews into a list of {review_text, source} dicts."""
+    """Extract editorial reviews into a list of {review_text, source} dicts.
+
+    ``review_text`` is HTML-entity-decoded via :func:`normalize_freetext` —
+    Audible delivers ``&quot;``/``&nbsp;`` inside review bodies and the UI
+    treats the column as plain text.
+    """
     reviews = []
     for review in product.get("editorial_reviews", []):
         text = review if isinstance(review, str) else review.get("review", "")
         source = review.get("source", "") if isinstance(review, dict) else ""
         if text:
-            reviews.append({"review_text": text, "source": source})
+            reviews.append({"review_text": normalize_freetext(text), "source": source})
     return reviews
 
 
@@ -183,7 +198,10 @@ def _apply_scalar_fields_from_product(result: dict, product: dict) -> None:
     """Copy simple truthy scalar fields; handle runtime + adult flag separately."""
     for field in _AUDIBLE_SCALAR_FIELDS:
         if product.get(field):
-            result[field] = product[field]
+            value = product[field]
+            if field in _AUDIBLE_FREETEXT_FIELDS:
+                value = normalize_freetext(value)
+            result[field] = value
     if product.get("runtime_length_min") is not None:
         result["runtime_length_min"] = product["runtime_length_min"]
     if product.get("sku"):

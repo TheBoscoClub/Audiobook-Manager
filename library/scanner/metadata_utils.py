@@ -18,6 +18,7 @@ from typing import Optional
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from common import calculate_sha256
+from scanner.utils.text_normalize import normalize_freetext
 
 # =============================================================================
 # Genre and Topic Classification
@@ -459,7 +460,9 @@ def _build_metadata_dict(
         "published_year": published_year,
         "published_date": published_date,
         "acquired_date": datetime.now().strftime("%Y-%m-%d"),
-        "description": tags_normalized.get("comment", tags_normalized.get("description", "")),
+        "description": normalize_freetext(
+            tags_normalized.get("comment", tags_normalized.get("description", ""))
+        ),
         "duration_hours": round(duration_hours, 2),
         "duration_formatted": (f"{int(duration_hours)}h {int((duration_hours % 1) * 60)}m"),
         "chapter_count": chapter_count,

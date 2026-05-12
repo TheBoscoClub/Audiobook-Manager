@@ -29,6 +29,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from scanner.utils.text_normalize import normalize_freetext
+
 try:
     from library.config import DATABASE_PATH
 except ImportError:
@@ -141,7 +143,7 @@ def _extract_editorial_reviews(product: dict) -> list[dict]:
         text = review if isinstance(review, str) else review.get("review", "")
         source = review.get("source", "") if isinstance(review, dict) else ""
         if text:
-            reviews.append({"review_text": text, "source": source})
+            reviews.append({"review_text": normalize_freetext(text), "source": source})
     return reviews
 
 
@@ -272,7 +274,7 @@ def _build_audible_fields(product: dict, existing_series: str | None) -> tuple[l
         product.get("release_date") or product.get("publication_datetime", "")[:10] or None
     )
     add_field("release_date", release_date)
-    add_field("publisher_summary", product.get("publisher_summary"))
+    add_field("publisher_summary", normalize_freetext(product.get("publisher_summary")))
 
     rating_data = _extract_rating(product)
     add_field("rating_overall", rating_data.get("rating_overall"))
@@ -285,7 +287,7 @@ def _build_audible_fields(product: dict, existing_series: str | None) -> tuple[l
     add_field("sample_url", product.get("sample_url"))
     add_field("audible_sku", product.get("sku"))
     add_field("is_adult_product", 1 if product.get("is_adult_product") else 0)
-    add_field("merchandising_summary", product.get("merchandising_summary"))
+    add_field("merchandising_summary", normalize_freetext(product.get("merchandising_summary")))
     content_type = product.get("content_type")
     if content_type:
         add_field("content_type", content_type)

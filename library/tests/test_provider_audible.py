@@ -133,6 +133,21 @@ class TestHelpers:
         assert reviews[0]["review_text"] == "Great book!"
         assert reviews[1]["source"] == "NYT"
 
+    def test_extract_editorial_reviews_decodes_html_entities(self):
+        """HTML entities from Audible (``&quot;``/``&nbsp;``) are decoded so
+        downstream renderers see plain text. Regression for incident
+        2026-05-12 (audiobook 116208)."""
+        product = {
+            "editorial_reviews": [
+                {"review": "&quot;An all-encompassing treatise&quot;", "source": "NYT"},
+                "Plain&nbsp;spaced text",
+            ]
+        }
+        reviews = _extract_editorial_reviews(product)
+        assert reviews[0]["review_text"] == '"An all-encompassing treatise"'
+        assert "&quot;" not in reviews[0]["review_text"]
+        assert reviews[1]["review_text"] == "Plain\xa0spaced text"
+
     def test_extract_rating_empty(self):
         result = _extract_rating({})
         assert result["rating_overall"] is None

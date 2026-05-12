@@ -9,9 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`library/scanner/utils/text_normalize.py`** — `normalize_freetext(value)` helper wrapping `html.unescape()` with `None`/non-string passthrough. Single canonical entry point for decoding HTML entities (`&quot;`, `&nbsp;`, `&amp;`, numeric and hex forms) that arrive in free-text fields from external sources (Opus comment tags, Audible API). Idempotent; 12 unit tests in `library/tests/test_text_normalize.py` pin the contract, including a regression case reproducing the literal description prefix that broke prod row 116208 on 2026-05-12
+
 ### Changed
 
+- **Library card play / sample / edition buttons use event delegation instead of inline `onclick="...JSON.stringify(book)..."`**: `library/web-v2/js/library.js::createBookCard` and `renderEditionItem` now emit `data-book-id` / `data-edition-id` attributes on `.btn-play`, `.btn-sample`, and `.btn-play-edition`. A single delegated click handler installed on `#books-grid` in `setupEventListeners` looks the book or edition up in the new `this.booksById` / `this.editionsById` in-memory `Map`s (populated by `createBookCard` and `renderEditions`) and invokes `shellPlay(book, true)`. The previous pattern stuffed the entire book object into an HTML attribute via `JSON.stringify(book).replace(/"/g, "&quot;")`, which collided with any free-text field that already contained the literal string `&quot;` — the browser HTML-decoded both the delimiter placeholders and the in-content entities, producing a JS `SyntaxError` that silently killed the play action with no network request fired. The new architecture never serializes the book object into an HTML attribute, eliminating that entire failure class
+- **Audible enricher decodes HTML entities at ingestion**: `library/scripts/enrichment/provider_audible.py` (modular path), `library/scripts/enrich_single.py`, and `library/scripts/enrich_from_audible.py` (legacy fallbacks) now pass `publisher_summary`, `merchandising_summary`, `subtitle`, and `editorial_reviews[].review_text` through `normalize_freetext` before storage. Defensive — Audible delivers `&quot;` and `&nbsp;` inside these fields and downstream renderers treat the columns as plain text
+- **Scanner decodes HTML entities in Opus `comment` / `description` tags**: `library/scanner/metadata_utils.py::get_file_metadata` wraps the description extraction in `normalize_freetext`. This is the exact ingestion path that introduced the entity-encoded text into prod row 116208 (audiobook had no Audible enrichment yet — `audible_enriched_at IS NULL` — so the description came directly from the converted Opus file's comment tag)
+
 ### Fixed
+
+- **The Dawn of Everything (audiobook 116208) doesn't play — prod hot-patch + code hardening**: a literal `&quot;` prefix in the `description` column for one row collided with the library card's inline `onclick` JSON-stringify pattern, throwing a JS `SyntaxError` before `shellPlay()` could fire — the browser made zero `/api/stream/116208` requests for 2 days. **Prod hot-patch (2026-05-12)**: HTML-decoded `&quot;` → `"` (and `&nbsp;` → U+00A0) in row 116208's `description` via direct SQL update; original column value preserved at `/var/lib/audiobooks/db/dawn-116208-desc.pre-hotpatch.txt`. **Code fix**: the importer hardening (above) prevents recurrence; the card-render refactor (above) prevents the entire bug class for future entity-bearing fields
 
 ## [8.3.10.6] - 2026-05-09
 

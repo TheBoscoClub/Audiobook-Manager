@@ -37,6 +37,8 @@ from pathlib import Path
 # Add parent dirs for config import — optional when --db is provided
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from scanner.utils.text_normalize import normalize_freetext
+
 try:
     from library.config import DATABASE_PATH
 except ImportError:
@@ -155,6 +157,7 @@ def extract_editorial_reviews(product: dict) -> list[dict]:
 
     for review in editorial:
         text = review if isinstance(review, str) else review.get("review", "")
+        text = normalize_freetext(text)
         source = review.get("source", "") if isinstance(review, dict) else ""
         if text:
             reviews.append({"review_text": text, "source": source})
@@ -311,16 +314,16 @@ def _extract_product_fields(product: dict) -> dict:
         product.get("release_date") or product.get("publication_datetime", "")[:10] or None
     )
     return {
-        "subtitle": product.get("subtitle"),
+        "subtitle": normalize_freetext(product.get("subtitle")),
         "language": product.get("language"),
         "format_type": product.get("format_type"),
         "runtime_length_min": product.get("runtime_length_min"),
         "release_date": release_date,
-        "publisher_summary": product.get("publisher_summary"),
+        "publisher_summary": normalize_freetext(product.get("publisher_summary")),
         "sample_url": product.get("sample_url"),
         "audible_sku": product.get("sku"),
         "is_adult_product": 1 if product.get("is_adult_product") else 0,
-        "merchandising_summary": product.get("merchandising_summary"),
+        "merchandising_summary": normalize_freetext(product.get("merchandising_summary")),
         "content_type": product.get("content_type"),
     }
 
