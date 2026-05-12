@@ -28,6 +28,7 @@ Nothing in this module imports from any other ``auth_*`` module in
 import base64
 import json
 import logging
+import re
 import sys
 import urllib.parse
 from functools import wraps
@@ -51,6 +52,44 @@ from auth import (
 from auth import webauthn_verify_registration as _shared_webauthn_verify_registration
 from auth.models import SystemSettingsRepository
 from auth.totp import generate_qr_code, setup_totp
+
+# Public re-export surface — consumed by auth.py and the auth_* sub-blueprints.
+# Listing these in __all__ tells pyright they are intentionally public even when
+# no direct local reference exists in this file.
+__all__ = [
+    "NotificationRepository",
+    "_pending_totp_secrets",
+    "_pending_webauthn_challenges",
+    "_validate_username",
+    "_validate_username_strict",
+    "_validate_email_format",
+    "_validate_webauthn_reg_input",
+    "_recovery_warning",
+    "_extract_recovery_fields",
+    "_user_dict",
+    # Additionally re-exported symbols consumed by auth_* modules
+    "auth_bp",
+    "get_auth_db",
+    "init_auth_routes",
+    "login_required",
+    "admin_required",
+    "admin_or_localhost",
+    "admin_if_enabled",
+    "auth_if_enabled",
+    "download_permission_required",
+    "set_session_cookie",
+    "clear_session_cookie",
+    "require_current_user",
+    "SESSION_DURATION_DEFAULT",
+    "SESSION_DURATION_REMEMBER",
+    "INVITATION_EXPIRY_HOURS",
+    "_setup_totp_data",
+    "_setup_passkey_data",
+    "_switch_auth_method",
+    "_verify_webauthn_credential",
+    "_format_claim_token",
+    "_user_allows_multi_session",
+]
 
 # =============================================================================
 # Blueprint + module-level state
@@ -731,8 +770,18 @@ def admin_or_localhost(f: Callable) -> Callable:
 # =============================================================================
 
 
+# Session tokens are server-generated random strings (secrets.token_urlsafe /
+# token_hex / base64 of os.urandom). Validate the value against a strict
+# allowlist before writing it into a Set-Cookie header to defeat any
+# header-splitting / cookie-injection attempt that could arise if a tainted
+# value ever reached this helper.
+_SAFE_SESSION_TOKEN_RE = re.compile(r"^[A-Za-z0-9_\-+/=.]{16,512}$")
+
+
 def set_session_cookie(response: Response, token: str, remember_me: bool = False) -> Response:
     """Set the session cookie on a response."""
+    if not isinstance(token, str) or not _SAFE_SESSION_TOKEN_RE.match(token):
+        raise ValueError("invalid session token format")
     max_age = SESSION_DURATION_REMEMBER if remember_me else SESSION_DURATION_DEFAULT
     response.set_cookie(
         _session_cookie_name,

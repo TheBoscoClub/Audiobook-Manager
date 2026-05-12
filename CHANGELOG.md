@@ -26,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`library/tests/test_generate_hashes.py` bandit B108 resolved**: hardcoded `/tmp` path replaced with `tempfile.gettempdir()` so the test is portable and passes bandit's insecure-tempfile check
 - **Ruff format + isort applied to 7 files** (5 auth modules, 2 test files) and Prettier applied to `library/web-v2/js/library.js`; `shell.js:1018` uses optional catch binding instead of unused `_e` variable — commit `3d987c6d`
 
+### Security
+
+- **CodeQL alert remediation — closed [GHAS #533](https://github.com/TheBoscoClub/Audiobook-Manager/security/code-scanning/533), [#534](https://github.com/TheBoscoClub/Audiobook-Manager/security/code-scanning/534), [#532](https://github.com/TheBoscoClub/Audiobook-Manager/security/code-scanning/532)**: three open alerts surfaced 2026-05-10 against `library/backend/api_modular/streaming_translate.py` and `library/backend/api_modular/auth_shared.py` are now closed by sanitization at the boundary
+  - **`py/reflective-xss` (#533, high) — `streaming_translate.py::_parse_stream_request`**: the validator previously returned a `(jsonify(...), 400)` tuple built inside the function that received the user-controlled JSON payload; CodeQL traced taint from `request.get_json()` through that tuple to the route handler's `return err`. Refactored to return a fixed sentinel string (`"missing"` / `"invalid"`); the route handler now looks up a constants-only `_STREAM_REQUEST_ERRORS` table and emits `jsonify(body), status` from constants, severing the taint path from `request` to the response
+  - **`py/log-injection` (#534, medium) — `streaming_translate.py::_safe_log_value`**: existing regex-based CRLF scrub (`_LOG_SCRUB_RE.sub("_", ...)`) was a custom sanitizer CodeQL does not model. Final stage now applies `urllib.parse.quote(..., safe="-._~:/=,@()_ ")` — a stdlib-recognized sanitizer — so any control byte that slipped past the regex is percent-encoded (`%0A`, `%0D`, `%XX`) before logging. Behavior preserved for all 94 existing `_safe_log_value` unit tests
+  - **`py/cookie-injection` (#532, medium) — `auth_shared.py::set_session_cookie`**: helper accepted any `str` and forwarded it to `Response.set_cookie`. Added module-level `_SAFE_SESSION_TOKEN_RE = ^[A-Za-z0-9_\-+/=.]{16,512}$` allowlist matching the format of `secrets.token_urlsafe` / `token_hex` / base64 random tokens; `set_session_cookie` now raises `ValueError("invalid session token format")` if the token fails the allowlist, defeating header-splitting / cookie-fixation if a tainted value ever reaches the helper
+
 ## [8.3.10.6] - 2026-05-09
 
 ### Added

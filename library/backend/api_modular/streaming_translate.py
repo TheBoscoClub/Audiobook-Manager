@@ -15,6 +15,15 @@ Endpoints:
     POST /api/translate/stop             — stop streaming (demote all pending to back-fill)
 """
 
+__all__ = [
+    # Backwards-compat shim accessed by tests
+    "_probe_runpod_warmth",
+    # Adaptive threshold helper — public for external callers / future use
+    "_buffer_fill_threshold",
+    # Flask teardown_app_request handler — called by Flask internals, not by name
+    "_teardown_streaming_db",
+]
+
 import json
 import logging
 import os
@@ -22,6 +31,7 @@ import re
 import sqlite3
 import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import tempfile
+import urllib.parse
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -157,12 +167,18 @@ def _safe_log_value(value) -> str:
 
     Strips CR, LF, null bytes, and other control characters that could be
     used for log forging (CRLF injection). Truncates overly long values.
+    Applies ``urllib.parse.quote`` as a final percent-encoding pass so any
+    residual unprintable byte is rendered inert and the sanitizer chain is
+    one that static analyzers recognize as an explicit allowlist.
     """
     s = str(value) if value is not None else ""
     s = _LOG_SCRUB_RE.sub("_", s)
     if len(s) > 200:
         s = s[:200] + "...(truncated)"
-    return s
+    # Percent-encode everything outside a safe allowlist. This is a
+    # stdlib-recognized sanitizer; any remaining CR/LF or control byte
+    # smuggled past the regex scrub above is converted to %0A / %0D / %XX.
+    return urllib.parse.quote(s, safe="-._~:/=,@()_ ")
 
 
 def _sanitize_locale(locale: str) -> str:
@@ -262,9 +278,8 @@ def _get_db():
     return db
 
 
-def _close_db(
-    exc=None,
-):  # pylint: disable=unused-argument  # required by Flask teardown_appcontext signature
+def _close_db(_exc=None):  # Flask teardown_appcontext signature — _exc reserved for the exception
+    del _exc
     db = getattr(g, "_streaming_db", None)
     if db is not None:
         db.close()
@@ -571,7 +586,7 @@ def _enqueue_sampler(db, audiobook_id: int, locale: str) -> dict:
 
     bounds = _resolve_chapters(db, audiobook_id)
     if bounds:
-        chapter_durations = [dur for _start, dur in bounds]
+        chapter_durations = [dur for _, dur in bounds]
     else:
         book_dur = _get_book_duration_sec(db, audiobook_id)
         chapter_count = _resolve_chapter_count(db, audiobook_id)
@@ -872,23 +887,36 @@ def stop_streaming_impl(conn, audiobook_id, locale):
 def _parse_stream_request(data):
     """Extract+validate fields from /api/translate/stream payload.
 
-    Returns (audiobook_id, locale, chapter_index, err_response_or_None).
+    Returns (audiobook_id, locale, chapter_index, err_code_or_None). The
+    error slot is a fixed sentinel string ("missing" or "invalid") — never
+    a response object derived from the caller-supplied ``data`` — so any
+    response the caller eventually emits is built from constants only,
+    closing the static-analysis path from ``request`` to ``return``.
     """
     audiobook_id = data.get("audiobook_id")
     locale = data.get("locale", "zh-Hans")
     chapter_index = data.get("chapter_index", 0)
 
     if not audiobook_id:
-        return None, None, None, (jsonify({"error": "audiobook_id required"}), 400)
+        return None, None, None, "missing"
 
     try:
         audiobook_id = int(audiobook_id)
         chapter_index = int(chapter_index)
         locale = _sanitize_locale(locale)
     except (ValueError, TypeError):  # fmt: skip
-        return None, None, None, (jsonify({"error": "invalid parameters"}), 400)
+        return None, None, None, "invalid"
 
     return audiobook_id, locale, chapter_index, None
+
+
+# Fixed error responses for /api/translate/stream validation failures.
+# Built from constants only — no value from the request body ever reaches
+# these payloads.
+_STREAM_REQUEST_ERRORS = {
+    "missing": ({"error": "audiobook_id required"}, 400),
+    "invalid": ({"error": "invalid parameters"}, 400),
+}
 
 
 def _mark_session_streaming(db, audiobook_id, locale):
@@ -1006,7 +1034,8 @@ def request_streaming_translation():
         request.get_json(silent=True) or {}
     )
     if err:
-        return err
+        body, status = _STREAM_REQUEST_ERRORS[err]
+        return jsonify(body), status
     # The `if err: return err` guard above runs at runtime, but pyright cannot
     # see across the `_parse_stream_request` boundary that successful parses
     # always produce non-None tuple elements. Asserting locally narrows the
@@ -1235,7 +1264,7 @@ def _probe_runpod_warmth() -> tuple[bool, int]:
     Retained as a two-tuple wrapper so any legacy import path continues to
     function. Will be removed once all callers have migrated.
     """
-    cold, ready, _providers = _probe_stt_warmth()
+    cold, ready, _ = _probe_stt_warmth()
     return cold, ready
 
 
@@ -1252,7 +1281,7 @@ def _buffer_fill_threshold() -> int:
     catch up before the user reaches end-of-sample IF buffer-fill starts
     within the threshold runway. See docs/SAMPLER.md.
     """
-    cold, _ready, _providers = _probe_stt_warmth()
+    cold, _, _ = _probe_stt_warmth()
     return BUFFER_FILL_THRESHOLD_COLD if cold else BUFFER_FILL_THRESHOLD_WARM
 
 
@@ -1307,11 +1336,18 @@ def sampler_activate():
     (book, locale) only creates segments that don't already exist.
     """
     data = request.get_json(silent=True) or {}
+    ab_raw = data.get("audiobook_id")
+    locale_raw = data.get("locale")
+    if ab_raw is None or locale_raw is None:
+        return (
+            jsonify({"error": "audiobook_id, locale, chapter_index, segment_index required"}),
+            400,
+        )
     try:
-        audiobook_id = int(data.get("audiobook_id"))
-        locale = _sanitize_locale(data.get("locale"))
-        chapter_index = int(data.get("chapter_index", 0))
-        segment_index = int(data.get("segment_index", 0))
+        audiobook_id = int(ab_raw)
+        locale = _sanitize_locale(str(locale_raw))
+        chapter_index = int(data.get("chapter_index", 0) or 0)
+        segment_index = int(data.get("segment_index", 0) or 0)
     except (ValueError, TypeError):  # fmt: skip
         return (
             jsonify({"error": "audiobook_id, locale, chapter_index, segment_index required"}),
@@ -2063,9 +2099,13 @@ def sampler_prefetch():
     (book, locale) returns status='complete' without side effects.
     """
     data = request.get_json(silent=True) or {}
+    ab_raw = data.get("audiobook_id")
+    locale_raw = data.get("locale")
+    if ab_raw is None or locale_raw is None:
+        return jsonify({"error": "audiobook_id (int) and locale (str) required"}), 400
     try:
-        audiobook_id = int(data.get("audiobook_id"))
-        locale = _sanitize_locale(data.get("locale"))
+        audiobook_id = int(ab_raw)
+        locale = _sanitize_locale(str(locale_raw))
     except (ValueError, TypeError):  # fmt: skip
         return jsonify({"error": "audiobook_id (int) and locale (str) required"}), 400
 
