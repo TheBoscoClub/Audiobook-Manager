@@ -69,6 +69,7 @@ def remove_from_indexes(filepath: Path) -> dict:
 
     Returns dict with counts of entries removed from each index.
     """
+    # Read env at call-time so tests can monkey-patch AUDIOBOOKS_* paths
     index_dir = Path(os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks")) / ".index"
     filepath_str = str(filepath)
 

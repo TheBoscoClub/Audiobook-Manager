@@ -13,7 +13,7 @@ from pathlib import Path
 
 from flask import Blueprint, request
 
-from config import AUDIOBOOKS_DATABASE
+from config import AUDIOBOOKS_DATABASE, AUDIOBOOKS_HOME
 
 from ..auth import admin_if_enabled
 from ..core import FlaskResponse
@@ -22,8 +22,8 @@ from ._subprocess import run_with_progress
 
 utilities_ops_maintenance_bp = Blueprint("utilities_ops_maintenance", __name__)
 
-# Script paths - use environment variable with fallback
-_audiobooks_home = os.environ.get("AUDIOBOOKS_HOME", "/opt/audiobooks")
+# Script paths - sourced from canonical config (lib/audiobook-config.sh ↔ library/config.py)
+_audiobooks_home = str(AUDIOBOOKS_HOME)
 
 # Module-level project root, set by init_maintenance_routes
 _project_root: Path = Path()
@@ -351,6 +351,7 @@ def _export_audible_library(library_export):
 
     Returns (success: bool, error_message: str | None).
     """
+    # Read env at call-time so tests can monkey-patch AUDIOBOOKS_VAR_DIR
     _audible_home = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
     try:
         export_result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B603 — subprocess call — cmd is a hardcoded system tool invocation with internal/config args; no user-controlled input

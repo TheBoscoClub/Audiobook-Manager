@@ -17,6 +17,7 @@ Type=oneshot
 # persisted on reboot.)
 User=audiobooks
 Group=audiobooks
+WorkingDirectory=/opt/audiobooks
 
 # Load configuration
 EnvironmentFile=-/etc/audiobooks/audiobooks.conf
@@ -30,6 +31,7 @@ ExecStart=/usr/local/bin/audiobook-save-staging
 
 # Run only at shutdown
 RemainAfterExit=yes
+RestartSec=5
 
 # Security hardening (PrivateTmp intentionally omitted — needs real /tmp to save staging files)
 NoNewPrivileges=yes

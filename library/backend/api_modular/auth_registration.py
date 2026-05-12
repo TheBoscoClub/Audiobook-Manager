@@ -67,6 +67,7 @@ def _auth_mod():
         or _sys.modules.get("library.backend.api_modular.auth")
     )
 
+
 # =============================================================================
 # Claim-flow helpers (moved from auth.py)
 # =============================================================================

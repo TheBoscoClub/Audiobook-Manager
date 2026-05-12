@@ -266,6 +266,7 @@ def generate_hashes(force: bool = False, limit: int | None = None, parallel: int
         sys.exit(1)
 
     conn = sqlite3.connect(DB_PATH)
+    conn_closed = False
     try:
         _ensure_hash_columns(conn)
 
@@ -285,7 +286,7 @@ def generate_hashes(force: bool = False, limit: int | None = None, parallel: int
         if parallel:
             # Close before forking — forked processes must not inherit this connection
             conn.close()
-            conn = None
+            conn_closed = True
             generate_hashes_parallel(pending, total_files, total_size, parallel)
             return
 
@@ -305,7 +306,7 @@ def generate_hashes(force: bool = False, limit: int | None = None, parallel: int
         _print_hash_completion(processed, processed_size, elapsed, errors)
         show_stats(conn)
     finally:
-        if conn is not None:
+        if not conn_closed:
             conn.close()
 
 
@@ -406,7 +407,7 @@ def show_stats(conn: sqlite3.Connection):
         print(f"{'=' * 60}")
 
         total_wasted = 0
-        for hash_val, count, ids, _titles, total_size in duplicates:
+        for hash_val, count, ids, _, total_size in duplicates:
             wasted = total_size - (total_size / count)
             total_wasted += wasted
 
@@ -468,7 +469,7 @@ def verify_hashes(sample_size: int = 10):
         failed = 0
         missing = 0
 
-        for _audiobook_id, file_path, stored_hash, title, _file_size in samples:
+        for _, file_path, stored_hash, title, _ in samples:
             display_title = _truncate_title(title)
             print(f"Checking: {display_title}")
 

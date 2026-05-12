@@ -1015,7 +1015,7 @@ class ShellPlayer {
     const onMeta = () => {
       try {
         this.audio.currentTime = resumeSec;
-      } catch (_e) {
+      } catch {
         /* seek may fail if new audio is also short — let play try anyway */
       }
     };

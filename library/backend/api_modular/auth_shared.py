@@ -152,9 +152,7 @@ def init_auth_routes(auth_db_path: Path, auth_key_path: Path, is_dev: bool = Fal
     )
     if auth_webauthn is not None:
         rp_id, rp_name, origin = auth_webauthn.get_webauthn_config()
-        logger.info(
-            "WebAuthn config: rp_id=%s, origin=%s, rp_name=%s", rp_id, origin, rp_name
-        )
+        logger.info("WebAuthn config: rp_id=%s, origin=%s, rp_name=%s", rp_id, origin, rp_name)
 
 
 def get_auth_db() -> AuthDatabase:
@@ -406,9 +404,7 @@ def _verify_webauthn_credential(data, origin, rp_id):
         or _sys.modules.get("library.backend.api_modular.auth")
     )
     verify_fn = (
-        getattr(auth_mod, "webauthn_verify_registration", None)
-        if auth_mod is not None
-        else None
+        getattr(auth_mod, "webauthn_verify_registration", None) if auth_mod is not None else None
     ) or _shared_webauthn_verify_registration
 
     webauthn_cred = verify_fn(

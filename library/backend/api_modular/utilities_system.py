@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 
 # Paths for privilege-separated helper communication
 # Using $AUDIOBOOKS_VAR_DIR/.control/ to avoid /run namespace issues with sandboxing
+# Read env at call-time so tests can monkey-patch AUDIOBOOKS_VAR_DIR
 _var_dir = os.environ.get("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
 CONTROL_DIR = Path(_var_dir) / ".control"
 HELPER_REQUEST_FILE = CONTROL_DIR / "upgrade-request"

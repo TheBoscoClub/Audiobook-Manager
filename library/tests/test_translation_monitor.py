@@ -384,6 +384,7 @@ def test_live_script_imports_cleanly():
 
     path = PROJECT_ROOT / "scripts" / "translation-monitor-live.py"
     spec = importlib.util.spec_from_file_location("translation_monitor_live_test", path)
+    assert spec is not None and spec.loader is not None, "Failed to load translation_monitor_live"
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     assert callable(mod.main)
@@ -394,6 +395,9 @@ def test_sampler_script_imports_cleanly():
 
     path = PROJECT_ROOT / "scripts" / "translation-monitor-sampler.py"
     spec = importlib.util.spec_from_file_location("translation_monitor_sampler_test", path)
+    assert spec is not None and spec.loader is not None, (
+        "Failed to load translation_monitor_sampler"
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     assert callable(mod.main)
@@ -427,7 +431,7 @@ def _run_script_in_clean_env(script_name: str):
     script = PROJECT_ROOT / "scripts" / script_name
     env = {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-        "HOME": os.environ.get("HOME", "/tmp"),
+        "HOME": os.environ.get("HOME", "/tmp"),  # nosec B108 — fallback for env, not file creation
         # Deliberately omit PYTHONPATH so the script must self-bootstrap.
     }
     return subprocess.run(

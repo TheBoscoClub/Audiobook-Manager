@@ -16,7 +16,8 @@ class AudiobookLibraryV2 {
   static _SCROLL_LOCK_ATTR = "data-modal-scroll-lock";
 
   static _lockBodyScroll() {
-    if (document.body.hasAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR)) return;
+    if (document.body.hasAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR))
+      return;
     document.body.setAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR, "1");
     // Use only `overflow: hidden` on html+body — never `position: fixed`.
     // Brave Android (Chromium-derived) treats `position: fixed` on body as
@@ -33,7 +34,8 @@ class AudiobookLibraryV2 {
   }
 
   static _unlockBodyScrollIfLocked() {
-    if (!document.body.hasAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR)) return;
+    if (!document.body.hasAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR))
+      return;
     document.body.removeAttribute(AudiobookLibraryV2._SCROLL_LOCK_ATTR);
     document.documentElement.style.overflow = "";
     document.body.style.overflow = "";
@@ -314,13 +316,22 @@ class AudiobookLibraryV2 {
       document.querySelectorAll(".book-card[data-id]").forEach((card) => {
         const titleEl = card.querySelector(".book-title");
         const orig = titleEl && titleEl.getAttribute("data-original-title");
-        if (orig) { titleEl.textContent = orig; titleEl.removeAttribute("data-original-title"); }
+        if (orig) {
+          titleEl.textContent = orig;
+          titleEl.removeAttribute("data-original-title");
+        }
         const authorEl = card.querySelector(".book-author");
         const origA = authorEl && authorEl.getAttribute("data-original-author");
-        if (origA) { authorEl.textContent = origA; authorEl.removeAttribute("data-original-author"); }
+        if (origA) {
+          authorEl.textContent = origA;
+          authorEl.removeAttribute("data-original-author");
+        }
         const seriesEl = card.querySelector(".book-series");
         const origS = seriesEl && seriesEl.getAttribute("data-original-series");
-        if (origS) { seriesEl.textContent = origS; seriesEl.removeAttribute("data-original-series"); }
+        if (origS) {
+          seriesEl.textContent = origS;
+          seriesEl.removeAttribute("data-original-series");
+        }
       });
       return;
     }
@@ -350,11 +361,14 @@ class AudiobookLibraryV2 {
         }
         const parts = await Promise.all(
           chunks.map((ids) =>
-            api.get(`${base}&ids=${ids.join(",")}`, { toast: false }).catch(() => ({}))
-          )
+            api
+              .get(`${base}&ids=${ids.join(",")}`, { toast: false })
+              .catch(() => ({})),
+          ),
         );
         for (const part of parts) {
-          if (part && typeof part === "object") Object.assign(translations, part);
+          if (part && typeof part === "object")
+            Object.assign(translations, part);
         }
       }
 
@@ -408,8 +422,10 @@ class AudiobookLibraryV2 {
     const base = `${API_BASE}/translate/sampler/batch-status?locale=${encodeURIComponent(locale)}`;
     const results = await Promise.all(
       chunks.map((ids) =>
-        api.get(`${base}&ids=${ids.join(",")}`, { toast: false }).catch(() => ({}))
-      )
+        api
+          .get(`${base}&ids=${ids.join(",")}`, { toast: false })
+          .catch(() => ({})),
+      ),
     );
 
     const statuses = {};
@@ -452,7 +468,9 @@ class AudiobookLibraryV2 {
           if (!authorEl.hasAttribute("data-original-author")) {
             authorEl.setAttribute("data-original-author", authorEl.textContent);
           }
-          authorEl.textContent = t("book.byAuthor", { author: tr.author_display });
+          authorEl.textContent = t("book.byAuthor", {
+            author: tr.author_display,
+          });
         }
       }
       if (tr.series_display) {
@@ -589,7 +607,8 @@ class AudiobookLibraryV2 {
    * locale switch can restore or re-translate.
    */
   async _translateNotifications(container) {
-    if (!window.i18n || typeof window.i18n.translateStrings !== "function") return;
+    if (!window.i18n || typeof window.i18n.translateStrings !== "function")
+      return;
     const locale = window.i18n.getLocale();
     const spans = container.querySelectorAll(".notification-message");
     if (!spans.length) return;
@@ -651,7 +670,9 @@ class AudiobookLibraryV2 {
    */
   async dismissNotification(notificationId, bannerElement) {
     try {
-      await api.post(`/auth/notifications/dismiss/${notificationId}`, null, { toast: false });
+      await api.post(`/auth/notifications/dismiss/${notificationId}`, null, {
+        toast: false,
+      });
       // Animate removal
       bannerElement.classList.add("dismissing");
       setTimeout(() => bannerElement.remove(), 300);
@@ -687,9 +708,13 @@ class AudiobookLibraryV2 {
       onDismiss: function () {
         try {
           localStorage.setItem("library_passkey_prompt_dismissed", "1");
-        } catch { /* ignored */ }
+        } catch {
+          /* ignored */
+        }
         banner.classList.add("dismissing");
-        setTimeout(function () { banner.remove(); }, 300);
+        setTimeout(function () {
+          banner.remove();
+        }, 300);
       },
     });
     ks.classList.add("notification-dismiss");
@@ -726,7 +751,10 @@ class AudiobookLibraryV2 {
     }
 
     try {
-      const response = await api.get(`${API_BASE}/download/${bookId}`, { toast: false, raw: true });
+      const response = await api.get(`${API_BASE}/download/${bookId}`, {
+        toast: false,
+        raw: true,
+      });
 
       const blob = await response.blob();
       const contentDisposition = response.headers.get("Content-Disposition");
@@ -748,7 +776,11 @@ class AudiobookLibraryV2 {
       URL.revokeObjectURL(url);
 
       // Record successful download completion
-      await api.post(`${API_BASE}/user/downloads/${bookId}/complete`, { file_format: "opus" }, { toast: false });
+      await api.post(
+        `${API_BASE}/user/downloads/${bookId}/complete`,
+        { file_format: "opus" },
+        { toast: false },
+      );
     } catch (error) {
       console.error("Download error:", error);
       // Failed/cancelled downloads not recorded — by design
@@ -924,7 +956,9 @@ class AudiobookLibraryV2 {
     const order = sortPref.substring(lastUnderscore + 1);
     const dropdownValue = sort + ":" + order;
     const sortSelect = document.getElementById("sort-filter");
-    const optionExists = Array.from(sortSelect.options).some(o => o.value === dropdownValue);
+    const optionExists = Array.from(sortSelect.options).some(
+      (o) => o.value === dropdownValue,
+    );
     if (optionExists) {
       sortSelect.value = dropdownValue;
       this.currentFilters.sort = sort;
@@ -959,8 +993,13 @@ class AudiobookLibraryV2 {
       const serverSort = prefs.sort_order;
       if (serverSort) {
         if (localSort && localSort !== serverSort) {
-          api.patch("/api/user/preferences", { sort_order: localSort },
-            { toast: false, keepalive: true }).catch(() => {});
+          api
+            .patch(
+              "/api/user/preferences",
+              { sort_order: localSort },
+              { toast: false, keepalive: true },
+            )
+            .catch(() => {});
         } else if (!localSort) {
           this._applySortString(serverSort);
           localStorage.setItem("audiobook_sort_order", serverSort);
@@ -971,8 +1010,13 @@ class AudiobookLibraryV2 {
       const serverViewMode = prefs.view_mode;
       if (serverViewMode) {
         if (localViewMode && localViewMode !== serverViewMode) {
-          api.patch("/api/user/preferences", { view_mode: localViewMode },
-            { toast: false, keepalive: true }).catch(() => {});
+          api
+            .patch(
+              "/api/user/preferences",
+              { view_mode: localViewMode },
+              { toast: false, keepalive: true },
+            )
+            .catch(() => {});
         } else if (!localViewMode) {
           this._applyViewMode(serverViewMode);
           localStorage.setItem("audiobook_view_mode", serverViewMode);
@@ -983,8 +1027,13 @@ class AudiobookLibraryV2 {
       const serverPerPage = prefs.items_per_page;
       if (serverPerPage) {
         if (localPerPage && localPerPage !== serverPerPage) {
-          api.patch("/api/user/preferences", { items_per_page: localPerPage },
-            { toast: false, keepalive: true }).catch(() => {});
+          api
+            .patch(
+              "/api/user/preferences",
+              { items_per_page: localPerPage },
+              { toast: false, keepalive: true },
+            )
+            .catch(() => {});
         } else if (!localPerPage) {
           this._applyItemsPerPage(serverPerPage);
           localStorage.setItem("audiobook_items_per_page", serverPerPage);
@@ -1057,7 +1106,9 @@ class AudiobookLibraryV2 {
 
   async loadCollections() {
     try {
-      this.collections = await api.get(`${API_BASE}/collections`, { toast: false });
+      this.collections = await api.get(`${API_BASE}/collections`, {
+        toast: false,
+      });
       this.renderCollectionButtons();
     } catch (error) {
       console.error("Error loading collections:", error);
@@ -1085,7 +1136,14 @@ class AudiobookLibraryV2 {
 
     // Build tree-structured sidebar using DOM methods
     container.textContent = "";
-    const categoryOrder = ["special", "fiction", "nonfiction", "series", "eras", "topics"];
+    const categoryOrder = [
+      "special",
+      "fiction",
+      "nonfiction",
+      "series",
+      "eras",
+      "topics",
+    ];
     const categoryLabels = {
       special: t("collection.special"),
       fiction: t("collection.fiction"),
@@ -1226,7 +1284,8 @@ class AudiobookLibraryV2 {
   }
 
   async applyCollectionTranslations() {
-    const locale = window.i18n && window.i18n.getLocale ? window.i18n.getLocale() : "en";
+    const locale =
+      window.i18n && window.i18n.getLocale ? window.i18n.getLocale() : "en";
     if (!locale || locale === "en") {
       return;
     }
@@ -1239,13 +1298,15 @@ class AudiobookLibraryV2 {
       this._collectionTranslationMap = map;
 
       // Overlay button name spans.
-      document.querySelectorAll(".collection-btn[data-collection]").forEach((btn) => {
-        const cid = btn.dataset.collection;
-        const translated = map[cid];
-        if (!translated) return;
-        const nameSpan = btn.querySelector(".name");
-        if (nameSpan) nameSpan.textContent = translated;
-      });
+      document
+        .querySelectorAll(".collection-btn[data-collection]")
+        .forEach((btn) => {
+          const cid = btn.dataset.collection;
+          const translated = map[cid];
+          if (!translated) return;
+          const nameSpan = btn.querySelector(".name");
+          if (nameSpan) nameSpan.textContent = translated;
+        });
 
       // Overlay category labels. The backend keyed these by the parent collection
       // id, so we use the translated name for the category's first parent entry
@@ -1254,10 +1315,11 @@ class AudiobookLibraryV2 {
       // Update active filter badge with translated name if applicable.
       const badge = document.getElementById("active-filter-badge");
       if (badge && this.currentCollection && map[this.currentCollection]) {
-        const collection = this.collections.find((c) => c.id === this.currentCollection)
-          || this.collections.flatMap((c) => c.children || []).find(
-            (c) => c && c.id === this.currentCollection,
-          );
+        const collection =
+          this.collections.find((c) => c.id === this.currentCollection) ||
+          this.collections
+            .flatMap((c) => c.children || [])
+            .find((c) => c && c.id === this.currentCollection);
         if (collection) {
           badge.textContent = collection.icon
             ? `${collection.icon} ${map[this.currentCollection]}`
@@ -1486,7 +1548,9 @@ class AudiobookLibraryV2 {
     const allLabel =
       this.authorLetterGroup === "all"
         ? t("library.allAuthors")
-        : t("library.allInGroup", { group: this.authorLetterGroup.toUpperCase() });
+        : t("library.allInGroup", {
+            group: this.authorLetterGroup.toUpperCase(),
+          });
     html += `<div class="author-option author-all-option" data-value="">
             <span>${allLabel}</span>
             <span class="count">${t("library.total", { n: filtered.length })}</span>
@@ -1578,7 +1642,9 @@ class AudiobookLibraryV2 {
   async loadNarratorCounts() {
     try {
       // Get narrator counts from stats endpoint
-      this.narratorCounts = await api.get(`${API_BASE}/narrator-counts`, { toast: false });
+      this.narratorCounts = await api.get(`${API_BASE}/narrator-counts`, {
+        toast: false,
+      });
     } catch {
       // Fallback
       this.narratorCounts = {};
@@ -1699,7 +1765,9 @@ class AudiobookLibraryV2 {
     const allLabel =
       this.narratorLetterGroup === "all"
         ? t("library.allNarrators")
-        : t("library.allInGroup", { group: this.narratorLetterGroup.toUpperCase() });
+        : t("library.allInGroup", {
+            group: this.narratorLetterGroup.toUpperCase(),
+          });
     html += `<div class="narrator-option narrator-all-option" data-value="">
             <span>${allLabel}</span>
             <span class="count">${t("library.total", { n: filtered.length })}</span>
@@ -1845,7 +1913,10 @@ class AudiobookLibraryV2 {
     var idx = lower.indexOf(qLower, pos);
     while (idx !== -1) {
       result += escaped.substring(pos, idx);
-      result += "<strong>" + escaped.substring(idx, idx + queryEscaped.length) + "</strong>";
+      result +=
+        "<strong>" +
+        escaped.substring(idx, idx + queryEscaped.length) +
+        "</strong>";
       pos = idx + queryEscaped.length;
       idx = lower.indexOf(qLower, pos);
     }
@@ -1871,9 +1942,12 @@ class AudiobookLibraryV2 {
     if (retries < 2) {
       imgEl.dataset.retries = String(retries + 1);
       const base = (imgEl.src || "").split("?")[0];
-      setTimeout(function () {
-        imgEl.src = base + "?r=" + Date.now();
-      }, 500 * (retries + 1));
+      setTimeout(
+        function () {
+          imgEl.src = base + "?r=" + Date.now();
+        },
+        500 * (retries + 1),
+      );
       return;
     }
     const parent = imgEl.parentElement;
@@ -1937,7 +2011,9 @@ class AudiobookLibraryV2 {
       if (this.currentFilters.order)
         params.append("order", this.currentFilters.order);
 
-      const data = await api.get(`${API_BASE}/audiobooks?${params}`, { toast: false });
+      const data = await api.get(`${API_BASE}/audiobooks?${params}`, {
+        toast: false,
+      });
 
       this.totalPages = data.pagination.total_pages;
       this.totalCount = data.pagination.total_count;
@@ -1960,21 +2036,24 @@ class AudiobookLibraryV2 {
       // Build error message via DOM (avoid innerHTML XSS surface)
       const _t = typeof t === "function" ? t : null;
       const _err = _t ? _t("library.js.errorLoadingApi") : null;
-      const errText = (_err && _err !== "library.js.errorLoadingApi")
-        ? _err
-        : "Error loading audiobooks. Please ensure the API server is running.";
+      const errText =
+        _err && _err !== "library.js.errorLoadingApi"
+          ? _err
+          : "Error loading audiobooks. Please ensure the API server is running.";
       const _run = _t ? _t("library.js.runLabel") : null;
-      const runText = (_run && _run !== "library.js.runLabel") ? _run : "Run:";
+      const runText = _run && _run !== "library.js.runLabel" ? _run : "Run:";
       const grid = document.getElementById("books-grid");
       grid.textContent = "";
       const p = document.createElement("p");
-      p.style.cssText = "color: var(--parchment); text-align: center; grid-column: 1/-1;";
+      p.style.cssText =
+        "color: var(--parchment); text-align: center; grid-column: 1/-1;";
       p.appendChild(document.createTextNode(errText));
       p.appendChild(document.createElement("br"));
       p.appendChild(document.createElement("br"));
       p.appendChild(document.createTextNode(runText + " "));
       const code = document.createElement("code");
-      code.style.cssText = "background: var(--wood-dark); padding: 0.5rem; border-radius: 4px;";
+      code.style.cssText =
+        "background: var(--wood-dark); padding: 0.5rem; border-radius: 4px;";
       code.textContent = "./launch.sh";
       p.appendChild(code);
       grid.appendChild(p);
@@ -1991,10 +2070,13 @@ class AudiobookLibraryV2 {
     if (books.length === 0) {
       grid.textContent = "";
       const p = document.createElement("p");
-      p.style.cssText = "color: var(--parchment); text-align: center; grid-column: 1/-1;";
-      p.textContent = (typeof t === "function" && t("library.noResults") !== "library.noResults")
-        ? t("library.noResults")
-        : "No audiobooks found matching your filters.";
+      p.style.cssText =
+        "color: var(--parchment); text-align: center; grid-column: 1/-1;";
+      p.textContent =
+        typeof t === "function" &&
+        t("library.noResults") !== "library.noResults"
+          ? t("library.noResults")
+          : "No audiobooks found matching your filters.";
       grid.appendChild(p);
       return;
     }
@@ -2037,7 +2119,7 @@ class AudiobookLibraryV2 {
                         : '<span class="book-cover-placeholder">📖</span>'
                     }
                     ${hasSupplement ? `<span class="supplement-badge" title="${this.escapeHtml(t("book.hasPdf"))}" onclick="event.stopPropagation(); library.showSupplements(${bookId})">PDF</span>` : ""}
-                    ${""/* Play button always resumes from saved position */}
+                    ${"" /* Play button always resumes from saved position */}
                     ${hasEditions ? `<span class="editions-badge" title="${this.escapeHtml(t("book.editions", { n: book.edition_count }))}" onclick="event.stopPropagation(); library.toggleEditions(${bookId})">${this.escapeHtml(t("book.editions", { n: book.edition_count }))}</span>` : ""}
                 </div>
                 <div class="book-title">${this.escapeHtml(book.title)}</div>
@@ -2080,7 +2162,10 @@ class AudiobookLibraryV2 {
     this.showLoading(true);
 
     try {
-      const data = await api.get(`${API_BASE}/audiobooks/grouped?by=${encodeURIComponent(groupBy)}`, { toast: false });
+      const data = await api.get(
+        `${API_BASE}/audiobooks/grouped?by=${encodeURIComponent(groupBy)}`,
+        { toast: false },
+      );
 
       this.renderGroupedBooks(data, groupBy);
       this.applyBookTranslations();
@@ -2090,13 +2175,24 @@ class AudiobookLibraryV2 {
       if (paginationEl) paginationEl.textContent = "";
       const resultsInfo = document.getElementById("results-info");
       if (resultsInfo) {
-        const _gKey = groupBy === "author" ? "library.js.groupedCountByAuthor"
-          : groupBy === "narrator" ? "library.js.groupedCountByNarrator"
-          : "library.js.groupedCountBy";
-        const _gVal = typeof t === "function" ? t(_gKey, { books: data.total_books, groups: data.total_groups, groupBy: groupBy }) : _gKey;
-        resultsInfo.textContent = (_gVal && _gVal !== _gKey)
-          ? _gVal
-          : `${data.total_books} books in ${data.total_groups} ${groupBy} groups`;
+        const _gKey =
+          groupBy === "author"
+            ? "library.js.groupedCountByAuthor"
+            : groupBy === "narrator"
+              ? "library.js.groupedCountByNarrator"
+              : "library.js.groupedCountBy";
+        const _gVal =
+          typeof t === "function"
+            ? t(_gKey, {
+                books: data.total_books,
+                groups: data.total_groups,
+                groupBy: groupBy,
+              })
+            : _gKey;
+        resultsInfo.textContent =
+          _gVal && _gVal !== _gKey
+            ? _gVal
+            : `${data.total_books} books in ${data.total_groups} ${groupBy} groups`;
       }
 
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -2145,8 +2241,12 @@ class AudiobookLibraryV2 {
       const header = document.createElement("button");
       header.className = "grouped-header";
       const _expKey = "library.js.expandCollapse";
-      const _expVal = typeof t === "function" ? t(_expKey, { name: name }) : _expKey;
-      header.title = (_expVal && _expVal !== _expKey) ? _expVal : `Click to expand/collapse ${name}`;
+      const _expVal =
+        typeof t === "function" ? t(_expKey, { name: name }) : _expKey;
+      header.title =
+        _expVal && _expVal !== _expKey
+          ? _expVal
+          : `Click to expand/collapse ${name}`;
       header.addEventListener("click", () => this.toggleGroup(groupId));
 
       const nameSpan = document.createElement("span");
@@ -2155,7 +2255,10 @@ class AudiobookLibraryV2 {
 
       const countSpan = document.createElement("span");
       countSpan.className = "grouped-header-count";
-      countSpan.textContent = bookCount === 1 ? t("book.bookCount", { n: bookCount }) : t("book.bookCountPlural", { n: bookCount });
+      countSpan.textContent =
+        bookCount === 1
+          ? t("book.bookCount", { n: bookCount })
+          : t("book.bookCountPlural", { n: bookCount });
 
       const arrow = document.createElement("span");
       arrow.className = "grouped-header-arrow";
@@ -2215,7 +2318,10 @@ class AudiobookLibraryV2 {
       // Show editions - fetch if not already loaded
       if (!editionsContainer.dataset.loaded) {
         try {
-          const data = await api.get(`${API_BASE}/audiobooks/${bookId}/editions`, { toast: false });
+          const data = await api.get(
+            `${API_BASE}/audiobooks/${bookId}/editions`,
+            { toast: false },
+          );
 
           if (data.editions && data.editions.length > 0) {
             // nosec: renderEditions/renderEditionItem escape all user fields via this.escapeHtml()
@@ -2258,7 +2364,9 @@ class AudiobookLibraryV2 {
     const formatQuality = edition.format
       ? this.escapeHtml(String(edition.format).toUpperCase())
       : "M4B";
-    const quality = edition.quality ? ` ${this.escapeHtml(edition.quality)}` : "";
+    const quality = edition.quality
+      ? ` ${this.escapeHtml(edition.quality)}`
+      : "";
     const durationFormatted = edition.duration_formatted
       ? this.escapeHtml(edition.duration_formatted)
       : `${Math.round(edition.duration_hours || 0)}h`;
@@ -2287,7 +2395,10 @@ class AudiobookLibraryV2 {
 
   async showSupplements(audiobookId) {
     try {
-      const data = await api.get(`${API_BASE}/audiobooks/${audiobookId}/supplements`, { toast: false });
+      const data = await api.get(
+        `${API_BASE}/audiobooks/${audiobookId}/supplements`,
+        { toast: false },
+      );
 
       if (data.supplements && data.supplements.length > 0) {
         // Open the first supplement (typically PDF)
@@ -2393,7 +2504,9 @@ class AudiobookLibraryV2 {
         book.narrator === "Unknown Narrator"
           ? t("book.unknownNarrator")
           : book.narrator;
-      narratorEl.textContent = t("book.narratedByName", { narrator: narratorName });
+      narratorEl.textContent = t("book.narratedByName", {
+        narrator: narratorName,
+      });
       info.appendChild(narratorEl);
     }
 
@@ -2440,7 +2553,9 @@ class AudiobookLibraryV2 {
     playBtn.className = "btn-play";
     playBtn.textContent = t("book.playFull");
     playBtn.title = hasContinue
-      ? t("book.resumeFrom", { position: formatPlaybackTime(savedPosition.position) })
+      ? t("book.resumeFrom", {
+          position: formatPlaybackTime(savedPosition.position),
+        })
       : t("book.playFromBeginning");
     playBtn.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -2518,7 +2633,9 @@ class AudiobookLibraryV2 {
         titleEl.textContent = tr.title;
       }
       if (tr.author_display && authorEl) {
-        authorEl.textContent = t("book.byAuthor", { author: tr.author_display });
+        authorEl.textContent = t("book.byAuthor", {
+          author: tr.author_display,
+        });
       }
     } catch (e) {
       console.warn("Modal translation overlay failed:", e.message || e);
@@ -2566,7 +2683,11 @@ class AudiobookLibraryV2 {
       pagination.page * pagination.per_page,
       pagination.total_count,
     );
-    el.textContent = t("library.showing", { start: start, end: end, total: pagination.total_count.toLocaleString() });
+    el.textContent = t("library.showing", {
+      start: start,
+      end: end,
+      total: pagination.total_count.toLocaleString(),
+    });
   }
 
   renderPagination(pagination) {
@@ -2811,7 +2932,9 @@ class AudiobookLibraryV2 {
     const results = await Promise.all(
       positionBooks.map(async (book) => {
         try {
-          return await api.get(`${API_BASE}/position/${book.id}`, { toast: false });
+          return await api.get(`${API_BASE}/position/${book.id}`, {
+            toast: false,
+          });
         } catch (e) {
           console.warn("Could not fetch position for book %d:", book.id, e);
           return null;
@@ -2876,9 +2999,12 @@ class AudiobookLibraryV2 {
         if (retries < 2) {
           this.dataset.retries = retries + 1;
           const self = this;
-          setTimeout(function () {
-            self.src = self.src.split("?")[0] + "?r=" + Date.now();
-          }, 500 * (retries + 1));
+          setTimeout(
+            function () {
+              self.src = self.src.split("?")[0] + "?r=" + Date.now();
+            },
+            500 * (retries + 1),
+          );
           return;
         }
         const parent = this.parentElement;
@@ -2942,7 +3068,8 @@ class AudiobookLibraryV2 {
           dateLang,
           dateOpts,
         );
-        histSpan.textContent = "\u{1F50A} " + t("book.lastListened", { date: listenDate });
+        histSpan.textContent =
+          "\u{1F50A} " + t("book.lastListened", { date: listenDate });
         metaDiv.appendChild(histSpan);
       }
       if (book.downloaded_at) {
@@ -2951,7 +3078,8 @@ class AudiobookLibraryV2 {
           dateLang,
           dateOpts,
         );
-        dlSpan.textContent = "\u{2B07} " + t("book.downloaded", { date: dlDate });
+        dlSpan.textContent =
+          "\u{2B07} " + t("book.downloaded", { date: dlDate });
         metaDiv.appendChild(dlSpan);
       }
       card.appendChild(metaDiv);
@@ -2974,7 +3102,9 @@ class AudiobookLibraryV2 {
     playBtn.className = "btn-play";
     playBtn.textContent = t("book.playFull");
     playBtn.title =
-      percent > 0 ? t("book.resumeFrom", { position: positionHuman }) : t("book.playFromBeginning");
+      percent > 0
+        ? t("book.resumeFrom", { position: positionHuman })
+        : t("book.playFromBeginning");
     playBtn.addEventListener("click", (e) => {
       e.stopPropagation();
       shellPlay(bookData, true);
@@ -3021,7 +3151,9 @@ class AudiobookLibraryV2 {
     } else {
       btn.classList.add("depressed");
       btn.classList.remove("raised");
-      btn.textContent = this.viewingHidden ? t("library.unhideSelected") : t("library.hideSelected");
+      btn.textContent = this.viewingHidden
+        ? t("library.unhideSelected")
+        : t("library.hideSelected");
     }
   }
 
@@ -3030,7 +3162,9 @@ class AudiobookLibraryV2 {
     const pill = document.getElementById("hidden-books-btn");
     if (!pill) return;
     try {
-      const data = await api.get(`${API_BASE}/user/library?hidden=true`, { toast: false });
+      const data = await api.get(`${API_BASE}/user/library?hidden=true`, {
+        toast: false,
+      });
       const count = (data.books || []).length;
       if (count > 0) {
         pill.textContent = this.viewingHidden
@@ -3053,7 +3187,11 @@ class AudiobookLibraryV2 {
     const endpoint = this.viewingHidden ? "unhide" : "hide";
 
     try {
-      await api.post(`${API_BASE}/user/library/${endpoint}`, { audiobook_ids: ids }, { toast: false });
+      await api.post(
+        `${API_BASE}/user/library/${endpoint}`,
+        { audiobook_ids: ids },
+        { toast: false },
+      );
 
       // Animate removal: fade out selected cards, then reload
       const grid = document.getElementById("books-grid");
@@ -3094,7 +3232,9 @@ class AudiobookLibraryV2 {
     // Update pill text
     const pill = document.getElementById("hidden-books-btn");
     if (pill) {
-      pill.textContent = this.viewingHidden ? t("library.myLibrary") : t("library.hidden");
+      pill.textContent = this.viewingHidden
+        ? t("library.myLibrary")
+        : t("library.hidden");
     }
 
     this.loadMyLibrary();
@@ -3142,8 +3282,13 @@ class AudiobookLibraryV2 {
       };
       localStorage.setItem("audiobook_sort_order", "title_asc");
       if (this.user) {
-        api.patch("/api/user/preferences", { sort_order: "title_asc" },
-          { toast: false, keepalive: true }).catch(() => {});
+        api
+          .patch(
+            "/api/user/preferences",
+            { sort_order: "title_asc" },
+            { toast: false, keepalive: true },
+          )
+          .catch(() => {});
       }
       this.currentPage = 1;
       this.loadAudiobooks();
@@ -3160,8 +3305,13 @@ class AudiobookLibraryV2 {
       const prefValue = sort + "_" + (order || "asc");
       localStorage.setItem("audiobook_sort_order", prefValue);
       if (this.user) {
-        api.patch("/api/user/preferences", { sort_order: prefValue },
-          { toast: false, keepalive: true }).catch(() => {});
+        api
+          .patch(
+            "/api/user/preferences",
+            { sort_order: prefValue },
+            { toast: false, keepalive: true },
+          )
+          .catch(() => {});
       }
 
       if (sort === "grouped_author" || sort === "grouped_narrator") {
@@ -3178,8 +3328,13 @@ class AudiobookLibraryV2 {
       this.currentPage = 1;
       localStorage.setItem("audiobook_items_per_page", e.target.value);
       if (this.user) {
-        api.patch("/api/user/preferences", { items_per_page: e.target.value },
-          { toast: false, keepalive: true }).catch(() => {});
+        api
+          .patch(
+            "/api/user/preferences",
+            { items_per_page: e.target.value },
+            { toast: false, keepalive: true },
+          )
+          .catch(() => {});
       }
       this.loadAudiobooks();
     });
@@ -3200,7 +3355,7 @@ class AudiobookLibraryV2 {
     document.addEventListener("localeChanged", () => {
       this.applyBookTranslations();
       this.loadCollections().catch((e) =>
-        console.warn("loadCollections on localeChanged failed:", e)
+        console.warn("loadCollections on localeChanged failed:", e),
       );
       // Re-render visible books so "Narrated by Unknown Narrator",
       // "Book N" sequence suffix, and other t() strings refresh.
@@ -3225,7 +3380,9 @@ class AudiobookLibraryV2 {
     const grid = document.getElementById("books-grid");
     if (grid) {
       grid.addEventListener("click", (event) => {
-        const playBtn = event.target.closest(".btn-play[data-book-id], .btn-sample[data-book-id]");
+        const playBtn = event.target.closest(
+          ".btn-play[data-book-id], .btn-sample[data-book-id]",
+        );
         if (playBtn) {
           event.stopPropagation();
           const bookId = Number(playBtn.dataset.bookId) || 0;
@@ -3237,7 +3394,9 @@ class AudiobookLibraryV2 {
           }
           return;
         }
-        const editionBtn = event.target.closest(".btn-play-edition[data-edition-id]");
+        const editionBtn = event.target.closest(
+          ".btn-play-edition[data-edition-id]",
+        );
         if (editionBtn) {
           event.stopPropagation();
           const editionId = Number(editionBtn.dataset.editionId) || 0;
@@ -3255,9 +3414,11 @@ class AudiobookLibraryV2 {
   async refreshLibrary() {
     const refreshBtn = document.getElementById("refresh-btn");
     refreshBtn.disabled = true;
-    const _refreshingVal = (typeof t === "function" && t("library.refreshing") !== "library.refreshing")
-      ? t("library.refreshing")
-      : "Refreshing...";
+    const _refreshingVal =
+      typeof t === "function" &&
+      t("library.refreshing") !== "library.refreshing"
+        ? t("library.refreshing")
+        : "Refreshing...";
     // Update only the inner span so the ↻ glyph persists across locale changes.
     const refreshLabel = refreshBtn.querySelector("span[data-i18n]");
     if (refreshLabel) {
@@ -3292,14 +3453,17 @@ class AudiobookLibraryV2 {
       const _failKey = "library.js.refreshFailed";
       const _failVal = typeof t === "function" ? t(_failKey) : _failKey;
       this.showToast(
-        (_failVal && _failVal !== _failKey) ? _failVal : "Failed to refresh library. Please try again.",
+        _failVal && _failVal !== _failKey
+          ? _failVal
+          : "Failed to refresh library. Please try again.",
         "error",
       );
     } finally {
       refreshBtn.disabled = false;
-      const _refreshVal = (typeof t === "function" && t("library.refresh") !== "library.refresh")
-        ? t("library.refresh")
-        : "Refresh";
+      const _refreshVal =
+        typeof t === "function" && t("library.refresh") !== "library.refresh"
+          ? t("library.refresh")
+          : "Refresh";
       const refreshLabel = refreshBtn.querySelector("span[data-i18n]");
       if (refreshLabel) {
         refreshLabel.textContent = _refreshVal;
@@ -3630,7 +3794,9 @@ class DuplicateManager {
 
       // Format summary based on mode
       const savingsLabel =
-        currentMode === "hash" ? t("duplicates.wasted") : t("duplicates.potentialSavings");
+        currentMode === "hash"
+          ? t("duplicates.wasted")
+          : t("duplicates.potentialSavings");
       const savingsValue =
         currentMode === "hash"
           ? data.total_wasted_mb
@@ -3670,7 +3836,9 @@ class DuplicateManager {
       content.innerHTML = "";
       const errorP = document.createElement("p");
       errorP.style.color = "#c0392b";
-      errorP.textContent = t("library.errorDuplicates", { error: error.message });
+      errorP.textContent = t("library.errorDuplicates", {
+        error: error.message,
+      });
       content.appendChild(errorP);
 
       // Add static help text (safe - no user input)
@@ -3691,7 +3859,9 @@ class DuplicateManager {
       .map((file) => {
         const isKeeper = file.is_keeper;
         const badgeClass = isKeeper ? "badge-keep" : "badge-duplicate";
-        const badgeText = isKeeper ? t("duplicates.keep") : t("duplicates.duplicate");
+        const badgeText = isKeeper
+          ? t("duplicates.keep")
+          : t("duplicates.duplicate");
         const rowClass = isKeeper ? "keeper" : "deletable";
 
         return `
@@ -3716,7 +3886,10 @@ class DuplicateManager {
       .join("");
 
     // Use appropriate label for mode
-    const savingsLabel = mode === "hash" ? t("duplicates.wasted") : t("duplicates.potentialSavings");
+    const savingsLabel =
+      mode === "hash"
+        ? t("duplicates.wasted")
+        : t("duplicates.potentialSavings");
     const savingsValue =
       mode === "hash" ? group.wasted_mb : group.potential_savings_mb;
 
@@ -3757,7 +3930,9 @@ class DuplicateManager {
   updateDeleteButton() {
     const btn = document.getElementById("delete-selected");
     if (btn) {
-      btn.textContent = t("duplicates.deleteSelected", { n: this.selectedIds.size });
+      btn.textContent = t("duplicates.deleteSelected", {
+        n: this.selectedIds.size,
+      });
       btn.disabled = this.selectedIds.size === 0;
     }
   }
@@ -3769,7 +3944,9 @@ class DuplicateManager {
     // XSS safe: DOM construction with translated static text
     content.textContent = "";
     const msgP = document.createElement("p");
-    msgP.textContent = t("duplicates.confirmDeleteMsg", { n: this.selectedIds.size });
+    msgP.textContent = t("duplicates.confirmDeleteMsg", {
+      n: this.selectedIds.size,
+    });
     const warnP = document.createElement("p");
     warnP.style.color = "#c0392b";
     const warnStrong = document.createElement("strong");
@@ -3792,18 +3969,27 @@ class DuplicateManager {
     btn.textContent = t("duplicates.deleting");
 
     try {
-      const result = await api.post(`${API_BASE}/duplicates/delete`, {
+      const result = await api.post(
+        `${API_BASE}/duplicates/delete`,
+        {
           audiobook_ids: Array.from(this.selectedIds),
           mode: this.duplicateMode || "title",
-        }, { toast: false });
+        },
+        { toast: false },
+      );
 
       if (result.success) {
-        let message = t("duplicates.deletedSuccess", { n: result.deleted_count });
+        let message = t("duplicates.deletedSuccess", {
+          n: result.deleted_count,
+        });
         if (result.blocked_count > 0) {
-          message += "\n\n" + t("duplicates.blockedProtected", { n: result.blocked_count });
+          message +=
+            "\n\n" +
+            t("duplicates.blockedProtected", { n: result.blocked_count });
         }
         if (result.errors.length > 0) {
-          message += "\n\n" + t("duplicates.deleteErrors", { n: result.errors.length });
+          message +=
+            "\n\n" + t("duplicates.deleteErrors", { n: result.errors.length });
         }
         alert(message);
 

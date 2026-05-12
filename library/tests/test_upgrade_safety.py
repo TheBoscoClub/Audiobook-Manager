@@ -178,10 +178,12 @@ def key_path():
 
 def create_v4_database(db_path, key_path):
     """Create a v4 schema database with test data using raw sqlcipher."""
+    if sqlcipher is None:
+        pytest.skip("sqlcipher3 not available")
     key = key_path.read_text().strip()
 
-    conn = sqlcipher.connect(str(db_path))
-    conn.execute(f"PRAGMA key = \"x'{key}'\"")
+    conn = sqlcipher.connect(str(db_path))  # type: ignore[attr-defined]  # sqlcipher3 has no type stubs; dynamic attribute access is intentional
+    conn.execute(f"PRAGMA key = \"x'{key}'\"")  # nosec B608  # noqa: S608 — PRAGMA does not accept bind params; tables/key are test-controlled
     conn.execute("PRAGMA foreign_keys = ON")
     conn.executescript(V4_SCHEMA)
 
@@ -394,7 +396,7 @@ class TestUpgradeSafety:
         db.initialize()
 
         # Create a persistent session
-        session, token = Session.create_for_user(db, user_id=1, remember_me=True)
+        session, _ = Session.create_for_user(db, user_id=1, remember_me=True)
         assert session.is_persistent is True
 
         # Verify the 30-day stale threshold

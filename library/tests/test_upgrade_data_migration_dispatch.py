@@ -55,7 +55,7 @@ def _make_prior_schema_db(db_path: Path) -> None:
 
 def _column_exists(db_path: Path, table: str, column: str) -> bool:
     conn = sqlite3.connect(str(db_path))
-    rows = conn.execute(f"PRAGMA table_info({table});").fetchall()
+    rows = conn.execute(f"PRAGMA table_info({table});").fetchall()  # nosec B608  # noqa: S608 — PRAGMA does not accept bind params; tables/key are test-controlled
     conn.close()
     return any(r[1] == column for r in rows)
 

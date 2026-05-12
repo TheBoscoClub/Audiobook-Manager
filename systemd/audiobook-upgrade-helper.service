@@ -23,6 +23,9 @@ ExecStart=/opt/audiobooks/scripts/upgrade-helper-process
 # Cleanup trigger file after processing
 ExecStopPost=/bin/rm -f /var/lib/audiobooks/.control/upgrade-request
 
+# Per Audiobook-Manager systemd consistency policy
+RestartSec=5
+
 # Security: limit what this service can access
 ProtectHome=yes
 PrivateTmp=yes

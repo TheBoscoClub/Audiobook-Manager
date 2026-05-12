@@ -60,6 +60,7 @@ RestrictNamespaces=yes
 SystemCallArchitectures=native
 
 # No Restart= for oneshot — the timer drives the cadence.
+RestartSec=5
 
 [Install]
 WantedBy=audiobook.target

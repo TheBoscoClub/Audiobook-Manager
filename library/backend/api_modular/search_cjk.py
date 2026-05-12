@@ -35,18 +35,22 @@ them without touching the database.
 from __future__ import annotations
 
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 _PYPINYIN_AVAILABLE: bool
+# Explicit annotation so mypy doesn't complain about Style binding to two types
+# (enum class vs None) across the try/except. Any keeps Style.NORMAL access valid.
+Style: Any = None
+lazy_pinyin: Any = None
 try:
-    from pypinyin import Style, lazy_pinyin
+    from pypinyin import Style, lazy_pinyin  # type: ignore[no-redef]
 
     _PYPINYIN_AVAILABLE = True
 except ImportError:  # pragma: no cover — handled gracefully at runtime
     _PYPINYIN_AVAILABLE = False
-    lazy_pinyin = None  # type: ignore[assignment]  # None sentinel when pypinyin absent; callers guard via _PYPINYIN_AVAILABLE
-    Style = None  # type: ignore[assignment]  # None sentinel when pypinyin absent; callers guard via _PYPINYIN_AVAILABLE
+    # Style and lazy_pinyin remain None (declared above); callers guard via _PYPINYIN_AVAILABLE
 
 
 def pinyin_sort_key(text: str | None) -> str | None:

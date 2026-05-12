@@ -9,6 +9,7 @@ PartOf=audiobook.target
 Type=oneshot
 User=audiobooks
 Group=audiobooks
+WorkingDirectory=/opt/audiobooks
 
 # Load configuration — set canonical defaults BEFORE EnvironmentFile so that
 # an explicit user override in audiobooks.conf wins (systemd processes
@@ -33,6 +34,7 @@ TimeoutStartSec=3600
 
 # Don't restart automatically (triggered by timer)
 Restart=no
+RestartSec=5
 
 # Logging
 StandardOutput=journal

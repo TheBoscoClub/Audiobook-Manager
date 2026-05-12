@@ -171,8 +171,10 @@ def __getattr__(name):
     """
     if name in _DEFERRED_ATTRS:
         from . import auth_shared
+
         return getattr(auth_shared, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 logger = logging.getLogger(__name__)
 

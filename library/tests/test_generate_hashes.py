@@ -7,6 +7,7 @@ The __main__ block and CLI entry point (main()) are excluded per instructions.
 
 import sqlite3
 import sys
+import tempfile
 from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -22,7 +23,7 @@ sys.path.insert(0, str(LIBRARY_DIR))
 # the module can be imported without a real database or config file.
 # ---------------------------------------------------------------------------
 
-_FAKE_DB = Path("/tmp/fake_audiobooks.db")
+_FAKE_DB = Path(tempfile.gettempdir()) / "fake_audiobooks.db"
 
 
 def _import_generate_hashes():
@@ -99,14 +100,14 @@ class TestFormatSize:
         assert self.gh.format_size(1024 * 1024) == "1.0MB"
 
     def test_gigabytes(self):
-        assert self.gh.format_size(1024 ** 3) == "1.0GB"
+        assert self.gh.format_size(1024**3) == "1.0GB"
 
     def test_terabytes(self):
-        assert self.gh.format_size(1024 ** 4) == "1.0TB"
+        assert self.gh.format_size(1024**4) == "1.0TB"
 
     def test_petabytes(self):
         # Anything above TB overflows into PB
-        assert self.gh.format_size(1024 ** 5) == "1.0PB"
+        assert self.gh.format_size(1024**5) == "1.0PB"
 
     def test_float_input(self):
         result = self.gh.format_size(1536.0)
@@ -160,12 +161,8 @@ class TestGetPendingFiles:
                 "CREATE TABLE audiobooks "
                 "(id INTEGER PRIMARY KEY, file_path TEXT, file_size_mb REAL, title TEXT, sha256_hash TEXT)"
             )
-            conn.execute(
-                "INSERT INTO audiobooks VALUES (1, '/a.opus', 100.0, 'BookA', NULL)"
-            )
-            conn.execute(
-                "INSERT INTO audiobooks VALUES (2, '/b.opus', 200.0, 'BookB', 'abc123')"
-            )
+            conn.execute("INSERT INTO audiobooks VALUES (1, '/a.opus', 100.0, 'BookA', NULL)")
+            conn.execute("INSERT INTO audiobooks VALUES (2, '/b.opus', 200.0, 'BookB', 'abc123')")
             conn.commit()
         return db
 
@@ -292,9 +289,7 @@ class TestHashFileWorker:
         f = tmp_path / "book.opus"
         f.write_bytes(b"audiobook content")
         args = (2, str(f), 0.1, "Real Book")
-        with patch.object(
-            self.gh, "calculate_sha256", return_value="abc123def456"
-        ):
+        with patch.object(self.gh, "calculate_sha256", return_value="abc123def456"):
             result = self.gh.hash_file_worker(args)
         assert result[1] == "abc123def456"
         assert result[4] is None  # no error
@@ -327,9 +322,7 @@ class TestGenerateHashForBook:
             )
             if rows:
                 for row in rows:
-                    conn.execute(
-                        "INSERT INTO audiobooks (id, file_path) VALUES (?, ?)", row
-                    )
+                    conn.execute("INSERT INTO audiobooks (id, file_path) VALUES (?, ?)", row)
             conn.commit()
         return db
 
@@ -352,9 +345,7 @@ class TestGenerateHashForBook:
         assert result == "aabbccdd" * 8
         # Verify persisted
         with _db_conn(db) as conn:
-            row = conn.execute(
-                "SELECT sha256_hash FROM audiobooks WHERE id=1"
-            ).fetchone()
+            row = conn.execute("SELECT sha256_hash FROM audiobooks WHERE id=1").fetchone()
         assert row[0] == "aabbccdd" * 8
 
     def test_hash_failure_returns_none(self, tmp_path):
@@ -466,7 +457,7 @@ class TestProcessSequential:
     def setup_method(self):
         self.gh = _import_generate_hashes()
 
-    def test_processes_existing_file(self, tmp_path, capsys):
+    def test_processes_existing_file(self, tmp_path):
         opus = tmp_path / "book.opus"
         opus.write_bytes(b"test data")
         db = tmp_path / "test.db"
@@ -479,13 +470,11 @@ class TestProcessSequential:
             conn.commit()
             pending = [(1, str(opus), 0.1, "Test Book")]
             with patch.object(self.gh, "calculate_sha256", return_value="abc123"):
-                processed, processed_size, errors, elapsed = self.gh._process_sequential(
-                    pending, 1, 0.1, conn
-                )
+                processed, _, errors, _ = self.gh._process_sequential(pending, 1, 0.1, conn)
         assert processed == 1
         assert errors == 0
 
-    def test_skips_missing_file(self, tmp_path, capsys):
+    def test_skips_missing_file(self, tmp_path):
         db = tmp_path / "test.db"
         with _db_conn(db) as conn:
             conn.execute(
@@ -494,13 +483,11 @@ class TestProcessSequential:
             )
             conn.commit()
             pending = [(1, str(tmp_path / "missing.opus"), 0.5, "Missing Book")]
-            processed, processed_size, errors, elapsed = self.gh._process_sequential(
-                pending, 1, 0.5, conn
-            )
+            processed, _, errors, _ = self.gh._process_sequential(pending, 1, 0.5, conn)
         assert processed == 1
         assert errors == 1
 
-    def test_null_file_size_treated_as_zero(self, tmp_path, capsys):
+    def test_null_file_size_treated_as_zero(self, tmp_path):
         opus = tmp_path / "book.opus"
         opus.write_bytes(b"data")
         db = tmp_path / "test.db"
@@ -513,9 +500,7 @@ class TestProcessSequential:
             conn.commit()
             pending = [(1, str(opus), None, "Null Size Book")]  # None size
             with patch.object(self.gh, "calculate_sha256", return_value="hash1"):
-                processed, processed_size, errors, elapsed = self.gh._process_sequential(
-                    pending, 1, 0, conn
-                )
+                processed, _, errors, _ = self.gh._process_sequential(pending, 1, 0, conn)
         assert processed == 1
         assert errors == 0
 
@@ -791,9 +776,7 @@ class TestGenerateHashes:
             )
             conn.commit()
         with patch.object(self.gh, "DB_PATH", db):
-            with patch.object(
-                self.gh, "generate_hashes_parallel"
-            ) as mock_par:
+            with patch.object(self.gh, "generate_hashes_parallel") as mock_par:
                 self.gh.generate_hashes(parallel=2)
         mock_par.assert_called_once()
 
@@ -813,7 +796,7 @@ class TestProcessParallelResults:
     def setup_method(self):
         self.gh = _import_generate_hashes()
 
-    def test_processes_successful_future(self, tmp_path, capsys):
+    def test_processes_successful_future(self, tmp_path):
         db = tmp_path / "test.db"
         with _db_conn(db) as conn:
             conn.execute(
@@ -830,13 +813,13 @@ class TestProcessParallelResults:
             real_future: Future = Future()
             real_future.set_result((1, "abc123def456", "My Book", 100.0, None))
 
-            processed, processed_size, errors, elapsed = self.gh._process_parallel_results(
+            processed, _, errors, _ = self.gh._process_parallel_results(
                 [real_future], 1, 100.0, cursor, conn
             )
         assert processed == 1
         assert errors == 0
 
-    def test_handles_error_result(self, tmp_path, capsys):
+    def test_handles_error_result(self, tmp_path):
         db = tmp_path / "test.db"
         with _db_conn(db) as conn:
             conn.execute(
@@ -851,7 +834,7 @@ class TestProcessParallelResults:
             real_future: Future = Future()
             real_future.set_result((2, None, "Bad Book", 50.0, "File not found"))
 
-            processed, processed_size, errors, elapsed = self.gh._process_parallel_results(
+            processed, _, errors, _ = self.gh._process_parallel_results(
                 [real_future], 1, 50.0, cursor, conn
             )
         assert processed == 1

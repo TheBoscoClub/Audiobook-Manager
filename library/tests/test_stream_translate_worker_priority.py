@@ -28,6 +28,7 @@ SCHEMA_PATH = REPO / "library" / "backend" / "schema.sql"
 
 def _load_worker():
     spec = importlib.util.spec_from_file_location("stream_translate_worker", WORKER_PATH)
+    assert spec is not None and spec.loader is not None, "Failed to load stream_translate_worker"
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -58,7 +59,7 @@ def _insert_audiobook(db_path: str, book_id: int) -> None:
     conn = sqlite3.connect(db_path)
     conn.execute(
         "INSERT INTO audiobooks (id, title, file_path) VALUES (?, ?, ?)",
-        (book_id, "Test Book", "/tmp/test.opus"),
+        (book_id, "Test Book", "/tmp/test.opus"),  # nosec B108 — fake DB row, no FS access
     )
     conn.commit()
     conn.close()

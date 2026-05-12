@@ -50,18 +50,23 @@ class TestImportErrorBranch:
     def test_import_error_logs_warning_and_returns(self, caplog):
         """If localization modules can't be imported, log a warning and return."""
         with caplog.at_level(logging.WARNING, logger="scanner.utils.sampler_hook"):
-            with patch.dict(sys.modules, {
-                "localization": None,
-                "localization.chapters": None,
-                "localization.config": None,
-                "localization.sampler": None,
-            }):
+            with patch.dict(
+                sys.modules,
+                {
+                    "localization": None,
+                    "localization.chapters": None,
+                    "localization.config": None,
+                    "localization.sampler": None,
+                },
+            ):
                 # Remove cached modules so the import inside the function retries
                 for mod in list(sys.modules.keys()):
                     if mod.startswith("localization"):
                         sys.modules.pop(mod, None)
                 # Patch builtins.__import__ to raise ImportError for localization
-                original_import = __builtins__.__import__ if hasattr(__builtins__, '__import__') else __import__
+                original_import = (
+                    __builtins__.__import__ if hasattr(__builtins__, "__import__") else __import__
+                )
 
                 def _fake_import(name, *args, **kwargs):
                     if name.startswith("localization"):
@@ -76,8 +81,9 @@ class TestImportErrorBranch:
                         conn.close()
 
         # Warning should mention the import failure
-        assert any("imports failed" in r.message or "sampler hook" in r.message
-                   for r in caplog.records)
+        assert any(
+            "imports failed" in r.message or "sampler hook" in r.message for r in caplog.records
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -96,11 +102,14 @@ class TestNoNonENLocales:
         mock_config.SUPPORTED_LOCALES = locales
 
         with caplog.at_level(logging.DEBUG, logger="scanner.utils.sampler_hook"):
-            with patch.dict(sys.modules, {
-                "localization.chapters": MagicMock(extract_chapters=mock_extract),
-                "localization.config": mock_config,
-                "localization.sampler": MagicMock(enqueue_sampler=mock_enqueue),
-            }):
+            with patch.dict(
+                sys.modules,
+                {
+                    "localization.chapters": MagicMock(extract_chapters=mock_extract),
+                    "localization.config": mock_config,
+                    "localization.sampler": MagicMock(enqueue_sampler=mock_enqueue),
+                },
+            ):
                 conn = _mock_conn()
                 try:
                     enqueue_sampler_for_new_book(conn, 42, "/book/path.opus")
@@ -141,11 +150,14 @@ class TestExtractChaptersFailure:
         mock_config.SUPPORTED_LOCALES = ["zh-Hans"]
 
         with caplog.at_level(logging.WARNING, logger="scanner.utils.sampler_hook"):
-            with patch.dict(sys.modules, {
-                "localization.chapters": MagicMock(extract_chapters=mock_extract),
-                "localization.config": mock_config,
-                "localization.sampler": MagicMock(enqueue_sampler=mock_enqueue),
-            }):
+            with patch.dict(
+                sys.modules,
+                {
+                    "localization.chapters": MagicMock(extract_chapters=mock_extract),
+                    "localization.config": mock_config,
+                    "localization.sampler": MagicMock(enqueue_sampler=mock_enqueue),
+                },
+            ):
                 conn = _mock_conn()
                 try:
                     enqueue_sampler_for_new_book(conn, 7, "/bad/path.opus")
@@ -172,11 +184,14 @@ class TestEmptyChapterDurations:
         mock_config.SUPPORTED_LOCALES = ["zh-Hans"]
 
         with caplog.at_level(logging.INFO, logger="scanner.utils.sampler_hook"):
-            with patch.dict(sys.modules, {
-                "localization.chapters": MagicMock(extract_chapters=mock_extract),
-                "localization.config": mock_config,
-                "localization.sampler": MagicMock(enqueue_sampler=mock_enqueue),
-            }):
+            with patch.dict(
+                sys.modules,
+                {
+                    "localization.chapters": MagicMock(extract_chapters=mock_extract),
+                    "localization.config": mock_config,
+                    "localization.sampler": MagicMock(enqueue_sampler=mock_enqueue),
+                },
+            ):
                 conn = _mock_conn()
                 try:
                     enqueue_sampler_for_new_book(conn, 5, "/empty/book.opus")
@@ -204,11 +219,14 @@ class TestEnqueueLoop:
         mock_config.SUPPORTED_LOCALES = locales
 
         with caplog.at_level(logging.WARNING, logger="scanner.utils.sampler_hook"):
-            with patch.dict(sys.modules, {
-                "localization.chapters": MagicMock(extract_chapters=mock_extract),
-                "localization.config": mock_config,
-                "localization.sampler": MagicMock(enqueue_sampler=mock_enqueue),
-            }):
+            with patch.dict(
+                sys.modules,
+                {
+                    "localization.chapters": MagicMock(extract_chapters=mock_extract),
+                    "localization.config": mock_config,
+                    "localization.sampler": MagicMock(enqueue_sampler=mock_enqueue),
+                },
+            ):
                 conn = _mock_conn()
                 try:
                     enqueue_sampler_for_new_book(conn, 99, "/good/book.opus")
@@ -246,11 +264,14 @@ class TestEnqueueLoop:
         mock_config = MagicMock()
         mock_config.SUPPORTED_LOCALES = ["zh-Hans"]
 
-        with patch.dict(sys.modules, {
-            "localization.chapters": MagicMock(extract_chapters=mock_extract),
-            "localization.config": mock_config,
-            "localization.sampler": MagicMock(enqueue_sampler=mock_enqueue),
-        }):
+        with patch.dict(
+            sys.modules,
+            {
+                "localization.chapters": MagicMock(extract_chapters=mock_extract),
+                "localization.config": mock_config,
+                "localization.sampler": MagicMock(enqueue_sampler=mock_enqueue),
+            },
+        ):
             conn = _mock_conn()
             try:
                 enqueue_sampler_for_new_book(conn, 1, "/book.opus")

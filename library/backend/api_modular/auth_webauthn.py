@@ -73,6 +73,7 @@ def _auth_mod():
         or _sys.modules.get("library.backend.api_modular.auth")
     )
 
+
 logger = logging.getLogger(__name__)
 
 

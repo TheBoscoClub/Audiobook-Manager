@@ -12,6 +12,7 @@ StartLimitBurst=5
 Type=simple
 User=audiobooks
 Group=audiobooks
+WorkingDirectory=/opt/audiobooks
 
 # Load configuration
 EnvironmentFile=-/etc/audiobooks/audiobooks.conf
