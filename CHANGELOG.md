@@ -20,6 +20,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **The Dawn of Everything (audiobook 116208) doesn't play — prod hot-patch + code hardening**: a literal `&quot;` prefix in the `description` column for one row collided with the library card's inline `onclick` JSON-stringify pattern, throwing a JS `SyntaxError` before `shellPlay()` could fire — the browser made zero `/api/stream/116208` requests for 2 days. **Prod hot-patch (2026-05-12)**: HTML-decoded `&quot;` → `"` (and `&nbsp;` → U+00A0) in row 116208's `description` via direct SQL update; original column value preserved at `/var/lib/audiobooks/db/dawn-116208-desc.pre-hotpatch.txt`. **Code fix**: the importer hardening (above) prevents recurrence; the card-render refactor (above) prevents the entire bug class for future entity-bearing fields
+- **`urllib3` bumped `>=2.3.0 → >=2.7.0`** in `library/requirements.txt` to clear `CVE-2026-44431` and `CVE-2026-44432` (installed was 2.6.3); `requirements-docker.txt` synced — `gunicorn` floor raised from `>=23.0.0` to `>=26.0.0` to match the native requirements floor and actual installed version
+- **`library/backend/api_modular/search_cjk.py` conditional `Style` import annotated**: optional `pypinyin` import shadowed the `Style` name in the fallback branch; annotated with `# type: ignore[no-redef]` so mypy retains correct narrowing in both branches
+- **`library/scripts/generate_hashes.py` parallel-fork branch unbound variable fixed**: replaced `conn = None` (which mypy couldn't narrow across the fork) with a `conn_closed` bool flag so mypy retains narrowing without losing the connection handle
+- **`library/tests/test_generate_hashes.py` bandit B108 resolved**: hardcoded `/tmp` path replaced with `tempfile.gettempdir()` so the test is portable and passes bandit's insecure-tempfile check
+- **Ruff format + isort applied to 7 files** (5 auth modules, 2 test files) and Prettier applied to `library/web-v2/js/library.js`; `shell.js:1018` uses optional catch binding instead of unused `_e` variable — commit `3d987c6d`
 
 ## [8.3.10.6] - 2026-05-09
 
