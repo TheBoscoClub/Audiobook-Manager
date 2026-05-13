@@ -13,7 +13,7 @@ requests-mock>=1.12.1
 ruff>=0.15.12
 mypy>=2.0.0
 black>=25.11.0
-isort>=7.0.0
+isort>=8.0.1
 
 # Security scanners
 bandit>=1.9.4
