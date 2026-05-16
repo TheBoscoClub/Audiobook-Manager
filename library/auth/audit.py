@@ -7,6 +7,8 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+from common_utils.secret_resolver import resolve_secret
+
 from .models import AuditLog
 
 logger = logging.getLogger(__name__)
@@ -134,7 +136,7 @@ def _send_notification_email(to_email: str, subject: str, body: str) -> bool:
     smtp_host = os.environ.get("SMTP_HOST", "localhost")
     smtp_port = int(os.environ.get("SMTP_PORT", "25"))
     smtp_user = os.environ.get("SMTP_USER", "")
-    smtp_pass = os.environ.get("SMTP_PASS", "")
+    smtp_pass = resolve_secret("SMTP_PASS")
     from_email = os.environ.get("SMTP_FROM", "noreply@localhost")
 
     msg = MIMEMultipart("alternative")

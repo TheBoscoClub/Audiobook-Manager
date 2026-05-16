@@ -190,6 +190,36 @@ class TestSendNotificationEmail:
         assert result is True
         mock_smtp_cls.assert_called_once_with("localhost", 25)
 
+    @patch("auth.audit.smtplib.SMTP")
+    def test_send_reads_password_from_smtp_pass_file(self, mock_smtp_cls, tmp_path):
+        """SMTP_PASS_FILE pointer resolves through library.utils.secret_resolver."""
+        mock_server = MagicMock()
+        mock_smtp_cls.return_value.__enter__ = MagicMock(return_value=mock_server)
+        mock_smtp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        secret_file = tmp_path / "smtp-pass"
+        secret_file.write_text("file-resolved-pass\n")
+        env = {
+            "SMTP_HOST": "mail.test",
+            "SMTP_PORT": "587",
+            "SMTP_USER": "user",
+            "SMTP_PASS_FILE": str(secret_file),
+            "SMTP_FROM": "lib@test.com",
+        }
+        env_clear = {
+            k: v
+            for k, v in os.environ.items()
+            if not k.startswith("SMTP_") and k != "SMTP_PASS"
+        }
+        env_clear.update(env)
+        with patch.dict(os.environ, env_clear, clear=True):
+            result = _send_notification_email("admin@test.com", "Subject", "Body")
+
+        assert result is True
+        mock_server.starttls.assert_called_once()
+        # Whitespace is stripped — trailing newline from the file should be gone.
+        mock_server.login.assert_called_once_with("user", "file-resolved-pass")
+
 
 # ============================================================
 # notify_admins — orchestration

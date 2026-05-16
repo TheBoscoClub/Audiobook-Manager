@@ -897,6 +897,7 @@ def on_demand_translate():
     locale, requested_ids, err = _validate_on_demand_request(request.get_json())
     if err:
         return err
+    assert requested_ids is not None  # invariant: err None ⇒ requested_ids non-None
 
     # Cap per request to prevent abuse (a library page shows ~50 books max)
     return _run_on_demand(locale, requested_ids[:60])

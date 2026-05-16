@@ -2561,9 +2561,21 @@ verify_installation_permissions() {
         [[ -d "$target_dir/library/audible-venv/bin" ]] && sudo find "$target_dir/library/audible-venv/bin" -type f -exec chmod 755 {} +
         local _cert_dir="${AUDIOBOOKS_CERTS:-/etc/audiobooks/certs}"
         local _var_dir="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
+        local _config_dir="${AUDIOBOOKS_CONFIG_DIR:-/etc/audiobooks}"
         [[ -f "$_cert_dir/server.key" ]] && sudo chmod 640 "$_cert_dir/server.key"
         [[ -f "$_var_dir/auth.key" ]] && sudo chmod 600 "$_var_dir/auth.key"
         [[ -f "$_var_dir/auth.db" ]] && sudo chmod 640 "$_var_dir/auth.db"
+        # v8.4.0.0+ — ensure 0600 stub credential files exist for the *_FILE
+        # pointer pattern (SMTP_PASS_FILE / AUDIOBOOKS_DEEPL_API_KEY_FILE /
+        # AUDIOBOOKS_RUNPOD_API_KEY_FILE). Created empty; operator populates as
+        # needed. Never overwrites existing operator-curated files.
+        local _stub_name _stub_path
+        for _stub_name in smtp-pass deepl-api-key runpod-api-key; do
+            _stub_path="${_config_dir}/${_stub_name}"
+            if [[ ! -f "$_stub_path" ]]; then
+                sudo install -m 0600 -o audiobooks -g audiobooks /dev/null "$_stub_path"
+            fi
+        done
         # DB directory must be owned by audiobooks so the service can create
         # SQLite WAL/SHM sidecar files. Without this, a drifted db/ owned by
         # root:root under $AUDIOBOOKS_VAR_DIR silently blocks API startup with

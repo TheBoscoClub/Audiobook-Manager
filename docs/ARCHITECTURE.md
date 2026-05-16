@@ -2090,6 +2090,20 @@ Architecture Comparison:
   └─────────────────┘
 ```
 
+### Credential Resolution (v8.4.0.0+)
+
+Three credentials (`SMTP_PASS`, `AUDIOBOOKS_DEEPL_API_KEY`, `AUDIOBOOKS_RUNPOD_API_KEY`) support an optional `*_FILE` pointer pattern in addition to inline env var values. All reads route through a single resolver at `library/common_utils/secret_resolver.py::resolve_secret(name)`.
+
+Resolution precedence (first non-empty wins):
+
+1. **Inline env var** — e.g. `SMTP_PASS=...` set in `audiobooks.conf` or the process environment
+2. **`*_FILE` pointer** — e.g. `SMTP_PASS_FILE=/etc/audiobooks/smtp-pass` points at a 0600 file whose contents are read and stripped
+3. **Empty string default** — unconfigured credentials never raise; downstream features that need them gracefully skip
+
+File location convention: `/etc/audiobooks/<name>` owned `audiobooks:audiobooks` mode `0600`. `install.sh` and `upgrade.sh` create empty stubs at the canonical paths (`smtp-pass`, `deepl-api-key`, `runpod-api-key`) so operators can populate them without `mkdir`/`touch`/`chmod` boilerplate. Existing files are never overwritten.
+
+This mirrors the established `AUTH_KEY_FILE` and `CF_TOKEN_FILE` patterns in `library/auth/cli.py` and `library/backend/api_modular/utilities_system.py`. The resolver is the single canonical source for credential reads across the codebase — `auth/audit.py`, `auth/inbox_cli.py`, `backend/api_modular/auth_email.py`, `localization/config.py`, `localization/gpu_health.py`, `translation_monitor/notify.py`, and `scripts/email-report.py` all delegate to it.
+
 ---
 
 ## Storage Recommendations

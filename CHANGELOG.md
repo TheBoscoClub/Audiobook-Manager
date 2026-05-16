@@ -13,6 +13,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.4.0.0] - 2026-05-16
+
+### Added
+
+- **Pointer-pattern secret resolution for SMTP, DeepL, RunPod credentials**: Operators can now store `SMTP_PASS`, `AUDIOBOOKS_DEEPL_API_KEY`, and `AUDIOBOOKS_RUNPOD_API_KEY` in separate 0600 files referenced by `*_FILE` env vars (e.g. `SMTP_PASS_FILE=/etc/audiobooks/smtp-pass`) instead of inline in `audiobooks.conf`. Mirrors the existing pattern used by `AUTH_KEY_FILE` and `CF_TOKEN_FILE`. Reader precedence: inline env var → `*_FILE` pointer → default. Backwards-compatible — existing inline values keep working unchanged
+- **Library-wide secret resolver `library/common_utils/secret_resolver.py`**: New `resolve_secret(name, default)` helper used by `auth/audit.py`, `auth/inbox_cli.py`, `backend/api_modular/auth_email.py`, `localization/config.py`, `localization/gpu_health.py`, `translation_monitor/notify.py`, and `scripts/email-report.py`. Centralizes credential resolution logic — no more scattered `os.environ.get()` patterns for secrets. Lives in `library/common_utils/` (not `library/utils/`) to avoid shadowing the existing `library/scripts/utils/` namespace consumed by `from utils.openlibrary_client import …` patterns
+- **Stub credential files at install time**: `install.sh` and `upgrade.sh` create empty 0600 `audiobooks:audiobooks` stubs at `/etc/audiobooks/smtp-pass`, `/etc/audiobooks/deepl-api-key`, and `/etc/audiobooks/runpod-api-key` (guarded by `[[ ! -f ]]`, never overwrites existing). Operators can `echo "secret" | sudo tee /etc/audiobooks/<name>` to populate
+- **20 unit tests for the resolver** in `library/tests/test_secret_resolver.py` — 100% coverage of `secret_resolver.py`. Plus an integration test in `library/tests/test_audit.py::TestSendNotificationEmail::test_send_reads_password_from_smtp_pass_file` exercising the end-to-end SMTP path with `SMTP_PASS_FILE` instead of `SMTP_PASS`
+
+### Changed
+
+- **`etc/audiobooks.conf.example`**: documents the new `*_FILE` keys with commented examples + precedence note. Adds a "Credential file alternatives" subsection covering the inline-vs-file alternatives for SMTP / DeepL / RunPod credentials
+- **`docs/EMAIL-SETUP.md`**: new "Storing the API key in a separate file (`SMTP_PASS_FILE`)" subsection covering the 0600 stub workflow plus a symlink-to-user-credential-store example
+- **`docs/ARCHITECTURE.md`**: new "Credential Resolution (v8.4.0.0+)" subsection under "Configuration Priority" documenting the resolver precedence, file-location convention, and cross-reference to the existing `AUTH_KEY_FILE` / `CF_TOKEN_FILE` patterns
+- **`scripts/install-manifest.sh`**: declares the three new credential file paths in a new `OPTIONAL_CREDENTIAL_FILES` array so `reconcile-filesystem.sh` and audit tooling are aware of them. Format: `<path>|<owner>:<group>|<mode>|<env-var-name>`
+
+### Fixed
+
+- **`library/backend/api_modular/auth_email.py::_get_email_config` return type precision**: bare `-> tuple` annotation caused Pyright to lose element types, which in turn made `admin_email = os.environ.get("ADMIN_EMAIL", smtp_from)` infer as `str | None` and triggered two `reportArgumentType` errors at the downstream `msg["To"] = admin_email` and `server.sendmail(..., admin_email, ...)` call sites (lines 178, 186). Tightened to `-> tuple[str, int, str, str, str]` — preserves runtime behavior, restores Pyright element narrowing, both errors resolved
+- **`library/backend/api_modular/translations.py::on_demand_translate` Optional narrow**: `_validate_on_demand_request` returns `(None, None, err)` on failure and `(locale, requested_ids, None)` on success, but Pyright could not narrow `requested_ids` after the `if err: return err` guard. Added an explicit `assert requested_ids is not None` documenting the invariant — fixes `reportOptionalSubscript` at the downstream `requested_ids[:60]` slice. Runtime behavior unchanged; assertion only runs when the function reaches the slice (which it can only do when the validator returned the success tuple)
+
+### Security
+
+- **CodeQL alerts [#532](https://github.com/TheBoscoClub/Audiobook-Manager/security/code-scanning/532) and [#534](https://github.com/TheBoscoClub/Audiobook-Manager/security/code-scanning/534) formally dismissed as false positives**. The v8.3.10.7 release added sanitization at both sites (`library/backend/api_modular/streaming_translate.py::_safe_log_value` applies `urllib.parse.quote(s, safe="-._~:/=,@()_ ")` as the final stage, percent-encoding any residual CR/LF/null; `library/backend/api_modular/auth_shared.py::set_session_cookie` validates the token against `_SAFE_SESSION_TOKEN_RE = r"^[A-Za-z0-9_\-+/=.]{16,512}$"` and raises `ValueError` BEFORE `response.set_cookie`). CodeQL re-scanned at commit `94730ee8` and continued to flag both because its taint-tracking does not model `urllib.parse.quote` with a custom `safe` parameter as a sanitizer, nor `re.match` as type narrowing. Manual review confirmed no exploit path exists; alerts dismissed with detailed reasoning via `gh api -X PATCH …/code-scanning/alerts/{532,534} -f state=dismissed -f dismissed_reason="false positive"`. The v8.3.10.7 CHANGELOG claimed closure but the dismissal API call was never made — fixed in this release
+
 ## [8.3.10.7] - 2026-05-12
 
 ### Added
@@ -3740,7 +3765,9 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.6...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.0...HEAD
+[8.4.0.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.7...v8.4.0.0
+[8.3.10.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.6...v8.3.10.7
 [8.3.10.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.5...v8.3.10.6
 [8.3.10.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.4...v8.3.10.5
 [8.3.10.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.3...v8.3.10.4

@@ -17,6 +17,14 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 
+# Add the library directory to the path so utils.secret_resolver is importable
+_SCRIPT_DIR = Path(__file__).resolve().parent
+_LIB_DIR = _SCRIPT_DIR.parent / "library"
+if str(_LIB_DIR) not in sys.path:
+    sys.path.insert(0, str(_LIB_DIR))
+
+from common_utils.secret_resolver import resolve_secret  # noqa: E402
+
 
 def _require_audiobooks_user() -> None:
     """Abort if not running as the audiobooks user (mirrors lib/audiobook-config.sh)."""
@@ -111,7 +119,7 @@ def send_email(to: str, subject: str, body: str, conf: dict) -> None:
     host = conf.get("SMTP_HOST", "smtp.resend.com")
     port = int(conf.get("SMTP_PORT", "587"))
     user = conf.get("SMTP_USER", "resend")
-    password = conf.get("SMTP_PASS", "")
+    password = conf.get("SMTP_PASS", "") or resolve_secret("SMTP_PASS")
     from_addr = conf.get("SMTP_FROM", "audiobooks@localhost")
 
     msg = MIMEMultipart()

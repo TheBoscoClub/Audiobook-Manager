@@ -32,6 +32,8 @@ import os
 import urllib.error
 import urllib.request
 
+from common_utils.secret_resolver import resolve_secret
+
 logger = logging.getLogger(__name__)
 
 # Trusted-host probe targets. Adding a new entry without verifying the
@@ -93,7 +95,7 @@ def probe_all_streaming_providers() -> dict:
     for name, api_key_env, endpoint_env, base_url in _PROVIDERS:
         entry = _probe_one_provider(
             name=name,
-            api_key=os.environ.get(api_key_env, ""),
+            api_key=resolve_secret(api_key_env),
             endpoint=os.environ.get(endpoint_env, ""),
             base_url=base_url,
         )

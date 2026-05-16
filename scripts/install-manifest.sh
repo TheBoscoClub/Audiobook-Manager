@@ -154,3 +154,16 @@ CONFIG_CANONICAL_DEFAULTS=(
     'AUDIOBOOKS_VENV|*library/venv'
     'AUDIOBOOKS_CERTS|*library/certs'
 )
+
+# ---------------------------------------------------------------------------
+# Optional credential files for the *_FILE pointer pattern (v8.4.0.0+).
+# install.sh / upgrade.sh create empty 0600 stubs at these paths so operators
+# can populate them via `echo "secret" | sudo tee <path>` and then point
+# audiobooks.conf at the file via SMTP_PASS_FILE / AUDIOBOOKS_DEEPL_API_KEY_FILE
+# / AUDIOBOOKS_RUNPOD_API_KEY_FILE. Format: <path>|<owner>:<group>|<mode>|<env-var-name>
+# ---------------------------------------------------------------------------
+OPTIONAL_CREDENTIAL_FILES=(
+    "${CONFIG_DIR}/smtp-pass|audiobooks:audiobooks|0600|SMTP_PASS_FILE"
+    "${CONFIG_DIR}/deepl-api-key|audiobooks:audiobooks|0600|AUDIOBOOKS_DEEPL_API_KEY_FILE"
+    "${CONFIG_DIR}/runpod-api-key|audiobooks:audiobooks|0600|AUDIOBOOKS_RUNPOD_API_KEY_FILE"
+)

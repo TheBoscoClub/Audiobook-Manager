@@ -177,6 +177,12 @@ AUDIOBOOKS_DEV_MODE="false"
 #SMTP_PASS=""
 #SMTP_FROM="library@example.com"
 
+# Alternative: store the password in a separate 0600 file instead of inline.
+# When SMTP_PASS_FILE is set, AM reads the password from that file. If both
+# SMTP_PASS and SMTP_PASS_FILE are set, the inline value wins. Mirrors the
+# existing AUTH_KEY_FILE / CF_TOKEN_FILE pattern.
+#SMTP_PASS_FILE="/etc/audiobooks/smtp-pass"
+
 # Operator alert recipient — receives translation-monitor escalations
 # (chapter-starvation alerts, aged streaming segments). Falls back to
 # SMTP_FROM when unset, so a configured SMTP block alone is enough to
@@ -236,3 +242,14 @@ AUDIOBOOKS_PARALLEL_JOBS="8"
 
 # DeepL API key for on-demand text translation (strings, subtitles)
 #AUDIOBOOKS_DEEPL_API_KEY=""
+
+# =============================================================================
+# Credential file alternatives (optional pointer-pattern variants)
+# =============================================================================
+# Credentials may be set inline (above) or stored in a separate 0600 file
+# referenced by `*_FILE` env vars. The file-pointer variant keeps secrets
+# out of the main config and works well with symlinks to user-level
+# credential stores. Precedence: inline env var → *_FILE pointer → empty.
+# Mirrors the existing AUTH_KEY_FILE / CF_TOKEN_FILE pattern.
+#AUDIOBOOKS_DEEPL_API_KEY_FILE="/etc/audiobooks/deepl-api-key"
+#AUDIOBOOKS_RUNPOD_API_KEY_FILE="/etc/audiobooks/runpod-api-key"

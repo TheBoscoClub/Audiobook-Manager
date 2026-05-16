@@ -45,6 +45,29 @@ SMTP_PASS="YOUR_RESEND_API_KEY_HERE"
 SMTP_FROM="library@YOUR-DOMAIN"
 ```
 
+### Storing the API key in a separate file (`SMTP_PASS_FILE`)
+
+For tighter separation of secrets and config, set `SMTP_PASS_FILE` to a 0600 file path instead of inlining `SMTP_PASS`. `install.sh` / `upgrade.sh` create an empty stub at `/etc/audiobooks/smtp-pass` for this purpose.
+
+```bash
+# Populate the stub
+echo "YOUR_RESEND_API_KEY_HERE" | sudo tee /etc/audiobooks/smtp-pass >/dev/null
+sudo chmod 600 /etc/audiobooks/smtp-pass
+sudo chown audiobooks:audiobooks /etc/audiobooks/smtp-pass
+
+# In /etc/audiobooks/audiobooks.conf
+SMTP_PASS_FILE="/etc/audiobooks/smtp-pass"
+# (leave SMTP_PASS unset or commented — inline value wins if both are set)
+```
+
+You can also symlink to a user-level credential store:
+
+```bash
+sudo ln -sf /home/operator/.config/audiobooks-smtp-pass /etc/audiobooks/smtp-pass
+```
+
+Precedence: inline `SMTP_PASS` → `SMTP_PASS_FILE` pointer → empty. The same pattern works for `AUDIOBOOKS_DEEPL_API_KEY_FILE` and `AUDIOBOOKS_RUNPOD_API_KEY_FILE`. Mirrors the existing `AUTH_KEY_FILE` / `CF_TOKEN_FILE` pattern.
+
 Verify:
 
 ```bash

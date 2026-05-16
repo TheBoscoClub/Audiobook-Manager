@@ -1596,6 +1596,20 @@ CFEOF
         echo "  Created: $cf_token_file (edit to enable CDN cache purge)"
     fi
 
+    # Create empty 0600 stub credential files for the *_FILE pointer pattern.
+    # Operators can populate via:
+    #   echo "secret" | sudo tee /etc/audiobooks/<name> >/dev/null
+    # then point audiobooks.conf at the file via SMTP_PASS_FILE / etc. Never
+    # overwrites existing operator-populated files.
+    local stub_name stub_path
+    for stub_name in smtp-pass deepl-api-key runpod-api-key; do
+        stub_path="${CONFIG_DIR}/${stub_name}"
+        if [[ ! -f "$stub_path" ]]; then
+            sudo install -m 0600 -o audiobooks -g audiobooks /dev/null "$stub_path"
+            echo "  Created: $stub_path (empty stub — populate to enable *_FILE pointer)"
+        fi
+    done
+
     # Initialize auth database directory
     sudo mkdir -p "/var/lib/audiobooks"
     sudo chown audiobooks:audiobooks "/var/lib/audiobooks"

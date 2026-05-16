@@ -28,6 +28,7 @@ from auth import (
     ReplyMethod,
     UserRepository,
 )
+from common_utils.secret_resolver import resolve_secret
 
 
 def get_db():
@@ -151,7 +152,7 @@ def send_email_reply(to_email: str, username: str, reply_text: str) -> bool:
     smtp_host = os.environ.get("SMTP_HOST", "localhost")
     smtp_port = int(os.environ.get("SMTP_PORT", "25"))
     smtp_user = os.environ.get("SMTP_USER", "")
-    smtp_pass = os.environ.get("SMTP_PASS", "")
+    smtp_pass = resolve_secret("SMTP_PASS")
     smtp_from = os.environ.get("SMTP_FROM", "noreply@localhost")
 
     if not smtp_user:

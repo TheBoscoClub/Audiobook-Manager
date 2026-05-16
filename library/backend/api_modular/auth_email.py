@@ -22,6 +22,8 @@ from typing import Optional
 
 from flask import current_app, request
 
+from common_utils.secret_resolver import resolve_secret
+
 
 def _get_base_url() -> str:
     """Get the base URL for email links, auto-detecting from request if not
@@ -32,13 +34,13 @@ def _get_base_url() -> str:
     return request.host_url.rstrip("/")
 
 
-def _get_email_config() -> tuple:
+def _get_email_config() -> tuple[str, int, str, str, str]:
     """Get SMTP configuration from environment."""
     return (
         os.environ.get("SMTP_HOST", "localhost"),
         int(os.environ.get("SMTP_PORT", "25")),
         os.environ.get("SMTP_USER", ""),
-        os.environ.get("SMTP_PASS", ""),
+        resolve_secret("SMTP_PASS"),
         os.environ.get("SMTP_FROM", "noreply@localhost"),
     )
 
