@@ -66,7 +66,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     jq=1.7.1-6+deb13u2 \
     curl=8.14.1-2+deb13u3 \
     libsqlcipher-dev=4.6.1-2 \
-    openssl=3.5.5-1~deb13u2 \
+    openssl=3.5.6-1~deb13u1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
