@@ -10,9 +10,9 @@ pytest-playwright>=0.7.0
 requests-mock>=1.12.1
 
 # Linters / formatters
-ruff>=0.15.12
-mypy>=2.0.0
-black>=25.11.0
+ruff>=0.15.13
+mypy>=2.1.0
+black>=26.5.0
 isort>=8.0.1
 
 # Security scanners
@@ -30,12 +30,11 @@ librt>=0.9.0
 # pre-0.8 release is 0.7.1) so `pip check` stays clean.
 mando>=0.7.1,<0.9
 # astroid is pylint's runtime AST engine. pylint 4.0.5 (latest stable)
-# constrains astroid to `<=4.1.dev0,>=4.0.2`, so stay on the 4.0.x line
-# (latest compatible is 4.0.4) until pylint 4.1.x releases upstream.
-# Re-visit this pin when pylint 4.1+ lands.
+# constrains astroid to `<=4.1.dev0,>=4.0.2`; 4.1.2 is compatible.
+# Re-visit upper bound when pylint 4.1+ releases upstream.
 astroid>=4.0.4,<4.2
 packaging>=26.2
 platformdirs>=4.9.6
-types-croniter>=6.2.2.20260408
-types-requests>=2.33.0.20260408
+types-croniter>=6.2.2.20260508
+types-requests>=2.33.0.20260513
 zope.interface>=8.4
