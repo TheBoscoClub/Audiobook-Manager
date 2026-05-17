@@ -16,6 +16,10 @@ from the installed conf (not just from shell env) before substituting.
 import re
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.requires_repo_source
+
 REPO = Path(__file__).resolve().parents[2]
 
 

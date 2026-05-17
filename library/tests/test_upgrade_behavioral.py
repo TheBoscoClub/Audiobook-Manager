@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.requires_repo_source
+
 # Project root (two levels up from library/tests/)
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 UPGRADE_SH = PROJECT_ROOT / "upgrade.sh"

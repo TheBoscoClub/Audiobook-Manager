@@ -361,7 +361,10 @@ def _configure_env(args):
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, _, val = line.partition("=")
-                os.environ.setdefault(key.strip(), val.strip())
+                # Strip surrounding quotes (audiobooks.conf uses bash-style KEY="value").
+                # Without this, int(os.environ["AUDIOBOOKS_API_PORT"]) raises ValueError.
+                cleaned = val.strip().strip('"').strip("'")
+                os.environ.setdefault(key.strip(), cleaned)
 
 
 def _get_queue_stats(db_path):

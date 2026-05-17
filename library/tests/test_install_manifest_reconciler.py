@@ -24,6 +24,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.requires_repo_source
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = PROJECT_ROOT / "scripts" / "install-manifest.sh"
 RECONCILER = PROJECT_ROOT / "scripts" / "reconcile-filesystem.sh"

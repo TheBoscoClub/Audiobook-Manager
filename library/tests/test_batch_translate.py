@@ -110,13 +110,22 @@ class TestParseArgs:
 
 class TestConfigureEnv:
     def test_default_env_sets_whisper_gpu_defaults(self, monkeypatch):
-        """_configure_env sets defaults for AUDIOBOOKS_WHISPER_GPU_* vars."""
+        """_configure_env sets defaults for AUDIOBOOKS_WHISPER_GPU_* vars.
+
+        Patches the conf path's .exists() to return False so that no values from
+        /etc/audiobooks/audiobooks.conf (e.g. AUDIOBOOKS_API_PORT="5001" with shell
+        quotes) leak into os.environ and corrupt int() casts in later tests.
+        """
         for k in ["AUDIOBOOKS_WHISPER_GPU_HOST", "AUDIOBOOKS_WHISPER_GPU_PORT"]:
             monkeypatch.delenv(k, raising=False)
 
         with patch("sys.argv", ["bt", "--db", "/x.db", "--library", "/lib"]):
             args = bt._parse_args()
-        bt._configure_env(args)
+
+        # Prevent /etc/audiobooks/audiobooks.conf from polluting os.environ
+        with patch("pathlib.Path.exists", return_value=False):
+            bt._configure_env(args)
+
         assert os.environ.get("AUDIOBOOKS_WHISPER_GPU_HOST") == "127.0.0.1"
         assert os.environ.get("AUDIOBOOKS_WHISPER_GPU_PORT") == "8765"
 

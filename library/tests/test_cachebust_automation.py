@@ -22,6 +22,10 @@ import re
 import subprocess
 from pathlib import Path
 
+import pytest
+
+pytestmark = pytest.mark.requires_repo_source
+
 REPO = Path(__file__).resolve().parents[2]
 BUMPER = REPO / "scripts" / "bump-cachebust.sh"
 
@@ -131,7 +135,6 @@ def test_bumper_shellcheck_clean():
     """bump-cachebust.sh must have no shellcheck errors."""
     if not os.path.exists("/usr/bin/shellcheck"):
         import pytest
-
         pytest.skip("shellcheck not installed")
     result = subprocess.run(
         ["shellcheck", "-s", "bash", str(BUMPER)], capture_output=True, text=True, check=False

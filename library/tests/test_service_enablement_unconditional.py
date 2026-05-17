@@ -18,6 +18,9 @@ These tests enforce two invariants going forward:
 import re
 from pathlib import Path
 
+import pytest
+pytestmark = pytest.mark.requires_repo_source
+
 REPO = Path(__file__).resolve().parents[2]
 
 # Units that MUST be enabled by a fresh install or an upgrade. Keep in

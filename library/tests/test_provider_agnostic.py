@@ -106,6 +106,10 @@ def test_release_requirements_does_not_list_stt_providers_as_required():
     assert "AUDIOBOOKS_TTS_PROVIDER|optional" in content
 
 
+@pytest.mark.skipif(
+    not (REPO_ROOT / "install.sh").exists(),
+    reason="install.sh not present at repo root — repo-structure test skipped in deployed environment",
+)
 def test_install_sh_template_documents_runpod_stt_stubs():
     """install.sh's audiobooks.conf template must document the RunPod streaming
     STT keys (canonical inference backend) plus the self-hosted fallback option."""

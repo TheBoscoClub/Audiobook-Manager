@@ -21,6 +21,9 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
+
+pytestmark = pytest.mark.requires_repo_source
+
 from translation_monitor import (
     CAPACITY_WARNING_COOLDOWN_SEC,
     LIVE_AGE_ALERT_SEC,

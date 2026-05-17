@@ -108,6 +108,17 @@ def pytest_collection_modifyitems(config, items):
     if major < 8:
         _apply_skip_marker(items, "v8", f"v8 feature (current version major={major})")
 
+    # Repo-source-gated marker: auto-skip @pytest.mark.requires_repo_source tests
+    # when the project source tree (upgrade.sh) is absent — e.g. in a deployed install.
+    # These tests validate repo structure / script wiring and only make sense against
+    # the project checkout, not an installed copy of the application.
+    if not (PROJECT_ROOT / "upgrade.sh").exists():
+        _apply_skip_marker(
+            items,
+            "requires_repo_source",
+            "project source tree not present (upgrade.sh missing) — repo-structure tests skipped in deployed environment",
+        )
+
     # Flag-gated markers: skip tests unless corresponding CLI flag is given
     flag_gates = {
         "--hardware": ("hardware", "needs --hardware flag to run (non-FIDO2 hardware)"),
@@ -193,6 +204,10 @@ sys.path.insert(0, str(LIBRARY_DIR / "backend"))
 
 # Project root (two levels up from library/tests/)
 PROJECT_ROOT = LIBRARY_DIR.parent
+# Add project root so tests can do `from library.backend.api_modular import ...`
+# (needed when pytest is invoked from library/ or library/tests/ rather than the repo root)
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 # Path to the database schema
 SCHEMA_PATH = LIBRARY_DIR / "backend" / "schema.sql"
