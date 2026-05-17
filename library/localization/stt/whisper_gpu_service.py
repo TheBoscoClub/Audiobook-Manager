@@ -29,8 +29,8 @@ def _load_model():
     if _model is not None:
         return _model
 
-    import torch
-    import whisper
+    import torch  # type: ignore[import-not-found]
+    import whisper  # type: ignore[import-not-found]
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cuda":
@@ -93,7 +93,7 @@ def create_app():
 
     @app.route("/health", methods=["GET"])
     def health():
-        import torch
+        import torch  # type: ignore[import-not-found]
 
         return jsonify(
             {

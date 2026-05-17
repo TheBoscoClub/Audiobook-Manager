@@ -7,7 +7,7 @@ It patches stdlib I/O (including sqlite3) for cooperative scheduling.
 Without this, SQLite queries block the entire greenlet loop.
 """
 
-from gevent import monkey
+from gevent import monkey  # type: ignore[import-untyped]
 
 monkey.patch_all()
 
@@ -55,7 +55,7 @@ if __name__ == "__main__":
     if debug:
         app.run(host="127.0.0.1", port=API_PORT, debug=True)  # nosec B201 — dev-only path behind __main__ guard; production uses Gunicorn
     else:
-        from gevent.pywsgi import WSGIServer
+        from gevent.pywsgi import WSGIServer  # type: ignore[import-untyped]
 
         server = WSGIServer(
             (

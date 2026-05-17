@@ -76,10 +76,10 @@ def _set_low_priority():
 
 # Try to import mutagen for metadata handling
 if TYPE_CHECKING:
-    from mutagen.flac import Picture
-    from mutagen.id3 import APIC
-    from mutagen.mp3 import MP3
-    from mutagen.oggopus import OggOpus
+    from mutagen.flac import Picture  # type: ignore[import-not-found]
+    from mutagen.id3 import APIC  # type: ignore[import-not-found]
+    from mutagen.mp3 import MP3  # type: ignore[import-not-found]
+    from mutagen.oggopus import OggOpus  # type: ignore[import-not-found]
 
     HAS_MUTAGEN = True
 else:
@@ -308,7 +308,7 @@ class GooglePlayProcessor:
             metadata["title"] = chapter_files[0].parent.name
             return metadata
 
-        from mutagen import File as MutagenFile
+        from mutagen import File as MutagenFile  # type: ignore[import-not-found]
 
         total_duration = self._sum_durations(chapter_files, MutagenFile)
         self._extract_first_chapter_tags(chapter_files[0], metadata, MutagenFile)
@@ -444,7 +444,7 @@ class GooglePlayProcessor:
 
     def _extract_embedded_cover(self, chapter_files: List[Path]) -> Optional[Tuple[bytes, str]]:
         """Try to extract embedded cover art from audio files."""
-        from mutagen import File as MutagenFile
+        from mutagen import File as MutagenFile  # type: ignore[import-not-found]
 
         for chapter_file in chapter_files:
             try:

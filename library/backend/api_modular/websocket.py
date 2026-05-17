@@ -134,7 +134,7 @@ def init_notification_poller(db_path):
     _db_path_for_poller = db_path
 
     try:
-        import gevent
+        import gevent  # type: ignore[import-untyped]
     except ImportError:
         logger.warning("gevent not available; notification polling disabled")
         return
