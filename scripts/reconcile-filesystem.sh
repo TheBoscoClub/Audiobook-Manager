@@ -151,7 +151,38 @@ _reconcile_config() {
 }
 
 # ---------------------------------------------------------------------------
-# Step 7 — clean __pycache__ directories under LIB_DIR (stale bytecode
+# Step 7 — audit optional credential files (non-fatal — files may not exist)
+# Format: <path>|<owner>:<group>|<mode>|<env-var-name>
+# If the file exists, verify owner/group and mode match; log warning on drift.
+# If the file does not exist, no warning — optional by design.
+# ---------------------------------------------------------------------------
+_reconcile_optional_credentials() {
+    [[ "${#OPTIONAL_CREDENTIAL_FILES[@]}" -eq 0 ]] && return 0
+    local entry path owner mode _envvar current_owner current_mode
+    for entry in "${OPTIONAL_CREDENTIAL_FILES[@]}"; do
+        IFS='|' read -r path owner mode _envvar <<<"$entry"
+        [[ -f "$path" ]] || continue  # optional — absence is not a drift
+
+        current_owner=$(stat -c '%U:%G' "$path" 2>/dev/null || true)
+        current_mode=$(stat -c '%a' "$path" 2>/dev/null || true)
+
+        if [[ "$current_owner" != "$owner" ]]; then
+            _issue "credential file owner drift: $path (want $owner, got $current_owner)"
+            if _should_act; then
+                $USE_SUDO chown "$owner" "$path" 2>/dev/null && _fix "chown $owner $path"
+            fi
+        fi
+        if [[ "$current_mode" != "$mode" ]]; then
+            _issue "credential file mode drift: $path (want $mode, got $current_mode)"
+            if _should_act; then
+                $USE_SUDO chmod "$mode" "$path" 2>/dev/null && _fix "chmod $mode $path"
+            fi
+        fi
+    done
+}
+
+# ---------------------------------------------------------------------------
+# Step 9 — clean __pycache__ directories under LIB_DIR (stale bytecode
 # is a common source of "fix not taking effect" bugs after upgrades)
 # ---------------------------------------------------------------------------
 _reconcile_pycache() {
@@ -169,7 +200,7 @@ _reconcile_pycache() {
 }
 
 # ---------------------------------------------------------------------------
-# Step 8 — report
+# Step 10 — report
 # ---------------------------------------------------------------------------
 _reconcile_report() {
     echo
@@ -203,6 +234,7 @@ reconcile_filesystem() {
     _reconcile_units
     _reconcile_wrappers
     _reconcile_config
+    _reconcile_optional_credentials
     _reconcile_pycache
     _reconcile_report
 }
