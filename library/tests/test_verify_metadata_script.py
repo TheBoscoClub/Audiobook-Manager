@@ -297,6 +297,7 @@ class TestGetEmbeddedTags:
             ),
         )
         result = get_embedded_tags(str(fake_file))
+        assert result is not None
         assert "title" in result
         assert "artist" in result
 

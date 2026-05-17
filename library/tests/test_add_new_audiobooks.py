@@ -783,6 +783,7 @@ class TestGenerateHashForBook:
             ("Title", "Author", str(audio), 1.0),
         )
         book_id = cursor.lastrowid
+        assert book_id is not None
         conn.commit()
         conn.close()
 
@@ -823,6 +824,7 @@ class TestGenerateHashForBook:
             ("Ghost Book", "Author", "/nonexistent/path/ghost.opus", 1.0),
         )
         book_id = cursor.lastrowid
+        assert book_id is not None
         conn.commit()
         conn.close()
 

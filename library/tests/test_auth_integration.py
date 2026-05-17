@@ -571,10 +571,10 @@ class TestFIDO2UserLifecycle:
             def prompt_up(self):
                 print("\n  >>> Touch your YubiKey now... <<<")
 
-            def request_pin(self, permissions, rd_id):
+            def request_pin(self, permissions, rd_id):  # type: ignore[override]
                 return "3141"
 
-            def request_uv(self, permissions, rd_id):
+            def request_uv(self, permissions, rd_id):  # type: ignore[override]
                 print("\n  >>> Verify on YubiKey... <<<")
                 return True
 

@@ -102,6 +102,7 @@ def test_unlock_clears_overflow_styles():
         JS,
         re.DOTALL,
     )
+    assert body is not None
     fn = body.group(1)
     assert "documentElement.style.overflow" in fn, (
         "unlock must clear html element's inline overflow style"
@@ -122,6 +123,7 @@ def test_show_book_detail_calls_lock():
 def test_close_paths_call_unlock():
     """Both close paths (backdrop click AND close button) must unlock."""
     detail_section = re.search(r"showBookDetail\(bookId\)\s*\{(.+?)\n  \}", JS, re.DOTALL)
+    assert detail_section is not None
     fn = detail_section.group(1)
     # Counts the unlock call sites — should appear at least twice within
     # showBookDetail (1: existing-modal cleanup, 2+: in _closeModal which

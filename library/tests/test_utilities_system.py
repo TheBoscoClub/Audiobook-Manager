@@ -1066,7 +1066,7 @@ class TestStaleLockAutoClear:
             response = module._check_not_running()
 
         assert response is not None
-        body, status_code = response
+        body, status_code = response  # type: ignore[misc]
         assert status_code == 400
         assert "in progress" in body.get_json()["error"]
 

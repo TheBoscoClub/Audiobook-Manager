@@ -28,6 +28,7 @@ def _load_worker():
     spec = importlib.util.spec_from_file_location(
         "stream_translate_worker", PROJECT_ROOT / "scripts" / "stream-translate-worker.py"
     )
+    assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     sys.modules["stream_translate_worker"] = mod
     spec.loader.exec_module(mod)

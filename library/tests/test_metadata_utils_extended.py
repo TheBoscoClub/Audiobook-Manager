@@ -467,7 +467,7 @@ class TestDetermineLiteraryEra:
         """Lines 164: ValueError/TypeError returns Unknown Era."""
         assert determine_literary_era("not-a-year") == "Unknown Era"
         assert determine_literary_era("") == "Unknown Era"
-        assert determine_literary_era(None) == "Unknown Era"
+        assert determine_literary_era(None) == "Unknown Era"  # type: ignore[arg-type]
 
     def test_pre_1800(self):
         assert determine_literary_era("1750") == "Classical (Pre-1800)"

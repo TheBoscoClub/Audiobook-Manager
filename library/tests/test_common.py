@@ -100,7 +100,7 @@ class TestNormalizeTitle:
         """Test None returns empty string."""
         from common import normalize_title
 
-        assert normalize_title(None) == ""
+        assert normalize_title(None) == ""  # type: ignore[arg-type]
 
     def test_simple_title(self):
         """Test simple title is lowercased."""
@@ -211,7 +211,7 @@ class TestSanitizeFilename:
         """Test None returns 'Unknown'."""
         from common import sanitize_filename
 
-        assert sanitize_filename(None) == "Unknown"
+        assert sanitize_filename(None) == "Unknown"  # type: ignore[arg-type]
 
     def test_valid_filename_unchanged(self):
         """Test valid filename is returned unchanged."""

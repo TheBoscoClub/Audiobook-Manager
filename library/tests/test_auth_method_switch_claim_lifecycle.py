@@ -153,7 +153,9 @@ class TestAdminSwitchToPasskeyThenClaimThenLogin:
 
         # Verify the user's auth type was updated in DB
         user_repo = UserRepository(auth_db)
+        assert user.id is not None
         updated = user_repo.get_by_id(user.id)
+        assert updated is not None
         assert updated.auth_type == AuthType.MAGIC_LINK
 
 

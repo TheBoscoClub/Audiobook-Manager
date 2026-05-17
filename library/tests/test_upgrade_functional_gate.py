@@ -104,6 +104,7 @@ def test_migration_gate_runs_when_installed_version_empty():
     func_match = re.search(
         r"^apply_data_migrations\s*\(\)\s*\{\n(.*?)^\}", upgrade, re.DOTALL | re.MULTILINE
     )
+    assert func_match is not None
     body = func_match.group(1)
     # The gate guard must require installed_version to be BOTH non-empty AND
     # not "unknown" before it's allowed to short-circuit.
@@ -301,6 +302,7 @@ def test_audit_and_cleanup_accepts_project_arg():
     func_match = re.search(
         r"^audit_and_cleanup\s*\(\)\s*\{\n(.*?)^\}", upgrade, re.DOTALL | re.MULTILINE
     )
+    assert func_match is not None
     body = func_match.group(1)
     assert re.search(r"local\s+project=", body), (
         "audit_and_cleanup must accept a project arg so its systemd orphan "

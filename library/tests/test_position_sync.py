@@ -29,7 +29,7 @@ class TestMsToHuman:
         """Test None returns '0s'."""
         from backend.api_modular.position_sync import ms_to_human
 
-        assert ms_to_human(None) == "0s"
+        assert ms_to_human(None) == "0s"  # type: ignore[arg-type]
 
     def test_seconds_only(self):
         """Test seconds-only format."""

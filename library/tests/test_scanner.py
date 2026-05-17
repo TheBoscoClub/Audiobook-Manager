@@ -403,7 +403,7 @@ class TestDetermineLiteraryEra:
         """Test None value."""
         from scanner.scan_audiobooks import determine_literary_era
 
-        result = determine_literary_era(None)
+        result = determine_literary_era(None)  # type: ignore[arg-type]
         assert "Unknown Era" in result
 
     def test_era_invalid_format(self):

@@ -1097,12 +1097,12 @@ class TestSamplerCompletionTriggersConsolidation:
                 out.parent.mkdir(parents=True, exist_ok=True)
                 out.write_bytes(b"fake-chapter-webm")
 
-                class _R:
+                class _RFFmpeg:
                     returncode = 0
                     stdout = ""
                     stderr = ""
 
-                return _R()
+                return _RFFmpeg()
             if cmd and cmd[0] == "ffprobe":
                 if "-show_chapters" in cmd:
                     # JSON shape expected by extract_chapters

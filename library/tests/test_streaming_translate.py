@@ -160,7 +160,7 @@ class TestSafeJoinUnder:
 
     def test_happy_path_numeric_component_coerced(self, tmp_path):
         # ints are valid parts — coerced via str()
-        p = _safe_join_under(tmp_path, 42, "ch001.vtt")
+        p = _safe_join_under(tmp_path, 42, "ch001.vtt")  # type: ignore[arg-type]
         assert p.is_relative_to(tmp_path.resolve())
         assert "42" in str(p)
 

@@ -79,7 +79,7 @@ class TestSaveImage:
         assert _save_image(b"", tmp_path, "https://example.com/img.jpg") is None
 
     def test_rejects_none_data(self, tmp_path):
-        assert _save_image(None, tmp_path, "https://example.com/img.jpg") is None
+        assert _save_image(None, tmp_path, "https://example.com/img.jpg") is None  # type: ignore[arg-type]
 
     def test_rejects_tiny_image(self, tmp_path):
         assert _save_image(TINY_IMAGE, tmp_path, "https://example.com/img.jpg") is None

@@ -123,6 +123,7 @@ class TestUserLibraryHiddenBooks:
         user = User(
             username="empty_lib_user", auth_type=AuthType.TOTP, auth_credential=b"secret"
         ).save(auth_db)
+        assert user.id is not None
 
         _session, raw_token = Session.create_for_user(
             db=auth_db, user_id=user.id, user_agent="pytest", ip_address="127.0.0.1"

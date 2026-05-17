@@ -156,6 +156,7 @@ class TestPollLoopProcessesNotifications:
         _create_notification_db(db_path, rows=[("announce", '{"msg": "ok"}', 0)])
 
         poll_fn, _ = _capture_poll_loop(db_path)
+        assert poll_fn is not None
 
         # Register a WS client that will fail on send
         bad_ws = MagicMock()
@@ -210,6 +211,7 @@ class TestPollLoopProcessesNotifications:
         )
 
         poll_fn, _ = _capture_poll_loop(db_path)
+        assert poll_fn is not None
 
         ws = MagicMock()
         connection_manager.register("mix-session", ws, "tester")
@@ -252,6 +254,7 @@ class TestPollLoopProcessesNotifications:
         )
 
         poll_fn, _ = _capture_poll_loop(db_path)
+        assert poll_fn is not None
 
         ws = MagicMock()
         connection_manager.register("skip-session", ws, "tester")

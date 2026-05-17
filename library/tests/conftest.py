@@ -708,6 +708,7 @@ def admin_client(auth_app, auth_db):
             is_admin=True,
             can_download=True,
         ).save(auth_db)
+    assert admin.id is not None
     raw_token = _make_session_cookie(auth_db, admin.id)
     client = auth_app.test_client()
     client.set_cookie("audiobooks_session", raw_token)
@@ -784,6 +785,7 @@ def test_magic_link_user(auth_db):
     user = User(username="mluser_fix", auth_type=AuthType.MAGIC_LINK, auth_credential=b"").save(
         auth_db
     )
+    assert user.id is not None
     UserRepository(auth_db).update_email(user.id, "ml@test.com")
     return UserRepository(auth_db).get_by_id(user.id)
 

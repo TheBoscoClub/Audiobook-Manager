@@ -34,6 +34,7 @@ class TestRegistry:
         from api_modular.maintenance_tasks import registry
 
         task = registry.get("db_vacuum")
+        assert task is not None
         result = task.validate({})
         assert hasattr(result, "ok")
         assert hasattr(result, "message")

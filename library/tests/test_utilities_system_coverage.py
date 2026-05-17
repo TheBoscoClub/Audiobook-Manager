@@ -5,6 +5,7 @@ Covers: 452, 526, 540, 584, 612, 619, 670, 677-678, 680-681, 731-804.
 """
 
 import json
+from email.message import Message
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
@@ -459,7 +460,7 @@ class TestPurgeCdnCache:
                 url="https://api.cloudflare.com/...",
                 code=403,
                 msg="Forbidden",
-                hdrs={},
+                hdrs=Message(),
                 fp=BytesIO(b""),
             ),
         ):

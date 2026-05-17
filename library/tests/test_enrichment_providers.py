@@ -61,7 +61,7 @@ class TestEnrichmentProviderBase:
 
     def test_base_class_requires_name(self):
         with pytest.raises(TypeError):
-            EnrichmentProvider()  # pylint: disable=abstract-class-instantiated
+            EnrichmentProvider()  # type: ignore[abstract] # pylint: disable=abstract-class-instantiated
 
     def test_can_enrich_returns_bool(self):
         class AlwaysProvider(EnrichmentProvider):

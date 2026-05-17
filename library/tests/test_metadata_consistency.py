@@ -825,7 +825,7 @@ class TestMetadataExtractionFunctions:
         assert "Late 20th" in determine_literary_era("1985")
         assert "Contemporary" in determine_literary_era("2023")
         assert "Unknown" in determine_literary_era("")
-        assert "Unknown" in determine_literary_era(None)
+        assert "Unknown" in determine_literary_era(None)  # type: ignore[arg-type]
 
     def test_extract_topics_from_description(self):
         """Verify topic extraction from descriptions."""
