@@ -375,7 +375,10 @@ class TestStemAndProviders:
 
         assert len(result) == 1
         assert result[0].name == "whisper"
-        assert result[0]._endpoint_id == "stream-ep"
+        # _endpoint_id is defined on WhisperSTT (a concrete STTProvider subclass),
+        # not on the abstract base; we've already asserted name=="whisper" so the
+        # narrowing is safe — pyright just can't see it through the base type.
+        assert result[0]._endpoint_id == "stream-ep"  # type: ignore[attr-defined]
 
     def test_remote_stt_candidates_long_form_routes_to_backlog_endpoint(self):
         """LONG_FORM hint → backlog endpoint (cold pool, cheap)."""
@@ -393,7 +396,7 @@ class TestStemAndProviders:
 
         assert len(result) == 1
         assert result[0].name == "whisper"
-        assert result[0]._endpoint_id == "backlog-ep"
+        assert result[0]._endpoint_id == "backlog-ep"  # type: ignore[attr-defined]
 
     def test_remote_stt_candidates_any_defaults_to_backlog(self):
         """Default (ANY) hint behaves like LONG_FORM — backlog endpoint."""
@@ -410,7 +413,7 @@ class TestStemAndProviders:
             result = mod._remote_stt_candidates()
 
         assert len(result) == 1
-        assert result[0]._endpoint_id == "backlog-ep"
+        assert result[0]._endpoint_id == "backlog-ep"  # type: ignore[attr-defined]
 
 
 class TestProcessOneChapter:

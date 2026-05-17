@@ -556,7 +556,10 @@ def claim_credentials():
             recovery_enabled,
         )
 
-    can_download = _parse_invite_meta(obj.backup_codes_json)
+    # mode == "new_user" guarantees obj is an AccessRequest (which carries
+    # backup_codes_json); pyright sees the union AccessRequest|PendingRegistration
+    # and cannot narrow on the mode string, hence the targeted ignore.
+    can_download = _parse_invite_meta(obj.backup_codes_json)  # type: ignore[attr-defined]
 
     if auth_method == "magic_link":
         return _apply_claim_new_user_magic_link(

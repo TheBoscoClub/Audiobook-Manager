@@ -39,7 +39,7 @@ def settings_db():
             # underlying file. Without this, GC fires after pytest sees
             # the warning, and we get "unclosed database in <sqlite3...>".
             try:
-                db.close()
+                db.close()  # type: ignore[attr-defined]
             except Exception:
                 pass
 
@@ -218,11 +218,11 @@ class TestPreferencesAPI:
             # this, the AuthDatabase's sqlite3.Connection lingers until
             # GC and emits "unclosed database in <sqlite3...>" warnings.
             try:
-                client.close()
+                client.close()  # type: ignore[attr-defined]
             except Exception:
                 pass
             try:
-                auth_db.close()
+                auth_db.close()  # type: ignore[attr-defined]
             except Exception:
                 pass
 
@@ -338,6 +338,6 @@ class TestPreferencesAPI:
                 assert resp.status_code in (401, 302)
         finally:
             try:
-                auth_db.close()
+                auth_db.close()  # type: ignore[attr-defined]
             except Exception:
                 pass

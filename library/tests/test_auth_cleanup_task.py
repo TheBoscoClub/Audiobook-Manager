@@ -5,6 +5,14 @@ Covers all code paths: _get_auth_db(), validate(), execute() with all
 cleanup types, progress callbacks, error handling, and DB close guarantees.
 """
 
+# pyright: reportAttributeAccessIssue=false
+# Reason: This test file dynamically attaches repository classes
+# (SessionRepository, PendingRegistrationRepository, PendingRecoveryRepository)
+# to mock module objects via attribute assignment. Pyright cannot
+# statically know which attributes a ModuleType mock will have. File-
+# level suppression is preferred to ~20 per-line ignores on identical
+# patterns.
+
 from contextlib import contextmanager
 from unittest.mock import MagicMock, call, patch
 

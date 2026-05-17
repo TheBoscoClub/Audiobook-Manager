@@ -1068,7 +1068,9 @@ class TestStaleLockAutoClear:
         assert response is not None
         body, status_code = response  # type: ignore[misc]
         assert status_code == 400
-        assert "in progress" in body.get_json()["error"]
+        # body is a Flask Response; pyright sees the tuple element as `str`
+        # because the return type is a broad union.
+        assert "in progress" in body.get_json()["error"]  # type: ignore[attr-defined]
 
 
 class TestHelperServiceActive:

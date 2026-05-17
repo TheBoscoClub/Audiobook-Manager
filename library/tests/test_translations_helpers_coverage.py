@@ -1081,7 +1081,9 @@ class TestBatchExecute:
             app = Flask(__name__)
             with app.app_context():
                 resp = tr._batch_execute(conn, "zh-Hans", [1])
-                body = resp.get_json()
+                # On success path, resp is a Flask Response (not the
+                # (Response, int) error tuple); pyright sees the union.
+                body = resp.get_json()  # type: ignore[attr-defined]
                 assert body["needs_translation"] == 0
         finally:
             conn.close()

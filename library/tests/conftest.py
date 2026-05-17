@@ -635,12 +635,13 @@ def auth_app(auth_temp_dir):
         True  # nosemgrep: python.flask.security.audit.hardcoded-config.avoid_hardcoded_config_TESTING — test-only fixture, required for Flask test client
     )
 
-    # Store test data for tests to use
-    app.test_user_secret = secret
-    app.admin_secret = admin_secret
-    app.auth_db = auth_db
-    app.test_user_id = user.id
-    app.admin_user_id = admin.id
+    # Store test data for tests to use (runtime-attached attrs; pyright
+    # cannot statically know these aren't part of Flask's class spec).
+    app.test_user_secret = secret  # type: ignore[attr-defined]
+    app.admin_secret = admin_secret  # type: ignore[attr-defined]
+    app.auth_db = auth_db  # type: ignore[attr-defined]
+    app.test_user_id = user.id  # type: ignore[attr-defined]
+    app.admin_user_id = admin.id  # type: ignore[attr-defined]
 
     yield app
 

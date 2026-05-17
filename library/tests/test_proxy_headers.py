@@ -4,6 +4,13 @@ Tests for proxy server hop-by-hop header filtering and path routing.
 Validates RFC 2616 compliance for header filtering and correct proxy path detection.
 """
 
+# pyright: reportAttributeAccessIssue=false
+# Reason: This test file dynamically constructs `types.ModuleType` mock
+# config objects and assigns runtime attributes (AUDIOBOOKS_*, CORS_ORIGIN)
+# to them. Pyright cannot statically know which attributes a ModuleType
+# instance will have. File-level suppression is preferred to ~25
+# per-line ignores on identical patterns.
+
 import sys
 from pathlib import Path
 
