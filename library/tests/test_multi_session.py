@@ -135,10 +135,12 @@ class TestSessionAllowMulti:
     def _make_user(self, temp_db, username="session_user"):
         user = User(username=username, auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
         return user
 
     def test_default_behavior_single_session(self, temp_db):
         user = self._make_user(temp_db)
+        assert user.id is not None
         repo = SessionRepository(temp_db)
         session1, token1 = Session.create_for_user(temp_db, user.id)
         session2, token2 = Session.create_for_user(temp_db, user.id)
@@ -147,6 +149,7 @@ class TestSessionAllowMulti:
 
     def test_allow_multi_preserves_sessions(self, temp_db):
         user = self._make_user(temp_db)
+        assert user.id is not None
         repo = SessionRepository(temp_db)
         session1, token1 = Session.create_for_user(temp_db, user.id)
         session2, token2 = Session.create_for_user(temp_db, user.id, allow_multi=True)
@@ -155,6 +158,7 @@ class TestSessionAllowMulti:
 
     def test_allow_multi_false_still_deletes(self, temp_db):
         user = self._make_user(temp_db)
+        assert user.id is not None
         repo = SessionRepository(temp_db)
         session1, token1 = Session.create_for_user(temp_db, user.id)
         session2, token2 = Session.create_for_user(temp_db, user.id, allow_multi=False)
@@ -163,6 +167,7 @@ class TestSessionAllowMulti:
 
     def test_allow_multi_three_sessions(self, temp_db):
         user = self._make_user(temp_db)
+        assert user.id is not None
         repo = SessionRepository(temp_db)
         _, token1 = Session.create_for_user(temp_db, user.id)
         _, token2 = Session.create_for_user(temp_db, user.id, allow_multi=True)
@@ -173,6 +178,7 @@ class TestSessionAllowMulti:
 
     def test_single_session_after_multi_clears_all(self, temp_db):
         user = self._make_user(temp_db)
+        assert user.id is not None
         repo = SessionRepository(temp_db)
         _, token1 = Session.create_for_user(temp_db, user.id)
         _, token2 = Session.create_for_user(temp_db, user.id, allow_multi=True)
@@ -200,6 +206,7 @@ class TestUserAllowsMultiSession:
 
         SystemSettingsRepository(temp_db).set("multi_session_default", "false")
         user = self._make_user(temp_db, "override_yes", multi_session="yes")
+        assert user.id is not None
         from backend.api_modular.auth import _user_allows_multi_session
 
         assert _user_allows_multi_session(user, temp_db) is True
@@ -209,6 +216,7 @@ class TestUserAllowsMultiSession:
 
         SystemSettingsRepository(temp_db).set("multi_session_default", "true")
         user = self._make_user(temp_db, "override_no", multi_session="no")
+        assert user.id is not None
         from backend.api_modular.auth import _user_allows_multi_session
 
         assert _user_allows_multi_session(user, temp_db) is False
@@ -218,6 +226,7 @@ class TestUserAllowsMultiSession:
 
         SystemSettingsRepository(temp_db).set("multi_session_default", "false")
         user = self._make_user(temp_db, "follow_false")
+        assert user.id is not None
         from backend.api_modular.auth import _user_allows_multi_session
 
         assert _user_allows_multi_session(user, temp_db) is False
@@ -227,6 +236,7 @@ class TestUserAllowsMultiSession:
 
         SystemSettingsRepository(temp_db).set("multi_session_default", "true")
         user = self._make_user(temp_db, "follow_true")
+        assert user.id is not None
         from backend.api_modular.auth import _user_allows_multi_session
 
         assert _user_allows_multi_session(user, temp_db) is True
@@ -264,6 +274,7 @@ class TestAdminSettingsAPI:
             is_admin=True,
         )
         admin.save(temp_db)
+        assert admin.id is not None
         session, token = Session.create_for_user(temp_db, admin.id)
 
         client = app.test_client()
@@ -329,6 +340,7 @@ class TestMultiSessionIntegration:
 
         user = User(username="integration1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         from backend.api_modular.auth import _user_allows_multi_session
 
@@ -354,6 +366,7 @@ class TestMultiSessionIntegration:
             multi_session="no",
         )
         user.save(temp_db)
+        assert user.id is not None
 
         from backend.api_modular.auth import _user_allows_multi_session
 
@@ -370,6 +383,7 @@ class TestMultiSessionIntegration:
         """Default state (global=false, user=default) should enforce single session."""
         user = User(username="integration3", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         from backend.api_modular.auth import _user_allows_multi_session
 

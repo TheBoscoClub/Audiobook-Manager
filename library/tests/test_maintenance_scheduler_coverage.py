@@ -842,7 +842,7 @@ class TestMainLoop:
             patch.object(scheduler, "check_announcements"),
             patch.object(scheduler, "find_due_windows", side_effect=find_then_empty),
             patch.object(scheduler, "execute_window", side_effect=track_execution),
-            patch.object(scheduler, "time", **{"sleep.side_effect": stop_on_sleep}),
+            patch.object(scheduler, "time", **{"sleep.side_effect": stop_on_sleep}),  # type: ignore[call-overload]
             patch("builtins.open", mock_open()),
             patch.object(scheduler, "fcntl"),
         ):
@@ -869,7 +869,7 @@ class TestMainLoop:
             patch.object(scheduler, "check_announcements"),
             patch.object(scheduler, "find_due_windows", return_value=windows),
             patch.object(scheduler, "execute_window") as mock_exec,
-            patch.object(scheduler, "time", **{"sleep.side_effect": stop_on_sleep}),
+            patch.object(scheduler, "time", **{"sleep.side_effect": stop_on_sleep}),  # type: ignore[call-overload]
             patch("builtins.open", mock_open()),
             patch.object(scheduler, "fcntl", mock_fcntl),
         ):
@@ -924,7 +924,7 @@ class TestMainLoop:
             patch.object(scheduler, "run_auth_cleanup", side_effect=one_cycle),
             patch.object(scheduler, "check_announcements"),
             patch.object(scheduler, "find_due_windows", return_value=[]),
-            patch.object(scheduler, "time", **{"sleep.side_effect": counting_sleep}),
+            patch.object(scheduler, "time", **{"sleep.side_effect": counting_sleep}),  # type: ignore[call-overload]
         ):
             scheduler.main()
 
@@ -983,7 +983,7 @@ class TestMainLoop:
             patch.object(scheduler, "check_announcements"),
             patch.object(scheduler, "find_due_windows", return_value=windows),
             patch.object(scheduler, "execute_window", side_effect=RuntimeError("boom")),
-            patch.object(scheduler, "time", **{"sleep.side_effect": stop_on_sleep}),
+            patch.object(scheduler, "time", **{"sleep.side_effect": stop_on_sleep}),  # type: ignore[call-overload]
             patch("builtins.open", return_value=mock_fd),
             patch.object(scheduler, "fcntl"),
         ):

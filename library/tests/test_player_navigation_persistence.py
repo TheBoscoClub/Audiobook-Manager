@@ -1,3 +1,4 @@
+# pyright: reportOptionalCall=false, reportOptionalMemberAccess=false
 """
 Player Navigation Persistence Tests
 
@@ -16,15 +17,24 @@ Run with:
         --browser chromium
 
 Note: Use --headed flag to see browser for visual verification.
+
+Pyright suppressions at the top: playwright + selenium are imported in try/except
+blocks and may be None at module load. Test functions are runtime-guarded by
+PLAYWRIGHT_AVAILABLE / SELENIUM_AVAILABLE skipif markers, so the None case is
+unreachable at execution time.
 """
 
 import os
 import socket
 import time
+from typing import TYPE_CHECKING
 
 import pyotp
 import pytest
 import requests as req_lib
+
+if TYPE_CHECKING:
+    from playwright.sync_api import Page as _Page  # noqa: F401
 
 # Check VM reachability before running — skip entire module if unreachable
 # VM_HOST must be set in the environment; no default so the module skips cleanly
@@ -52,6 +62,8 @@ try:
 except ImportError:
     PLAYWRIGHT_AVAILABLE = False
     Page = None  # type: ignore[assignment,misc]
+    expect = None  # type: ignore[assignment]
+    sync_playwright = None  # type: ignore[assignment]
 
 try:
     from selenium import webdriver
@@ -62,6 +74,10 @@ try:
     SELENIUM_AVAILABLE = True
 except ImportError:
     SELENIUM_AVAILABLE = False
+    webdriver = None  # type: ignore[assignment]
+    By = None  # type: ignore[assignment]
+    EC = None  # type: ignore[assignment]
+    WebDriverWait = None  # type: ignore[assignment]
 
 
 # Configuration — VM_HOST defined above (reachability check);
@@ -178,7 +194,7 @@ class TestPlayerNavigationPlaywright:
     """Test player persistence during navigation using Playwright."""
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
-    def test_player_starts_and_plays(self, page: Page, test_audiobook):
+    def test_player_starts_and_plays(self, page: "_Page", test_audiobook):
         """Test that the audio player starts playing an audiobook."""
         # Navigate to the library
         page.goto(WEB_BASE_URL)
@@ -214,7 +230,7 @@ class TestPlayerNavigationPlaywright:
         print("\n  ✓ Audio player started successfully")
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
-    def test_playback_continues_during_navigation_to_backoffice(self, page: Page, test_audiobook):
+    def test_playback_continues_during_navigation_to_backoffice(self, page: "_Page", test_audiobook):
         """Test that audio continues playing when navigating to Back Office."""
         # Navigate to library and start playing
         page.goto(WEB_BASE_URL)
@@ -263,7 +279,7 @@ class TestPlayerNavigationPlaywright:
         print("  ✓ Navigation to Back Office completed")
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
-    def test_playback_continues_through_navigation_cycle(self, page: Page, test_audiobook):
+    def test_playback_continues_through_navigation_cycle(self, page: "_Page", test_audiobook):
         """Test full navigation cycle: Library -> Back Office -> Library."""
         # Start at library
         page.goto(WEB_BASE_URL)
@@ -318,7 +334,7 @@ class TestPlayerNavigationPlaywright:
             print("  ⚠ No saved position found (expected in MPA)")
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
-    def test_playback_persists_through_resize(self, page: Page, test_audiobook):
+    def test_playback_persists_through_resize(self, page: "_Page", test_audiobook):
         """Test that audio continues during browser resize."""
         # Navigate and start playing
         page.goto(WEB_BASE_URL)
@@ -373,7 +389,7 @@ class TestPlayerNavigationPlaywright:
         print("  ✓ Playback continued through resize operations")
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
-    def test_playback_position_saved_to_localStorage(self, page: Page, test_audiobook):
+    def test_playback_position_saved_to_localStorage(self, page: "_Page", test_audiobook):
         """Test that playback position is saved to localStorage."""
         # Navigate and start playing
         page.goto(WEB_BASE_URL)
