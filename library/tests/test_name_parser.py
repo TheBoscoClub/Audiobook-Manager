@@ -107,7 +107,7 @@ class TestStripCredentials:
         assert strip_credentials("Stephen King") == "Stephen King"
 
     def test_none(self):
-        assert strip_credentials(None) is None
+        assert strip_credentials(None) is None  # type: ignore[arg-type]
 
     def test_empty(self):
         assert strip_credentials("") == ""
@@ -236,7 +236,7 @@ class TestCleanName:
         assert clean_name("") == ""
 
     def test_none(self):
-        assert clean_name(None) == ""
+        assert clean_name(None) == ""  # type: ignore[arg-type]
 
 
 class TestBrandDetection:
@@ -262,7 +262,7 @@ class TestBrandDetection:
 
     def test_empty_not_brand(self):
         assert is_brand_name("") is False
-        assert is_brand_name(None) is False
+        assert is_brand_name(None) is False  # type: ignore[arg-type]
 
     def test_government_org(self):
         assert is_brand_name("Special Counsel's Office U.S. Department of Justice") is True
@@ -313,7 +313,7 @@ class TestJunkNameDetection:
 
     def test_empty_is_junk(self):
         assert is_junk_name("") is True
-        assert is_junk_name(None) is True
+        assert is_junk_name(None) is True  # type: ignore[arg-type]
 
 
 class TestNormalizeForDedup:
@@ -333,4 +333,4 @@ class TestNormalizeForDedup:
 
     def test_empty(self):
         assert normalize_for_dedup("") == ""
-        assert normalize_for_dedup(None) == ""
+        assert normalize_for_dedup(None) == ""  # type: ignore[arg-type]

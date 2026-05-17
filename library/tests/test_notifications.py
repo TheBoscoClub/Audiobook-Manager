@@ -258,6 +258,7 @@ class TestNotificationDismissal:
         """Test dismissing a notification."""
         notif = Notification(message="Dismissable", type=NotificationType.INFO, dismissable=True)
         notif.save(temp_db)
+        assert notif.id is not None
 
         repo = NotificationRepository(temp_db)
 
@@ -275,6 +276,7 @@ class TestNotificationDismissal:
         """Test dismissing same notification twice is safe."""
         notif = Notification(message="Dismiss twice", type=NotificationType.INFO)
         notif.save(temp_db)
+        assert notif.id is not None
 
         repo = NotificationRepository(temp_db)
 
@@ -288,6 +290,7 @@ class TestNotificationDismissal:
         """Test dismissal is per-user."""
         notif = Notification(message="Per user dismiss", type=NotificationType.INFO)
         notif.save(temp_db)
+        assert notif.id is not None
 
         repo = NotificationRepository(temp_db)
 

@@ -599,13 +599,14 @@ class TestValidateTranslateStringsRequest:
             locale, raw, err = tr._validate_translate_strings_request(None)
             assert locale is None
             assert err is not None
-            resp, status = err
+            resp, status = err  # type: ignore[misc]
             assert status == 400
 
     def test_missing_locale_returns_400(self, flask_app):
         with flask_app.app_context():
             _, _, err = tr._validate_translate_strings_request({})
-            resp, status = err
+            assert err is not None
+            resp, status = err  # type: ignore[misc]
             assert status == 400
 
     def test_english_short_circuits(self, flask_app):
@@ -1099,7 +1100,7 @@ class TestBatchExecute:
                     # No API key → _run_batch_translation returns (None, (jsonify, 503))
                     resp = tr._batch_execute(conn, "zh-Hans", [1, 2])
                     # Unpack tuple: (response, status)
-                    response, status = resp
+                    response, status = resp  # type: ignore[misc]
                     assert status == 503
         finally:
             conn.close()

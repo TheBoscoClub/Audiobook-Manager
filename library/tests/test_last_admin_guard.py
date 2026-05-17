@@ -24,6 +24,7 @@ class TestLastAdminGuard:
         admin = User(
             username="sole_lag", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True
         ).save(auth_db)
+        assert admin.id is not None
         # If there are other admins, this will be False — adjust test accordingly
         if repo.count_admins() == 1:
             assert repo.is_last_admin(admin.id) is True
@@ -35,6 +36,7 @@ class TestLastAdminGuard:
         admin1 = User(
             username="multi1_lag", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True
         ).save(auth_db)
+        assert admin1.id is not None
         User(
             username="multi2_lag", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True
         ).save(auth_db)
@@ -45,4 +47,5 @@ class TestLastAdminGuard:
         regular = User(
             username="nonadmin_lag", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=False
         ).save(auth_db)
+        assert regular.id is not None
         assert repo.is_last_admin(regular.id) is False

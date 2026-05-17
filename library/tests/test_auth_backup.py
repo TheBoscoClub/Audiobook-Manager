@@ -173,6 +173,7 @@ class TestAuthBackup:
 
         user = User(username="inbox_test_user", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(db)
+        assert user.id is not None
 
         msg = InboxMessage(
             from_user_id=user.id, message="Please add more books!", reply_via=ReplyMethod.IN_APP
@@ -237,6 +238,7 @@ class TestAuthBackup:
             is_admin=True,
         )
         user.save(db)
+        assert user.id is not None
 
         # Add notification targeting user
         notif = Notification(
@@ -270,6 +272,7 @@ class TestAuthBackup:
 
         # Verify user data integrity
         backup_user = UserRepository(backup_db).get_by_username("integrity_test")
+        assert backup_user is not None
         assert backup_user.auth_credential == b"secret123"
         assert backup_user.can_download is True
         assert backup_user.is_admin is True

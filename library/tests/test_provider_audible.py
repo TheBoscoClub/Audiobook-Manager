@@ -4,6 +4,7 @@ All API calls are mocked — no network access during tests.
 """
 
 import sys
+from email.message import Message
 from pathlib import Path
 from unittest.mock import patch
 
@@ -256,7 +257,7 @@ class TestFetchAudibleProduct:
         monkeypatch.setattr(mod, "_rate_limit", lambda: None)
 
         def _raise_404(req, timeout):
-            raise urllib.error.HTTPError(req.full_url, 404, "Not Found", {}, None)
+            raise urllib.error.HTTPError(req.full_url, 404, "Not Found", Message(), None)
 
         monkeypatch.setattr(mod.urllib.request, "urlopen", _raise_404)
         assert mod._fetch_audible_product("B000MISSING") is None
@@ -287,7 +288,7 @@ class TestFetchAudibleProduct:
         def _maybe_429(req, timeout):
             calls["count"] += 1
             if calls["count"] == 1:
-                raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests", {}, None)
+                raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests", Message(), None)
             return _FakeResp()
 
         monkeypatch.setattr(mod.urllib.request, "urlopen", _maybe_429)
@@ -307,7 +308,7 @@ class TestFetchAudibleProduct:
 
         def _both_fail(req, timeout):
             calls["count"] += 1
-            raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests", {}, None)
+            raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests", Message(), None)
 
         monkeypatch.setattr(mod.urllib.request, "urlopen", _both_fail)
         assert mod._fetch_audible_product("B429x") is None
@@ -335,7 +336,7 @@ class TestFetchAudibleProduct:
         monkeypatch.setattr(mod, "_rate_limit", lambda: None)
 
         def _five_hundred(req, timeout):
-            raise urllib.error.HTTPError(req.full_url, 500, "Server Error", {}, None)
+            raise urllib.error.HTTPError(req.full_url, 500, "Server Error", Message(), None)
 
         monkeypatch.setattr(mod.urllib.request, "urlopen", _five_hundred)
         assert mod._fetch_audible_product("B500") is None

@@ -117,6 +117,7 @@ class TestDatabasePerformance:
         for i in range(100):
             user = User(username=f"sess{i:04d}", auth_type=AuthType.TOTP, auth_credential=b"secret")
             user.save(temp_db)
+            assert user.id is not None
             session, token = Session.create_for_user(temp_db, user.id)
             tokens.append(token)
 
@@ -284,6 +285,7 @@ class TestBulkOperations:
         # Create test user
         user = User(username="nquery", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         # Create many notifications
         for i in range(200):
@@ -293,6 +295,7 @@ class TestBulkOperations:
 
         repo = NotificationRepository(temp_db)
         times = []
+        active: list = []
 
         # Measure query performance
         for _ in range(50):
@@ -314,6 +317,7 @@ class TestBulkOperations:
                 username=f"clean{i:04d}", auth_type=AuthType.TOTP, auth_credential=b"secret"
             )
             user.save(temp_db)
+            assert user.id is not None
             Session.create_for_user(temp_db, user.id)
 
         # Make half the sessions stale
