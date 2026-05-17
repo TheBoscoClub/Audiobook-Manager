@@ -153,8 +153,8 @@ host has been migrated the helper becomes a no-op on subsequent releases.
 | `upgrade.sh` | Version-to-version upgrade. Runs config migrations, calls reconciler, handles remote deploys. |
 | `lib/audiobook-config.sh` | Canonical bash defaults. Sourced by every script that needs paths. |
 | `library/config.py` | Canonical Python defaults. MUST agree with `lib/audiobook-config.sh`. |
-| `scripts/install-manifest.sh` | Declarative arrays: `REQUIRED_VENVS`, `PHANTOM_PATHS`, `REQUIRED_DIRS`, `CANONICAL_UNITS`, `CANONICAL_WRAPPERS`, `CONFIG_CANONICAL_DEFAULTS`. Pure data — no side effects. |
-| `scripts/reconcile-filesystem.sh` | Reads the manifest, reports or enforces. Two modes: `--report` (read-only audit) and `--enforce` (mutating). |
+| `scripts/install-manifest.sh` | Declarative arrays: `REQUIRED_VENVS`, `PHANTOM_PATHS`, `REQUIRED_DIRS`, `CANONICAL_UNITS`, `CANONICAL_WRAPPERS`, `CONFIG_CANONICAL_DEFAULTS`, `OPTIONAL_CREDENTIAL_FILES` (v8.4.0.0+). Pure data — no side effects. |
+| `scripts/reconcile-filesystem.sh` | Reads the manifest, reports or enforces. Two modes: `--report` (read-only audit) and `--enforce` (mutating). Handles `OPTIONAL_CREDENTIAL_FILES` — creates missing stubs with correct ownership and mode; reports any with wrong permissions. |
 | `scripts/migrate-audiobooks-uid.sh` | One-shot UID/GID realignment helper (v8.3.7+). Moves an existing install's `audiobooks` user to the canonical UID=935/GID=934 and chowns every owned file. Supports `--dry-run`. |
 | `config-migrations/001_add_run_dir.sh` | One-shot: ensure `AUDIOBOOKS_RUN_DIR` present in config. |
 | `config-migrations/002_strip_legacy_path_overrides.sh` | One-shot: strip legacy `AUDIOBOOKS_COVERS` and `AUDIOBOOKS_DATABASE` overrides; preserves user customization. |
@@ -184,6 +184,10 @@ Do not resurrect them — add to `install.sh` or the manifest instead.
 4. **Preservation is an invariant, not a feature.** Any new piece of user
    state (a new DB, a new key file) added to the app must be added to
    `stage_preserved_state` / `restore_preserved_state` in the same PR.
+   Credential stub files declared in `OPTIONAL_CREDENTIAL_FILES` are exempt —
+   they are intentionally re-created as empty stubs on fresh install; if the
+   operator has populated them, the `[[ ! -f ]]` guard in `install.sh` /
+   `upgrade.sh` preserves the content.
 5. **`audiobooks.conf.example` documents defaults only.** Never uncomment
    a path key in the example template. If you need to help users find the
    default, put it in a comment above the line.

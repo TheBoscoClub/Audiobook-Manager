@@ -127,6 +127,7 @@ audiobooks/
    - Tests pass (`pytest tests/ -v`)
    - Linting passes (`ruff check library/`)
    - Code is formatted (`ruff format library/`)
+   - Type checking is clean (`cd library && venv/bin/pyright .` — must report 0 errors, 0 warnings)
 
 3. **Write meaningful commit messages**:
 
