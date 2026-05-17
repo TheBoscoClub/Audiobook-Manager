@@ -83,6 +83,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy configuration and utility modules (shared by all Python scripts)
 COPY library/config.py /app/config.py
 COPY library/common.py /app/common.py
+COPY library/common_utils /app/common_utils
 
 # Copy application components
 COPY library/auth /app/auth
