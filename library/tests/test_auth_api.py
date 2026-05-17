@@ -735,6 +735,7 @@ class TestMagicLinkVerify:
         db = auth_app.auth_db
         user_repo = UserRepository(db)
         user = user_repo.get_by_username("verifuser1")
+        assert user is not None and user.id is not None
 
         recovery, raw_token = PendingRecovery.create(db, user.id, expiry_minutes=15)
 
@@ -763,6 +764,7 @@ class TestMagicLinkVerify:
         db = auth_app.auth_db
         user_repo = UserRepository(db)
         user = user_repo.get_by_username("singleuse1")
+        assert user is not None and user.id is not None
 
         recovery, raw_token = PendingRecovery.create(db, user.id, expiry_minutes=15)
 
@@ -785,6 +787,7 @@ class TestMagicLinkVerify:
         db = auth_app.auth_db
         user_repo = UserRepository(db)
         user = user_repo.get_by_username("expireuser")
+        assert user is not None and user.id is not None
 
         # Create token and manually set it as expired
         recovery, raw_token = PendingRecovery.create(db, user.id, expiry_minutes=0)
@@ -1109,6 +1112,7 @@ class TestNotificationDismiss:
         # Get testuser1's ID from the database
         user_repo = UserRepository(auth_app.auth_db)
         test_user = user_repo.get_by_username("testuser1")
+        assert test_user is not None
 
         r = client.post(
             "/auth/admin/notifications",

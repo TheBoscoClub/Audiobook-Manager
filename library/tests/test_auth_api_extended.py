@@ -84,6 +84,7 @@ class TestSessionRestore:
         # Create a non-persistent session
         user_repo = UserRepository(auth_db)
         user = user_repo.get_by_username("testuser1")
+        assert user is not None and user.id is not None
         session, raw_token = Session.create_for_user(
             auth_db, user.id, "pytest", "127.0.0.1", remember_me=False
         )
@@ -96,6 +97,7 @@ class TestSessionRestore:
         """Persistent sessions can be restored."""
         user_repo = UserRepository(auth_db)
         user = user_repo.get_by_username("testuser1")
+        assert user is not None and user.id is not None
         session, raw_token = Session.create_for_user(
             auth_db, user.id, "pytest", "127.0.0.1", remember_me=True
         )
@@ -1413,6 +1415,7 @@ class TestMagicLinkVerifyExtended:
             recovery_email="act@test.com",
             recovery_enabled=True,
         ).save(auth_db)
+        assert user.id is not None
         # Create recovery token
         recovery, raw_token = PendingRecovery.create(auth_db, user.id, expiry_minutes=15)
         client = auth_app.test_client()
@@ -1426,6 +1429,7 @@ class TestMagicLinkVerifyExtended:
         user = User(
             username="expired_ml_ext", auth_type=AuthType.MAGIC_LINK, auth_credential=b""
         ).save(auth_db)
+        assert user.id is not None
         recovery, raw_token = PendingRecovery.create(auth_db, user.id, expiry_minutes=15)
         # Force expiry by setting expires_at to the past
         past = (datetime.now() - timedelta(hours=2)).isoformat()

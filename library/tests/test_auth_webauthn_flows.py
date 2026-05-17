@@ -71,6 +71,7 @@ def _make_passkey_user(auth_db):
     )
     repo = UserRepository(auth_db)
     existing = repo.get_by_username("passkeylogin_fix")
+    assert existing is not None
     if existing:
         return existing
     user.save(auth_db)
@@ -97,6 +98,7 @@ def _make_fido2_user(auth_db):
     )
     repo = UserRepository(auth_db)
     existing = repo.get_by_username("fido2login_fix")
+    assert existing is not None
     if existing:
         return existing
     user.save(auth_db)
@@ -121,6 +123,7 @@ def _create_approved_access_request(
         contact_email=contact_email,
         claim_expires_at=claim_expires_at,
     )
+    assert access_req.id is not None
     req_repo.approve(access_req.id, "adminuser")
     return access_req
 
@@ -202,6 +205,7 @@ class TestWebAuthnSwitchComplete:
         # Verify user's auth_type updated in DB
         repo = UserRepository(auth_db)
         updated = repo.get_by_id(test_user.id)
+        assert updated is not None
         assert updated.auth_type == AuthType.PASSKEY
 
         # Clean up: reset user back to TOTP for other tests
@@ -240,6 +244,7 @@ class TestWebAuthnSwitchComplete:
         # Verify auth_type in DB
         repo = UserRepository(auth_db)
         updated = repo.get_by_id(test_user.id)
+        assert updated is not None
         assert updated.auth_type == AuthType.FIDO2
 
         # Clean up
@@ -400,6 +405,7 @@ class TestClaimWebAuthnComplete:
 
         repo = UserRepository(auth_db)
         user = repo.get_by_username("claimfido2_wn")
+        assert user is not None
         assert user.auth_type == AuthType.FIDO2
 
     def test_claim_missing_fields(self, auth_app):
@@ -662,6 +668,7 @@ class TestRegisterWebAuthnComplete:
 
         repo = UserRepository(auth_db)
         user = repo.get_by_username("regfido2_wn")
+        assert user is not None
         assert user.auth_type == AuthType.FIDO2
 
     def test_complete_missing_fields(self, auth_app):
@@ -862,6 +869,7 @@ class TestLoginWebAuthnComplete:
         # Verify sign_count updated in DB
         repo = UserRepository(auth_db)
         user = repo.get_by_username("passkeylogin_fix")
+        assert user is not None
         stored_cred = WebAuthnCredential.from_json(user.auth_credential.decode("utf-8"))
         assert stored_cred.sign_count == 6
 

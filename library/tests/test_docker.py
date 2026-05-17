@@ -1,3 +1,4 @@
+# pyright: reportOptionalMemberAccess=false
 """
 Docker container build, lifecycle, and API integration tests.
 
@@ -12,6 +13,9 @@ Requirements:
     - Docker daemon running
     - Port range 19000-19999 available for test containers
     - requests library (pip install requests)
+
+Pyright suppression: `requests` is imported in try/except; tests are
+runtime-guarded by skip_no_requests, but pyright cannot prove the binding.
 """
 
 import json
@@ -32,6 +36,7 @@ try:
     from requests.exceptions import ConnectionError as RequestsConnectionError
 except ImportError:
     requests = None  # type: ignore[assignment]
+    RequestsConnectionError = ConnectionError  # type: ignore[assignment,misc]
 
 # ---------------------------------------------------------------------------
 # Path setup (matches project convention)
