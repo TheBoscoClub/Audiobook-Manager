@@ -36,12 +36,13 @@ from auth.totp import TOTPAuthenticator  # noqa: E402
 
 def _make_user(auth_db, username, **kwargs):
     """Create a user with defaults, return saved User."""
-    defaults = dict(
+    defaults: dict[str, object] = dict(
         auth_type=AuthType.TOTP, auth_credential=b"testsecret", is_admin=False, can_download=True
     )
     defaults.update(kwargs)
-    user = User(username=username, **defaults)
+    user = User(username=username, **defaults)  # type: ignore[arg-type]
     user.save(auth_db)
+    assert user.id is not None
     return user
 
 
@@ -68,6 +69,7 @@ def _create_access_request(auth_db, username, status="approved"):
     truncated = raw_claim_token[:16]
     claim_hash = hash_token(truncated)
     access_req = request_repo.create(username, claim_hash, None)
+    assert access_req.id is not None
     if status == "approved":
         request_repo.approve(access_req.id, "testadmin")
     elif status == "denied":
@@ -107,6 +109,7 @@ class TestSessionRestoreEdgeCases:
     def test_restore_stale_session(self, auth_app, auth_db):
         """Stale persistent session returns expired error."""
         user = _make_user(auth_db, "stale_session_cov")
+        assert user.id is not None
         session, raw_token = Session.create_for_user(
             auth_db, user.id, "pytest", "127.0.0.1", remember_me=True
         )
@@ -130,6 +133,7 @@ class TestSessionRestoreEdgeCases:
     def test_restore_deleted_user(self, auth_app, auth_db):
         """Restore for a user who was deleted after session creation."""
         user = _make_user(auth_db, "restore_del_user_cov")
+        assert user.id is not None
         session, raw_token = Session.create_for_user(
             auth_db, user.id, "pytest", "127.0.0.1", remember_me=True
         )
@@ -220,9 +224,11 @@ class TestAuthMethodSwitchAdvanced:
     def test_magic_link_switch_with_email(self, auth_app, auth_db):
         """Switch to magic_link when user has email set."""
         user = _make_user(auth_db, "ml_switch_cov")
+        assert user.id is not None
         UserRepository(auth_db).update_email(user.id, "switch@test.com")
         # Re-fetch user
         user = UserRepository(auth_db).get_by_id(user.id)
+        assert user is not None
         client = _authed_client(auth_app, auth_db, user)
 
         r = client.put("/auth/me/auth-method", json={"auth_method": "magic_link"})
@@ -322,6 +328,7 @@ class TestRegistrationStartEdgeCases:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         access_req = request_repo.create("prev_req_cov_user", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.deny(access_req.id, "admin", "denied")
 
         client = auth_app.test_client()
@@ -345,6 +352,7 @@ class TestClaimFlowEdgeCases:
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
         access_req = request_repo.create("claim_meta_cov", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.approve(access_req.id, "admin")
         # Store invite metadata
         request_repo.store_invite_metadata(access_req.id, False)
@@ -364,6 +372,7 @@ class TestClaimFlowEdgeCases:
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
         access_req = request_repo.create("claim_ml_cov", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.approve(access_req.id, "admin")
 
         client = auth_app.test_client()
@@ -390,6 +399,7 @@ class TestClaimFlowEdgeCases:
         # Create user first, then try to claim with same username
         _make_user(auth_db, "claim_exist_cov")
         access_req = request_repo.create("claim_exist_cov2", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.approve(access_req.id, "admin")
 
         client = auth_app.test_client()
@@ -408,6 +418,7 @@ class TestClaimFlowEdgeCases:
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
         access_req = request_repo.create("claim_rec_cov", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.approve(access_req.id, "admin")
 
         client = auth_app.test_client()
@@ -446,6 +457,7 @@ class TestClaimFlowEdgeCases:
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
         access_req = request_repo.create("cv_denied_cov", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.deny(access_req.id, "admin", "test reason")
 
         client = auth_app.test_client()
@@ -464,6 +476,7 @@ class TestClaimFlowEdgeCases:
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
         # Create access request, approve, then create user with same name
         access_req = request_repo.create("cv_exists_cov", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.approve(access_req.id, "admin")
         # Create a user with same username so username_exists() returns True
         _make_user(auth_db, "cv_exists_cov")
@@ -484,6 +497,7 @@ class TestClaimFlowEdgeCases:
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
         access_req = request_repo.create("cv_approved_cov", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.approve(access_req.id, "admin")
 
         client = auth_app.test_client()
@@ -509,6 +523,7 @@ class TestClaimWebAuthnFlows:
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
         access_req = request_repo.create(username, hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.approve(access_req.id, "admin")
         return access_req, formatted
 
@@ -535,6 +550,7 @@ class TestClaimWebAuthnFlows:
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
         access_req = request_repo.create("cwb_claimed_cov", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.approve(access_req.id, "admin")
         request_repo.mark_credentials_claimed(access_req.id)
 
@@ -597,6 +613,7 @@ class TestClaimWebAuthnFlows:
         trunc = raw[:16]
         formatted = "-".join(trunc[i : i + 4] for i in range(0, 16, 4))
         access_req = request_repo.create("cwc_exist_cov", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.approve(access_req.id, "admin")
         # Create a user with same username so username_exists() returns True
         _make_user(auth_db, "cwc_exist_cov")
@@ -642,6 +659,7 @@ class TestRegistrationStatusEdgeCases:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         access_req = request_repo.create("stat_deny_cov", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.deny(access_req.id, "admin", "not allowed")
 
         client = auth_app.test_client()
@@ -656,6 +674,7 @@ class TestRegistrationStatusEdgeCases:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         access_req = request_repo.create("stat_appr_cov", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.approve(access_req.id, "admin")
 
         client = auth_app.test_client()
@@ -882,6 +901,7 @@ class TestMagicLinkLoginFlow:
         user = _make_user(
             auth_db, "ml_send_cov", auth_type=AuthType.MAGIC_LINK, auth_credential=b""
         )
+        assert user.id is not None
         UserRepository(auth_db).update_email(user.id, "ml@send.com")
 
         client = auth_app.test_client()
@@ -898,6 +918,7 @@ class TestMagicLinkLoginFlow:
         user = _make_user(
             auth_db, "ml_byemail_cov", auth_type=AuthType.MAGIC_LINK, auth_credential=b""
         )
+        assert user.id is not None
         UserRepository(auth_db).update_email(user.id, "byemail@test.com")
 
         client = auth_app.test_client()
@@ -924,6 +945,7 @@ class TestMagicLinkLoginFlow:
         access_req = request_repo.create(
             "approve_email_cov", hash_token(trunc), "approval@test.com"
         )
+        assert access_req.id is not None
 
         auth_app.test_client()
         # Need admin auth
@@ -1006,6 +1028,7 @@ class TestSecurityFeatures:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         access_req = request_repo.create("approve_proc_cov", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.deny(access_req.id, "admin", "denied")
 
         r = admin_client.post(f"/auth/admin/access-requests/{access_req.id}/approve")
@@ -1018,6 +1041,7 @@ class TestSecurityFeatures:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         access_req = request_repo.create("adminuser_dup_cov", hash_token(trunc), None)
+        assert access_req.id is not None
         # Create user with that name first
         _make_user(auth_db, "adminuser_dup_cov")
 
@@ -1035,6 +1059,7 @@ class TestSecurityFeatures:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         access_req = request_repo.create("deny_email_cov", hash_token(trunc), "deny@test.com")
+        assert access_req.id is not None
 
         r = admin_client.post(
             f"/auth/admin/access-requests/{access_req.id}/deny", json={"reason": "testing"}
@@ -1049,6 +1074,7 @@ class TestSecurityFeatures:
         raw, _ = generate_verification_token()
         trunc = raw[:16]
         access_req = request_repo.create("deny_proc_cov", hash_token(trunc), None)
+        assert access_req.id is not None
         request_repo.approve(access_req.id, "admin")
 
         r = admin_client.post(
@@ -1211,6 +1237,7 @@ class TestAdminGranularManagementExtended:
     def test_change_auth_method_magic_link_with_email(self, admin_client, auth_db):
         """Admin switch user to magic_link with existing email."""
         user = _make_user(auth_db, "adm_ml_switch_cov")
+        assert user.id is not None
         UserRepository(auth_db).update_email(user.id, "adm_ml@test.com")
 
         r = admin_client.put(
@@ -1233,6 +1260,7 @@ class TestAdminGranularManagementExtended:
         user = _make_user(
             auth_db, "adm_reset_ml_cov", auth_type=AuthType.MAGIC_LINK, auth_credential=b""
         )
+        assert user.id is not None
         UserRepository(auth_db).update_email(user.id, "reset_ml@test.com")
 
         r = admin_client.post(f"/auth/admin/users/{user.id}/reset-credentials")
@@ -1277,6 +1305,7 @@ class TestSelfServiceAccountExtended:
     def test_account_switch_magic_link_with_email(self, auth_app, auth_db):
         """Self-service switch to magic_link when email exists."""
         user = _make_user(auth_db, "acct_ml_cov")
+        assert user.id is not None
         UserRepository(auth_db).update_email(user.id, "acct_ml@test.com")
         client = _authed_client(auth_app, auth_db, user)
 
@@ -1310,6 +1339,7 @@ class TestSelfServiceAccountExtended:
         user = _make_user(
             auth_db, "acct_reset_ml_cov", auth_type=AuthType.MAGIC_LINK, auth_credential=b""
         )
+        assert user.id is not None
         UserRepository(auth_db).update_email(user.id, "reset@test.com")
         client = _authed_client(auth_app, auth_db, user)
 

@@ -139,8 +139,10 @@ class TestAdminCreateUser:
         entries = audit_repo.list(action_filter="create_user", user_filter=user_id)
         assert len(entries) >= 1
         entry = entries[0]
+        assert entry is not None
         assert entry.action == "create_user"
         assert entry.target_id == user_id
+        assert entry.details is not None
         details = json.loads(entry.details) if isinstance(entry.details, str) else entry.details
         assert details["auth_method"] == "totp"
         assert details["target_username"] == "auditeduser"
@@ -312,6 +314,7 @@ class TestAdminChangeUsername:
         audit_repo = AuditLogRepository(auth_db)
         entries = audit_repo.list(action_filter="change_username", user_filter=uid)
         assert len(entries) >= 1
+        assert entries[0] is not None and entries[0].details is not None
         details = (
             json.loads(entries[0].details)
             if isinstance(entries[0].details, str)
@@ -362,6 +365,7 @@ class TestAdminChangeEmail:
         audit_repo = AuditLogRepository(auth_db)
         entries = audit_repo.list(action_filter="change_email", user_filter=uid)
         assert len(entries) >= 1
+        assert entries[0] is not None and entries[0].details is not None
         details = (
             json.loads(entries[0].details)
             if isinstance(entries[0].details, str)
@@ -410,11 +414,13 @@ class TestAdminChangeRoles:
         demoted_ids = []
         for u in all_users:
             if u.is_admin and u.username != "testadmin_fix":
+                assert u.id is not None
                 user_repo.set_admin(u.id, False)
                 demoted_ids.append(u.id)
 
         try:
             admin_user = user_repo.get_by_username("testadmin_fix")
+            assert admin_user is not None and admin_user.id is not None
             assert user_repo.is_last_admin(admin_user.id)
             resp = admin_client.put(
                 f"/auth/admin/users/{admin_user.id}/roles", json={"is_admin": False}
@@ -449,6 +455,7 @@ class TestAdminChangeRoles:
         audit_repo = AuditLogRepository(auth_db)
         entries = audit_repo.list(action_filter="toggle_roles", user_filter=uid)
         assert len(entries) >= 1
+        assert entries[0] is not None and entries[0].details is not None
         details = (
             json.loads(entries[0].details)
             if isinstance(entries[0].details, str)
@@ -535,6 +542,7 @@ class TestAdminChangeAuthMethod:
         audit_repo = AuditLogRepository(auth_db)
         entries = audit_repo.list(action_filter="switch_auth_method", user_filter=uid)
         assert len(entries) >= 1
+        assert entries[0] is not None and entries[0].details is not None
         details = (
             json.loads(entries[0].details)
             if isinstance(entries[0].details, str)
@@ -626,12 +634,14 @@ class TestAdminDeleteUser:
         # Self-deletion guard fires before last-admin guard (both protect correctly).
         # Test self-deletion guard on the v2 endpoint.
         admin_user = user_repo.get_by_username("testadmin_fix")
+        assert admin_user is not None and admin_user.id is not None
 
         # Ensure testadmin_fix is the only admin
         all_users = user_repo.list_all()
         demoted_ids = []
         for u in all_users:
             if u.is_admin and u.username != "testadmin_fix":
+                assert u.id is not None
                 user_repo.set_admin(u.id, False)
                 demoted_ids.append(u.id)
 
@@ -758,6 +768,7 @@ class TestAdminSetupInfo:
         # Simulate login by setting last_login
         user_repo = UserRepository(auth_db)
         user = user_repo.get_by_id(uid)
+        assert user is not None
         user.last_login = datetime.now()
         user.save(auth_db)
 
