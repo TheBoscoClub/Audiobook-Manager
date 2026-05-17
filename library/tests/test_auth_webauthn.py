@@ -498,6 +498,7 @@ class TestAuthTypeIntegration:
 
         repo = UserRepository(temp_db)
         retrieved = repo.get_by_username("fido2user")
+        assert retrieved is not None
         assert retrieved.auth_type == AuthType.FIDO2
 
     def test_update_sign_count(self, temp_db):
@@ -518,11 +519,13 @@ class TestAuthTypeIntegration:
             auth_credential=cred.to_json().encode("utf-8"),
         )
         user.save(temp_db)
+        assert user.id is not None
         user_id = user.id
 
         # Simulate authentication by updating sign count
         repo = UserRepository(temp_db)
         retrieved = repo.get_by_id(user_id)
+        assert retrieved is not None and retrieved.auth_credential is not None
         stored_cred = WebAuthnCredential.from_json(retrieved.auth_credential.decode("utf-8"))
 
         # Create updated credential with new sign count
@@ -543,6 +546,7 @@ class TestAuthTypeIntegration:
 
         # Verify update
         final = repo.get_by_id(user_id)
+        assert final is not None and final.auth_credential is not None
         final_cred = WebAuthnCredential.from_json(final.auth_credential.decode("utf-8"))
         assert final_cred.sign_count == 10
 
@@ -557,9 +561,12 @@ class TestEdgeCases:
         _, c3 = create_authentication_options(user_id=1, credential_id=b"\x01", username="user3")
 
         assert len(_pending_challenges) == 3
-        assert get_pending_challenge(c1).username == "user1"
-        assert get_pending_challenge(c2).username == "user2"
-        assert get_pending_challenge(c3).username == "user3"
+        pc1 = get_pending_challenge(c1)
+        assert pc1 is not None and pc1.username == "user1"
+        pc2 = get_pending_challenge(c2)
+        assert pc2 is not None and pc2.username == "user2"
+        pc3 = get_pending_challenge(c3)
+        assert pc3 is not None and pc3.username == "user3"
 
     def test_challenge_uniqueness(self):
         """Test challenges are unique."""
@@ -594,6 +601,7 @@ class TestEdgeCases:
         assert options["user"]["name"] == "用户名"
 
         pending = get_pending_challenge(challenge)
+        assert pending is not None
         assert pending.username == "用户名"
 
     def test_special_characters_username(self):

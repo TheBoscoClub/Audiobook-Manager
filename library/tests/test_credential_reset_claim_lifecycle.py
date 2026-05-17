@@ -76,6 +76,7 @@ class TestAdminResetThenClaimTOTP:
 
         db = admin_client.application.auth_db
         user = UserRepository(db).get_by_id(uid)
+        assert user is not None
         assert user.auth_credential != b"testsecret"
         assert user.auth_credential != b"pending"
 
@@ -172,6 +173,7 @@ class TestAdminResetPasskeyThenClaim:
 
         db = admin_client.application.auth_db
         user = UserRepository(db).get_by_id(uid)
+        assert user is not None
         assert user.auth_type == AuthType.TOTP
         assert user.auth_credential != b"pending"
 
@@ -196,6 +198,7 @@ class TestSelfServiceResetThenClaim:
             is_admin=False,
             can_download=True,
         ).save(auth_db)
+        assert user.id is not None
 
         # Create session for this user
         from auth.models import Session
@@ -227,6 +230,7 @@ class TestSelfServiceResetThenClaim:
 
         # Verify DB updated
         user = UserRepository(auth_db).get_by_username("self-reset-pk1")
+        assert user is not None
         assert user.auth_type == AuthType.TOTP
         assert user.auth_credential != b"pending"
 
@@ -283,6 +287,7 @@ class TestClaimURLFormat:
             is_admin=False,
             can_download=True,
         ).save(auth_db)
+        assert user.id is not None
         _, raw_token = Session.create_for_user(
             db=auth_db, user_id=user.id, user_agent="pytest", ip_address="127.0.0.1"
         )

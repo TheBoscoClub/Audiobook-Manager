@@ -46,6 +46,7 @@ class TestAsinExtraction:
         asin, title = extract_asin_and_title(filename)
 
         assert asin == "0062868071"
+        assert title is not None
         assert "The End Is Always Near" in title
 
     def test_extract_alphanumeric_asin(self):
@@ -55,6 +56,7 @@ class TestAsinExtraction:
         asin, title = extract_asin_and_title(filename)
 
         assert asin == "B009XEJWP8"
+        assert title is not None
         assert "Don Quixote" in title
 
     def test_extract_with_different_quality(self):
@@ -64,12 +66,14 @@ class TestAsinExtraction:
         filename1 = "0063031884_The_Neil_Gaiman_Reader-AAX_22_64.aaxc"
         asin1, title1 = extract_asin_and_title(filename1)
         assert asin1 == "0063031884"
+        assert title1 is not None
         assert "Neil Gaiman" in title1
 
         # 44kHz 128kbps
         filename2 = "0062945149_Ultralearning-AAX_44_128.aaxc"
         asin2, title2 = extract_asin_and_title(filename2)
         assert asin2 == "0062945149"
+        assert title2 is not None
         assert "Ultralearning" in title2
 
     def test_extract_invalid_format(self):
@@ -100,6 +104,7 @@ class TestAsinExtraction:
         asin, title = extract_asin_and_title(filename)
 
         assert asin == "B00D9473WC"
+        assert title is not None
         assert "Your Deceptive Mind" in title
         assert "Critical Thinking" in title
 
@@ -110,6 +115,7 @@ class TestAsinExtraction:
         asin, title = extract_asin_and_title(filename)
 
         assert asin == "B07ZRZNXDV"
+        assert title is not None
         assert "_" not in title
         assert "You Ought to Know" in title
 

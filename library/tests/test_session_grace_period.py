@@ -55,9 +55,9 @@ class TestDefaultGraceMinutes:
         """Session.is_stale() with no args uses the 120-minute default."""
         # last_seen was 119 minutes ago — within 120-min grace, so NOT stale.
         s = Session(
-            id="x",
+            id="x",  # type: ignore[arg-type]
             user_id=1,
-            token_hash=b"x" * 32,
+            token_hash=b"x" * 32,  # type: ignore[arg-type]
             created_at=datetime.now() - timedelta(hours=2),
             last_seen=datetime.now() - timedelta(minutes=119),
             user_agent="pytest",
@@ -70,9 +70,9 @@ class TestDefaultGraceMinutes:
     def test_is_stale_default_marks_session_after_121_minutes(self):
         """Session.is_stale() with no args marks 121-min-old session stale."""
         s = Session(
-            id="x",
+            id="x",  # type: ignore[arg-type]
             user_id=1,
-            token_hash=b"x" * 32,
+            token_hash=b"x" * 32,  # type: ignore[arg-type]
             created_at=datetime.now() - timedelta(hours=3),
             last_seen=datetime.now() - timedelta(minutes=121),
             user_agent="pytest",
@@ -85,9 +85,9 @@ class TestDefaultGraceMinutes:
     def test_is_stale_explicit_grace_minutes_still_works(self):
         """Explicit grace_minutes= override still works (e.g., for tests)."""
         s = Session(
-            id="x",
+            id="x",  # type: ignore[arg-type]
             user_id=1,
-            token_hash=b"x" * 32,
+            token_hash=b"x" * 32,  # type: ignore[arg-type]
             created_at=datetime.now() - timedelta(hours=2),
             last_seen=datetime.now() - timedelta(minutes=45),
             user_agent="pytest",
@@ -103,9 +103,9 @@ class TestDefaultGraceMinutes:
     def test_persistent_session_never_stale_under_default(self):
         """Persistent sessions ignore grace period (signed-out only)."""
         s = Session(
-            id="x",
+            id="x",  # type: ignore[arg-type]
             user_id=1,
-            token_hash=b"x" * 32,
+            token_hash=b"x" * 32,  # type: ignore[arg-type]
             created_at=datetime.now() - timedelta(days=30),
             last_seen=datetime.now() - timedelta(days=15),
             user_agent="pytest",

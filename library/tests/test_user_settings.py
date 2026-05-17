@@ -19,6 +19,7 @@ def _create_test_user(db, username="testuser"):
     secret = generate_secret()
     user = User(username=username, auth_type=AuthType.TOTP, auth_credential=secret)
     user.save(db)
+    assert user.id is not None
     return user
 
 
@@ -149,9 +150,11 @@ class TestUserSettingsRepository:
         """Settings are isolated between users."""
         db, user1 = settings_db
         repo = UserSettingsRepository(db)
+        assert user1.id is not None
 
         # Create a second user
         user2 = _create_test_user(db, username="testuser2")
+        assert user2.id is not None
 
         repo.set(user1.id, "font_size", "20")
         repo.set(user2.id, "font_size", "14")
@@ -188,11 +191,11 @@ class TestPreferencesAPI:
         from backend.api_modular import create_app
 
         app = create_app(
-            database_path=str(lib_db_path),
+            database_path=lib_db_path,
             project_dir=Path(__file__).parent.parent.parent,
             supplements_dir=tmp_path / "supplements",
-            auth_db_path=str(auth_db_path),
-            auth_key_path=str(auth_key_path),
+            auth_db_path=auth_db_path,
+            auth_key_path=auth_key_path,
             auth_dev_mode=True,
         )
         app.config["TESTING"] = True
@@ -200,6 +203,7 @@ class TestPreferencesAPI:
         # Create a session for the test user
         from auth.models import Session
 
+        assert user.id is not None
         _session, raw_token = Session.create_for_user(
             db=auth_db, user_id=user.id, user_agent="pytest", ip_address="127.0.0.1"
         )
@@ -319,11 +323,11 @@ class TestPreferencesAPI:
         from backend.api_modular import create_app
 
         app = create_app(
-            database_path=str(lib_db_path),
+            database_path=lib_db_path,
             project_dir=Path(__file__).parent.parent.parent,
             supplements_dir=tmp_path / "supplements2",
-            auth_db_path=str(auth_db_path),
-            auth_key_path=str(auth_key_path),
+            auth_db_path=auth_db_path,
+            auth_key_path=auth_key_path,
             auth_dev_mode=True,
         )
         app.config["TESTING"] = True

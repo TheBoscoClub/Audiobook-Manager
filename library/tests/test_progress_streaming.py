@@ -76,9 +76,14 @@ class TestProgressPatterns:
         """Test parsing update count patterns."""
         pattern = re.compile(r"(?:would update|updated)\s*(\d+)", re.I)
 
-        assert pattern.search("Would update 15 records").group(1) == "15"
-        assert pattern.search("Updated 15 records").group(1) == "15"
-        assert pattern.search("UPDATED 15").group(1) == "15"
+        def _group1(text: str) -> str:
+            m = pattern.search(text)
+            assert m is not None
+            return m.group(1)
+
+        assert _group1("Would update 15 records") == "15"
+        assert _group1("Updated 15 records") == "15"
+        assert _group1("UPDATED 15") == "15"
 
     def test_loading_pattern(self):
         """Test parsing loading count."""
@@ -162,15 +167,23 @@ class TestProgressPatterns:
         """Test parsing queue building progress."""
         pattern = re.compile(r"(\d+)\s*(?:files?|items?|audiobooks?)")
 
-        assert pattern.search("Found 150 files").group(1) == "150"
-        assert pattern.search("Processing 100 items").group(1) == "100"
+        m1 = pattern.search("Found 150 files")
+        assert m1 is not None
+        assert m1.group(1) == "150"
+        m2 = pattern.search("Processing 100 items")
+        assert m2 is not None
+        assert m2.group(1) == "100"
 
     def test_duplicate_count_pattern(self):
         """Test parsing duplicate count."""
         pattern = re.compile(r"(\d+)\s*(?:duplicate|matched)", re.I)
 
-        assert pattern.search("Found 5 duplicates").group(1) == "5"
-        assert pattern.search("5 matched pairs").group(1) == "5"
+        m1 = pattern.search("Found 5 duplicates")
+        assert m1 is not None
+        assert m1.group(1) == "5"
+        m2 = pattern.search("5 matched pairs")
+        assert m2 is not None
+        assert m2.group(1) == "5"
 
 
 class TestProgressScaling:
@@ -459,8 +472,12 @@ class TestEdgeCases:
         pattern = re.compile(r"[✓✔]\s*Downloaded.*:\s*(.+)")
 
         # Various unicode checkmarks
-        assert pattern.search("✓ Downloaded: Book").group(1) == "Book"
-        assert pattern.search("✔ Downloaded: Book").group(1) == "Book"
+        m1 = pattern.search("✓ Downloaded: Book")
+        assert m1 is not None
+        assert m1.group(1) == "Book"
+        m2 = pattern.search("✔ Downloaded: Book")
+        assert m2 is not None
+        assert m2.group(1) == "Book"
 
         # Unicode in title
         match = pattern.search("✓ Downloaded: Café Stories")
