@@ -71,8 +71,7 @@ def _make_passkey_user(auth_db):
     )
     repo = UserRepository(auth_db)
     existing = repo.get_by_username("passkeylogin_fix")
-    assert existing is not None
-    if existing:
+    if existing is not None:
         return existing
     user.save(auth_db)
     return user
@@ -98,8 +97,7 @@ def _make_fido2_user(auth_db):
     )
     repo = UserRepository(auth_db)
     existing = repo.get_by_username("fido2login_fix")
-    assert existing is not None
-    if existing:
+    if existing is not None:
         return existing
     user.save(auth_db)
     return user
