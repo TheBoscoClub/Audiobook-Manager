@@ -141,9 +141,9 @@ class AuthDatabase:
             self._key = self._load_or_generate_key()
         return self._key
 
-    def _create_connection(self) -> sqlcipher.Connection:
+    def _create_connection(self) -> sqlcipher.Connection:  # type: ignore[attr-defined]
         """Create new encrypted database connection."""
-        conn = sqlcipher.connect(str(self.db_path))
+        conn = sqlcipher.connect(str(self.db_path))  # type: ignore[attr-defined]
 
         # CRITICAL: Set encryption key FIRST, before any other operations.
         # SQLCipher PRAGMA key does NOT accept parameterized bind values
@@ -155,7 +155,7 @@ class AuthDatabase:
         # Verify encryption is working
         try:
             conn.execute("SELECT count(*) FROM sqlite_master")
-        except sqlcipher.DatabaseError as e:
+        except sqlcipher.DatabaseError as e:  # type: ignore[attr-defined]
             conn.close()
             if "file is not a database" in str(e).lower():
                 raise AuthDatabaseError(
@@ -169,7 +169,7 @@ class AuthDatabase:
         return conn
 
     @contextmanager
-    def connection(self) -> Generator[sqlcipher.Connection, None, None]:
+    def connection(self) -> Generator[sqlcipher.Connection, None, None]:  # type: ignore[attr-defined]
         """
         Context manager for database connections.
 

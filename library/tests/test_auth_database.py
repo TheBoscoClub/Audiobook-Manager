@@ -166,11 +166,11 @@ class TestCreateConnection:
             # Second call: SELECT count(*) raises DatabaseError
             mock_conn.execute.side_effect = [
                 None,  # PRAGMA key
-                sqlcipher.DatabaseError("some other database error"),
+                sqlcipher.DatabaseError("some other database error"),  # type: ignore[attr-defined]
             ]
 
             with patch("auth.database.sqlcipher.connect", return_value=mock_conn):
-                with pytest.raises(sqlcipher.DatabaseError, match="some other database error"):
+                with pytest.raises(sqlcipher.DatabaseError, match="some other database error"):  # type: ignore[attr-defined]
                     db._create_connection()
             mock_conn.close.assert_called_once()
 
