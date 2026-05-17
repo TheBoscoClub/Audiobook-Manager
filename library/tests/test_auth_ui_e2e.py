@@ -42,10 +42,13 @@ IGNORE_HTTPS_ERRORS = True
 @pytest.fixture(scope="module")
 def browser():
     """Launch a browser for the test module."""
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=True)
-        yield browser
-        browser.close()
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            yield browser
+            browser.close()
+    except Exception as exc:
+        pytest.skip(f"Playwright browser binary not available: {exc}")
 
 
 @pytest.fixture
