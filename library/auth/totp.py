@@ -104,7 +104,7 @@ def generate_qr_code(secret: bytes, username: str, issuer: str = DEFAULT_ISSUER)
     img = qr.make_image(fill_color="black", back_color="white")
 
     buffer = BytesIO()
-    img.save(buffer, format="PNG")
+    img.save(buffer, format="PNG")  # type: ignore[call-arg]  # qrcode passes format through to PIL
     return buffer.getvalue()
 
 

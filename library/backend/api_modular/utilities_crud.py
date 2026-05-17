@@ -572,6 +572,8 @@ def bulk_manage_genres() -> FlaskResponse:
     ids, genre_names, mode, error = _validate_bulk_request(data, "genres", "genres")
     if error:
         return error
+    # If error is None, _validate_bulk_request guarantees ids and genre_names are populated.
+    assert ids is not None and genre_names is not None
 
     conn = get_db(_db_path)
     cursor = conn.cursor()

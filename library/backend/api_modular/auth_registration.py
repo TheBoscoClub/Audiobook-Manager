@@ -61,11 +61,14 @@ def _auth_mod():
     # because Python registers them as DIFFERENT module objects when sys.path
     # contains both library/ and library/backend/. Tests patch the short-path
     # name, and that's the one whose globals back the registered routes.
-    return (
+    mod = (
         _sys.modules.get("api_modular.auth")
         or _sys.modules.get("backend.api_modular.auth")
         or _sys.modules.get("library.backend.api_modular.auth")
     )
+    if mod is None:
+        raise RuntimeError("api_modular.auth module not loaded — cannot resolve auth attributes")
+    return mod
 
 
 # =============================================================================
@@ -536,6 +539,8 @@ def claim_credentials():
     mode, obj, existing_user, error = _resolve_claim_token(username, claim_token)
     if error:
         return error
+    # If error is None, _resolve_claim_token guarantees a valid obj.
+    assert obj is not None
 
     db = get_auth_db()
 

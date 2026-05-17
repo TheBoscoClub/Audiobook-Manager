@@ -58,7 +58,7 @@ import zipfile
 from argparse import ArgumentParser
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -75,24 +75,37 @@ def _set_low_priority():
 
 
 # Try to import mutagen for metadata handling
-try:
+if TYPE_CHECKING:
     from mutagen.flac import Picture
     from mutagen.id3 import APIC
     from mutagen.mp3 import MP3
     from mutagen.oggopus import OggOpus
 
     HAS_MUTAGEN = True
-except ImportError:
-    HAS_MUTAGEN = False
-    print("Warning: mutagen not installed. Cover art embedding will be disabled.")
+else:
+    try:
+        from mutagen.flac import Picture
+        from mutagen.id3 import APIC
+        from mutagen.mp3 import MP3
+        from mutagen.oggopus import OggOpus
+
+        HAS_MUTAGEN = True
+    except ImportError:
+        HAS_MUTAGEN = False
+        print("Warning: mutagen not installed. Cover art embedding will be disabled.")
 
 # Try to import OpenLibrary client
-try:
+if TYPE_CHECKING:
     from utils.openlibrary_client import OpenLibraryClient
 
     HAS_OPENLIBRARY = True
-except ImportError:
-    HAS_OPENLIBRARY = False
+else:
+    try:
+        from utils.openlibrary_client import OpenLibraryClient
+
+        HAS_OPENLIBRARY = True
+    except ImportError:
+        HAS_OPENLIBRARY = False
 
 DB_PATH = DATABASE_PATH
 LIBRARY_PATH = AUDIOBOOKS_LIBRARY

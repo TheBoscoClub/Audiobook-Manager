@@ -13,12 +13,15 @@ import os
 import secrets
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Generator, Optional
+from typing import TYPE_CHECKING, Generator, Optional
 
-try:
+if TYPE_CHECKING:
     import sqlcipher3 as sqlcipher
-except ImportError:
-    sqlcipher = None
+else:
+    try:
+        import sqlcipher3 as sqlcipher
+    except ImportError:
+        sqlcipher = None  # type: ignore[assignment]
 
 logger = logging.getLogger(__name__)
 

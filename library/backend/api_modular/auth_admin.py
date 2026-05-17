@@ -63,17 +63,25 @@ def _auth_mod():
     ``auth_email.py`` for back-compat with the patch targets. Resolved
     through ``sys.modules`` rather than a top-level ``import auth`` to
     avoid a module-load-time cyclic edge with ``auth.py``.
+
+    Raises:
+        RuntimeError: If the parent auth module is not loaded. This should
+        be impossible at runtime — auth_admin can only be imported via
+        api_modular.auth, which loads first.
     """
     import sys as _sys
 
     # Prefer "api_modular.auth" (short-path) over "backend.api_modular.auth"
     # because tests patch the short-path name and the Flask app's registered
     # routes are bound to that module's globals.
-    return (
+    mod = (
         _sys.modules.get("api_modular.auth")
         or _sys.modules.get("backend.api_modular.auth")
         or _sys.modules.get("library.backend.api_modular.auth")
     )
+    if mod is None:
+        raise RuntimeError("api_modular.auth module not loaded — cannot resolve email senders")
+    return mod
 
 
 # =============================================================================
@@ -1505,6 +1513,7 @@ def admin_audit_log():
                     "details": (json.loads(e.details) if isinstance(e.details, str) else e.details),
                 }
                 for e in entries
+                if e is not None
             ],
             "total": total,
         }

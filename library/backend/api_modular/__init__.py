@@ -190,6 +190,8 @@ def _register_extension_blueprints(flask_app, database_path, project_root=None):
     try:
         from localization.queue import init_queue
 
+        if project_root is None:
+            raise RuntimeError("project_root is required to initialize translation queue")
         init_queue(database_path, project_root)
     except Exception as e:
         logging.getLogger(__name__).warning("Translation queue init failed: %s", e)

@@ -15,12 +15,14 @@ Endpoints:
 from datetime import datetime
 from pathlib import Path
 
+from typing import TYPE_CHECKING
+
 from flask import Blueprint, current_app, jsonify, request
 
 from .auth import auth_if_enabled, get_auth_db, get_current_user
 
 # Import auth models for per-user position tracking
-try:
+if TYPE_CHECKING:
     from auth import (
         ListeningHistoryRepository,
         PositionRepository,
@@ -29,8 +31,18 @@ try:
     )
 
     POSITION_REPO_AVAILABLE = True
-except ImportError:
-    POSITION_REPO_AVAILABLE = False
+else:
+    try:
+        from auth import (
+            ListeningHistoryRepository,
+            PositionRepository,
+            UserListeningHistory,
+            UserPosition,
+        )
+
+        POSITION_REPO_AVAILABLE = True
+    except ImportError:
+        POSITION_REPO_AVAILABLE = False
 
 # Blueprint for position routes
 position_bp = Blueprint("position", __name__, url_prefix="/api/position")

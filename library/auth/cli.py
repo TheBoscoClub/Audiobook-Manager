@@ -176,6 +176,7 @@ def cmd_delete(args) -> int:
         if user is None:
             print(f"Error: User '{args.username}' not found", file=sys.stderr)
             return 1
+        assert user.id is not None  # persisted user always has id
 
         if user.is_admin and not args.force:
             print("Error: Cannot delete admin user without --force", file=sys.stderr)
@@ -274,6 +275,7 @@ def cmd_kick(args) -> int:
         if user is None:
             print(f"Error: User '{args.username}' not found", file=sys.stderr)
             return 1
+        assert user.id is not None  # persisted user always has id
 
         count = session_repo.invalidate_user_sessions(user.id)
 
@@ -331,6 +333,7 @@ def cmd_info(args) -> int:
         if user is None:
             print(f"Error: User '{args.username}' not found", file=sys.stderr)
             return 1
+        assert user.id is not None  # persisted user always has id
 
         _print_user_details(user)
         _print_session_details(session_repo.get_by_user_id(user.id))
@@ -353,6 +356,7 @@ def cmd_totp_reset(args) -> int:
         if user is None:
             print(f"Error: User '{args.username}' not found", file=sys.stderr)
             return 1
+        assert user.id is not None  # persisted user always has id
 
         if user.auth_type != AuthType.TOTP:
             print(

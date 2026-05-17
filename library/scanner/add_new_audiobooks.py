@@ -19,7 +19,7 @@ This script:
 import sqlite3
 import sys
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -49,7 +49,7 @@ _enrich_module = None
 _verify_module = None
 
 
-def _get_enrich_module():
+def _get_enrich_module() -> Callable[..., Any] | None:
     global _enrich_module
     if _enrich_module is None:
         try:
@@ -63,10 +63,12 @@ def _get_enrich_module():
                 _enrich_module = enrich_book
             except ImportError:
                 _enrich_module = False
-    return _enrich_module if _enrich_module else None
+    if not _enrich_module:
+        return None
+    return _enrich_module  # type: ignore[return-value]
 
 
-def _get_verify_module():
+def _get_verify_module() -> Callable[..., Any] | None:
     global _verify_module
     if _verify_module is None:
         try:
@@ -75,7 +77,9 @@ def _get_verify_module():
             _verify_module = verify_single_book
         except ImportError:
             _verify_module = False
-    return _verify_module if _verify_module else None
+    if not _verify_module:
+        return None
+    return _verify_module  # type: ignore[return-value]
 
 
 # Progress callback type

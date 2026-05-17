@@ -153,13 +153,13 @@ class DeepLTranslator:
         if self._tracker is None:
             return None
         try:
-            from .glossary import GlossaryError, GlossaryManager
+            from .glossary import GlossaryManager
 
             mgr = GlossaryManager(
                 api_key=self._api_key, base_url=self._base_url, tracker=self._tracker
             )
             self._glossary_id = mgr.ensure()
-        except (GlossaryError, Exception) as exc:  # noqa: BLE001
+        except Exception as exc:  # noqa: BLE001  # GlossaryError is an Exception subclass
             logger.warning("Glossary unavailable, continuing without: %s", exc)
             self._glossary_id = None
         return self._glossary_id

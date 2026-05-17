@@ -558,6 +558,9 @@ def user_request_subtitles():
     if isinstance(loaded[1], int):
         return loaded
     audio_path, existing_chapters = loaded
+    # Narrowed by the isinstance branch above: audio_path is Path, existing_chapters is set[int].
+    assert isinstance(audio_path, Path)
+    assert isinstance(existing_chapters, set)
 
     _start_generation(int(book_id), locale, audio_path, "", skip_chapters=existing_chapters)
 

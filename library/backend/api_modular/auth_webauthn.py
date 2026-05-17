@@ -67,11 +67,14 @@ def _auth_mod():
     # Prefer "api_modular.auth" (short-path) over "backend.api_modular.auth"
     # because tests patch the short-path name and the Flask app's registered
     # routes are bound to that module's globals.
-    return (
+    mod = (
         _sys.modules.get("api_modular.auth")
         or _sys.modules.get("backend.api_modular.auth")
         or _sys.modules.get("library.backend.api_modular.auth")
     )
+    if mod is None:
+        raise RuntimeError("api_modular.auth module not loaded — cannot resolve webauthn attributes")
+    return mod
 
 
 logger = logging.getLogger(__name__)
@@ -240,6 +243,7 @@ def register_webauthn_complete():
     webauthn_cred, _, verify_err = _verify_webauthn_credential(data, origin, rp_id)
     if verify_err:
         return verify_err
+    assert webauthn_cred is not None  # verify_err is None => webauthn_cred is set
 
     user = User(
         username=reg.username,
