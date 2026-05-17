@@ -196,6 +196,7 @@ class TestUserModel:
         """Test updating last login time."""
         user = User(username="login1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
         assert user.last_login is None
 
         user.update_last_login(temp_db)
@@ -204,12 +205,14 @@ class TestUserModel:
         # Verify persisted
         repo = UserRepository(temp_db)
         loaded = repo.get_by_id(user.id)
+        assert loaded is not None
         assert loaded.last_login is not None
 
     def test_user_delete(self, temp_db):
         """Test deleting a user."""
         user = User(username="todelete", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
         user_id = user.id
 
         user.delete(temp_db)
@@ -225,6 +228,7 @@ class TestSessionModel:
         """Test creating a session."""
         user = User(username="session1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         session, token = Session.create_for_user(temp_db, user.id, user_agent="TestAgent/1.0")
 
@@ -237,6 +241,7 @@ class TestSessionModel:
         """Test that only one session per user is allowed."""
         user = User(username="single1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         # Create first session
         session1, token1 = Session.create_for_user(temp_db, user.id)
@@ -259,6 +264,7 @@ class TestSessionModel:
         """Test looking up session by raw token."""
         user = User(username="lookup1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         session, token = Session.create_for_user(temp_db, user.id)
         repo = SessionRepository(temp_db)
@@ -274,6 +280,7 @@ class TestSessionModel:
         """Test updating last_seen timestamp."""
         user = User(username="touchuser1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         session, _ = Session.create_for_user(temp_db, user.id)
 
@@ -294,6 +301,7 @@ class TestSessionModel:
         """Test session invalidation (logout)."""
         user = User(username="logout1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         session, token = Session.create_for_user(temp_db, user.id)
         session.invalidate(temp_db)
@@ -309,6 +317,7 @@ class TestPositionModel:
         """Test saving a position."""
         user = User(username="posuser1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         pos = UserPosition(user_id=user.id, audiobook_id=42, position_ms=150000)
         pos.save(temp_db)
@@ -319,6 +328,7 @@ class TestPositionModel:
         """Test updating a position (upsert)."""
         user = User(username="posuser2", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         # First save
         pos = UserPosition(user_id=user.id, audiobook_id=42, position_ms=100000)
@@ -331,22 +341,29 @@ class TestPositionModel:
         # Verify only one record exists with new position
         repo = PositionRepository(temp_db)
         loaded = repo.get(user.id, 42)
+        assert loaded is not None
         assert loaded.position_ms == 200000
 
     def test_position_isolation(self, temp_db):
         """Test that positions are isolated per user."""
         user1 = User(username="isouser1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user1.save(temp_db)
+        assert user1.id is not None
         user2 = User(username="isouser2", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user2.save(temp_db)
+        assert user2.id is not None
 
         # Different positions for same audiobook
         UserPosition(user_id=user1.id, audiobook_id=42, position_ms=100000).save(temp_db)
         UserPosition(user_id=user2.id, audiobook_id=42, position_ms=200000).save(temp_db)
 
         repo = PositionRepository(temp_db)
-        assert repo.get(user1.id, 42).position_ms == 100000
-        assert repo.get(user2.id, 42).position_ms == 200000
+        pos1 = repo.get(user1.id, 42)
+        assert pos1 is not None
+        assert pos1.position_ms == 100000
+        pos2 = repo.get(user2.id, 42)
+        assert pos2 is not None
+        assert pos2.position_ms == 200000
 
 
 class TestNotificationModel:
@@ -366,6 +383,7 @@ class TestNotificationModel:
         """Test getting active notifications for a user."""
         user = User(username="notif1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         # Global notification
         Notification(message="Global notice", type=NotificationType.INFO).save(temp_db)
@@ -384,9 +402,11 @@ class TestNotificationModel:
         """Test dismissing a notification."""
         user = User(username="dismiss1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         notif = Notification(message="Dismissable", type=NotificationType.INFO, dismissable=True)
         notif.save(temp_db)
+        assert notif.id is not None
 
         repo = NotificationRepository(temp_db)
 
@@ -403,6 +423,7 @@ class TestNotificationModel:
         """Test notification expiry filtering."""
         user = User(username="expire1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         # Expired notification
         Notification(
@@ -435,6 +456,7 @@ class TestInboxModel:
         """Test creating an inbox message."""
         user = User(username="inbox1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         msg = InboxMessage(
             from_user_id=user.id,
@@ -450,6 +472,7 @@ class TestInboxModel:
         """Test marking message as read."""
         user = User(username="inbox2", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         msg = InboxMessage(from_user_id=user.id, message="Test", reply_via=ReplyMethod.IN_APP)
         msg.save(temp_db)
@@ -465,6 +488,7 @@ class TestInboxModel:
         """Test that marking as replied clears the email (PII)."""
         user = User(username="inbox3", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         msg = InboxMessage(
             from_user_id=user.id,
@@ -483,7 +507,9 @@ class TestInboxModel:
 
         # Verify in database
         repo = InboxRepository(temp_db)
+        assert msg.id is not None
         loaded = repo.get_by_id(msg.id)
+        assert loaded is not None
         assert loaded.reply_email is None
 
 
@@ -640,6 +666,7 @@ class TestBackupCodeRepository:
         # Create user first
         user = User(username="backup1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         repo = BackupCodeRepository(temp_db)
         codes = repo.create_codes_for_user(user.id)
@@ -651,6 +678,7 @@ class TestBackupCodeRepository:
         """Test verifying and consuming a valid backup code."""
         user = User(username="backup2", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         repo = BackupCodeRepository(temp_db)
         codes = repo.create_codes_for_user(user.id)
@@ -663,6 +691,7 @@ class TestBackupCodeRepository:
         """Test backup code verification is case-insensitive."""
         user = User(username="backup3", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         repo = BackupCodeRepository(temp_db)
         codes = repo.create_codes_for_user(user.id)
@@ -675,6 +704,7 @@ class TestBackupCodeRepository:
         """Test backup code verification works without dashes."""
         user = User(username="backup4", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         repo = BackupCodeRepository(temp_db)
         codes = repo.create_codes_for_user(user.id)
@@ -687,6 +717,7 @@ class TestBackupCodeRepository:
         """Test verifying an invalid backup code fails."""
         user = User(username="backup5", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         repo = BackupCodeRepository(temp_db)
         repo.create_codes_for_user(user.id)
@@ -699,6 +730,7 @@ class TestBackupCodeRepository:
         """Test that backup codes can only be used once."""
         user = User(username="backup6", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         repo = BackupCodeRepository(temp_db)
         codes = repo.create_codes_for_user(user.id)
@@ -713,9 +745,11 @@ class TestBackupCodeRepository:
         """Test backup code doesn't work for wrong user."""
         user1 = User(username="backup7a", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user1.save(temp_db)
+        assert user1.id is not None
 
         user2 = User(username="backup7b", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user2.save(temp_db)
+        assert user2.id is not None
 
         repo = BackupCodeRepository(temp_db)
         codes1 = repo.create_codes_for_user(user1.id)
@@ -728,6 +762,7 @@ class TestBackupCodeRepository:
         """Test regenerating codes invalidates old unused codes."""
         user = User(username="backup8", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         repo = BackupCodeRepository(temp_db)
         old_codes = repo.create_codes_for_user(user.id)
@@ -750,6 +785,7 @@ class TestBackupCodeRepository:
         """Test getting all backup codes for a user (admin view)."""
         user = User(username="backup9", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         repo = BackupCodeRepository(temp_db)
         codes = repo.create_codes_for_user(user.id)
@@ -769,6 +805,7 @@ class TestBackupCodeRepository:
         """Test deleting all backup codes for a user."""
         user = User(username="backup10", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
+        assert user.id is not None
 
         repo = BackupCodeRepository(temp_db)
         repo.create_codes_for_user(user.id)
@@ -797,6 +834,7 @@ class TestUserRecoveryFields:
         repo = UserRepository(temp_db)
         loaded = repo.get_by_username("recov1")
 
+        assert loaded is not None
         assert loaded.recovery_email == "test@example.com"
         assert loaded.recovery_phone is None
         assert loaded.recovery_enabled is True
@@ -815,6 +853,7 @@ class TestUserRecoveryFields:
         repo = UserRepository(temp_db)
         loaded = repo.get_by_username("recov2")
 
+        assert loaded is not None
         assert loaded.recovery_email is None
         assert loaded.recovery_phone == "+1234567890"
         assert loaded.recovery_enabled is True
@@ -827,6 +866,7 @@ class TestUserRecoveryFields:
         repo = UserRepository(temp_db)
         loaded = repo.get_by_username("recov3")
 
+        assert loaded is not None
         assert loaded.recovery_email is None
         assert loaded.recovery_phone is None
         assert loaded.recovery_enabled is False
@@ -844,5 +884,6 @@ class TestUserRecoveryFields:
         repo = UserRepository(temp_db)
         loaded = repo.get_by_username("recov4")
 
+        assert loaded is not None
         assert loaded.recovery_email == "updated@example.com"
         assert loaded.recovery_enabled is True

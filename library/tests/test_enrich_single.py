@@ -10,6 +10,7 @@ import json
 import sqlite3
 import sys
 import urllib.error
+from email.message import Message
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -46,7 +47,7 @@ def _init_db(db_path: Path) -> None:
     conn.close()
 
 
-def _insert_book(db_path: Path, **overrides) -> int | None:
+def _insert_book(db_path: Path, **overrides) -> int:
     """Insert a test audiobook and return its ID."""
     defaults = {
         "title": "Test Book",
@@ -72,10 +73,11 @@ def _insert_book(db_path: Path, **overrides) -> int | None:
     book_id = cur.lastrowid
     conn.commit()
     conn.close()
+    assert book_id is not None
     return book_id
 
 
-def _insert_author(db_path: Path, name: str, asin: str | None = None) -> int | None:
+def _insert_author(db_path: Path, name: str, asin: str | None = None) -> int:
     """Insert an author row and return its ID."""
     conn = sqlite3.connect(db_path)
     cur = conn.cursor()
@@ -83,6 +85,7 @@ def _insert_author(db_path: Path, name: str, asin: str | None = None) -> int | N
     author_id = cur.lastrowid
     conn.commit()
     conn.close()
+    assert author_id is not None
     return author_id
 
 
@@ -176,7 +179,9 @@ class TestParseSequence:
     """Tests for _parse_sequence()."""
 
     def test_none_input(self):
-        assert _parse_sequence(None) is None
+        # _parse_sequence has type hint str but handles None gracefully — test
+        # asserts that runtime tolerance is preserved
+        assert _parse_sequence(None) is None  # type: ignore[arg-type]
 
     def test_empty_string(self):
         assert _parse_sequence("") is None
@@ -364,7 +369,7 @@ class TestFetchAudibleProduct:
     @patch("scripts.enrich_single.urllib.request.urlopen")
     def test_404_returns_none(self, mock_urlopen):
         mock_urlopen.side_effect = urllib.error.HTTPError(
-            url="", code=404, msg="Not Found", hdrs=None, fp=None
+            url="", code=404, msg="Not Found", hdrs=Message(), fp=None
         )
         assert _fetch_audible_product("BADASIN") is None
 
@@ -372,7 +377,7 @@ class TestFetchAudibleProduct:
     def test_429_retries_then_succeeds(self, mock_urlopen):
         mock_resp = _make_mock_urlopen(SAMPLE_AUDIBLE_PRODUCT)
         mock_urlopen.side_effect = [
-            urllib.error.HTTPError(url="", code=429, msg="Too Many Requests", hdrs=None, fp=None),
+            urllib.error.HTTPError(url="", code=429, msg="Too Many Requests", hdrs=Message(), fp=None),
             mock_resp,
         ]
         with patch("scripts.enrich_single.time.sleep"):
@@ -382,7 +387,7 @@ class TestFetchAudibleProduct:
     @patch("scripts.enrich_single.urllib.request.urlopen")
     def test_429_retries_then_fails(self, mock_urlopen):
         mock_urlopen.side_effect = [
-            urllib.error.HTTPError(url="", code=429, msg="Too Many Requests", hdrs=None, fp=None),
+            urllib.error.HTTPError(url="", code=429, msg="Too Many Requests", hdrs=Message(), fp=None),
             Exception("Still failing"),
         ]
         with patch("scripts.enrich_single.time.sleep"):
@@ -392,7 +397,7 @@ class TestFetchAudibleProduct:
     @patch("scripts.enrich_single.urllib.request.urlopen")
     def test_500_returns_none(self, mock_urlopen):
         mock_urlopen.side_effect = urllib.error.HTTPError(
-            url="", code=500, msg="Server Error", hdrs=None, fp=None
+            url="", code=500, msg="Server Error", hdrs=Message(), fp=None
         )
         assert _fetch_audible_product("B00TEST123") is None
 
@@ -445,7 +450,7 @@ class TestQueryGoogleBooks:
     @patch("scripts.enrich_single.urllib.request.urlopen")
     def test_http_error_returns_none(self, mock_urlopen):
         mock_urlopen.side_effect = urllib.error.HTTPError(
-            url="", code=500, msg="Error", hdrs=None, fp=None
+            url="", code=500, msg="Error", hdrs=Message(), fp=None
         )
         assert _query_google_books(isbn="9781234567890") is None
 
@@ -479,7 +484,7 @@ class TestQueryOpenLibrary:
     @patch("scripts.enrich_single.urllib.request.urlopen")
     def test_http_error_returns_none(self, mock_urlopen):
         mock_urlopen.side_effect = urllib.error.HTTPError(
-            url="", code=500, msg="Error", hdrs=None, fp=None
+            url="", code=500, msg="Error", hdrs=Message(), fp=None
         )
         assert _query_openlibrary_search("Test") is None
 
