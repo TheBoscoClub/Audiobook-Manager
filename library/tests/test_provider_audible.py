@@ -288,7 +288,9 @@ class TestFetchAudibleProduct:
         def _maybe_429(req, timeout):
             calls["count"] += 1
             if calls["count"] == 1:
-                raise urllib.error.HTTPError(req.full_url, 429, "Too Many Requests", Message(), None)
+                raise urllib.error.HTTPError(
+                    req.full_url, 429, "Too Many Requests", Message(), None
+                )
             return _FakeResp()
 
         monkeypatch.setattr(mod.urllib.request, "urlopen", _maybe_429)

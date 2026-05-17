@@ -230,7 +230,9 @@ class TestPlayerNavigationPlaywright:
         print("\n  ✓ Audio player started successfully")
 
     @pytest.mark.skipif(not PLAYWRIGHT_AVAILABLE, reason="Playwright not installed")
-    def test_playback_continues_during_navigation_to_backoffice(self, page: "_Page", test_audiobook):
+    def test_playback_continues_during_navigation_to_backoffice(
+        self, page: "_Page", test_audiobook
+    ):
         """Test that audio continues playing when navigating to Back Office."""
         # Navigate to library and start playing
         page.goto(WEB_BASE_URL)

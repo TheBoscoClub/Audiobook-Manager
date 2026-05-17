@@ -377,7 +377,9 @@ class TestFetchAudibleProduct:
     def test_429_retries_then_succeeds(self, mock_urlopen):
         mock_resp = _make_mock_urlopen(SAMPLE_AUDIBLE_PRODUCT)
         mock_urlopen.side_effect = [
-            urllib.error.HTTPError(url="", code=429, msg="Too Many Requests", hdrs=Message(), fp=None),
+            urllib.error.HTTPError(
+                url="", code=429, msg="Too Many Requests", hdrs=Message(), fp=None
+            ),
             mock_resp,
         ]
         with patch("scripts.enrich_single.time.sleep"):
@@ -387,7 +389,9 @@ class TestFetchAudibleProduct:
     @patch("scripts.enrich_single.urllib.request.urlopen")
     def test_429_retries_then_fails(self, mock_urlopen):
         mock_urlopen.side_effect = [
-            urllib.error.HTTPError(url="", code=429, msg="Too Many Requests", hdrs=Message(), fp=None),
+            urllib.error.HTTPError(
+                url="", code=429, msg="Too Many Requests", hdrs=Message(), fp=None
+            ),
             Exception("Still failing"),
         ]
         with patch("scripts.enrich_single.time.sleep"):
