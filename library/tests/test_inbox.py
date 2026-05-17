@@ -154,7 +154,9 @@ class TestInboxStatusTransitions:
 
         # Verify in database
         repo = InboxRepository(temp_db)
+        assert msg.id is not None
         loaded = repo.get_by_id(msg.id)
+        assert loaded is not None
         assert loaded.reply_email is None
 
     def test_archive_message(self, temp_db, test_user):
@@ -169,7 +171,9 @@ class TestInboxStatusTransitions:
         msg.save(temp_db)
 
         repo = InboxRepository(temp_db)
+        assert msg.id is not None
         loaded = repo.get_by_id(msg.id)
+        assert loaded is not None
         assert loaded.status == InboxStatus.ARCHIVED
 
 
@@ -184,6 +188,7 @@ class TestInboxRepository:
         msg.save(temp_db)
 
         repo = InboxRepository(temp_db)
+        assert msg.id is not None
         found = repo.get_by_id(msg.id)
 
         assert found is not None
@@ -394,7 +399,9 @@ class TestInboxFromRow:
         msg.mark_read(temp_db)
 
         repo = InboxRepository(temp_db)
+        assert msg.id is not None
         loaded = repo.get_by_id(msg.id)
+        assert loaded is not None
 
         assert loaded.id == msg.id
         assert loaded.from_user_id == test_user.id

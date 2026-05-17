@@ -47,6 +47,7 @@ def sample_user(auth_app):
     auth_db = auth_app.auth_db
     user = User(username="audit_test_user", auth_type=AuthType.TOTP, auth_credential=b"testsecret")
     user = user.save(auth_db)
+    assert user.id is not None
     yield user.id
 
     # Cleanup: delete user so the session-scoped auth_db stays clean
@@ -66,6 +67,7 @@ def second_user(auth_app):
         username="audit_test_user2", auth_type=AuthType.TOTP, auth_credential=b"testsecret2"
     )
     user = user.save(auth_db)
+    assert user.id is not None
     yield user.id
 
     from auth.models import UserRepository
@@ -84,6 +86,7 @@ class TestAuditLogDataclass:
         """from_row() should populate all fields from a positional tuple."""
         row = (1, "2026-03-23T12:00:00Z", 10, 20, "user.create", '{"key": "val"}')
         entry = AuditLog.from_row(row)
+        assert entry is not None
         assert entry.id == 1
         assert entry.timestamp == "2026-03-23T12:00:00Z"
         assert entry.actor_id == 10
@@ -99,6 +102,7 @@ class TestAuditLogDataclass:
         """from_row() should handle NULL actor_id and target_id."""
         row = (5, "2026-03-23T12:00:00Z", None, None, "user.deleted", None)
         entry = AuditLog.from_row(row)
+        assert entry is not None
         assert entry.actor_id is None
         assert entry.target_id is None
         assert entry.details is None
@@ -261,6 +265,7 @@ class TestAuditLogUserDeletion:
             auth_credential=b"ephemeralkey",
         )
         ephemeral = ephemeral.save(auth_db)
+        assert ephemeral.id is not None
         ephemeral_id = ephemeral.id
 
         # Log an action with this user as actor

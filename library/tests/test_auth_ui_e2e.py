@@ -1,3 +1,4 @@
+# pyright: reportPossiblyUnboundVariable=false
 """
 End-to-end browser tests for authentication UI pages.
 
@@ -11,6 +12,10 @@ Requires:
 
 Run with:
     pytest library/tests/test_auth_ui_e2e.py -v --headed
+
+Pyright suppression: playwright is imported in a try/except block. The
+allow_module_level=True skip below guarantees `expect` and `sync_playwright`
+are bound when tests run, but pyright cannot prove that.
 """
 
 import os

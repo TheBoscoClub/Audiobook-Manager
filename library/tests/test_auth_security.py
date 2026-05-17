@@ -217,6 +217,7 @@ class TestPrivilegeEscalation:
 
         # Reload from DB
         loaded = repo.get_by_username("sectest")
+        assert loaded is not None
         assert loaded.is_admin is False
 
         # Verify admin flag is stored correctly
@@ -236,12 +237,16 @@ class TestPrivilegeEscalation:
 
         # Verify user token maps to non-admin user
         user_sess = session_repo.get_by_token(user_token)
+        assert user_sess is not None
         user = user_repo.get_by_id(user_sess.user_id)
+        assert user is not None
         assert user.is_admin is False
 
         # Verify admin token maps to admin user
         admin_sess = session_repo.get_by_token(admin_token)
+        assert admin_sess is not None
         admin = user_repo.get_by_id(admin_sess.user_id)
+        assert admin is not None
         assert admin.is_admin is True
 
 
@@ -258,7 +263,9 @@ class TestSessionFixation:
 
         # Session should map to the correct user
         loaded_session = session_repo.get_by_token(raw_token)
+        assert loaded_session is not None
         user = user_repo.get_by_id(loaded_session.user_id)
+        assert user is not None
         assert user.id == test_user.id
         assert user.username == "sectest"
         assert user.is_admin is False
@@ -383,7 +390,13 @@ class TestBoundaryConditions:
 
         # Empty username lookup should return None safely
         assert repo.get_by_username("") is None
-        assert repo.get_by_username(None) is None if hasattr(repo, "get_by_username") else True
+        # Test None tolerance — get_by_username is typed as str but should not crash on None.
+        # This is a robustness check for hostile/malformed input.
+        assert (
+            repo.get_by_username(None) is None  # type: ignore[arg-type]
+            if hasattr(repo, "get_by_username")
+            else True
+        )
 
     def test_very_long_token(self, temp_db, test_user):
         """Test handling of extremely long tokens."""
