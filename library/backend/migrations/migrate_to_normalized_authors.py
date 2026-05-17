@@ -286,9 +286,9 @@ if __name__ == "__main__":
     cli_db_path = args.db_path
     if not cli_db_path:
         try:
-            from library.backend.config import DATABASE_PATH
+            from library.backend.config import DATABASE_PATH  # type: ignore[import-not-found]
         except ModuleNotFoundError:
-            from backend.config import DATABASE_PATH
+            from backend.config import DATABASE_PATH  # type: ignore[import-not-found]
 
         cli_db_path = str(DATABASE_PATH)
 

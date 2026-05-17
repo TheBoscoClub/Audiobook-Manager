@@ -18,7 +18,7 @@ import requests
 LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR / "scripts"))
 
-from utils.openlibrary_client import (  # noqa: E402
+from utils.openlibrary_client import (  # noqa: E402  # type: ignore[import-not-found]
     OpenLibraryClient,
     OpenLibraryEdition,
     RateLimitError,

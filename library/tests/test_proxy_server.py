@@ -57,7 +57,7 @@ def _import_proxy_server():
     web_v2_dir = str(Path(__file__).parent.parent / "web-v2")
     if web_v2_dir not in sys.path:
         sys.path.insert(0, web_v2_dir)
-    import proxy_server as ps
+    import proxy_server as ps  # type: ignore[import-not-found]
 
     return ps
 

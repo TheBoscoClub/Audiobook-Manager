@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "web-v2"))
 
 def test_proxy_detects_websocket_upgrade_headers():
     """Verify the proxy recognizes WebSocket upgrade requests."""
-    from proxy_server import is_websocket_upgrade
+    from proxy_server import is_websocket_upgrade  # type: ignore[import-not-found]
 
     class FakeHeaders:
         def __init__(self, d):

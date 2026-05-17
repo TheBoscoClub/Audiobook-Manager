@@ -243,8 +243,8 @@ def run_auth_cleanup():
         auth_dir = str(Path(__file__).parent.parent / "auth")
         if auth_dir not in sys.path:
             sys.path.insert(0, auth_dir)
-        from database import AuthDatabase
-        from models import (
+        from database import AuthDatabase  # type: ignore[import-not-found]
+        from models import (  # type: ignore[import-not-found]
             PendingRecoveryRepository,
             PendingRegistrationRepository,
             SessionRepository,

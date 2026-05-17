@@ -18,7 +18,7 @@ def _get_auth_db():
     _auth_dir = str(Path(__file__).parent.parent.parent.parent / "auth")
     if _auth_dir not in sys.path:
         sys.path.insert(0, _auth_dir)
-    from database import AuthDatabase
+    from database import AuthDatabase  # type: ignore[import-not-found]
 
     return AuthDatabase()
 
@@ -28,7 +28,7 @@ def _cleanup_stale_sessions(db, results, progress_callback):
     if progress_callback:
         progress_callback(0.1, "Cleaning stale sessions...")
 
-    from models import SessionRepository
+    from models import SessionRepository  # type: ignore[import-not-found]
 
     sessions = SessionRepository(db)
     # Uses Session.DEFAULT_GRACE_MINUTES (120) — bumped from 30 in v8.3.10.5
@@ -41,7 +41,7 @@ def _cleanup_expired_registrations(db, results, progress_callback):
     if progress_callback:
         progress_callback(0.3, "Cleaning expired registrations...")
 
-    from models import PendingRegistrationRepository
+    from models import PendingRegistrationRepository  # type: ignore[import-not-found]
 
     registrations = PendingRegistrationRepository(db)
     results["expired_registrations"] = registrations.cleanup_expired()
@@ -52,7 +52,7 @@ def _cleanup_expired_recoveries(db, results, progress_callback):
     if progress_callback:
         progress_callback(0.5, "Cleaning expired recovery tokens...")
 
-    from models import PendingRecoveryRepository
+    from models import PendingRecoveryRepository  # type: ignore[import-not-found]
 
     recoveries = PendingRecoveryRepository(db)
     results["expired_recoveries"] = recoveries.cleanup_expired()

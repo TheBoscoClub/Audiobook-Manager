@@ -198,7 +198,7 @@ def add_new_audiobooks_endpoint() -> FlaskResponse:
     def work(tracker, operation_id):
         progress_cb = create_progress_callback(operation_id)
         sys.path.insert(0, str(_project_root / "scanner"))
-        from add_new_audiobooks import AUDIOBOOK_DIR, COVER_DIR, add_new_audiobooks
+        from add_new_audiobooks import AUDIOBOOK_DIR, COVER_DIR, add_new_audiobooks  # type: ignore[import-not-found]
 
         results = add_new_audiobooks(
             library_dir=AUDIOBOOK_DIR,

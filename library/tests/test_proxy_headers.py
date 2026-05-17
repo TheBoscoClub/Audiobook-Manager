@@ -37,7 +37,7 @@ class TestHopByHopHeaders:
             if "proxy_server" in sys.modules:
                 importlib.reload(sys.modules["proxy_server"])
             else:
-                import proxy_server  # noqa: F401
+                import proxy_server  # noqa: F401  # type: ignore[import-not-found]
             return sys.modules["proxy_server"].HOP_BY_HOP_HEADERS
         finally:
             del sys.modules["config"]
@@ -95,7 +95,7 @@ class TestProxyPrefixes:
             if "proxy_server" in sys.modules:
                 importlib.reload(sys.modules["proxy_server"])
             else:
-                import proxy_server  # noqa: F401
+                import proxy_server  # noqa: F401  # type: ignore[import-not-found]
             return sys.modules["proxy_server"].ReverseProxyHandler
         finally:
             del sys.modules["config"]
@@ -207,7 +207,7 @@ class TestCorsHeaders:
             if "proxy_server" in sys.modules:
                 importlib.reload(sys.modules["proxy_server"])
             else:
-                import proxy_server  # noqa: F401
+                import proxy_server  # noqa: F401  # type: ignore[import-not-found]
             return sys.modules["proxy_server"].ReverseProxyHandler
         finally:
             del sys.modules["config"]
@@ -344,7 +344,7 @@ class TestCorsOriginCrlfRejection:
             if "proxy_server" in sys.modules:
                 importlib.reload(sys.modules["proxy_server"])
             else:
-                import proxy_server  # noqa: F401
+                import proxy_server  # noqa: F401  # type: ignore[import-not-found]
             return sys.modules["proxy_server"]
         finally:
             del sys.modules["config"]
