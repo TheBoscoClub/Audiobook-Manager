@@ -22,8 +22,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.requires_repo_source
-
 from translation_monitor import (
     CAPACITY_WARNING_COOLDOWN_SEC,
     LIVE_AGE_ALERT_SEC,
@@ -44,6 +42,8 @@ from translation_monitor.events import ALLOWED_EVENT_TYPES, ALLOWED_MONITORS, re
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = PROJECT_ROOT / "library" / "backend" / "schema.sql"
+
+pytestmark = pytest.mark.requires_repo_source
 
 
 # ─── Fixtures ──────────────────────────────────────────────────────────────
