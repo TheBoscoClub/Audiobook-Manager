@@ -5,6 +5,7 @@ trimming, and missing-credential default behavior. All tests are hermetic — th
 use `tmp_path` for any filesystem state and `monkeypatch.setenv`/`delenv` for
 env-var control, so they never touch the operator's real `/etc/audiobooks/`.
 """
+
 from __future__ import annotations
 
 import logging
@@ -150,9 +151,7 @@ def test_whitespace_only_file_returns_default(monkeypatch, tmp_path: Path):
 # ─── 7. File unreadable → default + warning ───────────────────────────────
 
 
-def test_unreadable_file_returns_default_and_warns(
-    monkeypatch, tmp_path: Path, caplog
-):
+def test_unreadable_file_returns_default_and_warns(monkeypatch, tmp_path: Path, caplog):
     """A 000-mode file triggers PermissionError on read; resolve_secret swallows it."""
     if os.geteuid() == 0:
         pytest.skip("PermissionError cannot be exercised when running as root")

@@ -207,9 +207,7 @@ class TestSendNotificationEmail:
             "SMTP_FROM": "lib@test.com",
         }
         env_clear = {
-            k: v
-            for k, v in os.environ.items()
-            if not k.startswith("SMTP_") and k != "SMTP_PASS"
+            k: v for k, v in os.environ.items() if not k.startswith("SMTP_") and k != "SMTP_PASS"
         }
         env_clear.update(env)
         with patch.dict(os.environ, env_clear, clear=True):

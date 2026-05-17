@@ -14,6 +14,7 @@ OpenLibrary client code and `library/scanner/utils/` for scanner helpers. A
 top-level `library/utils/` would shadow the `from utils.openlibrary_client
 import ...` pattern used by `library/scripts/populate_from_openlibrary.py` etc.
 """
+
 from __future__ import annotations
 
 import logging
