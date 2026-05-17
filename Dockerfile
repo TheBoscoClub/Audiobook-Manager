@@ -54,7 +54,7 @@ LABEL org.opencontainers.image.licenses="MIT"
 # - openssl: TLS certificate generation
 #
 # Versions pinned to current Debian Trixie stable for reproducible image
-# builds (Audiobook-Manager-rdd). Captured 2026-04-27 from `apt-cache policy`
+# builds (Audiobook-Manager-rdd). Captured 2026-05-17 from `apt-cache policy`
 # inside the same `python:3.14-slim` base used by `FROM`. Revisit on the next
 # Debian release (Trixie point release or jump to Forky) — bumping any pin
 # ALSO requires re-validating the CVE notes at the top of this Dockerfile,
@@ -63,8 +63,8 @@ LABEL org.opencontainers.image.licenses="MIT"
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     ffmpeg=7:7.1.3-0+deb13u1 \
     mediainfo=25.04-1 \
-    jq=1.7.1-6+deb13u1 \
-    curl=8.14.1-2+deb13u2 \
+    jq=1.7.1-6+deb13u2 \
+    curl=8.14.1-2+deb13u3 \
     libsqlcipher-dev=4.6.1-2 \
     openssl=3.5.5-1~deb13u2 \
     && rm -rf /var/lib/apt/lists/*
