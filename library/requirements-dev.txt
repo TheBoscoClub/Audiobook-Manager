@@ -35,6 +35,6 @@ mando>=0.7.1,<0.9
 astroid>=4.0.4,<4.2
 packaging>=26.2
 platformdirs>=4.9.6
-types-croniter>=6.2.2.20260508
+types-croniter>=6.2.2.20260518
 types-requests>=2.33.0.20260513
 zope.interface>=8.4
