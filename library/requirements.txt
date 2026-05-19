@@ -9,7 +9,7 @@ requests>=2.34.2
 cryptography>=48.0.0     # CVE-2026-39892 (47.0.0 was floor); 48.0.0 latest stable 2026-05
 webauthn>=2.7.1
 pyotp>=2.9.0
-qrcode[pil]>=8.0
+qrcode[pil]>=8.2
 sqlcipher3>=0.6.2
 # Security: Pin minimum versions for transitive deps with CVEs
 urllib3>=2.7.0      # CVE-2026-21441, CVE-2026-44431, CVE-2026-44432
