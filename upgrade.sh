@@ -526,15 +526,22 @@ create_backup() {
     # Determine if we need sudo
     if [[ -w "$target" ]]; then
         cp -a "$target" "$backup_dir"
+        # cp -a preserves source mtime; refresh the backup dir's mtime so it sorts
+        # newest-first by both mtime and filename (filename encodes timestamp).
+        touch "$backup_dir"
     else
         sudo cp -a "$target" "$backup_dir"
+        sudo touch "$backup_dir"
     fi
 
     echo -e "${GREEN}  Backup created successfully${NC}"
 
-    # Rolling retention: keep last 5 backups, delete older ones
+    # Rolling retention: keep last 5 backups, delete older ones.
+    # Sort by filename (lexical = chronological because timestamp is embedded)
+    # rather than mtime — mtime sort historically evicted the fresh backup when
+    # cp -a inherited an older source mtime.
     local -a backups
-    mapfile -t backups < <(ls -1dt "${target}.backup."* 2>/dev/null)
+    mapfile -t backups < <(ls -1d "${target}.backup."* 2>/dev/null | sort -r)
     if ((${#backups[@]} > 5)); then
         for old_backup in "${backups[@]:5}"; do
             echo -e "${BLUE}  Removing old backup: $old_backup${NC}"
