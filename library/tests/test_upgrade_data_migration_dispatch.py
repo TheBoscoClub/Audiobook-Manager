@@ -18,6 +18,7 @@ import textwrap
 from pathlib import Path
 
 import pytest
+
 pytestmark = pytest.mark.requires_repo_source
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
