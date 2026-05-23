@@ -541,6 +541,7 @@ create_backup() {
     # rather than mtime — mtime sort historically evicted the fresh backup when
     # cp -a inherited an older source mtime.
     local -a backups
+    # shellcheck disable=SC2012  # filename lexical sort is intentional (see comment above)
     mapfile -t backups < <(ls -1d "${target}.backup."* 2>/dev/null | sort -r)
     if ((${#backups[@]} > 5)); then
         for old_backup in "${backups[@]:5}"; do
