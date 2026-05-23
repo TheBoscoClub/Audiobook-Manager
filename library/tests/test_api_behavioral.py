@@ -566,6 +566,35 @@ class TestSortByPublishedYear:
         years = [b["published_year"] for b in data["audiobooks"]]
         assert years == sorted(years, reverse=True)
 
+    def test_year_sort_is_deterministic(self, client):
+        # v8.4.0.1: tiebreaker (release_date NULLS LAST, id DESC) ensures the
+        # same query returns the same order across calls — historically the
+        # within-year ordering was rowid-dependent and non-stable.
+        d1 = _get(client, "/api/audiobooks?sort=published_year&order=desc&per_page=200")
+        d2 = _get(client, "/api/audiobooks?sort=published_year&order=desc&per_page=200")
+        ids1 = [b["id"] for b in d1["audiobooks"]]
+        ids2 = [b["id"] for b in d2["audiobooks"]]
+        assert ids1 == ids2
+
+
+class TestSortByReleaseDate:
+    """v8.4.0.1: release_date is the audiobook release date (vs published_year = book pub year)."""
+
+    def test_release_date_desc_accepted(self, client):
+        # New sort option in v8.4.0.1 — must be in the allowlist
+        data = _get(client, "/api/audiobooks?sort=release_date&order=desc&per_page=200")
+        # All seeded books have release_date NULL; with NULLS LAST the response
+        # should still be the full set and deterministic.
+        assert "audiobooks" in data
+        ids1 = [b["id"] for b in data["audiobooks"]]
+        d2 = _get(client, "/api/audiobooks?sort=release_date&order=desc&per_page=200")
+        ids2 = [b["id"] for b in d2["audiobooks"]]
+        assert ids1 == ids2
+
+    def test_release_date_asc_accepted(self, client):
+        data = _get(client, "/api/audiobooks?sort=release_date&order=asc&per_page=200")
+        assert "audiobooks" in data
+
 
 class TestSortBySeries:
     """Sort by series shows only books with a series, ordered by name then sequence."""
