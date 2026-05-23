@@ -13,7 +13,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-## [8.4.0.0] - 2026-05-16
+## [8.4.0.1] - 2026-05-23
+
+### Added
+
+- **New audiobook-release sort options**: "Newest Released (Audio)" and "Oldest Released (Audio)" added to the sort dropdown, backed by `audiobooks.release_date`. Distinguishes the *audiobook's release date* from the *book's publication year* — previously the only date-of-publication sort used `published_year`, which conflated the two. New entries: `_SORT_MAPPINGS["release_date"] = "release_date"`, added to `_NULLABLE_SORTS` so missing dates sort to the end. UI options in `library/web-v2/index.html` with `data-i18n="sort.newestReleased"` / `sort.oldestReleased` and matching curated zh-Hans strings in `library/locales/zh-Hans.json`
+
+### Changed
+
+- **`Newest/Oldest Published` relabeled to `Newest/Oldest Published (Book)`** in `library/web-v2/index.html` + en/zh-Hans locales — clarifies that the sort uses the *book's* publication year (`audiobooks.published_year`), not the audiobook's release date. Paired with the new `Released (Audio)` options to make the two semantics explicit
+- **`tutorial.js` sort-description updated** to mention both "book publication year" and "audiobook release date" so the in-app guided tour reflects the new option
+
+### Fixed
+
+- **`upgrade.sh::create_backup` rolling-retention now keeps the latest backup**: previously `cp -a` preserved source mtime, so the new backup directory inherited an older mtime than backups created earlier in the day. Subsequent `ls -1dt` (sort-by-mtime) ranked today's freshly-created backup as the *oldest* entry, and the `[5:]` retention slice deleted it. Fixed by (a) `touch`ing the new backup directory so its mtime is current, and (b) switching retention to `ls -1d ... | sort -r` which sorts by filename (the `YYYYMMDD-HHMMSS` suffix is lexically chronological). Detected during the v8.4.0.0 prod upgrade where no `audiobooks.backup.20260523-*` survived
+- **`audiobooks.py::_build_sort_clause` adds tiebreaker for `published_year` sort**: previously `ORDER BY published_year DESC` had no secondary sort, so within a given year SQLite returned rows in rowid order — a 2025-12-30 audio release could appear *below* a January-2025 entry simply because of insertion timing. Now appends `CASE WHEN release_date IS NULL THEN 1 ELSE 0 END, release_date {dir}, id DESC` so within-year ordering is deterministic and respects the audiobook's release-date precision. Mirrors the pattern already used in `library/backend/api_modular/grouped.py::_build_grouped_query`
+
+
 
 ### Added
 
@@ -3778,7 +3794,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.0...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.1...HEAD
+[8.4.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.0...v8.4.0.1
 [8.4.0.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.7...v8.4.0.0
 [8.3.10.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.6...v8.3.10.7
 [8.3.10.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.5...v8.3.10.6
