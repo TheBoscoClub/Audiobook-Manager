@@ -27,6 +27,18 @@ After running `upgrade.sh`:
 2. Verify API responds: `curl -s http://localhost:5001/api/system/version`
 3. Verify web UI loads and buttons work
 
+## Running pytest on the Deployed VM (Installed Environment)
+
+When running pytest against the **installed** application (`/opt/audiobooks/library`) rather than the project source, `webauthn` and other packages only exist in the venv, not in system Python. System `pytest` uses system Python, so `sudo` drops the environment. Use this invocation pattern:
+
+```bash
+cd /opt/audiobooks/library
+sudo -E -u audiobooks env PYTHONPATH=/opt/audiobooks/library/venv/lib/python3.14/site-packages \
+    pytest --vm -k "test_api_behavioral or sort" --tb=short -q
+```
+
+**Why `sudo -E -u audiobooks`**: `-E` preserves the current environment through `sudo`; combined with explicit `env PYTHONPATH=...`, this makes `webauthn` and other venv packages importable during test collection. Without this, `test_admin_activity_api.py` fails to collect with `ModuleNotFoundError: No module named 'webauthn'`.
+
 ## Test VM Lifecycle — Always Shut Down at End of /test
 
 **`test-audiobook-cachyos` is EXCLUSIVELY for `/test` audits.** It has no other purpose, no continuous workload, and no other user. Therefore the VM MUST be shut down at the end of every `/test` audit — regardless of whether `/test` was the process that started it.
