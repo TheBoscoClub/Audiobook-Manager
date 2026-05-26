@@ -32,7 +32,7 @@ mando>=0.7.1,<0.8
 # astroid is pylint's runtime AST engine. pylint 4.0.5 (latest stable)
 # constrains astroid to `<=4.1.dev0,>=4.0.2`; 4.1.2 is compatible.
 # Re-visit upper bound when pylint 4.1+ releases upstream.
-astroid>=4.0.4,<4.2
+astroid>=4.1.2,<4.2
 packaging>=26.2
 platformdirs>=4.9.6
 types-croniter>=6.2.2.20260518
