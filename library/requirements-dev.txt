@@ -34,7 +34,7 @@ mando>=0.8.2,<0.9
 # Re-visit upper bound when pylint 4.1+ releases upstream.
 astroid>=4.1.2,<4.2
 packaging>=26.2
-platformdirs>=4.9.6
+platformdirs>=4.10.0
 types-croniter>=6.2.2.20260518
 types-requests>=2.33.0.20260518
 zope.interface>=8.4
