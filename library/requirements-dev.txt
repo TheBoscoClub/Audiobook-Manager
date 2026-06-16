@@ -10,7 +10,7 @@ pytest-playwright>=0.8.0
 requests-mock>=1.12.1
 
 # Linters / formatters
-ruff>=0.15.16
+ruff>=0.15.17
 mypy>=2.1.0
 black>=26.5.1
 isort>=8.0.1
