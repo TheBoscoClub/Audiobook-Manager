@@ -17,7 +17,7 @@ isort>=8.0.1
 
 # Security scanners
 bandit>=1.9.4
-pip-audit>=2.10.0
+pip-audit>=2.10.1
 
 # Transitive dev dependencies — pinned to current versions to ensure
 # dev environments stay reproducible across fresh installs. These are
