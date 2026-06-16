@@ -14,7 +14,7 @@ sqlcipher3>=0.6.2
 # Security: Pin minimum versions for transitive deps with CVEs
 urllib3>=2.7.0      # CVE-2026-21441, CVE-2026-44431, CVE-2026-44432
 pyasn1>=0.6.3       # CVE-2026-23490, CVE-2026-30922
-pyopenssl>=26.2.0   # CVE-2026-27448, CVE-2026-27459 (26.2.0 supports cryptography 48)
+pyopenssl>=26.3.0   # CVE-2026-27448, CVE-2026-27459 (26.2.0 supports cryptography 48)
 filelock>=3.29.4    # CVE-2025-68146
 marshmallow>=4.3.0  # CVE-2025-68480 (actual installed: 4.x)
 pynacl>=1.6.2       # CVE-2025-69277
