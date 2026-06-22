@@ -2219,8 +2219,8 @@ do_upgrade() {
 # -----------------------------------------------------------------------------
 
 purge_cloudflare_cache() {
-    # Purge Cloudflare CDN cache after deploying web assets.
-    # Non-fatal: if credentials aren't available, just log and continue.
+    # Purge Cloudflare CDN cache after deploying web assets — INLINE via curl.
+    # Non-fatal: if credentials or the zone ID aren't available, just log and continue.
     # Credentials sourced from ~/.config/api-keys.env (shared with cloudflare-manager).
     # When running under sudo, $HOME is /root — use SUDO_USER's home instead.
     local real_home="$HOME"
@@ -2235,81 +2235,34 @@ purge_cloudflare_cache() {
 
     if [[ -z "$CF_GLOBAL_API_KEY" || -z "$CF_AUTH_EMAIL" ]]; then
         echo -e "${YELLOW}  Cloudflare cache purge skipped (no credentials in $cf_keys_file)${NC}"
-        echo -e "${YELLOW}  See: audiobook-purge-cache --help${NC}"
+        return 0
+    fi
+
+    # Resolve the Cloudflare zone ID: prefer the environment, then fall back to
+    # /etc/audiobooks/audiobooks.conf if readable by the current user.
+    CF_ZONE_ID="${CF_ZONE_ID:-}"
+    if [[ -z "$CF_ZONE_ID" && -r /etc/audiobooks/audiobooks.conf ]]; then
+        CF_ZONE_ID=$(grep -E '^[[:space:]]*CF_ZONE_ID=' /etc/audiobooks/audiobooks.conf | tail -1 | cut -d= -f2- | tr -d '"'\''[:space:]')
+    fi
+    if [[ -z "$CF_ZONE_ID" ]]; then
+        echo -e "${YELLOW}  CDN cache purge skipped (CF_ZONE_ID not set)${NC}"
         return 0
     fi
 
     echo -e "${BLUE}Purging Cloudflare CDN cache...${NC}"
 
-    # Delegate to the standalone script if available.
-    # Prefer the INSTALLED copy (/usr/local/bin/audiobook-purge-cache →
-    # /opt/audiobooks/scripts/audiobook-purge-cache) over the project tree
-    # copy: the installed script's adjacent lib/ + config files are owned by
-    # the audiobooks user and readable when we drop privileges below, while
-    # the project tree's config.env is typically 0600 owned by the operator
-    # (bosco) and unreadable by the audiobooks service account.
-    local purge_script=""
-    if command -v audiobook-purge-cache &>/dev/null; then
-        purge_script="audiobook-purge-cache"
-    elif [[ -x "${SCRIPT_DIR}/scripts/audiobook-purge-cache" ]]; then
-        purge_script="${SCRIPT_DIR}/scripts/audiobook-purge-cache"
-    elif [[ -x "$(dirname "$SCRIPT_DIR")/scripts/audiobook-purge-cache" ]]; then
-        purge_script="$(dirname "$SCRIPT_DIR")/scripts/audiobook-purge-cache"
-    fi
-
-    if [[ -n "$purge_script" ]]; then
-        # The purge script enforces `require_audiobooks_user` (the audiobooks DB
-        # and config files are 0640 audiobooks:audiobooks). When upgrade.sh is
-        # invoked as root or the operator (e.g., `bosco`/`claude`), we must
-        # re-invoke under sudo -u audiobooks. Credentials live in the calling
-        # user's $HOME/.config/api-keys.env, so we forward them as env vars
-        # (audiobooks's own home has no .config/). CF_ZONE_ID may come from
-        # /etc/audiobooks/audiobooks.conf which the audiobooks user can read.
-        local current_user
-        current_user="$(id -un)"
-        local -a run_purge
-        if [[ "$current_user" == "audiobooks" ]]; then
-            # Already running as audiobooks (rare — install.sh edge case)
-            run_purge=("$purge_script")
-        elif command -v sudo &>/dev/null && sudo -n -u audiobooks true 2>/dev/null; then
-            # Forward Cloudflare credentials so the dropped-privilege child can use them
-            run_purge=(
-                sudo -u audiobooks
-                env
-                "CF_GLOBAL_API_KEY=${CF_GLOBAL_API_KEY:-}"
-                "CF_AUTH_EMAIL=${CF_AUTH_EMAIL:-}"
-                "CF_ZONE_ID=${CF_ZONE_ID:-}"
-                "$purge_script"
-            )
-        else
-            echo -e "${YELLOW}  CDN cache purge skipped (cannot sudo to audiobooks user)${NC}"
-            return 0
-        fi
-        if "${run_purge[@]}" 2>&1; then
-            echo -e "${GREEN}  CDN cache purged${NC}"
-        else
-            echo -e "${YELLOW}  CDN cache purge failed (non-fatal)${NC}"
-        fi
+    local result
+    result=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
+        -H "X-Auth-Key: $CF_GLOBAL_API_KEY" \
+        -H "X-Auth-Email: $CF_AUTH_EMAIL" \
+        -H "Content-Type: application/json" \
+        --data '{"purge_everything":true}')
+    if echo "$result" | python3 -c "import sys,json;sys.exit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
+        echo -e "${GREEN}  CDN cache purged${NC}"
     else
-        # Inline fallback if script not found
-        local zone_id="${CF_ZONE_ID:-}"
-        if [[ -z "$zone_id" ]]; then
-            echo -e "${YELLOW}  CDN cache purge skipped (CF_ZONE_ID not set)${NC}"
-            return 0
-        fi
-
-        local result
-        result=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$zone_id/purge_cache" \
-            -H "X-Auth-Key: $CF_GLOBAL_API_KEY" \
-            -H "X-Auth-Email: $CF_AUTH_EMAIL" \
-            -H "Content-Type: application/json" \
-            --data '{"purge_everything":true}')
-        if echo "$result" | python3 -c "import sys,json;sys.exit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
-            echo -e "${GREEN}  CDN cache purged${NC}"
-        else
-            echo -e "${YELLOW}  CDN cache purge failed (non-fatal)${NC}"
-        fi
+        echo -e "${YELLOW}  CDN cache purge failed (non-fatal)${NC}"
     fi
+    return 0
 }
 
 # -----------------------------------------------------------------------------

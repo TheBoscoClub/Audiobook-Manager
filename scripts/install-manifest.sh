@@ -132,7 +132,6 @@ CANONICAL_WRAPPERS=(
     "audiobook-help"
     "audiobook-config"
     "audiobook-download-monitor"
-    "audiobook-purge-cache"
     "audiobook-save-staging"
     "audiobook-translations"
 )
