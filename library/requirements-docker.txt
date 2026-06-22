@@ -10,8 +10,8 @@ gevent-websocket>=0.10.1
 flask-sock>=0.7.0
 croniter>=6.2.2
 requests>=2.34.2
-cryptography>=48.0.0     # CVE-2026-39892 (47.0.0 was floor); 48.0.0 latest stable 2026-05
-webauthn>=2.8.0
+cryptography>=49.0.0     # CVE-2026-39892 (47.0.0 was floor); 49.0.0 latest stable 2026-06
+webauthn>=2.7.1,<2.8.0   # cap <2.8.0: it requires cbor2<6.0.0, conflicting with cbor2>=6.1.2 (CVE-2026-26209)
 pyotp>=2.10.0
 defusedxml>=0.7.1
 qrcode[pil]>=8.2

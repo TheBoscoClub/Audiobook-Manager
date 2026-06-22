@@ -13,6 +13,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.4.0.2] - 2026-06-22
+
+### Changed
+
+- **`zope.interface` floor raised to `>=8.5`** (was `>=8.4`) in `library/requirements-dev.txt` — incorporates Dependabot #69
+- **`codecov/codecov-action` bumped to `v7.0.0`** (SHA-pinned `fb8b3582…`) in `.github/workflows/ci.yml` — incorporates Dependabot #80
+- **Batch of Dependabot dependency-floor bumps** merged into this release (#65–#89) — `cbor2>=6.1.2`, `idna>=3.18`, `pyopenssl>=26.3.0`, `pyotp>=2.10.0`, `filelock>=3.29.4`, `gevent>=26.5.0`, `greenlet>=3.5.1`, `pytest>=9.1.0`, `pytest-asyncio>=1.4.0`, `ruff>=0.15.17`, `platformdirs>=4.10.0`, plus pinned GitHub Actions group bumps. See the `v8.4.0.1...v8.4.0.2` compare for the full per-package history
+
+### Fixed
+
+- **New-books marquee leaked translated chapters**: `/api/user/new-books` (the scrolling "newest books" ticker) queried the `audiobooks` table with no content filter, unlike the `/api/audiobooks` grid and `/api/audiobooks/grouped` endpoints — per-chapter translation artifacts (e.g. `Zoe's Tale: An Old Man's War Novel.ch021.zh-Hans`, stored under a `translated/` subdirectory) scrolled by as if each chapter were a separate new audiobook. These rows carry `content_type='Product'`, so `AUDIOBOOK_FILTER` alone does not exclude them — the decisive clause is `file_path NOT LIKE '%/translated/%'`. `get_new_books()` now applies both clauses to each query branch, importing the canonical `AUDIOBOOK_FILTER` from `audiobooks.py` rather than duplicating it. Regression test: `library/tests/test_user_state_api.py::TestNewBooksExcludesTranslatedChapters`
+- **`requirements.txt` dependency conflict broke CI**: Dependabot #89 bumped `webauthn>=2.8.0`, which narrows its own dependency to `cbor2<6.0.0` — conflicting with the `cbor2>=6.1.2` pin held for CVE-2026-26209. `pip install -r library/requirements.txt` failed with `ResolutionImpossible`, reddening the `Python Security & Quality` workflow. Capped `webauthn>=2.7.1,<2.8.0` in `library/requirements.txt` and `library/requirements-docker.txt`, preserving the cbor2 CVE floor and matching the working production resolution (webauthn 2.7.1 + cbor2 6.1.2)
+- **Docker build failed on stale apt version pins**: `Dockerfile`'s `apt-get upgrade -y` installs the latest Trixie point-release packages, but the subsequent `apt-get install` pinned older exact versions (`ffmpeg=7:7.1.3-0+deb13u1`, `openssl=3.5.6-1~deb13u1`) — making the install a downgrade, which apt refuses without `--allow-downgrades` (exit 100). Refreshed the pins to the current point-release versions (`ffmpeg=7:7.1.4-0+deb13u1`, `openssl=3.5.6-1~deb13u2`); verified with a full local `docker buildx build`
+
+### Security
+
+- **`cryptography` floor raised to `>=49.0.0`** (was `>=48.0.0`, CVE-2026-39892) in `library/requirements.txt` and `library/requirements-docker.txt` — incorporates Dependabot #87
+
 ## [8.4.0.1] - 2026-05-23
 
 ### Added
@@ -3785,7 +3803,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.2...HEAD
+[8.4.0.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.1...v8.4.0.2
 [8.4.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.0...v8.4.0.1
 [8.4.0.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.7...v8.4.0.0
 [8.3.10.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.6...v8.3.10.7

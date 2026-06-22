@@ -34,7 +34,7 @@
 FROM python:3.14-slim@sha256:5b3879b6f3cb77e712644d50262d05a7c146b7312d784a18eff7ff5462e77033
 
 # Read version from VERSION file during build
-ARG APP_VERSION=8.4.0.1
+ARG APP_VERSION=8.4.0.2
 
 LABEL maintainer="Audiobooks Project"
 LABEL description="Standalone audiobook library — fully self-contained with all databases and dependencies"
@@ -54,19 +54,22 @@ LABEL org.opencontainers.image.licenses="MIT"
 # - openssl: TLS certificate generation
 #
 # Versions pinned to current Debian Trixie stable for reproducible image
-# builds (Audiobook-Manager-rdd). Captured 2026-05-17 from `apt-cache policy`
-# inside the same `python:3.14-slim` base used by `FROM`. Revisit on the next
-# Debian release (Trixie point release or jump to Forky) — bumping any pin
-# ALSO requires re-validating the CVE notes at the top of this Dockerfile,
-# since some pins (notably ffmpeg) are tracking unpatched-upstream CVEs that
-# the Trixie security team will eventually backfill.
+# builds (Audiobook-Manager-rdd). Captured 2026-06-22 from `apt-cache policy`
+# inside the same `python:3.14-slim` base used by `FROM`. Pins MUST track the
+# Trixie point-release stream: `apt-get upgrade -y` (above) installs the latest
+# security patch level, so a stale pin that is older than the upgraded package
+# makes the subsequent install a downgrade — which apt refuses without
+# --allow-downgrades and fails the build (exit 100). The 2026-06 Trixie point
+# release bumped ffmpeg 7.1.3→7.1.4 and openssl deb13u1→deb13u2. Revisit on the
+# next point release — bumping any pin ALSO requires re-validating the CVE notes
+# at the top of this Dockerfile.
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
-    ffmpeg=7:7.1.3-0+deb13u1 \
+    ffmpeg=7:7.1.4-0+deb13u1 \
     mediainfo=25.04-1 \
     jq=1.7.1-6+deb13u2 \
     curl=8.14.1-2+deb13u3 \
     libsqlcipher-dev=4.6.1-2 \
-    openssl=3.5.6-1~deb13u1 \
+    openssl=3.5.6-1~deb13u2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
