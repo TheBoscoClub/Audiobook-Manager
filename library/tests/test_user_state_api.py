@@ -11,6 +11,7 @@ Tests cover:
 - Authentication enforcement on all endpoints
 """
 
+import sqlite3
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -337,6 +338,76 @@ class TestNewBooksNoCache:
         assert resp.status_code == 200
         assert resp.headers.get("Cache-Control") == "no-store, must-revalidate"
         assert resp.headers.get("Pragma") == "no-cache"
+
+
+# ============================================================
+# Translated-chapter exclusion regression (Audiobook-Manager-2sw)
+# ============================================================
+
+
+class TestNewBooksExcludesTranslatedChapters:
+    """The marquee (`/api/user/new-books`) must apply the same content
+    filtering as the main library grid.
+
+    Regression for the 2026-06-22 report: per-chapter translation artifacts
+    (e.g. ``Zoe's Tale.ch021.zh-Hans.opus`` under a ``translated/``
+    subdirectory) appeared in the newest-books marquee as if each chapter
+    were a separate new audiobook. Crucially these rows carry
+    ``content_type = 'Product'`` on prod, so the content-type filter alone
+    does NOT exclude them — the decisive clause is
+    ``file_path NOT LIKE '%/translated/%'`` (the same defense-in-depth
+    filter the grid and grouped endpoints use). See Audiobook-Manager-2sw.
+    """
+
+    TRANSLATED_ID = 999001
+
+    def _insert_translated_chapter(self, db_path):
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute(
+                "INSERT INTO audiobooks"
+                " (id, title, author, file_path, format, duration_hours,"
+                "  content_type, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    self.TRANSLATED_ID,
+                    "Zoe's Tale: An Old Man's War Novel.ch021.zh-Hans",
+                    "John Scalzi",
+                    "/test/Zoe's Tale/translated/Zoe's Tale.ch021.zh-Hans.opus",
+                    "opus",
+                    0.3,
+                    "Product",  # mirrors prod: artifacts are 'Product', not a special type
+                    "2099-01-01 00:00:00",  # future -> qualifies as "new" under both query branches
+                ),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    def _delete_translated_chapter(self, db_path):
+        conn = sqlite3.connect(db_path)
+        try:
+            conn.execute("DELETE FROM audiobooks WHERE id = ?", (self.TRANSLATED_ID,))
+            conn.commit()
+        finally:
+            conn.close()
+
+    def test_translated_chapter_absent_from_new_books(self, client, user_state_seeded):
+        db_path = client.application.config["DATABASE_PATH"]
+        self._insert_translated_chapter(db_path)
+        try:
+            _login(client, user_state_seeded, user_state_seeded.test_user_secret)
+            resp = client.get("/api/user/new-books")
+            assert resp.status_code == 200
+            books = resp.get_json()["books"]
+            returned_ids = {b["id"] for b in books}
+            assert self.TRANSLATED_ID not in returned_ids, (
+                "Translated chapter artifact leaked into the new-books marquee — "
+                "file_path NOT LIKE '%/translated/%' filter is missing"
+            )
+            assert not any("zh-Hans" in (b["title"] or "") for b in books)
+        finally:
+            self._delete_translated_chapter(db_path)
 
 
 # ============================================================

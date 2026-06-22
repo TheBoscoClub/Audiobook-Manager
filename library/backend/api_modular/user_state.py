@@ -32,7 +32,15 @@ from auth import (
 )
 from flask import Blueprint, jsonify, request
 
+from .audiobooks import AUDIOBOOK_FILTER
 from .auth import get_auth_db, login_required, require_current_user
+
+# Per-chapter translation artifacts (e.g. ``Book.ch001.zh-Hans.opus``) live
+# under a ``translated/`` subdirectory and are stored in the audiobooks table
+# with content_type='Product'. They must be hidden from every reader view, not
+# just the grid — the marquee is one such view. Parameter-bound to keep the
+# LIKE pattern out of the SQL string. See Audiobook-Manager-2sw.
+_TRANSLATED_PATH_PATTERN = "%/translated/%"
 
 # Blueprint for user state routes
 user_bp = Blueprint("user_state", __name__, url_prefix="/api/user")
@@ -424,15 +432,21 @@ def get_new_books():
             cursor.execute(
                 "SELECT id, title, author, duration_hours,"
                 " cover_path, format, created_at"
-                " FROM audiobooks ORDER BY created_at DESC"
+                f" FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
+                " AND file_path NOT LIKE ?"
+                " ORDER BY created_at DESC",
+                (_TRANSLATED_PATH_PATTERN,),
             )
         else:
             seen_at = prefs.new_books_seen_at.isoformat()
             cursor.execute(
                 "SELECT id, title, author, duration_hours,"
                 " cover_path, format, created_at"
-                " FROM audiobooks WHERE created_at > ? ORDER BY created_at DESC",
-                (seen_at,),
+                f" FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
+                " AND file_path NOT LIKE ?"
+                " AND created_at > ?"
+                " ORDER BY created_at DESC",
+                (_TRANSLATED_PATH_PATTERN, seen_at),
             )
 
         books = []
