@@ -13,6 +13,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.4.0.3] - 2026-06-22
+
+### Removed
+
+- **`scripts/audiobook-purge-cache` removed from the repo**: the standalone Cloudflare CDN cache-purge CLI was operator-specific (generic installers may not use Cloudflare) and is no longer distributed or installed. Dropped its entries from `scripts/install-manifest.sh` and `install-manifest.json`. The in-app `POST /api/system/purge-cache` endpoint and its web-UI button are unchanged (they already gate on CF config). Operators who use Cloudflare keep a gate-free copy locally outside the repo
+
+### Changed
+
+- **`upgrade.sh::purge_cloudflare_cache()` now purges inline via `curl`**: removed the dependency on the deleted CLI script (and the `require_audiobooks_user` `sudo -u audiobooks` re-invoke it required). The function sources operator credentials from `SUDO_USER`'s `~/.config/api-keys.env` and resolves `CF_ZONE_ID` from `/etc/audiobooks/audiobooks.conf`; non-Cloudflare installs skip gracefully. Fixes the regression (introduced 4bd9917d) where the gate forced the purge onto the `audiobooks` account, which read a stale duplicate `api-keys.env` and failed with Cloudflare error `10000`
+
 ## [8.4.0.2] - 2026-06-22
 
 ### Changed
@@ -3803,7 +3813,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.3...HEAD
+[8.4.0.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.2...v8.4.0.3
 [8.4.0.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.1...v8.4.0.2
 [8.4.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.0...v8.4.0.1
 [8.4.0.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.3.10.7...v8.4.0.0
