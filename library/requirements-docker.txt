@@ -3,7 +3,7 @@
 # It does NOT include Audible CLI integration — use the native install for that.
 
 Flask>=3.1.3             # GHSA-68rp-wp8r-4726
-mutagen>=1.47.0
+mutagen>=1.48.0
 gunicorn>=26.0.0
 gevent>=26.5.0
 gevent-websocket>=0.10.1
