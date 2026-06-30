@@ -24,7 +24,7 @@ pip-audit>=2.10.1
 # pulled in by the tools above; bumping the floor keeps us on the
 # current-major line and avoids CVE-tracked older releases.
 rich>=15.0.0
-greenlet>=3.5.2
+greenlet>=3.5.3
 librt>=0.11.0
 # radon 6.0.1 requires mando>=0.6,<0.8; stay on the 0.7.x line (latest
 # pre-0.8 release is 0.7.1) so `pip check` stays clean.
