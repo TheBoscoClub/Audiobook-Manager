@@ -48,17 +48,3 @@ See `VERSION` file. User/group: `audiobooks:audiobooks`
 | RCA-v8.3.8.6-chinese-audio-silence.md | `./docs/RCA-v8.3.8.6-chinese-audio-silence.md` |
 | CONTRIBUTING.md | `./CONTRIBUTING.md` |
 
-## Future Improvements
-
-| Item | Priority | Notes |
-|------|----------|-------|
-| ~~Test Coverage~~ | ~~Medium~~ | **DONE** — 95.66% coverage (3305 tests). Previously-low modules now covered: `proxy_server.py` (95%), `cli.py`/`inbox_cli.py`/`notify_cli.py` (from 0%), all `utilities_ops` modules (93-100%), `maintenance_tasks` (all covered), `audit.py` (covered). |
-| ~~Cover Art Resolver~~ | ~~Medium~~ | **DONE** — Only 1 book was missing (not ~642). Manually fixed + built tiered resolver (`scanner/utils/cover_resolver.py`: Audible → Open Library → Google Books) as fallback in `extract_cover_art()`. |
-| ~~Hide shell.html from URL~~ | ~~Low~~ | **DONE** — `proxy_server.py` serves shell.html content at `/` directly. `/shell.html` redirects 301 → `/`. |
-| ~~Mobile player bottom clipping~~ | ~~Medium~~ | **DONE** — Added `env(safe-area-inset-bottom)` padding to `#shell-player` in `shell.css`. Works across Safari, Chrome, Firefox mobile. |
-| ~~Email Setup Guide~~ | ~~Low~~ | **DONE (v8.3.8)** — `docs/EMAIL-SETUP.md` covers Resend, Gmail, Outlook, Protonmail Bridge, generic SMTP, mailx/s-nail smoke-test, plus STARTTLS/implicit-SSL/plaintext decision matrix and common failure-mode table. |
-| ~~Profile preference live-apply~~ | ~~Low~~ | **DONE (v8.3.8)** — `account.js::saveBrowsingPref` dispatches `audiobooks:preference-changed` CustomEvent; `library.js::_wirePreferenceLiveApply` routes by key (`view_mode` → CSS class toggle, `sort_order`/`items_per_page`/`content_filter` → re-apply + `loadAudiobooks`). No hard refresh required. |
-| ~~Cachebust stamp automation~~ | ~~High~~ | **DONE (v8.3.8)** — `scripts/bump-cachebust.sh` rewrites every `?v=<stamp>` in `web-v2/*.html` to a single per-deploy epoch stamp. Invoked by both `upgrade.sh` (after HTML sync, before service restart) and `install.sh`. Replaces the manual ?v= bumping that periodically caused stale-JS incidents (v8.3.4 qalib 2000-ID URL-overflow 400 being one). |
-| ~~Data migrations framework for `upgrade.sh`~~ | ~~Medium~~ | **DONE** — `data-migrations/` directory parallel to `config-migrations/`, version-gated via `MIN_VERSION` in each script. `upgrade.sh` runs migrations only when crossing the declared boundary; `install.sh` runs all unconditionally on fresh installs. First migration: `001_podcast_detection.sh` (v8.0.3 boundary). |
-
-
