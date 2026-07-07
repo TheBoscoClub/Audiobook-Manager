@@ -60,11 +60,12 @@ LABEL org.opencontainers.image.licenses="MIT"
 # security patch level, so a stale pin that is older than the upgraded package
 # makes the subsequent install a downgrade — which apt refuses without
 # --allow-downgrades and fails the build (exit 100). The 2026-06 Trixie point
-# release bumped ffmpeg 7.1.3→7.1.4 and openssl deb13u1→deb13u2. Revisit on the
-# next point release — bumping any pin ALSO requires re-validating the CVE notes
-# at the top of this Dockerfile.
+# release bumped ffmpeg 7.1.4→7.1.5 (2026-07 point release; 7.1.4 purged from the
+# mirror, install failed with "Version not found"). Revisit on the next point
+# release — bumping any pin ALSO requires re-validating the CVE notes at the top
+# of this Dockerfile.
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
-    ffmpeg=7:7.1.4-0+deb13u1 \
+    ffmpeg=7:7.1.5-0+deb13u1 \
     mediainfo=25.04-1 \
     jq=1.7.1-6+deb13u2 \
     curl=8.14.1-2+deb13u3 \
