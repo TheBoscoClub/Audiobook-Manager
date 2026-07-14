@@ -36,5 +36,5 @@ astroid>=4.1.2,<4.2
 packaging>=26.2
 platformdirs>=4.10.0
 types-croniter>=6.2.2.20260518
-types-requests>=2.33.0.20260518
+types-requests>=2.33.0.20260712
 zope.interface>=8.5
