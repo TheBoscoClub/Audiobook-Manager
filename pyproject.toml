@@ -86,9 +86,26 @@ profile = "black"
 line_length = 100
 
 [tool.mypy]
+# Canonical mypy config. This was previously split across a gitignored mypy.ini
+# (which mypy ranks ABOVE pyproject.toml, so it silently won locally) and this
+# block (which CI never saw, because pyproject.toml was gitignored too). The two
+# disagreed, so `check_untyped_defs = true` below had never actually run
+# anywhere. Merged here as the single source; mypy.ini is gone.
 python_version = "3.14"
-check_untyped_defs = true
-exclude = ["venv/", ".snapshots/"]
+ignore_missing_imports = true
+namespace_packages = false
+exclude = ["venv/", ".snapshots/", ".worktrees/", ".git/"]
+# check_untyped_defs is deliberately OFF: enabling it surfaces 93 errors across
+# 20 files. Tracked as a ratchet, not silently dropped — see the bd issue
+# "mypy: enable check_untyped_defs". Turning it on without clearing those first
+# would put the now-blocking Type Checking job straight into the red.
+check_untyped_defs = false
+
+[[tool.mypy.overrides]]
+# The project ships its own `websocket` module, which shadows the third-party
+# package of the same name; mypy resolves the import to the wrong one.
+module = ["websocket", "websocket.*"]
+ignore_errors = true
 
 [tool.pylint.typecheck]
 # sqlcipher3 is a C extension. Pylint cannot introspect its exports statically,

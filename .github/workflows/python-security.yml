@@ -64,11 +64,14 @@ jobs:
             pip install -r library/requirements.txt
           fi
 
+      # A real gate. This previously swallowed failures twice over — `|| echo
+      # ::warning::` masked the exit code, and continue-on-error masked what was
+      # left — so the job could not fail no matter what mypy found. It also ran
+      # with no config at all (mypy.ini and pyproject.toml were both gitignored).
+      # Config now lives in the tracked pyproject.toml and the tree checks clean:
+      # "Success: no issues found in 394 source files".
       - name: Run mypy
-        run: |
-          mypy . --ignore-missing-imports --no-error-summary \
-            || echo "::warning::Type errors found"
-        continue-on-error: true
+        run: mypy . --ignore-missing-imports
 
   bandit:
     name: Security Scan (Bandit)

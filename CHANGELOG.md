@@ -36,6 +36,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `# nosec`/`# nosemgrep` comments). Config that CI depends on is a project contract, not a
   machine-local preference. `.ruff.toml` stays ignored and is called out in `.gitignore` as a
   shadowing hazard, since it would take precedence over `[tool.ruff]`
+- **mypy config consolidated into `pyproject.toml`**: settings were split between a gitignored
+  `mypy.ini` and `[tool.mypy]`, and since `mypy.ini` outranks `pyproject.toml` in mypy's config
+  search order, the two silently disagreed — `mypy.ini` won locally, CI saw neither. `mypy.ini` is
+  removed; `ignore_missing_imports`, `namespace_packages`, the fuller `exclude` list and the
+  `websocket` module override (the project ships a module that shadows the third-party package)
+  now live in `pyproject.toml` as the single source
+- **`Type Checking` is now a real CI gate**: the `mypy` job in `python-security.yml` swallowed
+  failures twice over — `|| echo "::warning::"` masked the exit code and `continue-on-error: true`
+  masked the remainder — so it could not fail regardless of what mypy found. Both removed; the job
+  now runs `mypy . --ignore-missing-imports` and the tree checks clean
+  (`Success: no issues found in 394 source files`)
 
 ### Fixed
 
@@ -52,6 +63,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `E: Version '8.14.1-2+deb13u3' for 'curl' was not found` (exit 100) — the same drift the
   `Dockerfile` comment already records for `ffmpeg` 7.1.4→7.1.5. Pin bumped to `deb13u4`; the
   comment now carries a one-liner that re-captures every pin from the pinned base-image digest
+
+### Security
+
+- **`brace-expansion` bumped to `5.0.8`** in `library/web-v2/package-lock.json` — resolves
+  CVE-2026-13149 (high, Dependabot alert #7), which affects `>= 3.0.0, < 5.0.7`. Transitive via
+  `eslint@10.3.0 → minimatch@10.2.5`, dev-only (never shipped to the browser). Lockfile-only
+  update with no lifecycle scripts executed; `npm ci` + `eslint` re-verified clean afterwards and
+  `npm audit` reports `found 0 vulnerabilities`
 
 ## [8.4.0.3] - 2026-06-22
 

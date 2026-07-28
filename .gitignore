@@ -347,8 +347,11 @@ config.dev.env
 # no version to pin to, so any new ruff release could redden main on its own.
 # Config that CI depends on is a project contract, not a machine-local pref.
 #
-# NOTE: a stray local .ruff.toml (still ignored below) takes precedence over
-# pyproject.toml's [tool.ruff] and would silently re-create that divergence.
+# NOTE: a stray local .ruff.toml or mypy.ini (both still ignored below) takes
+# precedence over pyproject.toml's [tool.ruff]/[tool.mypy] and would silently
+# re-create that divergence. This already happened once: a gitignored mypy.ini
+# outranked [tool.mypy], so check_untyped_defs never actually ran anywhere.
+# If you need to change lint or type-check settings, edit pyproject.toml.
 .bandit
 .coveragerc
 mypy.ini
