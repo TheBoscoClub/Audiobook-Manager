@@ -1,0 +1,138 @@
+# Canonical formatter: ruff format (CI-enforced).
+#
+# Rationale for ruff-only:
+#
+# Ruff formatter and Black disagree on line-wrapping when trailing comments
+# (`# nosec`, `# nosemgrep`, `# noqa`, etc.) push a line past the line-length
+# limit. Ruff excludes trailing pragma/suppression comments from line-length
+# measurement (by design — to keep security suppressions on the same line
+# as the code they annotate); Black includes them. No combination of
+# options (`skip-magic-trailing-comma`, `line-length`, `preview`) makes
+# them agree when those comments are present.
+#
+# Worse, Black 26.3.1 has been observed removing trailing security
+# suppression comments (`# nosec B608  # nosemgrep: ...`) when a wrapping
+# rule applies — silently stripping the annotation that prevents bandit/
+# semgrep false positives from being counted as real vulnerabilities.
+# This is unsafe for a project that relies on `# nosec`/`# nosemgrep`
+# annotations as part of its security scanning baseline.
+#
+# Decision:
+# - `ruff format` is the authoritative formatter. It is invoked by CI
+#   (.github/workflows/python-security.yml) and by the project's /test
+#   audit phase 7.
+# - Black is NOT run as part of verification. Its config here exists only
+#   as a floor for ad-hoc developer invocations; it is not enforced.
+# - `ruff check` handles lint; `ruff format` handles formatting. Both are
+#   configured with `line-length = 100`.
+#
+# If a future Black release fixes the trailing-comment handling AND the
+# comment-deletion bug, re-evaluate adding `black --check` to CI.
+
+[tool.black]
+line-length = 100
+target-version = ["py314"]
+skip-string-normalization = false
+skip-magic-trailing-comma = true
+extend-exclude = '''
+/(
+    venv
+  | \.snapshots
+  | \.btrbk-snapshots
+  | library/certs
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+extend-exclude = [
+    "venv",
+    ".snapshots",
+    ".btrbk-snapshots",
+    "library/certs",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint]
+# Matches the ruff-action defaults used by CI.
+select = ["E", "F", "W"]
+ignore = [
+    # E501 (line too long) is handled by `ruff format`; do not double-report.
+    "E501",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test files: assert statements are the idiomatic pytest assertion mechanism.
+# S104 bind-all-interfaces: tests bind to ephemeral localhost sockets in controlled
+#   environments — no production exposure.
+# S105/S106 hardcoded-password: test credentials are synthetic, never used in prod.
+# S108 /tmp paths: tests use temp dirs for isolation; cleaned up by pytest/tmpdir.
+# S110/S112 try/except/pass: tests intentionally suppress cleanup errors in teardown.
+# S112 try/except/continue: same teardown-cleanup pattern.
+# S310 urllib scheme check: tests call known-localhost or mocked URLs.
+# S603/S607 subprocess: tests invoke real install.sh/upgrade.sh/bash scripts;
+#   full paths are not possible because paths differ across dev/test/CI environments.
+# S608 SQL string: tests use controlled fixture DBs, no user-controlled input.
+"library/tests/**" = ["S101", "S104", "S105", "S106", "S108", "S110", "S112", "S310", "S603", "S607", "S608"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.mypy]
+python_version = "3.14"
+check_untyped_defs = true
+exclude = ["venv/", ".snapshots/"]
+
+[tool.pylint.typecheck]
+# sqlcipher3 is a C extension. Pylint cannot introspect its exports statically,
+# so it flags false positives for the `connect` and `DatabaseError` members
+# (both of which exist at runtime — verified via `hasattr(sqlcipher3, ...)`).
+generated-members = ["sqlcipher3.connect", "sqlcipher3.DatabaseError"]
+# Modules pylint cannot resolve statically:
+#   sqlcipher3 — C extension (see above)
+#   torch, whisper — GPU-only deps, imported lazily in whisper_gpu_service.py
+#   fido2.* — optional WebAuthn dep, imported lazily in tests
+#   library.localization.* — relative package layout not on pylint's default path
+#   api_modular, conftest, database, models, name_parser, i18n, operation_status,
+#   add_new_audiobooks, proxy_server, utils.openlibrary_client — test/script
+#   sys.path manipulation before import (handled by conftest or script bootstrap).
+ignored-modules = [
+    "sqlcipher3",
+    "torch",
+    "whisper",
+    "fido2",
+    "fido2.hid",
+    "fido2.client",
+    "fido2.ctap",
+    "fido2.webauthn",
+    "gevent",
+    "gevent.pywsgi",
+    "mutagen",
+    "library.localization",
+    "library.localization.selection",
+    "library.localization.pipeline",
+    "library.localization.stt",
+    "library.localization.stt.base",
+    "library.localization.tts",
+    "library.localization.tts.factory",
+    "library.localization.tts.edge_tts_provider",
+    "library.localization.tts.vastai_xtts",
+    "api_modular",
+    "api_modular.auth",
+    "conftest",
+    "database",
+    "models",
+    "name_parser",
+    "i18n",
+    "operation_status",
+    "add_new_audiobooks",
+    "proxy_server",
+    "utils.openlibrary_client",
+]

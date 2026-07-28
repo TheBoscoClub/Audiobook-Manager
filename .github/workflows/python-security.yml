@@ -31,6 +31,13 @@ jobs:
         # v4.1.0
         with:
           args: "check --output-format=github"
+          # Pin ruff to the same version developers run. Without this the action
+          # installs whatever is newest, so a ruff release can turn main red with
+          # no change to this repo — which is exactly what happened on
+          # 2026-07-27 when 0.16.0 shipped. Reading the version from
+          # requirements-dev.txt keeps CI and dev on one source of truth and
+          # lets Dependabot move both together.
+          version-file: "library/requirements-dev.txt"
 
   mypy:
     name: Type Checking

@@ -339,9 +339,18 @@ out/
 config.dev.env
 
 # Local tool configs
+#
+# pyproject.toml is deliberately NOT here: it carries the project's ruff lint
+# contract (select/ignore/per-file-ignores/line-length) which CI enforces, plus
+# the rationale for ruff-over-black. When it was ignored, CI ran ruff with no
+# config at all — 2097 errors against a locally-clean tree — and the action had
+# no version to pin to, so any new ruff release could redden main on its own.
+# Config that CI depends on is a project contract, not a machine-local pref.
+#
+# NOTE: a stray local .ruff.toml (still ignored below) takes precedence over
+# pyproject.toml's [tool.ruff] and would silently re-create that divergence.
 .bandit
 .coveragerc
-pyproject.toml
 mypy.ini
 .ruff.toml
 .prettierrc

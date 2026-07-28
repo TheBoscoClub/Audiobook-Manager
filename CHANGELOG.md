@@ -29,8 +29,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   one project. All now read `3.12+` (3.14 recommended), which is exactly what the new CI matrix
   proves. The matrix covers the interpreter each target distro ships: `3.12` (Ubuntu 24.04 LTS),
   `3.13` (Debian 13), `3.14` (Fedora/CachyOS and the `Dockerfile` base image)
+- **`pyproject.toml` is now tracked in git**: it was gitignored as a "local tool config", but it
+  carries the ruff lint contract CI enforces — `select = ["E", "F", "W"]`, `ignore = ["E501"]`,
+  the `library/tests/**` per-file-ignores, `line-length = 100` — plus the documented rationale for
+  making `ruff format` canonical over Black (Black 26.3.1 was observed deleting trailing
+  `# nosec`/`# nosemgrep` comments). Config that CI depends on is a project contract, not a
+  machine-local preference. `.ruff.toml` stays ignored and is called out in `.gitignore` as a
+  shadowing hazard, since it would take precedence over `[tool.ruff]`
 
 ### Fixed
+
+- **Ruff CI job linted with no configuration at all**: `pyproject.toml` was gitignored, so
+  `astral-sh/ruff-action` checked out a tree with no ruff config and logged
+  `Could not find pyproject.toml. Using latest version.` — CI then ran ruff's own default rule set
+  instead of the project's, reporting **2097 errors** against a tree that is clean locally
+  (`B018`, `RUF100`, `UP045`, `DTZ005`, `SIM117`, `S608` …). Tracking `pyproject.toml` fixes the
+  rule set; a new `version-file: library/requirements-dev.txt` input fixes the second half — the
+  action was installing whatever ruff was newest, so the 0.16.0 release turned `main` red on
+  2026-07-27 with no repo change (green through 07-21, red for 9 consecutive runs)
+- **Docker build failed on a stale `curl` apt pin**: `curl=8.14.1-2+deb13u3` was purged from the
+  Trixie mirror after the `deb13u4` security update, so `apt-get install` failed with
+  `E: Version '8.14.1-2+deb13u3' for 'curl' was not found` (exit 100) — the same drift the
+  `Dockerfile` comment already records for `ffmpeg` 7.1.4→7.1.5. Pin bumped to `deb13u4`; the
+  comment now carries a one-liner that re-captures every pin from the pinned base-image digest
 
 ## [8.4.0.3] - 2026-06-22
 
