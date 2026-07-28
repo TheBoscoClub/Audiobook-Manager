@@ -59,10 +59,20 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install mypy
           if [ -f library/requirements.txt ]; then
             pip install -r library/requirements.txt
           fi
+          # requirements-dev.txt, not a bare `pip install mypy`. It carries the
+          # mypy floor (>=2.3.0) and the types-* stubs, so CI type-checks with
+          # the same versions developers do instead of whatever is newest.
+          #
+          # It also installs pytest, which the type environment genuinely needs:
+          # without it, `--ignore-missing-imports` makes `pytest` resolve to Any,
+          # so `pytest.skip()` is typed as returning Any rather than NoReturn.
+          # Mypy then thinks flow continues past a `if x is None: pytest.skip()`
+          # guard and reports phantom "str | None" errors in test modules that
+          # are correct as written.
+          pip install -r library/requirements-dev.txt
 
       # A real gate. This previously swallowed failures twice over — `|| echo
       # ::warning::` masked the exit code, and continue-on-error masked what was

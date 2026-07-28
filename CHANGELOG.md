@@ -47,6 +47,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   masked the remainder — so it could not fail regardless of what mypy found. Both removed; the job
   now runs `mypy . --ignore-missing-imports` and the tree checks clean
   (`Success: no issues found in 394 source files`)
+- **Type Checking installs `library/requirements-dev.txt`**: replaces a bare `pip install mypy`,
+  which pulled whatever version was newest instead of the `>=2.3.0` floor developers use, and left
+  `pytest` and the `types-*` stubs uninstalled. Without `pytest` present, `--ignore-missing-imports`
+  resolves `pytest` to `Any`, so `pytest.skip()` types as returning `Any` rather than `NoReturn` —
+  mypy then believes flow continues past a `if x is None: pytest.skip()` guard and reports phantom
+  `str | None` errors in test modules that are correct as written
+  (`test_streaming_bilingual_panel.py:56`). CI's type environment now matches a developer's
 
 ### Fixed
 
