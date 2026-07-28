@@ -9,7 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`concurrency:` groups on all six GitHub Actions workflows**: every workflow now declares
+  `group: ci-${{ github.workflow }}-${{ github.ref }}`, so rapid pushes no longer run overlapping
+  pipelines where the slowest — not the newest — reports last. `ci.yml`, `python-security.yml` and
+  `security-checks.yml` set `cancel-in-progress: true` (read-only jobs, superseded runs are waste);
+  `release.yml`, `dependabot-auto-merge.yml` and `security-autofix.yml` deliberately set
+  `cancel-in-progress: false` — those three publish, merge, or commit, and a cancelled half-finished
+  mutation is worse than a queued run
+- **Python test matrix in `ci.yml`**: the `python-tests` job now runs across `3.12`, `3.13` and `3.14`
+  with `fail-fast: false`, so one failing interpreter cannot mask the others. Previously CI pinned a
+  single version (`3.14`) while the docs claimed `3.12+` — the support claim was never proven.
+  Codecov upload is gated to the `3.14` leg so the three identical runs don't fight over one report
+
 ### Changed
+
+- **Python version claims harmonized to `3.12+` across the docs**: `docs/ARCHITECTURE.md` said
+  `3.11+` and the `install.sh` dependency-check label said `3.13+`, while `README.md`,
+  `library/INSTALL.md` and `docs/MULTI-LANGUAGE-SETUP.md` said `3.12+` — three different floors for
+  one project. All now read `3.12+` (3.14 recommended), which is exactly what the new CI matrix
+  proves. The matrix covers the interpreter each target distro ships: `3.12` (Ubuntu 24.04 LTS),
+  `3.13` (Debian 13), `3.14` (Fedora/CachyOS and the `Dockerfile` base image)
 
 ### Fixed
 

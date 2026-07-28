@@ -8,6 +8,12 @@ permissions:
   contents: write
   pull-requests: write
 
+# One run at a time per PR. No cancel-in-progress: this workflow approves and
+# merges — interrupting it mid-flight can leave a PR approved but unmerged.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   auto-merge:
     name: Auto-Merge Dependabot

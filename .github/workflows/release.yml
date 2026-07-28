@@ -10,6 +10,12 @@ permissions:
   contents: write
   packages: write
 
+# Serialize releases for the same tag, but NEVER cancel one — a half-finished
+# publish (tarball uploaded, release not created) is worse than a slow one.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build-release:
     name: Build Release Tarball

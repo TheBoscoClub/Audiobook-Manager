@@ -9,6 +9,11 @@ name: "Python Security & Quality"
   schedule:
     - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM UTC
 
+# Lint/type/security analysis only — nothing is published, so superseding is safe.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ruff:
     name: Ruff Linting

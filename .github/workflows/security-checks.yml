@@ -7,6 +7,11 @@ name: Security Checks
   push:
     branches: [main, master]
 
+# Read-only scanning — superseded runs carry no value, cancel them.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   security-scan:
     runs-on: ubuntu-latest

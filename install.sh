@@ -86,7 +86,7 @@ check_system_dependencies() {
 
     # Required commands and what provides them
     local -A deps=(
-        [python3]="python (3.13+)"
+        [python3]="python (3.12+, 3.14 recommended)"
         [ffmpeg]="ffmpeg (with libopus codec)"
         [ffprobe]="ffmpeg"
         [sqlite3]="sqlite"

@@ -28,6 +28,13 @@ permissions:
   security-events: write
   pull-requests: write
 
+# Serialize scanner runs — this workflow commits fixes and opens PRs, so two
+# concurrent runs would race on the same fix branch. Never cancelled: a
+# half-applied autofix commit is worse than a queued run.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   scan-and-fix:
     runs-on: ubuntu-latest
