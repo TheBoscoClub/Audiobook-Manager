@@ -7,6 +7,11 @@ name: Security Checks
   push:
     branches: [main, master]
 
+# Read-only scanning — superseded runs carry no value, cancel them.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   security-scan:
     runs-on: ubuntu-latest
@@ -16,8 +21,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: >-
-          actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-        # v7.0.0
+          actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        # v7.0.1
         with:
           fetch-depth: 0  # Full history for better analysis
 
@@ -25,8 +30,18 @@ jobs:
         run: |
           echo "Checking for hardcoded credentials..."
           # Check for potential API keys, passwords, tokens
+          #
+          # .beads/ is excluded: it is bd's generated issue export, and issue prose
+          # legitimately discusses credentials by name ("rotate the purge token",
+          # DKIM p= fragments, Cloudflare record IDs). Scanning it produces false
+          # positives on every issue that mentions a token. Real credentials are
+          # prohibited there by policy — see ~/.claude/rules/beads.md "bd remember
+          # — Sensitive Data Policy".
+          #
+          # NOTE: this only inspects HEAD~1, so on a multi-commit push only the tip
+          # commit is scanned. Tracked as Audiobook-Manager-btf.
           PATTERN='(api.?key|password|token|secret).*=.*["'"'"'][a-zA-Z0-9]{16,}["'"'"']'
-          if git diff HEAD~1 | grep -iE "$PATTERN"; then
+          if git diff HEAD~1 -- . ':(exclude).beads/' | grep -iE "$PATTERN"; then
             echo "ERROR: Potential hardcoded credential detected"
             exit 1
           fi

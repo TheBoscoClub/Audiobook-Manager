@@ -86,7 +86,7 @@ check_system_dependencies() {
 
     # Required commands and what provides them
     local -A deps=(
-        [python3]="python (3.13+)"
+        [python3]="python (3.12+, 3.14 recommended)"
         [ffmpeg]="ffmpeg (with libopus codec)"
         [ffprobe]="ffmpeg"
         [sqlite3]="sqlite"
@@ -1601,8 +1601,10 @@ CFEOF
     #   echo "secret" | sudo tee /etc/audiobooks/<name> >/dev/null
     # then point audiobooks.conf at the file via SMTP_PASS_FILE / etc. Never
     # overwrites existing operator-populated files.
+    # Keep in sync with OPTIONAL_CREDENTIAL_FILES in scripts/install-manifest.sh
+    # and the matching loop in upgrade.sh (see Audiobook-Manager-be6).
     local stub_name stub_path
-    for stub_name in smtp-pass deepl-api-key runpod-api-key; do
+    for stub_name in smtp-pass deepl-api-key runpod-api-key cloudflare-purge-token; do
         stub_path="${CONFIG_DIR}/${stub_name}"
         if [[ ! -f "$stub_path" ]]; then
             sudo install -m 0600 -o audiobooks -g audiobooks /dev/null "$stub_path"

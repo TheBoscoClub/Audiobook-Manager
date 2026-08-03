@@ -9,9 +9,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Scoped Cloudflare API token support for CDN cache purge**: `POST /api/system/purge-cache` now
+  authenticates with `Authorization: Bearer` using a token scoped to `Zone > Cache Purge`, resolved
+  through the shared `resolve_secret()` helper so either `CLOUDFLARE_PURGE_TOKEN` or a
+  `CLOUDFLARE_PURGE_TOKEN_FILE` pointer works. A `0600 audiobooks:audiobooks` stub is created at
+  `/etc/audiobooks/cloudflare-purge-token` by `install.sh` and `upgrade.sh`, and registered in
+  `OPTIONAL_CREDENTIAL_FILES` so `reconcile-filesystem.sh` enforces its ownership and mode. The
+  legacy `CF_GLOBAL_API_KEY` + `CF_AUTH_EMAIL` path still works as a fallback so existing installs
+  keep purging across the upgrade, but it now emits a deprecation warning — a Global API Key grants
+  full account access and cannot be restricted to one zone, which is far broader than this endpoint
+  needs
+
+- **`concurrency:` groups on all six GitHub Actions workflows**: every workflow now declares
+  `group: ci-${{ github.workflow }}-${{ github.ref }}`, so rapid pushes no longer run overlapping
+  pipelines where the slowest — not the newest — reports last. `ci.yml`, `python-security.yml` and
+  `security-checks.yml` set `cancel-in-progress: true` (read-only jobs, superseded runs are waste);
+  `release.yml`, `dependabot-auto-merge.yml` and `security-autofix.yml` deliberately set
+  `cancel-in-progress: false` — those three publish, merge, or commit, and a cancelled half-finished
+  mutation is worse than a queued run
+- **Python test matrix in `ci.yml`**: the `python-tests` job now runs across `3.12`, `3.13` and `3.14`
+  with `fail-fast: false`, so one failing interpreter cannot mask the others. Previously CI pinned a
+  single version (`3.14`) while the docs claimed `3.12+` — the support claim was never proven.
+  Codecov upload is gated to the `3.14` leg so the three identical runs don't fight over one report
+
 ### Changed
 
+- **Python version claims harmonized to `3.12+` across the docs**: `docs/ARCHITECTURE.md` said
+  `3.11+` and the `install.sh` dependency-check label said `3.13+`, while `README.md`,
+  `library/INSTALL.md` and `docs/MULTI-LANGUAGE-SETUP.md` said `3.12+` — three different floors for
+  one project. All now read `3.12+` (3.14 recommended), which is exactly what the new CI matrix
+  proves. The matrix covers the interpreter each target distro ships: `3.12` (Ubuntu 24.04 LTS),
+  `3.13` (Debian 13), `3.14` (Fedora/CachyOS and the `Dockerfile` base image)
+- **`pyproject.toml` is now tracked in git**: it was gitignored as a "local tool config", but it
+  carries the ruff lint contract CI enforces — `select = ["E", "F", "W"]`, `ignore = ["E501"]`,
+  the `library/tests/**` per-file-ignores, `line-length = 100` — plus the documented rationale for
+  making `ruff format` canonical over Black (Black 26.3.1 was observed deleting trailing
+  `# nosec`/`# nosemgrep` comments). Config that CI depends on is a project contract, not a
+  machine-local preference. `.ruff.toml` stays ignored and is called out in `.gitignore` as a
+  shadowing hazard, since it would take precedence over `[tool.ruff]`
+- **mypy config consolidated into `pyproject.toml`**: settings were split between a gitignored
+  `mypy.ini` and `[tool.mypy]`, and since `mypy.ini` outranks `pyproject.toml` in mypy's config
+  search order, the two silently disagreed — `mypy.ini` won locally, CI saw neither. `mypy.ini` is
+  removed; `ignore_missing_imports`, `namespace_packages`, the fuller `exclude` list and the
+  `websocket` module override (the project ships a module that shadows the third-party package)
+  now live in `pyproject.toml` as the single source
+- **`Type Checking` is now a real CI gate**: the `mypy` job in `python-security.yml` swallowed
+  failures twice over — `|| echo "::warning::"` masked the exit code and `continue-on-error: true`
+  masked the remainder — so it could not fail regardless of what mypy found. Both removed; the job
+  now runs `mypy . --ignore-missing-imports` and the tree checks clean
+  (`Success: no issues found in 394 source files`)
+- **Type Checking installs `library/requirements-dev.txt`**: replaces a bare `pip install mypy`,
+  which pulled whatever version was newest instead of the `>=2.3.0` floor developers use, and left
+  `pytest` and the `types-*` stubs uninstalled. Without `pytest` present, `--ignore-missing-imports`
+  resolves `pytest` to `Any`, so `pytest.skip()` types as returning `Any` rather than `NoReturn` —
+  mypy then believes flow continues past a `if x is None: pytest.skip()` guard and reports phantom
+  `str | None` errors in test modules that are correct as written
+  (`test_streaming_bilingual_panel.py:56`). CI's type environment now matches a developer's
+
 ### Fixed
+
+- **Credential scanner failed the build on the bd issue export**: the `Check for hardcoded
+  credentials` step in `security-checks.yml` grepped the entire diff, so any commit whose
+  `.beads/issues.jsonl` prose mentioned a token alongside a long quoted string matched
+  `(api.?key|password|token|secret).*=.*["'][a-zA-Z0-9]{16,}["']` and failed CI. The scan now
+  excludes `.beads/` — generated issue data, where real credentials are already prohibited by
+  policy — while every source path stays in scope. Reproduced the red build locally and confirmed
+  the exclusion clears it. The step also only inspects `HEAD~1`, so on a multi-commit push the
+  earlier commits are never scanned — tracked separately as a gap in the control itself
+- **Ruff CI job linted with no configuration at all**: `pyproject.toml` was gitignored, so
+  `astral-sh/ruff-action` checked out a tree with no ruff config and logged
+  `Could not find pyproject.toml. Using latest version.` — CI then ran ruff's own default rule set
+  instead of the project's, reporting **2097 errors** against a tree that is clean locally
+  (`B018`, `RUF100`, `UP045`, `DTZ005`, `SIM117`, `S608` …). Tracking `pyproject.toml` fixes the
+  rule set; a new `version-file: library/requirements-dev.txt` input fixes the second half — the
+  action was installing whatever ruff was newest, so the 0.16.0 release turned `main` red on
+  2026-07-27 with no repo change (green through 07-21, red for 9 consecutive runs)
+- **Docker build failed on a stale `curl` apt pin**: `curl=8.14.1-2+deb13u3` was purged from the
+  Trixie mirror after the `deb13u4` security update, so `apt-get install` failed with
+  `E: Version '8.14.1-2+deb13u3' for 'curl' was not found` (exit 100) — the same drift the
+  `Dockerfile` comment already records for `ffmpeg` 7.1.4→7.1.5. Pin bumped to `deb13u4`; the
+  comment now carries a one-liner that re-captures every pin from the pinned base-image digest
+
+### Security
+
+- **`brace-expansion` bumped to `5.0.8`** in `library/web-v2/package-lock.json` — resolves
+  CVE-2026-13149 (high, Dependabot alert #7), which affects `>= 3.0.0, < 5.0.7`. Transitive via
+  `eslint@10.3.0 → minimatch@10.2.5`, dev-only (never shipped to the browser). Lockfile-only
+  update with no lifecycle scripts executed; `npm ci` + `eslint` re-verified clean afterwards and
+  `npm audit` reports `found 0 vulnerabilities`
 
 ## [8.4.0.3] - 2026-06-22
 

@@ -28,6 +28,8 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
+from common_utils.secret_resolver import resolve_secret
+
 from .auth import admin_or_localhost
 from .core import FlaskResponse
 
@@ -594,15 +596,45 @@ def _resolve_cf_credentials() -> tuple[str | None, str | None]:
     return api_key, auth_email
 
 
-def _execute_cf_purge(zone_id: str, api_key: str, auth_email: str) -> FlaskResponse:
+def _resolve_cf_auth_headers() -> dict[str, str] | None:
+    """Resolve Cloudflare authentication headers for the purge request.
+
+    Prefers a scoped API token (``Authorization: Bearer``) over the legacy
+    Global API Key. The token is resolved through the shared secret resolver,
+    so either ``CLOUDFLARE_PURGE_TOKEN`` or a ``CLOUDFLARE_PURGE_TOKEN_FILE``
+    pointer works.
+
+    The Global API Key path is retained only so installations predating the
+    token migration keep working; it grants full account access and should be
+    replaced with a token scoped to Zone > Cache Purge.
+
+    Returns:
+        A header mapping, or ``None`` when no usable credential is configured.
+    """
+    token = resolve_secret("CLOUDFLARE_PURGE_TOKEN")
+    if token:
+        return {"Authorization": f"Bearer {token}"}
+
+    api_key, auth_email = _resolve_cf_credentials()
+    if api_key and auth_email:
+        logger.warning(
+            "Cloudflare purge is using the legacy Global API Key. This grants full "
+            "account access; migrate to CLOUDFLARE_PURGE_TOKEN (Zone > Cache Purge)."
+        )
+        return {"X-Auth-Key": api_key, "X-Auth-Email": auth_email}
+
+    return None
+
+
+def _execute_cf_purge(zone_id: str, auth_headers: dict[str, str]) -> FlaskResponse:
     """Send the purge request to Cloudflare and return a response."""
     url = f"https://api.cloudflare.com/client/v4/zones/{zone_id}/purge_cache"
     if not url.startswith("https://"):
         return jsonify({"success": False, "error": "Invalid URL scheme"}), 400
     data = b'{"purge_everything":true}'
     req = urllib.request.Request(url, data=data, method="POST")  # noqa: S310 — urllib.request.Request for fixed HTTPS Cloudflare API; URL scheme validated before this call
-    req.add_header("X-Auth-Key", api_key)
-    req.add_header("X-Auth-Email", auth_email)
+    for header, value in auth_headers.items():
+        req.add_header(header, value)
     req.add_header("Content-Type", "application/json")
 
     try:
@@ -966,19 +998,25 @@ def list_projects() -> FlaskResponse:
 def purge_cdn_cache() -> FlaskResponse:
     """Purge Cloudflare CDN cache for the application domain.
 
-    Reads credentials from CF_TOKEN_FILE (default:
-    /etc/audiobooks/cloudflare-api-token) or falls back to
-    CF_GLOBAL_API_KEY + CF_AUTH_EMAIL environment variables.
+    Credential resolution, in order:
+
+    1. ``CLOUDFLARE_PURGE_TOKEN`` (or a ``CLOUDFLARE_PURGE_TOKEN_FILE``
+       pointer) — a token scoped to Zone > Cache Purge, sent as a Bearer
+       token. This is the supported configuration.
+    2. Legacy ``CF_GLOBAL_API_KEY`` + ``CF_AUTH_EMAIL``, read from
+       ``CF_TOKEN_FILE`` (default ``/etc/audiobooks/cloudflare-api-token``)
+       or the environment. Deprecated — the Global API Key grants full
+       account access and is far broader than this endpoint requires.
     """
     zone_id = os.environ.get("CF_ZONE_ID", "")
     if not zone_id:
         return jsonify({"success": False, "error": "CF_ZONE_ID not configured"}), 503
-    api_key, auth_email = _resolve_cf_credentials()
 
-    if not api_key or not auth_email:
+    auth_headers = _resolve_cf_auth_headers()
+    if not auth_headers:
         return jsonify({"success": False, "error": "Cloudflare credentials not configured"}), 503
 
-    return _execute_cf_purge(zone_id, api_key, auth_email)
+    return _execute_cf_purge(zone_id, auth_headers)
 
 
 # =========================================================================

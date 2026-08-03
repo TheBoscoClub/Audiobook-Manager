@@ -9,6 +9,11 @@ name: "Python Security & Quality"
   schedule:
     - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM UTC
 
+# Lint/type/security analysis only — nothing is published, so superseding is safe.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   ruff:
     name: Ruff Linting
@@ -18,14 +23,21 @@ jobs:
     steps:
       - name: Checkout
         uses: >-
-          actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-        # v7.0.0
+          actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        # v7.0.1
       - name: Run Ruff
         uses: >-
           astral-sh/ruff-action@278981a28ce3188b1e39527901f38254bf3aac89
         # v4.1.0
         with:
           args: "check --output-format=github"
+          # Pin ruff to the same version developers run. Without this the action
+          # installs whatever is newest, so a ruff release can turn main red with
+          # no change to this repo — which is exactly what happened on
+          # 2026-07-27 when 0.16.0 shipped. Reading the version from
+          # requirements-dev.txt keeps CI and dev on one source of truth and
+          # lets Dependabot move both together.
+          version-file: "library/requirements-dev.txt"
 
   mypy:
     name: Type Checking
@@ -35,8 +47,8 @@ jobs:
     steps:
       - name: Checkout
         uses: >-
-          actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-        # v7.0.0
+          actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        # v7.0.1
       - name: Set up Python
         uses: >-
           actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
@@ -47,16 +59,29 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install mypy
           if [ -f library/requirements.txt ]; then
             pip install -r library/requirements.txt
           fi
+          # requirements-dev.txt, not a bare `pip install mypy`. It carries the
+          # mypy floor (>=2.3.0) and the types-* stubs, so CI type-checks with
+          # the same versions developers do instead of whatever is newest.
+          #
+          # It also installs pytest, which the type environment genuinely needs:
+          # without it, `--ignore-missing-imports` makes `pytest` resolve to Any,
+          # so `pytest.skip()` is typed as returning Any rather than NoReturn.
+          # Mypy then thinks flow continues past a `if x is None: pytest.skip()`
+          # guard and reports phantom "str | None" errors in test modules that
+          # are correct as written.
+          pip install -r library/requirements-dev.txt
 
+      # A real gate. This previously swallowed failures twice over — `|| echo
+      # ::warning::` masked the exit code, and continue-on-error masked what was
+      # left — so the job could not fail no matter what mypy found. It also ran
+      # with no config at all (mypy.ini and pyproject.toml were both gitignored).
+      # Config now lives in the tracked pyproject.toml and the tree checks clean:
+      # "Success: no issues found in 394 source files".
       - name: Run mypy
-        run: |
-          mypy . --ignore-missing-imports --no-error-summary \
-            || echo "::warning::Type errors found"
-        continue-on-error: true
+        run: mypy . --ignore-missing-imports
 
   bandit:
     name: Security Scan (Bandit)
@@ -66,8 +91,8 @@ jobs:
     steps:
       - name: Checkout
         uses: >-
-          actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-        # v7.0.0
+          actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        # v7.0.1
       - name: Set up Python
         uses: >-
           actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
@@ -103,8 +128,8 @@ jobs:
     steps:
       - name: Checkout
         uses: >-
-          actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-        # v7.0.0
+          actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        # v7.0.1
       - name: Set up Python
         uses: >-
           actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
