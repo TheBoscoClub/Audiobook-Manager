@@ -61,14 +61,20 @@ LABEL org.opencontainers.image.licenses="MIT"
 # makes the subsequent install a downgrade — which apt refuses without
 # --allow-downgrades and fails the build (exit 100). The 2026-06 Trixie point
 # release bumped ffmpeg 7.1.4→7.1.5 (2026-07 point release; 7.1.4 purged from the
-# mirror, install failed with "Version not found"). Revisit on the next point
-# release — bumping any pin ALSO requires re-validating the CVE notes at the top
-# of this Dockerfile.
+# mirror, install failed with "Version not found"). 2026-07-28: same failure for
+# curl — deb13u3 purged after the deb13u4 security update, bumped here. Revisit
+# on the next point release — bumping any pin ALSO requires re-validating the CVE
+# notes at the top of this Dockerfile.
+#
+# To re-capture every pin at once, run against the digest in `FROM`:
+#   docker run --rm python:3.14-slim@sha256:<digest> bash -c 'apt-get update -qq; \
+#     for p in ffmpeg mediainfo jq curl libsqlcipher-dev openssl; do \
+#       echo "$p => $(apt-cache policy $p | awk "/Candidate:/{print \$2}")"; done'
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     ffmpeg=7:7.1.5-0+deb13u1 \
     mediainfo=25.04-1 \
     jq=1.7.1-6+deb13u2 \
-    curl=8.14.1-2+deb13u3 \
+    curl=8.14.1-2+deb13u4 \
     libsqlcipher-dev=4.6.1-2 \
     openssl=3.5.6-1~deb13u2 \
     && rm -rf /var/lib/apt/lists/*

@@ -153,6 +153,26 @@ AUDIOBOOKS_DEV_MODE="false"
 # Find it in the Cloudflare dashboard: zone overview → API → Zone ID
 #CF_ZONE_ID=""
 
+# Cloudflare authentication for cache purge. Use a SCOPED API TOKEN — create it
+# with permission `Zone > Cache Purge > Purge`, restricted to this zone only.
+# Sent as an `Authorization: Bearer` header.
+#
+# Store it in a 0600 file and point CLOUDFLARE_PURGE_TOKEN_FILE at it:
+#   echo "TOKEN" | sudo tee /etc/audiobooks/cloudflare-purge-token >/dev/null
+#   sudo chown audiobooks:audiobooks /etc/audiobooks/cloudflare-purge-token
+#   sudo chmod 600 /etc/audiobooks/cloudflare-purge-token
+# Precedence: inline CLOUDFLARE_PURGE_TOKEN → CLOUDFLARE_PURGE_TOKEN_FILE → empty.
+#CLOUDFLARE_PURGE_TOKEN_FILE="/etc/audiobooks/cloudflare-purge-token"
+#CLOUDFLARE_PURGE_TOKEN=""
+#
+# DEPRECATED — legacy Global API Key auth (CF_GLOBAL_API_KEY + CF_AUTH_EMAIL,
+# read from CF_TOKEN_FILE, default /etc/audiobooks/cloudflare-api-token). Still
+# honoured as a fallback so existing installs keep working, but the Global API
+# Key grants FULL ACCOUNT ACCESS — far broader than a cache purge needs, and it
+# cannot be scoped to one zone. Migrate to the scoped token above. Rotating the
+# global key in the Cloudflare console does NOT update the on-disk copy; that
+# drift silently broke purge for months (Audiobook-Manager-e7x).
+
 # CORS allowed origin (restricts which domains can make API requests)
 # Set this to your public URL for security when exposed to the internet
 # Example: https://library.example.com

@@ -117,7 +117,7 @@ reads. The refactoring was driven by four principles:
 
 ## Hardware Requirements
 
-Audiobook-Manager is designed to run well on modest hardware. The only hard requirements are Python 3.11+, FFmpeg, and enough disk for your library. Everything else in the matrix below is guidance based on what different deployment sizes tend to need in practice — there is no "certified" hardware list, and no component of the application requires a GPU.
+Audiobook-Manager is designed to run well on modest hardware. The only hard requirements are Python 3.12+ (3.14 recommended; CI proves 3.12, 3.13 and 3.14), FFmpeg, and enough disk for your library. Everything else in the matrix below is guidance based on what different deployment sizes tend to need in practice — there is no "certified" hardware list, and no component of the application requires a GPU.
 
 | Component | Minimum | Recommended | Notes |
 |-----------|---------|-------------|-------|

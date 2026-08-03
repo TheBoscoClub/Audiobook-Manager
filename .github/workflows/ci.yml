@@ -7,12 +7,29 @@ name: CI
   push:
     branches: [main, master]
 
+# Supersede in-flight runs for the same ref — the newest push is the one that
+# should report. Safe here: no job publishes or mutates anything.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   python-tests:
-    name: Python Tests
+    name: Python Tests (${{ matrix.python-version }})
     runs-on: ubuntu-latest
     permissions:
       contents: read
+
+    strategy:
+      # Prove every version the docs claim, independently — one failing
+      # interpreter must not mask the result of the others.
+      fail-fast: false
+      matrix:
+        # Keep in sync with the "Python 3.12+" claim in README.md,
+        # docs/ARCHITECTURE.md and docs/MULTI-LANGUAGE-SETUP.md.
+        # 3.12 = Ubuntu 24.04 LTS, 3.13 = Debian 13, 3.14 = Fedora/CachyOS
+        # and the Dockerfile base image.
+        python-version: ['3.12', '3.13', '3.14']
 
     steps:
       - name: Checkout code
@@ -25,7 +42,7 @@ jobs:
           actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
         # v6.3.0
         with:
-          python-version: '3.14'
+          python-version: ${{ matrix.python-version }}
 
       - name: Install system dependencies
         run: |
@@ -51,7 +68,9 @@ jobs:
             --cov-config=../.coveragerc.ci --cov-report=xml
 
       - name: Upload coverage to Codecov
-        if: ${{ !cancelled() }}
+        # Single upload per commit — the matrix runs the same suite three
+        # times, and three uploads would just fight over the same report.
+        if: ${{ !cancelled() && matrix.python-version == '3.14' }}
         uses: >-
           codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f
         # v7.0.0
