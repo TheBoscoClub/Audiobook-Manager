@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.4.1.0] - 2026-08-03
+
+### Added
+
 - **Scoped Cloudflare API token support for CDN cache purge**: `POST /api/system/purge-cache` now
   authenticates with `Authorization: Bearer` using a token scoped to `Zone > Cache Purge`, resolved
   through the shared `resolve_secret()` helper so either `CLOUDFLARE_PURGE_TOKEN` or a
@@ -3898,7 +3906,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.3...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.1.0...HEAD
+[8.4.1.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.3...v8.4.1.0
 [8.4.0.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.2...v8.4.0.3
 [8.4.0.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.1...v8.4.0.2
 [8.4.0.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.0...v8.4.0.1
