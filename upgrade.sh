@@ -2530,8 +2530,10 @@ verify_installation_permissions() {
         # pointer pattern (SMTP_PASS_FILE / AUDIOBOOKS_DEEPL_API_KEY_FILE /
         # AUDIOBOOKS_RUNPOD_API_KEY_FILE). Created empty; operator populates as
         # needed. Never overwrites existing operator-curated files.
+        # Keep in sync with OPTIONAL_CREDENTIAL_FILES in scripts/install-manifest.sh
+        # and the matching loop in install.sh (see Audiobook-Manager-be6).
         local _stub_name _stub_path
-        for _stub_name in smtp-pass deepl-api-key runpod-api-key; do
+        for _stub_name in smtp-pass deepl-api-key runpod-api-key cloudflare-purge-token; do
             _stub_path="${_config_dir}/${_stub_name}"
             if [[ ! -f "$_stub_path" ]]; then
                 sudo install -m 0600 -o audiobooks -g audiobooks /dev/null "$_stub_path"

@@ -165,4 +165,9 @@ OPTIONAL_CREDENTIAL_FILES=(
     "${CONFIG_DIR}/smtp-pass|audiobooks:audiobooks|0600|SMTP_PASS_FILE"
     "${CONFIG_DIR}/deepl-api-key|audiobooks:audiobooks|0600|AUDIOBOOKS_DEEPL_API_KEY_FILE"
     "${CONFIG_DIR}/runpod-api-key|audiobooks:audiobooks|0600|AUDIOBOOKS_RUNPOD_API_KEY_FILE"
+    "${CONFIG_DIR}/cloudflare-purge-token|audiobooks:audiobooks|0600|CLOUDFLARE_PURGE_TOKEN_FILE"
 )
+
+# NOTE: install.sh and upgrade.sh each hardcode their own copy of the stub-name
+# list rather than deriving it from this array, so a new entry here must also be
+# added in both places. Tracked as Audiobook-Manager-be6.

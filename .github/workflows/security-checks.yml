@@ -30,8 +30,18 @@ jobs:
         run: |
           echo "Checking for hardcoded credentials..."
           # Check for potential API keys, passwords, tokens
+          #
+          # .beads/ is excluded: it is bd's generated issue export, and issue prose
+          # legitimately discusses credentials by name ("rotate the purge token",
+          # DKIM p= fragments, Cloudflare record IDs). Scanning it produces false
+          # positives on every issue that mentions a token. Real credentials are
+          # prohibited there by policy — see ~/.claude/rules/beads.md "bd remember
+          # — Sensitive Data Policy".
+          #
+          # NOTE: this only inspects HEAD~1, so on a multi-commit push only the tip
+          # commit is scanned. Tracked as Audiobook-Manager-btf.
           PATTERN='(api.?key|password|token|secret).*=.*["'"'"'][a-zA-Z0-9]{16,}["'"'"']'
-          if git diff HEAD~1 | grep -iE "$PATTERN"; then
+          if git diff HEAD~1 -- . ':(exclude).beads/' | grep -iE "$PATTERN"; then
             echo "ERROR: Potential hardcoded credential detected"
             exit 1
           fi

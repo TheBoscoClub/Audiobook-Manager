@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Scoped Cloudflare API token support for CDN cache purge**: `POST /api/system/purge-cache` now
+  authenticates with `Authorization: Bearer` using a token scoped to `Zone > Cache Purge`, resolved
+  through the shared `resolve_secret()` helper so either `CLOUDFLARE_PURGE_TOKEN` or a
+  `CLOUDFLARE_PURGE_TOKEN_FILE` pointer works. A `0600 audiobooks:audiobooks` stub is created at
+  `/etc/audiobooks/cloudflare-purge-token` by `install.sh` and `upgrade.sh`, and registered in
+  `OPTIONAL_CREDENTIAL_FILES` so `reconcile-filesystem.sh` enforces its ownership and mode. The
+  legacy `CF_GLOBAL_API_KEY` + `CF_AUTH_EMAIL` path still works as a fallback so existing installs
+  keep purging across the upgrade, but it now emits a deprecation warning — a Global API Key grants
+  full account access and cannot be restricted to one zone, which is far broader than this endpoint
+  needs
+
 - **`concurrency:` groups on all six GitHub Actions workflows**: every workflow now declares
   `group: ci-${{ github.workflow }}-${{ github.ref }}`, so rapid pushes no longer run overlapping
   pipelines where the slowest — not the newest — reports last. `ci.yml`, `python-security.yml` and
@@ -57,6 +68,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Credential scanner failed the build on the bd issue export**: the `Check for hardcoded
+  credentials` step in `security-checks.yml` grepped the entire diff, so any commit whose
+  `.beads/issues.jsonl` prose mentioned a token alongside a long quoted string matched
+  `(api.?key|password|token|secret).*=.*["'][a-zA-Z0-9]{16,}["']` and failed CI. The scan now
+  excludes `.beads/` — generated issue data, where real credentials are already prohibited by
+  policy — while every source path stays in scope. Reproduced the red build locally and confirmed
+  the exclusion clears it. The step also only inspects `HEAD~1`, so on a multi-commit push the
+  earlier commits are never scanned — tracked separately as a gap in the control itself
 - **Ruff CI job linted with no configuration at all**: `pyproject.toml` was gitignored, so
   `astral-sh/ruff-action` checked out a tree with no ruff config and logged
   `Could not find pyproject.toml. Using latest version.` — CI then ran ruff's own default rule set
