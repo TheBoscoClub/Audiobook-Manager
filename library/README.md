@@ -39,8 +39,8 @@ For detailed installation instructions, see [INSTALL.md](INSTALL.md).
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/YOUR_USERNAME/audiobook-library.git
-cd audiobook-library
+git clone https://github.com/TheBoscoClub/Audiobook-Manager.git
+cd Audiobook-Manager
 
 # 2. Install dependencies
 python3 -m venv venv
@@ -69,7 +69,7 @@ The launcher script will:
 ## Structure
 
 ```text
-audiobook-library/
+library/
 ├── backend/              # Flask API and database
 │   ├── api_modular/     # Modular REST API (Blueprint-based architecture)
 │   │   ├── audiobooks.py       # Core listing, filtering, streaming

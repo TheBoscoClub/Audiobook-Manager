@@ -210,7 +210,7 @@ Installs to `~/.local/bin` and `~/.config/audiobooks` (no root required):
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/Audiobook-Manager.git
+git clone https://github.com/TheBoscoClub/Audiobook-Manager.git
 cd Audiobook-Manager
 
 # Run user installer
@@ -232,7 +232,7 @@ Installs to `/usr/local/bin` and `/etc/audiobooks` (requires root):
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/Audiobook-Manager.git
+git clone https://github.com/TheBoscoClub/Audiobook-Manager.git
 cd Audiobook-Manager
 
 # Run system installer
@@ -243,7 +243,7 @@ sudo ./install-system.sh --data-dir /srv/audiobooks
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/Audiobook-Manager.git
+git clone https://github.com/TheBoscoClub/Audiobook-Manager.git
 cd Audiobook-Manager
 
 # Create Python virtual environment
@@ -607,7 +607,7 @@ If you encounter issues not covered here:
    ```
 
 3. **GitHub Issues**: Report bugs or ask questions at:
-   <https://github.com/YOUR_USERNAME/Audiobook-Manager/issues>
+   <https://github.com/TheBoscoClub/Audiobook-Manager/issues>
 
 ---
 
