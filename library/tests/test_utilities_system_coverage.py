@@ -305,6 +305,10 @@ class TestPurgeCdnCache:
         monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         monkeypatch.delenv("CF_GLOBAL_API_KEY", raising=False)
         monkeypatch.delenv("CF_AUTH_EMAIL", raising=False)
+        # The scoped-token path must also be absent, or it would satisfy the
+        # request and this test would silently stop testing what it claims to.
+        monkeypatch.delenv("CLOUDFLARE_PURGE_TOKEN", raising=False)
+        monkeypatch.delenv("CLOUDFLARE_PURGE_TOKEN_FILE", raising=False)
         # Point to a non-existent token file
         monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent/token-file")
 
@@ -513,6 +517,10 @@ class TestPurgeCdnCache:
         monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
         monkeypatch.setenv("CF_GLOBAL_API_KEY", "test-key")
         monkeypatch.delenv("CF_AUTH_EMAIL", raising=False)
+        # See test_no_credentials_returns_503 — the scoped-token path would
+        # otherwise satisfy the request and mask the incomplete legacy pair.
+        monkeypatch.delenv("CLOUDFLARE_PURGE_TOKEN", raising=False)
+        monkeypatch.delenv("CLOUDFLARE_PURGE_TOKEN_FILE", raising=False)
         monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent")
 
         with flask_app.test_client() as client:
@@ -563,3 +571,123 @@ class TestPurgeCdnCache:
         req = mock_urlopen.call_args[0][0]
         assert req.get_header("X-auth-key") == "file-key"
         assert req.get_header("X-auth-email") == "env@example.com"
+
+
+# =========================================================================
+# purge_cdn_cache — scoped API token (Bearer) authentication
+#
+# The Global API Key grants full account access, which this endpoint never
+# needs. A token scoped to Zone > Cache Purge is the supported credential;
+# the legacy key path is retained only for installs predating the migration.
+# =========================================================================
+
+
+class TestPurgeCdnCacheScopedToken:
+    """Bearer-token auth for the Cloudflare cache purge endpoint."""
+
+    @staticmethod
+    def _ok_response():
+        mock_response = MagicMock()
+        mock_response.read.return_value = json.dumps({"success": True}).encode()
+        mock_response.__enter__ = MagicMock(return_value=mock_response)
+        mock_response.__exit__ = MagicMock(return_value=False)
+        return mock_response
+
+    def test_scoped_token_from_env_uses_bearer_header(self, flask_app, monkeypatch):
+        """CLOUDFLARE_PURGE_TOKEN is sent as an Authorization: Bearer header."""
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
+        monkeypatch.setenv("CLOUDFLARE_PURGE_TOKEN", "scoped-purge-token")
+        monkeypatch.delenv("CLOUDFLARE_PURGE_TOKEN_FILE", raising=False)
+        monkeypatch.delenv("CF_GLOBAL_API_KEY", raising=False)
+        monkeypatch.delenv("CF_AUTH_EMAIL", raising=False)
+        monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent")
+
+        with patch("urllib.request.urlopen", return_value=self._ok_response()) as mock_urlopen:
+            with flask_app.test_client() as client:
+                response = client.post("/api/system/purge-cache")
+
+        assert response.status_code == 200
+        req = mock_urlopen.call_args[0][0]
+        assert req.get_header("Authorization") == "Bearer scoped-purge-token"
+        # The legacy headers must NOT be sent alongside the token.
+        assert req.get_header("X-auth-key") is None
+        assert req.get_header("X-auth-email") is None
+
+    def test_scoped_token_takes_precedence_over_global_key(self, flask_app, monkeypatch):
+        """When both are configured the scoped token wins over the Global API Key."""
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
+        monkeypatch.setenv("CLOUDFLARE_PURGE_TOKEN", "scoped-purge-token")
+        monkeypatch.delenv("CLOUDFLARE_PURGE_TOKEN_FILE", raising=False)
+        monkeypatch.setenv("CF_GLOBAL_API_KEY", "legacy-global-key")
+        monkeypatch.setenv("CF_AUTH_EMAIL", "legacy@example.com")
+        monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent")
+
+        with patch("urllib.request.urlopen", return_value=self._ok_response()) as mock_urlopen:
+            with flask_app.test_client() as client:
+                response = client.post("/api/system/purge-cache")
+
+        assert response.status_code == 200
+        req = mock_urlopen.call_args[0][0]
+        assert req.get_header("Authorization") == "Bearer scoped-purge-token"
+        assert req.get_header("X-auth-key") is None
+
+    def test_scoped_token_from_file_pointer(self, flask_app, temp_dir, monkeypatch):
+        """CLOUDFLARE_PURGE_TOKEN_FILE resolves through the shared secret resolver."""
+        token_file = temp_dir / "cloudflare-purge-token"
+        token_file.write_text("token-from-file\n")
+
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
+        monkeypatch.delenv("CLOUDFLARE_PURGE_TOKEN", raising=False)
+        monkeypatch.setenv("CLOUDFLARE_PURGE_TOKEN_FILE", str(token_file))
+        monkeypatch.delenv("CF_GLOBAL_API_KEY", raising=False)
+        monkeypatch.delenv("CF_AUTH_EMAIL", raising=False)
+        monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent")
+
+        with patch("urllib.request.urlopen", return_value=self._ok_response()) as mock_urlopen:
+            with flask_app.test_client() as client:
+                response = client.post("/api/system/purge-cache")
+
+        assert response.status_code == 200
+        req = mock_urlopen.call_args[0][0]
+        # Trailing newline must be stripped, or Cloudflare rejects the header.
+        assert req.get_header("Authorization") == "Bearer token-from-file"
+
+    def test_empty_token_file_falls_back_to_global_key(self, flask_app, temp_dir, monkeypatch):
+        """An empty token file must not shadow a working legacy credential.
+
+        Regression guard: /etc/audiobooks/ has historically contained zero-byte
+        placeholder secret files created at install time.
+        """
+        token_file = temp_dir / "empty-purge-token"
+        token_file.write_text("")
+
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
+        monkeypatch.delenv("CLOUDFLARE_PURGE_TOKEN", raising=False)
+        monkeypatch.setenv("CLOUDFLARE_PURGE_TOKEN_FILE", str(token_file))
+        monkeypatch.setenv("CF_GLOBAL_API_KEY", "legacy-global-key")
+        monkeypatch.setenv("CF_AUTH_EMAIL", "legacy@example.com")
+        monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent")
+
+        with patch("urllib.request.urlopen", return_value=self._ok_response()) as mock_urlopen:
+            with flask_app.test_client() as client:
+                response = client.post("/api/system/purge-cache")
+
+        assert response.status_code == 200
+        req = mock_urlopen.call_args[0][0]
+        assert req.get_header("Authorization") is None
+        assert req.get_header("X-auth-key") == "legacy-global-key"
+
+    def test_no_token_and_no_global_key_returns_503(self, flask_app, monkeypatch):
+        """Neither credential configured still returns 503."""
+        monkeypatch.setenv("CF_ZONE_ID", "test-zone-id")
+        monkeypatch.delenv("CLOUDFLARE_PURGE_TOKEN", raising=False)
+        monkeypatch.delenv("CLOUDFLARE_PURGE_TOKEN_FILE", raising=False)
+        monkeypatch.delenv("CF_GLOBAL_API_KEY", raising=False)
+        monkeypatch.delenv("CF_AUTH_EMAIL", raising=False)
+        monkeypatch.setenv("CF_TOKEN_FILE", "/nonexistent")
+
+        with flask_app.test_client() as client:
+            response = client.post("/api/system/purge-cache")
+
+        assert response.status_code == 503
+        assert "not configured" in response.get_json()["error"]
