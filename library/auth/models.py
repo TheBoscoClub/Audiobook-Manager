@@ -478,11 +478,34 @@ class Session:
 
     def touch(self, db: AuthDatabase) -> None:
         """Update last_seen timestamp."""
+        # Space-separated format to match SQLite's DEFAULT
+        # CURRENT_TIMESTAMP. The previous ``isoformat()`` ('T' separator)
+        # broke same-day lexicographic comparisons in cleanup_stale():
+        # 'T' sorts after ' ', so a touched-then-idle session compared as
+        # newer than the space-format threshold.
         self.last_seen = datetime.now()
         with db.connection() as conn:
             conn.execute(
                 "UPDATE sessions SET last_seen = ? WHERE id = ?",
-                (self.last_seen.isoformat(), self.id),
+                (self.last_seen.isoformat(sep=" "), self.id),
+            )
+
+    def extend_expiry(self, db: AuthDatabase, duration_seconds: int) -> None:
+        """Advance the absolute expiry horizon to now + duration.
+
+        Rolling-renewal anchor for persistent ("remember me") sessions:
+        called whenever the session cookie is re-issued so the server-side
+        horizon and the browser's cookie clock advance together. Browsers
+        clamp stored cookies to 400 days regardless of Max-Age, so the
+        horizon mirrors the real ceiling the cookie lives under.
+        """
+        self.expires_at = (datetime.now() + timedelta(seconds=duration_seconds)).replace(
+            microsecond=0
+        )
+        with db.connection() as conn:
+            conn.execute(
+                "UPDATE sessions SET expires_at = ? WHERE id = ?",
+                (self.expires_at.isoformat(sep=" "), self.id),
             )
 
     def invalidate(self, db: AuthDatabase) -> None:
@@ -545,20 +568,35 @@ class SessionRepository:
             return cursor.rowcount
 
     def cleanup_stale(self, grace_minutes: int = Session.DEFAULT_GRACE_MINUTES) -> int:
-        """Remove stale sessions. Returns count of deleted sessions.
+        """Remove stale and expired sessions. Returns count of deleted sessions.
 
         Persistent sessions never expire from inactivity — only
         non-persistent sessions are cleaned up based on the grace period.
+        Persistent sessions ARE removed once past their absolute
+        ``expires_at`` horizon (see ``Session.extend_expiry``): the
+        browser cookie died at that same horizon, so the row is
+        unreachable and rolling renewal can no longer save it.
         """
         threshold = datetime.now() - timedelta(minutes=grace_minutes)
         # Use SQLite-compatible format (space separator) to match
-        # DEFAULT CURRENT_TIMESTAMP
+        # DEFAULT CURRENT_TIMESTAMP. datetime() normalizes any legacy
+        # 'T'-separated values written by older touch()/isoformat() code
+        # so the comparison is format-proof.
         threshold_str = threshold.strftime("%Y-%m-%d %H:%M:%S")
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         with self.db.connection() as conn:
             cursor = conn.execute(
-                "DELETE FROM sessions WHERE is_persistent = 0 AND last_seen < ?", (threshold_str,)
+                "DELETE FROM sessions WHERE is_persistent = 0"
+                " AND datetime(last_seen) < datetime(?)",
+                (threshold_str,),
             )
-            return cursor.rowcount
+            removed = cursor.rowcount
+            cursor = conn.execute(
+                "DELETE FROM sessions WHERE is_persistent = 1 AND expires_at IS NOT NULL"
+                " AND datetime(expires_at) < datetime(?)",
+                (now_str,),
+            )
+            return removed + cursor.rowcount
 
 
 @dataclass

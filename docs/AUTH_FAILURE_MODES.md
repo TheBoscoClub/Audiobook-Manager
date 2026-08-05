@@ -103,7 +103,8 @@ chown audiobooks:audiobooks /var/lib/audiobooks/auth.*
 
 **Cause:**
 
-- Non-persistent session exceeded inactivity timeout (default 30 min); persistent ("stay logged in") sessions never expire from inactivity
+- Non-persistent session exceeded inactivity timeout (default 120 min)
+- Persistent ("stay logged in") session dormant past its 400-day horizon — browsers clamp cookies to 400 days, so persistent sessions carry a matching server-side `expires_at`; rolling renewal advances it on any authenticated request past half the window, meaning only a session unused for ~200+ days can ever reach the horizon (see AUTH_RUNBOOK.md "Session Lifetimes & Rolling Renewal")
 - Session explicitly logged out
 - Server restarted
 

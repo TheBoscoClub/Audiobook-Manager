@@ -31,6 +31,7 @@ import logging
 import re
 import sys
 import urllib.parse
+from datetime import datetime, timedelta
 from functools import wraps
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -82,6 +83,7 @@ __all__ = [
     "require_current_user",
     "SESSION_DURATION_DEFAULT",
     "SESSION_DURATION_REMEMBER",
+    "SESSION_RENEWAL_THRESHOLD",
     "INVITATION_EXPIRY_HOURS",
     "_setup_totp_data",
     "_setup_passkey_data",
@@ -116,9 +118,25 @@ _pending_totp_secrets: dict[int, str] = {}
 # In-memory storage for pending WebAuthn challenges during auth method switch
 _pending_webauthn_challenges: dict[int, str] = {}
 
-# Session duration constants
+# Session duration constants.
+#
+# Browsers clamp stored cookie lifetime to 400 days regardless of Max-Age
+# (RFC 6265bis; Chrome 104+, Firefox 108+), so a "10 year" cookie is not
+# achievable — 400 days is the honest ceiling. "Remember me" therefore
+# issues a 400-day cookie and relies on rolling renewal
+# (``_renew_persistent_session_cookie``) to keep active users signed in
+# indefinitely: any authenticated request past half the window re-issues
+# the cookie (resetting the browser's 400-day clock) and advances the
+# server-side ``expires_at`` horizon to match. A dormant session still
+# dies at the horizon on both ends.
 SESSION_DURATION_DEFAULT = None  # Session cookie (cleared on browser close)
-SESSION_DURATION_REMEMBER = 10 * 365 * 24 * 60 * 60  # ~10 years (until sign-out)
+SESSION_DURATION_REMEMBER = 400 * 24 * 60 * 60  # 400 days (browser clamp ceiling)
+
+# Rolling renewal fires once a persistent session's remaining life drops to
+# half the window (~200 days). Frequent enough that any user active at
+# least once per ~200 days never expires; infrequent enough that a renewal
+# (one DB write + one Set-Cookie header) is rare rather than per-request.
+SESSION_RENEWAL_THRESHOLD = SESSION_DURATION_REMEMBER // 2  # seconds remaining
 
 
 # =============================================================================
@@ -491,6 +509,14 @@ def get_current_user() -> Optional[User]:
     if session is None:
         return None
 
+    # Enforce the absolute expiry horizon. Rolling renewal
+    # (_renew_persistent_session_cookie) advances it on activity, so only
+    # a session dormant past SESSION_DURATION_REMEMBER dies here — the
+    # browser's own 400-day cookie clamp expired on the same schedule.
+    if not session.is_valid():
+        session.invalidate(db)
+        return None
+
     # Check if session is stale. Uses Session.DEFAULT_GRACE_MINUTES (120)
     # so audio listening — which bypasses /api/* and doesn't refresh
     # last_seen — doesn't trigger a silent 401 mid-chapter.
@@ -798,4 +824,47 @@ def set_session_cookie(response: Response, token: str, remember_me: bool = False
 def clear_session_cookie(response: Response) -> Response:
     """Clear the session cookie."""
     response.delete_cookie(_session_cookie_name, path="/")
+    return response
+
+
+@auth_bp.after_app_request
+def _renew_persistent_session_cookie(response: Response) -> Response:
+    """Rolling renewal for persistent ("remember me") session cookies.
+
+    Registered app-wide (``after_app_request``) so every authenticated
+    route inherits it instead of each login call site re-implementing it.
+    When the current request resolved a persistent session whose remaining
+    life has dropped below ``SESSION_RENEWAL_THRESHOLD`` — or whose
+    ``expires_at`` was never set (rows created before rolling renewal
+    existed, which are backfilled here on first use) — re-issue the cookie
+    with a fresh Max-Age and advance the server-side horizon to match.
+
+    The SAME token is re-issued rather than rotated: rotation on ordinary
+    read traffic races concurrent tabs (the losing tab keeps the dead
+    token and 401s mid-listen), and the token is a server-generated random
+    secret in an HttpOnly + Secure cookie, so re-issuing adds no
+    meaningful exposure. The re-issued value goes through
+    ``set_session_cookie`` and is therefore validated against
+    ``_SAFE_SESSION_TOKEN_RE`` like every other cookie write.
+
+    Best-effort: a renewal failure must never break an otherwise-good
+    response, so errors are logged and the response passes through.
+    """
+    session = getattr(g, "_current_session", None)
+    if session is None or not session.is_persistent:
+        return response
+    if session.expires_at is not None:
+        remaining = session.expires_at - datetime.now()
+        if remaining > timedelta(seconds=SESSION_RENEWAL_THRESHOLD):
+            return response
+    token = request.cookies.get(_session_cookie_name)
+    if not token:
+        return response
+    try:
+        # Server-side row first, then the cookie — if the DB write fails,
+        # the browser keeps its old (shorter) clock and stays in sync.
+        session.extend_expiry(get_auth_db(), SESSION_DURATION_REMEMBER)
+        set_session_cookie(response, token, remember_me=True)
+    except Exception as e:  # noqa: BLE001 — renewal is best-effort by design
+        logger.warning("Persistent-session cookie renewal failed: %s", e)
     return response

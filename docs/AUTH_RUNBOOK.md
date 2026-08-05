@@ -171,6 +171,36 @@ When user loses access to their authenticator:
 ./library/tools/auth_admin.py --logout-all
 ```
 
+## Session Lifetimes & Rolling Renewal
+
+Two session flavors, driven by the "Stay logged in" checkbox at login:
+
+| Flavor | Cookie | Server-side lifetime |
+|--------|--------|----------------------|
+| Standard (unchecked) | Session cookie — cleared on browser close | Removed after 120 min of inactivity (`Session.DEFAULT_GRACE_MINUTES`) |
+| Persistent ("remember me") | `Max-Age` 400 days | No inactivity timeout; absolute 400-day `expires_at` horizon, advanced by rolling renewal |
+
+Browsers clamp stored cookies to a **maximum of 400 days** regardless of
+`Max-Age` (RFC 6265bis; Chrome 104+, Firefox 108+), so no cookie can outlive
+that window unrenewed. Persistent sessions therefore use **rolling renewal**:
+on any authenticated request where the session is past half its life
+(~200 days remaining), the API re-issues the same cookie with a fresh
+400-day `Max-Age` and advances the session row's `expires_at` to match. The
+practical result:
+
+- **Active users never expire** — each renewal resets both the browser's
+  400-day clock and the server-side horizon
+- **Dormant sessions die at 400 days** — on both ends: the browser expires
+  the cookie, and the server rejects + deletes the row past `expires_at`
+- **Nothing survives "clear browsing data"** — that limit is inherent to
+  cookies; the frontend's `localStorage` token + `/auth/session/restore`
+  path covers cookie loss while the session row is still within its horizon
+
+Renewal is implemented once in the auth middleware
+(`auth_shared._renew_persistent_session_cookie`), so every route inherits it.
+The periodic auth cleanup removes non-persistent rows past the inactivity
+grace period and persistent rows past their `expires_at` horizon.
+
 ## Multi-Session Login (v8.0.1.2+)
 
 By default, each user is limited to one active session (logging in on a new device invalidates the previous session). Admins can enable multi-session login to allow concurrent sessions on multiple devices.
@@ -289,6 +319,8 @@ SMTP_FROM=library@YOUR_DOMAIN.example
 ```
 
 If SMTP is not configured, the action still succeeds and is logged — only the email delivery is skipped (no error raised).
+
+Instead of an inline `SMTP_PASS`, the key can live in a `SMTP_PASS_FILE` pointer file — including the hardened per-start derivation via `derive-service-secret`. See [EMAIL-SETUP.md](EMAIL-SETUP.md) ("Storing the API key in a separate file" and "Hardened setup").
 
 ### Clearing the notification badge
 

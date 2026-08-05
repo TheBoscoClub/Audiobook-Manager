@@ -102,6 +102,7 @@ from .auth_shared import (  # noqa: F401  (re-export)
     INVITATION_EXPIRY_HOURS,
     SESSION_DURATION_DEFAULT,
     SESSION_DURATION_REMEMBER,
+    SESSION_RENEWAL_THRESHOLD,
     _extract_recovery_fields,
     _format_claim_token,
     _pending_totp_secrets,
@@ -311,6 +312,12 @@ def restore_session():
     if not session.is_persistent:
         return jsonify({"error": "Session is not persistent"}), 401
 
+    # Past the absolute expiry horizon — dormant beyond the rolling-renewal
+    # ceiling (see auth_shared.SESSION_DURATION_REMEMBER); do not resurrect
+    if not session.is_valid():
+        session.invalidate(db)
+        return jsonify({"error": "Session has expired"}), 401
+
     # Check if session is still valid (not stale)
     if session.is_stale():
         session.invalidate(db)
@@ -337,6 +344,10 @@ def restore_session():
             },
         }
     )
+
+    # Restore re-issues a full-life cookie, so advance the server-side
+    # horizon to match (same rolling renewal as authenticated requests)
+    session.extend_expiry(db, SESSION_DURATION_REMEMBER)
 
     # Re-set the session cookie
     return set_session_cookie(response, raw_token, remember_me=True)
