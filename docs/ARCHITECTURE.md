@@ -537,6 +537,19 @@ library/backend/api_modular/
 | **Cookie flags** | `HttpOnly`, `Secure`, `SameSite=Lax` |
 | **Policy** | Single session by default; multi-session opt-in via global setting and per-user override (v8.0.1.2+) |
 | **Staleness** | 120-minute inactivity grace period (non-persistent sessions only) — `Session.DEFAULT_GRACE_MINUTES = 120` in `library/auth/models.py` (v8.3.10.5+; was 30 min, raised because audio streams bypass `/api/*` and never refresh `last_seen`, so a 30-min session would expire mid-listen before the next `PUT /api/position`) |
+| **Persistent ("remember me") lifetime** | Honest 400-day `Max-Age`/`expires_at` horizon (browser cookie clamp, RFC 6265bis), advanced by rolling renewal on any authenticated request once past half its life (v8.4.2.0+) — full detail in [AUTH_RUNBOOK.md § Session Lifetimes & Rolling Renewal](AUTH_RUNBOOK.md#session-lifetimes--rolling-renewal) |
+
+### Auth Endpoint Rate Limiting (v8.4.2.0+)
+
+`library/backend/api_modular/rate_limit.py` throttles `/auth/login`,
+`/auth/webauthn/complete`, and `/auth/backup-code` with an in-process,
+worker-local sliding-window limiter keyed on `(scope, client address,
+username)`: 5 failed (401/403) attempts within a 5-minute window locks that
+key out for 5 minutes (`429` + `Retry-After`). Worker-local is safe today
+because `audiobook-api.service` is pinned to `-w 1` for its in-memory
+WebSocket connection manager — see [AUTH_RUNBOOK.md § Auth Endpoint Rate
+Limiting](AUTH_RUNBOOK.md#auth-endpoint-rate-limiting-v8420) for full
+operational detail and config keys.
 
 ### WebAuthn Auto-Configuration
 

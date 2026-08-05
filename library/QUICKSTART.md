@@ -164,8 +164,8 @@ python3 import_to_db.py
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `audiobook-api` | 5001 (localhost) | Flask REST API (Gunicorn+geventwebsocket) |
-| `audiobook-proxy` | 8443 (public) | HTTPS reverse proxy |
+| `audiobook-api` | 5001 (localhost) | Flask REST API (Gunicorn+gevent) |
+| `audiobook-proxy` | 8443 (public) | HTTPS reverse proxy (Gunicorn+gevent WSGI, since v8.4.2.0) |
 | `audiobook-redirect` | 8080 (public) | HTTP to HTTPS redirect |
 | `audiobook-converter` | - | AAXC → OPUS conversion |
 | `audiobook-mover` | - | Move files from tmpfs |

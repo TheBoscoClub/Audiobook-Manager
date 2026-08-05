@@ -314,31 +314,48 @@ caddy validate --config /etc/caddy/Caddyfile
 
 **Symptoms:**
 
-- HTTP 429 Too Many Requests
-- Users temporarily blocked
-- Legitimate users affected by shared IP
+- HTTP 429 "Too many failed attempts" with a `Retry-After` header
+- One user+address pair temporarily blocked from `/auth/login`,
+  `/auth/webauthn/complete`, or `/auth/backup-code`
+- Shared IP (NAT, office network) can make one user's lockout look like it
+  affects others sharing the address
 
-**Cause:**
+**Cause (v8.4.2.0+, primary mechanism):**
 
-- Brute force protection triggered
-- Legitimate high traffic
-- Crawler/bot activity
+- The application-level auth rate limiter (`library/backend/api_modular/rate_limit.py`)
+  locks a `(scope, client address, username)` key out for 5 minutes after 5
+  failed attempts (401/403) within a 5-minute sliding window — brute-force
+  protection against the 6-digit TOTP space. This is always active; it is
+  **not** a Caddy or reverse-proxy feature. Full detail:
+  [AUTH_RUNBOOK.md — Auth Endpoint Rate Limiting](AUTH_RUNBOOK.md#auth-endpoint-rate-limiting-v8420)
+
+**Cause (optional, only if configured):**
+
+- If a Caddy `rate_limit` directive has been added in front of the app (the
+  default `caddy/audiobooks.conf` shipped by this project does not include
+  one — see `docs/SECURE_REMOTE_ACCESS_SPEC.md` for the design if you want
+  to add it), generic high-traffic/crawler activity at that layer can also
+  produce 429s
 
 **Impact:**
 
-- Affected IP addresses temporarily blocked
+- The locked-out user+address pair cannot authenticate until the lockout
+  expires (or an operator restarts `audiobook-api`, which clears all
+  in-process lockouts)
 
 **Recovery:**
 
 ```bash
-# Rate limits are at Caddy level
-# Check Caddy rate limit configuration
-grep -A5 "rate_limit" /etc/caddy/Caddyfile
+# Confirm it's the app-level limiter, not Caddy
+journalctl -u audiobook-api | grep "Auth rate limit"
 
-# No persistent blocklist - wait for timeout
-# Default: 10 requests per minute per IP
+# Immediate unblock for a legitimate user (clears ALL lockouts, in-process only)
+sudo systemctl restart audiobook-api
 
-# For persistent attackers, add firewall rules:
+# If a Caddy rate_limit directive IS configured, check it too
+grep -A5 "rate_limit" /etc/caddy/Caddyfile 2>/dev/null
+
+# For a persistent external attacker, add firewall rules:
 sudo ufw deny from ATTACKER_IP
 ```
 

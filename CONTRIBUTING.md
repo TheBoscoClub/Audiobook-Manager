@@ -127,7 +127,7 @@ audiobooks/
    - Tests pass (`pytest tests/ -v`)
    - Linting passes (`ruff check library/`)
    - Code is formatted (`ruff format library/`)
-   - Type checking is clean (`cd library && venv/bin/pyright .` — must report 0 errors, 0 warnings)
+   - Type checking is clean (`cd library && venv/bin/mypy . --ignore-missing-imports` — must report `Success: no issues found`; this is the gating "Type Checking" CI job in `python-security.yml`)
 
 3. **Write meaningful commit messages**:
 

@@ -324,6 +324,7 @@ Web-based audiobook library browser with:
 - **DeepL quota tracking** — monthly character usage with soft warning at 90% and hard stop at 99%, admin dashboard endpoint (v8.1.0+)
 - **Real-time streaming translation** — play any book in a non-English locale and the first ~3 minutes translate on demand while a cursor-centric buffer runs ahead of your position; seeks re-prioritize on the fly; chapter-by-chapter cache is shared across all listeners (v8.3.0+)
 - **6-minute pretranslation sampler** — every book gets its opening ~6 minutes pretranslated in every enabled non-EN locale at ingest time. Any listener can browse the library and play any book's preview instantly (no GPU wait), and for books they commit to, the sample covers GPU cold-start runway so transitioning to live translation is seamless. Sampler runs at dedicated priority p2 and can never starve live playback — enforced at the DB layer. See [`docs/SAMPLER.md`](docs/SAMPLER.md) (v8.3.8+)
+- **Original Print Year sort** — third sort dimension alongside publish/acquired date, backed by an Open Library-enriched `original_publish_year` column with a `COALESCE`-to-`published_year` fallback so real Open Library data stays distinguishable from the fallback. New imports populate it automatically via a post-insert hook; existing libraries backfill with the resumable `library/scripts/original_print_year.py` CLI (v8.4.2.0+)
 
 ## Quick Start
 
@@ -335,7 +336,7 @@ sudo systemctl start audiobook.target
 
 # Opens https://localhost:8443 in your browser
 # HTTP requests to port 8080 are automatically redirected to HTTPS
-# Uses Gunicorn with geventwebsocket for production-ready performance and WebSocket support
+# Uses Gunicorn with the gevent worker for production-ready performance and WebSocket support
 
 # Or use legacy launcher (development mode, no systemd)
 cd library
@@ -575,7 +576,7 @@ The installer automatically detects storage types (NVMe, SSD, HDD) and warns if 
 | Index files (.index/) | NVMe/SSD | Frequently accessed during operations |
 | Audio Library (Library/) | HDD OK | Sequential streaming works well on HDD |
 
-If the database path is on HDD, you'll see a warning with the option to cancel and adjust paths. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#storage-architecture) for detailed recommendations.
+If the database path is on HDD, you'll see a warning with the option to cancel and adjust paths. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#storage-recommendations) for detailed recommendations.
 
 ### tmpfs Considerations
 
@@ -613,7 +614,7 @@ ls -la /tmp/audiobook-staging /tmp/audiobook-triggers
 - Converter reports files stuck in queue but shows "idle"
 - Mover service fails silently
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#tmpfs-runtime-directories) for detailed tmpfs architecture.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md#tmpfs-and-ram-based-filesystem-considerations) for detailed tmpfs architecture.
 
 Both installation modes:
 
@@ -790,7 +791,8 @@ Configuration is loaded from multiple sources in priority order:
 | `AUDIOBOOKS_HTTP_REDIRECT_PORT` | HTTP→HTTPS redirect port (default: 8080) |
 | `AUDIOBOOKS_HTTP_REDIRECT_ENABLED` | Enable HTTP redirect server (default: true) |
 | `AUDIOBOOKS_HTTPS_ENABLED` | Enable HTTPS for web server (default: true) |
-| ~~`AUDIOBOOKS_USE_WAITRESS`~~ | Removed in v7.2 — migrated to Gunicorn+geventwebsocket |
+| `AUDIOBOOKS_PROXY_WORKERS` | Gunicorn worker count for `audiobook-proxy` (default: 2, since v8.4.2.0) |
+| ~~`AUDIOBOOKS_USE_WAITRESS`~~ | Removed in v7.2 — migrated to Gunicorn+gevent |
 | `AUTH_ENABLED` | Enable authentication for remote access (default: false) |
 | `AUTH_DATABASE` | Auth database path (default: /var/lib/audiobooks/auth.db) |
 | `AUTH_KEY_FILE` | Auth encryption key path (default: /etc/audiobooks/auth.key) |
@@ -1670,14 +1672,17 @@ All services use the `audiobook-*` naming convention for easy management.
 
 | Service | Description | Type |
 |---------|-------------|------|
-| `audiobook-api` | Flask REST API (Gunicorn+geventwebsocket) on localhost:5001 | always running |
-| `audiobook-proxy` | HTTPS reverse proxy on 0.0.0.0:8443 | always running |
+| `audiobook-api` | Flask REST API (Gunicorn+gevent) on localhost:5001 | always running |
+| `audiobook-proxy` | HTTPS reverse proxy (Gunicorn+gevent WSGI, since v8.4.2.0) on 0.0.0.0:8443 | always running |
 | `audiobook-redirect` | HTTP to HTTPS redirect on 0.0.0.0:8080 | always running |
 | `audiobook-converter` | AAXC → OPUS conversion | always running |
 | `audiobook-mover` | Move converted files from tmpfs to storage | always running |
 | `audiobook-scheduler` | Maintenance task scheduler daemon (croniter-based) | always running |
 | `audiobook-downloader.timer` | Download new Audible audiobooks (every 4h) | timer |
 | `audiobook-enrichment.timer` | Nightly metadata enrichment backfill (3 AM) | timer |
+| `audiobook-stream-translate` | Real-time streaming translation worker | always running |
+| `audiobook-translation-monitor-live.timer` | Stuck-claim/retry sweep, live translation tier (every 30s) | timer |
+| `audiobook-translation-monitor-sampler.timer` | Stuck-claim/retry sweep, sampler/backlog tier (every 5m) | timer |
 | `audiobook-shutdown-saver` | Save staging files before shutdown | on shutdown |
 | `audiobook-upgrade-helper.path` | Watch for upgrade trigger files | path watcher |
 

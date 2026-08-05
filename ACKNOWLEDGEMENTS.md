@@ -16,7 +16,7 @@ Audiobook-Manager's STT layer is provider-agnostic — it accepts any Whisper-co
 
 Audiobook-Manager depends on three GPL-family Python libraries. The project distributes exclusively as source code (GitHub) and as a user-built Docker image whose build context contains the full source. This satisfies GPL source-disclosure requirements because **the source is the distribution**.
 
-### mutagen 1.47.0 — GPL-2.0-or-later (SPDX: `GPL-2.0-or-later`)
+### mutagen 1.48.1 — GPL-2.0-or-later (SPDX: `GPL-2.0-or-later`)
 
 - **Project**: <https://github.com/quodlibet/mutagen>
 - **Used by**: `library/scripts/google_play_processor.py` — reads and writes audio file tags (FLAC, MP3, Opus) for Google Play audiobook metadata extraction and cover-art embedding

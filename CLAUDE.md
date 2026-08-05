@@ -16,7 +16,7 @@
 
 ## Systemd Services
 
-`audiobook.target`, `audiobook-api.service`, `audiobook-proxy.service`, `audiobook-redirect.service`, `audiobook-converter.service`, `audiobook-mover.service`, `audiobook-scheduler.service`, `audiobook-downloader.service/.timer`, `audiobook-enrichment.service/.timer`, `audiobook-shutdown-saver.service`, `audiobook-upgrade-helper.service`, `audiobook-upgrade-helper.path`
+`audiobook.target`, `audiobook-api.service`, `audiobook-proxy.service`, `audiobook-redirect.service`, `audiobook-converter.service`, `audiobook-mover.service`, `audiobook-scheduler.service`, `audiobook-downloader.service/.timer`, `audiobook-enrichment.service/.timer`, `audiobook-stream-translate.service`, `audiobook-translation-monitor-live.service/.timer`, `audiobook-translation-monitor-sampler.service/.timer`, `audiobook-shutdown-saver.service`, `audiobook-upgrade-helper.service`, `audiobook-upgrade-helper.path`
 
 ## Current Version
 
@@ -43,7 +43,9 @@ See `VERSION` file. User/group: `audiobooks:audiobooks`
 | STREAMING-TRANSLATION.md | `./docs/STREAMING-TRANSLATION.md` |
 | STREAMING-TRANSLATION.zh-Hans.md | `./docs/STREAMING-TRANSLATION.zh-Hans.md` |
 | SAMPLER.md | `./docs/SAMPLER.md` |
+| TRANSLATION-MONITOR.md | `./docs/TRANSLATION-MONITOR.md` |
 | EMAIL-SETUP.md | `./docs/EMAIL-SETUP.md` |
 | SERVERLESS-OPS.md | `./docs/SERVERLESS-OPS.md` |
+| STORAGE-CAPACITY.md | `./docs/STORAGE-CAPACITY.md` |
 | RCA-v8.3.8.6-chinese-audio-silence.md | `./docs/RCA-v8.3.8.6-chinese-audio-silence.md` |
 | CONTRIBUTING.md | `./CONTRIBUTING.md` |

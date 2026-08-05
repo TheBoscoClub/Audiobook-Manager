@@ -89,8 +89,16 @@ AUDIOBOOKS_BIND_ADDRESS="0.0.0.0"
 # Default: 8080
 AUDIOBOOKS_HTTP_REDIRECT_PORT="8080"
 
-# WSGI server: Gunicorn with geventwebsocket worker (migrated from Waitress in v7.2)
-# No configuration needed — Gunicorn is started via systemd with correct worker class
+# WSGI server: Gunicorn with the gevent worker (migrated from Waitress in v7.2;
+# audiobook-proxy migrated from a ThreadingHTTPServer to Gunicorn+gevent in v8.4.2.0).
+# No further configuration needed — Gunicorn is started via systemd with the
+# correct worker class for each service.
+
+# Reverse-proxy Gunicorn worker count (audiobook-proxy only; the proxy is
+# stateless so this can scale). The API is pinned to 1 worker for its
+# in-memory WebSocket connection manager and is not configurable here.
+# Default: 2
+#AUDIOBOOKS_PROXY_WORKERS="2"
 
 # =============================================================================
 # Optional Features

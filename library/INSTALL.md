@@ -47,7 +47,7 @@ For optimal performance, place components on appropriate storage tiers:
 - NVMe: ~0.002s query time
 - HDD: Can be 100x slower due to random I/O
 
-See [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md#storage-architecture) for detailed recommendations including BTRFS subvolume layouts and mount options.
+See [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md#storage-recommendations) for detailed recommendations including BTRFS subvolume layouts and mount options.
 
 ### tmpfs Considerations
 

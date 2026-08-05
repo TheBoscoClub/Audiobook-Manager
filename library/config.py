@@ -191,7 +191,7 @@ _http_redirect_enabled_raw = os.environ.get(
     "HTTP_REDIRECT_ENABLED", get_config("AUDIOBOOKS_HTTP_REDIRECT_ENABLED", "true")
 )
 AUDIOBOOKS_HTTP_REDIRECT_ENABLED = _http_redirect_enabled_raw.lower() in ("true", "1", "yes")
-# AUDIOBOOKS_USE_WAITRESS removed in v7.2 — migrated to Gunicorn+geventwebsocket
+# AUDIOBOOKS_USE_WAITRESS removed in v7.2 — migrated to Gunicorn+gevent
 
 # =============================================================================
 # Legacy Aliases (backwards compatibility)

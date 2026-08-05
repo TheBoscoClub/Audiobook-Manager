@@ -232,6 +232,50 @@ user just signed out of, leaving the browser logged in. Every session is also
 created with a non-NULL `expires_at`; a NULL horizon made `is_valid()`
 unconditionally true and made the hook treat every request as overdue.
 
+## Auth Endpoint Rate Limiting (v8.4.2.0+)
+
+`/auth/login`, `/auth/webauthn/complete`, and `/auth/backup-code` are
+throttled by an in-process sliding-window limiter
+(`library/backend/api_modular/rate_limit.py`) that exists specifically
+because a TOTP code is a six-digit space — without a limiter, the only thing
+between an attacker and a valid code is request throughput.
+
+| Setting | Default | Config key |
+|---------|---------|------------|
+| Max failures | 5 | `AUTH_RATE_LIMIT_MAX_FAILURES` |
+| Sliding window | 300s (5 min) | `AUTH_RATE_LIMIT_WINDOW_SECONDS` |
+| Lockout duration | 300s (5 min) | `AUTH_RATE_LIMIT_LOCKOUT_SECONDS` |
+
+Key facts for operators:
+
+- **Keyed on `(scope, client address, username)`** — not address alone (which
+  would let one attacker lock out every account from a single IP) and not
+  username alone (which would let anyone lock out a known user by spamming
+  bad guesses from anywhere). `scope` keeps `/auth/login` and the WebAuthn/
+  backup-code verifiers counted separately.
+- **Only 401/403 responses count as failures.** A 400 (malformed request)
+  does not, so a client cannot lock itself out by sending junk.
+- **Success resets the counter immediately** for that key.
+- **A locked key gets `429 Too many failed attempts`** with a `Retry-After`
+  header; nothing else about the request is evaluated.
+- **In-process and worker-local, by design.** `audiobook-api.service` runs
+  gunicorn with a hard 1-worker constraint (its in-memory WebSocket
+  connection manager requires it — see `-w 1` in the systemd unit), so today
+  one process sees every auth request and the limiter's state is, in effect,
+  global for this deployment. If that 1-worker constraint is ever lifted,
+  the limiter's budget multiplies by worker count — track any change to
+  `-w 1` in `audiobook-api.service` against this note.
+- **State resets on service restart.** `systemctl restart audiobook-api`
+  clears all lockouts immediately — useful to unblock a legitimately locked
+  operator, but also means the limiter provides no persistence across
+  restarts (an attacker who trips a restart-worthy incident gets a fresh
+  budget too).
+- **Diagnose a lockout** with `journalctl -u audiobook-api | grep "Auth rate
+  limit"` — logs both the refusal (`refused locked key for scope=...`) and
+  the triggering lockout (`locked out after N failures (scope=...)`), but
+  never the username or IP in plaintext in the log line itself (the key is
+  hashed only in memory, not logged).
+
 ## Multi-Session Login (v8.0.1.2+)
 
 By default, each user is limited to one active session (logging in on a new device invalidates the previous session). Admins can enable multi-session login to allow concurrent sessions on multiple devices.
@@ -501,7 +545,20 @@ echo "Restore complete. Verify by logging in."
    - Passkey: Check domain matches RP ID
    - Magic Link: Check email delivery
 
-4. **Reset if needed:**
+4. **Check for a rate-limit lockout** (5 failed attempts in a 5-minute window
+   locks the `(client address, username)` pair out for 5 minutes; see
+   [Auth Endpoint Rate Limiting](#auth-endpoint-rate-limiting-v8420) below):
+
+   ```bash
+   journalctl -u audiobook-api | grep "Auth rate limit"
+   ```
+
+   A `429 Too many failed attempts` response with a `Retry-After` header
+   confirms it — this self-clears once the lockout window elapses; the
+   limiter is in-process only, so `systemctl restart audiobook-api` also
+   clears it immediately if the user cannot wait.
+
+5. **Reset if needed:**
 
    ```bash
    ./library/tools/auth_admin.py --reset-auth USERNAME

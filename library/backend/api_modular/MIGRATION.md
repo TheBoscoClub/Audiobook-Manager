@@ -1,5 +1,13 @@
 # Migration Guide: Monolithic to Modular API
 
+> **Historical.** This migration completed long ago — the monolithic `library/backend/api.py`
+> no longer exists in this repository; `api_modular/` is the only API implementation. Kept for
+> historical reference and as a template for future large refactors. The "Rollback Procedure"
+> below is not executable as written: the `AUDIOBOOKS_USE_WAITRESS` env var it references was
+> removed in v7.2 (Waitress → Gunicorn), and the systemd example still shows the pre-v8.4.2.0
+> `ExecStart=... api_server.py` invocation rather than the current
+> `gunicorn -k gevent -w 1 ... api_server:app` (see `systemd/audiobook-api.service`).
+
 This guide provides step-by-step instructions for migrating from the monolithic `api.py` to the modular `api_modular/` package.
 
 ## Table of Contents

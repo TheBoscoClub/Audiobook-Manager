@@ -169,7 +169,7 @@ _load_config_file "${HOME:-}/.config/audiobooks/audiobooks.conf"
 : "${AUDIOBOOKS_BIND_ADDRESS:=0.0.0.0}"
 : "${AUDIOBOOKS_HTTPS_ENABLED:=true}"
 : "${AUDIOBOOKS_HTTP_REDIRECT_ENABLED:=true}" # Enable HTTP to HTTPS redirect
-# AUDIOBOOKS_USE_WAITRESS removed in v7.2 — migrated to Gunicorn+geventwebsocket
+# AUDIOBOOKS_USE_WAITRESS removed in v7.2 — migrated to Gunicorn+gevent
 
 # Export all variables
 export AUDIOBOOKS_DATA AUDIOBOOKS_LIBRARY AUDIOBOOKS_SOURCES AUDIOBOOKS_SUPPLEMENTS
