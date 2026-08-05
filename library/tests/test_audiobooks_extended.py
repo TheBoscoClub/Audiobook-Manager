@@ -314,6 +314,24 @@ class TestGetAudiobooksFilters:
             resp = client.get(f"/api/audiobooks?sort={field}")
             assert resp.status_code == 200
 
+    def test_original_print_year_sort(self, client):
+        """v8.4.2.0: Original Print Year sort — COALESCE fallback chain.
+
+        Test rows have original_publish_year NULL (no OL backfill), so the
+        effective sort key falls back to published_year; rows with neither
+        year sort last regardless of direction.
+        """
+        for order in ("asc", "desc"):
+            resp = client.get(f"/api/audiobooks?sort=original_publish_year&order={order}")
+            assert resp.status_code == 200
+            books = resp.get_json()["audiobooks"]
+            years = [b.get("published_year") for b in books]
+            non_null = [y for y in years if y is not None]
+            assert non_null == sorted(non_null, reverse=(order == "desc"))
+            # NULLS LAST: once a None appears, no non-null year may follow
+            if None in years:
+                assert all(y is None for y in years[years.index(None) :])
+
     def test_pagination_params(self, client):
         """Pagination with page and per_page."""
         resp = client.get("/api/audiobooks?page=1&per_page=2")

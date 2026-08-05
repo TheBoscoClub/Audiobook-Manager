@@ -187,6 +187,7 @@ _SORT_MAPPINGS = {
     "created_at": "created_at",
     "acquired_date": "acquired_date",
     "published_year": "published_year",
+    "original_publish_year": "original_publish_year",
     "published_date": "published_date",
     "release_date": "release_date",
     "file_size_mb": "file_size_mb",
@@ -273,6 +274,22 @@ def _build_sort_clause(sort_field: str, sort_order: str) -> tuple[str, str]:
     elif sort_sql in _TEXT_SORTS:
         # Case-insensitive sorting for text columns
         return f"{sort_sql} COLLATE NOCASE", sort_order
+
+    # Original print year (Open Library first_publish_year, v8.4.2.0).
+    # Fallback chain applied at query time: rows Open Library couldn't
+    # resolve keep original_publish_year NULL, so COALESCE falls back to
+    # the Audible-sourced published_year (~5% gap). NULLS-in-both rows go
+    # last; release_date + id tiebreakers keep within-year order
+    # deterministic (mirrors the published_year clause below).
+    if sort_sql == "original_publish_year":
+        effective = "COALESCE(original_publish_year, published_year)"
+        return (
+            f"CASE WHEN {effective} IS NULL THEN 1 ELSE 0 END, "
+            f"{effective} {sort_order}, "
+            f"CASE WHEN release_date IS NULL THEN 1 ELSE 0 END, "
+            f"release_date {sort_order}, "
+            f"id DESC"
+        ), ""
 
     # published_year is year-precision only; add release_date as secondary
     # tiebreaker so within-year ordering is deterministic instead of rowid-arbitrary.

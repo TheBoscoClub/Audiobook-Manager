@@ -34,7 +34,7 @@ class LibraryTutorial {
         target: "#sort-filter",
         title: "Sort Options",
         description:
-          "Choose how books are ordered: by title, author, narrator, duration, date acquired, book publication year, audiobook release date, series, edition, or use grouped view to see books organized under collapsible author/narrator headers.",
+          "Choose how books are ordered: by title, author, narrator, duration, date acquired, book publication year, original print year (the year the book first appeared in print, from Open Library), audiobook release date, series, edition, or use grouped view to see books organized under collapsible author/narrator headers.",
       },
       {
         target: "#sidebar-toggle",

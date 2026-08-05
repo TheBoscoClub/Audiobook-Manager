@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS audiobooks (
     format TEXT,
     quality TEXT,
     published_year INTEGER,
+    original_publish_year INTEGER, -- First print publication year (Open Library first_publish_year); NULL when OL has no match — consumers fall back to published_year
     published_date TEXT,          -- Full publish date if available (YYYY-MM-DD)
     acquired_date TEXT,           -- When the audiobook was added to library
     description TEXT,

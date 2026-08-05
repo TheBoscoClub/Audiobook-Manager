@@ -82,7 +82,7 @@ class OpenLibraryClient:
         self.delay = rate_limit_delay
         self.timeout = timeout
         self.max_retries = max_retries
-        self.last_request_time = 0
+        self.last_request_time: float = 0
         self.session = requests.Session()
         self.session.headers.update(
             {
