@@ -82,19 +82,15 @@ jobs:
         run: |
           echo "Attempting to fix Python dependency vulnerabilities..."
 
-          # Find requirements files
-          for req_file in $(find . -name "requirements*.txt" \
-              -not -path "./.git/*"); do
+          pip install pip-audit -q
+
+          # Only the library requirement manifests are eligible for
+          # auto-fixing — the same set the commit step stages below.
+          # No error masking: a pip-audit failure must fail the workflow.
+          for req_file in library/requirements*.txt; do
+            [ -f "$req_file" ] || continue
             echo "Processing $req_file..."
-
-            # Install pip-audit
-            pip install pip-audit -q
-
-            # Get vulnerable packages and their fixed versions
-            pip-audit -r "$req_file" --fix --dry-run 2>/dev/null || true
-
-            # Actually fix if not dry-run
-            pip-audit -r "$req_file" --fix 2>/dev/null || true
+            pip-audit -r "$req_file" --fix
           done
 
       - name: Commit fixes
@@ -104,13 +100,14 @@ jobs:
           git config user.email \
             "github-actions[bot]@users.noreply.github.com"
 
-          if git diff --quiet; then
+          # Stage only the requirement manifests the auto-fix step is
+          # allowed to modify — never a blanket `git add -A`.
+          if git diff --quiet -- 'library/requirements*.txt'; then
             echo "No changes to commit"
           else
-            git add -A
-            git commit -m "fix(security): auto-update vulnerable dependencies
-
-          Automated security fix by GitHub Actions."
+            git add -- 'library/requirements*.txt'
+            git commit -m \
+              "fix(security): auto-update vulnerable dependencies"
             git push
             echo "::notice::Committed security fixes"
           fi

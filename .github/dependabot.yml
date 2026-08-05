@@ -11,6 +11,8 @@ updates:
       interval: "weekly"
       day: "monday"
       timezone: "America/Chicago"
+    cooldown:
+      default-days: 7
     groups:
       python-minor-patch:
         patterns: ["*"]
@@ -26,6 +28,8 @@ updates:
       interval: "weekly"
       day: "monday"
       timezone: "America/Chicago"
+    cooldown:
+      default-days: 7
     labels: ["dependencies", "docker"]
     commit-message:
       prefix: "deps(docker)"
@@ -37,6 +41,8 @@ updates:
       interval: "weekly"
       day: "monday"
       timezone: "America/Chicago"
+    cooldown:
+      default-days: 7
     groups:
       actions-minor-patch:
         patterns: ["*"]

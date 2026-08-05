@@ -26,10 +26,44 @@ jobs:
         with:
           fetch-depth: 0  # Full history for better analysis
 
+      - name: Determine diff range
+        id: diff-range
+        env:
+          # SHAs are passed via env — never interpolated into the script
+          # body — per workflow-injection hygiene.
+          EVENT_NAME: ${{ github.event_name }}
+          PUSH_BASE: ${{ github.event.before }}
+          PUSH_HEAD: ${{ github.event.after }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+        run: |
+          # Compute the commit range the diff-based scans must cover, so a
+          # multi-commit push is scanned in full instead of tip-only.
+          ZEROS="0000000000000000000000000000000000000000"
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            # Merge-base (three-dot) diff: exactly what the PR introduces.
+            RANGE="${PR_BASE}...${PR_HEAD}"
+          elif [ "$PUSH_BASE" = "$ZEROS" ] || \
+               ! git cat-file -e "${PUSH_BASE}^{commit}" 2>/dev/null; then
+            # Initial push of a branch, or a force-push whose old tip no
+            # longer exists: no valid base — scan the full tree at the
+            # pushed commit by diffing against the empty tree.
+            EMPTY_TREE=$(git hash-object -t tree /dev/null)
+            RANGE="${EMPTY_TREE}..${PUSH_HEAD:-HEAD}"
+          else
+            # Normal push: every commit in the push, not just the tip.
+            RANGE="${PUSH_BASE}..${PUSH_HEAD}"
+          fi
+          echo "Diff range: $RANGE"
+          echo "range=$RANGE" >> "$GITHUB_OUTPUT"
+
       - name: Check for hardcoded credentials
+        env:
+          DIFF_RANGE: ${{ steps.diff-range.outputs.range }}
         run: |
           echo "Checking for hardcoded credentials..."
-          # Check for potential API keys, passwords, tokens
+          # Check for potential API keys, passwords, tokens across the full
+          # push/PR range computed by the "Determine diff range" step.
           #
           # .beads/ is excluded: it is bd's generated issue export, and issue prose
           # legitimately discusses credentials by name ("rotate the purge token",
@@ -37,11 +71,12 @@ jobs:
           # positives on every issue that mentions a token. Real credentials are
           # prohibited there by policy — see ~/.claude/rules/beads.md "bd remember
           # — Sensitive Data Policy".
-          #
-          # NOTE: this only inspects HEAD~1, so on a multi-commit push only the tip
-          # commit is scanned. Tracked as Audiobook-Manager-btf.
           PATTERN='(api.?key|password|token|secret).*=.*["'"'"'][a-zA-Z0-9]{16,}["'"'"']'
-          if git diff HEAD~1 -- . ':(exclude).beads/' | grep -iE "$PATTERN"; then
+          # Diff to a file first so a git failure fails the step instead of
+          # being swallowed by an empty pipe into grep.
+          git diff "$DIFF_RANGE" -- . ':(exclude).beads/' \
+            > "$RUNNER_TEMP/credential-scan.diff"
+          if grep -iE "$PATTERN" "$RUNNER_TEMP/credential-scan.diff"; then
             echo "ERROR: Potential hardcoded credential detected"
             exit 1
           fi
@@ -80,12 +115,15 @@ jobs:
           echo "No sensitive files found in repository"
 
       - name: Check for dangerous logging
+        env:
+          DIFF_RANGE: ${{ steps.diff-range.outputs.range }}
         run: |
           echo "Checking for dangerous logging patterns..."
 
-          # Check for logging credentials
+          # Check for logging credentials across the same push/PR range
           LOG_PATTERN='(print|echo|console\.log|logger).*\$?(API_KEY|PASSWORD|TOKEN|SECRET)'
-          if git diff HEAD~1 | grep -iE "$LOG_PATTERN"; then
+          git diff "$DIFF_RANGE" > "$RUNNER_TEMP/logging-scan.diff"
+          if grep -iE "$LOG_PATTERN" "$RUNNER_TEMP/logging-scan.diff"; then
             echo "WARNING: Code may log sensitive data"
           fi
 
