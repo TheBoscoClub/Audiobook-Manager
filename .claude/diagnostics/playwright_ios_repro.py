@@ -262,8 +262,10 @@ def run(browser_name: str, headless: bool) -> int:
             try:
                 page.screenshot(path=str(err_shot), full_page=True)
                 log(f"error screenshot → {err_shot.relative_to(ROOT)}")
-            except Exception:
-                pass
+            except Exception as shot_err:
+                # Page may already be dead; the console dump + FAILED log below
+                # still capture the evidence — just record why the shot is missing.
+                log(f"error screenshot failed: {type(shot_err).__name__}: {shot_err}")
             console_path.write_text("\n".join(console_lines), encoding="utf-8")
             log(f"FAILED: {type(e).__name__}: {e}")
             return 2

@@ -166,5 +166,5 @@ def run_with_progress(cmd, *, line_callback, timeout_secs, operation_name="Opera
             if stream is not None:
                 try:
                     stream.close()
-                except Exception:
+                except Exception:  # nosec B110 — best-effort pipe close; failure only re-risks the ResourceWarning this cleanup exists to prevent
                     pass

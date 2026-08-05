@@ -40,7 +40,7 @@ def settings_db():
             # the warning, and we get "unclosed database in <sqlite3...>".
             try:
                 db.close()  # type: ignore[attr-defined]
-            except Exception:
+            except Exception:  # nosec B110 — fixture teardown, best-effort DB close before tmpdir removal
                 pass
 
 
@@ -219,11 +219,11 @@ class TestPreferencesAPI:
             # GC and emits "unclosed database in <sqlite3...>" warnings.
             try:
                 client.close()  # type: ignore[attr-defined]
-            except Exception:
+            except Exception:  # nosec B110 — fixture teardown, best-effort test-client close
                 pass
             try:
                 auth_db.close()  # type: ignore[attr-defined]
-            except Exception:
+            except Exception:  # nosec B110 — fixture teardown, best-effort auth-DB close
                 pass
 
     def test_get_defaults(self, client):
@@ -339,5 +339,5 @@ class TestPreferencesAPI:
         finally:
             try:
                 auth_db.close()  # type: ignore[attr-defined]
-            except Exception:
+            except Exception:  # nosec B110 — test teardown, best-effort auth-DB close
                 pass

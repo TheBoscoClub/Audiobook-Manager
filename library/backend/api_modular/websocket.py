@@ -171,7 +171,7 @@ def init_notification_poller(db_path):
                 if conn is not None:
                     try:
                         conn.close()
-                    except Exception:
+                    except Exception:  # nosec B110 — best-effort close in finally; the real poll error was already logged above
                         pass
 
             gevent.sleep(5)

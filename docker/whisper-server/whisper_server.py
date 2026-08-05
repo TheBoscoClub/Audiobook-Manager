@@ -63,8 +63,11 @@ def _deadman_loop():
             time.sleep(30)
             try:
                 os.kill(1, signal.SIGKILL)
-            except Exception:
-                pass
+            except Exception as exc:
+                # PID 1 may already be gone (SIGTERM worked late) or the kill
+                # may be denied; either way still exit this worker below so
+                # the dead-man cannot leave the container wedged and billing.
+                logging.warning("Failed to SIGKILL PID 1: %s — exiting worker anyway", exc)
             os._exit(0)
 
 
