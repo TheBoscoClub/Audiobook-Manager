@@ -11,6 +11,67 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+## [8.4.2.0] - 2026-08-05
+
+### Added
+
+- **Original Print Year sort (Open Library enrichment)**: new nullable `audiobooks.original_publish_year`
+  column (migration `data-migrations/014_original_publish_year.sh`, idempotent, no in-upgrade backfill),
+  an Open Library-backed `@register_post_insert` hook for new imports, and a resumable operator backfill
+  CLI `library/scripts/original_print_year.py` (dry-run by default, 0.6s rate limit + politeness sleep,
+  ISBN→edition→work chain with 0.85-similarity title fallback). Third sort dimension in the UI with
+  query-time `COALESCE(original_publish_year, published_year)` fallback — real OL data stays
+  distinguishable from fallback. Curated `zh-Hans` labels and `tutorial.js` updated
+
+- **`derive-service-secret` integration (optional hardened credential setup)**: `audiobook-api.service`
+  gains `RuntimeDirectory=audiobooks`, and a new drop-in template
+  `systemd/audiobook-api-derive-secrets.conf.example` derives `CLOUDFLARE_PURGE_TOKEN` and the Resend
+  key from the operator's canonical store into `/run/audiobooks/` at each service start. `install.sh` and
+  `upgrade.sh` install the drop-in only when `/usr/bin/derive-service-secret` exists on the host — the
+  app's own contract remains the `*_FILE` pointer pattern, so installs without the tool are unaffected.
+  `docs/EMAIL-SETUP.md` documents the hardened setup
+
+### Changed
+
+- **Gunicorn proxy (Option B)**: `library/web-v2/proxy_server.py` refactored from
+  `http.server.ThreadingHTTPServer` into a WSGI app served by gunicorn gevent workers
+  (`gunicorn_proxy.conf.py`, 2 workers, TLS 1.2 floor via `ssl_context` hook) — removes the
+  single-process cold-start bottleneck behind transient post-upgrade 502s. WebSocket tunneling
+  preserved via `gunicorn.socket` hijack (teardown by `shutdown(SHUT_RDWR)` so gunicorn's
+  post-request write does not traceback); range requests, CORS, CRLF validation, and hop-by-hop
+  filtering all preserved and covered by 135 proxy tests. `audiobook-proxy.service` ExecStart updated;
+  the `audiobook-web` wrapper now finds the venv gunicorn itself
+
+- **Canonical audiobook-file iteration + self-registering post-insert hooks**: five ad-hoc collectors
+  (`scanner/add_new_audiobooks.py`, `scan_audiobooks.py`, `import_single.py`,
+  `utilities_conversion.py`, `utilities_ops/hashing.py`) replaced by one iterator
+  `library/scanner/utils/canonical.py::iter_canonical_audiobook_files` with uniform cover-art and
+  `translated/` exclusions — closing a latent hole where `import_single.py` had NO `translated/`
+  exclusion and a manual re-import could ingest chapter artifacts. Post-insert processing moved to a
+  `@register_post_insert` registry (`library/scanner/post_insert.py`) with per-hook failure isolation
+
+- **D-grade complexity refactors**: `scripts/sampler-reconcile.py::reconcile()` (CC 21→9) and
+  `scripts/stream-translate-worker.py::process_segment()` (CC 22→9) decomposed into single-purpose
+  helpers — behavior proven byte-identical by a branch-complete probe harness (empty diff on outputs,
+  counters, and mock-call sequences); all operator-facing log strings preserved verbatim
+
+- **`ruff format` is now a real CI gate**: the Ruff job in `python-security.yml` runs
+  `format --check` alongside `check` (same SHA-pinned action and `version-file` pin), after
+  reformatting the 17 files that had drifted — ruff 0.16+ natively formats Python code blocks
+  embedded in Markdown, so docs are covered by the same gate
+
+- **mypy `check_untyped_defs` enabled repo-wide**: 78 errors across 22 files cleared — 64 real type
+  fixes, 14 precise `# type: ignore[code]` comments, zero new per-module overrides —
+  `mypy . --ignore-missing-imports` now reports `Success: no issues found in 401 source files` with
+  the flag on, and the blocking Type Checking CI job stays green
+
+- **Credential stub list single-sourced**: `install.sh` and `upgrade.sh` no longer carry hardcoded
+  copies of the optional-credential stub list — both derive it from `OPTIONAL_CREDENTIAL_FILES` in
+  `scripts/install-manifest.sh` (the one remaining definition site), with a missing-manifest guard
+  that warns instead of silently no-oping
+
 - **Dependency floors raised via Dependabot**: `cryptography>=50.0.0` and `filelock>=3.32.2`
   (`library/requirements.txt` + `requirements-docker.txt`), `ruff>=0.16.1`
   (`requirements-dev.txt`), and `docker/login-action` 4.5.1→4.6.0 in the release workflow —
@@ -31,6 +92,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **"Remember me" sessions now honor the browser's 400-day cookie clamp with rolling renewal**: the
+  advertised 10-year lifetime was unachievable (browsers clamp cookies to 400 days per RFC 6265bis,
+  measured from login, and nothing ever re-issued the cookie; server-side persistent sessions never
+  expired at all). `SESSION_DURATION_REMEMBER` is now an honest 400 days, an `after_app_request` hook
+  renews the cookie (same token — rotation would race concurrent tabs) when remaining life drops below
+  200 days, and the server enforces the same `expires_at` horizon on `get_current_user()`,
+  `/auth/session/restore`, and `cleanup_stale()`. Renewal flows through `set_session_cookie`, so the
+  `_SAFE_SESSION_TOKEN_RE` validation is preserved. Also fixes a bug found in passing:
+  `Session.touch()` wrote `T`-separator timestamps that compared lexicographically after
+  space-separator thresholds, letting touched-then-idle sessions escape same-day cleanup
+
+- **`test_auth_performance.py` no longer flakes on loaded runners**: all 10 wall-clock assertions
+  rebuilt on robust strategies (medians for repeatable operations, `time.process_time()` for the
+  CPU-bound hash test, best-of-5 for intrinsic-cost measurement) — each still fails on its guarded
+  pathology; proven with 5 consecutive green runs under full 24-core CPU saturation
+
+- **15 tests no longer fail under partial `-k` selection**: all traced to one mechanism —
+  `_init_once` binds `utilities_db`/`utilities_system` module globals to whichever `create_app()`
+  runs first in the process. A self-cleaning `utilities_globals` fixture pins them to the session
+  app (production-side cleanup tracked separately)
+
+- **`upgrade.sh::create_backup` no longer swallows `cp` failures**: a failed backup now removes the
+  partial backup directory (so it cannot rotate a good backup out of the keep-5 window) and aborts
+  the upgrade before services stop; retention-cleanup failures warn instead of failing silently
+
+- **`upgrade.sh` works in non-TTY contexts**: a transparent `sudo()` wrapper injects `-n` whenever no
+  controlling terminal exists, so all ~60 privileged calls fail fast with an actionable message
+  (interactive / `ssh -t` / NOPASSWD / web-upgrade helper) instead of dying on "a terminal is
+  required" behind `2>/dev/null`; remote upgrades preflight `sudo -n true` over SSH
+
 - **Restored the deleted `[8.4.0.0]` changelog section**: commit `e9601144` (the 8.4.0.1
   version bump) accidentally deleted the entire ~38-line `## [8.4.0.0] - 2026-05-16` entry,
   leaving its comparison link orphaned (markdownlint MD053) and a published release with no
@@ -43,6 +134,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `Any`. Now `[assignment,misc]`, matching the playwright fallback on line 64
 
 ### Security
+
+- **Credential scan covers the full push range**: the `Check for hardcoded credentials` step in
+  `security-checks.yml` scanned only `HEAD~1`, missing earlier commits in a multi-commit push — now
+  scans `github.event.before..after` (empty-tree fallback for initial/force pushes, three-dot
+  base...head on PRs), proven against a simulated leak in the middle commit of a 3-commit push. The
+  `Check for dangerous logging` step in the same file had the identical bug and got the same fix
+
+- **Dependabot cooldown**: all three ecosystems in `dependabot.yml` now carry
+  `cooldown: default-days: 7`, so a malicious same-day package release can no longer ride the
+  auto-merge pipeline to `main` within hours of publication
+
+- **`security-autofix.yml` scoped and unmasked**: `git add -A` replaced with the exact
+  `library/requirements*.txt` set it audits, the error-swallowing `2>/dev/null || true` removed, and
+  the commit gated on an actual diff
+
+- **11 bandit `B110` try/except/pass sites audited per-site**: 9 confirmed best-effort cleanup and
+  justified with `# nosec B110` + rationale; 2 now log instead of passing silently — including the
+  whisper-server dead-man's SIGKILL escalation, where a silent failure could leave a GPU container
+  running (and billing) indefinitely
 
 - **CI security gates can now actually fail**: the `bandit` job in `python-security.yml` was
   masked three times over (`|| true`, `|| echo "::warning::"`, `continue-on-error: true`) and
@@ -3986,7 +4096,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.1.0...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.0...HEAD
+[8.4.2.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.1.0...v8.4.2.0
 [8.4.1.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.3...v8.4.1.0
 [8.4.0.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.2...v8.4.0.3
 [8.4.0.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.1...v8.4.0.2

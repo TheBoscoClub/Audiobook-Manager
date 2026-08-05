@@ -297,7 +297,7 @@ def some_admin_endpoint():
 
 ### Reverse Proxy Architecture
 
-The HTTPS reverse proxy (`proxy_server.py`) terminates SSL and forwards requests to the Flask API.
+The HTTPS reverse proxy (`proxy_server.py`) terminates SSL and forwards requests to the Flask API (WSGI under gunicorn/gevent since v8.4.2.0).
 
 **Shell + iframe Architecture** (v7.1.3+): The web UI uses a shell + iframe design. `shell.html` is the persistent outer frame containing the audio player bar, navigation, and search. `index.html` (the library) loads inside an iframe. The proxy serves shell content at the clean URL `/` -- navigating to `/shell.html` returns a 301 redirect to `/`. Query strings (e.g., `/?autoplay=...`) are preserved using `urlparse` to separate path from parameters.
 Auth pages (`login.html`, `verify.html`, etc.) navigate to `/` rather than `shell.html`.
@@ -312,10 +312,11 @@ Auth pages (`login.html`, `verify.html`, etc.) navigate to `/` rather than `shel
 
 ```python
 # Headers forwarded from upstream proxy
-'X-Forwarded-For'    # Client's real IP address
-'X-Forwarded-Proto'  # Original protocol (http/https)
-'X-Real-IP'          # Alternative client IP header
-'Host'               # Original hostname
+"X-Forwarded-For"  # Client's real IP address
+
+"X-Forwarded-Proto"  # Original protocol (http/https)
+"X-Real-IP"  # Alternative client IP header
+"Host"  # Original hostname
 ```
 
 These headers are essential for `admin_or_localhost` to correctly identify localhost requests that arrive through a reverse proxy chain, and for WebAuthn origin validation.
@@ -326,11 +327,18 @@ A critical requirement is filtering **hop-by-hop headers** per RFC 2616 and PEP 
 
 ```python
 # Headers that MUST NOT be forwarded by proxies
-HOP_BY_HOP_HEADERS = frozenset({
-    'connection', 'keep-alive', 'proxy-authenticate',
-    'proxy-authorization', 'te', 'trailers',
-    'transfer-encoding', 'upgrade',
-})
+HOP_BY_HOP_HEADERS = frozenset(
+    {
+        "connection",
+        "keep-alive",
+        "proxy-authenticate",
+        "proxy-authorization",
+        "te",
+        "trailers",
+        "transfer-encoding",
+        "upgrade",
+    }
+)
 
 # Filter when forwarding response headers
 for header, value in response.headers.items():
@@ -1015,7 +1023,7 @@ share one provider-discovery path.
 
 **Translation-monitor `StartLimitBurst` sizing (v8.3.10.1+)**: Timer-driven oneshot services that fire frequently must have `StartLimitBurst` set to at least twice their per-period invocation count, with margin. The live tier fires every 30 s inside a 300 s `StartLimitIntervalSec` window — 10 starts/window. The unit ships `StartLimitBurst=20` (2× headroom). The original value of 5 saturated at t≈150 s, causing `start-limit-hit` silences for ~150 s at a stretch. Rule: `Burst ≥ (IntervalSec / CadenceSec) × 2`. Never set `StartLimitIntervalSec=0` (removes the runaway cap entirely — see `feedback_systemd_startlimit.md`).
 
-**Canonical opus-file count (v8.3.10.1+)**: `_count_opus_files` in `utilities_conversion.py` and `_collect_checksum_files` in `utilities_ops/hashing.py` count files using `rglob("*.opus")` but exclude any path where `"translated"` is a directory component (`f.parts` check, exact directory name, not substring). Per-chapter translation artifacts live under `Library/{Author}/{Book}/translated/{Book}.ch{NNN}.zh-Hans.opus` (depth +1 below the canonical book file). Including them in the count inflates "Conversion Progress" beyond 100% and skews deduplication checksums. Books whose titles contain "Translated" are not excluded (the check matches the directory component name, not the path string).
+**Canonical audiobook-file iteration (v8.4.2.0+, supersedes the v8.3.10.1 per-function rglob filters)**: all library file discovery flows through one iterator, `library/scanner/utils/canonical.py::iter_canonical_audiobook_files(library_dir, formats)`, which excludes cover art and any path where `"translated"` is a directory component (`f.parts` check, exact directory name, not substring — books whose titles contain "Translated" are not excluded). Per-chapter translation artifacts live under `Library/{Author}/{Book}/translated/{Book}.ch{NNN}.zh-Hans.opus`; including them inflates "Conversion Progress" beyond 100%, skews deduplication checksums, and misclassifies chapter artifacts as audiobooks. The former ad-hoc collectors (`_count_opus_files` in `utilities_conversion.py`, `_collect_checksum_files` in `utilities_ops/hashing.py`, scanner collectors in `add_new_audiobooks.py`/`scan_audiobooks.py`/`import_single.py`) survive only as documented delegators to the iterator. Post-insert processing likewise self-registers via `library/scanner/post_insert.py::register_post_insert` instead of a hardcoded hook list.
 
 **Session-expired toast on `PUT /api/position` 401 (v8.3.10.5+)**: `shell.js::savePositionToAPI()` intercepts HTTP 401 responses and routes them through `_showSessionExpiredToast()` — a one-time notification (suppressed for 5 minutes to avoid spam during a stale-session run) that surfaces "Your session expired — sign in again to keep your progress saved." Audio playback continues unimpeded; only progress persistence is affected. `shell.html` loads `css/notifications.css` and includes a shell-level `#toast-container` (iframe content pages keep their own). The i18n key `shell.sessionExpired` in `locales/{en,zh-Hans}.json` drives the message. Prior to this fix the 401 was silently discarded with a `console.warn` — the user had no indication their progress had stopped being saved.
 
@@ -1422,7 +1430,7 @@ The application uses WebSocket for real-time bidirectional communication between
 
 `proxy_server.py` detects WebSocket upgrade requests (`Connection: Upgrade` + `Upgrade: websocket`) and tunnels them as raw TCP sockets, bypassing HTTP proxy logic.
 
-- **Threading**: `proxy_server.py` uses `ThreadingHTTPServer` (not `HTTPServer`) with `daemon_threads = True`. WebSocket tunnels block the handler thread for the duration of the connection; without threading, one active WebSocket would stall all other HTTP requests.
+- **Workers**: `proxy_server.py` is a WSGI app served by gunicorn with gevent workers (2 by default, `gunicorn_proxy.conf.py`; override via `AUDIOBOOKS_PROXY_WORKERS`). WebSocket tunnels hijack the raw client socket (`environ["gunicorn.socket"]`) and block their greenlet for the connection's lifetime; gevent's cooperative I/O keeps all other requests flowing. TLS (1.2 minimum) is terminated by gunicorn via the config's `ssl_context` hook. (Pre-v8.4.2.0 this was a `ThreadingHTTPServer` with one thread per tunnel — replaced to remove the single-process cold-start bottleneck behind transient post-upgrade 502s.)
 - **SSL buffer drain**: The bidirectional relay in `_tunnel_websocket()` calls `ssl.SSLSocket.pending()` before each `select.select()`. TLS decrypts data into an internal buffer that `select()` cannot observe (it only monitors the underlying TCP fd); without the `pending()` drain loop, browser heartbeats arriving through TLS accumulate in the SSL buffer and Flask's `ws.receive(timeout=15)` times out and closes the connection.
 
 ---
@@ -2092,7 +2100,9 @@ Architecture Comparison:
 
 ### Credential Resolution (v8.4.0.0+)
 
-Three credentials (`SMTP_PASS`, `AUDIOBOOKS_DEEPL_API_KEY`, `AUDIOBOOKS_RUNPOD_API_KEY`) support an optional `*_FILE` pointer pattern in addition to inline env var values. All reads route through a single resolver at `library/common_utils/secret_resolver.py::resolve_secret(name)`.
+Four credentials (`SMTP_PASS`, `AUDIOBOOKS_DEEPL_API_KEY`, `AUDIOBOOKS_RUNPOD_API_KEY`, `CLOUDFLARE_PURGE_TOKEN`) support an optional `*_FILE` pointer pattern in addition to inline env var values. All reads route through a single resolver at `library/common_utils/secret_resolver.py::resolve_secret(name)`.
+
+Operators wanting root-derived per-boot secrets can point the `*_FILE` pointers at `/run/audiobooks/` paths populated by a `derive-service-secret` systemd drop-in — see the template `systemd/audiobook-api-derive-secrets.conf.example` and `docs/EMAIL-SETUP.md`. The app's contract remains just the pointer pattern; the derive tooling is operator-side and optional.
 
 Resolution precedence (first non-empty wins):
 
