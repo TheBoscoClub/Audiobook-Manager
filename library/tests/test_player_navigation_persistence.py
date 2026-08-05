@@ -75,9 +75,9 @@ try:
 except ImportError:
     SELENIUM_AVAILABLE = False
     webdriver = None  # type: ignore[assignment]
-    By = None  # type: ignore[assignment]
+    By = None  # type: ignore[assignment,misc]
     EC = None  # type: ignore[assignment]
-    WebDriverWait = None  # type: ignore[assignment]
+    WebDriverWait = None  # type: ignore[assignment,misc]
 
 
 # Configuration — VM_HOST defined above (reachability check);

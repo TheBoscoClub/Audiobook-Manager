@@ -103,13 +103,19 @@ jobs:
       - name: Install Bandit
         run: pip install bandit[toml]
 
-      - name: Run Bandit
+      # Two runs, different jobs to do. The artifact run records EVERY finding
+      # (all severities) for review; it may exit non-zero and that's fine. The
+      # gate run fails the job on MEDIUM+ (-ll). Both read the tracked .bandit
+      # config (-c) — the audited skip list. Before 2026-08-05 this step was
+      # masked by `|| true` + continue-on-error AND ran without the config
+      # (.bandit was gitignored), so the green check certified nothing.
+      - name: Bandit report (all severities, artifact only)
         run: |
-          bandit -r . -x ./tests,./test,./venv,./.venv \
+          bandit -r . -c .bandit \
             -f json -o bandit-report.json || true
-          bandit -r . -x ./tests,./test,./venv,./.venv \
-            -f txt || echo "::warning::Security issues found"
-        continue-on-error: true
+
+      - name: Bandit gate (fails on MEDIUM+)
+        run: bandit -r . -c .bandit -ll -f txt
 
       - name: Upload Bandit Report
         uses: >-
@@ -140,12 +146,11 @@ jobs:
       - name: Install pip-audit
         run: pip install pip-audit
 
+      # Ungated 2026-08-05: the `|| echo ::warning` + continue-on-error pair
+      # meant this job could never fail, and it scanned only requirements.txt.
+      # Now audits all three requirement files and a finding fails the job.
       - name: Run pip-audit
         run: |
-          if [ -f library/requirements.txt ]; then
-            pip-audit -r library/requirements.txt --desc \
-              || echo "::warning::Vulnerable dependencies found"
-          else
-            echo "No library/requirements.txt found, skipping"
-          fi
-        continue-on-error: true
+          pip-audit -r library/requirements.txt --desc
+          pip-audit -r library/requirements-dev.txt --desc
+          pip-audit -r library/requirements-docker.txt --desc

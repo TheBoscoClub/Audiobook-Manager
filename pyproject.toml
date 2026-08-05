@@ -18,9 +18,11 @@
 # annotations as part of its security scanning baseline.
 #
 # Decision:
-# - `ruff format` is the authoritative formatter. It is invoked by CI
-#   (.github/workflows/python-security.yml) and by the project's /test
-#   audit phase 7.
+# - `ruff format` is the authoritative formatter. It is checked by the
+#   project's /test audit phase 7. CI does NOT enforce it — the ruff job
+#   in python-security.yml runs `check` only (verified 2026-08-05; adding
+#   `format --check` to CI is tracked in bd, blocked on reformatting the
+#   files that have drifted).
 # - Black is NOT run as part of verification. Its config here exists only
 #   as a floor for ad-hoc developer invocations; it is not enforced.
 # - `ruff check` handles lint; `ruff format` handles formatting. Both are

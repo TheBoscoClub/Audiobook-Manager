@@ -352,7 +352,10 @@ config.dev.env
 # re-create that divergence. This already happened once: a gitignored mypy.ini
 # outranked [tool.mypy], so check_untyped_defs never actually ran anywhere.
 # If you need to change lint or type-check settings, edit pyproject.toml.
-.bandit
+# .bandit is TRACKED, not ignored: CI's bandit job reads it (-c .bandit), so it
+# is a project contract per the "does CI read this file?" test. Ignoring it made
+# CI scan with zero suppressions while local scans used the audited skip list —
+# the same config-shadowing failure mode described above, discovered 2026-08-05.
 .coveragerc
 mypy.ini
 .ruff.toml
