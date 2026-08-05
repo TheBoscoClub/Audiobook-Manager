@@ -11,6 +11,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **CI apt packages are cached and no longer pull recommends**: the `Install system dependencies`
+  step in `.github/workflows/ci.yml` now restores its `.deb` archives from `actions/cache` and
+  installs with `--no-install-recommends`, cutting the package set from 306 to 207. The package
+  list moved to `.github/apt-packages.txt`, which doubles as the `hashFiles()` cache key so the
+  list and the key cannot drift apart. Previously every matrix leg re-fetched ~95 MB from
+  `azure.archive.ubuntu.com` on every run — when that mirror degraded to 34.4 kB/s the 3.13 leg
+  spent 46m16s in a single step and a ~4 minute job took 50m32s. `ffmpeg` and `libsqlcipher-dev`
+  are both retained: three tests in `test_streaming_tts_consolidation.py` invoke the real `ffmpeg`
+  binary, and removing it would be worse than those failures — `FileNotFoundError` subclasses
+  `OSError`, and 8 of the 9 production call sites catch `OSError` or bare `Exception`, so the
+  remaining paths would silently take their error branch while CI stayed green
+
 ### Fixed
 
 ## [8.4.1.0] - 2026-08-03

@@ -1,0 +1,20 @@
+# System packages required by the CI Python test suite.
+#
+# This file is the single source of truth for two things at once: the package
+# list passed to apt-get, and the actions/cache key (via hashFiles). Editing it
+# therefore invalidates the cache automatically — there is no second list to
+# keep in sync.
+#
+# Why each package is here:
+#   libsqlcipher-dev — requirements.txt pins sqlcipher3>=0.6.2, a C extension
+#     that needs these headers to build. Without it pip install fails.
+#   ffmpeg — three tests in test_streaming_tts_consolidation.py invoke the real
+#     binary and fail with FileNotFoundError without it. Removing it is worse
+#     than those three failures: FileNotFoundError subclasses OSError, and 8 of
+#     the 9 production call sites catch OSError or bare Exception, so the rest
+#     would silently take their error branch and CI would stay green while
+#     testing materially less. Verified 2026-08-05, see Audiobook-Manager-27i.
+#
+# Blank lines and #-comments are stripped before the list reaches apt-get.
+libsqlcipher-dev
+ffmpeg

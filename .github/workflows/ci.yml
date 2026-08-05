@@ -44,10 +44,41 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      # Restore the .deb archives from GitHub's own CDN rather than re-fetching
+      # them from azure.archive.ubuntu.com every run. On 2026-08-03 that mirror
+      # degraded to 34.4 kB/s and a single leg spent 46m16s here, turning a
+      # ~4 minute job into 50m32s (run 30840385336). The three matrix legs share
+      # one cache entry — the package set does not vary by Python version.
+      - name: Cache apt archives
+        uses: >-
+          actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+        # v6.1.0
+        with:
+          path: ~/apt-cache
+          key: >-
+            apt-${{ runner.os }}-${{ runner.arch }}-${{
+            hashFiles('.github/apt-packages.txt') }}
+          restore-keys: |
+            apt-${{ runner.os }}-${{ runner.arch }}-
+
       - name: Install system dependencies
+        # Package list lives in .github/apt-packages.txt so it cannot drift from
+        # the cache key above. A stale cache is safe rather than wrong: apt keys
+        # archives on name_version_arch.deb, so a version bump simply misses and
+        # re-downloads.
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libsqlcipher-dev ffmpeg
+          mkdir -p ~/apt-cache/partial
+          # Read into an array so the split into separate apt arguments is
+          # explicit rather than relying on unquoted word splitting.
+          mapfile -t packages < <(grep -vE '^[[:space:]]*(#|$)' .github/apt-packages.txt)
+          echo "Installing: ${packages[*]}"
+          sudo apt-get update -qq
+          sudo apt-get \
+            -o Dir::Cache::archives="$HOME/apt-cache" \
+            -o APT::Keep-Downloaded-Packages=true \
+            install -y --no-install-recommends "${packages[@]}"
+          # actions/cache runs as the runner user and cannot read root-owned debs
+          sudo chown -R "$USER" ~/apt-cache
 
       - name: Install dependencies
         run: |
