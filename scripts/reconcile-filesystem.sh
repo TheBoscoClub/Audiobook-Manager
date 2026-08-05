@@ -161,7 +161,7 @@ _reconcile_optional_credentials() {
     local entry path owner mode _envvar current_owner current_mode
     for entry in "${OPTIONAL_CREDENTIAL_FILES[@]}"; do
         IFS='|' read -r path owner mode _envvar <<<"$entry"
-        [[ -f "$path" ]] || continue  # optional — absence is not a drift
+        [[ -f "$path" ]] || continue # optional — absence is not a drift
 
         current_owner=$(stat -c '%U:%G' "$path" 2>/dev/null || true)
         current_mode=$(stat -c '%a' "$path" 2>/dev/null || true)

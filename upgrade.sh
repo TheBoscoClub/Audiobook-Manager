@@ -61,6 +61,38 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 # -----------------------------------------------------------------------------
+# Development artifacts that must NEVER reach an installed application
+# -----------------------------------------------------------------------------
+# The project working tree is a git checkout with Claude tooling, session
+# records and audit snapshots in it. The installed tree is served to the
+# network: library/web-v2/ IS the reverse proxy's document root, so anything
+# rsync'd into it is a candidate for public retrieval.
+#
+# This list is the single canonical "never ship this" set; every rsync in this
+# script expands "${_NEVER_SHIP_EXCLUDES[@]}" and adds only its own
+# site-specific exclusions (venv, databases, certs, …).
+#
+# The library sync used to carry NO such exclusions at all, which is how
+# `.claude-session-ring.jsonl` — a raw session transcript — reached
+# /opt/audiobooks/library/web-v2/ and became fetchable over HTTPS. The remote
+# sync did exclude '.claude', but that pattern matches the directory only:
+# every '.claude-*' FILE sailed straight past it. Hence the glob.
+_NEVER_SHIP_EXCLUDES=(
+    --exclude='.claude*'
+    --exclude='SESSION_RECORD*'
+    --exclude='.snapshots'
+    --exclude='.btrbk-snapshots'
+    --exclude='.test-sandbox'
+    --exclude='.staged-release'
+    --exclude='.git'
+    --exclude='.pytest_cache'
+    --exclude='.ruff_cache'
+    --exclude='__pycache__'
+    --exclude='*.pyc'
+    --exclude='test-results.json'
+)
+
+# -----------------------------------------------------------------------------
 # sudo in non-TTY contexts (systemd helper, ssh without -t, pipes)
 # -----------------------------------------------------------------------------
 # sudo prompts for passwords on /dev/tty. When this script runs without a
@@ -328,19 +360,10 @@ do_remote_upgrade() {
     # shellcheck disable=SC2029  # $remote_tmp intentionally expands client-side
     ssh "${ssh_opts[@]}" "$ssh_target" "mkdir -p '$remote_tmp'"
     rsync -az --delete \
+        "${_NEVER_SHIP_EXCLUDES[@]}" \
         --exclude='venv' \
-        --exclude='__pycache__' \
-        --exclude='*.pyc' \
-        --exclude='.pytest_cache' \
-        --exclude='.ruff_cache' \
-        --exclude='.git' \
-        --exclude='.snapshots' \
         --exclude='*.db' \
         --exclude='testdata' \
-        --exclude='.claude' \
-        --exclude='SESSION_RECORD*' \
-        --exclude='.staged-release' \
-        --exclude='test-results.json' \
         -e "ssh ${ssh_opts[*]}" \
         "$project_dir/" "$ssh_target:$remote_tmp/"
     echo -e "${GREEN}  Project synced${NC}"
@@ -580,6 +603,21 @@ _abort_backup_failure() {
     exit 1
 }
 
+_harden_backup_databases() {
+    # Restrict every SQLite artifact under a freshly-created backup to 0640.
+    # Covers the WAL/SHM sidecars too — a -wal file holds committed rows that
+    # have not been checkpointed into the main .db yet.
+    local backup_dir="$1"
+    [[ -d "$backup_dir" ]] || return 0
+    if [[ -w "$backup_dir" ]]; then
+        find "$backup_dir" \( -name '*.db' -o -name '*.db-wal' -o -name '*.db-shm' \) \
+            -type f -exec chmod 640 {} + 2>/dev/null || true
+    else
+        sudo find "$backup_dir" \( -name '*.db' -o -name '*.db-wal' -o -name '*.db-shm' \) \
+            -type f -exec chmod 640 {} + 2>/dev/null || true
+    fi
+}
+
 create_backup() {
     local target="$1"
     local backup_dir="${target}.backup.$(date +%Y%m%d-%H%M%S)"
@@ -611,6 +649,14 @@ create_backup() {
         sudo touch "$backup_dir"
     fi
 
+    # cp -a preserves modes, so any SQLite file inside the installation is
+    # copied at whatever mode it had — 0644 in practice, i.e. world-readable.
+    # Backups outlive the upgrade and sit next to the install root, so tighten
+    # them to 0640 (owner rw, group r) to match backup_auth_db(). The parent
+    # directory's 0750 already limits reach; defence in depth for the case
+    # where a backup is later moved or the parent mode is relaxed.
+    _harden_backup_databases "$backup_dir"
+
     echo -e "${GREEN}  Backup created successfully${NC}"
 
     # Rolling retention: keep last 5 backups, delete older ones.
@@ -623,8 +669,8 @@ create_backup() {
     if ((${#backups[@]} > 5)); then
         for old_backup in "${backups[@]:5}"; do
             echo -e "${BLUE}  Removing old backup: $old_backup${NC}"
-            rm -rf "$old_backup" 2>/dev/null || sudo rm -rf "$old_backup" 2>/dev/null ||
-                echo -e "${YELLOW}  Warning: failed to remove old backup: $old_backup${NC}"
+            rm -rf "$old_backup" 2>/dev/null || sudo rm -rf "$old_backup" 2>/dev/null \
+                || echo -e "${YELLOW}  Warning: failed to remove old backup: $old_backup${NC}"
         done
     fi
 }
@@ -1799,10 +1845,8 @@ do_upgrade() {
         else
             local rsync_args=(
                 -av --delete
+                "${_NEVER_SHIP_EXCLUDES[@]}"
                 --exclude='venv'
-                --exclude='__pycache__'
-                --exclude='*.pyc'
-                --exclude='.pytest_cache'
                 --exclude='.coverage'
                 --exclude='audiobooks.db'
                 --exclude='audiobooks-dev.db'
@@ -1824,7 +1868,7 @@ do_upgrade() {
         if [[ "$DRY_RUN" == "true" ]]; then
             echo "  [DRY-RUN] Would sync converter/"
         else
-            local rsync_args=(-av --delete --exclude='__pycache__')
+            local rsync_args=(-av --delete "${_NEVER_SHIP_EXCLUDES[@]}")
             if [[ -n "$use_sudo" ]]; then
                 sudo rsync "${rsync_args[@]}" "${project}/converter/" "$target/converter/"
             else
@@ -2619,6 +2663,10 @@ verify_installation_permissions() {
         local _var_dir="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
         local _config_dir="${AUDIOBOOKS_CONFIG_DIR:-/etc/audiobooks}"
         [[ -f "$_cert_dir/server.key" ]] && sudo chmod 640 "$_cert_dir/server.key"
+        # Certificate is public content, but 0644 is the correct install mode;
+        # this pass corrects a cert left at 0755 by a permissive umask or a
+        # mode-preserving copy. (Matches install.sh's normalization.)
+        [[ -f "$_cert_dir/server.crt" ]] && sudo chmod 644 "$_cert_dir/server.crt"
         [[ -f "$_var_dir/auth.key" ]] && sudo chmod 600 "$_var_dir/auth.key"
         [[ -f "$_var_dir/auth.db" ]] && sudo chmod 640 "$_var_dir/auth.db"
         # v8.4.0.0+ — ensure stub credential files exist for the *_FILE
