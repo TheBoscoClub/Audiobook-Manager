@@ -60,6 +60,50 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+# -----------------------------------------------------------------------------
+# sudo in non-TTY contexts (systemd helper, ssh without -t, pipes)
+# -----------------------------------------------------------------------------
+# sudo prompts for passwords on /dev/tty. When this script runs without a
+# controlling terminal (upgrade-helper-process via systemd, ssh without -t,
+# cron), that prompt dies with "a terminal is required" — often invisibly,
+# because many call sites redirect stderr. This wrapper adds -n (never prompt)
+# whenever /dev/tty is unavailable so privileged calls fail fast instead of
+# hanging or dying mid-upgrade, and _require_sudo() turns that fast failure
+# into one clear, actionable error before the first privileged section runs.
+# Interactive runs are unaffected: with a controlling terminal the wrapper
+# runs plain sudo. The web-upgrade path is also unaffected: the helper runs
+# this script as root, and root's sudo never prompts.
+_SUDO_CAN_PROMPT=false
+if { : </dev/tty; } 2>/dev/null; then
+    _SUDO_CAN_PROMPT=true
+fi
+
+sudo() {
+    if [[ "$_SUDO_CAN_PROMPT" == "true" ]]; then
+        command sudo "$@"
+    else
+        command sudo -n "$@"
+    fi
+}
+
+_require_sudo() {
+    # Validate sudo access before the first privileged operation. Returns 0
+    # when escalation works; otherwise prints one clear, actionable error
+    # (instead of dozens of masked per-call failures) and returns 1.
+    if sudo -v 2>/dev/null; then
+        return 0
+    fi
+    echo -e "${RED}Error: sudo access required but not available${NC}" >&2
+    if [[ "$_SUDO_CAN_PROMPT" != "true" ]]; then
+        echo -e "${RED}No terminal is attached, so sudo cannot ask for a password (sudo -n failed).${NC}" >&2
+        echo -e "${YELLOW}Fix one of the following, then retry:${NC}" >&2
+        echo "  - run from an interactive shell (or ssh -t) so sudo can prompt" >&2
+        echo "  - configure passwordless sudo for $(id -un) (NOPASSWD in sudoers)" >&2
+        echo "  - use the web Utilities upgrade, which runs via the root helper service" >&2
+    fi
+    return 1
+}
+
 show_usage() {
     echo -e "${CYAN}${BOLD}Audiobook Library — Upgrade Script${NC}"
     echo ""
@@ -257,11 +301,24 @@ do_remote_upgrade() {
     fi
     echo -e "${GREEN}  SSH connection OK${NC}"
 
+    # Verify passwordless sudo on the remote BEFORE syncing anything — ssh
+    # without -t allocates no TTY, so remote sudo cannot prompt; -n makes
+    # that fail fast here with an actionable message instead of mid-upgrade.
+    echo -e "${BLUE}Checking passwordless sudo on remote...${NC}"
+    if ! ssh "${ssh_opts[@]}" "$ssh_target" "sudo -n true" 2>/dev/null; then
+        echo -e "${RED}Error: passwordless sudo unavailable for ${REMOTE_USER} on ${REMOTE_HOST}${NC}"
+        echo "  Remote upgrades run 'sudo upgrade.sh' over a TTY-less SSH session,"
+        echo "  so sudo cannot prompt for a password. Configure NOPASSWD sudo for"
+        echo "  ${REMOTE_USER} on ${REMOTE_HOST} (e.g. via /etc/sudoers.d/), then retry."
+        return 1
+    fi
+    echo -e "${GREEN}  Passwordless sudo OK${NC}"
+
     if [[ "$DRY_RUN" == "true" ]]; then
         echo ""
         echo -e "${YELLOW}=== DRY RUN MODE ===${NC}"
         echo "  Would rsync project to $ssh_target:$remote_tmp"
-        echo "  Would run: sudo $remote_tmp/upgrade.sh --from-project $remote_tmp --target ${TARGET_DIR:-/opt/audiobooks} --yes"
+        echo "  Would run: sudo -n $remote_tmp/upgrade.sh --from-project $remote_tmp --target ${TARGET_DIR:-/opt/audiobooks} --yes"
         echo "  Would cleanup $remote_tmp"
         return 0
     fi
@@ -297,7 +354,7 @@ do_remote_upgrade() {
     echo ""
     # shellcheck disable=SC2029  # $remote_tmp, $remote_target, $remote_flags intentionally expand client-side
     ssh "${ssh_opts[@]}" "$ssh_target" \
-        "sudo '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' $remote_flags" \
+        "sudo -n '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' $remote_flags" \
         || {
             local rc=$?
             echo -e "${RED}Remote upgrade failed (exit code $rc)${NC}"
@@ -510,6 +567,19 @@ switch_architecture() {
     echo -e "${GREEN}Architecture switched to: $new_arch${NC}"
 }
 
+_abort_backup_failure() {
+    # Called when the backup copy failed: remove the partial backup (it must
+    # not survive to be mistaken for a good one, or rotate a real backup out
+    # of retention) and abort the upgrade. Both create_backup call sites run
+    # BEFORE stop_services, so exiting here leaves services untouched.
+    local backup_dir="$1"
+    rm -rf "$backup_dir" 2>/dev/null || sudo rm -rf "$backup_dir" 2>/dev/null || true
+    echo -e "${RED}Error: Backup FAILED — backup at $backup_dir did not complete${NC}" >&2
+    echo -e "${RED}Aborting upgrade: refusing to continue without a verified backup.${NC}" >&2
+    echo -e "${YELLOW}Check free disk space, permissions, and sudo access, then retry.${NC}" >&2
+    exit 1
+}
+
 create_backup() {
     local target="$1"
     local backup_dir="${target}.backup.$(date +%Y%m%d-%H%M%S)"
@@ -523,14 +593,21 @@ create_backup() {
         return 0
     fi
 
-    # Determine if we need sudo
+    # Determine if we need sudo. Every copy is exit-checked: a backup that
+    # silently didn't happen is worse than none, so any cp failure aborts
+    # the upgrade via _abort_backup_failure (never falls through to the
+    # "created successfully" message below).
     if [[ -w "$target" ]]; then
-        cp -a "$target" "$backup_dir"
+        if ! cp -a "$target" "$backup_dir"; then
+            _abort_backup_failure "$backup_dir"
+        fi
         # cp -a preserves source mtime; refresh the backup dir's mtime so it sorts
         # newest-first by both mtime and filename (filename encodes timestamp).
         touch "$backup_dir"
     else
-        sudo cp -a "$target" "$backup_dir"
+        if ! _require_sudo || ! sudo cp -a "$target" "$backup_dir"; then
+            _abort_backup_failure "$backup_dir"
+        fi
         sudo touch "$backup_dir"
     fi
 
@@ -546,7 +623,8 @@ create_backup() {
     if ((${#backups[@]} > 5)); then
         for old_backup in "${backups[@]:5}"; do
             echo -e "${BLUE}  Removing old backup: $old_backup${NC}"
-            rm -rf "$old_backup" 2>/dev/null || sudo rm -rf "$old_backup" 2>/dev/null || true
+            rm -rf "$old_backup" 2>/dev/null || sudo rm -rf "$old_backup" 2>/dev/null ||
+                echo -e "${YELLOW}  Warning: failed to remove old backup: $old_backup${NC}"
         done
     fi
 }
@@ -1631,8 +1709,7 @@ do_upgrade() {
     if [[ ! -w "$target" ]]; then
         use_sudo="sudo"
         echo -e "${YELLOW}Note: Using sudo (target not writable by current user)${NC}"
-        if ! sudo -v; then
-            echo -e "${RED}Error: Sudo access required${NC}"
+        if ! _require_sudo; then
             return 1
         fi
     fi
@@ -1796,6 +1873,24 @@ do_upgrade() {
                 fi
             fi
         done
+
+        # Optional hardened-secrets drop-in: only when the operator's
+        # derive-service-secret tool is present on this host. The stock unit
+        # works without it via the /etc/audiobooks *_FILE pointer stubs.
+        # See systemd/audiobook-api-derive-secrets.conf.example.
+        local derive_dropin_src="${project}/systemd/audiobook-api-derive-secrets.conf.example"
+        local derive_dropin_dir="/etc/systemd/system/audiobook-api.service.d"
+        if [[ -x /usr/bin/derive-service-secret ]] && [[ -f "$derive_dropin_src" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [DRY-RUN] Would install: ${derive_dropin_dir}/derive-secrets.conf"
+            else
+                $use_sudo mkdir -p "$derive_dropin_dir"
+                $use_sudo install -m 0644 "$derive_dropin_src" "${derive_dropin_dir}/derive-secrets.conf"
+                echo "  Installed: ${derive_dropin_dir}/derive-secrets.conf (derive-service-secret detected)"
+            fi
+        else
+            echo "  Skipped derive-secrets drop-in: /usr/bin/derive-service-secret not present (stock *_FILE pointer files remain in use)"
+        fi
 
         # Patch ReadWritePaths if data dir differs from default /srv/audiobooks.
         # ProtectSystem=strict makes the filesystem read-only except for listed paths.
@@ -2526,19 +2621,44 @@ verify_installation_permissions() {
         [[ -f "$_cert_dir/server.key" ]] && sudo chmod 640 "$_cert_dir/server.key"
         [[ -f "$_var_dir/auth.key" ]] && sudo chmod 600 "$_var_dir/auth.key"
         [[ -f "$_var_dir/auth.db" ]] && sudo chmod 640 "$_var_dir/auth.db"
-        # v8.4.0.0+ — ensure 0600 stub credential files exist for the *_FILE
+        # v8.4.0.0+ — ensure stub credential files exist for the *_FILE
         # pointer pattern (SMTP_PASS_FILE / AUDIOBOOKS_DEEPL_API_KEY_FILE /
-        # AUDIOBOOKS_RUNPOD_API_KEY_FILE). Created empty; operator populates as
-        # needed. Never overwrites existing operator-curated files.
-        # Keep in sync with OPTIONAL_CREDENTIAL_FILES in scripts/install-manifest.sh
-        # and the matching loop in install.sh (see Audiobook-Manager-be6).
-        local _stub_name _stub_path
-        for _stub_name in smtp-pass deepl-api-key runpod-api-key cloudflare-purge-token; do
-            _stub_path="${_config_dir}/${_stub_name}"
-            if [[ ! -f "$_stub_path" ]]; then
-                sudo install -m 0600 -o audiobooks -g audiobooks /dev/null "$_stub_path"
+        # AUDIOBOOKS_RUNPOD_API_KEY_FILE / CLOUDFLARE_PURGE_TOKEN_FILE).
+        # Created empty; operator populates as needed. Never overwrites
+        # existing operator-curated files.
+        # Single canonical definition site: OPTIONAL_CREDENTIAL_FILES in
+        # scripts/install-manifest.sh (path|owner:group|mode|env-var-name) —
+        # sourced in a subshell so the manifest's other arrays stay out of
+        # this scope (see Audiobook-Manager-be6). The manifest was synced
+        # into the target's scripts/ earlier in this upgrade; fall back to
+        # the project copy next to upgrade.sh when running pre-sync.
+        local _stub_manifest=""
+        local _stub_candidate
+        for _stub_candidate in "${target_dir}/scripts/install-manifest.sh" \
+            "${SCRIPT_DIR}/scripts/install-manifest.sh"; do
+            if [[ -f "$_stub_candidate" ]]; then
+                _stub_manifest="$_stub_candidate"
+                break
             fi
         done
+        if [[ -n "$_stub_manifest" ]]; then
+            local _stub_path _stub_owner _stub_mode _stub_envvar
+            while IFS='|' read -r _stub_path _stub_owner _stub_mode _stub_envvar; do
+                [[ -z "$_stub_path" ]] && continue
+                if [[ ! -f "$_stub_path" ]]; then
+                    sudo install -m "$_stub_mode" -o "${_stub_owner%%:*}" -g "${_stub_owner##*:}" /dev/null "$_stub_path"
+                fi
+            done < <(
+                LIB_DIR="$target_dir" \
+                    STATE_DIR="$_var_dir" \
+                    LOG_DIR="${AUDIOBOOKS_LOGS:-/var/log/audiobooks}" \
+                    CONFIG_DIR="$_config_dir" \
+                    bash -c 'source "$1" && printf "%s\n" "${OPTIONAL_CREDENTIAL_FILES[@]}"' _ \
+                    "$_stub_manifest"
+            )
+        else
+            echo -e "${YELLOW}  Warning: install-manifest.sh not found — skipping credential stub creation${NC}"
+        fi
         # DB directory must be owned by audiobooks so the service can create
         # SQLite WAL/SHM sidecar files. Without this, a drifted db/ owned by
         # root:root under $AUDIOBOOKS_VAR_DIR silently blocks API startup with
@@ -2967,10 +3087,12 @@ do_github_upgrade() {
         echo ""
     fi
 
-    # Determine if we need sudo
+    # Determine if we need sudo — validate up front so a non-TTY run without
+    # NOPASSWD fails here with one clear message, not mid-backup
     local use_sudo=""
     if [[ ! -w "$target" ]]; then
         use_sudo="sudo"
+        _require_sudo || return 1
     fi
 
     # Always create backup before upgrade (rolling retention: last 5 kept)
