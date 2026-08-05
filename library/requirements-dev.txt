@@ -10,10 +10,13 @@ pytest-playwright>=0.8.0
 requests-mock>=1.12.1
 
 # Linters / formatters
+# ruff is the canonical formatter AND import sorter (`ruff format`, plus the
+# `I` rules in `ruff check`) — see the rationale header in pyproject.toml.
+# black and isort are deliberately absent: neither was invoked by CI, by the
+# /test audit, or by any script, and running black would reformat 134 files
+# straight through the `ruff format --check` gate.
 ruff>=0.16.1
 mypy>=2.3.0
-black>=26.5.1
-isort>=8.0.1
 
 # Security scanners
 bandit>=1.9.4
@@ -26,13 +29,25 @@ pip-audit>=2.10.1
 rich>=15.0.0
 greenlet>=3.5.4
 librt>=0.13.0
+# radon is the cyclomatic-complexity scanner used by the /test audit's code
+# quality phase. It was previously an undeclared transitive assumption — only
+# its own dependency (mando) was pinned here, so a fresh dev environment had
+# the constraint without the tool it exists to constrain.
+radon>=6.0.1
 # radon 6.0.1 requires mando>=0.6,<0.8; stay on the 0.7.x line (latest
-# pre-0.8 release is 0.7.1) so `pip check` stays clean.
-mando>=0.8.2,<0.9
-# astroid is pylint's runtime AST engine. pylint 4.0.5 (latest stable)
-# constrains astroid to `<=4.1.dev0,>=4.0.2`; 4.1.2 is compatible.
-# Re-visit upper bound when pylint 4.1+ releases upstream.
-astroid>=4.1.2,<4.2
+# pre-0.8 release is 0.7.1) so `pip check` stays clean. The floor previously
+# read `>=0.8.2,<0.9`, which contradicted this comment and is outside radon's
+# supported range.
+mando>=0.7.1,<0.8
+# astroid is NOT pinned here, deliberately. It is pylint's AST engine and
+# nothing else in this file depends on it; pylint itself was never declared as
+# a dev dependency (it is not a CI gate — ruff and mypy are), so the pin
+# constrained a package that had no reason to be installed. It was also
+# unsatisfiable: the pin read `astroid>=4.1.2,<4.2` with a comment claiming
+# pylint 4.0.5 accepts 4.1.2, but every current pylint (through 4.0.6) caps
+# astroid at `<=4.1.dev0` — installing both resolved pylint backwards to 2.3.0.
+# `[tool.pylint.typecheck]` in pyproject.toml is retained for ad-hoc runs; if
+# pylint is ever made a gate, declare pylint here and let it resolve astroid.
 packaging>=26.2
 platformdirs>=4.11.0
 types-croniter>=6.2.4.20260711
