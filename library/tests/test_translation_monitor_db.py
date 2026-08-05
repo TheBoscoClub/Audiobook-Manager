@@ -8,6 +8,7 @@ sqlite files.
 
 import sqlite3
 import sys
+from contextlib import closing
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -125,13 +126,15 @@ class TestConnect:
         db_path = tmp_path / "real.db"
         assert not db_path.exists()
 
-        with module.connect(db_path) as conn:
+        with module.connection(db_path) as conn:
             conn.execute("CREATE TABLE t (x INTEGER)")
             conn.commit()
 
         assert db_path.is_file()
-        # File is real sqlite, not in-memory — verify by re-opening
-        with sqlite3.connect(db_path) as fresh:
+        # File is real sqlite, not in-memory — verify by re-opening.
+        # closing(), not a bare `with`: sqlite3.Connection.__exit__ ends the
+        # transaction and leaves the connection OPEN (see db.connect()).
+        with closing(sqlite3.connect(db_path)) as fresh:
             row = fresh.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='t'"
             ).fetchone()
@@ -142,7 +145,7 @@ class TestConnect:
         from translation_monitor import db as module
 
         db_path = tmp_path / "rows.db"
-        with module.connect(db_path) as conn:
+        with module.connection(db_path) as conn:
             conn.execute("CREATE TABLE pets (name TEXT, kind TEXT)")
             conn.execute("INSERT INTO pets VALUES (?, ?)", ("ana", "cat"))
             conn.commit()
@@ -155,7 +158,7 @@ class TestConnect:
         from translation_monitor import db as module
 
         db_path = tmp_path / "fk.db"
-        with module.connect(db_path) as conn:
+        with module.connection(db_path) as conn:
             result = conn.execute("PRAGMA foreign_keys").fetchone()
             assert result[0] == 1
 
@@ -164,7 +167,7 @@ class TestConnect:
         from translation_monitor import db as module
 
         db_path = tmp_path / "busy.db"
-        with module.connect(db_path) as conn:
+        with module.connection(db_path) as conn:
             result = conn.execute("PRAGMA busy_timeout").fetchone()
             assert result[0] == 5000
 
@@ -174,7 +177,7 @@ class TestConnect:
 
         db_path = tmp_path / "env.db"
         monkeypatch.setenv("AUDIOBOOKS_DATABASE", str(db_path))
-        with module.connect() as conn:
+        with module.connection() as conn:
             conn.execute("CREATE TABLE marker (x)")
             conn.commit()
         assert db_path.is_file()
@@ -190,7 +193,7 @@ class TestSchemaHasMonitorTable:
         from translation_monitor import db as module
 
         db_path = tmp_path / "with_table.db"
-        with module.connect(db_path) as conn:
+        with module.connection(db_path) as conn:
             conn.execute(
                 "CREATE TABLE translation_monitor_events ("
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -204,7 +207,7 @@ class TestSchemaHasMonitorTable:
         from translation_monitor import db as module
 
         db_path = tmp_path / "without_table.db"
-        with module.connect(db_path) as conn:
+        with module.connection(db_path) as conn:
             # Other tables exist, but not the monitor one
             conn.execute("CREATE TABLE audiobooks (id INTEGER)")
             conn.commit()
@@ -214,7 +217,7 @@ class TestSchemaHasMonitorTable:
         from translation_monitor import db as module
 
         db_path = tmp_path / "empty.db"
-        with module.connect(db_path) as conn:
+        with module.connection(db_path) as conn:
             assert module.schema_has_monitor_table(conn) is False
 
 
@@ -229,7 +232,7 @@ class TestDbExists:
 
         db_path = tmp_path / "live.db"
         # Use connect() to create a real sqlite file (not just touch)
-        with module.connect(db_path):
+        with module.connection(db_path):
             pass
         assert module.db_exists(db_path) is True
 
@@ -250,7 +253,7 @@ class TestDbExists:
         from translation_monitor import db as module
 
         db_path = tmp_path / "via_env.db"
-        with module.connect(db_path):
+        with module.connection(db_path):
             pass
         monkeypatch.setenv("AUDIOBOOKS_DATABASE", str(db_path))
         assert module.db_exists() is True
@@ -270,7 +273,7 @@ class TestFixtureCleanup:
         from translation_monitor import db as module
 
         db_path = tmp_path / "cleanup-target.db"
-        with module.connect(db_path) as conn:
+        with module.connection(db_path) as conn:
             conn.execute("CREATE TABLE x (y INTEGER)")
             conn.commit()
         yield db_path
@@ -282,3 +285,46 @@ class TestFixtureCleanup:
         # Inside the test, the file exists
         assert captured_db.is_file()
         # parent is the per-test tmp_path; pytest cleans it after the test
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# connection() vs connect() — the closing contract
+# ──────────────────────────────────────────────────────────────────────────
+
+
+class TestConnectionClosingContract:
+    """``with connect(...)`` does NOT close; ``with connection(...)`` does.
+
+    ``sqlite3.Connection.__exit__`` commits or rolls back and leaves the
+    handle open. db.connect()'s docstring used to say "use ``with``", and both
+    monitor scripts did — leaking one connection per timer tick.
+    """
+
+    def test_connection_closes_on_exit(self, tmp_path):
+        from translation_monitor import db as module
+
+        with module.connection(tmp_path / "closes.db") as conn:
+            conn.execute("SELECT 1")
+        with pytest.raises(sqlite3.ProgrammingError):
+            conn.execute("SELECT 1")
+
+    def test_bare_with_on_connect_leaves_it_open(self, tmp_path):
+        """Documents the trap this API exists to avoid."""
+        from translation_monitor import db as module
+
+        conn = module.connect(tmp_path / "stays-open.db")
+        with conn:
+            conn.execute("SELECT 1")
+        conn.execute("SELECT 1")  # still open — no ProgrammingError
+        conn.close()
+
+    def test_connection_closes_even_when_the_body_raises(self, tmp_path):
+        from translation_monitor import db as module
+
+        captured = {}
+        with pytest.raises(RuntimeError):
+            with module.connection(tmp_path / "raises.db") as conn:
+                captured["conn"] = conn
+                raise RuntimeError("boom")
+        with pytest.raises(sqlite3.ProgrammingError):
+            captured["conn"].execute("SELECT 1")

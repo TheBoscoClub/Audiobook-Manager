@@ -162,10 +162,14 @@ def reconcile(
     row (``_pending_locales``), skip when no chapter metadata is extractable
     (``_chapter_durations_for_book``), otherwise enqueue each missing locale
     (``_enqueue_needed_locales``)."""
-    from localization.sampler import enqueue_sampler  # type: ignore[import-not-found]  # localization.* is only on sys.path inside the installed app
+    from localization.sampler import (
+        enqueue_sampler,  # type: ignore[import-not-found]  # localization.* is only on sys.path inside the installed app
+    )
 
     try:
-        from localization.chapters import extract_chapters  # type: ignore[import-not-found]  # localization.* is only on sys.path inside the installed app
+        from localization.chapters import (
+            extract_chapters,  # type: ignore[import-not-found]  # localization.* is only on sys.path inside the installed app
+        )
     except ImportError:
         extract_chapters = None  # type: ignore
 

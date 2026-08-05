@@ -14,7 +14,6 @@ Endpoints:
 
 from datetime import datetime
 from pathlib import Path
-
 from typing import TYPE_CHECKING
 
 from flask import Blueprint, current_app, jsonify, request

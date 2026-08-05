@@ -26,9 +26,8 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-from flask import Blueprint, jsonify, request
-
 from common_utils.secret_resolver import resolve_secret
+from flask import Blueprint, jsonify, request
 
 from .auth import admin_or_localhost
 from .core import FlaskResponse
@@ -647,6 +646,10 @@ def _execute_cf_purge(zone_id: str, auth_headers: dict[str, str]) -> FlaskRespon
                 return jsonify({"success": True})
             return jsonify({"success": False, "error": "Cloudflare API returned failure"}), 502
     except (urllib.error.HTTPError, urllib.error.URLError) as e:
+        # HTTPError (a URLError subclass) holds an open response object;
+        # Python 3.14 warns if it is dropped without close().
+        if isinstance(e, urllib.error.HTTPError):
+            e.close()
         logger.error("Cloudflare API error: %s", e)
         return jsonify({"success": False, "error": "Cloudflare API request failed"}), 502
     except TimeoutError:

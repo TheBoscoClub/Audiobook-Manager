@@ -46,7 +46,7 @@ from translation_monitor import (  # noqa: E402
     reset_stuck_sampler_jobs,
     sweep_retry_exhausted_segments,
 )
-from translation_monitor.db import connect, db_exists, schema_has_monitor_table  # noqa: E402
+from translation_monitor.db import connection, db_exists, schema_has_monitor_table  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [translation-monitor-sampler] %(levelname)s %(message)s"
@@ -61,7 +61,7 @@ def main() -> int:
         return 0
 
     try:
-        with connect() as conn:
+        with connection() as conn:
             if not schema_has_monitor_table(conn):
                 logger.info("translation_monitor_events table missing — pre-v8.3.9 DB, skipping")
                 return 0

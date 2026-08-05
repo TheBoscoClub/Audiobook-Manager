@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+from contextlib import closing
 from datetime import datetime, timezone
 
 from . import registry
@@ -58,11 +59,11 @@ class DatabaseBackupTask(MaintenanceTask):
                 progress_callback(0.2, "Creating backup...")
 
             # Use SQLite online backup API for consistency
-            src = sqlite3.connect(str(db_path))
-            dst = sqlite3.connect(str(backup_path))
-            src.backup(dst)
-            src.close()
-            dst.close()
+            with (
+                closing(sqlite3.connect(str(db_path))) as src,
+                closing(sqlite3.connect(str(backup_path))) as dst,
+            ):
+                src.backup(dst)
 
             size_mb = backup_path.stat().st_size / (1024 * 1024)
 

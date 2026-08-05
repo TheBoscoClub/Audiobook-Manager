@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from . import registry
@@ -45,14 +46,13 @@ class DatabaseVacuumTask(MaintenanceTask):
             return ExecutionResult(success=False, message="Database path not available")
 
         try:
-            conn = sqlite3.connect(str(db_path))
-            if progress_callback:
-                progress_callback(0.2, "Running ANALYZE...")
-            conn.execute("ANALYZE")
-            if progress_callback:
-                progress_callback(0.5, "Running VACUUM...")
-            conn.execute("VACUUM")
-            conn.close()
+            with closing(sqlite3.connect(str(db_path))) as conn:
+                if progress_callback:
+                    progress_callback(0.2, "Running ANALYZE...")
+                conn.execute("ANALYZE")
+                if progress_callback:
+                    progress_callback(0.5, "Running VACUUM...")
+                conn.execute("VACUUM")
             if progress_callback:
                 progress_callback(1.0, "Complete")
             return ExecutionResult(

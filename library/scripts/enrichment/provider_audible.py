@@ -71,6 +71,10 @@ def _fetch_audible_product(asin: str) -> dict | None:
             data = json.loads(resp.read())
             return data.get("product")
     except urllib.error.HTTPError as e:
+        # HTTPError holds an open http.client.HTTPResponse; Python 3.14 emits
+        # "ResourceWarning: Implicitly cleaning up <HTTPError ...>" if it is
+        # dropped without close(). Same handling as proxy_server.proxy_to_api.
+        e.close()
         if e.code == 404:
             return None
         if e.code == 429:
@@ -82,7 +86,11 @@ def _fetch_audible_product(asin: str) -> dict | None:
                 ) as resp:
                     data = json.loads(resp.read())
                     return data.get("product")
-            except Exception:
+            except Exception as retry_error:
+                # See the close() note above — the retry can raise its own
+                # HTTPError, which holds its own open response.
+                if isinstance(retry_error, urllib.error.HTTPError):
+                    retry_error.close()
                 return None
         return None
     except (urllib.error.URLError, TimeoutError):  # fmt: skip

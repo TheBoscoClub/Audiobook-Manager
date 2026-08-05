@@ -73,6 +73,11 @@ def _probe_one_provider(name: str, api_key: str, endpoint: str, base_url: str) -
         workers = payload.get("workers", {}) or {}
         entry["ready"] = int(workers.get("ready", 0))
     except (urllib.error.URLError, TimeoutError, ValueError) as e:
+        # HTTPError (a URLError subclass) holds an open response object;
+        # Python 3.14 warns if it is dropped without close(). A probe that
+        # fails on every tick would otherwise leak one per provider per tick.
+        if isinstance(e, urllib.error.HTTPError):
+            e.close()
         logger.debug("%s warmth probe failed: %s", name, e)
     return entry
 

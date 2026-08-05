@@ -50,7 +50,11 @@ def _search_google_books(title: str, author: str) -> dict | None:
             req, timeout=10
         ) as resp:
             data = json.loads(resp.read())
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):  # fmt: skip
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:  # fmt: skip
+        # HTTPError (a URLError subclass) holds an open response object; Python 3.14
+        # warns if it is dropped without close(). URLError/TimeoutError do not.
+        if isinstance(e, urllib.error.HTTPError):
+            e.close()
         return None
 
     items = data.get("items", [])

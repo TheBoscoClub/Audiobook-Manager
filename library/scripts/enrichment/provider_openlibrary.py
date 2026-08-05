@@ -47,7 +47,11 @@ def _search_openlibrary(title: str, author: str) -> dict | None:
         # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected  # Reason: URL built from trusted HTTPS constant (_OL_SEARCH_API) + urlencode-escaped search params; not user-controlled scheme
         with urllib.request.urlopen(req, timeout=10) as resp:  # noqa: S310  # nosec B310
             data = json.loads(resp.read())
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError):  # fmt: skip
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as e:  # fmt: skip
+        # HTTPError (a URLError subclass) holds an open response object; Python 3.14
+        # warns if it is dropped without close(). URLError/TimeoutError do not.
+        if isinstance(e, urllib.error.HTTPError):
+            e.close()
         return None
 
     docs = data.get("docs", [])

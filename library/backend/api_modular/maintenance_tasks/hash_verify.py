@@ -3,6 +3,7 @@
 import hashlib
 import logging
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from . import registry
@@ -47,11 +48,11 @@ class HashVerifyTask(MaintenanceTask):
             return ExecutionResult(success=False, message="Database path not available")
 
         try:
-            conn = sqlite3.connect(str(db_path))
-            rows = conn.execute(
-                "SELECT id, file_path, sha256_hash FROM audiobooks WHERE sha256_hash IS NOT NULL"
-            ).fetchall()
-            conn.close()
+            with closing(sqlite3.connect(str(db_path))) as conn:
+                rows = conn.execute(
+                    "SELECT id, file_path, sha256_hash FROM audiobooks "
+                    "WHERE sha256_hash IS NOT NULL"
+                ).fetchall()
 
             total = len(rows)
             if total == 0:

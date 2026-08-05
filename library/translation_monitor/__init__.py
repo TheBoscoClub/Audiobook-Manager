@@ -24,11 +24,11 @@ keeps the failure-mode trivial: a crashed monitor on tick N is auto-recovered
 by the next timer fire.
 
 The package itself contains no I/O — all DB access goes through
-:func:`library.translation_monitor.db.connect` so tests can swap in a
+:func:`library.translation_monitor.db.connection` so tests can swap in a
 tmp_path SQLite DB without touching the real one.
 """
 
-from .db import connect  # noqa: F401
+from .db import connect, connection  # noqa: F401
 from .events import log_event  # noqa: F401
 from .notify import send_chapter_starvation_alert  # noqa: F401
 from .probe import (  # noqa: F401
@@ -59,6 +59,7 @@ __all__ = [
     "alert_capacity_pressure",
     "alert_old_live_segments",
     "connect",
+    "connection",
     "log_event",
     "probe_gpu_instance_health",
     "reset_stuck_live_claims",

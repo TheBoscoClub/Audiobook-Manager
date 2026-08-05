@@ -21,7 +21,6 @@ from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-
 from translation_monitor import (
     CAPACITY_WARNING_COOLDOWN_SEC,
     LIVE_AGE_ALERT_SEC,

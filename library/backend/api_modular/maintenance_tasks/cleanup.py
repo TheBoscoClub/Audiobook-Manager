@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 from . import registry
@@ -127,32 +128,30 @@ class OrphanedSupplementsTask(MaintenanceTask):
         try:
             _report_progress(progress_callback, 0.2, "Scanning supplements...")
 
-            conn = sqlite3.connect(str(db_path))
-            conn.row_factory = sqlite3.Row
-            cursor = conn.cursor()
+            with closing(sqlite3.connect(str(db_path))) as conn:
+                conn.row_factory = sqlite3.Row
+                cursor = conn.cursor()
 
-            # Check if table exists
-            cursor.execute(
-                "SELECT name FROM sqlite_master WHERE type='table' AND name='supplements'"
-            )
-            if not cursor.fetchone():
-                conn.close()
-                return ExecutionResult(
-                    success=True, message="No supplements table", data={"removed": 0}
+                # Check if table exists
+                cursor.execute(
+                    "SELECT name FROM sqlite_master WHERE type='table' AND name='supplements'"
                 )
+                if not cursor.fetchone():
+                    return ExecutionResult(
+                        success=True, message="No supplements table", data={"removed": 0}
+                    )
 
-            orphan_ids, total_checked = _find_orphan_supplement_ids(cursor)
-            _report_progress(progress_callback, 0.6, f"Found {len(orphan_ids)} orphans...")
+                orphan_ids, total_checked = _find_orphan_supplement_ids(cursor)
+                _report_progress(progress_callback, 0.6, f"Found {len(orphan_ids)} orphans...")
 
-            if orphan_ids:
-                placeholders = ",".join("?" * len(orphan_ids))
-                cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
-                    f"DELETE FROM supplements WHERE id IN ({placeholders})",  # nosec B608  # noqa: S608
-                    orphan_ids,
-                )
-                conn.commit()
+                if orphan_ids:
+                    placeholders = ",".join("?" * len(orphan_ids))
+                    cursor.execute(  # nosec B608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+                        f"DELETE FROM supplements WHERE id IN ({placeholders})",  # nosec B608  # noqa: S608
+                        orphan_ids,
+                    )
+                    conn.commit()
 
-            conn.close()
             _report_progress(progress_callback, 1.0, "Complete")
 
             return ExecutionResult(

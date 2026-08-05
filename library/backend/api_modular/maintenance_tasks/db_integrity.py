@@ -2,6 +2,7 @@
 
 import logging
 import sqlite3
+from contextlib import closing
 
 from . import registry
 from .base import ExecutionResult, MaintenanceTask, ValidationResult
@@ -28,11 +29,10 @@ class DatabaseIntegrityTask(MaintenanceTask):
             return ExecutionResult(success=False, message="Database path not available")
 
         try:
-            conn = sqlite3.connect(str(db_path))
-            if progress_callback:
-                progress_callback(0.3, "Running integrity check...")
-            result = conn.execute("PRAGMA integrity_check").fetchone()
-            conn.close()
+            with closing(sqlite3.connect(str(db_path))) as conn:
+                if progress_callback:
+                    progress_callback(0.3, "Running integrity check...")
+                result = conn.execute("PRAGMA integrity_check").fetchone()
             ok = result[0] == "ok"
             if progress_callback:
                 progress_callback(1.0, "Complete")

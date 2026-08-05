@@ -52,7 +52,7 @@ for candidate in (_HERE.parent / "library", _HERE.parent):
 from translation_monitor import (  # noqa: E402
     alert_capacity_pressure,
     alert_old_live_segments,
-    connect,
+    connection,
     probe_gpu_instance_health,
     reset_stuck_live_claims,
     send_chapter_starvation_alert,
@@ -73,7 +73,7 @@ def main() -> int:
         return 0
 
     try:
-        with connect() as conn:
+        with connection() as conn:
             if not schema_has_monitor_table(conn):
                 logger.info("translation_monitor_events table missing — pre-v8.3.9 DB, skipping")
                 return 0

@@ -20,7 +20,9 @@ from __future__ import annotations
 
 import os
 import sqlite3
+from contextlib import closing, contextmanager
 from pathlib import Path
+from typing import Iterator
 
 
 def _canonical_default_db() -> str:
@@ -62,7 +64,17 @@ def resolve_db_path(db_path: str | os.PathLike[str] | None = None) -> str:
 def connect(db_path: str | os.PathLike[str] | None = None) -> sqlite3.Connection:
     """Open a sqlite3 connection with monitor-friendly PRAGMAs.
 
-    The caller is responsible for closing the connection (use ``with``).
+    The caller MUST close the connection. Prefer :func:`connection` below.
+
+    .. warning::
+       ``with connect(...) as conn:`` does **not** close anything.
+       ``sqlite3.Connection.__exit__`` commits or rolls back the transaction
+       and leaves the connection open — a long-standing trap, and this
+       docstring used to recommend exactly that ("use ``with``"). Both
+       monitor scripts followed the advice and leaked one connection per
+       timer tick; the test suite reported them as
+       ``ResourceWarning: unclosed database``.
+
     Returns rows as :class:`sqlite3.Row` for column-name access.
     """
     path = resolve_db_path(db_path)
@@ -74,6 +86,22 @@ def connect(db_path: str | os.PathLike[str] | None = None) -> sqlite3.Connection
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA busy_timeout = 5000")
     return conn
+
+
+@contextmanager
+def connection(db_path: str | os.PathLike[str] | None = None) -> Iterator[sqlite3.Connection]:
+    """Open a monitor connection and CLOSE it on exit.
+
+    The safe counterpart to :func:`connect` — use this everywhere::
+
+        with connection() as conn:
+            ...
+
+    Note this does not wrap the body in a transaction the way
+    ``with sqlite3.connect(...)`` does; commit explicitly if you write.
+    """
+    with closing(connect(db_path)) as conn:
+        yield conn
 
 
 def schema_has_monitor_table(conn: sqlite3.Connection) -> bool:

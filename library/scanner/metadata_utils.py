@@ -18,6 +18,7 @@ from typing import Optional
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from common import calculate_sha256
+
 from scanner.utils.text_normalize import normalize_freetext
 
 # =============================================================================
