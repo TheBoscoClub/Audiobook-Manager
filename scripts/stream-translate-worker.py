@@ -412,6 +412,255 @@ def split_audio_segment(
     return out_path
 
 
+def _read_and_offset_vtts(
+    source_vtt_path: Path | None, translated_vtt_path: Path | None, segment_index: int
+) -> tuple[str, str]:
+    """Read both VTT files and shift their cues to chapter-relative time.
+
+    Read VTT content for inline storage. Persist BOTH the translated
+    cues (vtt_content) AND the English source cues (source_vtt_content)
+    so the bilingual transcript panel has data to render once the
+    chapter consolidates. v8.3.2 and earlier discarded source_vtt here,
+    which left chapter_subtitles with only the translated locale row.
+
+    Returns ``(vtt_content, source_vtt_content)``.
+    """
+    vtt_content = ""
+    if translated_vtt_path and translated_vtt_path.exists():
+        vtt_content = translated_vtt_path.read_text(encoding="utf-8")
+
+    source_vtt_content = ""
+    if source_vtt_path and source_vtt_path.exists():
+        source_vtt_content = source_vtt_path.read_text(encoding="utf-8")
+
+    # Offset cue timestamps to account for segment position in chapter.
+    # Both VTTs share the same time base (the source audio slice), so
+    # they get the same offset.
+    offset_ms = segment_index * SEGMENT_DURATION_SEC * 1000
+    if offset_ms > 0:
+        if vtt_content:
+            vtt_content = _offset_vtt_timestamps(vtt_content, offset_ms)
+        if source_vtt_content:
+            source_vtt_content = _offset_vtt_timestamps(source_vtt_content, offset_ms)
+
+    return vtt_content, source_vtt_content
+
+
+def _stt_translate_segment(
+    seg_audio: Path,
+    audiobook_id: int,
+    chapter_index: int,
+    segment_index: int,
+    locale: str,
+    origin: str,
+) -> tuple[str, str, Path]:
+    """Run STT + translation on an extracted 30-second slice.
+
+    Returns ``(vtt_content, source_vtt_content, output_dir)`` — both VTT
+    strings already offset to chapter-relative timestamps, and ``output_dir``
+    the tempdir holding generate_subtitles outputs (the caller owns its
+    cleanup).
+    """
+    from localization.pipeline import generate_subtitles, get_stt_provider
+    from localization.selection import WorkloadHint
+
+    # Run STT + translation on the segment. Workload hint routes to the
+    # right endpoint tier:
+    #   - origin='live' (real user playback) → STREAMING → warm pool
+    #     (RunPod min_workers=1) for sub-second first-segment latency.
+    #   - origin='sampler' / 'backlog' (pretranslation backfill) →
+    #     LONG_FORM → backlog pool (RunPod min_workers=0) so cold
+    #     endpoints handle bulk work without burning warm-instance cost.
+    workload = WorkloadHint.STREAMING if origin == "live" else WorkloadHint.LONG_FORM
+    stt = get_stt_provider("", workload=workload)
+    output_dir = Path(tempfile.mkdtemp(prefix="stream-seg-"))
+
+    try:
+        source_vtt, translated_vtt = generate_subtitles(
+            audio_path=seg_audio,
+            output_dir=output_dir,
+            target_locale=locale,
+            chapter_name=f"book{audiobook_id}_ch{chapter_index:03d}_seg{segment_index:04d}",
+            stt_provider=stt,
+        )
+        source_vtt_path: Path | None = source_vtt
+        translated_vtt_path: Path | None = translated_vtt
+    except ValueError as exc:
+        # "No speech detected" — Whisper transcribed the segment as
+        # empty. This is the music / silence / sound-effects case,
+        # NOT a transient error worth retrying. Fall through with
+        # empty VTT; the silent-segment-audio fallback below will
+        # produce a duration-matched silent WebM-Opus so the MSE
+        # chain on the frontend stays unbroken. Without this
+        # carve-out 39+ such segments accumulated as `state='failed'`
+        # on prod (Audiobook-Manager-g9f follow-up, 2026-04-25).
+        if "No speech detected" not in str(exc):
+            raise
+        logger.info(
+            "No speech in seg %d/%d/%d — falling back to silent segment",
+            audiobook_id,
+            chapter_index,
+            segment_index,
+        )
+        source_vtt_path = None
+        translated_vtt_path = None
+
+    vtt_content, source_vtt_content = _read_and_offset_vtts(
+        source_vtt_path, translated_vtt_path, segment_index
+    )
+    return vtt_content, source_vtt_content, output_dir
+
+
+def _synthesize_or_silent_audio(
+    vtt_content: str,
+    audiobook_id: int,
+    chapter_index: int,
+    segment_index: int,
+    locale: str,
+    chapter_duration_sec: float,
+) -> str:
+    """Synthesize per-segment TTS audio (opus); return its path relative to
+    the streaming-audio root.
+
+    The synthesized webm is permanent — it is referenced by
+    streaming_segments.audio_path and is the input to Task 10's
+    ``ffmpeg -c copy`` chapter consolidation. Never delete it here.
+    """
+    # IMPORTANT — do NOT catch and swallow TTS *exceptions* here. A
+    # previous implementation rationalized "VTT alone is still useful,
+    # so a TTS failure downgrades to text-only" and caught Exception,
+    # returning `audio_rel=None`. The coordinator then wrote
+    # `state='completed', audio_path=NULL`, which the MSE chain on the
+    # frontend reads as "done" — but the per-segment audio fetch 404s
+    # and the player stalls indefinitely. The "VTT-only fallback" was
+    # never actually reachable by the player; it was a silent failure
+    # that masqueraded as a feature.
+    #
+    # Letting TTS exceptions propagate here lands in the outer except
+    # at the bottom of process_segment, which has the bounded retry
+    # handler (retry_count cap=3, error column persisted, state flips
+    # to 'failed' only after the budget is exhausted). Combined with
+    # the v8.3.8.6 idempotent re-run (skips STT+translation when
+    # vtt_content is already populated), a transient edge-tts failure
+    # becomes a sub-second retry rather than a permanent broken segment.
+    #
+    # The legitimate `_synthesize_segment_audio` returning None case
+    # (empty VTT — music/silence segment with no spoken text per the
+    # function's docstring) is preserved: audio_rel stays None and
+    # the coordinator records state='completed', audio_path=NULL,
+    # which is the documented intent for music/silence handling. The
+    # frontend's behavior on those rows is a separate concern; this
+    # change does not regress it.
+    #
+    # Audiobook-Manager-g9f and Qing's 2026-04-25 prod report drove
+    # this: 20 orphan rows accumulated in 24h (1 live, blocking
+    # Pronto playback). All 20 had `error=NULL` because the TTS
+    # exception never made it to the retry handler that persists
+    # the error column.
+    tts_opus = _synthesize_segment_audio(
+        vtt_content, audiobook_id, chapter_index, segment_index, locale
+    )
+    if tts_opus is None:
+        # Empty translated VTT — Whisper transcribed no speech (music,
+        # silence, sound effects). Without a per-segment audio file the
+        # frontend MSE chain stalls forever; generate a silent WebM-Opus
+        # matching the source segment's duration so the chain advances.
+        # The legitimate "no speech" case is now distinct from a TTS
+        # exception (which propagates to the outer retry handler).
+        seg_duration = min(
+            SEGMENT_DURATION_SEC,
+            max(0.1, chapter_duration_sec - segment_index * SEGMENT_DURATION_SEC),
+        )
+        tts_opus = _synthesize_silent_segment_audio(
+            audiobook_id, chapter_index, segment_index, locale, seg_duration
+        )
+    try:
+        return str(tts_opus.relative_to(_STREAMING_AUDIO_ROOT))
+    except ValueError as exc:
+        raise RuntimeError(
+            f"TTS opus path {tts_opus} is not under "
+            f"{_STREAMING_AUDIO_ROOT}; cannot produce a relative "
+            "audio_path"
+        ) from exc
+
+
+def _report_segment_complete(
+    api_base: str,
+    audiobook_id: int,
+    chapter_index: int,
+    segment_index: int,
+    locale: str,
+    vtt_content: str,
+    source_vtt_content: str,
+    audio_rel: str,
+) -> None:
+    """Report segment completion to the coordinator API."""
+    import json
+    import urllib.request
+
+    payload = json.dumps(
+        {
+            "audiobook_id": audiobook_id,
+            "chapter_index": chapter_index,
+            "segment_index": segment_index,
+            "locale": locale,
+            "vtt_content": vtt_content,
+            "source_vtt_content": source_vtt_content,
+            "audio_path": audio_rel,
+        }
+    ).encode()
+
+    req = urllib.request.Request(  # noqa: S310 — Request for fixed HTTPS TTS API endpoint; no user-controlled scheme
+        f"{api_base}/api/translate/segment-complete",
+        data=payload,
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    if not req.full_url.startswith(("http://", "https://")):
+        raise ValueError(f"Refusing non-http(s) callback URL: {req.full_url!r}")
+    # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
+    urllib.request.urlopen(req, timeout=30)  # noqa: S310  # nosec B310
+
+
+def _record_segment_failure(
+    db_path: str,
+    exc: Exception,
+    audiobook_id: int,
+    chapter_index: int,
+    segment_index: int,
+    locale: str,
+) -> None:
+    """Persist a failed attempt into the segment row's bounded-retry state.
+
+    Bounded retry: increment retry_count and requeue (state='pending')
+    until the budget (cap = 3) is exhausted, then flip to 'failed'.
+    The exception string is persisted in `error` so operators don't
+    have to correlate worker logs to DB rows — `error` was previously
+    never populated (Bug B). claim_next_segment skips rows where
+    retry_count >= 3, so there is no infinite-loop risk.
+    """
+    conn = get_db(db_path)
+    try:
+        err_msg = f"{type(exc).__name__}: {exc}"[:500]
+        conn.execute(
+            "UPDATE streaming_segments SET "
+            "  retry_count = COALESCE(retry_count, 0) + 1, "
+            "  error = ?, "
+            "  state = CASE "
+            "    WHEN COALESCE(retry_count, 0) + 1 >= 3 THEN 'failed' "
+            "    ELSE 'pending' "
+            "  END, "
+            "  worker_id = NULL, "
+            "  started_at = NULL "
+            "WHERE audiobook_id = ? AND chapter_index = ? "
+            "AND segment_index = ? AND locale = ?",
+            (err_msg, audiobook_id, chapter_index, segment_index, locale),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def process_segment(
     db_path: str,
     segment: dict,
@@ -420,10 +669,15 @@ def process_segment(
     chapter_duration_sec: float,
     api_base: str,
 ) -> bool:
-    """Process a single 30-second segment: STT → translate → VTT → report."""
-    from localization.pipeline import generate_subtitles, get_stt_provider
-    from localization.selection import WorkloadHint
+    """Process a single 30-second segment: STT → translate → VTT → report.
 
+    Orchestrates the per-stage helpers: ``_stt_translate_segment`` (STT +
+    translation, skipped on the TTS-only regen path),
+    ``_synthesize_or_silent_audio`` (per-segment TTS with duration-matched
+    silent fallback), and ``_report_segment_complete`` (coordinator
+    callback). Any stage exception lands in the bounded-retry handler
+    (``_record_segment_failure``).
+    """
     audiobook_id = segment["audiobook_id"]
     chapter_index = segment["chapter_index"]
     segment_index = segment["segment_index"]
@@ -438,7 +692,6 @@ def process_segment(
     )
 
     seg_audio: Path | None = None  # extracted temp 30-sec slice (cleanup target)
-    tts_opus: Path | None = None  # permanent synthesized opus (DO NOT delete)
     output_dir: Path | None = None  # tempdir for generate_subtitles outputs (STT-path only)
     try:
         # Idempotent TTS-regen path: when a pending row already has
@@ -468,158 +721,32 @@ def process_segment(
             seg_audio = split_audio_segment(
                 audio_path, chapter_start_sec, segment_index, chapter_duration_sec
             )
+            vtt_content, source_vtt_content, output_dir = _stt_translate_segment(
+                seg_audio,
+                audiobook_id,
+                chapter_index,
+                segment_index,
+                locale,
+                segment.get("origin", "live"),
+            )
 
-            # Run STT + translation on the segment. Workload hint routes to the
-            # right endpoint tier:
-            #   - origin='live' (real user playback) → STREAMING → warm pool
-            #     (RunPod min_workers=1) for sub-second first-segment latency.
-            #   - origin='sampler' / 'backlog' (pretranslation backfill) →
-            #     LONG_FORM → backlog pool (RunPod min_workers=0) so cold
-            #     endpoints handle bulk work without burning warm-instance cost.
-            origin = segment.get("origin", "live")
-            workload = WorkloadHint.STREAMING if origin == "live" else WorkloadHint.LONG_FORM
-            stt = get_stt_provider("", workload=workload)
-            output_dir = Path(tempfile.mkdtemp(prefix="stream-seg-"))
-
-            try:
-                source_vtt, translated_vtt = generate_subtitles(
-                    audio_path=seg_audio,
-                    output_dir=output_dir,
-                    target_locale=locale,
-                    chapter_name=f"book{audiobook_id}_ch{chapter_index:03d}_seg{segment_index:04d}",
-                    stt_provider=stt,
-                )
-                source_vtt_path: Path | None = source_vtt
-                translated_vtt_path: Path | None = translated_vtt
-            except ValueError as exc:
-                # "No speech detected" — Whisper transcribed the segment as
-                # empty. This is the music / silence / sound-effects case,
-                # NOT a transient error worth retrying. Fall through with
-                # empty VTT; the silent-segment-audio fallback below will
-                # produce a duration-matched silent WebM-Opus so the MSE
-                # chain on the frontend stays unbroken. Without this
-                # carve-out 39+ such segments accumulated as `state='failed'`
-                # on prod (Audiobook-Manager-g9f follow-up, 2026-04-25).
-                if "No speech detected" not in str(exc):
-                    raise
-                logger.info(
-                    "No speech in seg %d/%d/%d — falling back to silent segment",
-                    audiobook_id,
-                    chapter_index,
-                    segment_index,
-                )
-                source_vtt_path = None
-                translated_vtt_path = None
-
-            # Read VTT content for inline storage. Persist BOTH the translated
-            # cues (vtt_content) AND the English source cues (source_vtt_content)
-            # so the bilingual transcript panel has data to render once the
-            # chapter consolidates. v8.3.2 and earlier discarded source_vtt here,
-            # which left chapter_subtitles with only the translated locale row.
-            vtt_content = ""
-            if translated_vtt_path and translated_vtt_path.exists():
-                vtt_content = translated_vtt_path.read_text(encoding="utf-8")
-
-            source_vtt_content = ""
-            if source_vtt_path and source_vtt_path.exists():
-                source_vtt_content = source_vtt_path.read_text(encoding="utf-8")
-
-            # Offset cue timestamps to account for segment position in chapter.
-            # Both VTTs share the same time base (the source audio slice), so
-            # they get the same offset.
-            offset_ms = segment_index * SEGMENT_DURATION_SEC * 1000
-            if offset_ms > 0:
-                if vtt_content:
-                    vtt_content = _offset_vtt_timestamps(vtt_content, offset_ms)
-                if source_vtt_content:
-                    source_vtt_content = _offset_vtt_timestamps(source_vtt_content, offset_ms)
-
-        # Synthesize per-segment TTS audio (opus).
-        #
-        # IMPORTANT — do NOT catch and swallow TTS *exceptions* here. A
-        # previous implementation rationalized "VTT alone is still useful,
-        # so a TTS failure downgrades to text-only" and caught Exception,
-        # returning `audio_rel=None`. The coordinator then wrote
-        # `state='completed', audio_path=NULL`, which the MSE chain on the
-        # frontend reads as "done" — but the per-segment audio fetch 404s
-        # and the player stalls indefinitely. The "VTT-only fallback" was
-        # never actually reachable by the player; it was a silent failure
-        # that masqueraded as a feature.
-        #
-        # Letting TTS exceptions propagate here lands in the outer except
-        # at the bottom of process_segment, which has the bounded retry
-        # handler (retry_count cap=3, error column persisted, state flips
-        # to 'failed' only after the budget is exhausted). Combined with
-        # the v8.3.8.6 idempotent re-run (skips STT+translation when
-        # vtt_content is already populated), a transient edge-tts failure
-        # becomes a sub-second retry rather than a permanent broken segment.
-        #
-        # The legitimate `_synthesize_segment_audio` returning None case
-        # (empty VTT — music/silence segment with no spoken text per the
-        # function's docstring) is preserved: audio_rel stays None and
-        # the coordinator records state='completed', audio_path=NULL,
-        # which is the documented intent for music/silence handling. The
-        # frontend's behavior on those rows is a separate concern; this
-        # change does not regress it.
-        #
-        # Audiobook-Manager-g9f and Qing's 2026-04-25 prod report drove
-        # this: 20 orphan rows accumulated in 24h (1 live, blocking
-        # Pronto playback). All 20 had `error=NULL` because the TTS
-        # exception never made it to the retry handler that persists
-        # the error column.
-        tts_opus = _synthesize_segment_audio(
-            vtt_content, audiobook_id, chapter_index, segment_index, locale
+        # Synthesize per-segment TTS audio (opus). TTS exceptions propagate
+        # to the retry handler below by design — see the helper's comments.
+        audio_rel = _synthesize_or_silent_audio(
+            vtt_content, audiobook_id, chapter_index, segment_index, locale, chapter_duration_sec
         )
-        audio_rel: str | None = None
-        if tts_opus is None:
-            # Empty translated VTT — Whisper transcribed no speech (music,
-            # silence, sound effects). Without a per-segment audio file the
-            # frontend MSE chain stalls forever; generate a silent WebM-Opus
-            # matching the source segment's duration so the chain advances.
-            # The legitimate "no speech" case is now distinct from a TTS
-            # exception (which propagates to the outer retry handler).
-            seg_duration = min(
-                SEGMENT_DURATION_SEC,
-                max(0.1, chapter_duration_sec - segment_index * SEGMENT_DURATION_SEC),
-            )
-            tts_opus = _synthesize_silent_segment_audio(
-                audiobook_id, chapter_index, segment_index, locale, seg_duration
-            )
-        try:
-            audio_rel = str(tts_opus.relative_to(_STREAMING_AUDIO_ROOT))
-        except ValueError as exc:
-            raise RuntimeError(
-                f"TTS opus path {tts_opus} is not under "
-                f"{_STREAMING_AUDIO_ROOT}; cannot produce a relative "
-                "audio_path"
-            ) from exc
 
         # Report completion to coordinator API
-        import json
-        import urllib.request
-
-        payload = json.dumps(
-            {
-                "audiobook_id": audiobook_id,
-                "chapter_index": chapter_index,
-                "segment_index": segment_index,
-                "locale": locale,
-                "vtt_content": vtt_content,
-                "source_vtt_content": source_vtt_content,
-                "audio_path": audio_rel,
-            }
-        ).encode()
-
-        req = urllib.request.Request(  # noqa: S310 — Request for fixed HTTPS TTS API endpoint; no user-controlled scheme
-            f"{api_base}/api/translate/segment-complete",
-            data=payload,
-            headers={"Content-Type": "application/json"},
-            method="POST",
+        _report_segment_complete(
+            api_base,
+            audiobook_id,
+            chapter_index,
+            segment_index,
+            locale,
+            vtt_content,
+            source_vtt_content,
+            audio_rel,
         )
-        if not req.full_url.startswith(("http://", "https://")):
-            raise ValueError(f"Refusing non-http(s) callback URL: {req.full_url!r}")
-        # nosemgrep: python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected
-        urllib.request.urlopen(req, timeout=30)  # noqa: S310  # nosec B310
 
         logger.info(
             "Segment complete: book=%d ch=%d seg=%d", audiobook_id, chapter_index, segment_index
@@ -643,38 +770,14 @@ def process_segment(
             segment_index,
             e,
         )
-        # Bounded retry: increment retry_count and requeue (state='pending')
-        # until the budget (cap = 3) is exhausted, then flip to 'failed'.
-        # The exception string is persisted in `error` so operators don't
-        # have to correlate worker logs to DB rows — `error` was previously
-        # never populated (Bug B). claim_next_segment skips rows where
-        # retry_count >= 3, so there is no infinite-loop risk.
-        conn = get_db(db_path)
-        try:
-            err_msg = f"{type(e).__name__}: {e}"[:500]
-            conn.execute(
-                "UPDATE streaming_segments SET "
-                "  retry_count = COALESCE(retry_count, 0) + 1, "
-                "  error = ?, "
-                "  state = CASE "
-                "    WHEN COALESCE(retry_count, 0) + 1 >= 3 THEN 'failed' "
-                "    ELSE 'pending' "
-                "  END, "
-                "  worker_id = NULL, "
-                "  started_at = NULL "
-                "WHERE audiobook_id = ? AND chapter_index = ? "
-                "AND segment_index = ? AND locale = ?",
-                (err_msg, audiobook_id, chapter_index, segment_index, locale),
-            )
-            conn.commit()
-        finally:
-            conn.close()
+        _record_segment_failure(db_path, e, audiobook_id, chapter_index, segment_index, locale)
         return False
 
     finally:
-        # Only the extracted temp slice is disposable. Never unlink tts_opus —
-        # it is referenced by streaming_segments.audio_path and is the input to
-        # Task 10's ffmpeg -c copy chapter consolidation.
+        # Only the extracted temp slice is disposable. Never unlink the
+        # synthesized TTS webm — it is referenced by
+        # streaming_segments.audio_path and is the input to Task 10's
+        # ffmpeg -c copy chapter consolidation.
         if seg_audio and seg_audio.exists():
             seg_audio.unlink(missing_ok=True)
 

@@ -60,6 +60,95 @@ def _supported_non_en_locales() -> list[str]:
     ]
 
 
+def _pending_locales(conn: sqlite3.Connection, audiobook_id: int, targets: list[str]) -> list[str]:
+    """Return the locales in ``targets`` with no sampler_jobs row for this book."""
+    existing_locales = {
+        row["locale"]
+        for row in conn.execute(
+            "SELECT locale FROM sampler_jobs WHERE audiobook_id = ?", (audiobook_id,)
+        ).fetchall()
+    }
+    return [loc for loc in targets if loc not in existing_locales]
+
+
+def _chapter_durations_for_book(extract_chapters, audiobook_id: int, file_path: str) -> list[float]:
+    """Pull per-chapter durations (seconds) for a book; ``[]`` when unavailable."""
+    if extract_chapters is None or not file_path:
+        return []
+    try:
+        chapters = extract_chapters(Path(file_path))
+        return [c.duration_ms / 1000.0 for c in chapters]
+    except Exception as e:  # noqa: BLE001
+        logging.warning(
+            "extract_chapters failed for book=%d path=%s: %s", audiobook_id, file_path, e
+        )
+        return []
+
+
+def _enqueue_one_locale(
+    conn: sqlite3.Connection,
+    enqueue_sampler,
+    audiobook_id: int,
+    locale: str,
+    chapter_durations: list[float],
+) -> str:
+    """Enqueue a single (book, locale) sampler job.
+
+    Returns ``"enqueued"``, ``"skipped"`` (en* source locale — shouldn't
+    happen here since we filter, but defensive), or ``"failed"``.
+    """
+    try:
+        result = enqueue_sampler(conn, audiobook_id, locale, chapter_durations)
+        status = result.get("status")
+        if status in ("running", "pending"):
+            logging.info(
+                "enqueued: book=%d locale=%s target=%d",
+                audiobook_id,
+                locale,
+                result.get("segments_target", 0),
+            )
+            return "enqueued"
+        if status == "skipped":
+            return "skipped"
+        logging.warning(
+            "enqueue returned status=%s for book=%d locale=%s reason=%s",
+            status,
+            audiobook_id,
+            locale,
+            result.get("reason"),
+        )
+        return "failed"
+    except Exception as e:  # noqa: BLE001
+        logging.warning("enqueue failed book=%d locale=%s err=%s", audiobook_id, locale, e)
+        return "failed"
+
+
+def _enqueue_needed_locales(
+    conn: sqlite3.Connection,
+    enqueue_sampler,
+    audiobook_id: int,
+    needed: list[str],
+    chapter_durations: list[float],
+    dry_run: bool,
+) -> tuple[int, int]:
+    """Enqueue sampler jobs for each needed locale. Returns (enqueued, failed)."""
+    enqueued = 0
+    failed = 0
+    for locale in needed:
+        if dry_run:
+            logging.info("[DRY RUN] would enqueue sampler: book=%d locale=%s", audiobook_id, locale)
+            enqueued += 1
+            continue
+        outcome = _enqueue_one_locale(
+            conn, enqueue_sampler, audiobook_id, locale, chapter_durations
+        )
+        if outcome == "enqueued":
+            enqueued += 1
+        elif outcome == "failed":
+            failed += 1
+    return enqueued, failed
+
+
 def reconcile(
     db_path: str,
     locales: list[str] | None = None,
@@ -67,7 +156,12 @@ def reconcile(
     dry_run: bool = False,
 ) -> int:
     """Scan DB, enqueue sampler for missing (book, locale) pairs. Returns
-    count of enqueues performed (or would-be-performed in dry-run)."""
+    count of enqueues performed (or would-be-performed in dry-run).
+
+    Per-book flow: skip when every target locale already has a sampler_jobs
+    row (``_pending_locales``), skip when no chapter metadata is extractable
+    (``_chapter_durations_for_book``), otherwise enqueue each missing locale
+    (``_enqueue_needed_locales``)."""
     from localization.sampler import enqueue_sampler  # type: ignore[import-not-found]  # localization.* is only on sys.path inside the installed app
 
     try:
@@ -104,67 +198,23 @@ def reconcile(
         file_path = book["file_path"]
 
         # Determine which locales need sampling for this book.
-        existing_locales = {
-            row["locale"]
-            for row in conn.execute(
-                "SELECT locale FROM sampler_jobs WHERE audiobook_id = ?", (audiobook_id,)
-            ).fetchall()
-        }
-        needed = [loc for loc in targets if loc not in existing_locales]
+        needed = _pending_locales(conn, audiobook_id, targets)
         if not needed:
             skipped_existing += 1
             continue
 
         # Pull chapter durations once per book.
-        chapter_durations: list[float] = []
-        if extract_chapters is not None and file_path:
-            try:
-                chapters = extract_chapters(Path(file_path))
-                chapter_durations = [c.duration_ms / 1000.0 for c in chapters]
-            except Exception as e:  # noqa: BLE001
-                logging.warning(
-                    "extract_chapters failed for book=%d path=%s: %s", audiobook_id, file_path, e
-                )
-
+        chapter_durations = _chapter_durations_for_book(extract_chapters, audiobook_id, file_path)
         if not chapter_durations:
             skipped_no_chapters += 1
             logging.debug("book=%d has no chapter metadata — skipping", audiobook_id)
             continue
 
-        for locale in needed:
-            if dry_run:
-                logging.info(
-                    "[DRY RUN] would enqueue sampler: book=%d locale=%s", audiobook_id, locale
-                )
-                enqueued += 1
-                continue
-            try:
-                result = enqueue_sampler(conn, audiobook_id, locale, chapter_durations)
-                status = result.get("status")
-                if status in ("running", "pending"):
-                    enqueued += 1
-                    logging.info(
-                        "enqueued: book=%d locale=%s target=%d",
-                        audiobook_id,
-                        locale,
-                        result.get("segments_target", 0),
-                    )
-                elif status == "skipped":
-                    # en* source locale — shouldn't happen here since we filter,
-                    # but defensive.
-                    pass
-                else:
-                    logging.warning(
-                        "enqueue returned status=%s for book=%d locale=%s reason=%s",
-                        status,
-                        audiobook_id,
-                        locale,
-                        result.get("reason"),
-                    )
-                    failed += 1
-            except Exception as e:  # noqa: BLE001
-                failed += 1
-                logging.warning("enqueue failed book=%d locale=%s err=%s", audiobook_id, locale, e)
+        book_enqueued, book_failed = _enqueue_needed_locales(
+            conn, enqueue_sampler, audiobook_id, needed, chapter_durations, dry_run
+        )
+        enqueued += book_enqueued
+        failed += book_failed
 
     conn.close()
     logging.info(
