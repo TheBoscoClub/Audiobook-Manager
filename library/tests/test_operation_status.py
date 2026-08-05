@@ -399,7 +399,7 @@ class TestOperationTracker:
 
     def test_thread_safety(self, fresh_tracker):
         """Test that tracker operations are thread-safe."""
-        results = {"created": [], "completed": []}
+        results: dict[str, list[str]] = {"created": [], "completed": []}
         errors = []
 
         def create_and_complete():

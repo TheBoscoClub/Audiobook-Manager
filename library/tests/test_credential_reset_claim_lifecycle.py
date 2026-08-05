@@ -229,10 +229,10 @@ class TestSelfServiceResetThenClaim:
         assert "totp_secret" in data
 
         # Verify DB updated
-        user = UserRepository(auth_db).get_by_username("self-reset-pk1")
-        assert user is not None
-        assert user.auth_type == AuthType.TOTP
-        assert user.auth_credential != b"pending"
+        updated = UserRepository(auth_db).get_by_username("self-reset-pk1")
+        assert updated is not None
+        assert updated.auth_type == AuthType.TOTP
+        assert updated.auth_credential != b"pending"
 
 
 # ──────────────────────────────────────────────────────────────────────

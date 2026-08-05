@@ -268,13 +268,13 @@ class TestNotifyAdmins:
             def list_all(self):
                 return [mock_admin, mock_user]
 
-        models_mod.UserRepository = FakeUserRepo
+        models_mod.UserRepository = FakeUserRepo  # type: ignore[misc,assignment]  # fake repo
         try:
             notify_admins(
                 "delete_account", {"actor_username": "admin1", "username": "charlie"}, mock_db
             )
         finally:
-            models_mod.UserRepository = original_ur
+            models_mod.UserRepository = original_ur  # type: ignore[misc]  # restore real class
 
         mock_send.assert_called_once()
         args = mock_send.call_args
@@ -299,11 +299,11 @@ class TestNotifyAdmins:
             def list_all(self):
                 return [mock_admin]
 
-        models_mod.UserRepository = FakeUserRepo
+        models_mod.UserRepository = FakeUserRepo  # type: ignore[misc,assignment]  # fake repo
         try:
             notify_admins("delete_account", {"actor_username": "a"}, mock_db)
         finally:
-            models_mod.UserRepository = original_ur
+            models_mod.UserRepository = original_ur  # type: ignore[misc]  # restore real class
 
         mock_send.assert_not_called()
 
@@ -330,11 +330,11 @@ class TestNotifyAdmins:
             def list_all(self):
                 return admins
 
-        models_mod.UserRepository = FakeUserRepo
+        models_mod.UserRepository = FakeUserRepo  # type: ignore[misc,assignment]  # fake repo
         try:
             notify_admins("reset_credentials", {"actor_username": "bob"}, mock_db)
         finally:
-            models_mod.UserRepository = original_ur
+            models_mod.UserRepository = original_ur  # type: ignore[misc]  # restore real class
 
         assert mock_send.call_count == 3
 
@@ -359,11 +359,11 @@ class TestNotifyAdmins:
                 def list_all(self):  # pylint: disable=unused-argument
                     return [mock_admin]
 
-            models_mod.UserRepository = FakeUserRepo
+            models_mod.UserRepository = FakeUserRepo  # type: ignore[misc,assignment]  # fake repo
             try:
                 notify_admins(action, {"actor_username": "x"}, mock_db)
             finally:
-                models_mod.UserRepository = original_ur
+                models_mod.UserRepository = original_ur  # type: ignore[misc]  # restore real class
 
             assert mock_send.call_count == 1, f"Expected email for action '{action}'"
 

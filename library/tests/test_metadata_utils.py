@@ -161,7 +161,7 @@ class TestExtractNarratorFromTags:
         """Test returns 'Unknown Narrator' when no matching tags."""
         from scanner.metadata_utils import extract_narrator_from_tags
 
-        tags = {}
+        tags: dict = {}
         result = extract_narrator_from_tags(tags)
 
         assert result == "Unknown Narrator"
@@ -410,7 +410,7 @@ class TestEnrichMetadata:
         """Test handles missing optional fields."""
         from scanner.metadata_utils import enrich_metadata
 
-        metadata = {}  # Empty metadata
+        metadata: dict = {}  # Empty metadata
 
         result = enrich_metadata(metadata)
 

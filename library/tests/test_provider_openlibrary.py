@@ -91,7 +91,7 @@ class TestSeriesExtraction:
         assert seq is None
 
     def test_no_series(self):
-        doc = {}
+        doc: dict = {}
         series, seq = _extract_series_from_doc(doc)
         assert series == ""
         assert seq is None

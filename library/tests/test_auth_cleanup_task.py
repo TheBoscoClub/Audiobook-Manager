@@ -14,6 +14,7 @@ cleanup types, progress callbacks, error handling, and DB close guarantees.
 # patterns.
 
 from contextlib import contextmanager
+from typing import Any
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -192,7 +193,7 @@ class TestExecuteWithCleanup:
             # Patch the deferred imports inside execute()
             import types
 
-            mock_models = types.ModuleType("models")
+            mock_models: Any = types.ModuleType("models")
             mock_models.SessionRepository = mock_session_repo
             mock_models.PendingRegistrationRepository = mock_reg_repo
             mock_models.PendingRecoveryRepository = mock_rec_repo
@@ -304,7 +305,7 @@ class TestExecuteProgressCallbacks:
 
         import types
 
-        mock_models = types.ModuleType("models")
+        mock_models: Any = types.ModuleType("models")
         mock_models.SessionRepository = mock_session_repo
         mock_models.PendingRegistrationRepository = mock_reg_repo
         mock_models.PendingRecoveryRepository = mock_rec_repo
@@ -337,7 +338,7 @@ class TestExecuteProgressCallbacks:
 
         import types
 
-        mock_models = types.ModuleType("models")
+        mock_models: Any = types.ModuleType("models")
         mock_models.SessionRepository = mock_session_repo
         mock_models.PendingRegistrationRepository = mock_reg_repo
         mock_models.PendingRecoveryRepository = mock_rec_repo
@@ -366,7 +367,7 @@ class TestExecuteErrorHandling:
 
         import types
 
-        mock_models = types.ModuleType("models")
+        mock_models: Any = types.ModuleType("models")
         mock_models.SessionRepository = mock_session_repo
         mock_models.PendingRegistrationRepository = MagicMock()
         mock_models.PendingRecoveryRepository = MagicMock()
@@ -399,7 +400,7 @@ class TestExecuteErrorHandling:
 
         import types
 
-        mock_models = types.ModuleType("models")
+        mock_models: Any = types.ModuleType("models")
         mock_models.SessionRepository = mock_session_repo
         mock_models.PendingRegistrationRepository = mock_reg_repo
         mock_models.PendingRecoveryRepository = mock_rec_repo
@@ -429,7 +430,7 @@ class TestExecuteDbCloseGuarantee:
 
         import types
 
-        mock_models = types.ModuleType("models")
+        mock_models: Any = types.ModuleType("models")
         mock_models.SessionRepository = mock_session_repo
         mock_models.PendingRegistrationRepository = mock_reg_repo
         mock_models.PendingRecoveryRepository = mock_rec_repo
@@ -454,7 +455,7 @@ class TestExecuteDbCloseGuarantee:
 
         import types
 
-        mock_models = types.ModuleType("models")
+        mock_models: Any = types.ModuleType("models")
         mock_models.SessionRepository = MagicMock(side_effect=RuntimeError("boom"))
         mock_models.PendingRegistrationRepository = MagicMock()
         mock_models.PendingRecoveryRepository = MagicMock()

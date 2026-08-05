@@ -11,6 +11,7 @@ import sqlite3
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -33,7 +34,7 @@ def _init_test_database(db_path: Path) -> None:
 # Seed data
 # ---------------------------------------------------------------------------
 
-SEED_BOOKS = [
+SEED_BOOKS: list[dict[str, Any]] = [
     {
         "id": 1,
         "title": "Dune",
@@ -324,9 +325,9 @@ def populated_app():
     from backend.api_modular import create_app
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        tmpdir = Path(tmpdir)
-        db_path = tmpdir / "test_behavioral.db"
-        supplements_dir = tmpdir / "supplements"
+        tmpdir_path = Path(tmpdir)
+        db_path = tmpdir_path / "test_behavioral.db"
+        supplements_dir = tmpdir_path / "supplements"
         supplements_dir.mkdir()
 
         _init_test_database(db_path)
@@ -334,7 +335,7 @@ def populated_app():
 
         app = create_app(
             database_path=db_path,
-            project_dir=tmpdir,
+            project_dir=tmpdir_path,
             supplements_dir=supplements_dir,
             api_port=5098,
         )
@@ -610,7 +611,7 @@ class TestSortBySeries:
         data = _get(client, "/api/audiobooks?sort=series&order=asc&per_page=200")
         books = data["audiobooks"]
         # Within the same series, sequence should be ascending
-        series_groups = {}
+        series_groups: dict = {}
         for b in books:
             series_groups.setdefault(b["series"], []).append(b["series_sequence"])
         for series_name, sequences in series_groups.items():

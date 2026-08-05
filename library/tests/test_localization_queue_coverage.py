@@ -612,7 +612,7 @@ class TestShutdown:
             def is_alive(self) -> bool:
                 return True
 
-        lq._worker_thread = _FakeThread()
+        lq._worker_thread = _FakeThread()  # type: ignore[assignment]  # Thread stub
         started: list[bool] = []
 
         class _Block:

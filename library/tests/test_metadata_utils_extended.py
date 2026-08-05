@@ -106,7 +106,7 @@ class TestExtractAsinFromChaptersJson:
         audio_file = tmp_path / "book.opus"
         audio_file.touch()
 
-        chapters = {"content_metadata": {"content_reference": {}}}
+        chapters: dict = {"content_metadata": {"content_reference": {}}}
         chapters_path = tmp_path / "chapters.json"
         chapters_path.write_text(json.dumps(chapters))
 

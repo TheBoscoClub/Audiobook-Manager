@@ -44,9 +44,9 @@ class TestCreateAppAuthDisabled:
         from backend.api_modular import create_app
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir = Path(tmpdir)
-            db_path = tmpdir / "test.db"
-            supplements = tmpdir / "supplements"
+            tmpdir_path = Path(tmpdir)
+            db_path = tmpdir_path / "test.db"
+            supplements = tmpdir_path / "supplements"
             supplements.mkdir()
 
             # Initialize DB with minimal schema
@@ -61,7 +61,7 @@ class TestCreateAppAuthDisabled:
 
             app = create_app(
                 database_path=db_path,
-                project_dir=tmpdir,
+                project_dir=tmpdir_path,
                 supplements_dir=supplements,
                 api_port=9999,
                 # No auth_db_path, no auth_key_path

@@ -9,6 +9,7 @@ sqlite files.
 import sqlite3
 import sys
 from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -69,7 +70,7 @@ class TestCanonicalDefaultDb:
         from translation_monitor import db as module
 
         # Inject a fake config module with the expected attribute.
-        fake_config = type(sys)("config")
+        fake_config: Any = type(sys)("config")
         fake_config.AUDIOBOOKS_DATABASE = Path("/srv/audiobooks/db/from_config.db")
         monkeypatch.setitem(sys.modules, "config", fake_config)
 

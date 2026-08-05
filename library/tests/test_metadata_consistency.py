@@ -722,11 +722,11 @@ class TestMetadataExtractionFunctions:
         assert extract_author_from_tags(tags3) == "Author Only"
 
         # Fallback to default
-        tags4 = {}
+        tags4: dict = {}
         assert extract_author_from_tags(tags4) == "Unknown Author"
 
         # Fallback to provided value
-        tags5 = {}
+        tags5: dict = {}
         assert extract_author_from_tags(tags5, "Custom Fallback") == "Custom Fallback"
 
     def test_extract_narrator_from_tags_priority(self):

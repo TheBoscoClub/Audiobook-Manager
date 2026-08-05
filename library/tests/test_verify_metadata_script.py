@@ -843,7 +843,7 @@ class TestApplyFixes:
         db_path = tmp_path / "test.db"
         _create_test_db(db_path, [{"id": 1, "title": "T", "file_path": "/f/1.opus"}])
         conn = sqlite3.connect(db_path)
-        issues = []
+        issues: list[MetadataIssue] = []
         count = apply_fixes(conn, issues, quiet=True)
         assert count == 0
         conn.close()

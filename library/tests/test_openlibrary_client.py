@@ -221,6 +221,7 @@ class TestGetWork:
             },
         )
         work = client.get_work("/works/OL27479W")
+        assert work is not None
         called_url = client.session.get.call_args[0][0]
         assert "/works/OL27479W.json" in called_url
         assert work.title == "The Hobbit"
@@ -237,6 +238,7 @@ class TestGetWork:
             200, {"title": "x", "description": {"value": "dict desc"}}
         )
         work = client.get_work("OL1W")
+        assert work is not None
         assert work.description == "dict desc"
 
     def test_404_returns_none(self):

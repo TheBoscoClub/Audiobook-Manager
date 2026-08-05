@@ -19,10 +19,11 @@
 #
 # Decision:
 # - `ruff format` is the authoritative formatter. It is checked by the
-#   project's /test audit phase 7. CI does NOT enforce it — the ruff job
-#   in python-security.yml runs `check` only (verified 2026-08-05; adding
-#   `format --check` to CI is tracked in bd, blocked on reformatting the
-#   files that have drifted).
+#   project's /test audit phase 7 AND enforced in CI: the "Ruff Linting"
+#   job in python-security.yml runs `ruff format --check` alongside
+#   `ruff check` (gate added 2026-08-05, bd Audiobook-Manager-3ed, after
+#   reformatting the drifted files). Ruff 0.16+ also formats Python code
+#   blocks embedded in Markdown, so docs are covered by the same gate.
 # - Black is NOT run as part of verification. Its config here exists only
 #   as a floor for ad-hoc developer invocations; it is not enforced.
 # - `ruff check` handles lint; `ruff format` handles formatting. Both are
@@ -97,11 +98,12 @@ python_version = "3.14"
 ignore_missing_imports = true
 namespace_packages = false
 exclude = ["venv/", ".snapshots/", ".worktrees/", ".git/"]
-# check_untyped_defs is deliberately OFF: enabling it surfaces 93 errors across
-# 20 files. Tracked as a ratchet, not silently dropped — see the bd issue
-# "mypy: enable check_untyped_defs". Turning it on without clearing those first
-# would put the now-blocking Type Checking job straight into the red.
-check_untyped_defs = false
+# check_untyped_defs is ON repo-wide (Audiobook-Manager-7bx, enabled 2026-08-05
+# after clearing the 78 errors it surfaced — mostly real annotation fixes, plus
+# a handful of precise `# type: ignore[code]` comments on test monkeypatch
+# patterns). The Type Checking CI job is blocking; keep this flag true and fix
+# new errors rather than turning it back off.
+check_untyped_defs = true
 
 [[tool.mypy.overrides]]
 # The project ships its own `websocket` module, which shadows the third-party

@@ -332,7 +332,7 @@ def populate_sort_fields(dry_run=True):
     print()
 
     totals = {"author_names": 0, "narrator_names": 0, "series_seq": 0, "edition": 0, "acquired": 0}
-    sample_updates = []
+    sample_updates: list[dict] = []
 
     for book in audiobooks:
         book_updates = _compute_book_updates(book)

@@ -76,28 +76,28 @@ class TestFindCanonical:
 
     def test_new_name_returns_none(self):
         """Line 70-71: First encounter returns None (new name)."""
-        seen = {}
+        seen: dict = {}
         result = _find_canonical(seen, "Stephen King")
         assert result is None
         assert "Stephen King" in seen.values()
 
     def test_existing_name_returns_canonical(self):
         """Line 69: Duplicate returns canonical name."""
-        seen = {}
+        seen: dict = {}
         _find_canonical(seen, "Stephen King")
         result = _find_canonical(seen, "stephen king")
         assert result is not None
 
     def test_higher_quality_replaces(self):
         """Lines 67-68: Higher quality name replaces existing."""
-        seen = {}
+        seen: dict = {}
         _find_canonical(seen, "stephen king")  # all lower
         result = _find_canonical(seen, "Stephen King")  # title case — higher quality
         assert result == "Stephen King"
 
     def test_accented_replaces_unaccented(self):
         """Lines 67-68: Accented version replaces unaccented."""
-        seen = {}
+        seen: dict = {}
         _find_canonical(seen, "Mieville")
         result = _find_canonical(seen, "Miéville")
         # Miéville has higher quality due to accents
@@ -105,7 +105,7 @@ class TestFindCanonical:
 
     def test_lower_quality_keeps_existing(self):
         """Line 69: Lower quality duplicate keeps existing canonical."""
-        seen = {}
+        seen: dict = {}
         _find_canonical(seen, "Stephen King")  # title case
         result = _find_canonical(seen, "stephen king")  # lower case — lower quality
         assert result == "Stephen King"
