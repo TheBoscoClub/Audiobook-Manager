@@ -90,6 +90,16 @@ _NEVER_SHIP_EXCLUDES=(
     --exclude='__pycache__'
     --exclude='*.pyc'
     --exclude='test-results.json'
+    # Editor/backup litter. A gitignored `auth.py.backup` (a stale 199KB copy
+    # of the auth module) was shipped to a target because rsync copies the
+    # working tree, not the git index — .gitignore does not apply here. These
+    # globs stop any *.backup/*.bak/*.orig/*.rej/*~/*.swp from riding along.
+    --exclude='*.backup'
+    --exclude='*.bak'
+    --exclude='*.orig'
+    --exclude='*.rej'
+    --exclude='*~'
+    --exclude='*.swp'
 )
 
 # -----------------------------------------------------------------------------
@@ -350,6 +360,7 @@ do_remote_upgrade() {
         echo ""
         echo -e "${YELLOW}=== DRY RUN MODE ===${NC}"
         echo "  Would rsync project to $ssh_target:$remote_tmp"
+        [[ "$FORCE" != "true" ]] && echo "  Would run: sudo -n $remote_tmp/upgrade.sh --from-project $remote_tmp --target ${TARGET_DIR:-/opt/audiobooks} --check"
         echo "  Would run: sudo -n $remote_tmp/upgrade.sh --from-project $remote_tmp --target ${TARGET_DIR:-/opt/audiobooks} --yes"
         echo "  Would cleanup $remote_tmp"
         return 0
@@ -370,6 +381,33 @@ do_remote_upgrade() {
 
     # Run upgrade.sh remotely with full lifecycle
     local remote_target="${TARGET_DIR:-/opt/audiobooks}"
+
+    # Satisfy the remote preflight gate the way the local path does. The
+    # remote upgrade.sh runs validate_preflight(), which aborts with
+    # "Preflight check required before upgrade." unless a fresh preflight
+    # report exists on the remote recorded for THIS project source. The local
+    # path generates that report via a prior `--check` run; the remote path
+    # never did, so every --remote deploy died at the gate and could only be
+    # forced through (Audiobook-Manager-90x). Run `--check` first, in the SAME
+    # remote temp dir, so the recorded source (project:$remote_tmp) matches the
+    # real run's expected source. Skipped under --force, which bypasses the
+    # gate entirely anyway. (--check no-ops cleanly if no update is pending.)
+    if [[ "$FORCE" != "true" ]]; then
+        local check_flags="--check"
+        [[ "$MAJOR_VERSION" == "true" ]] && check_flags="$check_flags --major-version"
+        echo -e "${BLUE}Generating remote preflight report (--check)...${NC}"
+        # shellcheck disable=SC2029  # $remote_tmp, $remote_target, $check_flags intentionally expand client-side
+        ssh "${ssh_opts[@]}" "$ssh_target" \
+            "sudo -n '$remote_tmp/upgrade.sh' --from-project '$remote_tmp' --target '$remote_target' $check_flags" \
+            || {
+                local rc=$?
+                echo -e "${RED}Remote preflight check failed (exit code $rc)${NC}"
+                # shellcheck disable=SC2029  # $remote_tmp intentionally expands client-side
+                ssh "${ssh_opts[@]}" "$ssh_target" "rm -rf '$remote_tmp'" 2>/dev/null || true
+                return $rc
+            }
+    fi
+
     local remote_flags="--yes"
     [[ "$FORCE" == "true" ]] && remote_flags="$remote_flags --force"
     [[ "$MAJOR_VERSION" == "true" ]] && remote_flags="$remote_flags --major-version"
@@ -1738,6 +1776,86 @@ validate_preflight() {
 }
 
 # -----------------------------------------------------------------------------
+# Deployed-tree dev-artifact purge
+# -----------------------------------------------------------------------------
+# Dev-artifact names that must never PERSIST in a deployed, served tree. This is
+# the "purge on sight" subset of _NEVER_SHIP_EXCLUDES — the entries that are
+# always illegitimate on a target. It deliberately does NOT include
+# venv/certs/db/testdata/data: those are excluded from the sync yet MUST persist
+# on the target, which is exactly why a blanket `rsync --delete-excluded` is
+# unsafe (it would wipe them). `.claude*` never matches any of them.
+_PURGE_DEV_ARTIFACT_NAMES=(
+    '.claude*'
+    'SESSION_RECORD*'
+    '*.backup'
+    '*.bak'
+    '*.orig'
+    '*.rej'
+    '*~'
+    '*.swp'
+    '*.pyc'
+    '__pycache__'
+    '.pytest_cache'
+    '.ruff_cache'
+)
+
+purge_deployed_dev_artifacts() {
+    # Remove dev artifacts a PRIOR (pre-fix) sync may have left on the target's
+    # served tree. rsync --delete does NOT remove receiver files matching an
+    # --exclude pattern, so once `.claude-session-ring.jsonl` landed in
+    # $target/library/web-v2/ it was shielded from cleanup by every future
+    # upgrade — the same exclude that stops new leaks froze the old one in place
+    # (Audiobook-Manager-emq). This runs unconditionally after every library
+    # sync, regardless of whether the source currently contains such files, and
+    # NEVER touches venv/certs/db/testdata/data.
+    #
+    # Arguments:
+    #   $1 - deployed tree to scrub (e.g. "$target/library")
+    #   $2 - sudo prefix ("" when writable/root, "sudo" otherwise)
+    local target_tree="$1"
+    local sudo_prefix="${2:-}"
+
+    [[ -d "$target_tree" ]] || return 0
+
+    # Assemble the -name match expression from the canonical list.
+    local name_expr=()
+    local n
+    for n in "${_PURGE_DEV_ARTIFACT_NAMES[@]}"; do
+        [[ ${#name_expr[@]} -gt 0 ]] && name_expr+=(-o)
+        name_expr+=(-name "$n")
+    done
+
+    # Single canonical find expression: prune the persist-on-target dirs so we
+    # never descend into venv/certs/db/testdata/data, then act on everything
+    # matching a dev-artifact name (file or directory). Reused for both the
+    # dry-run listing and the real delete so they can never diverge.
+    local find_expr=(
+        "$target_tree"
+        -type d '(' -name 'venv' -o -name 'certs' -o -name 'db' \
+            -o -name 'testdata' -o -name 'data' -o -name 'node_modules' ')' -prune
+        -o '(' "${name_expr[@]}" ')'
+    )
+
+    local artifacts
+    artifacts=$($sudo_prefix find "${find_expr[@]}" -print 2>/dev/null)
+    [[ -z "$artifacts" ]] && return 0
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        echo -e "${YELLOW}  [DRY-RUN] Would purge leaked dev artifacts under $target_tree:${NC}"
+        echo "$artifacts" | sed 's/^/    /'
+        return 0
+    fi
+
+    echo -e "${BLUE}Purging leaked dev artifacts from deployed tree...${NC}"
+    # rm -rf handles both files and matched dirs (__pycache__ etc.); stderr is
+    # suppressed because pruning a parent dir can race child entries.
+    $sudo_prefix find "${find_expr[@]}" -exec rm -rf {} + 2>/dev/null || true
+    local count
+    count=$(printf '%s\n' "$artifacts" | grep -c . || true)
+    echo "  Purged ${count} leaked dev artifact(s) under $(basename "$target_tree")/"
+}
+
+# -----------------------------------------------------------------------------
 # Core Upgrade
 # -----------------------------------------------------------------------------
 
@@ -1859,6 +1977,15 @@ do_upgrade() {
             else
                 rsync "${rsync_args[@]}" "${project}/library/" "$target/library/"
             fi
+
+            # Purge any dev artifacts a prior (pre-fix) sync left behind — the
+            # library rsync's --exclude patterns shield already-present copies
+            # from --delete, so this is the only thing that removes a leaked
+            # .claude-session-ring.jsonl / *.backup from the served tree.
+            # Runs on the target host, so it covers the --remote path too (that
+            # path re-invokes this upgrade.sh on the remote). Never touches
+            # venv/certs/db/testdata.
+            purge_deployed_dev_artifacts "$target/library" "$use_sudo"
         fi
     fi
 

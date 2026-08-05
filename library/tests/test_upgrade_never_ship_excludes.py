@@ -39,6 +39,15 @@ FORBIDDEN_ARTIFACTS = [
     (".staged-release", False),
     ("library/__pycache__/x.cpython-314.pyc", True),
     ("test-results.json", False),
+    # Editor/backup litter (Audiobook-Manager-qlr): a gitignored
+    # auth.py.backup was shipped to a target because rsync copies the working
+    # tree, not the git index.
+    ("library/backend/api_modular/auth.py.backup", False),
+    ("caddy/audiobooks.conf.bak", False),
+    ("library/web-v2/js/api.js.orig", False),
+    ("lib/audiobook-config.sh.rej", False),
+    ("library/backend/api_server.py~", False),
+    ("library/backend/.api_server.py.swp", False),
 ]
 
 # Files that MUST survive the sync — an over-broad exclude is also a defect
@@ -47,6 +56,8 @@ REQUIRED_ARTIFACTS = [
     "library/web-v2/css/deco.css",
     "library/web-v2/js/api.js",
     "library/backend/api_server.py",
+    # A real .conf must survive even though *.conf.bak must not.
+    "caddy/audiobooks.conf",
     "VERSION",
 ]
 

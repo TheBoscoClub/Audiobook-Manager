@@ -84,6 +84,32 @@ _probe_systemd() {
         [audiobook-upgrade-helper.service]=1
     )
 
+    # Services that CANNOT be healthy without OPTIONAL, operator-supplied
+    # credentials. On a credential-less test/QA VM (data-isolation policy,
+    # testing.md) the Audible-backed downloader/enrichment units ALWAYS land in
+    # `failed` because their config.toml is absent by design and the timer keeps
+    # firing them. A `failed` state here is a real failure ONLY when the
+    # credential IS present and the unit still died — otherwise it's the
+    # expected "feature not configured" state and must not abort an otherwise-
+    # healthy deploy. Core services (api, proxy, redirect, …) are never in this
+    # set, so their failures always abort.
+    local _var_dir="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
+    local -A _optional_credential_gated
+    _optional_credential_gated=(
+        [audiobook-downloader.service]="${_var_dir}/.audible/config.toml"
+        [audiobook-enrichment.service]="${_var_dir}/.audible/config.toml"
+    )
+
+    # A credential file counts as present if it is readable directly or via
+    # sudo -n (the file is often 0600 audiobooks:audiobooks and the probe may
+    # run unprivileged). Absent ⇒ the gated unit's failure is expected.
+    _cred_present() {
+        local f="$1"
+        [[ -f "$f" ]] && return 0
+        sudo -n test -f "$f" 2>/dev/null && return 0
+        return 1
+    }
+
     for unit in "${REQUIRED_SYSTEMD_UNITS[@]}"; do
         # Only probe `.service` units for is-active — targets/timers/paths
         # have different activity semantics.
@@ -107,7 +133,12 @@ _probe_systemd() {
                 _warn "$unit: $state (still starting — may be init-scanning)"
                 ;;
             failed)
-                _fail "$unit: $state"
+                local _cred_file="${_optional_credential_gated[$unit]:-}"
+                if [[ -n "$_cred_file" ]] && ! _cred_present "$_cred_file"; then
+                    _warn "$unit: failed (optional — credential $_cred_file absent; feature not configured)"
+                else
+                    _fail "$unit: $state"
+                fi
                 ;;
             inactive)
                 if [[ -n "${_expected_inactive[$unit]:-}" ]]; then
