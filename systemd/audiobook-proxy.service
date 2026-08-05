@@ -23,10 +23,18 @@ Environment=PYTHONUNBUFFERED=1
 
 # Only start if port is not already in use
 ExecStartPre=/bin/sh -c '! /usr/bin/ss -tlnp | /usr/bin/grep -q ":${AUDIOBOOKS_WEB_PORT} "'
-ExecStart=/opt/audiobooks/library/venv/bin/python /opt/audiobooks/library/web-v2/proxy_server.py
+# Gunicorn with gevent workers (v8.4.2.0, Option B — mirrors audiobook-api.service).
+# All server settings (bind, TLS + TLS1.2 floor, worker count, timeouts) live in
+# gunicorn_proxy.conf.py — the single canonical configuration source. Unlike the
+# API's 1-worker WebSocket-state constraint, the proxy is stateless; worker count
+# defaults to 2 (override with AUDIOBOOKS_PROXY_WORKERS in audiobooks.conf).
+ExecStart=/opt/audiobooks/library/venv/bin/gunicorn \
+    -c /opt/audiobooks/library/web-v2/gunicorn_proxy.conf.py \
+    proxy_server:app
 
 Restart=on-failure
 RestartSec=30
+LimitNOFILE=65536
 # Use journal logging (query with: journalctl -u audiobook-proxy)
 StandardOutput=journal
 StandardError=journal
