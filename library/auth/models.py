@@ -70,6 +70,23 @@ MULTI_SESSION_YES = "yes"
 MULTI_SESSION_NO = "no"
 _VALID_MULTI_SESSION = {MULTI_SESSION_DEFAULT, MULTI_SESSION_YES, MULTI_SESSION_NO}
 
+# Absolute expiry horizons written into sessions.expires_at at creation.
+#
+# Canonical source for both the DB horizon and the persistent cookie's
+# Max-Age (auth_shared.SESSION_DURATION_REMEMBER re-exports the value so the
+# server-side clock and the browser's cookie clock cannot drift apart).
+#
+# Sessions used to be INSERTed with no expires_at at all, leaving the column
+# NULL. Session.is_valid() short-circuits on `if self.expires_at and …`, so a
+# NULL horizon is not "expires later" — it never expires, and the rolling
+# renewal hook treats NULL as "overdue" and re-issues a cookie on every
+# request that carries such a session (including the logout response).
+SESSION_HORIZON_REMEMBER_SECONDS = 400 * 24 * 60 * 60  # browser cookie clamp ceiling
+# Ordinary sessions normally end by inactivity (is_stale) or when the browser
+# drops the session cookie. The horizon is the backstop for a row that somehow
+# outlives both.
+SESSION_HORIZON_DEFAULT_SECONDS = 30 * 24 * 60 * 60
+
 
 @dataclass
 class User:
@@ -407,6 +424,11 @@ class Session:
     user_agent: Optional[str] = None
     ip_address: Optional[str] = None
     is_persistent: bool = False
+    # Set by invalidate(); not a DB column. Lets after-request hooks tell an
+    # in-memory Session whose row still exists from one whose row was just
+    # deleted — without that, the rolling-renewal hook re-issued a cookie for
+    # the session the logout response had already cleared.
+    invalidated: bool = False
 
     @classmethod
     def from_row(cls, row: tuple) -> "Session":
@@ -453,6 +475,14 @@ class Session:
         """
         raw_token, token_hash = generate_session_token()
 
+        # Every session gets an absolute horizon at creation. Leaving
+        # expires_at NULL made is_valid() unconditionally true and made the
+        # rolling-renewal hook fire on every request — see the constants above.
+        horizon_seconds = (
+            SESSION_HORIZON_REMEMBER_SECONDS if remember_me else SESSION_HORIZON_DEFAULT_SECONDS
+        )
+        expires_at = (datetime.now() + timedelta(seconds=horizon_seconds)).replace(microsecond=0)
+
         with db.connection() as conn:
             # Invalidate existing sessions unless multi-session is allowed
             if not allow_multi:
@@ -462,11 +492,19 @@ class Session:
             cursor = conn.execute(
                 """
                 INSERT INTO sessions (
-                    user_id, token_hash, user_agent, ip_address, is_persistent
+                    user_id, token_hash, user_agent, ip_address, is_persistent,
+                    expires_at
                 )
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (user_id, token_hash, user_agent, ip_address, remember_me),
+                (
+                    user_id,
+                    token_hash,
+                    user_agent,
+                    ip_address,
+                    remember_me,
+                    expires_at.isoformat(sep=" "),
+                ),
             )
             session_id = cursor.lastrowid
 
@@ -509,9 +547,15 @@ class Session:
             )
 
     def invalidate(self, db: AuthDatabase) -> None:
-        """Invalidate this session (logout)."""
+        """Invalidate this session (logout).
+
+        Marks the in-memory object as well as deleting the row, so anything
+        still holding this Session for the remainder of the request — notably
+        the after-request cookie-renewal hook — can tell that the row is gone.
+        """
         with db.connection() as conn:
             conn.execute("DELETE FROM sessions WHERE id = ?", (self.id,))
+        self.invalidated = True
 
     def is_valid(self) -> bool:
         """Check if session is still valid (not expired)."""

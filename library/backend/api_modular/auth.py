@@ -32,6 +32,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+
 from flask import jsonify, redirect, request
 
 # Add parent paths for imports
@@ -57,9 +58,11 @@ from auth import (  # noqa: F401  (re-export for tests and downstream submodules
     webauthn_verify_authentication,
     webauthn_verify_registration,
 )
-from auth.totp import base32_to_secret  # noqa: F401  (re-export for tests)
-from auth.totp import generate_qr_code  # noqa: F401  (re-export for tests)
-from auth.totp import setup_totp  # noqa: F401  (re-export for tests)
+from auth.totp import (
+    base32_to_secret,  # noqa: F401  (re-export for tests)
+    generate_qr_code,  # noqa: F401  (re-export for tests)
+    setup_totp,  # noqa: F401  (re-export for tests)
+)
 from auth.totp import verify_code as verify_totp
 
 # Email senders live in auth_email.py; re-exported here so that existing
@@ -76,28 +79,6 @@ from .auth_email import (  # noqa: F401  (re-export)
     _send_magic_link_email,
     _send_reply_email,
 )
-
-# All of the shared auth contract — Blueprint, decorators, session helpers,
-# validators, the cookie helpers, and the _pending_* dicts — lives in
-# auth_shared.py. Re-exported here so callers and test patches that target
-# `backend.api_modular.auth.<name>` keep working unchanged.
-#
-# IMPORTANT: ``_auth_db`` is the one shared name that gets *rebound* (not just
-# mutated) in auth_shared at runtime — ``init_auth_routes()`` runs
-# ``_auth_db = AuthDatabase(...)`` mid-process, and tests rebind it again via
-# fixtures. A direct ``from .auth_shared import _auth_db`` here would snapshot
-# the value at import time, so the rebind would never propagate. ``_auth_db``
-# is therefore handled via the PEP 562 module ``__getattr__`` hook below,
-# which forwards attribute lookup to auth_shared at call time. Tests that do
-# ``monkeypatch.setattr("backend.api_modular.auth._auth_db", X)`` still work
-# because Python checks the module ``__dict__`` before falling back to
-# ``__getattr__``.
-#
-# The ``_pending_*`` dicts and ``_session_cookie_*`` flags are imported
-# directly: the dicts are mutated (same object identity, so a snapshot is
-# fine), and the cookie flags are read-only after init from this module's
-# perspective (only ``set_session_cookie`` / ``clear_session_cookie`` in
-# auth_shared write them, and they read auth_shared's own bindings).
 from .auth_shared import (  # noqa: F401  (re-export)
     INVITATION_EXPIRY_HOURS,
     SESSION_DURATION_DEFAULT,
@@ -134,14 +115,36 @@ from .auth_shared import (  # noqa: F401  (re-export)
     get_current_user,
     guest_allowed,
     init_auth_routes,
-    login_required,
     localhost_only,
+    login_required,
     require_current_session,
     require_current_user,
     require_current_user_id,
     set_session_cookie,
 )
 
+# All of the shared auth contract — Blueprint, decorators, session helpers,
+# validators, the cookie helpers, and the _pending_* dicts — lives in
+# auth_shared.py. Re-exported here so callers and test patches that target
+# `backend.api_modular.auth.<name>` keep working unchanged.
+#
+# IMPORTANT: ``_auth_db`` is the one shared name that gets *rebound* (not just
+# mutated) in auth_shared at runtime — ``init_auth_routes()`` runs
+# ``_auth_db = AuthDatabase(...)`` mid-process, and tests rebind it again via
+# fixtures. A direct ``from .auth_shared import _auth_db`` here would snapshot
+# the value at import time, so the rebind would never propagate. ``_auth_db``
+# is therefore handled via the PEP 562 module ``__getattr__`` hook below,
+# which forwards attribute lookup to auth_shared at call time. Tests that do
+# ``monkeypatch.setattr("backend.api_modular.auth._auth_db", X)`` still work
+# because Python checks the module ``__dict__`` before falling back to
+# ``__getattr__``.
+#
+# The ``_pending_*`` dicts and ``_session_cookie_*`` flags are imported
+# directly: the dicts are mutated (same object identity, so a snapshot is
+# fine), and the cookie flags are read-only after init from this module's
+# perspective (only ``set_session_cookie`` / ``clear_session_cookie`` in
+# auth_shared write them, and they read auth_shared's own bindings).
+from .rate_limit import auth_rate_limited
 
 # ``_auth_db`` is rebound (not just mutated) in auth_shared at runtime, so
 # its lookup must defer to auth_shared at access time rather than snapshot at
@@ -186,6 +189,7 @@ logger = logging.getLogger(__name__)
 
 
 @auth_bp.route("/login", methods=["GET", "POST"])
+@auth_rate_limited("login")
 def login():
     if request.method == "GET":
         return redirect("/login.html", code=302)
@@ -246,7 +250,23 @@ def login():
     # Update last login
     user.update_last_login(db)
 
-    # Build response — include session_token for client-side persistence
+    # Build response.
+    #
+    # The raw session token is echoed in the body for "remember me" logins
+    # ONLY, and it is load-bearing, not vestigial: web-v2/login.html:599 and
+    # verify.html:197 hand it to SessionPersistence.store(), which is what
+    # /auth/session/restore later replays. That path exists because iOS Safari
+    # evicts cookies for sites the user hasn't visited in 7 days — without a
+    # client-held copy, every "remember me" user on iOS is silently signed out
+    # on a schedule.
+    #
+    # The exposure is deliberate and bounded: it means the token is readable
+    # by JS on the login response (so it is NOT HttpOnly-protected at that one
+    # moment) and lands in localStorage/IndexedDB. That is inherent to the
+    # restore feature — a token the client must be able to replay cannot also
+    # be hidden from the client. It is withheld for non-persistent logins,
+    # where nothing would ever replay it. Do not "harden" this by deleting the
+    # field without first removing the restore flow and its two callers.
     response_data = {
         "success": True,
         "user": {

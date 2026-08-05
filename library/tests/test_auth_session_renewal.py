@@ -30,9 +30,6 @@ LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 sys.path.insert(0, str(LIBRARY_DIR / "backend"))
 
-from auth import AuthType, Session, SessionRepository, User  # noqa: E402
-from auth.totp import TOTPAuthenticator, setup_totp  # noqa: E402
-
 # Short-path module — the same auth_shared instance the conftest auth_app
 # uses (its create_app comes from ``api_modular``, not ``backend.api_modular``)
 from api_modular.auth_shared import (  # noqa: E402
@@ -41,6 +38,8 @@ from api_modular.auth_shared import (  # noqa: E402
     SESSION_RENEWAL_THRESHOLD,
     set_session_cookie,
 )
+from auth import AuthType, Session, SessionRepository, User  # noqa: E402
+from auth.totp import TOTPAuthenticator, setup_totp  # noqa: E402
 
 COOKIE_NAME = "audiobooks_session"
 
@@ -187,10 +186,17 @@ class TestRollingRenewal:
         assert not _session_set_cookies(r)
 
     def test_legacy_null_expires_backfilled_on_first_use(self, auth_app, auth_db, renewal_user):
-        """Persistent rows without expires_at (pre-renewal) are backfilled."""
+        """Persistent rows without expires_at (pre-renewal) are backfilled.
+
+        New sessions now carry a horizon from creation, so the NULL state has
+        to be forced here — it only occurs on rows written by releases before
+        ``Session.create_for_user`` set ``expires_at``. The backfill path stays
+        because those rows are still in live databases.
+        """
         user, secret = renewal_user
         client = _login(auth_app, auth_db, user, secret)
-        assert _get_expires(auth_db, user.id) is None  # created without a horizon
+        _set_expires(auth_db, user.id, None)  # simulate a pre-8.4.2.0 row
+        assert _get_expires(auth_db, user.id) is None
 
         r = client.get("/auth/check")
         assert r.get_json()["authenticated"] is True
@@ -199,15 +205,39 @@ class TestRollingRenewal:
         assert expires is not None and expires != "NO_ROW"
         assert expires > datetime.now() + timedelta(days=399)
 
+    def test_new_persistent_session_has_horizon_at_creation(self, auth_app, auth_db, renewal_user):
+        """Login writes expires_at immediately — never NULL.
+
+        A NULL horizon makes ``Session.is_valid()`` unconditionally true (it
+        short-circuits on ``if self.expires_at``), i.e. the session never
+        expires, and makes the renewal hook treat every request as overdue.
+        """
+        user, secret = renewal_user
+        _login(auth_app, auth_db, user, secret)
+        expires = _get_expires(auth_db, user.id)
+        assert expires not in (None, "NO_ROW"), "persistent session created without a horizon"
+        assert expires > datetime.now() + timedelta(days=399)
+
+    def test_new_non_persistent_session_has_horizon_at_creation(
+        self, auth_app, auth_db, renewal_user
+    ):
+        """Ordinary sessions get a horizon too, just a much shorter one."""
+        user, secret = renewal_user
+        _login(auth_app, auth_db, user, secret, remember_me=False)
+        expires = _get_expires(auth_db, user.id)
+        assert expires not in (None, "NO_ROW"), "session created without a horizon"
+        assert datetime.now() < expires < datetime.now() + timedelta(days=31)
+
     def test_non_persistent_session_not_renewed(self, auth_app, auth_db, renewal_user):
         """Plain (non-remember) sessions never get the persistent renewal."""
         user, secret = renewal_user
         client = _login(auth_app, auth_db, user, secret, remember_me=False)
+        before = _get_expires(auth_db, user.id)
 
         r = client.get("/auth/check")
         assert r.get_json()["authenticated"] is True
         assert not _session_set_cookies(r)
-        assert _get_expires(auth_db, user.id) is None
+        assert _get_expires(auth_db, user.id) == before, "horizon must not advance"
 
     def test_renewed_cookie_token_passes_safe_regex(self, auth_app, auth_db, renewal_user):
         """The renewed value goes through the _SAFE_SESSION_TOKEN_RE gate."""
@@ -354,3 +384,63 @@ class TestDurationConstants:
 
     def test_renewal_threshold_is_half_life(self):
         assert SESSION_RENEWAL_THRESHOLD == SESSION_DURATION_REMEMBER // 2
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Logout vs. the renewal hook
+# ──────────────────────────────────────────────────────────────────────
+
+
+class TestLogoutIsNotRenewed:
+    """``/auth/logout`` must not hand back the session it just destroyed.
+
+    The renewal hook is registered ``after_app_request``, so it also runs on
+    the logout response. It saw ``g._current_session`` (populated while
+    authenticating the logout call), judged the persistent session overdue,
+    and appended a second ``Set-Cookie`` re-issuing the same token after the
+    clearing one — leaving the browser signed in.
+    """
+
+    def test_logout_clears_cookie_and_does_not_reissue(self, auth_app, auth_db, renewal_user):
+        user, secret = renewal_user
+        client = _login(auth_app, auth_db, user, secret)
+        # Force the state that made the hook fire: a persistent session the
+        # hook considers overdue.
+        _set_expires(auth_db, user.id, None)
+
+        r = client.post("/auth/logout")
+        assert r.status_code == 200
+        cookies = _session_set_cookies(r)
+        assert cookies, "logout must send a clearing Set-Cookie"
+        assert len(cookies) == 1, f"logout re-issued the session cookie: {cookies}"
+        clearing = cookies[0]
+        assert "Expires=Thu, 01 Jan 1970" in clearing or "Max-Age=0" in clearing, (
+            f"logout cookie is not a clearing cookie: {clearing}"
+        )
+
+    def test_logout_near_expiry_persistent_session_not_renewed(
+        self, auth_app, auth_db, renewal_user
+    ):
+        """Same guarantee when the horizon exists but is inside the window."""
+        user, secret = renewal_user
+        client = _login(auth_app, auth_db, user, secret)
+        _set_expires(auth_db, user.id, datetime.now() + timedelta(days=10))
+
+        r = client.post("/auth/logout")
+        assert r.status_code == 200
+        assert len(_session_set_cookies(r)) == 1
+
+    def test_logout_deletes_the_session_row(self, auth_app, auth_db, renewal_user):
+        user, secret = renewal_user
+        client = _login(auth_app, auth_db, user, secret)
+        _set_expires(auth_db, user.id, None)
+
+        client.post("/auth/logout")
+        assert _get_expires(auth_db, user.id) == "NO_ROW"
+
+    def test_session_marks_itself_invalidated(self, auth_db, db_session_user):
+        """The hook's guard: an in-memory Session knows its row is gone."""
+        session, _token = Session.create_for_user(auth_db, db_session_user.ensured_id)
+        assert session.invalidated is False
+        session.invalidate(auth_db)
+        assert session.invalidated is True

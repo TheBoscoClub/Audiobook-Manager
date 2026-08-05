@@ -45,6 +45,7 @@ from .auth_shared import (
     set_session_cookie,
 )
 from .auth_shared import auth_bp as _shared_bp
+from .rate_limit import auth_rate_limited
 
 # Re-bind auth_bp with explicit type so mypy can resolve @auth_bp.route decorators.
 auth_bp: Blueprint = cast(Blueprint, _shared_bp)  # type: ignore[has-type]
@@ -348,6 +349,7 @@ def login_webauthn_begin():
 
 
 @auth_bp.route("/login/webauthn/complete", methods=["POST"])
+@auth_rate_limited("webauthn-verify")
 def login_webauthn_complete():
     """
     Complete WebAuthn authentication ceremony.

@@ -38,6 +38,7 @@ LIBRARY_DIR = Path(__file__).parent.parent
 sys.path.insert(0, str(LIBRARY_DIR))
 
 from tests.helpers.software_authenticator import SoftwareAuthenticator  # noqa: E402
+from tests.helpers.vm_credentials import require_admin_totp_secret  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -49,7 +50,6 @@ API_BASE = f"http://{VM_HOST}:{VM_API_PORT}" if VM_HOST else ""
 
 # testadmin TOTP secret (reset via audiobook-user totp-reset on VM)
 ADMIN_USERNAME = "testadmin"
-ADMIN_TOTP_SECRET = os.environ.get("ADMIN_TOTP_SECRET", "4GOGK6NR7D6E75X3KMTWXE4FM5BIEARP")
 
 # WebAuthn origin must match the VM's WEBAUTHN_ORIGIN config
 # (typically https://<FQDN>:<WEB_PORT>). Set WEBAUTHN_ORIGIN explicitly for
@@ -89,7 +89,7 @@ def _fix_secure_cookie(session: requests.Session, response: requests.Response) -
 
 def admin_login(session: requests.Session) -> dict:
     """Log in as testadmin and return the response JSON."""
-    code = pyotp.TOTP(ADMIN_TOTP_SECRET).now()
+    code = pyotp.TOTP(require_admin_totp_secret()).now()
     resp = session.post(
         api("/auth/login"), json={"username": ADMIN_USERNAME, "code": code}, timeout=TIMEOUT
     )

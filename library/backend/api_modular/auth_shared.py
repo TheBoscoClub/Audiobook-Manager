@@ -51,8 +51,9 @@ from auth import (
     UserRepository,
 )
 from auth import webauthn_verify_registration as _shared_webauthn_verify_registration
-from auth.models import SystemSettingsRepository
+from auth.models import SESSION_HORIZON_REMEMBER_SECONDS, SystemSettingsRepository
 from auth.totp import generate_qr_code, setup_totp
+from common import is_loopback_address
 
 # Public re-export surface — consumed by auth.py and the auth_* sub-blueprints.
 # Listing these in __all__ tells pyright they are intentionally public even when
@@ -76,6 +77,7 @@ __all__ = [
     "admin_required",
     "admin_or_localhost",
     "admin_if_enabled",
+    "effective_client_address",
     "auth_if_enabled",
     "download_permission_required",
     "set_session_cookie",
@@ -130,7 +132,10 @@ _pending_webauthn_challenges: dict[int, str] = {}
 # server-side ``expires_at`` horizon to match. A dormant session still
 # dies at the horizon on both ends.
 SESSION_DURATION_DEFAULT = None  # Session cookie (cleared on browser close)
-SESSION_DURATION_REMEMBER = 400 * 24 * 60 * 60  # 400 days (browser clamp ceiling)
+# Re-exported from auth.models, which writes the same horizon into
+# sessions.expires_at at creation time. One constant, so the cookie's Max-Age
+# and the server-side horizon cannot drift apart.
+SESSION_DURATION_REMEMBER = SESSION_HORIZON_REMEMBER_SECONDS  # 400 days (browser clamp ceiling)
 
 # Rolling renewal fires once a persistent session's remaining life drops to
 # half the window (~200 days). Frequent enough that any user active at
@@ -638,26 +643,57 @@ def admin_required(f: Callable) -> Callable:
     return decorated
 
 
+def effective_client_address() -> str:
+    """Resolve the client address that localhost gating authorizes against.
+
+    Trust exactly one hop — our own reverse proxy.
+
+    Forwarding headers are consulted ONLY when the request reached Flask over
+    the loopback interface, which is the only way it can arrive: the API binds
+    localhost and every external request is relayed by ``proxy_server.py``,
+    which drops whatever the client sent and re-authors ``X-Real-IP`` /
+    ``X-Forwarded-For`` from the address it actually observed. A request from
+    any other peer is authorized on its socket address alone.
+
+    The old logic consulted ``X-Forwarded-For`` on *every* request and took its
+    LEFT-most entry, so any client — local or remote, proxied or direct —
+    could send ``X-Forwarded-For: 127.0.0.1`` and be granted localhost. That
+    was the entire gate.
+
+    ``X-Real-IP`` takes precedence over ``X-Forwarded-For``: the proxy sets
+    both to the same value, and preferring the single-valued header means a
+    forged multi-hop chain has nothing to contribute.
+    """
+    remote_addr = request.remote_addr or ""
+    if not is_loopback_address(remote_addr):
+        return remote_addr
+    real_ip = (request.headers.get("X-Real-IP") or "").strip()
+    if real_ip:
+        return real_ip
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return remote_addr
+
+
+def _client_is_localhost() -> bool:
+    """True when the effective client address is the local machine."""
+    return is_loopback_address(effective_client_address())
+
+
 def localhost_only(f: Callable) -> Callable:
     """
     Decorator to restrict endpoint to localhost access only.
 
-    Used for admin/back-office functions.
+    Used for admin/back-office functions. See ``effective_client_address()``
+    for how the client address is derived (and why headers are only trusted
+    from a loopback peer).
     """
 
     @wraps(f)
     def decorated(*args: Any, **kwargs: Any) -> Any:
-        # Check if request is from localhost
-        remote_addr = request.remote_addr
-        if remote_addr not in ("127.0.0.1", "::1", "localhost"):
-            # Also check X-Forwarded-For if behind proxy
-            forwarded = request.headers.get("X-Forwarded-For", "")
-            if forwarded:
-                # Take the first address (client IP)
-                remote_addr = forwarded.split(",")[0].strip()
-
-            if remote_addr not in ("127.0.0.1", "::1", "localhost"):
-                return (jsonify({"error": "Access denied"}), 404)  # Return 404 to hide existence
+        if not _client_is_localhost():
+            return (jsonify({"error": "Access denied"}), 404)  # Return 404 to hide existence
         return f(*args, **kwargs)
 
     return decorated
@@ -778,14 +814,9 @@ def admin_or_localhost(f: Callable) -> Callable:
             if not user.is_admin:
                 return jsonify({"error": "Admin privileges required"}), 403
         else:
-            # Standalone mode: localhost only
-            remote_addr = request.remote_addr
-            if remote_addr not in ("127.0.0.1", "::1", "localhost"):
-                forwarded = request.headers.get("X-Forwarded-For", "")
-                if forwarded:
-                    remote_addr = forwarded.split(",")[0].strip()
-                if remote_addr not in ("127.0.0.1", "::1", "localhost"):
-                    return jsonify({"error": "Access denied"}), 404
+            # Standalone mode: localhost only (see effective_client_address)
+            if not _client_is_localhost():
+                return jsonify({"error": "Access denied"}), 404
         return f(*args, **kwargs)
 
     return decorated
@@ -849,9 +880,18 @@ def _renew_persistent_session_cookie(response: Response) -> Response:
 
     Best-effort: a renewal failure must never break an otherwise-good
     response, so errors are logged and the response passes through.
+
+    Never renews a session whose row has been deleted during this request.
+    ``/auth/logout`` resolves the session (populating ``g._current_session``),
+    deletes its row, and returns a response carrying the clearing
+    Set-Cookie — at which point this hook ran, saw a persistent session with
+    ``expires_at`` NULL (so "overdue"), and appended a second Set-Cookie
+    re-issuing the very token the user had just signed out of. Both the
+    ``invalidated`` guard here and the non-NULL ``expires_at`` now written at
+    session creation close that path.
     """
     session = getattr(g, "_current_session", None)
-    if session is None or not session.is_persistent:
+    if session is None or session.invalidated or not session.is_persistent:
         return response
     if session.expires_at is not None:
         remaining = session.expires_at - datetime.now()

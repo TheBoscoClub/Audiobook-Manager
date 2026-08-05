@@ -21,6 +21,8 @@ import pyotp
 import pytest
 import requests
 
+from tests.helpers.vm_credentials import require_admin_totp_secret
+
 pytestmark = pytest.mark.integration
 
 # Configuration — VM_HOST must be set in the environment; no hardcoded default so
@@ -28,7 +30,6 @@ pytestmark = pytest.mark.integration
 VM_HOST = os.environ.get("VM_HOST", "")
 API_BASE_URL = os.environ.get("API_BASE_URL", f"http://{VM_HOST}:5001" if VM_HOST else "")
 ADMIN_USERNAME = "testadmin"
-ADMIN_TOTP_SECRET = os.environ.get("ADMIN_TOTP_SECRET", "5DJSOED2NSA22QGXIF6VHTUV6VQHIQH4")
 ASYNC_TIMEOUT = 300  # 5 minutes max for async operations
 POLL_INTERVAL = 2  # Poll every 2 seconds
 
@@ -44,7 +45,7 @@ def api_url(path: str) -> str:
 def _get_auth_session() -> requests.Session:
     """Authenticate as testadmin and return a requests session with cookie."""
     session = requests.Session()
-    code = pyotp.TOTP(ADMIN_TOTP_SECRET).now()
+    code = pyotp.TOTP(require_admin_totp_secret()).now()
     resp = session.post(
         api_url("/auth/login"), json={"username": ADMIN_USERNAME, "code": code}, timeout=10
     )

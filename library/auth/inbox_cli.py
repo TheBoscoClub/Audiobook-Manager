@@ -20,6 +20,8 @@ from pathlib import Path
 # Add parent paths for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from common_utils.secret_resolver import resolve_secret
+
 from auth import (
     InboxRepository,
     InboxStatus,
@@ -28,7 +30,6 @@ from auth import (
     ReplyMethod,
     UserRepository,
 )
-from common_utils.secret_resolver import resolve_secret
 
 
 def get_db():

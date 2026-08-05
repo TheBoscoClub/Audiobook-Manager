@@ -33,6 +33,8 @@ import pyotp
 import pytest
 import requests as req_lib
 
+from tests.helpers.vm_credentials import require_admin_totp_secret
+
 if TYPE_CHECKING:
     from playwright.sync_api import Page as _Page  # noqa: F401
 
@@ -85,7 +87,6 @@ except ImportError:
 WEB_BASE_URL = os.environ.get("AUDIOBOOKS_WEB_URL", f"https://{VM_HOST}:8443")
 API_BASE_URL = os.environ.get("API_BASE_URL", f"http://{VM_HOST}:5001")
 ADMIN_USERNAME = "testadmin"
-ADMIN_TOTP_SECRET = os.environ.get("ADMIN_TOTP_SECRET", "4GOGK6NR7D6E75X3KMTWXE4FM5BIEARP")
 # Skip SSL verification for self-signed certs
 IGNORE_HTTPS_ERRORS = True
 
@@ -93,7 +94,7 @@ IGNORE_HTTPS_ERRORS = True
 def _get_auth_session() -> req_lib.Session:
     """Authenticate as testadmin and return a requests session with cookie."""
     session = req_lib.Session()
-    code = pyotp.TOTP(ADMIN_TOTP_SECRET).now()
+    code = pyotp.TOTP(require_admin_totp_secret()).now()
     # Internal VM API on port 5001 is HTTP-only; public traffic goes via Caddy on 8443.
     resp = session.post(
         # nosemgrep: python.lang.security.audit.insecure-transport.requests.request-session-with-http.request-session-with-http

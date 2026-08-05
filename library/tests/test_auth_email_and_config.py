@@ -73,8 +73,14 @@ class TestLocalhostOnly:
             response, status = dummy_view()
             assert status == 404
 
-    def test_x_forwarded_for_local(self, auth_app):
-        """X-Forwarded-For with 127.0.0.1 should pass through."""
+    def test_x_forwarded_for_spoof_from_remote_peer_is_denied(self, auth_app):
+        """A non-loopback peer claiming X-Forwarded-For: 127.0.0.1 gets 404.
+
+        Forwarding headers are only meaningful from our own proxy, which
+        reaches Flask over loopback. From any other peer they are client
+        input. This test previously asserted the OPPOSITE — that the spoof
+        succeeded — which is the vulnerability it now guards against.
+        """
         with auth_app.test_request_context(
             "/test",
             environ_base={"REMOTE_ADDR": "10.0.0.1"},
@@ -86,8 +92,8 @@ class TestLocalhostOnly:
             def dummy_view():
                 return "ok"
 
-            result = dummy_view()
-            assert result == "ok"
+            _response, status = dummy_view()
+            assert status == 404
 
     def test_x_forwarded_for_remote(self, auth_app):
         """X-Forwarded-For with a remote IP should return 404."""
@@ -105,8 +111,8 @@ class TestLocalhostOnly:
             response, status = dummy_view()
             assert status == 404
 
-    def test_x_forwarded_for_ipv6_loopback(self, auth_app):
-        """X-Forwarded-For with ::1 should pass through."""
+    def test_x_forwarded_for_ipv6_loopback_spoof_from_remote_peer_denied(self, auth_app):
+        """``X-Forwarded-For: ::1`` from a LAN peer is still client input."""
         with auth_app.test_request_context(
             "/test", environ_base={"REMOTE_ADDR": "192.168.1.1"}, headers={"X-Forwarded-For": "::1"}
         ):
@@ -116,8 +122,8 @@ class TestLocalhostOnly:
             def dummy_view():
                 return "ok"
 
-            result = dummy_view()
-            assert result == "ok"
+            _response, status = dummy_view()
+            assert status == 404
 
     def test_error_response_hides_existence(self, auth_app):
         """404 response should include 'Access denied' to hide endpoint."""

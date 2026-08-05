@@ -32,6 +32,7 @@ from auth.backup_codes import BackupCodeRepository
 from auth.totp import setup_totp
 from flask import current_app, jsonify, request
 
+from .auth_email import _send_magic_link_email
 from .auth_shared import (
     _user_allows_multi_session,
     auth_bp,
@@ -40,7 +41,7 @@ from .auth_shared import (
     require_current_user,
     set_session_cookie,
 )
-from .auth_email import _send_magic_link_email
+from .rate_limit import auth_rate_limited
 
 # =============================================================================
 # Recovery Endpoints
@@ -48,6 +49,7 @@ from .auth_email import _send_magic_link_email
 
 
 @auth_bp.route("/recover/backup-code", methods=["POST"])
+@auth_rate_limited("backup-code")
 def recover_with_backup_code():
     """
     Recover account access using a backup code.

@@ -20,9 +20,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
 
-from flask import current_app, request
-
 from common_utils.secret_resolver import resolve_secret
+from flask import current_app, request
 
 
 def _get_base_url() -> str:

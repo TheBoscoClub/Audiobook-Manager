@@ -201,6 +201,37 @@ Renewal is implemented once in the auth middleware
 The periodic auth cleanup removes non-persistent rows past the inactivity
 grace period and persistent rows past their `expires_at` horizon.
 
+### Renewal re-issues the same token — it does not rotate it (deliberate)
+
+A rolling renewal writes the **same** session token back into the cookie with
+a fresh `Max-Age`; it does not mint a new one. This is a considered trade-off,
+not an oversight, and a security review that flags "no token rotation on
+renewal" should be answered with this section:
+
+- Rotating on ordinary read traffic races concurrent tabs. Two tabs share one
+  cookie jar; whichever tab's response lands second overwrites the first, and
+  any request already in flight with the superseded token 401s — mid-listen,
+  on a route the user never touched.
+- The token is a server-generated random secret (`secrets.token_urlsafe`) in
+  an `HttpOnly` + `Secure` + `SameSite=Lax` cookie, so re-issuing the same
+  value adds no meaningful exposure over keeping it in place.
+- The value still passes `_SAFE_SESSION_TOKEN_RE` on every write, so the
+  renewal path cannot become a cookie-injection vector.
+
+Sessions ARE invalidated (row deleted, so the token dies) on logout, on
+"force logout user", on a new login without multi-session enabled, and when
+the `expires_at` horizon passes.
+
+### Logout is never renewed
+
+The renewal hook runs `after_app_request`, which includes the logout
+response. `Session.invalidate()` marks the in-memory session, and the hook
+skips a session whose row it has deleted — otherwise logout would return the
+clearing `Set-Cookie` *and* a second `Set-Cookie` re-issuing the token the
+user just signed out of, leaving the browser logged in. Every session is also
+created with a non-NULL `expires_at`; a NULL horizon made `is_valid()`
+unconditionally true and made the hook treat every request as overdue.
+
 ## Multi-Session Login (v8.0.1.2+)
 
 By default, each user is limited to one active session (logging in on a new device invalidates the previous session). Admins can enable multi-session login to allow concurrent sessions on multiple devices.
