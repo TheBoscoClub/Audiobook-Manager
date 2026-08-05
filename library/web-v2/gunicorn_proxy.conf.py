@@ -28,6 +28,21 @@ import ssl
 import sys
 from pathlib import Path
 
+# --- Server banner suppression ---------------------------------------------
+# gunicorn stamps `Server: gunicorn` on every response (gunicorn.http.wsgi
+# Response.default_headers()). That names the software running on the port to
+# anyone who sends a single request — free reconnaissance, and gunicorn has no
+# `server_tokens off`-style setting. `Response.__init__` reads the module
+# global at instance-creation time, so rebinding it here (config is executed
+# before any worker serves a request) suppresses the banner for every
+# response, including error responses gunicorn generates itself.
+#
+# The value is blanked rather than replaced with a decoy: a decoy is still a
+# claim, and an empty field-value is well-formed.
+import gunicorn.http.wsgi  # noqa: E402
+
+gunicorn.http.wsgi.SERVER = ""
+
 # Make proxy_server (and the shared config module) importable regardless of
 # the caller's working directory.
 _WEB_V2_DIR = Path(__file__).parent.resolve()

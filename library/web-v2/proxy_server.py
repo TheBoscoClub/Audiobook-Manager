@@ -25,6 +25,7 @@ Or standalone (execs gunicorn with the same config):
     python proxy_server.py
 """
 
+import fnmatch
 import http.client
 import json
 import logging
@@ -40,8 +41,10 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-# Add parent directory to path for config import
+# Add parent directory to path for config/common imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from common import is_loopback_address as _is_loopback_address  # noqa: E402
+
 from config import (  # noqa: E402
     AUDIOBOOKS_API_PORT,
     AUDIOBOOKS_BIND_ADDRESS,
@@ -181,9 +184,31 @@ class ReverseProxyApp:
     # Allowlist of content types for cover images
     _ALLOWED_COVER_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml"}
 
-    # Headers to forward from client to Flask backend
+    # Names the static server must never hand out, at ANY depth under WEB_ROOT.
+    #
+    # WEB_ROOT is a live working directory, not a curated publish target: in a
+    # deployed install it is the rsync destination of the project's web-v2/
+    # tree, and in development it is a git working tree. Files that are not
+    # web assets do land in it — the proxy's own source (proxy_server.py,
+    # gunicorn_proxy.conf.py), npm's node_modules/ + package*.json, and
+    # tooling dotfiles such as .claude-session-ring.jsonl (which contains raw
+    # session transcript). Path-traversal containment does not help here: all
+    # of these resolve *inside* WEB_ROOT, so `relative_to(WEB_ROOT)` accepts
+    # them and mimetypes happily serves them as text/plain.
+    #
+    # Denied requests get 404, not 403 — a 403 confirms the file exists.
+    _FORBIDDEN_STATIC_DIRS = frozenset({"node_modules", "__pycache__"})
+    _FORBIDDEN_STATIC_GLOBS = ("*.py", "*.pyc", "*.pyo", "*.pyi", "package*.json")
+
+    # Headers forwarded verbatim from the client to the Flask backend.
+    #
+    # X-Forwarded-For / X-Real-IP / X-Forwarded-Proto / Host are deliberately
+    # NOT in this list: they are authored by the proxy in
+    # _collect_proxy_headers() and any client-supplied value is dropped. The
+    # backend's localhost_only / admin_or_localhost decorators authorize on
+    # the forwarded client address, so a forwardable X-Forwarded-For is a
+    # direct privilege-escalation primitive.
     _CLIENT_HEADERS = ("Content-Type", "Range", "Accept", "Cookie")
-    _PROXY_HEADERS = ("X-Forwarded-For", "X-Forwarded-Proto", "X-Real-IP", "Host")
 
     # ------------------------------------------------------------------
     # WSGI entry point
@@ -377,14 +402,42 @@ class ReverseProxyApp:
         # Serve static files
         return self._serve_static(start_response, bare_path, bare_path, parsed.query, method)
 
+    @classmethod
+    def _is_forbidden_static_path(cls, path: str) -> bool:
+        """Return True if a WEB_ROOT-relative path must never be served.
+
+        Refuses, at any depth: dot-prefixed names (dotfiles AND dot-dirs),
+        the directories in ``_FORBIDDEN_STATIC_DIRS``, and final components
+        matching ``_FORBIDDEN_STATIC_GLOBS``. See those constants for why.
+        """
+        parts = [p for p in path.replace("\\", "/").split("/") if p and p != "."]
+        if not parts:
+            return False
+        for part in parts:
+            if part.startswith("."):
+                return True
+            if part.lower() in cls._FORBIDDEN_STATIC_DIRS:
+                return True
+        name = parts[-1].lower()
+        return any(fnmatch.fnmatch(name, pattern) for pattern in cls._FORBIDDEN_STATIC_GLOBS)
+
     def _serve_static(self, start_response, file_path: str, cache_path: str, query: str, method):
         """Serve a static file from WEB_ROOT with path-traversal protection."""
+        # Refuse non-asset names before touching the filesystem.
+        if self._is_forbidden_static_path(file_path):
+            return self._send_error(start_response, 404, "File not found")
+
         # Normalize and contain within WEB_ROOT (defeats ../ traversal).
         candidate = (WEB_ROOT / file_path.lstrip("/")).resolve()
         try:
-            candidate.relative_to(WEB_ROOT)
+            relative = candidate.relative_to(WEB_ROOT)
         except ValueError:
             return self._send_error(start_response, 403, "Forbidden")
+
+        # Re-check after resolution: `..` segments and symlinks can land on a
+        # forbidden name that the raw request path did not spell out.
+        if self._is_forbidden_static_path(str(relative)):
+            return self._send_error(start_response, 404, "File not found")
 
         if not candidate.is_file():
             return self._send_error(start_response, 404, "File not found")
@@ -601,19 +654,64 @@ class ReverseProxyApp:
     # HTTP proxying
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _effective_client_address(environ: dict, headers: EnvironHeaders) -> str:
+        """Determine the client address to advertise to the Flask backend.
+
+        Trust exactly one hop.
+
+        The socket peer (``REMOTE_ADDR``) is the only unforgeable address the
+        proxy has, so it is the answer for any request that arrived directly.
+        Client-supplied ``X-Forwarded-For`` is ignored outright in that case —
+        it is attacker-controlled, and the backend authorizes localhost-only
+        endpoints on this value.
+
+        A loopback peer means the request came through the same-host front
+        door (Caddy — see caddy/audiobooks.conf, which proxies :8084/:8085 to
+        this server). Caddy *appends* the address it saw to any inbound
+        X-Forwarded-For, so the RIGHT-most entry is Caddy's own observation
+        and the only entry its client could not author. The left-most entry
+        is exactly what an attacker sets to spoof ``127.0.0.1``; reading it
+        was the original defect.
+
+        Residual, documented: if a tunnel daemon (cloudflared) reaches Caddy
+        over loopback, Caddy's observation is itself ``127.0.0.1`` and the
+        chain becomes indistinguishable from a genuine local call. Deployments
+        that expose localhost-only endpoints through such a tunnel must rely on
+        AUTH_ENABLED=true (``admin_or_localhost`` then requires an authenticated
+        admin and never consults an address at all).
+        """
+        peer = environ.get("REMOTE_ADDR", "") or ""
+        if not _is_loopback_address(peer):
+            return peer
+        forwarded_for = headers.get("X-Forwarded-For") or ""
+        entries = [entry.strip() for entry in forwarded_for.split(",") if entry.strip()]
+        return entries[-1] if entries else peer
+
     def _collect_proxy_headers(self, environ: dict, headers: EnvironHeaders) -> dict:
-        """Collect headers to forward to the Flask backend."""
+        """Collect headers to forward to the Flask backend.
+
+        Client-supplied forwarding/routing headers are dropped and re-authored
+        here (see ``_CLIENT_HEADERS``); values are CRLF-stripped because they
+        are written into the outbound request line.
+        """
         forwarded = {}
         for header in self._CLIENT_HEADERS:
             value = headers.get(header)
             if value is not None:
                 forwarded[header] = value
-        for header in self._PROXY_HEADERS:
-            value = headers.get(header)
-            if value is not None:
-                forwarded[header] = value
-        if "X-Forwarded-For" not in forwarded:
-            forwarded["X-Forwarded-For"] = environ.get("REMOTE_ADDR", "")
+
+        client_address = self._sanitize_header_value(
+            self._effective_client_address(environ, headers)
+        )
+        forwarded["X-Forwarded-For"] = client_address
+        forwarded["X-Real-IP"] = client_address
+        # This proxy terminates TLS (gunicorn certfile/keyfile), so the client
+        # leg is always https regardless of what the client claimed.
+        forwarded["X-Forwarded-Proto"] = "https"
+        # Explicit upstream Host: forwarding the client's Host verbatim let a
+        # crafted value reach the backend's URL/redirect building.
+        forwarded["Host"] = f"127.0.0.1:{API_PORT}"
         return forwarded
 
     @staticmethod
@@ -716,11 +814,13 @@ class ReverseProxyApp:
 
         except urllib.error.URLError as e:
             self.log_message(environ, "URLError proxying %s %s: %s", method, api_url, e.reason)
+            # Reason is logged above; the client is told only that the
+            # backend is down, not which socket error or address produced it.
             return self._send_json_error(
                 start_response,
                 503,
                 "Service Unavailable",
-                f"API server not reachable: {str(e.reason)}",
+                "API server not reachable.",
             )
 
         except Exception as e:
@@ -732,7 +832,14 @@ class ReverseProxyApp:
                 e,
                 traceback.format_exc(),
             )
-            return self._send_json_error(start_response, 500, "Internal Server Error", str(e))
+            # The exception text is logged above (with traceback) but never
+            # returned: str(e) on an unexpected proxy failure leaks filesystem
+            # paths, internal hostnames and port numbers straight to the
+            # browser. The client gets a fixed message; the operator gets the
+            # detail in the journal.
+            return self._send_json_error(
+                start_response, 500, "Internal Server Error", "The server encountered an error."
+            )
 
     @staticmethod
     def log_message(environ, format, *args):

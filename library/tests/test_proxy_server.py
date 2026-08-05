@@ -644,7 +644,30 @@ class TestProxyToApi:
         assert recorder.code == 500
         parsed = json.loads(body)
         assert parsed["code"] == 500
-        assert "unexpected" in parsed["message"]
+
+    def test_unexpected_error_body_does_not_leak_exception_text(self):
+        """str(e) on a proxy failure carries paths, hostnames and ports.
+
+        It is logged (with traceback) for the operator; the browser gets a
+        fixed message. This test previously asserted the opposite.
+        """
+        secret = "/srv/audiobooks/internal-detail-1234"
+        with patch("urllib.request.urlopen", side_effect=RuntimeError(secret)):
+            recorder, body = _run_proxy("/api/books")
+
+        assert recorder.code == 500
+        assert secret.encode() not in body
+        assert "internal-detail" not in json.loads(body)["message"]
+
+    def test_backend_unreachable_body_does_not_leak_reason(self):
+        with patch(
+            "urllib.request.urlopen",
+            side_effect=urllib.error.URLError("Connection refused to 10.1.2.3:5001"),
+        ):
+            recorder, body = _run_proxy("/api/books")
+
+        assert recorder.code == 503
+        assert b"10.1.2.3" not in body
 
     def test_http_error_read_failure_fallback(self):
         """When HTTPError body can't be read, a JSON fallback is sent."""
@@ -769,6 +792,70 @@ class TestStaticServing:
     def test_directory_request_is_404(self):
         recorder, _ = _call_app(path="/js")
         assert recorder.code == 404
+
+
+# ============================================================
+# 10b. Static deny-list (non-asset files inside WEB_ROOT)
+# ============================================================
+
+
+class TestStaticDenyList:
+    """WEB_ROOT is a working directory, not a curated publish target.
+
+    Dotfiles, the proxy's own source, and npm metadata all live inside it and
+    resolve cleanly through the traversal guard, so they need an explicit
+    refusal. Everything here must answer 404 — a 403 would confirm the file
+    exists.
+    """
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            # Session transcript dropped in WEB_ROOT by dev tooling — the
+            # finding that motivated this deny-list. Both depths were live.
+            "/.claude-session-ring.jsonl",
+            "/css/.claude-session-ring.jsonl",
+            "/js/.hidden/secret.txt",
+            # Server source, at the root and via a nested path
+            "/proxy_server.py",
+            "/gunicorn_proxy.conf.py",
+            "/https_server.py",
+            "/redirect_server.py",
+            # npm metadata + tree
+            "/package.json",
+            "/package-lock.json",
+            "/node_modules/eslint/package.json",
+            "/node_modules/.package-lock.json",
+            "/__pycache__/proxy_server.cpython-314.pyc",
+        ],
+    )
+    def test_forbidden_static_paths_are_404(self, path):
+        recorder, _ = _call_app(path=path)
+        assert recorder.code == 404, f"{path} must not be served"
+
+    def test_denied_before_filesystem_access(self):
+        """Deny-list hits are refused without stat()-ing the candidate."""
+        assert proxy_server.app._is_forbidden_static_path("/.claude-session-ring.jsonl") is True
+        assert proxy_server.app._is_forbidden_static_path("css/.env") is True
+        assert proxy_server.app._is_forbidden_static_path("a/b/c/package.json") is True
+
+    @pytest.mark.parametrize(
+        "path", ["/css/deco.css", "/js/api.js", "/shell.html", "/site.webmanifest"]
+    )
+    def test_real_assets_still_allowed(self, path):
+        assert proxy_server.app._is_forbidden_static_path(path) is False
+
+    def test_normal_css_still_served(self):
+        css = sorted((WEB_V2_DIR / "css").glob("*.css"))
+        assert css, "expected at least one stylesheet in web-v2/css"
+        recorder, body = _call_app(path=f"/css/{css[0].name}")
+        assert recorder.code == 200
+        assert body == css[0].read_bytes()
+
+    def test_normal_js_still_served(self):
+        recorder, body = _call_app(path="/js/api.js")
+        assert recorder.code == 200
+        assert body == (WEB_V2_DIR / "js" / "api.js").read_bytes()
 
 
 # ============================================================
