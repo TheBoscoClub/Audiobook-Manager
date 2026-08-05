@@ -217,7 +217,7 @@ def get_activity():
     )
     union_sql, all_params = _build_union_sql(type_filter, lw, lp, dw, dp)
 
-    data_sql = f"{union_sql} ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+    data_sql = f"{union_sql} ORDER BY timestamp DESC LIMIT ? OFFSET ?"  # nosec B608 — union_sql is built by _build_union_sql from internal literals; every user value is ?-bound  # noqa: S608
     data_params = all_params + [limit, offset]
     count_sql = f"SELECT COUNT(*) FROM ({union_sql})"  # nosec B608  # nosemgrep: python.lang.security.audit.tainted-sql-string.tainted-sql-string,python.django.security.injection.tainted-sql-string.tainted-sql-string,python.flask.security.injection.tainted-sql-string.tainted-sql-string  # noqa: S608
 

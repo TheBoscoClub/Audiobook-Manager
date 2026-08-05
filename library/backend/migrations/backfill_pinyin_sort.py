@@ -45,7 +45,9 @@ _spec.loader.exec_module(_search_cjk)
 pinyin_sort_key = _search_cjk.pinyin_sort_key
 
 try:
-    from backend.config import DATABASE_PATH  # type: ignore[import-not-found]  # noqa: E402  # backend.config only on sys.path inside the installed app
+    from backend.config import (
+        DATABASE_PATH,  # type: ignore[import-not-found]  # noqa: E402  # backend.config only on sys.path inside the installed app
+    )
 except ImportError:
     # Running outside the backend package context — caller must pass --db-path
     DATABASE_PATH = ""

@@ -205,7 +205,7 @@ def backfill(
         rows = conn.execute(
             "SELECT id, title, author FROM audiobooks "
             "WHERE original_publish_year IS NULL ORDER BY id"
-            + (f" LIMIT {int(limit)}" if limit else "")
+            + (f" LIMIT {int(limit)}" if limit else "")  # nosec B608 — int() cast; no other interpolation  # noqa: S608
         ).fetchall()
     finally:
         conn.close()

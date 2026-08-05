@@ -9,6 +9,26 @@ exclude_dirs:
 # acceptable for this codebase. These are NOT bulk dismissals; each rule
 # below has an explicit justification and every corresponding use-site was
 # reviewed during the 2026-04-17 audit.
+#
+# WHY THESE ARE GLOBAL AND NOT INLINE `# nosec`
+# --------------------------------------------
+# Under bandit 1.9.4 the inline `# nosec` comments scattered through this
+# codebase are largely INERT. bandit matches a `# nosec` to the line number it
+# reports the issue on, and for the multi-line call expressions this project
+# uses it reports the SQL/URL literal line rather than the `conn.execute(` /
+# `urlopen(` line the comment sits on. The annotations are therefore best read
+# as review notes for humans, not as working suppressions — do not assume a
+# `# nosec` on a line means bandit is quiet about it, and do not delete a
+# global skip on the belief that the inline comments are covering it.
+#
+# COMPENSATING CONTROL FOR THE B608 SKIP
+# --------------------------------------
+# A global skip means a NEW dangerous site can never be flagged, so B608 has a
+# replacement signal: `library/tests/test_source_guards.py` parses the tree and
+# fails if any interpolated SQL f-string lacks a `# nosec B608` annotation.
+# That test is what makes adding one a deliberate, reviewable act. If the B608
+# skip is ever removed, that guard becomes redundant — until then it is the
+# only thing watching.
 skips:
   # B101 (assert_used) — 19 findings in api_modular.
   # All uses are TYPE-NARROWING invariants after decorator-guaranteed

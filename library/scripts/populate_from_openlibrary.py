@@ -94,8 +94,8 @@ def _build_candidate_query(
         if only_non_audible:
             conditions.append("(a.asin IS NULL OR a.asin = '')")
 
-    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
-    limit_clause = f"LIMIT {limit}" if limit else ""
+    where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""  # nosec B608 — conditions are hardcoded literals above; user values are ?-bound in params  # noqa: S608
+    limit_clause = f"LIMIT {int(limit)}" if limit else ""  # nosec B608 — int() cast  # noqa: S608
 
     query = (
         "SELECT a.id, a.title, a.author, a.asin, a.isbn, a.published_year"  # nosec B608  # noqa: S608

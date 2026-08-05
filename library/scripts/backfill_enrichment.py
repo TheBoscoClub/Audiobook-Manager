@@ -176,7 +176,7 @@ def phase2_enrichment(
     else:
         query = "SELECT id, title, asin FROM audiobooks WHERE audible_enriched_at IS NULL"
     if limit:
-        query += f" LIMIT {int(limit)}"
+        query += f" LIMIT {int(limit)}"  # nosec B608 — int() cast; no other interpolation  # noqa: S608
     cursor.execute(query)
     books = cursor.fetchall()
     conn.close()

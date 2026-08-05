@@ -430,7 +430,7 @@ def get_new_books():
         if prefs.new_books_seen_at is None:
             # Never dismissed — all books are "new"
             cursor.execute(
-                "SELECT id, title, author, duration_hours,"
+                "SELECT id, title, author, duration_hours,"  # nosec B608 — AUDIOBOOK_FILTER is a module-level constant, not user input  # noqa: S608
                 " cover_path, format, created_at"
                 f" FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
                 " AND file_path NOT LIKE ?"
@@ -440,7 +440,7 @@ def get_new_books():
         else:
             seen_at = prefs.new_books_seen_at.isoformat()
             cursor.execute(
-                "SELECT id, title, author, duration_hours,"
+                "SELECT id, title, author, duration_hours,"  # nosec B608 — AUDIOBOOK_FILTER is a module-level constant, not user input  # noqa: S608
                 " cover_path, format, created_at"
                 f" FROM audiobooks WHERE {AUDIOBOOK_FILTER}"
                 " AND file_path NOT LIKE ?"
