@@ -53,6 +53,12 @@ SyslogIdentifier=audiobook-api
 # Security hardening
 NoNewPrivileges=yes
 ProtectSystem=strict
+# /run/audiobooks — wiped and recreated by systemd at every service start.
+# Target directory for derive-service-secret when the optional hardened
+# drop-in is installed (see systemd/audiobook-api-derive-secrets.conf.example);
+# harmless when unused. 0750 audiobooks:audiobooks.
+RuntimeDirectory=audiobooks
+RuntimeDirectoryMode=0750
 # Writable paths - database state + data directory + /tmp for temp files
 # NOTE: Systemd doesn't expand env vars in ReadWritePaths. If your data directory
 # differs from the default /srv/audiobooks, add it here explicitly.

@@ -68,6 +68,45 @@ sudo ln -sf /home/operator/.config/audiobooks-smtp-pass /etc/audiobooks/smtp-pas
 
 Precedence: inline `SMTP_PASS` → `SMTP_PASS_FILE` pointer → empty. The same pattern works for `AUDIOBOOKS_DEEPL_API_KEY_FILE` and `AUDIOBOOKS_RUNPOD_API_KEY_FILE`. Mirrors the existing `AUTH_KEY_FILE` / `CF_TOKEN_FILE` pattern.
 
+### Hardened setup: `derive-service-secret` + a canonical credential store
+
+The weakness of a hand-populated `/etc/audiobooks/smtp-pass` (or
+`cloudflare-purge-token`) is rotation drift: when the operator rotates the key in
+their canonical store, nothing updates the hand-copied file — it keeps serving
+the dead credential silently.
+
+If your host has the operator tool `/usr/bin/derive-service-secret` (canonical
+source lives **outside this project**, in the operator's own tooling — this
+project only consumes it), `install.sh` / `upgrade.sh` automatically install a
+systemd drop-in at
+`/etc/systemd/system/audiobook-api.service.d/derive-secrets.conf` (template:
+`systemd/audiobook-api-derive-secrets.conf.example`). On hosts without the tool
+the drop-in is skipped with an informative message and the stock `*_FILE`
+pointer stubs under `/etc/audiobooks/` keep working — nothing else changes.
+
+With the drop-in active, at every service start `derive-service-secret` runs as
+root from `ExecStartPre=+`, reads the named variable from the operator's
+canonical credential store (a root-readable `VAR=value` file such as
+`~/.config/api-keys.env`), and writes it to `/run/audiobooks/<name>` as a
+0400 `audiobooks:audiobooks` file. `RuntimeDirectory=audiobooks` in the stock
+unit means systemd wipes and recreates `/run/audiobooks` on every start, so the
+secret is re-derived each time — drift is structurally impossible. The tool
+fails closed (the service does not start) if the variable is missing or empty.
+
+To activate, repoint the pointers in `/etc/audiobooks/audiobooks.conf` at the
+`/run` paths and remove any inline values:
+
+```bash
+SMTP_PASS_FILE="/run/audiobooks/smtp-pass"
+CLOUDFLARE_PURGE_TOKEN_FILE="/run/audiobooks/cloudflare-purge-token"
+# SMTP_PASS unset/commented — inline value would win over the pointer
+```
+
+**The app's own contract is unchanged**: it only ever reads `SMTP_PASS` /
+`SMTP_PASS_FILE` (via `library/common_utils/secret_resolver.py`). The hardened
+setup just changes where the pointer target gets its content — from a
+hand-copied file to a per-start derivation from the canonical store.
+
 Verify:
 
 ```bash

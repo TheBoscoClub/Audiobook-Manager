@@ -701,6 +701,8 @@ SMTP_PASS=<send-only Resend API key>
 SMTP_FROM=library@thebosco.club
 ```
 
+`SMTP_PASS` may instead be supplied via the `SMTP_PASS_FILE` pointer pattern, including the hardened `derive-service-secret` per-start derivation — see [EMAIL-SETUP.md](EMAIL-SETUP.md).
+
 **Protonmail Bridge status history**: Last stopped cleanly on 2026-05-06 after the
 `secret-service` (KWallet/gnome-keyring) became unavailable in the headless session
 context following a system restart. The service unit is `disabled` (not started on

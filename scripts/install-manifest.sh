@@ -57,6 +57,12 @@ REQUIRED_DIRS=(
 # Systemd units that MUST be present under /etc/systemd/system/ (system
 # install) or ~/.config/systemd/user/ (user install). Populated from the
 # canonical systemd/ directory in the project at source time by the caller.
+#
+# Deliberately NOT listed: audiobook-api.service.d/derive-secrets.conf — a
+# host-conditional drop-in that install.sh/upgrade.sh install only when
+# /usr/bin/derive-service-secret exists (operator tooling). Listing it here
+# would make the reconciler flag hosts without the tool as drifted.
+# Template: systemd/audiobook-api-derive-secrets.conf.example
 # ---------------------------------------------------------------------------
 CANONICAL_UNITS=(
     "audiobook.target"
@@ -156,10 +162,16 @@ CONFIG_CANONICAL_DEFAULTS=(
 
 # ---------------------------------------------------------------------------
 # Optional credential files for the *_FILE pointer pattern (v8.4.0.0+).
-# install.sh / upgrade.sh create empty 0600 stubs at these paths so operators
-# can populate them via `echo "secret" | sudo tee <path>` and then point
-# audiobooks.conf at the file via SMTP_PASS_FILE / AUDIOBOOKS_DEEPL_API_KEY_FILE
-# / AUDIOBOOKS_RUNPOD_API_KEY_FILE. Format: <path>|<owner>:<group>|<mode>|<env-var-name>
+# SINGLE CANONICAL DEFINITION SITE (Audiobook-Manager-be6): install.sh,
+# upgrade.sh, and scripts/reconcile-filesystem.sh all derive their stub
+# creation / permission reconciliation from this array — never hardcode the
+# stub names anywhere else. install.sh / upgrade.sh create empty stubs at
+# these paths so operators can populate them via
+# `echo "secret" | sudo tee <path>` and then point audiobooks.conf at the
+# file via the env var named in the fourth field (SMTP_PASS_FILE /
+# AUDIOBOOKS_DEEPL_API_KEY_FILE / AUDIOBOOKS_RUNPOD_API_KEY_FILE /
+# CLOUDFLARE_PURGE_TOKEN_FILE).
+# Format: <path>|<owner>:<group>|<mode>|<env-var-name>
 # ---------------------------------------------------------------------------
 OPTIONAL_CREDENTIAL_FILES=(
     "${CONFIG_DIR}/smtp-pass|audiobooks:audiobooks|0600|SMTP_PASS_FILE"
@@ -167,7 +179,3 @@ OPTIONAL_CREDENTIAL_FILES=(
     "${CONFIG_DIR}/runpod-api-key|audiobooks:audiobooks|0600|AUDIOBOOKS_RUNPOD_API_KEY_FILE"
     "${CONFIG_DIR}/cloudflare-purge-token|audiobooks:audiobooks|0600|CLOUDFLARE_PURGE_TOKEN_FILE"
 )
-
-# NOTE: install.sh and upgrade.sh each hardcode their own copy of the stub-name
-# list rather than deriving it from this array, so a new entry here must also be
-# added in both places. Tracked as Audiobook-Manager-be6.

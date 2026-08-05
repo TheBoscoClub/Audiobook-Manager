@@ -1596,21 +1596,35 @@ CFEOF
         echo "  Created: $cf_token_file (edit to enable CDN cache purge)"
     fi
 
-    # Create empty 0600 stub credential files for the *_FILE pointer pattern.
+    # Create empty stub credential files for the *_FILE pointer pattern.
     # Operators can populate via:
     #   echo "secret" | sudo tee /etc/audiobooks/<name> >/dev/null
     # then point audiobooks.conf at the file via SMTP_PASS_FILE / etc. Never
     # overwrites existing operator-populated files.
-    # Keep in sync with OPTIONAL_CREDENTIAL_FILES in scripts/install-manifest.sh
-    # and the matching loop in upgrade.sh (see Audiobook-Manager-be6).
-    local stub_name stub_path
-    for stub_name in smtp-pass deepl-api-key runpod-api-key cloudflare-purge-token; do
-        stub_path="${CONFIG_DIR}/${stub_name}"
-        if [[ ! -f "$stub_path" ]]; then
-            sudo install -m 0600 -o audiobooks -g audiobooks /dev/null "$stub_path"
-            echo "  Created: $stub_path (empty stub — populate to enable *_FILE pointer)"
-        fi
-    done
+    # Single canonical definition site: OPTIONAL_CREDENTIAL_FILES in
+    # scripts/install-manifest.sh (path|owner:group|mode|env-var-name) —
+    # sourced in a subshell so the manifest's other arrays stay out of this
+    # scope (see Audiobook-Manager-be6).
+    local stub_manifest="${SCRIPT_DIR}/scripts/install-manifest.sh"
+    if [[ -f "$stub_manifest" ]]; then
+        local stub_path stub_owner stub_mode _stub_envvar
+        while IFS='|' read -r stub_path stub_owner stub_mode _stub_envvar; do
+            [[ -z "$stub_path" ]] && continue
+            if [[ ! -f "$stub_path" ]]; then
+                sudo install -m "$stub_mode" -o "${stub_owner%%:*}" -g "${stub_owner##*:}" /dev/null "$stub_path"
+                echo "  Created: $stub_path (empty stub — populate to enable *_FILE pointer)"
+            fi
+        done < <(
+            LIB_DIR="$APP_DIR" \
+                STATE_DIR="/var/lib/audiobooks" \
+                LOG_DIR="/var/log/audiobooks" \
+                CONFIG_DIR="$CONFIG_DIR" \
+                bash -c 'source "$1" && printf "%s\n" "${OPTIONAL_CREDENTIAL_FILES[@]}"' _ \
+                "$stub_manifest"
+        )
+    else
+        echo -e "${YELLOW}  Warning: ${stub_manifest} not found — skipping credential stub creation${NC}"
+    fi
 
     # Initialize auth database directory
     sudo mkdir -p "/var/lib/audiobooks"
@@ -1832,6 +1846,20 @@ EOF
                     sudo sed -i "s|RequiresMountsFor=\(.*\)|RequiresMountsFor=\1 ${data_dir}|" "$api_service"
                     echo "  Patched: audiobook-api.service RequiresMountsFor += ${data_dir}"
                 fi
+            fi
+
+            # Optional hardened-secrets drop-in: only when the operator's
+            # derive-service-secret tool is present on this host. The stock
+            # unit works without it via the /etc/audiobooks *_FILE pointer
+            # stubs. See systemd/audiobook-api-derive-secrets.conf.example.
+            local derive_dropin_src="${SCRIPT_DIR}/systemd/audiobook-api-derive-secrets.conf.example"
+            local derive_dropin_dir="${SYSTEMD_DIR}/audiobook-api.service.d"
+            if [[ -x /usr/bin/derive-service-secret ]] && [[ -f "$derive_dropin_src" ]]; then
+                sudo mkdir -p "$derive_dropin_dir"
+                sudo install -m 0644 "$derive_dropin_src" "${derive_dropin_dir}/derive-secrets.conf"
+                echo "  Installed: ${derive_dropin_dir}/derive-secrets.conf (derive-service-secret detected)"
+            else
+                echo "  Skipped derive-secrets drop-in: /usr/bin/derive-service-secret not present (stock *_FILE pointer files under ${CONFIG_DIR} remain in use)"
             fi
         fi
 
