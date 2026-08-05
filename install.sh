@@ -918,6 +918,11 @@ verify_installation_permissions() {
         [[ -d "$APP_DIR/library/audible-venv/bin" ]] && sudo find "$APP_DIR/library/audible-venv/bin" -type f -exec chmod 755 {} +
         # Sensitive files: tighter modes
         [[ -f "${CERT_DIR:-/etc/audiobooks/certs}/server.key" ]] && sudo chmod 640 "${CERT_DIR:-/etc/audiobooks/certs}/server.key"
+        # The certificate is public, but 0755 (world-writable-looking, and
+        # executable for no reason) is not the mode it should be installed
+        # with. Generation sets 0644; this pass fixes a cert that arrived
+        # under a permissive umask or from a mode-preserving copy.
+        [[ -f "${CERT_DIR:-/etc/audiobooks/certs}/server.crt" ]] && sudo chmod 644 "${CERT_DIR:-/etc/audiobooks/certs}/server.crt"
         [[ -f /var/lib/audiobooks/auth.key ]] && sudo chmod 600 /var/lib/audiobooks/auth.key
         [[ -f /var/lib/audiobooks/auth.db ]] && sudo chmod 640 /var/lib/audiobooks/auth.db
         echo -e "${GREEN}OK${NC}"

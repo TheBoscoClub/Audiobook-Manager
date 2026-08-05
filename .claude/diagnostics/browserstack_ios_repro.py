@@ -51,13 +51,13 @@ from pathlib import Path
 
 import pyotp
 from selenium import webdriver
-from selenium.webdriver.common.options import ArgOptions
 from selenium.common.exceptions import (
-    TimeoutException,
     NoSuchElementException,
+    TimeoutException,
     WebDriverException,
 )
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.options import ArgOptions
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 

@@ -139,6 +139,8 @@ class TestMigrateDryRun:
     def setup_method(self):
         self.tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         self.db_path = self.tmp.name
+        # The wrapper owns an open fd; the DB is reopened by path below.
+        self.tmp.close()
         self.conn = create_test_db(self.db_path)
 
     def teardown_method(self):
@@ -181,6 +183,8 @@ class TestNarratorExclusions:
     def setup_method(self):
         self.tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         self.db_path = self.tmp.name
+        # The wrapper owns an open fd; the DB is reopened by path below.
+        self.tmp.close()
         self.conn = create_test_db(self.db_path)
 
     def teardown_method(self):
@@ -235,6 +239,8 @@ class TestNarratorDedup:
     def setup_method(self):
         self.tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         self.db_path = self.tmp.name
+        # The wrapper owns an open fd; the DB is reopened by path below.
+        self.tmp.close()
         self.conn = create_test_db(self.db_path)
 
     def teardown_method(self):
@@ -266,6 +272,8 @@ class TestEmptySortNameSkip:
     def setup_method(self):
         self.tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         self.db_path = self.tmp.name
+        # The wrapper owns an open fd; the DB is reopened by path below.
+        self.tmp.close()
         self.conn = create_test_db(self.db_path)
 
     def teardown_method(self):
@@ -303,6 +311,7 @@ class TestMainBlock:
         """Lines 255-273: __main__ with --db-path runs migration."""
         tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         db_path = tmp.name
+        tmp.close()  # wrapper fd is not needed; the DB is opened by path
         conn = create_test_db(db_path)
         conn.execute(
             "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, ?, ?)",
@@ -335,6 +344,7 @@ class TestMainBlock:
         """Lines 260-261: __main__ with --dry-run flag."""
         tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         db_path = tmp.name
+        tmp.close()  # wrapper fd is not needed; the DB is opened by path
         conn = create_test_db(db_path)
         conn.execute(
             "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, ?, ?)",

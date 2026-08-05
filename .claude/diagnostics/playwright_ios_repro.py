@@ -31,7 +31,8 @@ from datetime import datetime
 from pathlib import Path
 
 import pyotp
-from playwright.sync_api import sync_playwright, TimeoutError as PWTimeout
+from playwright.sync_api import TimeoutError as PWTimeout
+from playwright.sync_api import sync_playwright
 
 # Arch/CachyOS ships `flite` without the six voice libs WebKit links against
 # (libflite_cmu_us_awb.so.1 etc.). /usr/local/lib contains compatibility

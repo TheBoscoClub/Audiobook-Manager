@@ -29,6 +29,7 @@ cp -rf source dest          # NOT: cp -r source dest
 ```
 
 Other prompting commands:
+
 - `scp` / `ssh` — use `-o BatchMode=yes`
 - `apt-get` — use `-y`
 - `brew` — use `HOMEBREW_NO_AUTO_UPDATE=1`

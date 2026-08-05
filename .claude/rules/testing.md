@@ -46,6 +46,7 @@ sudo -E -u audiobooks env PYTHONPATH=/opt/audiobooks/library/venv/lib/python3.14
 This contrasts with the general `/test` cleanup logic in `~/.claude/skills/test-phases/phase-11-cleanup.md` which preserves VMs `/test` did not start (the assumption is that some other workload may need them). That logic is correct for shared VMs but wrong for Audiobook-Manager's exclusive test VM.
 
 **Authoritative source**: `~/.claude/config/project-vm-map.json` carries `"post_test_restore": true` for both:
+
 - `vms.test-audiobook-cachyos` (the VM)
 - `projects.Audiobook-Manager` (the project mapping)
 
@@ -62,6 +63,7 @@ This contrasts with the general `/test` cleanup logic in `~/.claude/skills/test-
 **Implementation**: phase-11-cleanup.md reads `project-vm-map.json` for the current project; if any matching VM entry carries `post_test_restore: true`, the cleanup runs `virsh shutdown` unconditionally — overriding the "leave it running if /test didn't start it" default.
 
 **Verification at end of every /test run on this project**:
+
 ```bash
 sudo virsh domstate test-audiobook-cachyos  # must be "shut off"
 ```

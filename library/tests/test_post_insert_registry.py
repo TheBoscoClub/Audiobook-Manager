@@ -17,7 +17,6 @@ function. These tests assert:
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
-
 EXPECTED_HOOK_LABELS = [
     "Enrichment",
     "Verification",

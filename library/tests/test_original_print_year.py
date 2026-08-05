@@ -43,7 +43,6 @@ from scripts.original_print_year import (  # noqa: E402
     populate_original_publish_year,
 )
 
-
 # ============================================================
 # Fixtures
 # ============================================================

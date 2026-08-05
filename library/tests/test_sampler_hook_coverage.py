@@ -22,7 +22,6 @@ sys.path.insert(0, str(LIBRARY_DIR))
 
 from scanner.utils.sampler_hook import enqueue_sampler_for_new_book  # noqa: E402
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

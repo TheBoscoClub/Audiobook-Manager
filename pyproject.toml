@@ -1,4 +1,4 @@
-# Canonical formatter: ruff format (CI-enforced).
+# Canonical formatter AND import sorter: ruff (CI-enforced).
 #
 # Rationale for ruff-only:
 #
@@ -24,27 +24,17 @@
 #   `ruff check` (gate added 2026-08-05, bd Audiobook-Manager-3ed, after
 #   reformatting the drifted files). Ruff 0.16+ also formats Python code
 #   blocks embedded in Markdown, so docs are covered by the same gate.
-# - Black is NOT run as part of verification. Its config here exists only
-#   as a floor for ad-hoc developer invocations; it is not enforced.
-# - `ruff check` handles lint; `ruff format` handles formatting. Both are
-#   configured with `line-length = 100`.
+# - `ruff check` handles lint (including import sorting via the `I` rules);
+#   `ruff format` handles formatting. Both use `line-length = 100`.
+# - Black and isort are deliberately NOT installed and NOT configured here.
+#   A config block for an unenforced formatter is worse than none: it reads
+#   as project policy while CI runs something else, and running it would
+#   have reformatted 134 files straight through the `ruff format --check`
+#   gate. Both tools were removed from library/requirements-dev.txt for the
+#   same reason (Single Canonical Source).
 #
 # If a future Black release fixes the trailing-comment handling AND the
 # comment-deletion bug, re-evaluate adding `black --check` to CI.
-
-[tool.black]
-line-length = 100
-target-version = ["py314"]
-skip-string-normalization = false
-skip-magic-trailing-comma = true
-extend-exclude = '''
-/(
-    venv
-  | \.snapshots
-  | \.btrbk-snapshots
-  | library/certs
-)/
-'''
 
 [tool.ruff]
 line-length = 100
@@ -63,8 +53,11 @@ skip-magic-trailing-comma = false
 line-ending = "auto"
 
 [tool.ruff.lint]
-# Matches the ruff-action defaults used by CI.
-select = ["E", "F", "W"]
+# E/F/W match the ruff-action defaults used by CI. `I` (isort) is the
+# canonical import-sorting rule set — it replaced the dead `[tool.isort]`
+# block, which configured a tool no workflow, script or audit phase ever
+# invoked, so import order had gone unchecked everywhere.
+select = ["E", "F", "W", "I"]
 ignore = [
     # E501 (line too long) is handled by `ruff format`; do not double-report.
     "E501",
@@ -83,10 +76,6 @@ ignore = [
 #   full paths are not possible because paths differ across dev/test/CI environments.
 # S608 SQL string: tests use controlled fixture DBs, no user-controlled input.
 "library/tests/**" = ["S101", "S104", "S105", "S106", "S108", "S110", "S112", "S310", "S603", "S607", "S608"]
-
-[tool.isort]
-profile = "black"
-line_length = 100
 
 [tool.mypy]
 # Canonical mypy config. This was previously split across a gitignored mypy.ini
@@ -116,14 +105,35 @@ ignore_errors = true
 # so it flags false positives for the `connect` and `DatabaseError` members
 # (both of which exist at runtime — verified via `hasattr(sqlcipher3, ...)`).
 generated-members = ["sqlcipher3.connect", "sqlcipher3.DatabaseError"]
-# Modules pylint cannot resolve statically:
-#   sqlcipher3 — C extension (see above)
-#   torch, whisper — GPU-only deps, imported lazily in whisper_gpu_service.py
-#   fido2.* — optional WebAuthn dep, imported lazily in tests
-#   library.localization.* — relative package layout not on pylint's default path
-#   api_modular, conftest, database, models, name_parser, i18n, operation_status,
-#   add_new_audiobooks, proxy_server, utils.openlibrary_client — test/script
-#   sys.path manipulation before import (handled by conftest or script bootstrap).
+# WHAT THIS OPTION ACTUALLY DOES
+# ------------------------------
+# `ignored-modules` belongs to pylint's *typecheck* checker: it suppresses
+# **no-member (E1101)** for attributes accessed on the listed modules. It does
+# NOT suppress import-error (E0401) — the comment here previously read
+# "Modules pylint cannot resolve statically", which describes import
+# resolution and is the wrong mechanism. An unresolvable import is silenced by
+# fixing sys.path / an `# pylint: disable=import-error`, never by this list.
+#
+# WHY THE ENTRIES STAY
+# --------------------
+# Kept as-is rather than pruned. Pylint is NOT CI-gated in this project (no
+# workflow invokes it; ruff + mypy are the gates), so an entry that turns out
+# to be inert costs nothing, while removing one that IS doing work would
+# reintroduce E1101 noise in the next ad-hoc `pylint` run with no test to
+# catch it. Accuracy of the description is the fix here, not curation of the
+# list. The two categories present:
+#
+#   Genuinely dynamic at runtime — no-member is a real false positive:
+#     sqlcipher3 (C extension), torch / whisper (GPU-only, imported lazily in
+#     whisper_gpu_service.py), fido2.* (optional WebAuthn dep), gevent,
+#     mutagen.
+#
+#   Resolved via sys.path manipulation before import (conftest or a script
+#   bootstrap), so pylint analyses them without their package context and
+#   infers members incompletely:
+#     library.localization.*, api_modular, conftest, database, models,
+#     name_parser, i18n, operation_status, add_new_audiobooks, proxy_server,
+#     utils.openlibrary_client.
 ignored-modules = [
     "sqlcipher3",
     "torch",

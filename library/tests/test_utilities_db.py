@@ -293,17 +293,26 @@ class TestExportDatabase:
         with flask_app.test_client() as client:
             response = client.get("/api/utilities/export-db")
 
-        assert response.status_code == 200
-        assert response.mimetype == "application/x-sqlite3"
-        assert "attachment" in response.headers.get("Content-Disposition", "")
+        try:
+            assert response.status_code == 200
+            assert response.mimetype == "application/x-sqlite3"
+            assert "attachment" in response.headers.get("Content-Disposition", "")
+        finally:
+            # send_file hands back a lazily-read file object. A real WSGI
+            # server consumes and closes it; the test client does not, so the
+            # test must — otherwise the fd survives as a ResourceWarning.
+            response.close()
 
     def test_export_db_filename(self, flask_app):
         """Test export includes correct filename."""
         with flask_app.test_client() as client:
             response = client.get("/api/utilities/export-db")
 
-        disposition = response.headers.get("Content-Disposition", "")
-        assert "audiobooks.db" in disposition
+        try:
+            disposition = response.headers.get("Content-Disposition", "")
+            assert "audiobooks.db" in disposition
+        finally:
+            response.close()
 
 
 class TestExportJson:
