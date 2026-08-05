@@ -133,7 +133,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   in CI only because selenium is absent there and `--ignore-missing-imports` degrades `By` to
   `Any`. Now `[assignment,misc]`, matching the playwright fallback on line 64
 
+- **Leaked database and HTTP connections in long-lived workers**: five `maintenance_tasks`
+  connected to SQLite outside `try/finally` under a bare `except Exception: return`, leaking the
+  handle and file lock on any failure inside a persistent API worker; `translation_monitor.db`'s
+  `connect()` was used with a `with` block, but `sqlite3`'s `__exit__` only ends the transaction and
+  leaves the connection open, so both monitor scripts leaked one connection per timer tick; six
+  enrichment/GPU/purge paths never closed their `HTTPError` objects. All now use
+  `contextlib.closing()` or a proper `connection()` context manager — the full suite runs clean
+  under `-W error::ResourceWarning` (was 21 warnings)
+
+- **Version pins and dependency floors resynced with durable guards**: `docker-compose.yml` (what
+  `docker compose up` actually pulls) was six releases stale and `install-manifest.json` eight — the
+  manifest drift a recurrence of a previously-fixed incident. Both corrected to `8.4.2.0`, and a new
+  `test_version_pin_consistency.py` asserts compose/manifest/`Dockerfile`/README all equal `VERSION`
+  so the test is the durable fix. `requirements-dev.txt` now declares `radon` explicitly (it was
+  installed-but-undeclared, silently forcing `mando` below the file's own floor) and caps `mando`
+  to `>=0.7.1,<0.8` to match radon; migration `014` gained its missing executable bit
+
 ### Security
+
+- **Static file server no longer exposes dotfiles or source**: `proxy_server.py::_serve_static`
+  served any file resolving inside the web root, so `.claude-session-ring.jsonl` (a raw session
+  transcript deposited by `upgrade.sh`'s rsync, which excluded `.claude` the directory but not
+  `.claude*` files) was fetchable over HTTPS, along with `*.py`, `*.conf.py`, `node_modules/`, and
+  `package*.json`. The server now refuses dotfiles and those patterns at any depth (404), and
+  `upgrade.sh` gained a canonical `_NEVER_SHIP_EXCLUDES` set (`.claude*`, `SESSION_RECORD*`,
+  `.test-sandbox`, `.snapshots`) applied at every rsync site — verified by a real rsync, since a
+  string comparison cannot distinguish `.claude` from `.claude*`
+
+- **Reverse-proxy trust boundary**: the WSGI proxy forwarded client-supplied `X-Forwarded-For`
+  verbatim and the API's `@localhost_only`/`@admin_or_localhost` decorators read its left-most
+  entry — so `X-Forwarded-For: 127.0.0.1` from anywhere on the network passed the localhost gate
+  (inert on this host, since every proxied request already presents as loopback). The proxy now
+  re-authors `X-Forwarded-For`/`X-Real-IP`/`X-Forwarded-Proto`/`Host` from the real socket peer and
+  strips client values; the decorators trust a forwarded address only when the socket peer is
+  loopback (exactly one hop — our proxy), via the new `common.is_loopback_address()`
+
+- **Logout no longer silently re-issues the session cookie**: the `after_app_request` renewal hook
+  added earlier this release fired on the logout response and, seeing a persistent session with a
+  `NULL` `expires_at`, appended a second `Set-Cookie` re-issuing a 400-day token after logout had
+  just cleared it. `Session.invalidate()` now flags the row so the hook skips it, and
+  `create_for_user()` writes `expires_at` at creation (also closing the related "persistent sessions
+  with `NULL` horizon never expire" gap)
+
+- **Auth endpoints are now rate-limited**: a per-`(client address, username)` sliding-window limiter
+  (`rate_limit.py`) locks out `login`, `webauthn/complete`, and `backup-code` after repeated
+  failures, closing unbounded brute-forcing of the 6-digit TOTP space. Worker-local by design and
+  documented as such (`audiobook-api` runs a single gunicorn worker, so the window is effectively
+  global today)
+
+- **Hardcoded TOTP seeds removed from tests**: three functional base32 seeds for `testadmin` lived
+  as default values in public test files. They now come from an env-gated helper with no default
+  (clean skip when unset). The seeds remain in git history and cannot be scrubbed from a published
+  repo — any VM still provisioned with them must re-seed `testadmin`
+
+- **Compensating control for the global bandit `B608` skip**: because `.bandit` skips `B608`
+  project-wide, new interpolated-SQL f-strings could never be flagged — and a new AST guard
+  (`test_source_guards.py`) found 7 real unannotated sites the skip had hidden. All 7 were audited
+  safe and annotated; the guard now fails CI on any new interpolated SQL lacking `# nosec B608`
+
+- **Backup databases hardened and info-leak surfaces closed**: `upgrade.sh::create_backup` now
+  `chmod 640` all backup `*.db`/`-wal`/`-shm` (was inheriting `0644` via `cp -a`); the proxy no
+  longer returns `str(e)` in 500/503 bodies, suppresses its `Server:` header, and sets an explicit
+  upstream `Host`; installer/upgrade cert-permission passes now normalize `server.crt` to `0644`
 
 - **Credential scan covers the full push range**: the `Check for hardcoded credentials` step in
   `security-checks.yml` scanned only `HEAD~1`, missing earlier commits in a multi-commit push — now
