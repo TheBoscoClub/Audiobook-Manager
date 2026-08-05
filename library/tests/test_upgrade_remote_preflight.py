@@ -98,8 +98,7 @@ get_version() { echo "8.4.2.0"; }
         """generate_preflight (what --check does) in the same dir satisfies the gate."""
         result = self._run(
             tmp_path,
-            'generate_preflight "{project}" "{target}"\n'
-            'validate_preflight "{project}"\n',
+            'generate_preflight "{project}" "{target}"\nvalidate_preflight "{project}"\n',
         )
         assert result.returncode == 0, result.stdout + result.stderr
         assert PREFLIGHT_ABORT not in result.stdout
