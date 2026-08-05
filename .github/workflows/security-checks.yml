@@ -74,8 +74,16 @@ jobs:
           PATTERN='(api.?key|password|token|secret).*=.*["'"'"'][a-zA-Z0-9]{16,}["'"'"']'
           # Diff to a file first so a git failure fails the step instead of
           # being swallowed by an empty pipe into grep.
+          #
+          # ADDED lines only (`git diff` emits both `+added` and `-removed`).
+          # Scanning removed lines would make it impossible to ever delete a
+          # previously-committed secret: the removal shows the string in the
+          # diff and the scan would fail forever. We flag what a push INTRODUCES,
+          # not what it takes away. The `^+` filter excludes the `+++ b/file`
+          # header line via the second grep.
           git diff "$DIFF_RANGE" -- . ':(exclude).beads/' \
-            > "$RUNNER_TEMP/credential-scan.diff"
+            | grep -E '^\+' | grep -vE '^\+\+\+' \
+            > "$RUNNER_TEMP/credential-scan.diff" || true
           if grep -iE "$PATTERN" "$RUNNER_TEMP/credential-scan.diff"; then
             echo "ERROR: Potential hardcoded credential detected"
             exit 1
@@ -122,7 +130,11 @@ jobs:
 
           # Check for logging credentials across the same push/PR range
           LOG_PATTERN='(print|echo|console\.log|logger).*\$?(API_KEY|PASSWORD|TOKEN|SECRET)'
-          git diff "$DIFF_RANGE" > "$RUNNER_TEMP/logging-scan.diff"
+          # ADDED lines only — same reasoning as the credential scan above:
+          # removing a dangerous log line must not fail the check.
+          git diff "$DIFF_RANGE" \
+            | grep -E '^\+' | grep -vE '^\+\+\+' \
+            > "$RUNNER_TEMP/logging-scan.diff" || true
           if grep -iE "$LOG_PATTERN" "$RUNNER_TEMP/logging-scan.diff"; then
             echo "WARNING: Code may log sensitive data"
           fi
