@@ -4,7 +4,8 @@ A prior bug in `localization/queue._get_db()` called `sqlite3.connect(str(_db_pa
 without verifying `_db_path` was initialized. When `_db_path is None`, `str(None)`
 evaluates to the literal string ``"None"`` and SQLite happily creates a database
 file at that path. When `enqueue_book_all_locales()` was invoked from the
-`_run_post_insert_hooks` path during test runs, the cwd was `library/`, so a
+post-insert hook path (now `scanner.post_insert.run_post_insert_hooks`)
+during test runs, the cwd was `library/`, so a
 stray empty `library/None` SQLite file appeared.
 
 The fix raises ``RuntimeError`` in `_get_db()` when `_db_path` is ``None``. This

@@ -25,7 +25,8 @@ from scanner.metadata_utils import (
 from scanner.metadata_utils import (
     get_file_metadata as _get_file_metadata,  # Re-export for backwards compatibility with tests
 )
-from scanner.utils.constants import SUPPORTED_FORMATS, is_cover_art_file
+from scanner.utils.canonical import iter_canonical_audiobook_files
+from scanner.utils.constants import SUPPORTED_FORMATS
 
 # Re-export for backwards compatibility with tests
 __all__ = [
@@ -154,32 +155,6 @@ class ProgressTracker:
 # =============================================================================
 
 
-def _collect_files_by_format(base_dir: Path, formats: list[str]) -> list[Path]:
-    """Collect all audio files across formats, printing per-format counts.
-
-    Excludes anything under a ``translated/`` subdirectory — those are
-    per-chapter translation artifacts (e.g. ``Book.ch001.zh-Hans.opus``)
-    that are regenerable from the canonical source and must never be
-    ingested as standalone audiobooks. See Audiobook-Manager-2sw.
-    """
-    all_files = []
-    for ext in formats:
-        files = [f for f in base_dir.rglob(f"*{ext}") if "translated" not in f.parts]
-        print(f"  Found {len(files)} {ext} files")
-        all_files.extend(files)
-    return all_files
-
-
-def _filter_cover_art(all_files: list[Path]) -> list[Path]:
-    """Filter out cover art files, printing count if any removed."""
-    original_count = len(all_files)
-    audiobook_files = [f for f in all_files if not is_cover_art_file(f)]
-    filtered_count = original_count - len(audiobook_files)
-    if filtered_count > 0:
-        print(f"  Filtered out {filtered_count} cover art files")
-    return audiobook_files
-
-
 def _deduplicate_library_files(audiobook_files: list[Path]) -> list[Path]:
     """Deduplicate: prefer main Library over /Library/Audiobook/."""
     main_library = [f for f in audiobook_files if "/Library/Audiobook/" not in str(f)]
@@ -202,10 +177,17 @@ def find_audiobook_files(base_dir: Path, formats: list[str]) -> list[Path]:
     """
     Find all audiobook files, filtering covers and deduplicating.
 
+    Canonical file discovery (cover-art and ``translated/`` chapter-artifact
+    exclusions) is delegated to ``iter_canonical_audiobook_files`` — the
+    single authoritative iterator. See Audiobook-Manager-2sw /
+    Audiobook-Manager-6cx.
+
     Returns list of unique audiobook file paths.
     """
-    all_files = _collect_files_by_format(base_dir, formats)
-    audiobook_files = _filter_cover_art(all_files)
+    audiobook_files: list[Path] = list(iter_canonical_audiobook_files(base_dir, formats=formats))
+    for ext in formats:
+        count = sum(1 for f in audiobook_files if f.suffix == ext)
+        print(f"  Found {count} {ext} files")
     return _deduplicate_library_files(audiobook_files)
 
 

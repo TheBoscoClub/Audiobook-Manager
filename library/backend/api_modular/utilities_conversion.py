@@ -185,25 +185,19 @@ def get_system_stats() -> dict:
 def _count_opus_files(directory: Path) -> int:
     """Count CANONICAL audiobook opus files in a directory.
 
-    Excludes:
-      - ``*.cover.opus`` cover-art derivatives
-      - Anything under a ``translated/`` subdirectory — those are per-chapter
-        translation artifacts (e.g. ``{Book}.ch004.zh-Hans.opus``) generated
-        by the chapter-translation pipeline. Counting them inflated the
-        Conversion Progress card to absurd values: prod 2026-05-02 showed
-        5,829 'in library' for 1,867 actual books (1867 base + 3962 chapter
-        translation files). See Audiobook-Manager-94p.
+    Delegates to ``scanner.utils.canonical.iter_canonical_audiobook_files``
+    — the single authoritative iterator that excludes cover-art sidecars and
+    ``translated/`` chapter artifacts. Counting the artifacts inflated the
+    Conversion Progress card to absurd values: prod 2026-05-02 showed 5,829
+    'in library' for 1,867 actual books (1867 base + 3962 chapter translation
+    files). See Audiobook-Manager-94p / Audiobook-Manager-6cx.
     """
-    if not directory.exists():
-        return 0
-    count = 0
-    for f in directory.rglob("*.opus"):
-        if f.name.endswith(".cover.opus"):
-            continue
-        if "translated" in f.parts:
-            continue
-        count += 1
-    return count
+    # Lazy import: the scanner package resolves via the project root that
+    # init_conversion_routes() puts on sys.path (same pattern as
+    # collections.py's categorize_genre import).
+    from scanner.utils.canonical import iter_canonical_audiobook_files
+
+    return sum(1 for _ in iter_canonical_audiobook_files(directory, formats=[".opus"]))
 
 
 def _get_remaining_count(sources_dir: Path, aaxc_count: int, total_converted: int) -> int:

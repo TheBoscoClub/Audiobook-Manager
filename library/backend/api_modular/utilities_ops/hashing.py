@@ -112,26 +112,23 @@ def _checksum_first_mb(filepath):
 def _collect_checksum_files(sources_dir, library_dir):
     """Collect source and library files for checksumming.
 
+    Library files are canonical audiobook ``.opus`` only, enumerated by
+    ``scanner.utils.canonical.iter_canonical_audiobook_files`` — the single
+    authoritative iterator that excludes cover-art sidecars and
+    ``translated/`` chapter artifacts (regenerable per-chapter translation
+    files; checksumming them serves no integrity purpose since they're
+    rebuilt from the canonical source). See Audiobook-Manager-94p /
+    Audiobook-Manager-6cx.
+
     Returns:
         Tuple of (source_files, library_files).
     """
+    # Lazy import: the scanner package resolves via the project root the API
+    # puts on sys.path (same pattern as collections.py's categorize_genre).
+    from scanner.utils.canonical import iter_canonical_audiobook_files
+
     source_files = list(sources_dir.rglob("*.aaxc")) if sources_dir.exists() else []
-    # Library files: canonical audiobook .opus only. Exclude .cover.opus cover-
-    # art derivatives AND anything under a translated/ subdirectory (those are
-    # regenerable per-chapter translation artifacts; checksumming them serves
-    # no integrity purpose since they're rebuilt from the canonical source).
-    # Same exclusion as utilities_conversion._count_opus_files. See
-    # Audiobook-Manager-94p — translated chapters were also inflating the
-    # checksum file list.
-    library_files = (
-        [
-            f
-            for f in library_dir.rglob("*.opus")
-            if not f.name.endswith(".cover.opus") and "translated" not in f.parts
-        ]
-        if library_dir.exists()
-        else []
-    )
+    library_files = list(iter_canonical_audiobook_files(library_dir, formats=[".opus"]))
     return source_files, library_files
 
 

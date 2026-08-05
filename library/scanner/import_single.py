@@ -19,7 +19,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # Import shared utilities
 from config import COVER_DIR, DATABASE_PATH
 from scanner.metadata_utils import extract_cover_art, get_file_metadata
-from scanner.utils.constants import SUPPORTED_FORMATS, is_cover_art_file
+from scanner.utils.canonical import iter_canonical_audiobook_files
+from scanner.utils.constants import SUPPORTED_FORMATS
 from scanner.utils.db_helpers import (
     ALLOWED_LOOKUP_TABLES,
     get_or_create_lookup_id,
@@ -69,11 +70,15 @@ def _get_verify_module() -> Callable[..., Any] | None:
 
 
 def _find_audio_files(dir_path: Path) -> list[Path]:
-    """Find audio files in directory, filtering out cover art."""
-    audio_files: list[Path] = []
-    for ext in SUPPORTED_FORMATS:
-        audio_files.extend(dir_path.rglob(f"*{ext}"))
-    return [f for f in audio_files if not is_cover_art_file(f)]
+    """Find canonical audio files in directory.
+
+    Delegates to ``iter_canonical_audiobook_files`` — the single authoritative
+    iterator (Audiobook-Manager-6cx). Besides cover-art sidecars, this also
+    excludes ``translated/`` chapter artifacts, so re-importing a directory
+    that already carries translations can never ingest them as standalone
+    audiobooks (Audiobook-Manager-2sw).
+    """
+    return list(iter_canonical_audiobook_files(dir_path))
 
 
 def _get_existing_paths_for_dir(cursor, audio_files: list[Path]) -> set[str]:

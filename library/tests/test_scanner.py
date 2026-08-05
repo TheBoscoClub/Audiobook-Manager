@@ -20,17 +20,18 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 # =============================================================================
 
 
-class TestCollectAudioFilesExclusions:
+class TestCanonicalIteratorExclusions:
     """Regression guard for Audiobook-Manager-2sw — scanner ingested
     ``translated/`` chapter artifacts as standalone audiobook rows.
 
-    ``add_new_audiobooks._collect_audio_files`` MUST exclude:
+    ``scanner.utils.canonical.iter_canonical_audiobook_files`` is the single
+    authoritative iterator (Audiobook-Manager-6cx) and MUST exclude:
     - ``.cover.<ext>`` cover-art sidecars
     - Anything under a ``translated/`` subdirectory
     """
 
     def test_excludes_translated_subdir(self):
-        from scanner.add_new_audiobooks import _collect_audio_files
+        from scanner.utils.canonical import iter_canonical_audiobook_files
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -41,10 +42,10 @@ class TestCollectAudioFilesExclusions:
             translated.mkdir()
             (translated / "Book.ch001.zh-Hans.opus").touch()
 
-            result = _collect_audio_files(root)
+            result = list(iter_canonical_audiobook_files(root))
             names = [f.name for f in result]
             assert names == ["Book.opus"], (
-                f"_collect_audio_files should exclude translated/ chapter artifacts, got {names}"
+                f"iterator should exclude translated/ chapter artifacts, got {names}"
             )
 
     def test_book_titled_Translated_not_excluded(self):
@@ -52,7 +53,7 @@ class TestCollectAudioFilesExclusions:
         'Translated' (e.g. ``The Translated Soldier``) MUST still be
         ingested. Only directories NAMED ``translated`` are excluded —
         ``Path.parts`` membership, not substring match."""
-        from scanner.add_new_audiobooks import _collect_audio_files
+        from scanner.utils.canonical import iter_canonical_audiobook_files
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -61,12 +62,12 @@ class TestCollectAudioFilesExclusions:
             book.mkdir(parents=True)
             (book / "The Translated Soldier.opus").touch()
 
-            result = _collect_audio_files(root)
+            result = list(iter_canonical_audiobook_files(root))
             assert len(result) == 1
             assert result[0].name == "The Translated Soldier.opus"
 
     def test_50_chapter_translated_files_all_excluded(self):
-        from scanner.add_new_audiobooks import _collect_audio_files
+        from scanner.utils.canonical import iter_canonical_audiobook_files
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -78,13 +79,13 @@ class TestCollectAudioFilesExclusions:
             for i in range(50):
                 (translated / f"Book.ch{i:03d}.zh-Hans.opus").touch()
 
-            result = _collect_audio_files(root)
+            result = list(iter_canonical_audiobook_files(root))
             assert len(result) == 1
             assert result[0].name == "Book.opus"
 
     def test_excludes_cover_opus_alongside_translated(self):
         """Belt-and-suspenders — both filters applied together."""
-        from scanner.add_new_audiobooks import _collect_audio_files
+        from scanner.utils.canonical import iter_canonical_audiobook_files
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -96,81 +97,66 @@ class TestCollectAudioFilesExclusions:
             translated.mkdir()
             (translated / "Book.ch001.zh-Hans.opus").touch()
 
-            result = _collect_audio_files(root)
+            result = list(iter_canonical_audiobook_files(root))
             assert len(result) == 1
             assert result[0].name == "Book.opus"
 
+    def test_nonexistent_directory_yields_nothing(self):
+        from scanner.utils.canonical import iter_canonical_audiobook_files
 
-class TestScanCollectFilesByFormatExclusions:
-    """Same translated/ exclusion in ``scan_audiobooks._collect_files_by_format``.
+        result = list(iter_canonical_audiobook_files(Path("/nonexistent/path/xyz")))
+        assert result == []
 
-    Audiobook-Manager-2sw — both ingest paths (incremental adder AND full
-    rescan) must skip translated/ chapter artifacts.
+    def test_explicit_formats_restrict_extensions(self):
+        from scanner.utils.canonical import iter_canonical_audiobook_files
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            book = root / "Author" / "Book"
+            book.mkdir(parents=True)
+            (book / "Book.opus").touch()
+            (book / "Book.m4b").touch()
+
+            result = list(iter_canonical_audiobook_files(root, formats=[".opus"]))
+            assert [f.name for f in result] == ["Book.opus"]
+
+
+class TestConsumersUseCanonicalIterator:
+    """Both ingest paths (incremental adder AND full rescan) must skip
+    translated/ chapter artifacts and cover-art sidecars — verified through
+    their public entry points now that both delegate to the canonical
+    iterator (Audiobook-Manager-2sw / Audiobook-Manager-6cx).
     """
 
-    def test_excludes_translated_subdir(self):
-        from scanner.scan_audiobooks import _collect_files_by_format
+    def _make_library(self, root: Path) -> None:
+        book = root / "Author" / "Book"
+        book.mkdir(parents=True)
+        (book / "Book.m4b").touch()
+        (book / "Book.opus").touch()
+        (book / "Book.cover.opus").touch()
+        translated = book / "translated"
+        translated.mkdir()
+        (translated / "Book.ch001.zh-Hans.opus").touch()
+        (translated / "Book.ch002.zh-Hans.opus").touch()
+
+    def test_find_new_audiobooks_excludes_artifacts(self):
+        from scanner.add_new_audiobooks import find_new_audiobooks
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            book_dir = root / "Author" / "Book"
-            book_dir.mkdir(parents=True)
-            (book_dir / "Book.opus").touch()
-            translated = book_dir / "translated"
-            translated.mkdir()
-            (translated / "Book.ch001.zh-Hans.opus").touch()
+            self._make_library(root)
 
-            result = _collect_files_by_format(root, [".opus"])
-            names = [f.name for f in result]
-            assert names == ["Book.opus"]
+            result = find_new_audiobooks(root, set())
+            assert {f.name for f in result} == {"Book.m4b", "Book.opus"}
 
-    def test_book_titled_Translated_not_excluded(self):
-        from scanner.scan_audiobooks import _collect_files_by_format
+    def test_find_audiobook_files_excludes_artifacts(self):
+        from scanner.scan_audiobooks import find_audiobook_files
 
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            book = root / "Author" / "The Translated Soldier"
-            book.mkdir(parents=True)
-            (book / "The Translated Soldier.opus").touch()
+            self._make_library(root)
 
-            result = _collect_files_by_format(root, [".opus"])
-            assert len(result) == 1
-            assert result[0].name == "The Translated Soldier.opus"
-
-    def test_50_chapter_translated_files_all_excluded(self):
-        from scanner.scan_audiobooks import _collect_files_by_format
-
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            book = root / "Author" / "Book"
-            book.mkdir(parents=True)
-            (book / "Book.opus").touch()
-            translated = book / "translated"
-            translated.mkdir()
-            for i in range(50):
-                (translated / f"Book.ch{i:03d}.zh-Hans.opus").touch()
-
-            result = _collect_files_by_format(root, [".opus"])
-            assert len(result) == 1
-            assert result[0].name == "Book.opus"
-
-    def test_handles_multiple_formats_with_translated(self):
-        """Multi-format collection should also honour the exclusion."""
-        from scanner.scan_audiobooks import _collect_files_by_format
-
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            book = root / "Author" / "Book"
-            book.mkdir(parents=True)
-            (book / "Book.m4b").touch()
-            (book / "Book.opus").touch()
-            translated = book / "translated"
-            translated.mkdir()
-            (translated / "Book.ch001.zh-Hans.opus").touch()
-            (translated / "Book.ch002.zh-Hans.opus").touch()
-
-            result = _collect_files_by_format(root, [".m4b", ".opus"])
-            assert len(result) == 2
+            result = find_audiobook_files(root, [".m4b", ".opus"])
             assert {f.name for f in result} == {"Book.m4b", "Book.opus"}
 
 

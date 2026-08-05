@@ -19,14 +19,16 @@ This script:
 import sqlite3
 import sys
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 # Import shared utilities from scanner package
 from config import AUDIOBOOK_DIR, COVER_DIR, DATABASE_PATH
 from scanner.metadata_utils import extract_cover_art, get_file_metadata
-from scanner.utils.constants import SUPPORTED_FORMATS, is_cover_art_file
+from scanner.post_insert import run_post_insert_hooks
+from scanner.utils.canonical import iter_canonical_audiobook_files
+from scanner.utils.constants import SUPPORTED_FORMATS
 from scanner.utils.db_helpers import (
     ALLOWED_LOOKUP_TABLES,
     get_or_create_lookup_id,
@@ -44,44 +46,6 @@ __all__ = [
     "insert_audiobook",
 ]
 
-# Auto-enrichment and verification (imported lazily)
-_enrich_module = None
-_verify_module = None
-
-
-def _get_enrich_module() -> Callable[..., Any] | None:
-    global _enrich_module
-    if _enrich_module is None:
-        try:
-            from scripts.enrichment import enrich_book
-
-            _enrich_module = enrich_book
-        except ImportError:
-            try:
-                from scripts.enrich_single import enrich_book
-
-                _enrich_module = enrich_book
-            except ImportError:
-                _enrich_module = False
-    if not _enrich_module:
-        return None
-    return _enrich_module  # type: ignore[return-value]
-
-
-def _get_verify_module() -> Callable[..., Any] | None:
-    global _verify_module
-    if _verify_module is None:
-        try:
-            from scripts.verify_metadata import verify_single_book
-
-            _verify_module = verify_single_book
-        except ImportError:
-            _verify_module = False
-    if not _verify_module:
-        return None
-    return _verify_module  # type: ignore[return-value]
-
-
 # Progress callback type
 ProgressCallback = Optional[Callable[[int, int, str], None]]
 
@@ -96,24 +60,6 @@ def get_existing_paths(db_path: Path) -> set[str]:
     return paths
 
 
-def _collect_audio_files(library_dir: Path) -> list[Path]:
-    """Collect all audio files from library, filtering cover art and translated chapters.
-
-    Excludes:
-    - ``.cover.<ext>`` cover-art sidecars
-    - Anything under a ``translated/`` subdirectory (per-chapter translation
-      artifacts that are regenerable from the canonical source). Same
-      exclusion as ``utilities_conversion._count_opus_files`` and
-      ``utilities_ops.hashing._collect_checksum_files``. See
-      Audiobook-Manager-2sw — translated chapter files were being ingested
-      as standalone audiobooks and appearing in the library grid.
-    """
-    all_files: list[Path] = []
-    for ext in SUPPORTED_FORMATS:
-        all_files.extend(library_dir.rglob(f"*{ext}"))
-    return [f for f in all_files if not is_cover_art_file(f) and "translated" not in f.parts]
-
-
 def _deduplicate_audiobook_files(all_files: list[Path]) -> list[Path]:
     """Deduplicate: prefer main Library over /Library/Audiobook/."""
     main_files = [f for f in all_files if "/Library/Audiobook/" not in str(f)]
@@ -124,50 +70,15 @@ def _deduplicate_audiobook_files(all_files: list[Path]) -> list[Path]:
 
 
 def find_new_audiobooks(library_dir: Path, existing_paths: set[str]) -> list[Path]:
-    """Find audiobook files not already in the database."""
-    all_files = _collect_audio_files(library_dir)
+    """Find audiobook files not already in the database.
+
+    Canonical file discovery (cover-art and ``translated/`` exclusions) is
+    delegated to ``iter_canonical_audiobook_files`` — the single authoritative
+    iterator. See Audiobook-Manager-2sw / Audiobook-Manager-6cx.
+    """
+    all_files: list[Path] = list(iter_canonical_audiobook_files(library_dir))
     deduped = _deduplicate_audiobook_files(all_files)
     return [f for f in deduped if str(f) not in existing_paths]
-
-
-def _run_post_insert_hooks(audiobook_id: int, db_path: Path) -> None:
-    """Run enrichment, verification, translation, and hash hooks after a successful insert."""
-    enrich_fn = _get_enrich_module()
-    if enrich_fn and audiobook_id:
-        try:
-            enrich_fn(book_id=audiobook_id, db_path=db_path, quiet=True)
-        except Exception as e:
-            print(f"  ⚠ Enrichment error (non-fatal): {e}", file=sys.stderr)
-
-    verify_fn = _get_verify_module()
-    if verify_fn and audiobook_id:
-        try:
-            verify_fn(book_id=audiobook_id, db_path=db_path, auto_fix=True, quiet=True)
-        except Exception as e:
-            print(f"  ⚠ Verification error (non-fatal): {e}", file=sys.stderr)
-
-    if audiobook_id:
-        try:
-            from localization.queue import enqueue_book_all_locales
-
-            enqueue_book_all_locales(audiobook_id)
-        except Exception as e:
-            print(f"  ⚠ Translation queue error (non-fatal): {e}", file=sys.stderr)
-
-    # Hash auto-generation. Restored in v8.3.10.1 — newly-ingested books were
-    # being inserted without sha256_hash because the per-file hash was only
-    # computed when ``calculate_hashes=True`` was passed to ``get_file_metadata``.
-    # If the metadata path already populated ``sha256_hash``, this is an
-    # idempotent no-op (the row's current hash is overwritten with the same
-    # value). Hashing is non-fatal — a failure here must not block the insert.
-    # See Audiobook-Manager-f5e.
-    if audiobook_id:
-        try:
-            from scripts.generate_hashes import generate_hash_for_book
-
-            generate_hash_for_book(audiobook_id, db_path)
-        except Exception as e:
-            print(f"  ⚠ Hash generation error (non-fatal): {e}", file=sys.stderr)
 
 
 def _insert_one_audiobook(
@@ -187,7 +98,7 @@ def _insert_one_audiobook(
         audiobook_id = insert_audiobook(conn, metadata, cover_path)
         conn.commit()
         if audiobook_id is not None:
-            _run_post_insert_hooks(audiobook_id, db_path)
+            run_post_insert_hooks(audiobook_id, db_path)
         book_info = {
             "id": audiobook_id,
             "title": metadata.get("title"),

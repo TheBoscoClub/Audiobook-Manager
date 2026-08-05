@@ -107,7 +107,7 @@ def update_hash(conn: sqlite3.Connection, audiobook_id: int, hash_value: str):
 def generate_hash_for_book(audiobook_id: int, db_path: Path) -> str | None:
     """Compute and store the SHA-256 hash for a single audiobook row.
 
-    Used by the post-insert hook in ``add_new_audiobooks._run_post_insert_hooks``
+    Used by the hash-generation hook registered in ``scanner.post_insert``
     so that newly-ingested books get their integrity hash without waiting for
     the bulk hash worker to be triggered manually.
 
