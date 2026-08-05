@@ -399,6 +399,41 @@ def temp_dir():
         yield Path(tmpdir)
 
 
+@pytest.fixture
+def utilities_globals(flask_app, session_temp_dir, monkeypatch):
+    """Pin utilities module globals to the session app's paths (hermetic).
+
+    create_app() initializes the utilities sub-modules' module-level globals
+    (utilities_db._db_path / _project_root, utilities_system._project_root)
+    only once per process via _init_once. Under partial -k selection a
+    different test module's app (e.g. test_audiobooks_extended's module-scoped
+    audiobooks_app) can be the first app created, leaving those globals bound
+    to that app's temp dir for the rest of the session. Tests that exercise
+    utilities endpoints through flask_app must therefore pin the globals to
+    session_temp_dir explicitly instead of relying on suite ordering.
+
+    monkeypatch restores the original values on teardown. The shared VERSION
+    file under session_temp_dir is also snapshotted and restored so tests
+    that write or delete it stay hermetic.
+    """
+    from backend.api_modular import utilities_db, utilities_system
+
+    project_root = session_temp_dir / "library"
+    monkeypatch.setattr(utilities_db, "_db_path", flask_app.config["DATABASE_PATH"])
+    monkeypatch.setattr(utilities_db, "_project_root", project_root)
+    monkeypatch.setattr(utilities_system, "_project_root", project_root)
+
+    version_file = session_temp_dir / "VERSION"
+    saved_version = version_file.read_text() if version_file.exists() else None
+
+    yield
+
+    if saved_version is None:
+        version_file.unlink(missing_ok=True)
+    else:
+        version_file.write_text(saved_version)
+
+
 # ============================================================
 # Shared auth-enabled Flask app fixtures
 # ============================================================

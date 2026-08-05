@@ -12,6 +12,15 @@ This module provides Flask routes for database maintenance:
 import subprocess
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+# Every test in this module exercises utilities_db endpoints whose behavior
+# depends on module-level globals (_db_path, _project_root) that create_app
+# only sets for the FIRST app built in the process. Pin them to the session
+# app's paths so partial -k selections can't leave them bound to another
+# test module's app (see utilities_globals in conftest.py).
+pytestmark = pytest.mark.usefixtures("utilities_globals")
+
 
 class TestRescanLibrary:
     """Test the rescan_library endpoint."""

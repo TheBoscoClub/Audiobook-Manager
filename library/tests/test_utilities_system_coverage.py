@@ -9,6 +9,15 @@ from email.message import Message
 from io import BytesIO
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+# utilities_system's module-level _project_root is only set by the FIRST
+# create_app call in the process, so under partial -k selection it can point
+# at another test module's app. Pin it (and snapshot the shared VERSION file)
+# for every test here so version/health assertions are order-independent
+# (see utilities_globals in conftest.py).
+pytestmark = pytest.mark.usefixtures("utilities_globals")
+
 # =========================================================================
 # Line 452: check_upgrade — version field with non-github source
 # The existing extended test hits 440 (invalid path) before reaching 452.
@@ -158,8 +167,7 @@ class TestGetVersionMissingFile:
         assert response.status_code == 200
         data = response.get_json()
         assert data["version"] == "unknown"
-
-        # Restore for other tests (cleanup)
+        # VERSION restore is handled by the utilities_globals fixture
 
 
 # =========================================================================

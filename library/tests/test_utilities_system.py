@@ -9,6 +9,15 @@ import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+# utilities_system's module-level _project_root is only set by the FIRST
+# create_app call in the process, so under partial -k selection it can point
+# at another test module's app. Pin it (and snapshot the shared VERSION file)
+# for every test here so version/health assertions are order-independent
+# (see utilities_globals in conftest.py).
+pytestmark = pytest.mark.usefixtures("utilities_globals")
+
 
 class TestEnsureControlDir:
     """Test the _ensure_control_dir function."""
