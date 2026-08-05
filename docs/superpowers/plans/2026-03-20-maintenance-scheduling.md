@@ -104,7 +104,9 @@ IMPORTANT: gevent monkey-patching MUST be the first executable code.
 It patches stdlib I/O (including sqlite3) for cooperative scheduling.
 Without this, SQLite queries block the entire greenlet loop.
 """
+
 from gevent import monkey
+
 monkey.patch_all()
 
 import os
@@ -125,12 +127,16 @@ def _create_configured_app():
         sys.exit(1)
 
     auth_enabled = os.environ.get("AUTH_ENABLED", "false").lower() in (
-        "true", "1", "yes",
+        "true",
+        "1",
+        "yes",
     )
     auth_db_path = os.environ.get("AUTH_DATABASE") if auth_enabled else None
     auth_key_path = os.environ.get("AUTH_KEY_FILE") if auth_enabled else None
     auth_dev_mode = os.environ.get("AUDIOBOOKS_DEV_MODE", "false").lower() in (
-        "true", "1", "yes",
+        "true",
+        "1",
+        "yes",
     )
 
     return create_app(
@@ -156,9 +162,8 @@ if __name__ == "__main__":
     else:
         from gevent.pywsgi import WSGIServer
         from geventwebsocket.handler import WebSocketHandler
-        server = WSGIServer(
-            ("0.0.0.0", API_PORT), app, handler_class=WebSocketHandler
-        )
+
+        server = WSGIServer(("0.0.0.0", API_PORT), app, handler_class=WebSocketHandler)
         print(f"Serving on http://0.0.0.0:{API_PORT}")
         server.serve_forever()
 ```
@@ -316,6 +321,7 @@ Create `library/tests/test_websocket.py`:
 
 ```python
 """Tests for WebSocket connection manager."""
+
 import json
 import time
 from unittest.mock import MagicMock
@@ -398,6 +404,7 @@ Provides real-time bidirectional communication for:
 - Maintenance announcement push
 - Live connection tracking for admin dashboard
 """
+
 import json
 import logging
 import time
@@ -470,8 +477,7 @@ class ConnectionManager:
         now = time.time()
         with self._lock:
             return [
-                sid for sid, conn in self._connections.items()
-                if now - conn["last_seen"] > timeout
+                sid for sid, conn in self._connections.items() if now - conn["last_seen"] > timeout
             ]
 
     def broadcast(self, message):
@@ -491,8 +497,7 @@ class ConnectionManager:
         """Return connection data for admin dashboard."""
         with self._lock:
             users = [
-                {"username": c["username"], "state": c["state"]}
-                for c in self._connections.values()
+                {"username": c["username"], "state": c["state"]} for c in self._connections.values()
             ]
         return {"count": len(users), "users": users}
 
@@ -514,54 +519,52 @@ Expected: All PASS.
 Add to `library/backend/api_modular/__init__.py` -- in `create_app()`, after the last `flask_app.register_blueprint(...)` call but before `return flask_app`:
 
 ```python
-    # WebSocket endpoint (requires geventwebsocket worker)
-    from flask_sock import Sock
-    from .websocket import connection_manager
-    import json as _json
+# WebSocket endpoint (requires geventwebsocket worker)
+from flask_sock import Sock
+from .websocket import connection_manager
+import json as _json
 
-    sock = Sock(flask_app)
+sock = Sock(flask_app)
 
-    @sock.route("/api/ws")
-    def ws_handler(ws):
-        """WebSocket handler for heartbeat and push notifications."""
-        auth_enabled = flask_app.config.get("AUTH_ENABLED", False)
-        session_id = request.cookies.get(
-            "audiobooks_session", "anon-" + str(id(ws))
-        )
-        username = "anonymous"
 
-        if auth_enabled:
-            user = get_current_user()
-            if user is None:
-                ws.close(1008, "Authentication required")
-                return
-            username = user.username
-            session_id = request.cookies.get("audiobooks_session", session_id)
+@sock.route("/api/ws")
+def ws_handler(ws):
+    """WebSocket handler for heartbeat and push notifications."""
+    auth_enabled = flask_app.config.get("AUTH_ENABLED", False)
+    session_id = request.cookies.get("audiobooks_session", "anon-" + str(id(ws)))
+    username = "anonymous"
 
-        connection_manager.register(session_id, ws, username=username)
-        try:
-            while True:
-                data = ws.receive(timeout=15)
-                if data is None:
-                    break
-                try:
-                    msg = _json.loads(data)
-                    if msg.get("type") == "heartbeat":
-                        connection_manager.heartbeat(
-                            session_id, state=msg.get("state", "idle")
-                        )
-                except (ValueError, KeyError):
-                    pass
-        except Exception:
-            pass
-        finally:
-            connection_manager.unregister(session_id)
+    if auth_enabled:
+        user = get_current_user()
+        if user is None:
+            ws.close(1008, "Authentication required")
+            return
+        username = user.username
+        session_id = request.cookies.get("audiobooks_session", session_id)
 
-    # Admin connections endpoint
-    @flask_app.route("/api/admin/connections")
-    @admin_if_enabled
-    def get_connections():
-        return jsonify(connection_manager.admin_connections_list())
+    connection_manager.register(session_id, ws, username=username)
+    try:
+        while True:
+            data = ws.receive(timeout=15)
+            if data is None:
+                break
+            try:
+                msg = _json.loads(data)
+                if msg.get("type") == "heartbeat":
+                    connection_manager.heartbeat(session_id, state=msg.get("state", "idle"))
+            except ValueError, KeyError:
+                pass
+    except Exception:
+        pass
+    finally:
+        connection_manager.unregister(session_id)
+
+
+# Admin connections endpoint
+@flask_app.route("/api/admin/connections")
+@admin_if_enabled
+def get_connections():
+    return jsonify(connection_manager.admin_connections_list())
 ```
 
 - [ ] **Step 6: Commit**
@@ -593,6 +596,7 @@ Create `library/tests/test_proxy_websocket.py`:
 
 ```python
 """Test that proxy_server detects WebSocket upgrade requests."""
+
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -608,20 +612,17 @@ def test_proxy_detects_websocket_upgrade_headers():
     class FakeHeaders:
         def __init__(self, d):
             self._d = {k.lower(): v for k, v in d.items()}
+
         def get(self, key, default=None):
             return self._d.get(key.lower(), default)
 
-    assert is_websocket_upgrade(FakeHeaders({
-        "Upgrade": "websocket", "Connection": "Upgrade"
-    })) is True
+    assert (
+        is_websocket_upgrade(FakeHeaders({"Upgrade": "websocket", "Connection": "Upgrade"})) is True
+    )
 
-    assert is_websocket_upgrade(FakeHeaders({
-        "Content-Type": "application/json"
-    })) is False
+    assert is_websocket_upgrade(FakeHeaders({"Content-Type": "application/json"})) is False
 
-    assert is_websocket_upgrade(FakeHeaders({
-        "Upgrade": "h2c", "Connection": "Upgrade"
-    })) is False
+    assert is_websocket_upgrade(FakeHeaders({"Upgrade": "h2c", "Connection": "Upgrade"})) is False
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -647,66 +648,66 @@ def is_websocket_upgrade(headers):
 Add this method to `ReverseProxyHandler`:
 
 ```python
-    def _tunnel_websocket(self):
-        """Tunnel a WebSocket upgrade request to the API backend via raw TCP."""
-        import socket
-        import select
+def _tunnel_websocket(self):
+    """Tunnel a WebSocket upgrade request to the API backend via raw TCP."""
+    import socket
+    import select
 
-        # Build raw HTTP upgrade request to forward to backend
-        request_line = f"{self.command} {self.path} HTTP/1.1\r\n"
-        header_lines = ""
-        for key, value in self.headers.items():
-            header_lines += f"{key}: {value}\r\n"
-        header_lines += "\r\n"
-        raw_request = (request_line + header_lines).encode("latin-1")
+    # Build raw HTTP upgrade request to forward to backend
+    request_line = f"{self.command} {self.path} HTTP/1.1\r\n"
+    header_lines = ""
+    for key, value in self.headers.items():
+        header_lines += f"{key}: {value}\r\n"
+    header_lines += "\r\n"
+    raw_request = (request_line + header_lines).encode("latin-1")
 
-        try:
-            backend = socket.create_connection(("127.0.0.1", API_PORT), timeout=10)
-        except (socket.error, OSError) as e:
-            self.send_error(503, f"Backend unreachable: {e}")
+    try:
+        backend = socket.create_connection(("127.0.0.1", API_PORT), timeout=10)
+    except (socket.error, OSError) as e:
+        self.send_error(503, f"Backend unreachable: {e}")
+        return
+
+    try:
+        backend.sendall(raw_request)
+
+        # Read the upgrade response from backend and forward to client
+        client_sock = self.request  # the raw client socket
+        buf = b""
+        while b"\r\n\r\n" not in buf:
+            chunk = backend.recv(4096)
+            if not chunk:
+                break
+            buf += chunk
+
+        # Send the full upgrade response (headers) to client
+        client_sock.sendall(buf)
+
+        # Check if upgrade was accepted (101 Switching Protocols)
+        if not buf.startswith(b"HTTP/1.1 101"):
+            backend.close()
             return
 
+        # Bidirectional relay: client <-> backend
+        sockets = [client_sock, backend]
+        while True:
+            readable, _, errored = select.select(sockets, [], sockets, 30)
+            if errored:
+                break
+            if not readable:
+                break  # timeout
+            for sock in readable:
+                data = sock.recv(65536)
+                if not data:
+                    return
+                target = backend if sock is client_sock else client_sock
+                target.sendall(data)
+    except BrokenPipeError, ConnectionResetError, OSError:
+        pass
+    finally:
         try:
-            backend.sendall(raw_request)
-
-            # Read the upgrade response from backend and forward to client
-            client_sock = self.request  # the raw client socket
-            buf = b""
-            while b"\r\n\r\n" not in buf:
-                chunk = backend.recv(4096)
-                if not chunk:
-                    break
-                buf += chunk
-
-            # Send the full upgrade response (headers) to client
-            client_sock.sendall(buf)
-
-            # Check if upgrade was accepted (101 Switching Protocols)
-            if not buf.startswith(b"HTTP/1.1 101"):
-                backend.close()
-                return
-
-            # Bidirectional relay: client <-> backend
-            sockets = [client_sock, backend]
-            while True:
-                readable, _, errored = select.select(sockets, [], sockets, 30)
-                if errored:
-                    break
-                if not readable:
-                    break  # timeout
-                for sock in readable:
-                    data = sock.recv(65536)
-                    if not data:
-                        return
-                    target = backend if sock is client_sock else client_sock
-                    target.sendall(data)
-        except (BrokenPipeError, ConnectionResetError, OSError):
+            backend.close()
+        except Exception:
             pass
-        finally:
-            try:
-                backend.close()
-            except Exception:
-                pass
 ```
 
 Modify `do_GET()` to detect WebSocket upgrades before the proxy path check:
@@ -826,6 +827,7 @@ Create `library/tests/test_maintenance_api.py`:
 
 ```python
 """Tests for maintenance scheduling API endpoints."""
+
 import json
 import sqlite3
 import tempfile
@@ -838,6 +840,7 @@ import pytest
 def app_with_db(tmp_path):
     """Create a Flask test app with fresh database."""
     import sys
+
     sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
     from api_modular import create_app
 
@@ -994,6 +997,7 @@ Maintenance scheduling API blueprint.
 Provides CRUD endpoints for maintenance windows, manual announcements,
 task registry listing, and execution history.
 """
+
 import json
 import logging
 import sqlite3
@@ -1035,15 +1039,14 @@ def _get_username():
 
 # ---------- Maintenance Windows ----------
 
+
 @maintenance_bp.route("/api/admin/maintenance/windows", methods=["GET"])
 @admin_if_enabled
 def list_windows():
     """List all maintenance windows."""
     conn = _get_db()
     try:
-        rows = conn.execute(
-            "SELECT * FROM maintenance_windows ORDER BY created_at DESC"
-        ).fetchall()
+        rows = conn.execute("SELECT * FROM maintenance_windows ORDER BY created_at DESC").fetchall()
         return jsonify([dict(r) for r in rows])
     finally:
         conn.close()
@@ -1080,6 +1083,7 @@ def create_window():
     elif schedule_type == "recurring" and cron_expression:
         try:
             from croniter import croniter
+
             cron = croniter(cron_expression, datetime.now(timezone.utc))
             next_run_at = cron.get_next(datetime).isoformat() + "Z"
         except (ValueError, KeyError) as e:
@@ -1088,12 +1092,15 @@ def create_window():
     # Validate task type against registry (if available)
     try:
         from .maintenance_tasks import registry
+
         if not registry.get(task_type):
             available = [t["name"] for t in registry.list_all()]
-            return jsonify({
-                "error": f"Unknown task_type '{task_type}'",
-                "available": available,
-            }), 400
+            return jsonify(
+                {
+                    "error": f"Unknown task_type '{task_type}'",
+                    "available": available,
+                }
+            ), 400
     except ImportError:
         pass  # Registry not yet available (during early development)
 
@@ -1105,9 +1112,18 @@ def create_window():
                 cron_expression, scheduled_at, next_run_at,
                 duration_minutes, lead_time_hours)
                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (name, description, task_type, task_params, schedule_type,
-             cron_expression, scheduled_at, next_run_at,
-             duration_minutes, lead_time_hours),
+            (
+                name,
+                description,
+                task_type,
+                task_params,
+                schedule_type,
+                cron_expression,
+                scheduled_at,
+                next_run_at,
+                duration_minutes,
+                lead_time_hours,
+            ),
         )
         conn.commit()
         row = conn.execute(
@@ -1128,17 +1144,21 @@ def update_window(wid):
 
     conn = _get_db()
     try:
-        existing = conn.execute(
-            "SELECT * FROM maintenance_windows WHERE id = ?", (wid,)
-        ).fetchone()
+        existing = conn.execute("SELECT * FROM maintenance_windows WHERE id = ?", (wid,)).fetchone()
         if not existing:
             return jsonify({"error": "Window not found"}), 404
 
         # Build dynamic update
         allowed = {
-            "name", "description", "task_type", "task_params",
-            "cron_expression", "scheduled_at", "duration_minutes",
-            "lead_time_hours", "status",
+            "name",
+            "description",
+            "task_type",
+            "task_params",
+            "cron_expression",
+            "scheduled_at",
+            "duration_minutes",
+            "lead_time_hours",
+            "status",
         }
         updates = {k: v for k, v in data.items() if k in allowed}
         if "task_params" in updates and isinstance(updates["task_params"], dict):
@@ -1149,9 +1169,8 @@ def update_window(wid):
             stype = data.get("schedule_type", existing["schedule_type"])
             if stype == "recurring" and updates.get("cron_expression"):
                 from croniter import croniter
-                cron = croniter(
-                    updates["cron_expression"], datetime.now(timezone.utc)
-                )
+
+                cron = croniter(updates["cron_expression"], datetime.now(timezone.utc))
                 updates["next_run_at"] = cron.get_next(datetime).isoformat() + "Z"
             elif stype == "once" and updates.get("scheduled_at"):
                 updates["next_run_at"] = updates["scheduled_at"]
@@ -1161,13 +1180,9 @@ def update_window(wid):
 
         set_clause = ", ".join(f"{k} = ?" for k in updates)
         values = list(updates.values()) + [wid]
-        conn.execute(
-            f"UPDATE maintenance_windows SET {set_clause} WHERE id = ?", values
-        )
+        conn.execute(f"UPDATE maintenance_windows SET {set_clause} WHERE id = ?", values)
         conn.commit()
-        row = conn.execute(
-            "SELECT * FROM maintenance_windows WHERE id = ?", (wid,)
-        ).fetchone()
+        row = conn.execute("SELECT * FROM maintenance_windows WHERE id = ?", (wid,)).fetchone()
         return jsonify(dict(row))
     finally:
         conn.close()
@@ -1197,6 +1212,7 @@ def delete_window(wid):
 
 
 # ---------- Manual Messages ----------
+
 
 @maintenance_bp.route("/api/admin/maintenance/messages", methods=["GET"])
 @admin_if_enabled
@@ -1236,10 +1252,13 @@ def create_message():
         # Push immediately via WebSocket (in-process, no DB round-trip)
         try:
             from .websocket import connection_manager
-            connection_manager.broadcast({
-                "type": "maintenance_announce",
-                "messages": [result],
-            })
+
+            connection_manager.broadcast(
+                {
+                    "type": "maintenance_announce",
+                    "messages": [result],
+                }
+            )
         except Exception as e:
             logger.warning("WebSocket broadcast failed: %s", e)
 
@@ -1266,10 +1285,13 @@ def dismiss_message(mid):
         # Push dismiss notification
         try:
             from .websocket import connection_manager
-            connection_manager.broadcast({
-                "type": "maintenance_dismiss",
-                "message_id": mid,
-            })
+
+            connection_manager.broadcast(
+                {
+                    "type": "maintenance_dismiss",
+                    "message_id": mid,
+                }
+            )
         except Exception as e:
             logger.warning("WebSocket broadcast failed: %s", e)
 
@@ -1279,6 +1301,7 @@ def dismiss_message(mid):
 
 
 # ---------- Public Announcements ----------
+
 
 @maintenance_bp.route("/api/maintenance/announcements", methods=["GET"])
 @guest_allowed
@@ -1310,15 +1333,18 @@ def get_announcements():
                ORDER BY next_run_at ASC"""
         ).fetchall()
 
-        return jsonify({
-            "messages": [dict(r) for r in messages],
-            "windows": [dict(r) for r in windows],
-        })
+        return jsonify(
+            {
+                "messages": [dict(r) for r in messages],
+                "windows": [dict(r) for r in windows],
+            }
+        )
     finally:
         conn.close()
 
 
 # ---------- Task Registry ----------
+
 
 @maintenance_bp.route("/api/admin/maintenance/tasks", methods=["GET"])
 @admin_if_enabled
@@ -1326,12 +1352,14 @@ def list_tasks():
     """List registered maintenance task types."""
     try:
         from .maintenance_tasks import registry
+
         return jsonify(registry.list_all())
     except ImportError:
         return jsonify([])
 
 
 # ---------- Execution History ----------
+
 
 @maintenance_bp.route("/api/admin/maintenance/history", methods=["GET"])
 @admin_if_enabled
@@ -1356,10 +1384,11 @@ def get_history():
 In `create_app()`, after the existing blueprint registrations:
 
 ```python
-    # Maintenance scheduling
-    from .maintenance import maintenance_bp, init_maintenance_routes
-    init_maintenance_routes(database_path)
-    flask_app.register_blueprint(maintenance_bp)
+# Maintenance scheduling
+from .maintenance import maintenance_bp, init_maintenance_routes
+
+init_maintenance_routes(database_path)
+flask_app.register_blueprint(maintenance_bp)
 ```
 
 - [ ] **Step 6: Run tests**
@@ -1405,6 +1434,7 @@ Create `library/tests/test_task_registry.py`:
 
 ```python
 """Tests for maintenance task registry and handlers."""
+
 import sys
 from pathlib import Path
 
@@ -1416,6 +1446,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "backend"))
 class TestRegistry:
     def test_registry_discovers_handlers(self):
         from api_modular.maintenance_tasks import registry
+
         tasks = registry.list_all()
         names = [t["name"] for t in tasks]
         assert "db_vacuum" in names
@@ -1426,16 +1457,19 @@ class TestRegistry:
 
     def test_get_known_task(self):
         from api_modular.maintenance_tasks import registry
+
         task = registry.get("db_vacuum")
         assert task is not None
         assert task.name == "db_vacuum"
 
     def test_get_unknown_task(self):
         from api_modular.maintenance_tasks import registry
+
         assert registry.get("nonexistent_task") is None
 
     def test_validate_is_callable(self):
         from api_modular.maintenance_tasks import registry
+
         task = registry.get("db_vacuum")
         result = task.validate({})
         assert hasattr(result, "ok")
@@ -1443,6 +1477,7 @@ class TestRegistry:
 
     def test_list_all_has_required_fields(self):
         from api_modular.maintenance_tasks import registry
+
         for task_info in registry.list_all():
             assert "name" in task_info
             assert "display_name" in task_info
@@ -1468,6 +1503,7 @@ Base class and data types for maintenance task handlers.
 Each handler implements validate() and execute() and is registered
 via the @registry.register decorator in its module.
 """
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
@@ -1476,6 +1512,7 @@ from typing import Any, Callable, Optional
 @dataclass
 class ValidationResult:
     """Result of a task validation check."""
+
     ok: bool
     message: str = ""
 
@@ -1483,6 +1520,7 @@ class ValidationResult:
 @dataclass
 class ExecutionResult:
     """Result of a task execution."""
+
     success: bool
     message: str = ""
     data: dict = field(default_factory=dict)
@@ -1555,6 +1593,7 @@ Maintenance task registry.
 Auto-discovers and registers all task handler modules in this package.
 Import this module to get the singleton `registry` instance.
 """
+
 import importlib
 import pkgutil
 from pathlib import Path
@@ -1590,6 +1629,7 @@ Create `library/backend/api_modular/maintenance_tasks/db_vacuum.py`:
 
 ```python
 """Database vacuum and optimize task."""
+
 import logging
 import sqlite3
 from pathlib import Path
@@ -1611,8 +1651,9 @@ def _resolve_db_path(params):
         return Path(params["db_path"])
     try:
         from flask import current_app
+
         return current_app.config["DATABASE_PATH"]
-    except (RuntimeError, ImportError):
+    except RuntimeError, ImportError:
         return None
 
 
@@ -1662,6 +1703,7 @@ Create `library/backend/api_modular/maintenance_tasks/db_integrity.py`:
 
 ```python
 """Database integrity check task."""
+
 import logging
 import sqlite3
 from pathlib import Path
@@ -1717,6 +1759,7 @@ Create `library/backend/api_modular/maintenance_tasks/db_backup.py`:
 
 ```python
 """Database backup task."""
+
 import logging
 import sqlite3
 from datetime import datetime, timezone
@@ -1784,6 +1827,7 @@ Create `library/backend/api_modular/maintenance_tasks/library_scan.py`:
 
 ```python
 """Library scan task -- triggers a rescan for new/changed audiobook files."""
+
 import logging
 import subprocess
 
@@ -1811,7 +1855,9 @@ class LibraryScanTask(MaintenanceTask):
             # The scanner runs in-process via the utilities blueprint
             result = subprocess.run(
                 ["curl", "-s", "-X", "POST", "http://127.0.0.1:5001/api/admin/scan"],
-                capture_output=True, text=True, timeout=600,
+                capture_output=True,
+                text=True,
+                timeout=600,
             )
 
             if progress_callback:
@@ -1842,6 +1888,7 @@ Create `library/backend/api_modular/maintenance_tasks/hash_verify.py`:
 
 ```python
 """Hash verification task -- verify file hashes against database records."""
+
 import hashlib
 import logging
 import sqlite3
@@ -1880,9 +1927,7 @@ class HashVerifyTask(MaintenanceTask):
 
             total = len(rows)
             if total == 0:
-                return ExecutionResult(
-                    success=True, message="No files with hashes to verify"
-                )
+                return ExecutionResult(success=True, message="No files with hashes to verify")
 
             mismatches = []
             missing = []
@@ -1893,6 +1938,7 @@ class HashVerifyTask(MaintenanceTask):
                     progress_callback(i / total, f"Checking {i}/{total}...")
 
                 from pathlib import Path
+
                 p = Path(fpath)
                 if not p.exists():
                     missing.append(fpath)
@@ -1971,6 +2017,7 @@ Create `library/tests/test_scheduler.py`:
 
 ```python
 """Tests for maintenance scheduler daemon."""
+
 import json
 import sqlite3
 import sys
@@ -2019,9 +2066,7 @@ def test_write_notification(scheduler_db):
            VALUES ('update', '{"window_id": 1, "status": "success"}')"""
     )
     conn.commit()
-    rows = conn.execute(
-        "SELECT * FROM maintenance_notifications WHERE delivered = 0"
-    ).fetchall()
+    rows = conn.execute("SELECT * FROM maintenance_notifications WHERE delivered = 0").fetchall()
     conn.close()
     assert len(rows) == 1
 
@@ -2073,6 +2118,7 @@ Standalone process that:
 
 Runs as audiobook-scheduler.service under audiobook.target.
 """
+
 import fcntl
 import json
 import logging
@@ -2124,7 +2170,8 @@ def find_due_windows():
     conn = get_db()
     try:
         return [
-            dict(r) for r in conn.execute(
+            dict(r)
+            for r in conn.execute(
                 """SELECT * FROM maintenance_windows
                    WHERE next_run_at <= datetime('now')
                      AND status = 'active'
@@ -2180,6 +2227,7 @@ def update_next_run(window):
 
     try:
         from croniter import croniter
+
         cron = croniter(window["cron_expression"], datetime.now(timezone.utc))
         next_at = cron.get_next(datetime).isoformat() + "Z"
         conn = get_db()
@@ -2213,9 +2261,14 @@ def execute_window(window):
         logger.error(msg)
         started_at = datetime.now(timezone.utc).isoformat() + "Z"
         record_history(window["id"], started_at, "failure", msg)
-        write_notification("update", {
-            "window_id": window["id"], "status": "failure", "message": msg,
-        })
+        write_notification(
+            "update",
+            {
+                "window_id": window["id"],
+                "status": "failure",
+                "message": msg,
+            },
+        )
         return
 
     params = json.loads(window.get("task_params", "{}"))
@@ -2229,25 +2282,39 @@ def execute_window(window):
         logger.warning(msg)
         started_at = datetime.now(timezone.utc).isoformat() + "Z"
         record_history(window["id"], started_at, "failure", msg)
-        write_notification("update", {
-            "window_id": window["id"], "status": "failure", "message": msg,
-        })
+        write_notification(
+            "update",
+            {
+                "window_id": window["id"],
+                "status": "failure",
+                "message": msg,
+            },
+        )
         return
 
     # Execute
     started_at = datetime.now(timezone.utc).isoformat() + "Z"
-    write_notification("update", {
-        "window_id": window["id"], "status": "running",
-        "message": f"Executing: {window['name']}",
-    })
+    write_notification(
+        "update",
+        {
+            "window_id": window["id"],
+            "status": "running",
+            "message": f"Executing: {window['name']}",
+        },
+    )
 
     result = task.execute(params, progress_callback=lambda p, m: None)
 
     status = "success" if result.success else "failure"
     record_history(window["id"], started_at, status, result.message, result.data)
-    write_notification("update", {
-        "window_id": window["id"], "status": status, "message": result.message,
-    })
+    write_notification(
+        "update",
+        {
+            "window_id": window["id"],
+            "status": status,
+            "message": result.message,
+        },
+    )
 
     # Update next_run_at or mark completed
     update_next_run(window)
@@ -2280,12 +2347,15 @@ def check_announcements():
             ).fetchone()[0]
 
             if existing == 0:
-                write_notification("announce", {
-                    "window_id": window["id"],
-                    "name": window["name"],
-                    "description": window["description"],
-                    "next_run_at": window["next_run_at"],
-                })
+                write_notification(
+                    "announce",
+                    {
+                        "window_id": window["id"],
+                        "name": window["name"],
+                        "description": window["description"],
+                        "next_run_at": window["next_run_at"],
+                    },
+                )
     finally:
         conn.close()
 
@@ -3740,6 +3810,7 @@ Create `library/tests/test_notification_poller.py`:
 
 ```python
 """Tests for notification queue polling logic."""
+
 import json
 import sqlite3
 from pathlib import Path
@@ -3766,9 +3837,7 @@ def test_poll_finds_pending_notifications(notif_db):
         ("announce", json.dumps({"window_id": 1})),
     )
     conn.commit()
-    rows = conn.execute(
-        "SELECT * FROM maintenance_notifications WHERE delivered = 0"
-    ).fetchall()
+    rows = conn.execute("SELECT * FROM maintenance_notifications WHERE delivered = 0").fetchall()
     assert len(rows) == 1
     conn.close()
 
@@ -3858,9 +3927,10 @@ def init_notification_poller(db_path):
 Then update the `ws_handler` in `__init__.py` to start the poller on first connection:
 
 ```python
-    # Inside ws_handler, after connection_manager.register():
-    from .websocket import init_notification_poller
-    init_notification_poller(database_path)
+# Inside ws_handler, after connection_manager.register():
+from .websocket import init_notification_poller
+
+init_notification_poller(database_path)
 ```
 
 - [ ] **Step 3: Run tests**

@@ -169,7 +169,7 @@ app = create_app(
     database_path=Path("/path/to/audiobooks.db"),
     project_dir=Path("/path/to/audiobook/files"),
     supplements_dir=Path("/path/to/supplements"),
-    api_port=5001
+    api_port=5001,
 )
 
 app.run(debug=True)

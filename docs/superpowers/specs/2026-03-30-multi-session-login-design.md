@@ -64,14 +64,14 @@ Single migration step in `auth/database.py` `_run_migrations()`:
 
 ```python
 def _user_allows_multi_session(user) -> bool:
-    if user.multi_session == 'yes':
+    if user.multi_session == "yes":
         return True
-    if user.multi_session == 'no':
+    if user.multi_session == "no":
         return False
     # 'default' — check system setting
     auth_db = get_auth_db()
     repo = SystemSettingsRepository(auth_db)
-    return repo.get('multi_session_default') == 'true'
+    return repo.get("multi_session_default") == "true"
 ```
 
 #### `Session.create_for_user()` change

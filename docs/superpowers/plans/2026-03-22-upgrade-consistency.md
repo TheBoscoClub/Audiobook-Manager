@@ -24,10 +24,12 @@ Create `library/tests/test_helper_service_names.py`:
 
 ```python
 """Verify upgrade-helper-process uses correct singular service names."""
+
 import re
 from pathlib import Path
 
 HELPER_PATH = Path(__file__).resolve().parents[2] / "scripts" / "upgrade-helper-process"
+
 
 def test_no_plural_service_names():
     """All service references must use audiobook-* (singular), never audiobooks-* (plural)."""
@@ -39,13 +41,17 @@ def test_no_plural_service_names():
     for i, line in enumerate(content.splitlines(), 1):
         # Skip pure comment lines in the header block (first 21 lines are docs)
         # but DO check service name strings in comments after that
-        matches = re.findall(r'audiobooks-(?:api|proxy|converter|mover|downloader|redirect|scheduler|shutdown-saver|upgrade)', line)
+        matches = re.findall(
+            r"audiobooks-(?:api|proxy|converter|mover|downloader|redirect|scheduler|shutdown-saver|upgrade)",
+            line,
+        )
         if matches:
             plural_refs.append((i, line.strip(), matches))
     assert plural_refs == [], (
         f"Found {len(plural_refs)} plural service name references (audiobooks-* instead of audiobook-*):\n"
         + "\n".join(f"  Line {ln}: {txt}" for ln, txt, _ in plural_refs)
     )
+
 
 def test_valid_services_array_correct():
     """VALID_SERVICES array must contain only singular audiobook-* names."""
@@ -64,11 +70,16 @@ def test_valid_services_array_correct():
             if svc:
                 services.append(svc)
     for svc in services:
-        assert svc.startswith("audiobook-"), f"Service '{svc}' should start with 'audiobook-' (singular)"
-        assert not svc.startswith("audiobooks-"), f"Service '{svc}' uses plural 'audiobooks-' — must be singular"
+        assert svc.startswith("audiobook-"), (
+            f"Service '{svc}' should start with 'audiobook-' (singular)"
+        )
+        assert not svc.startswith("audiobooks-"), (
+            f"Service '{svc}' uses plural 'audiobooks-' — must be singular"
+        )
     # After Task 4 expands the array, all 8 target services must be present.
     # For now, just verify naming. Task 4 test_all_services_in_stop_order
     # asserts full membership.
+
 
 def test_no_hardcoded_paths():
     """Helper must use config variables, not hardcoded paths."""
@@ -82,8 +93,9 @@ def test_no_hardcoded_paths():
         if line.startswith("CONTROL_DIR=") and "/var/lib/audiobooks" in line:
             # This is acceptable ONLY if audiobook-config.sh is sourced above
             above = "\n".join(lines[:i])
-            assert "audiobook-config.sh" in above or "AUDIOBOOKS_VAR_DIR" in line, \
+            assert "audiobook-config.sh" in above or "AUDIOBOOKS_VAR_DIR" in line, (
                 f"Line {i}: CONTROL_DIR uses hardcoded path without sourcing config"
+            )
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -154,10 +166,12 @@ Create `library/tests/test_upgrade_skip_lifecycle.py`:
 
 ```python
 """Verify --skip-service-lifecycle flag is parsed and respected."""
+
 import subprocess
 from pathlib import Path
 
 UPGRADE_SH = Path(__file__).resolve().parents[2] / "upgrade.sh"
+
 
 def test_skip_lifecycle_flag_accepted():
     """upgrade.sh must accept --skip-service-lifecycle without error."""
@@ -165,24 +179,27 @@ def test_skip_lifecycle_flag_accepted():
     # just to verify the flag doesn't cause 'unknown option' error
     result = subprocess.run(
         ["bash", "-n", str(UPGRADE_SH)],  # syntax check only
-        capture_output=True, text=True
+        capture_output=True,
+        text=True,
     )
     assert result.returncode == 0, f"Syntax error in upgrade.sh: {result.stderr}"
+
 
 def test_skip_lifecycle_flag_in_source():
     """upgrade.sh source must contain SKIP_SERVICE_LIFECYCLE variable."""
     content = UPGRADE_SH.read_text()
     assert "SKIP_SERVICE_LIFECYCLE" in content, "Missing SKIP_SERVICE_LIFECYCLE variable"
-    assert "--skip-service-lifecycle" in content, "Missing --skip-service-lifecycle in argument parser"
+    assert "--skip-service-lifecycle" in content, (
+        "Missing --skip-service-lifecycle in argument parser"
+    )
+
 
 def test_skip_lifecycle_not_in_help():
     """--skip-service-lifecycle is internal and must NOT appear in --help output."""
-    result = subprocess.run(
-        ["bash", str(UPGRADE_SH), "--help"],
-        capture_output=True, text=True
-    )
-    assert "--skip-service-lifecycle" not in result.stdout, \
+    result = subprocess.run(["bash", str(UPGRADE_SH), "--help"], capture_output=True, text=True)
+    assert "--skip-service-lifecycle" not in result.stdout, (
         "--skip-service-lifecycle should not appear in --help (internal flag)"
+    )
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -270,9 +287,11 @@ Create `library/tests/test_upgrade_preflight.py`:
 
 ```python
 """Verify preflight check infrastructure exists in upgrade.sh."""
+
 from pathlib import Path
 
 UPGRADE_SH = Path(__file__).resolve().parents[2] / "upgrade.sh"
+
 
 def test_preflight_functions_exist():
     """upgrade.sh must define generate_preflight and validate_preflight."""
@@ -280,14 +299,17 @@ def test_preflight_functions_exist():
     assert "generate_preflight()" in content, "Missing generate_preflight() function"
     assert "validate_preflight()" in content, "Missing validate_preflight() function"
 
+
 def test_preflight_file_path_defined():
     """Preflight file path must be defined using config variable."""
     content = UPGRADE_SH.read_text()
     assert "upgrade-preflight.json" in content, "Missing preflight JSON filename"
     # Must NOT hardcode /var/lib/audiobooks
     import re
-    hardcoded = re.findall(r'/var/lib/audiobooks/\.control/upgrade-preflight', content)
+
+    hardcoded = re.findall(r"/var/lib/audiobooks/\.control/upgrade-preflight", content)
     assert len(hardcoded) == 0, "Preflight path must use $AUDIOBOOKS_VAR_DIR, not hardcoded path"
+
 
 def test_force_bypasses_preflight():
     """When --force is set, preflight validation must be skipped."""
@@ -357,6 +379,7 @@ Create `library/tests/test_helper_lifecycle.py`:
 
 ```python
 """Verify upgrade-helper-process implements the 9-step lifecycle."""
+
 from pathlib import Path
 
 HELPER_PATH = Path(__file__).resolve().parents[2] / "scripts" / "upgrade-helper-process"
@@ -373,11 +396,13 @@ REQUIRED_STAGES = [
     "complete",
 ]
 
+
 def test_all_lifecycle_stages_present():
     """Helper must reference all 9 lifecycle stages."""
     content = HELPER_PATH.read_text()
     missing = [s for s in REQUIRED_STAGES if s not in content]
     assert missing == [], f"Missing lifecycle stages: {missing}"
+
 
 def test_skip_service_lifecycle_flag_passed():
     """Helper must pass --skip-service-lifecycle --yes to upgrade.sh."""
@@ -385,17 +410,21 @@ def test_skip_service_lifecycle_flag_passed():
     assert "--skip-service-lifecycle" in content, "Must pass --skip-service-lifecycle to upgrade.sh"
     assert "--yes" in content, "Must pass --yes to upgrade.sh"
 
+
 def test_no_echo_y_pipe_hack():
     """Helper must not use 'echo y |' pipe hack."""
     content = HELPER_PATH.read_text()
-    assert 'echo "y"' not in content and "echo 'y'" not in content and "echo y |" not in content, \
+    assert 'echo "y"' not in content and "echo 'y'" not in content and "echo y |" not in content, (
         "Must use --yes flag, not echo y pipe hack"
+    )
+
 
 def test_new_request_fields_parsed():
     """Helper must parse force, major_version, version from request JSON."""
     content = HELPER_PATH.read_text()
     for field in ["force", "major_version", "version"]:
         assert field in content, f"Must parse '{field}' from request JSON"
+
 
 def test_all_services_in_stop_order():
     """Stop order must include ALL audiobook.target services."""
@@ -413,17 +442,20 @@ def test_all_services_in_stop_order():
     for svc in required_services:
         assert svc in content, f"Service '{svc}' missing from helper lifecycle"
 
+
 def test_no_hardcoded_paths():
     """Helper must source audiobook-config.sh and use config variables for paths."""
     content = HELPER_PATH.read_text()
-    assert "audiobook-config.sh" in content, \
+    assert "audiobook-config.sh" in content, (
         "Helper must source audiobook-config.sh for path variables"
+    )
     # CONTROL_DIR and INSTALL_DIR must derive from config vars
     for line in content.splitlines():
         if line.startswith("CONTROL_DIR=") and "/var/lib/audiobooks" in line:
             assert False, "CONTROL_DIR must use $AUDIOBOOKS_VAR_DIR, not hardcoded path"
         if line.startswith("INSTALL_DIR=") and "/opt/audiobooks" in line:
             assert False, "INSTALL_DIR must use config variable, not hardcoded /opt/audiobooks"
+
 
 def test_final_status_written_before_service_start():
     """Final status must be written BEFORE starting services (spec: Status File Durability)."""
@@ -506,6 +538,7 @@ Create `library/tests/test_upgrade_api.py`:
 
 ```python
 """Verify upgrade API endpoints support new fields and preflight gate."""
+
 import json
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -514,11 +547,13 @@ import pytest
 
 SYS_MODULE = Path(__file__).resolve().parents[1] / "backend" / "api_modular" / "utilities_system.py"
 
+
 def test_upgrade_endpoint_accepts_new_fields():
     """POST /api/system/upgrade must accept force, major_version, version fields."""
     content = SYS_MODULE.read_text()
     for field in ["force", "major_version", "version"]:
         assert field in content, f"Upgrade endpoint must handle '{field}' field"
+
 
 def test_preflight_endpoint_exists():
     """GET /api/system/upgrade/preflight endpoint must be defined."""
@@ -526,14 +561,17 @@ def test_preflight_endpoint_exists():
     assert "upgrade/preflight" in content, "Missing /api/system/upgrade/preflight endpoint"
     assert "admin_or_localhost" in content, "Preflight endpoint must require auth"
 
+
 def test_preflight_gate_on_upgrade():
     """Upgrade endpoint must check for valid preflight unless force is true."""
     content = SYS_MODULE.read_text()
     # Must have actual preflight file reading logic, not just a comment
-    assert "upgrade-preflight.json" in content or "preflight" in content, \
+    assert "upgrade-preflight.json" in content or "preflight" in content, (
         "Upgrade endpoint must read and validate preflight file"
+    )
     # Must check for force bypass
     assert "force" in content, "Upgrade endpoint must check force flag for preflight bypass"
+
 
 def test_version_field_validated_for_source():
     """version field must be rejected when source is 'project'."""
@@ -542,12 +580,14 @@ def test_version_field_validated_for_source():
     assert "version" in content, "Must handle version field"
     # Look for the validation pattern
     import re
+
     # Should find a check like: if version and source != "github"
-    has_version_validation = bool(re.search(
-        r'version.*(?:github|source)|(?:github|source).*version', content
-    ))
-    assert has_version_validation, \
+    has_version_validation = bool(
+        re.search(r"version.*(?:github|source)|(?:github|source).*version", content)
+    )
+    assert has_version_validation, (
         "Must validate that 'version' field is only accepted with source='github'"
+    )
 ```
 
 - [ ] **Step 2: Run test to verify it fails**
@@ -683,17 +723,21 @@ Create `library/tests/test_caddy_files.py`:
 
 ```python
 """Verify Caddy project files exist and are well-formed."""
+
 from pathlib import Path
 
 CADDY_DIR = Path(__file__).resolve().parents[2] / "caddy"
+
 
 def test_audiobooks_conf_exists():
     """Caddy config snippet must exist in project."""
     assert (CADDY_DIR / "audiobooks.conf").is_file()
 
+
 def test_maintenance_html_exists():
     """Maintenance page must exist in project."""
     assert (CADDY_DIR / "maintenance.html").is_file()
+
 
 def test_maintenance_html_has_health_polling():
     """Maintenance page must poll /api/system/health."""
@@ -701,16 +745,19 @@ def test_maintenance_html_has_health_polling():
     assert "/api/system/health" in content, "Must poll health endpoint"
     assert "location.reload()" in content, "Must reload on health success"
 
+
 def test_maintenance_html_no_innerhtml():
     """Maintenance page must not use innerHTML."""
     content = (CADDY_DIR / "maintenance.html").read_text()
     assert "innerHTML" not in content, "Must not use innerHTML — use textContent or static HTML"
 
+
 def test_maintenance_html_has_noscript_fallback():
     """Maintenance page must have meta refresh for no-JS browsers."""
     content = (CADDY_DIR / "maintenance.html").read_text()
-    assert "meta http-equiv" in content.lower() or "noscript" in content.lower(), \
+    assert "meta http-equiv" in content.lower() or "noscript" in content.lower(), (
         "Must have no-JS fallback (meta refresh or noscript)"
+    )
 ```
 
 - [ ] **Step 5: Run tests**
@@ -751,10 +798,12 @@ Create `library/tests/test_caddy_integration.py`:
 
 ```python
 """Verify install.sh and upgrade.sh handle Caddy files."""
+
 from pathlib import Path
 
 INSTALL_SH = Path(__file__).resolve().parents[2] / "install.sh"
 UPGRADE_SH = Path(__file__).resolve().parents[2] / "upgrade.sh"
+
 
 def test_install_references_caddy_files():
     """install.sh must install Caddy config and maintenance page."""
@@ -762,11 +811,14 @@ def test_install_references_caddy_files():
     assert "audiobooks.conf" in content, "install.sh must install Caddy config"
     assert "maintenance.html" in content, "install.sh must install maintenance page"
 
+
 def test_upgrade_syncs_caddy_files():
     """upgrade.sh must sync Caddy files during upgrade."""
     content = UPGRADE_SH.read_text()
-    assert "audiobooks.conf" in content or "caddy" in content.lower(), \
+    assert "audiobooks.conf" in content or "caddy" in content.lower(), (
         "upgrade.sh must sync Caddy config"
+    )
+
 
 def test_caddy_conditional_on_install():
     """Caddy installation must be conditional (skip if Caddy not installed)."""

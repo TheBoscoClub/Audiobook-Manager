@@ -85,7 +85,7 @@ Update `User.from_row()` to handle the new column. The existing pattern uses **p
 
 ```python
 # In the >= 11 branch, add after recovery_enabled:
-last_audit_seen_id=int(row[11]) if len(row) >= 12 and row[11] is not None else 0,
+last_audit_seen_id = (int(row[11]) if len(row) >= 12 and row[11] is not None else 0,)
 ```
 
 **IMPORTANT**: All `from_row()` methods in this codebase use positional indexing. Never use `row["column_name"]` — the DB connections don't set `row_factory`.
@@ -139,6 +139,7 @@ Create `library/tests/test_audit_log.py`:
 
 ```python
 """Tests for audit log model and repository."""
+
 import json
 import pytest
 from datetime import datetime
@@ -156,6 +157,7 @@ def audit_repo(auth_db):
 def sample_user(auth_db):
     """Create a test user, return user ID."""
     from auth.models import User, AuthType
+
     user = User(username="testuser", auth_type=AuthType.TOTP, auth_credential=b"secret")
     user = user.save(auth_db)
     return user.id
@@ -167,7 +169,12 @@ class TestAuditLogRepository:
             actor_id=sample_user,
             target_id=sample_user,
             action="change_username",
-            details={"old": "testuser", "new": "newname", "actor_username": "testuser", "target_username": "testuser"},
+            details={
+                "old": "testuser",
+                "new": "newname",
+                "actor_username": "testuser",
+                "target_username": "testuser",
+            },
         )
         assert entry.id is not None
         assert entry.action == "change_username"
@@ -175,7 +182,12 @@ class TestAuditLogRepository:
         assert entry.target_id == sample_user
 
     def test_log_stores_details_as_json(self, audit_repo, sample_user):
-        details = {"old": "totp", "new": "magic_link", "actor_username": "testuser", "target_username": "testuser"}
+        details = {
+            "old": "totp",
+            "new": "magic_link",
+            "actor_username": "testuser",
+            "target_username": "testuser",
+        }
         entry = audit_repo.log(
             actor_id=sample_user,
             target_id=sample_user,
@@ -195,14 +207,19 @@ class TestAuditLogRepository:
         assert entries[1].action == "action_1"
 
     def test_list_filters_by_action(self, audit_repo, sample_user):
-        audit_repo.log(actor_id=sample_user, target_id=sample_user, action="change_username", details={})
-        audit_repo.log(actor_id=sample_user, target_id=sample_user, action="delete_account", details={})
+        audit_repo.log(
+            actor_id=sample_user, target_id=sample_user, action="change_username", details={}
+        )
+        audit_repo.log(
+            actor_id=sample_user, target_id=sample_user, action="delete_account", details={}
+        )
         entries = audit_repo.list(action_filter="change_username")
         assert len(entries) == 1
         assert entries[0].action == "change_username"
 
     def test_list_filters_by_user(self, audit_repo, auth_db):
         from auth.models import User, AuthType
+
         user1 = User(username="user1", auth_type=AuthType.TOTP, auth_credential=b"s1").save(auth_db)
         user2 = User(username="user2", auth_type=AuthType.TOTP, auth_credential=b"s2").save(auth_db)
         audit_repo.log(actor_id=user1.id, target_id=user1.id, action="change_email", details={})
@@ -212,7 +229,9 @@ class TestAuditLogRepository:
 
     def test_list_pagination(self, audit_repo, sample_user):
         for i in range(5):
-            audit_repo.log(actor_id=sample_user, target_id=sample_user, action=f"action_{i}", details={})
+            audit_repo.log(
+                actor_id=sample_user, target_id=sample_user, action=f"action_{i}", details={}
+            )
         page1 = audit_repo.list(limit=2, offset=0)
         page2 = audit_repo.list(limit=2, offset=2)
         assert len(page1) == 2
@@ -220,19 +239,31 @@ class TestAuditLogRepository:
         assert page1[0].action != page2[0].action
 
     def test_count_unseen_for_admin(self, audit_repo, sample_user):
-        audit_repo.log(actor_id=sample_user, target_id=sample_user, action="change_username", details={})
-        audit_repo.log(actor_id=sample_user, target_id=sample_user, action="delete_account", details={})
+        audit_repo.log(
+            actor_id=sample_user, target_id=sample_user, action="change_username", details={}
+        )
+        audit_repo.log(
+            actor_id=sample_user, target_id=sample_user, action="delete_account", details={}
+        )
         count = audit_repo.count_unseen(last_seen_id=0)
         assert count == 2
 
     def test_entries_survive_user_deletion(self, audit_repo, auth_db):
         from auth.models import User, AuthType, UserRepository
-        user = User(username="ephemeral", auth_type=AuthType.TOTP, auth_credential=b"s").save(auth_db)
+
+        user = User(username="ephemeral", auth_type=AuthType.TOTP, auth_credential=b"s").save(
+            auth_db
+        )
         repo = UserRepository(auth_db)
         audit_repo.log(
-            actor_id=user.id, target_id=user.id,
+            actor_id=user.id,
+            target_id=user.id,
             action="delete_account",
-            details={"username": "ephemeral", "actor_username": "ephemeral", "target_username": "ephemeral"},
+            details={
+                "username": "ephemeral",
+                "actor_username": "ephemeral",
+                "target_username": "ephemeral",
+            },
         )
         repo.delete(user.id)
         entries = audit_repo.list(limit=10)
@@ -258,6 +289,7 @@ Add after the `User` dataclass:
 @dataclass
 class AuditLog:
     """Audit log entry for user management actions."""
+
     id: Optional[int] = None
     timestamp: Optional[str] = None
     actor_id: Optional[int] = None
@@ -288,6 +320,7 @@ Create `library/auth/audit.py`:
 
 ```python
 """Audit logging for user management actions."""
+
 import json
 from typing import Dict, List, Optional
 
@@ -426,6 +459,7 @@ def notify_admins(action: str, details: Dict, db) -> None:
         return
 
     from .models import UserRepository
+
     user_repo = UserRepository(db)
     admins = [u for u in user_repo.list_all() if u.is_admin and u.recovery_email]
 
@@ -445,7 +479,7 @@ def _format_notification(action: str, details: Dict) -> tuple:
         "change_username": f'{target} changed username to "{details.get("new", "?")}"',
         "switch_auth_method": f"{target} switched auth method to {details.get('new', '?')}",
         "reset_credentials": f"{target} reset their credentials",
-        "delete_account": f'{details.get("username", target)} deleted their account',
+        "delete_account": f"{details.get('username', target)} deleted their account",
     }
     description = action_labels.get(action, f"{action} on {target}")
     subject = f"[Audiobook Library] Account change: {description}"
@@ -505,6 +539,7 @@ Create `library/tests/test_last_admin_guard.py`:
 
 ```python
 """Tests for last-admin deletion guard."""
+
 import pytest
 from auth.models import UserRepository
 
@@ -512,37 +547,60 @@ from auth.models import UserRepository
 class TestLastAdminGuard:
     def test_count_admins_returns_correct_count(self, auth_db):
         from auth.models import User, AuthType
+
         repo = UserRepository(auth_db)
-        User(username="admin1", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True).save(auth_db)
-        User(username="admin2", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True).save(auth_db)
-        User(username="regular", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=False).save(auth_db)
+        User(username="admin1", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True).save(
+            auth_db
+        )
+        User(username="admin2", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True).save(
+            auth_db
+        )
+        User(
+            username="regular", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=False
+        ).save(auth_db)
         assert repo.count_admins() == 2
 
     def test_is_last_admin_true_when_only_one(self, auth_db):
         from auth.models import User, AuthType
+
         repo = UserRepository(auth_db)
-        admin = User(username="sole_admin", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True).save(auth_db)
+        admin = User(
+            username="sole_admin", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True
+        ).save(auth_db)
         assert repo.is_last_admin(admin.id) is True
 
     def test_is_last_admin_false_when_multiple(self, auth_db):
         from auth.models import User, AuthType
+
         repo = UserRepository(auth_db)
-        admin1 = User(username="admin1", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True).save(auth_db)
-        User(username="admin2", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True).save(auth_db)
+        admin1 = User(
+            username="admin1", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True
+        ).save(auth_db)
+        User(username="admin2", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True).save(
+            auth_db
+        )
         assert repo.is_last_admin(admin1.id) is False
 
     def test_is_last_admin_false_for_non_admin(self, auth_db):
         from auth.models import User, AuthType
+
         repo = UserRepository(auth_db)
-        User(username="admin1", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True).save(auth_db)
-        regular = User(username="regular", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=False).save(auth_db)
+        User(username="admin1", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True).save(
+            auth_db
+        )
+        regular = User(
+            username="regular", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=False
+        ).save(auth_db)
         assert repo.is_last_admin(regular.id) is False
 
     def test_cannot_revoke_last_admin_role(self, auth_db):
         """Revoking admin from the sole admin should also be blocked."""
         from auth.models import User, AuthType
+
         repo = UserRepository(auth_db)
-        admin = User(username="onlyadmin", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True).save(auth_db)
+        admin = User(
+            username="onlyadmin", auth_type=AuthType.TOTP, auth_credential=b"s", is_admin=True
+        ).save(auth_db)
         assert repo.is_last_admin(admin.id) is True
         # The endpoint must check is_last_admin before allowing role toggle
 ```
@@ -563,9 +621,8 @@ Add to `UserRepository` in `models.py`:
 def count_admins(self) -> int:
     """Count the number of admin users."""
     with self.db.connection() as conn:
-        return conn.execute(
-            "SELECT COUNT(*) FROM users WHERE is_admin = 1"
-        ).fetchone()[0]
+        return conn.execute("SELECT COUNT(*) FROM users WHERE is_admin = 1").fetchone()[0]
+
 
 def is_last_admin(self, user_id: int) -> bool:
     """Check if this user is the only admin."""
@@ -615,10 +672,14 @@ def auth_db(auth_app):
 def admin_client(auth_app):
     """Test client authenticated as an admin user."""
     from auth.models import User, AuthType
+
     db = auth_app.auth_db
     admin = User(
-        username="testadmin", auth_type=AuthType.TOTP,
-        auth_credential=b"secret", is_admin=True, can_download=True,
+        username="testadmin",
+        auth_type=AuthType.TOTP,
+        auth_credential=b"secret",
+        is_admin=True,
+        can_download=True,
     ).save(db)
     client = auth_app.test_client()
     # Set session cookie — follow existing test pattern for auth
@@ -648,9 +709,13 @@ def anon_client(auth_app):
 def test_user(auth_app):
     """A regular (non-admin) TOTP user."""
     from auth.models import User, AuthType
+
     user = User(
-        username="regularuser", auth_type=AuthType.TOTP,
-        auth_credential=b"secret", is_admin=False, can_download=True,
+        username="regularuser",
+        auth_type=AuthType.TOTP,
+        auth_credential=b"secret",
+        is_admin=False,
+        can_download=True,
     ).save(auth_app.auth_db)
     return user
 
@@ -659,10 +724,13 @@ def test_user(auth_app):
 def sole_admin(auth_app):
     """An admin user who is the ONLY admin in the database."""
     from auth.models import User, AuthType
+
     # Note: ensure no other admins exist in test DB
     admin = User(
-        username="soleadmin", auth_type=AuthType.TOTP,
-        auth_credential=b"secret", is_admin=True,
+        username="soleadmin",
+        auth_type=AuthType.TOTP,
+        auth_credential=b"secret",
+        is_admin=True,
     ).save(auth_app.auth_db)
     return admin
 
@@ -681,9 +749,12 @@ def sole_admin_client(auth_app, sole_admin):
 def test_magic_link_user(auth_app):
     """A Magic Link user."""
     from auth.models import User, AuthType
+
     user = User(
-        username="mluser", auth_type=AuthType.MAGIC_LINK,
-        auth_credential=b"", recovery_email="ml@test.com",
+        username="mluser",
+        auth_type=AuthType.MAGIC_LINK,
+        auth_credential=b"",
+        recovery_email="ml@test.com",
     ).save(auth_app.auth_db)
     return user
 
@@ -703,9 +774,12 @@ def logged_in_user(auth_app):
     """A user whose last_login is set (not NULL)."""
     from auth.models import User, AuthType
     from datetime import datetime
+
     user = User(
-        username="loggedinuser", auth_type=AuthType.TOTP,
-        auth_credential=b"secret", last_login=datetime.now(),
+        username="loggedinuser",
+        auth_type=AuthType.TOTP,
+        auth_credential=b"secret",
+        last_login=datetime.now(),
     ).save(auth_app.auth_db)
     return user
 ```
@@ -740,6 +814,7 @@ Create `library/tests/test_admin_user_management.py`:
 
 ```python
 """Tests for admin user management endpoints."""
+
 import json
 import pytest
 
@@ -747,12 +822,15 @@ import pytest
 class TestAdminCreateUser:
     def test_create_totp_user(self, admin_client):
         """Admin creates a TOTP user — gets QR data back."""
-        resp = admin_client.post("/auth/admin/users/create", json={
-            "username": "newuser",
-            "auth_method": "totp",
-            "is_admin": False,
-            "can_download": True,
-        })
+        resp = admin_client.post(
+            "/auth/admin/users/create",
+            json={
+                "username": "newuser",
+                "auth_method": "totp",
+                "is_admin": False,
+                "can_download": True,
+            },
+        )
         assert resp.status_code == 201
         data = resp.get_json()
         assert data["user_id"] is not None
@@ -762,28 +840,37 @@ class TestAdminCreateUser:
 
     def test_create_magic_link_user_requires_email(self, admin_client):
         """Magic Link user requires email."""
-        resp = admin_client.post("/auth/admin/users/create", json={
-            "username": "mluser",
-            "auth_method": "magic_link",
-        })
+        resp = admin_client.post(
+            "/auth/admin/users/create",
+            json={
+                "username": "mluser",
+                "auth_method": "magic_link",
+            },
+        )
         assert resp.status_code == 400
         assert "email" in resp.get_json()["error"].lower()
 
     def test_create_magic_link_user_with_email(self, admin_client):
         """Magic Link user with email succeeds."""
-        resp = admin_client.post("/auth/admin/users/create", json={
-            "username": "mluser",
-            "auth_method": "magic_link",
-            "email": "ml@example.com",
-        })
+        resp = admin_client.post(
+            "/auth/admin/users/create",
+            json={
+                "username": "mluser",
+                "auth_method": "magic_link",
+                "email": "ml@example.com",
+            },
+        )
         assert resp.status_code == 201
 
     def test_create_passkey_user_gets_claim_url(self, admin_client):
         """Passkey user gets a claim token and URL."""
-        resp = admin_client.post("/auth/admin/users/create", json={
-            "username": "pkuser",
-            "auth_method": "passkey",
-        })
+        resp = admin_client.post(
+            "/auth/admin/users/create",
+            json={
+                "username": "pkuser",
+                "auth_method": "passkey",
+            },
+        )
         assert resp.status_code == 201
         data = resp.get_json()
         assert "claim_token" in data["setup_data"]
@@ -791,20 +878,33 @@ class TestAdminCreateUser:
 
     def test_create_duplicate_username_fails(self, admin_client):
         """Duplicate username returns 409."""
-        admin_client.post("/auth/admin/users/create", json={
-            "username": "dupeuser", "auth_method": "totp",
-        })
-        resp = admin_client.post("/auth/admin/users/create", json={
-            "username": "dupeuser", "auth_method": "totp",
-        })
+        admin_client.post(
+            "/auth/admin/users/create",
+            json={
+                "username": "dupeuser",
+                "auth_method": "totp",
+            },
+        )
+        resp = admin_client.post(
+            "/auth/admin/users/create",
+            json={
+                "username": "dupeuser",
+                "auth_method": "totp",
+            },
+        )
         assert resp.status_code == 409
 
     def test_create_user_logs_audit_entry(self, admin_client, auth_db):
         """Creating a user creates an audit log entry."""
         from auth.audit import AuditLogRepository
-        admin_client.post("/auth/admin/users/create", json={
-            "username": "audituser", "auth_method": "totp",
-        })
+
+        admin_client.post(
+            "/auth/admin/users/create",
+            json={
+                "username": "audituser",
+                "auth_method": "totp",
+            },
+        )
         audit_repo = AuditLogRepository(auth_db)
         entries = audit_repo.list(action_filter="create_user")
         assert len(entries) >= 1
@@ -812,21 +912,33 @@ class TestAdminCreateUser:
 
     def test_create_user_requires_admin(self, user_client):
         """Non-admin gets 403."""
-        resp = user_client.post("/auth/admin/users/create", json={
-            "username": "blocked", "auth_method": "totp",
-        })
+        resp = user_client.post(
+            "/auth/admin/users/create",
+            json={
+                "username": "blocked",
+                "auth_method": "totp",
+            },
+        )
         assert resp.status_code == 403
 
     def test_username_validation_too_short(self, admin_client):
-        resp = admin_client.post("/auth/admin/users/create", json={
-            "username": "ab", "auth_method": "totp",
-        })
+        resp = admin_client.post(
+            "/auth/admin/users/create",
+            json={
+                "username": "ab",
+                "auth_method": "totp",
+            },
+        )
         assert resp.status_code == 400
 
     def test_username_validation_too_long(self, admin_client):
-        resp = admin_client.post("/auth/admin/users/create", json={
-            "username": "a" * 25, "auth_method": "totp",
-        })
+        resp = admin_client.post(
+            "/auth/admin/users/create",
+            json={
+                "username": "a" * 25,
+                "auth_method": "totp",
+            },
+        )
         assert resp.status_code == 400
 ```
 
@@ -878,6 +990,7 @@ def admin_create_user():
 
     if auth_method == "totp":
         from auth.totp import setup_totp
+
         secret_bytes, base32_secret, provisioning_uri = setup_totp(username)
         user = user_repo.create(
             username=username,
@@ -906,6 +1019,7 @@ def admin_create_user():
 
     elif auth_method == "passkey":
         import secrets as secrets_mod
+
         claim_token = secrets_mod.token_urlsafe(32)
         user = user_repo.create(
             username=username,
@@ -928,6 +1042,7 @@ def admin_create_user():
 
     # Audit log
     from auth.audit import AuditLogRepository, notify_admins
+
     audit_repo = AuditLogRepository(db)
     actor = get_current_user()
     details = {
@@ -979,16 +1094,19 @@ These endpoints share a pattern — test each, implement, verify, commit.
 ```python
 class TestAdminChangeUsername:
     def test_change_username(self, admin_client, test_user):
-        resp = admin_client.put(f"/auth/admin/users/{test_user.id}/username",
-                                json={"username": "renamed"})
+        resp = admin_client.put(
+            f"/auth/admin/users/{test_user.id}/username", json={"username": "renamed"}
+        )
         assert resp.status_code == 200
         assert resp.get_json()["username"] == "renamed"
 
     def test_change_username_duplicate(self, admin_client, test_user):
-        admin_client.post("/auth/admin/users/create",
-                          json={"username": "taken", "auth_method": "totp"})
-        resp = admin_client.put(f"/auth/admin/users/{test_user.id}/username",
-                                json={"username": "taken"})
+        admin_client.post(
+            "/auth/admin/users/create", json={"username": "taken", "auth_method": "totp"}
+        )
+        resp = admin_client.put(
+            f"/auth/admin/users/{test_user.id}/username", json={"username": "taken"}
+        )
         assert resp.status_code == 409
 ```
 
@@ -997,13 +1115,13 @@ class TestAdminChangeUsername:
 ```python
 class TestAdminChangeEmail:
     def test_change_email(self, admin_client, test_user):
-        resp = admin_client.put(f"/auth/admin/users/{test_user.id}/email",
-                                json={"email": "new@example.com"})
+        resp = admin_client.put(
+            f"/auth/admin/users/{test_user.id}/email", json={"email": "new@example.com"}
+        )
         assert resp.status_code == 200
 
     def test_change_email_empty_clears(self, admin_client, test_user):
-        resp = admin_client.put(f"/auth/admin/users/{test_user.id}/email",
-                                json={"email": ""})
+        resp = admin_client.put(f"/auth/admin/users/{test_user.id}/email", json={"email": ""})
         assert resp.status_code == 200
 ```
 
@@ -1012,14 +1130,14 @@ class TestAdminChangeEmail:
 ```python
 class TestAdminToggleRoles:
     def test_toggle_admin(self, admin_client, test_user):
-        resp = admin_client.put(f"/auth/admin/users/{test_user.id}/roles",
-                                json={"is_admin": True})
+        resp = admin_client.put(f"/auth/admin/users/{test_user.id}/roles", json={"is_admin": True})
         assert resp.status_code == 200
         assert resp.get_json()["is_admin"] is True
 
     def test_toggle_download(self, admin_client, test_user):
-        resp = admin_client.put(f"/auth/admin/users/{test_user.id}/roles",
-                                json={"can_download": False})
+        resp = admin_client.put(
+            f"/auth/admin/users/{test_user.id}/roles", json={"can_download": False}
+        )
         assert resp.status_code == 200
         assert resp.get_json()["can_download"] is False
 ```
@@ -1030,8 +1148,8 @@ class TestAdminToggleRoles:
 class TestAdminSwitchAuth:
     def test_switch_to_totp(self, admin_client, test_magic_link_user):
         resp = admin_client.put(
-            f"/auth/admin/users/{test_magic_link_user.id}/auth-method",
-            json={"auth_method": "totp"})
+            f"/auth/admin/users/{test_magic_link_user.id}/auth-method", json={"auth_method": "totp"}
+        )
         assert resp.status_code == 200
         assert "setup_data" in resp.get_json()
 ```
@@ -1054,6 +1172,7 @@ class TestAdminDeleteUser:
         resp = admin_client.delete(f"/auth/admin/users/{test_user.id}")
         assert resp.status_code == 200
         from auth.models import UserRepository
+
         assert UserRepository(auth_db).get_by_id(test_user.id) is None
 
     def test_cannot_delete_last_admin(self, admin_client, sole_admin):
@@ -1068,15 +1187,17 @@ class TestAdminDeleteUser:
 class TestAdminAuditLog:
     def test_get_audit_log(self, admin_client):
         # Create a user to generate an audit entry
-        admin_client.post("/auth/admin/users/create",
-                          json={"username": "logtest", "auth_method": "totp"})
+        admin_client.post(
+            "/auth/admin/users/create", json={"username": "logtest", "auth_method": "totp"}
+        )
         resp = admin_client.get("/auth/admin/audit-log")
         assert resp.status_code == 200
         assert len(resp.get_json()["entries"]) >= 1
 
     def test_audit_log_filter_by_action(self, admin_client):
-        admin_client.post("/auth/admin/users/create",
-                          json={"username": "filtertest", "auth_method": "totp"})
+        admin_client.post(
+            "/auth/admin/users/create", json={"username": "filtertest", "auth_method": "totp"}
+        )
         resp = admin_client.get("/auth/admin/audit-log?action=create_user")
         assert resp.status_code == 200
         for entry in resp.get_json()["entries"]:
@@ -1088,8 +1209,9 @@ class TestAdminAuditLog:
 ```python
 class TestAdminSetupInfo:
     def test_get_setup_info_before_login(self, admin_client):
-        resp = admin_client.post("/auth/admin/users/create",
-                                 json={"username": "setuptest", "auth_method": "totp"})
+        resp = admin_client.post(
+            "/auth/admin/users/create", json={"username": "setuptest", "auth_method": "totp"}
+        )
         user_id = resp.get_json()["user_id"]
         resp = admin_client.get(f"/auth/admin/users/{user_id}/setup-info")
         assert resp.status_code == 200
@@ -1146,6 +1268,7 @@ Create `library/tests/test_self_service.py`:
 
 ```python
 """Tests for user self-service endpoints."""
+
 import pytest
 
 
@@ -1164,29 +1287,27 @@ class TestGetAccount:
 
 class TestChangeOwnUsername:
     def test_change_own_username(self, user_client):
-        resp = user_client.put("/auth/account/username",
-                               json={"username": "mynewname"})
+        resp = user_client.put("/auth/account/username", json={"username": "mynewname"})
         assert resp.status_code == 200
         assert resp.get_json()["username"] == "mynewname"
 
     def test_change_username_triggers_audit(self, user_client, auth_db):
         user_client.put("/auth/account/username", json={"username": "audited"})
         from auth.audit import AuditLogRepository
+
         entries = AuditLogRepository(auth_db).list(action_filter="change_username")
         assert len(entries) >= 1
 
 
 class TestChangeOwnEmail:
     def test_change_own_email(self, user_client):
-        resp = user_client.put("/auth/account/email",
-                               json={"email": "me@new.com"})
+        resp = user_client.put("/auth/account/email", json={"email": "me@new.com"})
         assert resp.status_code == 200
 
 
 class TestSwitchOwnAuth:
     def test_initiate_switch_to_totp(self, magic_link_user_client):
-        resp = magic_link_user_client.put("/auth/account/auth-method",
-                                          json={"auth_method": "totp"})
+        resp = magic_link_user_client.put("/auth/account/auth-method", json={"auth_method": "totp"})
         assert resp.status_code == 200
         assert "setup_data" in resp.get_json()
 
@@ -1203,6 +1324,7 @@ class TestDeleteOwnAccount:
         resp = user_client.delete("/auth/account")
         assert resp.status_code == 200
         from auth.models import UserRepository
+
         assert UserRepository(auth_db).get_by_id(test_user.id) is None
 
     def test_last_admin_cannot_self_delete(self, sole_admin_client, sole_admin):
@@ -1786,6 +1908,7 @@ In the audit logging helper, after writing the log entry, broadcast to connected
 # In audit.py or auth.py, after audit_repo.log():
 try:
     from backend.websocket_manager import broadcast
+
     broadcast({"type": "audit_notify", "action": action})
 except Exception:
     pass  # WebSocket broadcast is best-effort

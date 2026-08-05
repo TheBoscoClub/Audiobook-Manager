@@ -63,8 +63,7 @@ def test_purge_is_inline_curl_not_script_delegation():
     )
     # The operator-specific CLI script is gone — no references may remain.
     assert "audiobook-purge-cache" not in body, (
-        "purge_cloudflare_cache must not reference the removed "
-        "audiobook-purge-cache CLI script"
+        "purge_cloudflare_cache must not reference the removed audiobook-purge-cache CLI script"
     )
     assert "command -v audiobook-purge-cache" not in body, (
         "purge_cloudflare_cache must not probe for the removed CLI script"
@@ -92,9 +91,7 @@ def test_purge_skips_gracefully_when_credentials_missing():
 def test_purge_skips_gracefully_when_zone_id_missing():
     """Missing CF_ZONE_ID must short-circuit with a non-fatal return 0."""
     body = _read_purge_function()
-    assert '-z "$CF_ZONE_ID"' in body, (
-        "purge_cloudflare_cache must guard on an empty CF_ZONE_ID"
-    )
+    assert '-z "$CF_ZONE_ID"' in body, "purge_cloudflare_cache must guard on an empty CF_ZONE_ID"
     assert "CF_ZONE_ID not set" in body, (
         "purge_cloudflare_cache must log a skip message when CF_ZONE_ID is unset"
     )
@@ -121,9 +118,7 @@ def test_purge_sources_operator_api_keys_via_sudo_user_home():
     assert "api-keys.env" in body, (
         "purge_cloudflare_cache must source the operator's ~/.config/api-keys.env"
     )
-    assert "CF_KEYS_FILE" in body, (
-        "purge_cloudflare_cache must honor the CF_KEYS_FILE override"
-    )
+    assert "CF_KEYS_FILE" in body, "purge_cloudflare_cache must honor the CF_KEYS_FILE override"
 
 
 def test_legacy_install_dir_check_recognises_compat_symlink():

@@ -80,22 +80,17 @@ class TestEnrichmentSourceColumn:
             "INSERT INTO audiobooks (title, file_path) VALUES (?, ?)",
             ("Test Book", "/test/book.opus"),
         )
-        cursor = db.execute(
-            "SELECT enrichment_source FROM audiobooks WHERE title = 'Test Book'"
-        )
+        cursor = db.execute("SELECT enrichment_source FROM audiobooks WHERE title = 'Test Book'")
         assert cursor.fetchone()[0] is None
 
     def test_accepts_provider_names(self, db):
         """enrichment_source accepts known provider name strings."""
         for source in ("local", "audible", "google_books", "openlibrary"):
             db.execute(
-                "INSERT INTO audiobooks (title, file_path, enrichment_source) "
-                "VALUES (?, ?, ?)",
+                "INSERT INTO audiobooks (title, file_path, enrichment_source) VALUES (?, ?, ?)",
                 (f"Book {source}", f"/test/{source}.opus", source),
             )
-        cursor = db.execute(
-            "SELECT enrichment_source FROM audiobooks ORDER BY id"
-        )
+        cursor = db.execute("SELECT enrichment_source FROM audiobooks ORDER BY id")
         values = [row[0] for row in cursor.fetchall()]
         assert values == ["local", "audible", "google_books", "openlibrary"]
 ```
@@ -154,6 +149,7 @@ from unittest.mock import patch
 import pytest
 
 import sys
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from scanner.metadata_utils import extract_asin
@@ -168,11 +164,7 @@ class TestExtractAsinFromChaptersJson:
         opus_file = book_dir / "Title.opus"
         opus_file.touch()
 
-        chapters = {
-            "content_metadata": {
-                "content_reference": {"asin": "B08G9PRS1K"}
-            }
-        }
+        chapters = {"content_metadata": {"content_reference": {"asin": "B08G9PRS1K"}}}
         (book_dir / "chapters.json").write_text(json.dumps(chapters))
 
         assert extract_asin(opus_file) == "B08G9PRS1K"
@@ -212,9 +204,7 @@ class TestExtractAsinFromVoucher:
         voucher = {
             "content_license": {
                 "asin": "B0D7JLGFST",
-                "content_metadata": {
-                    "content_reference": {"asin": "B0D7JLGFST"}
-                },
+                "content_metadata": {"content_reference": {"asin": "B0D7JLGFST"}},
             }
         }
         voucher_file = sources_dir / "B0D7JLGFST_Revenge_Prey-AAX_44_128.voucher"
@@ -242,9 +232,7 @@ class TestExtractAsinFromVoucher:
         sources_dir = tmp_path / "Sources"
         sources_dir.mkdir()
         voucher = {"content_license": {"asin": "B01ABCDEF0"}}
-        (sources_dir / "B01ABCDEF0_Cool_Book-AAX_44_128.voucher").write_text(
-            json.dumps(voucher)
-        )
+        (sources_dir / "B01ABCDEF0_Cool_Book-AAX_44_128.voucher").write_text(json.dumps(voucher))
 
         result = extract_asin(opus_file, sources_dir=sources_dir)
         assert result == "B01ABCDEF0"
@@ -293,20 +281,14 @@ class TestAsinPriority:
         opus_file.touch()
 
         # chapters.json with ASIN-A
-        chapters = {
-            "content_metadata": {
-                "content_reference": {"asin": "ASIN_FROM_C"}
-            }
-        }
+        chapters = {"content_metadata": {"content_reference": {"asin": "ASIN_FROM_C"}}}
         (book_dir / "chapters.json").write_text(json.dumps(chapters))
 
         # Voucher with ASIN-B
         sources_dir = tmp_path / "Sources"
         sources_dir.mkdir()
         voucher = {"content_license": {"asin": "ASIN_FROM_V"}}
-        (sources_dir / "ASIN_FROM_V_Dual-AAX_44_128.voucher").write_text(
-            json.dumps(voucher)
-        )
+        (sources_dir / "ASIN_FROM_V_Dual-AAX_44_128.voucher").write_text(json.dumps(voucher))
 
         result = extract_asin(opus_file, sources_dir=sources_dir)
         assert result == "ASIN_FROM_C"
@@ -333,7 +315,7 @@ def _extract_asin_from_chapters_json(filepath: Path) -> Optional[str]:
         content_metadata = chapters_data.get("content_metadata", {})
         content_reference = content_metadata.get("content_reference", {})
         return content_reference.get("asin")
-    except (json.JSONDecodeError, IOError):
+    except json.JSONDecodeError, IOError:
         return None
 
 
@@ -377,7 +359,7 @@ def _extract_asin_from_voucher(filepath: Path, sources_dir: Path) -> Optional[st
                 )
             if asin:
                 return asin
-        except (json.JSONDecodeError, IOError):
+        except json.JSONDecodeError, IOError:
             continue
     return None
 
@@ -401,17 +383,13 @@ def _extract_asin_from_filename(filepath: Path, sources_dir: Path) -> Optional[s
         if not m:
             continue
         candidate_asin = m.group(1)
-        source_title = _normalize_title_for_matching(
-            m.group(2).replace("_", " ")
-        )
+        source_title = _normalize_title_for_matching(m.group(2).replace("_", " "))
         if book_title in source_title or source_title in book_title:
             return candidate_asin
     return None
 
 
-def extract_asin(
-    filepath: Path, sources_dir: Optional[Path] = None
-) -> Optional[str]:
+def extract_asin(filepath: Path, sources_dir: Optional[Path] = None) -> Optional[str]:
     """Extract ASIN from any available source, checked in priority order.
 
     1. chapters.json (same directory as audiobook)
@@ -617,9 +595,7 @@ class EnrichmentProvider(ABC):
 
     def __init__(self):
         if not self.name:
-            raise TypeError(
-                f"{type(self).__name__} must define a non-empty 'name' attribute"
-            )
+            raise TypeError(f"{type(self).__name__} must define a non-empty 'name' attribute")
 
     @abstractmethod
     def can_enrich(self, book: dict) -> bool:
@@ -679,9 +655,7 @@ class TestLocalProvider:
         sources_dir = tmp_path / "Sources"
         sources_dir.mkdir()
         voucher = {"content_license": {"asin": "B0D7JLGFST"}}
-        (sources_dir / "B0D7JLGFST_Revenge_Prey-AAX_44_128.voucher").write_text(
-            json.dumps(voucher)
-        )
+        (sources_dir / "B0D7JLGFST_Revenge_Prey-AAX_44_128.voucher").write_text(json.dumps(voucher))
 
         p = LocalProvider(sources_dir=sources_dir)
         book = {
@@ -762,9 +736,7 @@ class TestLocalProvider:
         sources_dir = tmp_path / "Sources"
         sources_dir.mkdir()
         voucher = {"content_license": {"asin": "B0NEWONE00"}}
-        (sources_dir / "B0NEWONE00_Book-AAX_44_128.voucher").write_text(
-            json.dumps(voucher)
-        )
+        (sources_dir / "B0NEWONE00_Book-AAX_44_128.voucher").write_text(json.dumps(voucher))
 
         p = LocalProvider(sources_dir=sources_dir)
         book = {
@@ -943,9 +915,7 @@ SAMPLE_AUDIBLE_PRODUCT = {
     "runtime_length_min": 480,
     "release_date": "2025-01-15",
     "publisher_summary": "<p>Summary text</p>",
-    "series": [
-        {"title": "Prey Series", "sequence": "5"}
-    ],
+    "series": [{"title": "Prey Series", "sequence": "5"}],
     "rating": {
         "overall_distribution": {"display_average_rating": 4.5, "num_ratings": 1200},
         "performance_distribution": {"display_average_rating": 4.7},
@@ -1100,11 +1070,7 @@ def _rate_limit():
 def _fetch_audible_product(asin: str) -> Optional[dict]:
     """Query Audible API for full product data."""
     _rate_limit()
-    url = (
-        f"{AUDIBLE_API}/{asin}"
-        f"?response_groups={ALL_RESPONSE_GROUPS}"
-        f"&marketplace={MARKETPLACE}"
-    )
+    url = f"{AUDIBLE_API}/{asin}?response_groups={ALL_RESPONSE_GROUPS}&marketplace={MARKETPLACE}"
     req = urllib.request.Request(url, headers={"User-Agent": "AudiobookManager/1.0"})
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -1120,7 +1086,7 @@ def _fetch_audible_product(asin: str) -> Optional[dict]:
             except Exception:
                 return None
         return None
-    except (urllib.error.URLError, TimeoutError):
+    except urllib.error.URLError, TimeoutError:
         return None
 
 
@@ -1176,15 +1142,11 @@ def _extract_editorial_reviews(product: dict) -> list[dict]:
 def _extract_rating(product: dict) -> dict:
     rating = product.get("rating", {})
     return {
-        "rating_overall": rating.get("overall_distribution", {}).get(
-            "display_average_rating"
-        ),
+        "rating_overall": rating.get("overall_distribution", {}).get("display_average_rating"),
         "rating_performance": rating.get("performance_distribution", {}).get(
             "display_average_rating"
         ),
-        "rating_story": rating.get("story_distribution", {}).get(
-            "display_average_rating"
-        ),
+        "rating_story": rating.get("story_distribution", {}).get("display_average_rating"),
         "num_ratings": rating.get("num_reviews"),
         "num_reviews": rating.get("overall_distribution", {}).get("num_ratings"),
     }
@@ -1248,9 +1210,7 @@ class AudibleProvider(EnrichmentProvider):
 
         # Release date
         release_date = (
-            product.get("release_date")
-            or product.get("publication_datetime", "")[:10]
-            or None
+            product.get("release_date") or product.get("publication_datetime", "")[:10] or None
         )
         if release_date:
             result["release_date"] = release_date
@@ -1332,9 +1292,7 @@ SAMPLE_GOOGLE_VOLUME = {
     "publisher": "Big Publishing",
     "publishedDate": "2025-01-15",
     "description": "A thrilling tale of vengeance.",
-    "industryIdentifiers": [
-        {"type": "ISBN_13", "identifier": "9781234567890"}
-    ],
+    "industryIdentifiers": [{"type": "ISBN_13", "identifier": "9781234567890"}],
     "language": "en",
     "pageCount": 320,
     "imageLinks": {"thumbnail": "https://books.google.com/thumb.jpg"},
@@ -1361,8 +1319,14 @@ class TestGoogleBooksProvider:
     def test_enriches_isbn_and_description(self, mock_query):
         mock_query.return_value = SAMPLE_GOOGLE_VOLUME
         p = GoogleBooksProvider()
-        book = {"series": "", "title": "Revenge Prey", "author": "John Author",
-                "isbn": None, "description": "", "language": None}
+        book = {
+            "series": "",
+            "title": "Revenge Prey",
+            "author": "John Author",
+            "isbn": None,
+            "description": "",
+            "language": None,
+        }
         result = p.enrich(book)
 
         assert result.get("isbn") == "9781234567890"
@@ -1381,9 +1345,14 @@ class TestGoogleBooksProvider:
     def test_does_not_overwrite_existing_fields(self, mock_query):
         mock_query.return_value = SAMPLE_GOOGLE_VOLUME
         p = GoogleBooksProvider()
-        book = {"series": "", "title": "X", "author": "Y",
-                "isbn": "EXISTING_ISBN", "description": "Existing desc",
-                "language": "French"}
+        book = {
+            "series": "",
+            "title": "X",
+            "author": "Y",
+            "isbn": "EXISTING_ISBN",
+            "description": "Existing desc",
+            "language": "French",
+        }
         result = p.enrich(book)
 
         assert "isbn" not in result
@@ -1423,10 +1392,22 @@ RATE_LIMIT_DELAY = 0.5
 _last_call_time = 0.0
 
 LANG_MAP = {
-    "en": "English", "es": "Spanish", "fr": "French", "de": "German",
-    "it": "Italian", "pt": "Portuguese", "ja": "Japanese", "zh": "Chinese",
-    "ko": "Korean", "ru": "Russian", "ar": "Arabic", "nl": "Dutch",
-    "sv": "Swedish", "no": "Norwegian", "da": "Danish", "pl": "Polish",
+    "en": "English",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "ja": "Japanese",
+    "zh": "Chinese",
+    "ko": "Korean",
+    "ru": "Russian",
+    "ar": "Arabic",
+    "nl": "Dutch",
+    "sv": "Swedish",
+    "no": "Norwegian",
+    "da": "Danish",
+    "pl": "Polish",
     "fi": "Finnish",
 }
 
@@ -1461,7 +1442,7 @@ def _query_google_books(
             items = data.get("items", [])
             if items:
                 return items[0].get("volumeInfo", {})
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+    except urllib.error.HTTPError, urllib.error.URLError, TimeoutError:
         pass
     return None
 
@@ -1585,8 +1566,7 @@ class TestOpenLibraryProvider:
     def test_enriches_series_and_isbn(self, mock_query):
         mock_query.return_value = SAMPLE_OL_DOC
         p = OpenLibraryProvider()
-        book = {"series": "", "title": "Revenge Prey", "author": "John Author",
-                "isbn": None}
+        book = {"series": "", "title": "Revenge Prey", "author": "John Author", "isbn": None}
         result = p.enrich(book)
 
         assert result.get("series") == "Prey Series"
@@ -1663,7 +1643,7 @@ def _query_openlibrary(title: str, author: Optional[str] = None) -> Optional[dic
             data = json.loads(resp.read())
             docs = data.get("docs", [])
             return docs[0] if docs else None
-    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError):
+    except urllib.error.HTTPError, urllib.error.URLError, TimeoutError:
         return None
 
 
@@ -1811,7 +1791,9 @@ class TestEnrichBookOrchestrator:
 
         # Verify DB was updated
         conn = sqlite3.connect(db_path)
-        cursor = conn.execute("SELECT series, series_sequence FROM audiobooks WHERE id = ?", (book_id,))
+        cursor = conn.execute(
+            "SELECT series, series_sequence FROM audiobooks WHERE id = ?", (book_id,)
+        )
         row = cursor.fetchone()
         conn.close()
         assert row[0] == "Alpha Series"
@@ -1857,9 +1839,7 @@ class TestEnrichBookOrchestrator:
         enrich_book(book_id, db_path, providers=providers)
 
         conn = sqlite3.connect(db_path)
-        cursor = conn.execute(
-            "SELECT enrichment_source FROM audiobooks WHERE id = ?", (book_id,)
-        )
+        cursor = conn.execute("SELECT enrichment_source FROM audiobooks WHERE id = ?", (book_id,))
         assert cursor.fetchone()[0] == "fake"
         conn.close()
 
@@ -1872,9 +1852,7 @@ class TestEnrichBookOrchestrator:
         enrich_book(book_id, db_path, providers=providers)
 
         conn = sqlite3.connect(db_path)
-        cursor = conn.execute(
-            "SELECT audible_enriched_at FROM audiobooks WHERE id = ?", (book_id,)
-        )
+        cursor = conn.execute("SELECT audible_enriched_at FROM audiobooks WHERE id = ?", (book_id,))
         assert cursor.fetchone()[0] is not None
         conn.close()
 
@@ -1892,8 +1870,12 @@ class TestEnrichBookOrchestrator:
 
         class CrashProvider(EnrichmentProvider):
             name = "crash"
-            def can_enrich(self, book): return True
-            def enrich(self, book): raise RuntimeError("API down")
+
+            def can_enrich(self, book):
+                return True
+
+            def enrich(self, book):
+                raise RuntimeError("API down")
 
         p_good = FakeProvider({"series": "Fallback"})
         p_good.name = "good"
@@ -1932,12 +1914,31 @@ from scripts.enrichment.base import EnrichmentProvider
 
 # Columns that can be enriched (written to audiobooks table directly)
 ENRICHABLE_COLUMNS = {
-    "asin", "series", "series_sequence", "subtitle", "language", "format_type",
-    "runtime_length_min", "release_date", "publisher_summary", "rating_overall",
-    "rating_performance", "rating_story", "num_ratings", "num_reviews",
-    "audible_image_url", "sample_url", "audible_sku", "is_adult_product",
-    "merchandising_summary", "content_type", "isbn", "description",
-    "published_date", "published_year", "enrichment_source",
+    "asin",
+    "series",
+    "series_sequence",
+    "subtitle",
+    "language",
+    "format_type",
+    "runtime_length_min",
+    "release_date",
+    "publisher_summary",
+    "rating_overall",
+    "rating_performance",
+    "rating_story",
+    "num_ratings",
+    "num_reviews",
+    "audible_image_url",
+    "sample_url",
+    "audible_sku",
+    "is_adult_product",
+    "merchandising_summary",
+    "content_type",
+    "isbn",
+    "description",
+    "published_date",
+    "published_year",
+    "enrichment_source",
 }
 
 # Columns to load from DB for provider input
@@ -2113,8 +2114,7 @@ def enrich_book(
         if "author_asins" in side_data:
             for auth in side_data["author_asins"]:
                 cursor.execute(
-                    "UPDATE authors SET asin = ? WHERE name = ? "
-                    "AND (asin IS NULL OR asin = '')",
+                    "UPDATE authors SET asin = ? WHERE name = ? AND (asin IS NULL OR asin = '')",
                     (auth["asin"], auth["name"]),
                 )
 
@@ -2314,9 +2314,7 @@ class TestBackfillAsinRecovery:
         sources_dir = tmp_path / "Sources"
         sources_dir.mkdir()
         voucher = {"content_license": {"asin": "B0VOUCHER1"}}
-        (sources_dir / "B0VOUCHER1_Cool_Book-AAX_44_128.voucher").write_text(
-            json.dumps(voucher)
-        )
+        (sources_dir / "B0VOUCHER1_Cool_Book-AAX_44_128.voucher").write_text(json.dumps(voucher))
 
         count = recover_asins(db_path, sources_dir)
         assert count >= 1
@@ -2478,8 +2476,7 @@ def recover_asins(
 
     # Get books missing ASIN
     cursor = conn.execute(
-        "SELECT id, title, file_path FROM audiobooks "
-        "WHERE asin IS NULL OR asin = ''"
+        "SELECT id, title, file_path FROM audiobooks WHERE asin IS NULL OR asin = ''"
     )
     books = cursor.fetchall()
     if not books:
@@ -2513,7 +2510,7 @@ def recover_asins(
                     )
                     if title_part:
                         voucher_index[title_part] = asin_candidate
-            except (json.JSONDecodeError, IOError):
+            except json.JSONDecodeError, IOError:
                 continue
 
     # Also index .aaxc filenames
@@ -2580,11 +2577,7 @@ def run_enrichment_pass(
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
 
-    query = (
-        "SELECT id, title FROM audiobooks "
-        "WHERE audible_enriched_at IS NULL "
-        "ORDER BY id"
-    )
+    query = "SELECT id, title FROM audiobooks WHERE audible_enriched_at IS NULL ORDER BY id"
     if limit:
         query += f" LIMIT {limit}"
 
@@ -2639,16 +2632,12 @@ def main():
         description="Backfill enrichment for existing audiobook library"
     )
     parser.add_argument("--db", type=str, default=None, help="Path to SQLite database")
-    parser.add_argument(
-        "--sources", type=str, default=None, help="Path to Sources directory"
-    )
+    parser.add_argument("--sources", type=str, default=None, help="Path to Sources directory")
     parser.add_argument(
         "--asin-only", action="store_true", help="Only recover ASINs (no API calls)"
     )
     parser.add_argument("--dry-run", action="store_true", help="Show what would happen")
-    parser.add_argument(
-        "--limit", type=int, default=None, help="Limit enrichment to N books"
-    )
+    parser.add_argument("--limit", type=int, default=None, help="Limit enrichment to N books")
     args = parser.parse_args()
 
     db_path = Path(args.db) if args.db else DATABASE_PATH
@@ -2847,9 +2836,7 @@ class TestFullChainIntegration:
             "title": "LibriVox Classic",
             "description": "A public domain recording.",
             "language": "en",
-            "industryIdentifiers": [
-                {"type": "ISBN_13", "identifier": "9780000000001"}
-            ],
+            "industryIdentifiers": [{"type": "ISBN_13", "identifier": "9780000000001"}],
         }
         mock_ol.return_value = None
 
@@ -2883,9 +2870,7 @@ class TestFullChainIntegration:
     @patch("scripts.enrichment.provider_audible._fetch_audible_product")
     @patch("scripts.enrichment.provider_google._query_google_books")
     @patch("scripts.enrichment.provider_openlibrary._query_openlibrary")
-    def test_audible_book_enriched_with_series(
-        self, mock_ol, mock_gb, mock_aud, tmp_path
-    ):
+    def test_audible_book_enriched_with_series(self, mock_ol, mock_gb, mock_aud, tmp_path):
         """Book with ASIN gets series from Audible, skips other providers."""
         mock_aud.return_value = {
             "series": [{"title": "Jack Reacher", "sequence": "27"}],

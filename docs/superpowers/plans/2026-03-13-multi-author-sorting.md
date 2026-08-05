@@ -76,6 +76,7 @@
 import pytest
 from library.backend.name_parser import parse_names, generate_sort_name
 
+
 class TestGenerateSortName:
     """Test sort name generation from individual names."""
 
@@ -165,6 +166,7 @@ class TestParseNames:
     def test_group_name_in_author_context_flagged(self):
         """Group names should be detectable for redirection to narrators."""
         from library.backend.name_parser import is_group_name
+
         assert is_group_name("Full Cast") is True
         assert is_group_name("BBC Radio") is True
         assert is_group_name("Stephen King") is False
@@ -204,32 +206,54 @@ import re
 
 # Known performance/production group names — always narrators, never authors.
 # If detected in author metadata, caller should redirect to narrator list.
-GROUP_NAMES = frozenset({
-    "full cast",
-    "bbc radio",
-    "bbc radio 4",
-    "bbc radio drama",
-    "various authors",
-    "various narrators",
-    "various",
-    "audiobook",
-    "unknown author",
-    "unknown narrator",
-})
+GROUP_NAMES = frozenset(
+    {
+        "full cast",
+        "bbc radio",
+        "bbc radio 4",
+        "bbc radio drama",
+        "various authors",
+        "various narrators",
+        "various",
+        "audiobook",
+        "unknown author",
+        "unknown narrator",
+    }
+)
 
 # Last name prefixes that should stay attached to the surname
-LAST_NAME_PREFIXES = frozenset({
-    "le", "de", "la", "van", "von", "der", "den", "del", "da", "di", "du",
-    "el", "al", "bin", "ibn", "mac", "mc", "o'",
-})
+LAST_NAME_PREFIXES = frozenset(
+    {
+        "le",
+        "de",
+        "la",
+        "van",
+        "von",
+        "der",
+        "den",
+        "del",
+        "da",
+        "di",
+        "du",
+        "el",
+        "al",
+        "bin",
+        "ibn",
+        "mac",
+        "mc",
+        "o'",
+    }
+)
 
 # Names to treat as empty/unknown
-EMPTY_NAMES = frozenset({
-    "unknown author",
-    "unknown narrator",
-    "audiobook",
-    "",
-})
+EMPTY_NAMES = frozenset(
+    {
+        "unknown author",
+        "unknown narrator",
+        "audiobook",
+        "",
+    }
+)
 
 
 def is_group_name(name: str) -> bool:
@@ -547,7 +571,9 @@ def create_test_db(db_path):
         )
     """)
     # Create new normalized tables from migration SQL
-    migration_sql = (Path(__file__).parent.parent / "backend" / "migrations" / "011_multi_author_narrator.sql").read_text()
+    migration_sql = (
+        Path(__file__).parent.parent / "backend" / "migrations" / "011_multi_author_narrator.sql"
+    ).read_text()
     conn.executescript(migration_sql)
     return conn
 
@@ -565,13 +591,14 @@ class TestMigration:
     def _insert_book(self, title, author, narrator="Test Narrator"):
         self.conn.execute(
             "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, ?, ?, ?)",
-            (title, author, narrator, f"/fake/{title}.opus")
+            (title, author, narrator, f"/fake/{title}.opus"),
         )
         self.conn.commit()
 
     def test_single_author_migrated(self):
         self._insert_book("It", "Stephen King")
         from library.backend.migrations.migrate_to_normalized_authors import migrate
+
         migrate(self.db_path)
 
         authors = self.conn.execute("SELECT name, sort_name FROM authors").fetchall()
@@ -586,6 +613,7 @@ class TestMigration:
     def test_multi_author_creates_both(self):
         self._insert_book("The Talisman", "Stephen King, Peter Straub")
         from library.backend.migrations.migrate_to_normalized_authors import migrate
+
         migrate(self.db_path)
 
         authors = self.conn.execute("SELECT name FROM authors ORDER BY name").fetchall()
@@ -601,6 +629,7 @@ class TestMigration:
         self._insert_book("It", "Stephen King")
         self._insert_book("The Shining", "Stephen King")
         from library.backend.migrations.migrate_to_normalized_authors import migrate
+
         migrate(self.db_path)
 
         authors = self.conn.execute("SELECT name FROM authors").fetchall()
@@ -612,6 +641,7 @@ class TestMigration:
     def test_narrator_migrated(self):
         self._insert_book("It", "Stephen King", "Steven Weber")
         from library.backend.migrations.migrate_to_normalized_authors import migrate
+
         migrate(self.db_path)
 
         narrators = self.conn.execute("SELECT name, sort_name FROM narrators").fetchall()
@@ -622,10 +652,11 @@ class TestMigration:
     def test_null_author_no_junction_row(self):
         self.conn.execute(
             "INSERT INTO audiobooks (title, author, narrator, file_path) VALUES (?, NULL, ?, ?)",
-            ("Orphan Book", "Some Narrator", "/fake/orphan.opus")
+            ("Orphan Book", "Some Narrator", "/fake/orphan.opus"),
         )
         self.conn.commit()
         from library.backend.migrations.migrate_to_normalized_authors import migrate
+
         migrate(self.db_path)
 
         links = self.conn.execute(
@@ -636,6 +667,7 @@ class TestMigration:
     def test_group_name_redirected_to_narrator(self):
         self._insert_book("Drama", "Full Cast", "Someone Else")
         from library.backend.migrations.migrate_to_normalized_authors import migrate
+
         migrate(self.db_path)
 
         # "Full Cast" should NOT be in authors
@@ -652,6 +684,7 @@ class TestMigration:
         """Running migration twice should not duplicate data."""
         self._insert_book("It", "Stephen King")
         from library.backend.migrations.migrate_to_normalized_authors import migrate
+
         migrate(self.db_path)
         migrate(self.db_path)  # Second run
 
@@ -710,9 +743,7 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
         "ambiguous": [],
     }
 
-    rows = conn.execute(
-        "SELECT id, title, author, narrator FROM audiobooks"
-    ).fetchall()
+    rows = conn.execute("SELECT id, title, author, narrator FROM audiobooks").fetchall()
 
     for row in rows:
         book_id = row["id"]
@@ -785,8 +816,12 @@ def migrate(db_path: str, dry_run: bool = False) -> dict:
 
     logger.info(
         "Migration complete: %d books, %d authors, %d narrators, %d author-links, %d narrator-links, %d group redirections",
-        stats["books_processed"], stats["authors_created"], stats["narrators_created"],
-        stats["author_links"], stats["narrator_links"], stats["group_redirections"],
+        stats["books_processed"],
+        stats["authors_created"],
+        stats["narrators_created"],
+        stats["author_links"],
+        stats["narrator_links"],
+        stats["group_redirections"],
     )
 
     return stats
@@ -802,6 +837,7 @@ if __name__ == "__main__":
     db_path = args.db_path
     if not db_path:
         from config import DATABASE_PATH
+
         db_path = str(DATABASE_PATH)
 
     result = migrate(db_path, dry_run=args.dry_run)
@@ -848,6 +884,7 @@ Add to existing test infrastructure or create:
 # In library/tests/test_grouped_api.py
 """Tests for enriched audiobook API responses with author/narrator arrays."""
 
+
 def test_flat_endpoint_includes_authors_array(client, populated_db):
     """GET /api/audiobooks should include authors array per book."""
     resp = client.get("/api/audiobooks")
@@ -855,7 +892,10 @@ def test_flat_endpoint_includes_authors_array(client, populated_db):
     book = data["audiobooks"][0]
     assert "authors" in book
     assert isinstance(book["authors"], list)
-    assert all("id" in a and "name" in a and "sort_name" in a and "position" in a for a in book["authors"])
+    assert all(
+        "id" in a and "name" in a and "sort_name" in a and "position" in a for a in book["authors"]
+    )
+
 
 def test_flat_endpoint_includes_narrators_array(client, populated_db):
     """GET /api/audiobooks should include narrators array per book."""
@@ -864,6 +904,7 @@ def test_flat_endpoint_includes_narrators_array(client, populated_db):
     book = data["audiobooks"][0]
     assert "narrators" in book
     assert isinstance(book["narrators"], list)
+
 
 def test_flat_endpoint_preserves_flat_author_string(client, populated_db):
     """Flat author/narrator strings still present for backwards compatibility."""
@@ -896,10 +937,14 @@ cursor.execute(
 )
 authors_map: dict[int, list[dict]] = {}
 for r in cursor.fetchall():
-    authors_map.setdefault(r["book_id"], []).append({
-        "id": r["id"], "name": r["name"],
-        "sort_name": r["sort_name"], "position": r["position"],
-    })
+    authors_map.setdefault(r["book_id"], []).append(
+        {
+            "id": r["id"],
+            "name": r["name"],
+            "sort_name": r["sort_name"],
+            "position": r["position"],
+        }
+    )
 
 # Batch: narrators for all books in one query
 cursor.execute(
@@ -914,10 +959,14 @@ cursor.execute(
 )
 narrators_map: dict[int, list[dict]] = {}
 for r in cursor.fetchall():
-    narrators_map.setdefault(r["book_id"], []).append({
-        "id": r["id"], "name": r["name"],
-        "sort_name": r["sort_name"], "position": r["position"],
-    })
+    narrators_map.setdefault(r["book_id"], []).append(
+        {
+            "id": r["id"],
+            "name": r["name"],
+            "sort_name": r["sort_name"],
+            "position": r["position"],
+        }
+    )
 ```
 
 Then in the per-book assignment loop (around line 345), add:
@@ -951,6 +1000,7 @@ git commit -m "feat: enrich flat audiobooks endpoint with authors/narrators arra
 ```python
 # Add to library/tests/test_grouped_api.py
 
+
 def test_grouped_by_author(client, populated_db):
     """GET /api/audiobooks/grouped?by=author returns author-grouped results."""
     resp = client.get("/api/audiobooks/grouped?by=author")
@@ -968,6 +1018,7 @@ def test_grouped_by_author(client, populated_db):
         assert "books" in group
         assert len(group["books"]) > 0
 
+
 def test_grouped_by_narrator(client, populated_db):
     """GET /api/audiobooks/grouped?by=narrator works identically."""
     resp = client.get("/api/audiobooks/grouped?by=narrator")
@@ -975,10 +1026,12 @@ def test_grouped_by_narrator(client, populated_db):
     data = resp.get_json()
     assert "groups" in data
 
+
 def test_grouped_invalid_by(client, populated_db):
     """Invalid 'by' parameter returns 400."""
     resp = client.get("/api/audiobooks/grouped?by=invalid")
     assert resp.status_code == 400
+
 
 def test_grouped_multi_author_appears_in_both(client, multi_author_db):
     """A book with two authors appears in both author groups."""
@@ -986,10 +1039,10 @@ def test_grouped_multi_author_appears_in_both(client, multi_author_db):
     data = resp.get_json()
     # Find the multi-author book
     groups_with_talisman = [
-        g for g in data["groups"]
-        if any(b["title"] == "The Talisman" for b in g["books"])
+        g for g in data["groups"] if any(b["title"] == "The Talisman" for b in g["books"])
     ]
     assert len(groups_with_talisman) == 2  # Under both King and Straub
+
 
 def test_grouped_total_books_deduplicated(client, multi_author_db):
     """total_books should be deduplicated count."""
@@ -1004,12 +1057,14 @@ def test_grouped_total_books_deduplicated(client, multi_author_db):
             all_book_ids.add(b["id"])
     assert data["total_books"] == len(all_book_ids)
 
+
 def test_grouped_sorted_by_sort_name(client, populated_db):
     """Groups should be sorted alphabetically by sort_name."""
     resp = client.get("/api/audiobooks/grouped?by=author")
     data = resp.get_json()
     sort_names = [g["key"]["sort_name"] for g in data["groups"]]
     assert sort_names == sorted(sort_names, key=str.lower)
+
 
 def test_grouped_books_within_group_sorted_by_title(client, populated_db):
     """Books within each group sorted alphabetically by title."""
@@ -1018,6 +1073,7 @@ def test_grouped_books_within_group_sorted_by_title(client, populated_db):
     for group in data["groups"]:
         titles = [b["title"] for b in group["books"]]
         assert titles == sorted(titles, key=str.lower)
+
 
 def test_grouped_respects_audiobook_filter(client, populated_db):
     """Grouped endpoint should exclude non-audiobook content types."""
@@ -1108,15 +1164,20 @@ def init_grouped_routes(db_path):
         for r in rows:
             person_id = r["person_id"]
             book = {
-                "id": r["id"], "title": r["title"],
-                "author": r["author"], "narrator": r["narrator"],
-                "publisher": r["publisher"], "series": r["series"],
+                "id": r["id"],
+                "title": r["title"],
+                "author": r["author"],
+                "narrator": r["narrator"],
+                "publisher": r["publisher"],
+                "series": r["series"],
                 "series_sequence": r["series_sequence"],
-                "edition": r["edition"], "asin": r["asin"],
+                "edition": r["edition"],
+                "asin": r["asin"],
                 "duration_hours": r["duration_hours"],
                 "duration_formatted": r["duration_formatted"],
                 "file_size_mb": r["file_size_mb"],
-                "cover_path": r["cover_path"], "format": r["format"],
+                "cover_path": r["cover_path"],
+                "format": r["format"],
                 "quality": r["quality"],
                 "published_year": r["published_year"],
                 "content_type": r["content_type"],
@@ -1144,14 +1205,16 @@ def init_grouped_routes(db_path):
         for person in persons:
             pid = person["id"]
             if pid in books_by_person:
-                groups.append({
-                    "key": {
-                        "id": pid,
-                        "name": person["name"],
-                        "sort_name": person["sort_name"],
-                    },
-                    "books": books_by_person[pid],
-                })
+                groups.append(
+                    {
+                        "key": {
+                            "id": pid,
+                            "name": person["name"],
+                            "sort_name": person["sort_name"],
+                        },
+                        "books": books_by_person[pid],
+                    }
+                )
 
         # Add Unknown group at end if orphans exist
         if orphans:
@@ -1159,16 +1222,20 @@ def init_grouped_routes(db_path):
             orphan_books = [dict(r) for r in orphans]
             for b in orphan_books:
                 all_book_ids.add(b["id"])
-            groups.append({
-                "key": {"id": None, "name": unknown_label, "sort_name": "zzz_unknown"},
-                "books": orphan_books,
-            })
+            groups.append(
+                {
+                    "key": {"id": None, "name": unknown_label, "sort_name": "zzz_unknown"},
+                    "books": orphan_books,
+                }
+            )
 
-        return jsonify({
-            "groups": groups,
-            "total_groups": len(groups),
-            "total_books": len(all_book_ids),
-        })
+        return jsonify(
+            {
+                "groups": groups,
+                "total_groups": len(groups),
+                "total_books": len(all_book_ids),
+            }
+        )
 
     return grouped_bp
 ```
@@ -1179,6 +1246,7 @@ In `library/backend/api_modular/__init__.py`, import and register:
 
 ```python
 from .grouped import grouped_bp, init_grouped_routes
+
 # In create_app():
 init_grouped_routes(db_path)
 app.register_blueprint(grouped_bp)

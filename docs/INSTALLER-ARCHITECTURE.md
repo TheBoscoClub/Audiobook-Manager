@@ -35,8 +35,8 @@ AUDIOBOOKS_DATABASE="/var/lib/audiobooks/audiobooks.db"
 Then `library/config.py` was updated to:
 
 ```python
-AUDIOBOOKS_COVERS = _var_dir / "covers"                      # /var/lib/audiobooks/covers
-AUDIOBOOKS_DATABASE = _var_dir / "db" / "audiobooks.db"      # /var/lib/audiobooks/db/audiobooks.db
+AUDIOBOOKS_COVERS = _var_dir / "covers"  # /var/lib/audiobooks/covers
+AUDIOBOOKS_DATABASE = _var_dir / "db" / "audiobooks.db"  # /var/lib/audiobooks/db/audiobooks.db
 ```
 
 The bash default in `lib/audiobook-config.sh` was updated to match Python,

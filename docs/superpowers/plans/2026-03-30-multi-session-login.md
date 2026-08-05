@@ -94,9 +94,7 @@ class TestMultiSessionMigration:
                 "INSERT INTO users (username, auth_type, auth_credential) "
                 "VALUES ('testuser', 'totp', X'00')"
             )
-            cursor = conn.execute(
-                "SELECT multi_session FROM users WHERE username = 'testuser'"
-            )
+            cursor = conn.execute("SELECT multi_session FROM users WHERE username = 'testuser'")
             row = cursor.fetchone()
             assert row is not None
             assert row[0] == "default"
@@ -104,9 +102,7 @@ class TestMultiSessionMigration:
     def test_schema_version_is_9(self, temp_db):
         """Schema version should be 9 after migration."""
         with temp_db.connection() as conn:
-            cursor = conn.execute(
-                "SELECT MAX(version) FROM schema_version"
-            )
+            cursor = conn.execute("SELECT MAX(version) FROM schema_version")
             assert cursor.fetchone()[0] >= 9
 ```
 
@@ -165,26 +161,24 @@ In `library/auth/database.py`:
 1. Add additive migration block in `initialize()` after the `last_audit_seen_id` block (around line 251):
 
 ```python
-            # Migration: add system_settings table if not exists
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS system_settings (
-                    setting_key TEXT PRIMARY KEY,
-                    setting_value TEXT NOT NULL
-                )
-            """)
-            # Seed multi_session_default if not present
-            conn.execute(
-                "INSERT OR IGNORE INTO system_settings (setting_key, setting_value) "
-                "VALUES ('multi_session_default', 'false')"
-            )
+# Migration: add system_settings table if not exists
+conn.execute("""
+    CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key TEXT PRIMARY KEY,
+        setting_value TEXT NOT NULL
+    )
+""")
+# Seed multi_session_default if not present
+conn.execute(
+    "INSERT OR IGNORE INTO system_settings (setting_key, setting_value) "
+    "VALUES ('multi_session_default', 'false')"
+)
 
-            # Migration: add multi_session column to users if not exists
-            try:
-                conn.execute(
-                    "ALTER TABLE users ADD COLUMN multi_session TEXT NOT NULL DEFAULT 'default'"
-                )
-            except Exception:
-                pass  # Column already exists
+# Migration: add multi_session column to users if not exists
+try:
+    conn.execute("ALTER TABLE users ADD COLUMN multi_session TEXT NOT NULL DEFAULT 'default'")
+except Exception:
+    pass  # Column already exists
 ```
 
 - [ ] **Step 6: Run tests to verify they pass**
@@ -218,9 +212,7 @@ class TestUserMultiSessionField:
 
     def test_user_has_multi_session_default(self, temp_db):
         """New users should have multi_session='default'."""
-        user = User(
-            username="ms_test1", auth_type=AuthType.TOTP, auth_credential=b"secret"
-        )
+        user = User(username="ms_test1", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
 
         # Re-fetch to confirm DB round-trip
@@ -246,9 +238,7 @@ class TestUserMultiSessionField:
 
     def test_user_multi_session_update(self, temp_db):
         """Updating multi_session on an existing user should persist."""
-        user = User(
-            username="ms_test3", auth_type=AuthType.TOTP, auth_credential=b"secret"
-        )
+        user = User(username="ms_test3", auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
         assert user.multi_session == "default"
 
@@ -340,54 +330,62 @@ In `library/auth/models.py`, class `User` (line ~56):
 In the INSERT statement (line ~127-148), add `multi_session` after `last_audit_seen_id`:
 
 ```python
-                    """
-                    INSERT INTO users (
-                        username, auth_type, auth_credential,
-                        can_download, is_admin,
-                        recovery_email, recovery_phone, recovery_enabled,
-                        last_audit_seen_id, multi_session
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        self.username,
-                        self.auth_type.value,
-                        self.auth_credential,
-                        self.can_download,
-                        self.is_admin,
-                        self.recovery_email,
-                        self.recovery_phone,
-                        self.recovery_enabled,
-                        self.last_audit_seen_id,
-                        self.multi_session,
-                    ),
+(
+    """
+INSERT INTO users (
+    username, auth_type, auth_credential,
+    can_download, is_admin,
+    recovery_email, recovery_phone, recovery_enabled,
+    last_audit_seen_id, multi_session
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+""",
+)
+(
+    (
+        self.username,
+        self.auth_type.value,
+        self.auth_credential,
+        self.can_download,
+        self.is_admin,
+        self.recovery_email,
+        self.recovery_phone,
+        self.recovery_enabled,
+        self.last_audit_seen_id,
+        self.multi_session,
+    ),
+)
 ```
 
 1. Update `save()` UPDATE — add `multi_session` to the SET clause:
 
 ```python
-                    """
-                    UPDATE users SET
-                        username = ?, auth_type = ?, auth_credential = ?,
-                        can_download = ?, is_admin = ?, last_login = ?,
-                        recovery_email = ?, recovery_phone = ?, recovery_enabled = ?,
-                        last_audit_seen_id = ?, multi_session = ?
-                    WHERE id = ?
-                    """,
-                    (
-                        self.username,
-                        self.auth_type.value,
-                        self.auth_credential,
-                        self.can_download,
-                        self.is_admin,
-                        self.last_login.isoformat() if self.last_login else None,
-                        self.recovery_email,
-                        self.recovery_phone,
-                        self.recovery_enabled,
-                        self.last_audit_seen_id,
-                        self.multi_session,
-                        self.id,
-                    ),
+(
+    """
+UPDATE users SET
+    username = ?, auth_type = ?, auth_credential = ?,
+    can_download = ?, is_admin = ?, last_login = ?,
+    recovery_email = ?, recovery_phone = ?, recovery_enabled = ?,
+    last_audit_seen_id = ?, multi_session = ?
+WHERE id = ?
+""",
+)
+(
+    (
+        self.username,
+        self.auth_type.value,
+        self.auth_credential,
+        self.can_download,
+        self.is_admin,
+        self.last_login.isoformat() if self.last_login else None,
+        self.recovery_email,
+        self.recovery_phone,
+        self.recovery_enabled,
+        self.last_audit_seen_id,
+        self.multi_session,
+        self.id,
+    ),
+)
 ```
 
 - [ ] **Step 4: Add SystemSettingsRepository class**
@@ -463,9 +461,7 @@ class TestSessionAllowMulti:
     """Tests for Session.create_for_user() allow_multi parameter."""
 
     def _make_user(self, temp_db, username="session_user"):
-        user = User(
-            username=username, auth_type=AuthType.TOTP, auth_credential=b"secret"
-        )
+        user = User(username=username, auth_type=AuthType.TOTP, auth_credential=b"secret")
         user.save(temp_db)
         return user
 
@@ -486,9 +482,7 @@ class TestSessionAllowMulti:
         repo = SessionRepository(temp_db)
 
         session1, token1 = Session.create_for_user(temp_db, user.id)
-        session2, token2 = Session.create_for_user(
-            temp_db, user.id, allow_multi=True
-        )
+        session2, token2 = Session.create_for_user(temp_db, user.id, allow_multi=True)
 
         # Both sessions should be valid
         assert repo.get_by_token(token1) is not None
@@ -500,9 +494,7 @@ class TestSessionAllowMulti:
         repo = SessionRepository(temp_db)
 
         session1, token1 = Session.create_for_user(temp_db, user.id)
-        session2, token2 = Session.create_for_user(
-            temp_db, user.id, allow_multi=False
-        )
+        session2, token2 = Session.create_for_user(temp_db, user.id, allow_multi=False)
 
         assert repo.get_by_token(token1) is None
         assert repo.get_by_token(token2) is not None
@@ -824,11 +816,15 @@ With:
 With:
 
 ```python
-    allow_multi = _user_allows_multi_session(user, db)
-    session, raw_token = Session.create_for_user(
-        db, user.id, user_agent, ip_address, remember_me=remember_me,
-        allow_multi=allow_multi,
-    )
+allow_multi = _user_allows_multi_session(user, db)
+session, raw_token = Session.create_for_user(
+    db,
+    user.id,
+    user_agent,
+    ip_address,
+    remember_me=remember_me,
+    allow_multi=allow_multi,
+)
 ```
 
 - [ ] **Step 6: Run full auth tests**
@@ -866,9 +862,7 @@ class TestAdminSettingsAPI:
         import sys
 
         # Ensure library is on path
-        lib_dir = os.path.join(
-            os.path.dirname(__file__), os.pardir, os.pardir
-        )
+        lib_dir = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir)
         if lib_dir not in sys.path:
             sys.path.insert(0, os.path.abspath(lib_dir))
 
@@ -879,9 +873,7 @@ class TestAdminSettingsAPI:
         app.config["TESTING"] = True
         app.register_blueprint(auth_bp)
 
-        monkeypatch.setattr(
-            "backend.api_modular.auth.get_auth_db", lambda: temp_db
-        )
+        monkeypatch.setattr("backend.api_modular.auth.get_auth_db", lambda: temp_db)
 
         # Create admin user and session for auth
         admin = User(
@@ -1074,13 +1066,11 @@ After the `can_download` block, add:
 After `set_download_permission()` (around line 270):
 
 ```python
-    def set_multi_session(self, user_id: int, value: str) -> bool:
-        """Set multi-session override for a user."""
-        with self.db.connection() as conn:
-            cursor = conn.execute(
-                "UPDATE users SET multi_session = ? WHERE id = ?", (value, user_id)
-            )
-            return cursor.rowcount > 0
+def set_multi_session(self, user_id: int, value: str) -> bool:
+    """Set multi-session override for a user."""
+    with self.db.connection() as conn:
+        cursor = conn.execute("UPDATE users SET multi_session = ? WHERE id = ?", (value, user_id))
+        return cursor.rowcount > 0
 ```
 
 - [ ] **Step 4: Run tests to verify they pass**

@@ -274,9 +274,7 @@ Create `library/tests/test_security_headers_iframe.py`:
 import re
 from pathlib import Path
 
-CORE_PY = (
-    Path(__file__).parent.parent / "backend" / "api_modular" / "core.py"
-)
+CORE_PY = Path(__file__).parent.parent / "backend" / "api_modular" / "core.py"
 
 
 class TestSecurityHeadersForIframe:
@@ -287,18 +285,17 @@ class TestSecurityHeadersForIframe:
         assert '"SAMEORIGIN"' in content, (
             "X-Frame-Options must be SAMEORIGIN (not DENY) for iframe shell"
         )
-        assert '"DENY"' not in content or "X-Frame-Options" not in content.split('"DENY"')[0].split("\n")[-1], (
-            "X-Frame-Options must not be DENY"
-        )
+        assert (
+            '"DENY"' not in content
+            or "X-Frame-Options" not in content.split('"DENY"')[0].split("\n")[-1]
+        ), "X-Frame-Options must not be DENY"
 
     def test_csp_frame_ancestors_self(self):
         content = CORE_PY.read_text()
         assert "frame-ancestors 'self'" in content, (
             "CSP frame-ancestors must be 'self' (not 'none')"
         )
-        assert "frame-ancestors 'none'" not in content, (
-            "CSP frame-ancestors must not be 'none'"
-        )
+        assert "frame-ancestors 'none'" not in content, "CSP frame-ancestors must not be 'none'"
 
     def test_csp_frame_src_self(self):
         content = CORE_PY.read_text()
@@ -333,7 +330,8 @@ In `library/backend/api_modular/core.py`, modify `add_security_headers()`:
 2. **Line 57**: Change `"frame-ancestors 'none'"` to `"frame-ancestors 'self'; frame-src 'self'"`:
 
    ```python
-   "frame-ancestors 'self'; "
+   "frame-ancestors 'self';"
+
    "frame-src 'self'"
    ```
 
@@ -399,7 +397,6 @@ SHELL_HTML = WEB_DIR / "shell.html"
 
 
 class TestShellPageExists:
-
     def test_shell_html_exists(self):
         assert SHELL_HTML.exists(), "shell.html must exist in web-v2/"
 
@@ -411,15 +408,11 @@ class TestShellPageExists:
 
     def test_iframe_default_src(self):
         content = SHELL_HTML.read_text()
-        assert 'src="index.html"' in content, (
-            "iframe default src must be index.html"
-        )
+        assert 'src="index.html"' in content, "iframe default src must be index.html"
 
     def test_has_audio_element(self):
         content = SHELL_HTML.read_text()
-        assert 'id="audio-element"' in content, (
-            "shell.html must contain the <audio> element"
-        )
+        assert 'id="audio-element"' in content, "shell.html must contain the <audio> element"
 
     def test_has_player_bar(self):
         content = SHELL_HTML.read_text()
@@ -429,22 +422,22 @@ class TestShellPageExists:
 
     def test_player_bar_hidden_by_default(self):
         content = SHELL_HTML.read_text()
-        assert 'hidden' in content.split('id="shell-player"')[1][:100], (
+        assert "hidden" in content.split('id="shell-player"')[1][:100], (
             "Player bar must be hidden by default"
         )
 
     def test_has_shell_js(self):
         content = SHELL_HTML.read_text()
-        assert 'js/shell.js' in content, "shell.html must load shell.js"
+        assert "js/shell.js" in content, "shell.html must load shell.js"
 
     def test_has_shell_css(self):
         content = SHELL_HTML.read_text()
-        assert 'css/shell.css' in content, "shell.html must load shell.css"
+        assert "css/shell.css" in content, "shell.html must load shell.css"
 
     def test_no_library_js(self):
         """shell.html should NOT load library.js — that's for content pages."""
         content = SHELL_HTML.read_text()
-        assert 'library.js' not in content, (
+        assert "library.js" not in content, (
             "shell.html must not load library.js (that belongs in iframe content)"
         )
 ```
@@ -545,7 +538,6 @@ SHELL_CSS = Path(__file__).parent.parent / "web-v2" / "css" / "shell.css"
 
 
 class TestShellCSS:
-
     def test_shell_css_exists(self):
         assert SHELL_CSS.exists(), "shell.css must exist in web-v2/css/"
 
@@ -776,7 +768,6 @@ SHELL_JS = Path(__file__).parent.parent / "web-v2" / "js" / "shell.js"
 
 
 class TestShellJS:
-
     def test_shell_js_exists(self):
         assert SHELL_JS.exists(), "shell.js must exist in web-v2/js/"
 
@@ -800,15 +791,11 @@ class TestShellJS:
     def test_origin_validation(self):
         """Messages must validate origin to prevent cross-origin attacks."""
         content = SHELL_JS.read_text()
-        assert "origin" in content, (
-            "shell.js must validate message origin"
-        )
+        assert "origin" in content, "shell.js must validate message origin"
 
     def test_sends_player_state(self):
         content = SHELL_JS.read_text()
-        assert "playerState" in content, (
-            "shell.js must send playerState messages to iframe"
-        )
+        assert "playerState" in content, "shell.js must send playerState messages to iframe"
 
     def test_has_credentials_on_api_calls(self):
         """Any fetch calls in shell.js must include credentials."""
@@ -816,7 +803,8 @@ class TestShellJS:
         if "fetch(" in content:
             # Count fetch calls and credentials includes
             import re
-            fetches = len(re.findall(r'fetch\(', content))
+
+            fetches = len(re.findall(r"fetch\(", content))
             creds = len(re.findall(r"credentials\s*:\s*['\"]include['\"]", content))
             assert creds >= fetches, (
                 f"Found {fetches} fetch calls but only {creds} with credentials: 'include'"
@@ -908,13 +896,10 @@ INDEX_HTML = Path(__file__).parent.parent / "web-v2" / "index.html"
 
 
 class TestIframeBridge:
-
     def test_library_js_has_postmessage_play(self):
         """library.js must send postMessage to parent when playing."""
         content = LIBRARY_JS.read_text()
-        assert "postMessage" in content, (
-            "library.js must use postMessage to communicate with shell"
-        )
+        assert "postMessage" in content, "library.js must use postMessage to communicate with shell"
 
     def test_library_js_detects_iframe(self):
         """library.js must detect if it's running inside an iframe."""
@@ -1036,7 +1021,6 @@ WEB_DIR = Path(__file__).parent.parent / "web-v2"
 
 
 class TestLoginRedirect:
-
     def test_login_redirects_to_shell(self):
         content = (WEB_DIR / "login.html").read_text()
         assert "shell.html" in content, (
@@ -1057,7 +1041,6 @@ class TestLoginRedirect:
 
 
 class TestLogoutBreaksIframe:
-
     def test_logout_uses_target_top(self):
         """Logout link must use target='_top' to break out of iframe."""
         content = (WEB_DIR / "index.html").read_text()
@@ -1066,11 +1049,10 @@ class TestLogoutBreaksIframe:
         if 'href="login.html"' in content:
             # Find the login link and check for target
             import re
+
             login_links = re.findall(r'<a[^>]*href="login\.html"[^>]*>', content)
             for link in login_links:
-                assert 'target="_top"' in link, (
-                    f"Login link must have target='_top': {link}"
-                )
+                assert 'target="_top"' in link, f"Login link must have target='_top': {link}"
 ```
 
 **Step 2: Run test to verify it fails**
@@ -1137,13 +1119,19 @@ from pathlib import Path
 WEB_DIR = Path(__file__).parent.parent / "web-v2"
 
 # Pages that load inside the iframe
-CONTENT_PAGES = ["index.html", "utilities.html", "admin.html", "help.html", "about.html", "contact.html"]
+CONTENT_PAGES = [
+    "index.html",
+    "utilities.html",
+    "admin.html",
+    "help.html",
+    "about.html",
+    "contact.html",
+]
 # Pages that must break out of iframe
 AUTH_PAGES = ["login.html", "register.html", "claim.html", "verify.html"]
 
 
 class TestContentPageLinks:
-
     def test_auth_links_have_target_top(self):
         """Links to auth pages from content pages must use target='_top'."""
         for page_name in CONTENT_PAGES:
@@ -1167,9 +1155,7 @@ class TestContentPageLinks:
                 continue
             content = page_path.read_text()
             # Find window.location.href = 'login.html' patterns
-            bad_redirects = re.findall(
-                r"window\.location\.href\s*=\s*['\"]login\.html", content
-            )
+            bad_redirects = re.findall(r"window\.location\.href\s*=\s*['\"]login\.html", content)
             if bad_redirects:
                 # These should be window.top.location.href
                 top_redirects = re.findall(

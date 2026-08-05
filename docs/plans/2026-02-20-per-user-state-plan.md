@@ -30,6 +30,7 @@
 ```python
 # library/tests/test_per_user_schema.py
 """Tests for per-user state schema additions."""
+
 import sqlite3
 import tempfile
 import os
@@ -38,9 +39,7 @@ import pytest
 
 def get_schema_sql():
     """Read the full schema.sql file."""
-    schema_path = os.path.join(
-        os.path.dirname(__file__), "..", "auth", "schema.sql"
-    )
+    schema_path = os.path.join(os.path.dirname(__file__), "..", "auth", "schema.sql")
     with open(schema_path) as f:
         return f.read()
 
@@ -132,9 +131,7 @@ class TestPerUserStateTables:
         db.execute(
             "INSERT INTO users (id, username, auth_type, auth_credential) VALUES (1, 'testuser1', 'totp', X'00')"
         )
-        db.execute(
-            "INSERT INTO user_downloads (user_id, audiobook_id) VALUES (1, 100)"
-        )
+        db.execute("INSERT INTO user_downloads (user_id, audiobook_id) VALUES (1, 100)")
         db.commit()
         db.execute("DELETE FROM users WHERE id = 1")
         db.commit()
@@ -262,6 +259,7 @@ git commit -m "feat(schema): add per-user state tables (history, downloads, pref
 ```python
 # library/tests/test_per_user_models.py
 """Tests for per-user state data models."""
+
 import sqlite3
 import tempfile
 import os
@@ -278,9 +276,7 @@ class TestListeningHistoryModel:
     def db(self):
         """In-memory auth DB with schema."""
         conn = sqlite3.connect(":memory:")
-        schema_path = os.path.join(
-            os.path.dirname(__file__), "..", "auth", "schema.sql"
-        )
+        schema_path = os.path.join(os.path.dirname(__file__), "..", "auth", "schema.sql")
         with open(schema_path) as f:
             conn.executescript(f.read())
         conn.execute(
@@ -354,9 +350,7 @@ class TestListeningHistoryModel:
         repo = ListeningHistoryRepository(mock_auth_db)
         # Listen to book 100 twice, book 200 once
         for book_id in ["100", "100", "200"]:
-            session = UserListeningHistory(
-                user_id=1, audiobook_id=book_id, position_start_ms=0
-            )
+            session = UserListeningHistory(user_id=1, audiobook_id=book_id, position_start_ms=0)
             session.save(mock_auth_db)
 
         books = repo.get_user_book_ids(1)
@@ -369,7 +363,9 @@ class TestListeningHistoryModel:
         repo = ListeningHistoryRepository(mock_auth_db)
         # Brief session (3s)
         brief = UserListeningHistory(
-            user_id=1, audiobook_id="100", position_start_ms=0,
+            user_id=1,
+            audiobook_id="100",
+            position_start_ms=0,
             duration_listened_ms=3000,
         )
         brief.ended_at = datetime.now()
@@ -377,7 +373,9 @@ class TestListeningHistoryModel:
 
         # Real session (2min)
         real = UserListeningHistory(
-            user_id=1, audiobook_id="200", position_start_ms=0,
+            user_id=1,
+            audiobook_id="200",
+            position_start_ms=0,
             duration_listened_ms=120000,
         )
         real.ended_at = datetime.now()
@@ -395,9 +393,7 @@ class TestDownloadModel:
     @pytest.fixture
     def db(self):
         conn = sqlite3.connect(":memory:")
-        schema_path = os.path.join(
-            os.path.dirname(__file__), "..", "auth", "schema.sql"
-        )
+        schema_path = os.path.join(os.path.dirname(__file__), "..", "auth", "schema.sql")
         with open(schema_path) as f:
             conn.executescript(f.read())
         conn.execute(
@@ -449,9 +445,7 @@ class TestUserPreferencesModel:
     @pytest.fixture
     def db(self):
         conn = sqlite3.connect(":memory:")
-        schema_path = os.path.join(
-            os.path.dirname(__file__), "..", "auth", "schema.sql"
-        )
+        schema_path = os.path.join(os.path.dirname(__file__), "..", "auth", "schema.sql")
         with open(schema_path) as f:
             conn.executescript(f.read())
         conn.execute(
@@ -547,6 +541,7 @@ git commit -m "feat(models): add data models for listening history, downloads, p
 ```python
 # library/tests/test_position_sync_cleanup.py
 """Verify Audible sync endpoints are removed and position endpoints remain."""
+
 import pytest
 
 
@@ -669,6 +664,7 @@ git commit -m "feat(position): remove Audible sync, keep per-user position track
 ```python
 # library/tests/test_user_state_api.py
 """Tests for per-user state API endpoints."""
+
 import json
 import pytest
 
@@ -782,6 +778,7 @@ Register in `__init__.py`:
 
 ```python
 from .user_state import user_bp
+
 flask_app.register_blueprint(user_bp)
 ```
 
@@ -816,6 +813,7 @@ git commit -m "feat(api): add per-user history, downloads, library, and new-book
 ```python
 # library/tests/test_admin_activity_api.py
 """Tests for admin activity audit API."""
+
 import pytest
 
 
@@ -844,9 +842,7 @@ class TestAdminActivityAPI:
         assert response.status_code == 200
 
     def test_activity_filter_by_date_range(self, admin_client):
-        response = admin_client.get(
-            "/api/admin/activity?from=2026-01-01&to=2026-12-31"
-        )
+        response = admin_client.get("/api/admin/activity?from=2026-01-01&to=2026-12-31")
         assert response.status_code == 200
 
 
@@ -909,6 +905,7 @@ git commit -m "feat(admin): add activity audit endpoint with filtering and stats
 ```python
 # library/tests/test_download_tracking.py
 """Tests for download completion recording."""
+
 import pytest
 
 
@@ -1029,6 +1026,7 @@ git commit -m "feat(downloads): JS fetch/blob download with completion tracking"
 ```python
 # library/tests/test_my_library_ui.py
 """Tests for My Library tab HTML structure."""
+
 import os
 import pytest
 
@@ -1038,9 +1036,7 @@ class TestMyLibraryTabHTML:
 
     @pytest.fixture
     def index_html(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "index.html"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "index.html")
         with open(path) as f:
             return f.read()
 
@@ -1059,9 +1055,7 @@ class TestProgressBarCSS:
 
     @pytest.fixture
     def components_css(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "css", "components.css"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "css", "components.css")
         with open(path) as f:
             return f.read()
 
@@ -1124,6 +1118,7 @@ git commit -m "feat(ui): add My Library tab with progress bars and listening his
 ```python
 # library/tests/test_marquee.py
 """Tests for new books marquee."""
+
 import os
 import pytest
 
@@ -1133,9 +1128,7 @@ class TestMarqueeHTML:
 
     @pytest.fixture
     def index_html(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "index.html"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "index.html")
         with open(path) as f:
             return f.read()
 
@@ -1154,9 +1147,7 @@ class TestMarqueeCSS:
 
     @pytest.fixture
     def marquee_css(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "css", "marquee.css"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "css", "marquee.css")
         with open(path) as f:
             return f.read()
 
@@ -1177,9 +1168,7 @@ class TestMarqueeJS:
 
     @pytest.fixture
     def marquee_js(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "js", "marquee.js"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "js", "marquee.js")
         with open(path) as f:
             return f.read()
 
@@ -1253,6 +1242,7 @@ git commit -m "feat(ui): add Art Deco neon new-books marquee"
 ```python
 # library/tests/test_about_page.py
 """Tests for About The Library page."""
+
 import os
 import pytest
 
@@ -1262,9 +1252,7 @@ class TestAboutPage:
 
     @pytest.fixture
     def about_html(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "about.html"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "about.html")
         with open(path) as f:
             return f.read()
 
@@ -1301,9 +1289,7 @@ class TestAboutLinkInHelp:
 
     @pytest.fixture
     def help_html(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "help.html"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "help.html")
         with open(path) as f:
             return f.read()
 
@@ -1361,6 +1347,7 @@ git commit -m "feat(ui): add About The Library page with credits and attribution
 ```python
 # library/tests/test_admin_audit_ui.py
 """Tests for admin audit UI in Back Office."""
+
 import os
 import pytest
 
@@ -1370,9 +1357,7 @@ class TestAuditSectionHTML:
 
     @pytest.fixture
     def utilities_html(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "utilities.html"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "utilities.html")
         with open(path) as f:
             return f.read()
 
@@ -1438,6 +1423,7 @@ git commit -m "feat(admin): add activity audit section to Back Office"
 ```python
 # library/tests/test_help_updates.py
 """Tests for updated help content covering new features."""
+
 import os
 import pytest
 
@@ -1447,9 +1433,7 @@ class TestHelpNewSections:
 
     @pytest.fixture
     def help_html(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "help.html"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "help.html")
         with open(path) as f:
             return f.read()
 
@@ -1471,9 +1455,7 @@ class TestTutorialNewSteps:
 
     @pytest.fixture
     def tutorial_js(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "web-v2", "js", "tutorial.js"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "web-v2", "js", "tutorial.js")
         with open(path) as f:
             return f.read()
 
@@ -1527,17 +1509,15 @@ git commit -m "docs(help): add sections for My Library, progress tracking, downl
 ```python
 # library/tests/test_docs_position_sync.py
 """Verify position sync documentation reflects per-user local-only system."""
+
 import os
 import pytest
 
 
 class TestPositionSyncDocs:
-
     @pytest.fixture
     def position_sync_md(self):
-        path = os.path.join(
-            os.path.dirname(__file__), "..", "..", "docs", "POSITION_SYNC.md"
-        )
+        path = os.path.join(os.path.dirname(__file__), "..", "..", "docs", "POSITION_SYNC.md")
         with open(path) as f:
             return f.read()
 
@@ -1603,6 +1583,7 @@ git commit -m "docs: rewrite position sync docs for per-user local-only system"
 ```python
 # library/tests/test_per_user_integration.py
 """Integration tests for the full per-user state system."""
+
 import pytest
 
 

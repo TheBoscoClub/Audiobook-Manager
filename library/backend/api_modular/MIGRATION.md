@@ -218,13 +218,15 @@ Run tests against both implementations:
 # conftest.py
 import pytest
 
-@pytest.fixture(params=['monolithic', 'modular'])
+
+@pytest.fixture(params=["monolithic", "modular"])
 def api_app(request):
-    if request.param == 'monolithic':
+    if request.param == "monolithic":
         from backend.api import app
     else:
         from backend.api_modular import create_app
         from config import DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR
+
         app = create_app(DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR, 5001)
     return app
 ```
@@ -323,7 +325,8 @@ ModuleNotFoundError: No module named 'api_modular'
 
 ```python
 import sys
-sys.path.insert(0, '<install-dir>/library/backend')  # e.g., /opt/audiobooks/library/backend
+
+sys.path.insert(0, "<install-dir>/library/backend")  # e.g., /opt/audiobooks/library/backend
 from api_modular import create_app
 ```
 

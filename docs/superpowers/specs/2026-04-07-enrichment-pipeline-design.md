@@ -104,7 +104,9 @@ class EnrichmentProvider:
 ### Component 3: Enrichment Orchestrator (`library/scripts/enrichment/__init__.py`)
 
 ```python
-def enrich_book(book_id: int, db_path: Path, providers: list[EnrichmentProvider] | None = None) -> dict:
+def enrich_book(
+    book_id: int, db_path: Path, providers: list[EnrichmentProvider] | None = None
+) -> dict:
     """Run enrichment chain for a single book. Returns dict of fields updated."""
 ```
 
