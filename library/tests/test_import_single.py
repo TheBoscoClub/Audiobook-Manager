@@ -426,3 +426,117 @@ class TestSupportedFormats:
         assert ".opus" in SUPPORTED_FORMATS
         assert ".m4a" in SUPPORTED_FORMATS
         assert ".mp3" in SUPPORTED_FORMATS
+
+
+class TestMoverPathGeneratesHash:
+    """Regression guard for Audiobook-Manager-agx.
+
+    ``import_single`` (the mover doorway) previously ran its own hardcoded
+    ``_post_import_hooks`` list, which omitted the hash-generation hook — so
+    mover-imported books were inserted with ``sha256_hash = NULL`` while
+    scanner-imported books (``add_new_audiobooks``) got a hash at ingest.
+    The importer now delegates to the shared ``scanner.post_insert`` registry,
+    so both doorways run the SAME hooks. These tests prove the hash hook now
+    fires (and populates the row) on the mover path.
+    """
+
+    @staticmethod
+    def _neutralize_network_hooks(stack):
+        """Silence enrichment/verification/translation/original-year hooks so
+        the test is hermetic and exercises only ingest + hashing. The hash
+        hook is deliberately NOT patched here."""
+        stack.enter_context(patch("scanner.post_insert._get_enrich_module", return_value=None))
+        stack.enter_context(patch("scanner.post_insert._get_verify_module", return_value=None))
+        stack.enter_context(patch("localization.queue.enqueue_book_all_locales"))
+        stack.enter_context(patch("scripts.original_print_year.populate_original_publish_year"))
+
+    def test_hash_hook_fires_on_mover_import(self, temp_dir):
+        """The registry's hash hook must be invoked with (audiobook_id, db_path)
+        when a book is imported through import_single."""
+        from contextlib import ExitStack
+
+        from scanner.import_single import import_directory
+
+        from tests.conftest import init_test_database
+
+        db_path = temp_dir / "test.db"
+        init_test_database(db_path)
+
+        import_dir = temp_dir / "import"
+        import_dir.mkdir()
+        test_file = import_dir / "hashed_book.opus"
+        test_file.write_bytes(b"audio-bytes")
+
+        with ExitStack() as stack:
+            self._neutralize_network_hooks(stack)
+            stack.enter_context(
+                patch(
+                    "scanner.import_single.get_file_metadata",
+                    return_value={
+                        "title": "Hashed Book",
+                        "author": "Hash Author",
+                        "file_path": str(test_file),
+                        "duration_hours": 4.0,
+                        "format": "opus",
+                    },
+                )
+            )
+            stack.enter_context(patch("scanner.import_single.extract_cover_art", return_value=None))
+            mock_hash = stack.enter_context(patch("scripts.generate_hashes.generate_hash_for_book"))
+
+            result = import_directory(import_dir, db_path=db_path, cover_dir=temp_dir / "covers")
+
+        assert result["added"] == 1
+        assert result["errors"] == 0
+        mock_hash.assert_called_once()
+        called_book_id, called_db_path = mock_hash.call_args.args
+        assert isinstance(called_book_id, int) and called_book_id > 0
+        assert called_db_path == db_path
+
+    def test_mover_import_populates_sha256_hash(self, temp_dir):
+        """End-to-end: the imported row must carry a non-null sha256_hash."""
+        from contextlib import ExitStack
+
+        from scanner.import_single import import_directory
+
+        from tests.conftest import init_test_database
+
+        db_path = temp_dir / "test.db"
+        init_test_database(db_path)
+
+        import_dir = temp_dir / "import"
+        import_dir.mkdir()
+        test_file = import_dir / "real_hash.opus"
+        test_file.write_bytes(b"real-audio-content")
+
+        with ExitStack() as stack:
+            self._neutralize_network_hooks(stack)
+            stack.enter_context(
+                patch(
+                    "scanner.import_single.get_file_metadata",
+                    return_value={
+                        "title": "Real Hash Book",
+                        "author": "Author",
+                        "file_path": str(test_file),
+                        "duration_hours": 3.0,
+                        "format": "opus",
+                    },
+                )
+            )
+            stack.enter_context(patch("scanner.import_single.extract_cover_art", return_value=None))
+            # Real generate_hash_for_book runs against the real file.
+            result = import_directory(import_dir, db_path=db_path, cover_dir=temp_dir / "covers")
+
+        assert result["added"] == 1
+
+        conn = sqlite3.connect(db_path)
+        try:
+            row = conn.execute(
+                "SELECT sha256_hash FROM audiobooks WHERE file_path = ?", (str(test_file),)
+            ).fetchone()
+        finally:
+            conn.close()
+
+        assert row is not None
+        assert row[0], "mover-imported book was inserted without a sha256_hash"
+        assert len(row[0]) == 64  # SHA-256 hex digest

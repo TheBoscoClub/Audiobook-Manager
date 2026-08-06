@@ -12,13 +12,13 @@ Usage:
 import sqlite3
 import sys
 from pathlib import Path
-from typing import Any, Callable
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 # Import shared utilities
 from config import COVER_DIR, DATABASE_PATH
 from scanner.metadata_utils import extract_cover_art, get_file_metadata
+from scanner.post_insert import run_post_insert_hooks
 from scanner.utils.canonical import iter_canonical_audiobook_files
 from scanner.utils.constants import SUPPORTED_FORMATS
 from scanner.utils.db_helpers import (
@@ -35,38 +35,6 @@ __all__ = [
     "import_directory",
     "insert_audiobook",
 ]
-
-# Auto-enrichment and verification (imported lazily to avoid circular deps)
-_enrich_module = None
-_verify_module = None
-
-
-def _get_enrich_module() -> Callable[..., Any] | None:
-    global _enrich_module
-    if _enrich_module is None:
-        try:
-            from scripts.enrich_single import enrich_book
-
-            _enrich_module = enrich_book
-        except ImportError:
-            _enrich_module = False
-    if not _enrich_module:
-        return None
-    return _enrich_module  # type: ignore[return-value]
-
-
-def _get_verify_module() -> Callable[..., Any] | None:
-    global _verify_module
-    if _verify_module is None:
-        try:
-            from scripts.verify_metadata import verify_single_book
-
-            _verify_module = verify_single_book
-        except ImportError:
-            _verify_module = False
-    if not _verify_module:
-        return None
-    return _verify_module  # type: ignore[return-value]
 
 
 def _find_audio_files(dir_path: Path) -> list[Path]:
@@ -91,31 +59,6 @@ def _get_existing_paths_for_dir(cursor, audio_files: list[Path]) -> set[str]:
     return existing
 
 
-def _post_import_hooks(audiobook_id: int, db_path: Path) -> None:
-    """Run enrichment, verification, and translation after a successful import."""
-    enrich_fn = _get_enrich_module()
-    if enrich_fn and audiobook_id:
-        try:
-            enrich_fn(book_id=audiobook_id, db_path=db_path, quiet=False)
-        except Exception as e:
-            print(f"  ⚠ Enrichment error (non-fatal): {e}", file=sys.stderr)
-
-    verify_fn = _get_verify_module()
-    if verify_fn and audiobook_id:
-        try:
-            verify_fn(book_id=audiobook_id, db_path=db_path, auto_fix=True, quiet=True)
-        except Exception as e:
-            print(f"  ⚠ Verification error (non-fatal): {e}", file=sys.stderr)
-
-    if audiobook_id:
-        try:
-            from localization.queue import enqueue_book_all_locales
-
-            enqueue_book_all_locales(audiobook_id)
-        except Exception as e:
-            print(f"  ⚠ Translation queue error (non-fatal): {e}", file=sys.stderr)
-
-
 def _import_single_file(
     filepath: Path, conn, dir_path: Path, cover_dir: Path, db_path: Path
 ) -> str:
@@ -131,7 +74,12 @@ def _import_single_file(
         conn.commit()
         print(f"✓ Imported: {metadata.get('title')} by {metadata.get('author')}")
         if audiobook_id is not None:
-            _post_import_hooks(audiobook_id, db_path)
+            # Unified with add_new_audiobooks on the scanner.post_insert
+            # registry so the mover path gets the SAME post-insert hooks —
+            # including sha256_hash generation, previously missing here
+            # (Audiobook-Manager-agx). quiet=False keeps enrichment progress
+            # logged inline for the mover, matching prior behavior.
+            run_post_insert_hooks(audiobook_id, db_path, quiet=False)
         return "added"
     except sqlite3.IntegrityError:
         conn.rollback()

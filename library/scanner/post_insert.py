@@ -22,6 +22,7 @@ can patch the feature modules directly.
 
 from __future__ import annotations
 
+import contextvars
 import sys
 from pathlib import Path
 from typing import Any, Callable
@@ -30,6 +31,14 @@ from typing import Any, Callable
 PostInsertHook = Callable[[int, Path], Any]
 
 _POST_INSERT_HOOKS: list[tuple[str, PostInsertHook]] = []
+
+# Ambient verbosity for the current fan-out. Set by ``run_post_insert_hooks``
+# and read by hooks that support quiet/verbose output (currently enrichment).
+# Threaded via a ContextVar so the hook signature stays ``(audiobook_id,
+# db_path)`` — the mover path (``import_single``) wants verbose enrichment
+# (``quiet=False``); the bulk scanner path (``add_new_audiobooks``) keeps the
+# quiet default.
+_quiet_var: contextvars.ContextVar[bool] = contextvars.ContextVar("post_insert_quiet", default=True)
 
 # Lazily-resolved feature callables (False = tried and unavailable)
 _enrich_module = None
@@ -55,19 +64,29 @@ def registered_post_insert_hooks() -> list[tuple[str, PostInsertHook]]:
     return list(_POST_INSERT_HOOKS)
 
 
-def run_post_insert_hooks(audiobook_id: int, db_path: Path) -> None:
+def run_post_insert_hooks(audiobook_id: int, db_path: Path, *, quiet: bool = True) -> None:
     """Run every registered post-insert hook for a newly-inserted audiobook.
 
     Each hook is isolated: an exception is reported to stderr and the
     remaining hooks still run. Hook failures never propagate to the caller.
+
+    ``quiet`` controls the verbosity of hooks that support it (enrichment).
+    It defaults to ``True`` (quiet) for the bulk scanner path; the mover path
+    (``import_single``) passes ``quiet=False`` so per-book enrichment progress
+    is logged inline. The flag is exposed to hooks via ``_quiet_var`` so the
+    hook signature stays ``(audiobook_id, db_path)``.
     """
     if not audiobook_id:
         return
-    for label, hook in _POST_INSERT_HOOKS:
-        try:
-            hook(audiobook_id, db_path)
-        except Exception as e:
-            print(f"  ⚠ {label} error (non-fatal): {e}", file=sys.stderr)
+    token = _quiet_var.set(quiet)
+    try:
+        for label, hook in _POST_INSERT_HOOKS:
+            try:
+                hook(audiobook_id, db_path)
+            except Exception as e:
+                print(f"  ⚠ {label} error (non-fatal): {e}", file=sys.stderr)
+    finally:
+        _quiet_var.reset(token)
 
 
 def _get_enrich_module() -> Callable[..., Any] | None:
@@ -108,7 +127,7 @@ def _enrichment_hook(audiobook_id: int, db_path: Path) -> None:
     """Auto-enrich metadata for the new book (skips if no enricher installed)."""
     enrich_fn = _get_enrich_module()
     if enrich_fn:
-        enrich_fn(book_id=audiobook_id, db_path=db_path, quiet=True)
+        enrich_fn(book_id=audiobook_id, db_path=db_path, quiet=_quiet_var.get())
 
 
 @register_post_insert("Verification")
