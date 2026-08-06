@@ -289,6 +289,10 @@ def create_app(
     )
 
     project_root = project_dir / "library"
+    # App-bound project root — utilities endpoints resolve paths from this
+    # instead of first-app-wins module globals, so a second create_app() in
+    # the same process (tests, multi-app use) gets its own correct paths.
+    flask_app.config["PROJECT_ROOT"] = project_root
 
     # Register CORS and security headers
     @flask_app.after_request

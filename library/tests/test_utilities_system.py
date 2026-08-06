@@ -11,11 +11,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# utilities_system's module-level _project_root is only set by the FIRST
-# create_app call in the process, so under partial -k selection it can point
-# at another test module's app. Pin it (and snapshot the shared VERSION file)
-# for every test here so version/health assertions are order-independent
-# (see utilities_globals in conftest.py).
+# utilities_system endpoints resolve project_root per-request from
+# current_app.config (Audiobook-Manager-1wz), so version/health assertions are
+# already order-independent under the session app. The utilities_globals
+# fixture is kept only to snapshot/restore the shared VERSION file for tests
+# that write or delete it (see utilities_globals in conftest.py).
 pytestmark = pytest.mark.usefixtures("utilities_globals")
 
 
@@ -711,7 +711,6 @@ class TestEnvironmentVariables:
 
         from backend.api_modular import utilities_system
 
-        saved_project_root = utilities_system._project_root
         importlib.reload(utilities_system)
 
         assert "/custom/var/dir" in str(utilities_system.CONTROL_DIR)
@@ -719,7 +718,6 @@ class TestEnvironmentVariables:
         # Reset
         monkeypatch.delenv("AUDIOBOOKS_VAR_DIR", raising=False)
         importlib.reload(utilities_system)
-        utilities_system._project_root = saved_project_root
 
     def test_uses_default_var_dir(self, monkeypatch):
         """Test uses default /var/lib/audiobooks when env not set."""
@@ -729,13 +727,9 @@ class TestEnvironmentVariables:
 
         from backend.api_modular import utilities_system
 
-        saved_project_root = utilities_system._project_root
         importlib.reload(utilities_system)
 
         assert "/var/lib/audiobooks" in str(utilities_system.CONTROL_DIR)
-
-        # Restore module state after reload
-        utilities_system._project_root = saved_project_root
 
 
 class TestGetHealth:

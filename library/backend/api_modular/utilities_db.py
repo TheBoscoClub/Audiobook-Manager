@@ -8,7 +8,7 @@ import subprocess  # nosec B404 — import subprocess — subprocess usage is in
 import sys
 from pathlib import Path
 
-from flask import Blueprint, jsonify, send_file
+from flask import Blueprint, current_app, jsonify, send_file
 
 from .auth import admin_if_enabled
 from .core import FlaskResponse, get_db
@@ -16,9 +16,22 @@ from .core import FlaskResponse, get_db
 utilities_db_bp = Blueprint("utilities_db", __name__)
 logger = logging.getLogger(__name__)
 
-# Module-level state, set by init_db_routes()
-_db_path: Path | None = None
-_project_root: Path | None = None
+
+def _resolve_db_path() -> Path | None:
+    """Resolve the database path from the active app's config.
+
+    Reading from ``current_app.config`` (set per-app at ``create_app`` time)
+    instead of a first-app-wins module global keeps path resolution correct
+    when more than one app exists in the same process.
+    """
+    value = current_app.config.get("DATABASE_PATH")
+    return Path(value) if value is not None else None
+
+
+def _resolve_project_root() -> Path | None:
+    """Resolve the project root (library dir) from the active app's config."""
+    value = current_app.config.get("PROJECT_ROOT")
+    return Path(value) if value is not None else None
 
 
 def _truncate_output(output: str, max_len: int = 2000) -> str:
@@ -99,9 +112,10 @@ def _error_response(message: str, status: int = 500) -> FlaskResponse:
 @admin_if_enabled
 def rescan_library() -> FlaskResponse:
     """Trigger a library rescan."""
-    if _project_root is None:
+    project_root = _resolve_project_root()
+    if project_root is None:
         return _error_response("Project root not configured")
-    scanner_path = _project_root / "scanner" / "scan_audiobooks.py"
+    scanner_path = project_root / "scanner" / "scan_audiobooks.py"
     if not scanner_path.exists():
         return _error_response("Scanner script not found")
 
@@ -120,9 +134,10 @@ def rescan_library() -> FlaskResponse:
 @admin_if_enabled
 def reimport_database() -> FlaskResponse:
     """Reimport audiobooks to database."""
-    if _project_root is None:
+    project_root = _resolve_project_root()
+    if project_root is None:
         return _error_response("Project root not configured")
-    import_path = _project_root / "backend" / "import_to_db.py"
+    import_path = project_root / "backend" / "import_to_db.py"
     if not import_path.exists():
         return _error_response("Import script not found")
 
@@ -141,9 +156,10 @@ def reimport_database() -> FlaskResponse:
 @admin_if_enabled
 def generate_hashes() -> FlaskResponse:
     """Generate SHA-256 hashes for audiobooks."""
-    if _project_root is None:
+    project_root = _resolve_project_root()
+    if project_root is None:
         return _error_response("Project root not configured")
-    hash_script = _project_root / "scripts" / "generate_hashes.py"
+    hash_script = project_root / "scripts" / "generate_hashes.py"
     if not hash_script.exists():
         return _error_response("Hash generation script not found")
 
@@ -162,15 +178,16 @@ def generate_hashes() -> FlaskResponse:
 @admin_if_enabled
 def vacuum_database() -> FlaskResponse:
     """Vacuum the SQLite database to reclaim space."""
-    if _db_path is None:
+    db_path = _resolve_db_path()
+    if db_path is None:
         return _error_response("Database not configured")
-    conn = get_db(_db_path)
+    conn = get_db(db_path)
     try:
-        size_before = _db_path.stat().st_size
+        size_before = db_path.stat().st_size
         conn.execute("PRAGMA temp_store = MEMORY;")
         conn.execute("VACUUM")
         conn.close()
-        size_after = _db_path.stat().st_size
+        size_after = db_path.stat().st_size
         space_reclaimed = (size_before - size_after) / (1024 * 1024)
         return jsonify(
             {
@@ -189,11 +206,12 @@ def vacuum_database() -> FlaskResponse:
 @admin_if_enabled
 def export_database() -> FlaskResponse:
     """Download the SQLite database file."""
-    if _db_path is None:
+    db_path = _resolve_db_path()
+    if db_path is None:
         return jsonify({"error": "Database not found"}), 404
-    if _db_path.exists():
+    if db_path.exists():
         return send_file(
-            _db_path,
+            db_path,
             mimetype="application/x-sqlite3",
             as_attachment=True,
             download_name="audiobooks.db",
@@ -208,11 +226,10 @@ def export_json() -> FlaskResponse:
     import json
     from datetime import datetime
 
-    from flask import current_app
-
-    if _db_path is None:
+    db_path = _resolve_db_path()
+    if db_path is None:
         return jsonify({"error": "Database not configured"}), 500
-    conn = get_db(_db_path)
+    conn = get_db(db_path)
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, title, author, narrator, publisher, series, series_sequence,
@@ -244,11 +261,10 @@ def export_csv() -> FlaskResponse:
     import io
     from datetime import datetime
 
-    from flask import current_app
-
-    if _db_path is None:
+    db_path = _resolve_db_path()
+    if db_path is None:
         return jsonify({"error": "Database not configured"}), 500
-    conn = get_db(_db_path)
+    conn = get_db(db_path)
     cursor = conn.cursor()
     cursor.execute("""
         SELECT id, title, author, narrator, publisher, series, series_sequence,
@@ -292,8 +308,12 @@ def export_csv() -> FlaskResponse:
 
 
 def init_db_routes(db_path, project_root):
-    """Initialize database operation routes with database path and project root."""
-    global _db_path, _project_root
-    _db_path = db_path
-    _project_root = project_root
+    """Register database operation routes and return the blueprint.
+
+    The database path and project root are no longer stored as module globals —
+    each request resolves them from ``current_app.config`` (see
+    ``_resolve_db_path`` / ``_resolve_project_root``). The parameters are
+    retained so the shared ``init_*_routes`` call site in ``utilities.py`` stays
+    uniform across sub-modules.
+    """
     return utilities_db_bp

@@ -14,11 +14,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# Every test in this module exercises utilities_db endpoints whose behavior
-# depends on module-level globals (_db_path, _project_root) that create_app
-# only sets for the FIRST app built in the process. Pin them to the session
-# app's paths so partial -k selections can't leave them bound to another
-# test module's app (see utilities_globals in conftest.py).
+# utilities_db endpoints resolve db_path/project_root per-request from
+# current_app.config (Audiobook-Manager-1wz), so their behavior is already
+# order-independent under the session app. The utilities_globals fixture is
+# kept only to snapshot/restore the shared VERSION file for tests that write
+# or delete it (see utilities_globals in conftest.py).
 pytestmark = pytest.mark.usefixtures("utilities_globals")
 
 

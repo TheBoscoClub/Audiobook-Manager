@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from common_utils.secret_resolver import resolve_secret
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, current_app, jsonify, request
 
 from .auth import admin_or_localhost
 from .core import FlaskResponse
@@ -54,8 +54,17 @@ PREFLIGHT_STALE_SECONDS = 30 * 60  # 30 minutes
 # depth so a slow-but-healthy upgrade is never falsely cleared.
 UPGRADE_HELPER_STALE_TIMEOUT_SEC = 30 * 60  # 30 minutes
 
-# Module-level state set by init_system_routes
-_project_root: str = ""
+
+def _resolve_project_root() -> Path | None:
+    """Resolve the project root (library dir) from the active app's config.
+
+    Reading from ``current_app.config`` (set per-app at ``create_app`` time)
+    instead of a first-app-wins module global keeps version/health/install
+    endpoints correct when more than one app exists in the same process.
+    """
+    value = current_app.config.get("PROJECT_ROOT")
+    return Path(value) if value is not None else None
+
 
 # List of services that can be controlled (start/stop/restart) via the UI.
 # Note: audiobook-api and audiobook-proxy are intentionally excluded —
@@ -500,7 +509,10 @@ def _service_control(service_name: str, action: str) -> FlaskResponse:
 
 def _read_version_file() -> str:
     """Read version from the VERSION file relative to project_root."""
-    version_file = Path(_project_root).parent / "VERSION"
+    project_root = _resolve_project_root()
+    if project_root is None:
+        return "unknown"
+    version_file = project_root.parent / "VERSION"
     try:
         if version_file.exists():
             return version_file.read_text().strip()
@@ -866,8 +878,9 @@ def get_version() -> FlaskResponse:
 def get_install_info() -> FlaskResponse:
     """Return install-path metadata. Admin-gated: exposes filesystem layout."""
     response: dict = {}
-    if _project_root:
-        response["project_root"] = str(Path(_project_root).parent)
+    project_root = _resolve_project_root()
+    if project_root:
+        response["project_root"] = str(project_root.parent)
     return jsonify(response)
 
 
@@ -878,9 +891,10 @@ def _reference_system_path() -> Path | None:
     shipped by install.sh next to VERSION), then falls back to the
     in-repo dev path (`<repo_root>/docs/reference-system.yml`).
     """
-    if not _project_root:
+    project_root = _resolve_project_root()
+    if project_root is None:
         return None
-    app_root = Path(_project_root).parent
+    app_root = project_root.parent
     for candidate in (
         app_root / "reference-system.yml",
         app_root / "docs" / "reference-system.yml",
@@ -925,8 +939,6 @@ def get_health() -> FlaskResponse:
 
     No authentication required — monitoring tools need unauthenticated access.
     """
-    from flask import current_app
-
     version = _read_version_file()
     database_path = current_app.config.get("DATABASE_PATH")
     db_ok = Path(database_path).exists() if database_path else False
@@ -1028,11 +1040,12 @@ def purge_cdn_cache() -> FlaskResponse:
 
 
 def init_system_routes(project_root):
-    """Initialize system administration routes.
+    """Register system administration routes and return the blueprint.
 
-    Sets the module-level project_root used by version/health endpoints
-    and returns the configured blueprint.
+    The project root is no longer stored as a module global — the
+    version/health/install endpoints resolve it per-request from
+    ``current_app.config`` (see ``_resolve_project_root``). The parameter is
+    retained so the shared ``init_*_routes`` call site in ``utilities.py`` stays
+    uniform across sub-modules.
     """
-    global _project_root
-    _project_root = project_root
     return utilities_system_bp

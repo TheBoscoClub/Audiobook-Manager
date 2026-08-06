@@ -400,29 +400,18 @@ def temp_dir():
 
 
 @pytest.fixture
-def utilities_globals(flask_app, session_temp_dir, monkeypatch):
-    """Pin utilities module globals to the session app's paths (hermetic).
+def utilities_globals(flask_app, session_temp_dir):
+    """Keep the shared VERSION file hermetic for utilities-endpoint tests.
 
-    create_app() initializes the utilities sub-modules' module-level globals
-    (utilities_db._db_path / _project_root, utilities_system._project_root)
-    only once per process via _init_once. Under partial -k selection a
-    different test module's app (e.g. test_audiobooks_extended's module-scoped
-    audiobooks_app) can be the first app created, leaving those globals bound
-    to that app's temp dir for the rest of the session. Tests that exercise
-    utilities endpoints through flask_app must therefore pin the globals to
-    session_temp_dir explicitly instead of relying on suite ordering.
+    The utilities sub-modules used to bind their paths to first-app-wins
+    module globals; endpoints now resolve db_path/project_root per-request from
+    ``current_app.config`` (Audiobook-Manager-1wz), so pinning module globals is
+    no longer necessary — under the session-scoped ``flask_app`` each request
+    already resolves session_temp_dir's own paths regardless of suite ordering.
 
-    monkeypatch restores the original values on teardown. The shared VERSION
-    file under session_temp_dir is also snapshotted and restored so tests
-    that write or delete it stay hermetic.
+    This fixture is retained only to snapshot and restore the shared VERSION
+    file under session_temp_dir so tests that write or delete it stay hermetic.
     """
-    from backend.api_modular import utilities_db, utilities_system
-
-    project_root = session_temp_dir / "library"
-    monkeypatch.setattr(utilities_db, "_db_path", flask_app.config["DATABASE_PATH"])
-    monkeypatch.setattr(utilities_db, "_project_root", project_root)
-    monkeypatch.setattr(utilities_system, "_project_root", project_root)
-
     version_file = session_temp_dir / "VERSION"
     saved_version = version_file.read_text() if version_file.exists() else None
 
