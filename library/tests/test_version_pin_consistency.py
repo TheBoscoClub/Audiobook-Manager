@@ -28,6 +28,8 @@ COMPOSE_FILE = PROJECT_ROOT / "docker-compose.yml"
 MANIFEST_FILE = PROJECT_ROOT / "install-manifest.json"
 DOCKERFILE = PROJECT_ROOT / "Dockerfile"
 README = PROJECT_ROOT / "README.md"
+UPGRADE_SH = PROJECT_ROOT / "upgrade.sh"
+INSTALL_SH = PROJECT_ROOT / "install.sh"
 
 
 @pytest.fixture(scope="module")
@@ -79,3 +81,19 @@ def test_readme_latest_release_row_matches_version(project_version):
         )
         return
     pytest.fail("README.md has no 'Latest patch' release-table row")
+
+
+def test_deploy_scripts_ship_install_manifest():
+    """install.sh and upgrade.sh must copy install-manifest.json to the target.
+
+    A correct repo manifest (asserted above) is useless if the deploy never
+    propagates it: the installed manifest froze at first-install and drifted to
+    6.6.2.6 while the app ran 8.4.0.3, because neither script copied it
+    (Audiobook-Manager-2ob). This asserts both scripts reference the manifest
+    so the installed copy tracks VERSION on every deploy.
+    """
+    for script in (INSTALL_SH, UPGRADE_SH):
+        text = script.read_text()
+        assert "install-manifest.json" in text and re.search(
+            r"cp\b[^\n]*install-manifest\.json", text
+        ), f"{script.name} does not copy install-manifest.json to the target"

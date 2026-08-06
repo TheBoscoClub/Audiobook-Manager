@@ -2232,6 +2232,22 @@ do_upgrade() {
             fi
         fi
 
+        # Refresh install-manifest.json (shipped alongside VERSION). Before
+        # this, neither install.sh nor upgrade.sh ever copied the manifest to
+        # the target, so its "version" field froze at first-install and drifted
+        # arbitrarily far from VERSION (prod sat at 6.6.2.6 while running
+        # 8.4.0.3). The repo manifest is guarded == VERSION by
+        # test_version_pin_consistency, so a straight copy keeps the installed
+        # manifest — which /test Phase 9b reads to validate the deployment —
+        # in lockstep. Audiobook-Manager-2ob.
+        if [[ -f "${project}/install-manifest.json" ]]; then
+            if [[ -n "$use_sudo" ]]; then
+                sudo cp "${project}/install-manifest.json" "$target/" 2>/dev/null || true
+            else
+                cp "${project}/install-manifest.json" "$target/" 2>/dev/null || true
+            fi
+        fi
+
         # Update version in utilities.html
         local new_version=$(cat "${project}/VERSION" 2>/dev/null)
         if [[ -n "$new_version" ]] && [[ -f "$target/library/web-v2/utilities.html" ]]; then

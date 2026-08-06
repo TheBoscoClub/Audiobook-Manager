@@ -1445,6 +1445,17 @@ do_system_install() {
         echo "  Installed: ${APP_DIR}/VERSION ($(cat "${SCRIPT_DIR}/VERSION"))"
     fi
 
+    # Install install-manifest.json so the deployed manifest tracks VERSION.
+    # upgrade.sh refreshes it on every upgrade (Audiobook-Manager-2ob); a fresh
+    # install must plant it in the first place, else the first upgrade has
+    # nothing at the target to compare against and /test Phase 9b reads a
+    # missing manifest.
+    if [[ -f "${SCRIPT_DIR}/install-manifest.json" ]]; then
+        sudo cp "${SCRIPT_DIR}/install-manifest.json" "${APP_DIR}/"
+        sudo chmod 644 "${APP_DIR}/install-manifest.json"
+        echo "  Installed: ${APP_DIR}/install-manifest.json ($(python3 -c "import json;print(json.load(open('${SCRIPT_DIR}/install-manifest.json'))['version'])" 2>/dev/null || echo '?'))"
+    fi
+
     # Install reference-system snapshot for the About page
     if [[ -f "${SCRIPT_DIR}/docs/reference-system.yml" ]]; then
         sudo cp "${SCRIPT_DIR}/docs/reference-system.yml" "${APP_DIR}/"
