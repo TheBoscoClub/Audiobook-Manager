@@ -150,6 +150,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   installed-but-undeclared, silently forcing `mando` below the file's own floor) and caps `mando`
   to `>=0.7.1,<0.8` to match radon; migration `014` gained its missing executable bit
 
+- **Installed `install-manifest.json` now tracks `VERSION` on every deploy**: neither `install.sh`
+  nor `upgrade.sh` had ever copied the manifest to the target, so its `version` field froze at
+  first-install (production read `6.6.2.6` while running `8.4.0.3`). Both scripts now ship it
+  alongside `VERSION`, and `test_version_pin_consistency.py` asserts they do — closing the loop
+  between the repo guard and the deployed artifact
+
+- **Mover-imported books get their `sha256_hash` at ingest**: `import_single` (the mover doorway)
+  ran its own hardcoded post-insert hook list that omitted hash generation, so books imported that
+  way were inserted with `sha256_hash` NULL while scanner-imported books were hashed. `import_single`
+  now runs the shared `post_insert` registry through both doorways; the one legitimate difference
+  (verbose enrichment) is preserved via a `quiet` context variable
+
+- **Utilities endpoints resolve their paths per-request**: `utilities_db`/`utilities_system` bound
+  `_project_root`/`_db_path` to whichever `create_app()` ran first in the process, so a second app
+  in the same process served the first app's paths and database. Endpoints now read
+  `current_app.config` per request — single-app production behavior is unchanged, and the
+  multi-app case (tests, any future embedding) is now correct
+
 ### Security
 
 - **Static file server no longer exposes dotfiles or source**: `proxy_server.py::_serve_static`
