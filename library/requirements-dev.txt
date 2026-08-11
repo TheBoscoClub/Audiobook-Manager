@@ -38,7 +38,7 @@ radon>=6.0.1
 # pre-0.8 release is 0.7.1) so `pip check` stays clean. The floor previously
 # read `>=0.8.2,<0.9`, which contradicted this comment and is outside radon's
 # supported range.
-mando>=0.7.1,<0.8
+mando>=0.8.2,<0.9
 # astroid is NOT pinned here, deliberately. It is pylint's AST engine and
 # nothing else in this file depends on it; pylint itself was never declared as
 # a dev dependency (it is not a CI gate — ruff and mypy are), so the pin
