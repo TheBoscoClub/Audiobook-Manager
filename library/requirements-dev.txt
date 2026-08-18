@@ -48,7 +48,7 @@ mando>=0.8.2,<0.9
 # astroid at `<=4.1.dev0` — installing both resolved pylint backwards to 2.3.0.
 # `[tool.pylint.typecheck]` in pyproject.toml is retained for ad-hoc runs; if
 # pylint is ever made a gate, declare pylint here and let it resolve astroid.
-packaging>=26.2
+packaging>=26.3
 platformdirs>=4.11.2
 types-croniter>=6.2.4.20260711
 types-requests>=2.33.0.20260712
