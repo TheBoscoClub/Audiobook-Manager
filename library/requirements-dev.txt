@@ -28,7 +28,7 @@ pip-audit>=2.10.1
 # current-major line and avoids CVE-tracked older releases.
 rich>=15.0.0
 greenlet>=3.5.4
-librt>=0.13.0
+librt>=0.15.0
 # radon is the cyclomatic-complexity scanner used by the /test audit's code
 # quality phase. It was previously an undeclared transitive assumption — only
 # its own dependency (mando) was pinned here, so a fresh dev environment had
