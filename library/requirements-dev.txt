@@ -16,7 +16,7 @@ requests-mock>=1.12.1
 # /test audit, or by any script, and running black would reformat 134 files
 # straight through the `ruff format --check` gate.
 ruff>=0.16.3
-mypy>=2.3.0
+mypy>=2.3.1
 
 # Security scanners
 bandit>=1.9.4
