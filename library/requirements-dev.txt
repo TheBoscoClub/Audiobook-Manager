@@ -15,7 +15,7 @@ requests-mock>=1.12.1
 # black and isort are deliberately absent: neither was invoked by CI, by the
 # /test audit, or by any script, and running black would reformat 134 files
 # straight through the `ruff format --check` gate.
-ruff>=0.16.2
+ruff>=0.16.3
 mypy>=2.3.0
 
 # Security scanners
