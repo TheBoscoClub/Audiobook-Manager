@@ -44,6 +44,7 @@ for candidate in (_HERE.parent / "library", _HERE.parent):
 from translation_monitor import (  # noqa: E402
     reset_stuck_sampler_claims,
     reset_stuck_sampler_jobs,
+    sampler_completion_age_days,
     sweep_retry_exhausted_segments,
 )
 from translation_monitor.db import connection, db_exists, schema_has_monitor_table  # noqa: E402
@@ -51,6 +52,10 @@ from translation_monitor.db import connection, db_exists, schema_has_monitor_tab
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s [translation-monitor-sampler] %(levelname)s %(message)s"
 )
+# Days without a single sampler_job completion before the pass shouts.
+# Sized well under the 11-week outage this exists to have caught.
+STALE_COMPLETION_ALERT_DAYS = 3
+
 logger = logging.getLogger("translation-monitor-sampler")
 
 
@@ -74,6 +79,21 @@ def main() -> int:
 
             # TODO(v8.3.10): per-book spent_cents aggregation + auto-pause
             # TODO(v8.3.10): daily total spend cap + global queue pause
+
+            # Staleness. Audiobook-Manager-od0: the sampler reported healthy
+            # for ~11 weeks while completing nothing, because "timer is active"
+            # describes the timer, not the work. Ask the data instead, every
+            # pass, and say so loudly once it crosses the threshold.
+            age_days = sampler_completion_age_days(conn)
+            if age_days is None:
+                logger.warning("no sampler_job has EVER reached 'complete'")
+            elif age_days >= STALE_COMPLETION_ALERT_DAYS:
+                logger.error(
+                    "SAMPLER STALE: no sampler_job has completed in %.1f days "
+                    "(threshold %d). The timer is running; the work is not.",
+                    age_days,
+                    STALE_COMPLETION_ALERT_DAYS,
+                )
 
             if reset_segs or reset_jobs or failed_segs:
                 logger.info(
