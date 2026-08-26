@@ -6,6 +6,25 @@ name: CI
     branches: [main, master]
   push:
     branches: [main, master]
+  # Independent re-validation of main.
+  #
+  # The push trigger above is NOT sufficient on its own. GitHub deliberately
+  # does not start workflow runs for pushes made with GITHUB_TOKEN, and the
+  # Dependabot auto-merge workflow merges using exactly that token — so every
+  # auto-merged dependency PR lands on main without ever re-running CI here.
+  # Between 2026-08-06 and 2026-08-25, sixteen commits merged that way and the
+  # last CI run on main stayed pinned to the 2026-08-06 release commit, while
+  # main could not even resolve its own requirements-dev.txt. Only CodeQL and
+  # Dependency Graph were running, and both were green throughout.
+  #
+  # This schedule is the backstop: it re-tests main's actual tree on a cadence
+  # nothing in the merge path can suppress. Keep it even after the required
+  # status checks are in place — those gate the PR, this one watches the branch.
+  schedule:
+    - cron: '0 5 * * *'  # Daily at 05:00 UTC
+  # Manual re-validation, e.g. after changing branch protection or unblocking a
+  # stuck dependency resolution.
+  workflow_dispatch:
 
 # Supersede in-flight runs for the same ref — the newest push is the one that
 # should report. Safe here: no job publishes or mutates anything.

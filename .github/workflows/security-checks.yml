@@ -6,6 +6,15 @@ name: Security Checks
     branches: [main, master]
   push:
     branches: [main, master]
+  # Backstop for the same GITHUB_TOKEN blind spot documented in ci.yml: pushes
+  # made by the Dependabot auto-merge workflow never start a run here either,
+  # so main can drift unscanned indefinitely. On a schedule this job has no
+  # push/PR SHAs to diff against and deliberately degrades to a full-tree scan
+  # (see "Determine diff range" below), which is the right behaviour for a
+  # periodic sweep of the branch as it actually stands.
+  schedule:
+    - cron: '0 5 * * *'  # Daily at 05:00 UTC, alongside ci.yml
+  workflow_dispatch:
 
 # Read-only scanning — superseded runs carry no value, cancel them.
 concurrency:
@@ -43,6 +52,14 @@ jobs:
           if [ "$EVENT_NAME" = "pull_request" ]; then
             # Merge-base (three-dot) diff: exactly what the PR introduces.
             RANGE="${PR_BASE}...${PR_HEAD}"
+          elif [ "$EVENT_NAME" = "schedule" ] || \
+               [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            # No push/PR SHAs exist for these events. Scan the whole tree at
+            # HEAD rather than silently inheriting an empty range — this is
+            # stated explicitly so the full-tree sweep is a decision, not a
+            # side effect of the fallthrough below.
+            EMPTY_TREE=$(git hash-object -t tree /dev/null)
+            RANGE="${EMPTY_TREE}..HEAD"
           elif [ "$PUSH_BASE" = "$ZEROS" ] || \
                ! git cat-file -e "${PUSH_BASE}^{commit}" 2>/dev/null; then
             # Initial push of a branch, or a force-push whose old tip no
