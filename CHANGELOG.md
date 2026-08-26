@@ -11,9 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Dependency floors advanced (16 Dependabot merges)**: `mypy>=2.3.1`, `ruff>=0.16.3`, `filelock>=3.32.3`,
+### Fixed
+
+## [8.4.2.1] - 2026-08-26
+
+### Changed
+
+- **Dependency floors advanced (18 Dependabot merges)**: `mypy>=2.3.1`, `ruff>=0.16.3`, `filelock>=3.32.3`,
   `platformdirs>=4.11.3`, `packaging>=26.3`, `greenlet>=3.5.5`, `librt>=0.15.0`, `marshmallow>=4.3.1`,
-  `pytest-playwright>=0.9.0`, `gevent>=26.8.0`, `pyopenssl>=26.4.0`, `cbor2>=6.1.4` across
+  `pytest-playwright>=0.9.0`, `gevent>=26.8.0`, `pyopenssl>=26.4.0`, `cbor2>=6.1.4`, `idna>=3.19`,
+  `gunicorn>=26.1.0` across
   `library/requirements.txt`, `library/requirements-dev.txt` and `library/requirements-docker.txt`, plus
   `docker/setup-buildx-action` 4.2.0 → 4.3.0 in `.github/workflows/release.yml`. These merged between
   2026-08-11 and 2026-08-25 but were never released — this is the first tag to carry them
@@ -4233,7 +4240,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.0...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.1...HEAD
+[8.4.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.0...v8.4.2.1
 [8.4.2.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.1.0...v8.4.2.0
 [8.4.1.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.3...v8.4.1.0
 [8.4.0.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.2...v8.4.0.3
