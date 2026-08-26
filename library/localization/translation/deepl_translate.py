@@ -64,11 +64,20 @@ def _safe_for_log(value: object, limit: int = 32) -> str:
     """Neutralise caller-supplied text before it reaches a log line.
 
     ``target_locale`` arrives from the API request, so interpolating it raw
-    lets a caller embed CR/LF and forge log entries (CodeQL py/log-injection,
-    alerts #537/#538). A legitimate locale is only ever [A-Za-z0-9_.-] --
-    "zh-Hans", "en" -- so stripping everything else loses nothing real.
+    lets a caller embed CR/LF and forge log entries (CodeQL py/log-injection).
+    A legitimate locale is only ever [A-Za-z0-9_.-] -- "zh-Hans", "en" -- so
+    stripping everything else loses nothing real.
+
+    The explicit CR/LF ``replace`` calls come FIRST and are deliberate. The
+    allowlist ``sub`` below already removes newlines, and runtime behaviour was
+    identical without them -- but CodeQL does not model a regex substitution as
+    a log-injection sanitiser, so alerts #537/#538 simply reappeared as
+    #539/#540 against the "fixed" code. ``str.replace`` of the newline
+    characters IS in its sanitiser model. Keeping both means the tool can prove
+    what the tests already showed, rather than the finding being dismissed.
     """
-    return _LOG_SAFE_RE.sub("", str(value))[:limit]
+    text = str(value).replace("\r", "").replace("\n", "")
+    return _LOG_SAFE_RE.sub("", text)[:limit]
 
 
 def _hash_source(text: str) -> str:
