@@ -116,9 +116,13 @@ def build_report_body(report_path: Path) -> str:
 
 
 def send_email(to: str, subject: str, body: str, conf: dict) -> None:
-    host = conf.get("SMTP_HOST", "smtp.resend.com")
-    port = int(conf.get("SMTP_PORT", "587"))
-    user = conf.get("SMTP_USER", "resend")
+    # Defaults target the host's local mail relay (127.0.0.1:25), which needs
+    # no credential: it owns the authenticated, certificate-verified uplink and
+    # queues across outages. A deployment that still submits directly to a
+    # provider sets SMTP_HOST/PORT/USER/PASS explicitly.
+    host = conf.get("SMTP_HOST", "localhost")
+    port = int(conf.get("SMTP_PORT", "25"))
+    user = conf.get("SMTP_USER", "")
     password = conf.get("SMTP_PASS", "") or resolve_secret("SMTP_PASS")
     from_addr = conf.get("SMTP_FROM", "audiobooks@localhost")
 
@@ -129,8 +133,13 @@ def send_email(to: str, subject: str, body: str, conf: dict) -> None:
     msg.attach(MIMEText(body, "plain"))
 
     with smtplib.SMTP(host, port) as server:
-        server.starttls()
-        server.login(user, password)
+        # Only negotiate TLS + AUTH when a credential is actually configured.
+        # Matches auth_email.py, translation_monitor/notify.py, auth/audit.py
+        # and auth/inbox_cli.py — an unconditional starttls() raises against a
+        # loopback relay that does not advertise STARTTLS.
+        if user and password:
+            server.starttls()
+            server.login(user, password)
         server.sendmail(from_addr, to, msg.as_string())
 
     print(f"Email sent to {to}")
