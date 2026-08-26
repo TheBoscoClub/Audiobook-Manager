@@ -134,3 +134,37 @@ class TestPersistingCallersAreStrict:
         assert "strict=True" in src, (
             "metadata lookup labels results source='deepl'; it must not pass English through"
         )
+
+class TestLogInjection:
+    """CodeQL py/log-injection #537/#538 — target_locale reaches logger.error
+    from the API request, so a caller could embed CR/LF and forge log lines."""
+
+    def test_newlines_stripped_from_locale_in_log(self, monkeypatch, caplog):
+        t = DeepLTranslator(api_key="dead-key:fx")
+        monkeypatch.setattr(
+            "requests.post", lambda *a, **k: (_ for _ in ()).throw(_fail(403))
+        )
+        with caplog.at_level(logging.ERROR):
+            t.translate(["x"], "zh\nERROR root: injected line")
+
+        for rec in caplog.records:
+            assert "\n" not in rec.getMessage(), "a log record must not span lines"
+        assert "injectedline" in caplog.text or "ERRORrootinjectedline" in caplog.text
+
+    def test_legitimate_locale_survives_intact(self, monkeypatch, caplog):
+        t = DeepLTranslator(api_key="dead-key:fx")
+        monkeypatch.setattr(
+            "requests.post", lambda *a, **k: (_ for _ in ()).throw(_fail(403))
+        )
+        with caplog.at_level(logging.ERROR):
+            t.translate(["x"], "zh-Hans")
+        assert "zh-Hans" in caplog.text, "sanitising must not mangle a real locale"
+
+    def test_strict_exception_message_is_sanitised(self, monkeypatch):
+        t = DeepLTranslator(api_key="dead-key:fx")
+        monkeypatch.setattr(
+            "requests.post", lambda *a, **k: (_ for _ in ()).throw(_fail(403))
+        )
+        with pytest.raises(TranslationUnavailableError) as ei:
+            t.translate(["x"], "zh\nforged", strict=True)
+        assert "\n" not in str(ei.value)

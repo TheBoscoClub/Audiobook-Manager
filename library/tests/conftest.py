@@ -20,6 +20,47 @@ os.environ.setdefault("AUDIOBOOKS_SKIP_USER_GATE", "1")
 
 import pytest
 
+
+# ─── Outbound-mail firewall for the test suite ────────────────────────────
+#
+# INCIDENT 2026-08-26: a full `pytest tests/` run sent 28 REAL emails.
+#
+# Before the relay migration (Audiobook-Manager-9nu) the SMTP defaults pointed
+# at a provider with a credential, so an unmocked send failed at login and
+# nothing left the box. 9nu changed the default to localhost:25 — correct for
+# production, where a credential-less local relay is exactly what we want — but
+# on any host actually RUNNING that relay it silently converted "the test fails
+# to send" into "the test sends". Postfix accepted 28 messages addressed to
+# fixture addresses (magic@example.com, u@test.com, noreply@localhost, ...),
+# forwarded them to the upstream provider, and every one bounced 530 because
+# those envelope senders have no entry in the sender-dependent credential map.
+# Each bounce raised an operator alert.
+#
+# Nothing was delivered and no data leaked — the recipients are fake and the
+# provider rejected them at MAIL FROM. But the suite must not be able to do
+# this at all, and per-test mocking is a rule someone will forget. This is the
+# floor: a real connection is impossible, and attempting one fails loudly with
+# an explanation instead of quietly mailing a stranger.
+#
+# Tests that legitimately exercise send paths still monkeypatch smtplib
+# themselves; their patch simply replaces this one.
+@pytest.fixture(autouse=True)
+def _forbid_real_smtp(monkeypatch):
+    """Make a genuine SMTP connection impossible for the duration of a test."""
+    import smtplib
+
+    def _denied(*args, **kwargs):
+        raise AssertionError(
+            "This test tried to open a REAL SMTP connection. Since "
+            "Audiobook-Manager-9nu, SMTP_HOST defaults to localhost:25, so on a "
+            "host running the local mail relay that would send actual email "
+            "(this happened: 28 messages, 2026-08-26). Mock smtplib.SMTP in the "
+            "test, or assert on the payload instead of sending it."
+        )
+
+    monkeypatch.setattr(smtplib, "SMTP", _denied)
+    monkeypatch.setattr(smtplib, "SMTP_SSL", _denied)
+
 HARDWARE_TOUCH_TIMEOUT = 90  # total seconds for up to 3 hardware touch attempts
 HARDWARE_TOUCH_MAX_ATTEMPTS = 3  # max touch opportunities within the timeout
 

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import re
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -54,6 +55,20 @@ LOCALE_TO_DEEPL = {
     "pt": "PT-PT",
     "pt-BR": "PT-BR",
 }
+
+
+_LOG_SAFE_RE = re.compile(r"[^A-Za-z0-9_.-]")
+
+
+def _safe_for_log(value: object, limit: int = 32) -> str:
+    """Neutralise caller-supplied text before it reaches a log line.
+
+    ``target_locale`` arrives from the API request, so interpolating it raw
+    lets a caller embed CR/LF and forge log entries (CodeQL py/log-injection,
+    alerts #537/#538). A legitimate locale is only ever [A-Za-z0-9_.-] --
+    "zh-Hans", "en" -- so stripping everything else loses nothing real.
+    """
+    return _LOG_SAFE_RE.sub("", str(value))[:limit]
 
 
 def _hash_source(text: str) -> str:
@@ -324,14 +339,14 @@ class DeepLTranslator:
                 self._last_error or "unknown error",
                 len(misses),
                 len(texts),
-                target_locale,
-                target_locale,
+                _safe_for_log(target_locale),
+                _safe_for_log(target_locale),
             )
             if strict:
                 raise TranslationUnavailableError(
                     f"DeepL unavailable ({self._last_error or 'unknown error'}); "
                     f"refusing to return {len(misses)} untranslated text(s) for "
-                    f"{target_locale} to a caller that persists results"
+                    f"{_safe_for_log(target_locale)} to a caller that persists results"
                 )
             return self._fallback_passthrough(output, misses)
 
