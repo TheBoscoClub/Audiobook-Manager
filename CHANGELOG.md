@@ -13,6 +13,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.4.2.5] - 2026-08-26
+
+### Added
+
+### Changed
+
+- **Dev toolchain must match what CI resolves**: the project declares `ruff>=0.16.3` and CI resolved 0.16.4, but a local venv sitting on an older ruff reports a false green — `ruff format --check` passed locally on 0.15.14 and failed in CI on 0.16.4. Only re-formatting was needed, but the discrepancy is worth recording: a tracked config fixes *which rules* run, not *which version* runs
+
+### Fixed
+
+- **Refresh's hard reload only reloaded the iframe, leaving the shell stale** (`Audiobook-Manager-017`): the library UI runs inside the shell's `#content-frame`, so the `location.replace()` shipped in 8.4.2.4 navigated the frame and left the top document untouched — its 14 scripts (player, websocket, streaming-translate, version-poller, subtitles) kept running exactly the cached copies the button exists to evict. Verified against production before and after: previously the iframe URL gained `_cb` while the top URL did not and the shell document was never replaced; now the top URL gains `_cb`, the shell document IS replaced, all 14 shell scripts re-fetch, and a second run overwrites `_cb` rather than appending it. Guarded for a cross-origin ancestor and for the standalone case where `window.top === window`
+- **The test suite sent 28 real emails** (`Audiobook-Manager-9nu`): before the relay migration the SMTP defaults pointed at a provider with a credential, so an unmocked send died at login and nothing left the host. Defaulting to `localhost:25` is correct for production but on a host running the local relay it converted "the test fails to send" into "the test sends" — Postfix accepted 28 messages addressed to fixture addresses (`magic@example.com`, `u@test.com`, `noreply@localhost`), forwarded them upstream, and every one bounced `530` because those envelope senders have no entry in the sender-dependent credential map, raising an operator alert per bounce. Nothing was delivered and no data left the box. `library/tests/conftest.py` now carries an autouse fixture making a real SMTP connection impossible and failing loudly with an explanation — per-test mocking is a rule that gets forgotten. The same run now emits zero postfix log lines
+
+### Security
+
+- **Log injection via `target_locale`** (CodeQL `py/log-injection`, alerts #537/#538 — introduced by the `Audiobook-Manager-64p` change in 8.4.2.4): the locale arrives from the API request and was interpolated raw into `logger.error()` and into the strict-mode `TranslationUnavailableError` message, so a caller could embed CR/LF and forge log entries. Both sites now pass through `_safe_for_log()`, which removes CR/LF and then strips anything outside `[A-Za-z0-9_.-]` and bounds the length — a legitimate locale (`zh-Hans`, `en`) is unaffected. The explicit `str.replace` of the newline characters is deliberate and not redundant: the allowlist substitution alone was already correct at runtime, but CodeQL does not model a regex `sub()` as a log-injection sanitiser, so the alerts reappeared as #539/#540 against the fixed code until the recognised form was used. Also adds the `import re` the helper needs, whose absence would have raised `NameError` on the very failure path the `64p` work exists to make visible
+
 ## [8.4.2.4] - 2026-08-26
 
 ### Added
@@ -4291,7 +4308,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.4...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.5...HEAD
+[8.4.2.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.4...v8.4.2.5
 [8.4.2.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.3...v8.4.2.4
 [8.4.2.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.2...v8.4.2.3
 [8.4.2.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.1...v8.4.2.2
