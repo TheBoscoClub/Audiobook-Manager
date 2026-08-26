@@ -13,6 +13,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.4.2.2] - 2026-08-26
+
+### Fixed
+
+- **Version-pin README guard accepts every release kind**: `test_readme_latest_release_row_matches_version`
+  located the README release table's top row by matching the literal string `Latest patch`, but that row is
+  labelled by release *kind* — `Latest major`, `Latest minor`, `Latest patch` or `Latest tweak`. The guard
+  therefore passed only for patch releases and failed v8.4.2.1, a tweak, on a README that was correct
+  (`VERSION`, the table row and the tag link all agreed). It would have failed identically on the next minor
+  or major release. Now matches on the `Latest <kind>` prefix; the assertion it exists to make — that the row
+  names the current `VERSION` — is unchanged. This is the only difference from 8.4.2.1, whose shipped
+  artifacts are functionally identical
+
 ## [8.4.2.1] - 2026-08-26
 
 ### Changed
@@ -4240,7 +4253,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.2...HEAD
+[8.4.2.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.1...v8.4.2.2
 [8.4.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.0...v8.4.2.1
 [8.4.2.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.1.0...v8.4.2.0
 [8.4.1.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.0.3...v8.4.1.0
