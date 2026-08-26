@@ -61,6 +61,7 @@ def _forbid_real_smtp(monkeypatch):
     monkeypatch.setattr(smtplib, "SMTP", _denied)
     monkeypatch.setattr(smtplib, "SMTP_SSL", _denied)
 
+
 HARDWARE_TOUCH_TIMEOUT = 90  # total seconds for up to 3 hardware touch attempts
 HARDWARE_TOUCH_MAX_ATTEMPTS = 3  # max touch opportunities within the timeout
 
