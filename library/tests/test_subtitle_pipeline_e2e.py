@@ -90,7 +90,8 @@ def test_pipeline_dual_language_with_deepl_stubbed(tmp_path: Path):
         def __init__(self, *_a, **_kw):
             pass
 
-        def translate(self, sentences, target_locale, source_lang):
+        # strict= added by Audiobook-Manager-64p: persisting callers demand it.
+        def translate(self, sentences, target_locale, source_lang, strict=False):
             assert target_locale == "zh-Hans"
             assert source_lang == "EN"
             return ["你好，世界。", "图书馆在等你。"]

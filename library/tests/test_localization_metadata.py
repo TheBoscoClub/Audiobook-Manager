@@ -155,7 +155,8 @@ class _StubDeepL:
         self.raise_exc = raise_exc
         self.calls: list[tuple[list[str], str]] = []
 
-    def translate(self, texts, target_locale: str):
+    # strict= added by Audiobook-Manager-64p: metadata lookup passes it.
+    def translate(self, texts, target_locale: str, strict: bool = False):
         self.calls.append((list(texts), target_locale))
         if self.raise_exc:
             raise RuntimeError("deepl boom")

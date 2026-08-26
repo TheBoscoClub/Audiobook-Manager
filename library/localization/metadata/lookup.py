@@ -62,7 +62,13 @@ class MetadataLookup:
         # Fall back to DeepL machine translation
         if self._deepl:
             try:
-                translated = self._deepl.translate([title, author], target_locale=target_locale)
+                # strict=True: the result is returned as BookMetadata with
+                # source="deepl". Untranslated English labelled as a DeepL
+                # translation is a lie the caller cannot detect; the except
+                # below turns the raise into a clean "no metadata" instead.
+                translated = self._deepl.translate(
+                    [title, author], target_locale=target_locale, strict=True
+                )
                 return BookMetadata(
                     title=translated[0], author_display=translated[1], translator="", source="deepl"
                 )

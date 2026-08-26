@@ -270,8 +270,11 @@ def generate_subtitles(
         from .translation.deepl_translate import DeepLTranslator
 
         translator = DeepLTranslator(DEEPL_API_KEY)
+        # strict=True: this result is written to a .{locale}.vtt file on disk.
+        # Passing English through would produce a subtitle file that claims to
+        # be a translation and is indistinguishable from a real one forever.
         translated_sentences = translator.translate(
-            source_sentences, target_locale, source_lang.upper()
+            source_sentences, target_locale, source_lang.upper(), strict=True
         )
 
         # Align and generate both VTTs
@@ -332,7 +335,10 @@ def _write_translated_chapter_vtt(
     from .translation.deepl_translate import DeepLTranslator
 
     translator = DeepLTranslator(DEEPL_API_KEY)
-    translated_texts = translator.translate(source_sentences, target_locale, source_lang.upper())
+    # strict=True: persisted to a .{locale}.vtt file -- see note above.
+    translated_texts = translator.translate(
+        source_sentences, target_locale, source_lang.upper(), strict=True
+    )
     _, tr_cues = align_translations(transcript, translated_texts)
     tr_cues = _offset_cues(tr_cues, chapter.start_ms)
     return generate_vtt(tr_cues, output_dir / f"{chapter_stem}.{target_locale}.vtt")

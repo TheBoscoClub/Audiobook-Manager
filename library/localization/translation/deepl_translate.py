@@ -32,6 +32,17 @@ from .quota import QuotaExceededError, QuotaTracker
 
 logger = logging.getLogger(__name__)
 
+
+class TranslationUnavailableError(RuntimeError):
+    """DeepL could not be reached or refused the request.
+
+    Raised only when the caller passes strict=True. Callers that PERSIST the
+    result (subtitle files, DB rows) must be strict: silently storing the
+    English source as though it were a translation is unrecoverable, because
+    nothing downstream can tell it apart from a real one.
+    """
+
+
 DEEPL_API_URL = "https://api.deepl.com/v2"
 DEEPL_FREE_API_URL = "https://api-free.deepl.com/v2"
 
@@ -70,6 +81,11 @@ class DeepLTranslator:
             raise ValueError("DeepL API key is required")
         self._api_key = api_key
         self._base_url = DEEPL_FREE_API_URL if api_key.endswith(":fx") else DEEPL_API_URL
+        # Degradation signal. Callers that cannot tolerate silent English
+        # pass-through check these, or pass strict=True and get an exception.
+        self.degraded = False
+        self.degraded_texts = 0
+        self._last_error = ""
         self._db_path = Path(db_path) if db_path else None
         self._tracker = tracker
         self._glossary_id = glossary_id
@@ -200,8 +216,23 @@ class DeepLTranslator:
             resp.raise_for_status()
         except QuotaExceededError:
             raise
-        except requests.RequestException:
-            logger.exception("DeepL translate call failed")
+        except requests.RequestException as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            self._last_error = f"HTTP {status}" if status else exc.__class__.__name__
+            # 401/403 is a dead or wrong-plan key: permanent, and the operator
+            # must know. Anything else may be transient. Both are errors -- the
+            # distinction is in the message, not in whether we stay quiet.
+            if status in (401, 403):
+                logger.error(
+                    "DeepL REJECTED the API key (HTTP %s) at %s -- translation is "
+                    "returning SOURCE TEXT UNCHANGED. Check the key and that its "
+                    "tier matches the endpoint (Free keys end in ':fx' and must "
+                    "use api-free.deepl.com).",
+                    status,
+                    self._base_url,
+                )
+            else:
+                logger.error("DeepL translate call failed (%s)", self._last_error)
             return None
 
         result = resp.json()
@@ -253,8 +284,22 @@ class DeepLTranslator:
             self._tracker.check_before_translate(char_count)
         return char_count
 
-    def translate(self, texts: list[str], target_locale: str, source_lang: str = "EN") -> list[str]:
-        """Translate a batch of texts to the target locale."""
+    def translate(
+        self,
+        texts: list[str],
+        target_locale: str,
+        source_lang: str = "EN",
+        strict: bool = False,
+    ) -> list[str]:
+        """Translate a batch of texts to the target locale.
+
+        On API failure the untranslated source text is returned so that live
+        pages degrade instead of erroring. That fallback is INVISIBLE to the
+        caller by construction, so it also sets ``self.degraded`` and logs at
+        error level. Pass ``strict=True`` -- mandatory for any caller that
+        writes the result to disk or to the database -- to raise
+        :class:`TranslationUnavailableError` instead.
+        """
         if not texts:
             return []
 
@@ -271,6 +316,23 @@ class DeepLTranslator:
         translations = self._call_deepl_api(payload)
 
         if translations is None:
+            self.degraded = True
+            self.degraded_texts += len(misses)
+            logger.error(
+                "DeepL unavailable (%s): returning %d of %d text(s) UNTRANSLATED "
+                "for locale %s. These are English, not %s.",
+                self._last_error or "unknown error",
+                len(misses),
+                len(texts),
+                target_locale,
+                target_locale,
+            )
+            if strict:
+                raise TranslationUnavailableError(
+                    f"DeepL unavailable ({self._last_error or 'unknown error'}); "
+                    f"refusing to return {len(misses)} untranslated text(s) for "
+                    f"{target_locale} to a caller that persists results"
+                )
             return self._fallback_passthrough(output, misses)
 
         self._merge_translations_into_output(
@@ -278,9 +340,11 @@ class DeepLTranslator:
         )
         return self._finalize_output(output)
 
-    def translate_one(self, text: str, target_locale: str, source_lang: str = "EN") -> str:
+    def translate_one(
+        self, text: str, target_locale: str, source_lang: str = "EN", strict: bool = False
+    ) -> str:
         """Translate a single string."""
-        results = self.translate([text], target_locale, source_lang)
+        results = self.translate([text], target_locale, source_lang, strict=strict)
         return results[0] if results else text
 
 
