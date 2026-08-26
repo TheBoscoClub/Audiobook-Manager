@@ -129,6 +129,30 @@ audiobooks/
    - Code is formatted (`ruff format library/`)
    - Type checking is clean (`cd library && venv/bin/mypy . --ignore-missing-imports` — must report `Success: no issues found`; this is the gating "Type Checking" CI job in `python-security.yml`)
 
+   These four are the fast local loop, not the full gate. `main` requires **12**
+   status checks to pass before any pull request can merge, and the branch must
+   be up to date first (`strict`):
+
+   | Check | Workflow | Reproduce locally |
+   |:--------------------------------|:-----------------------|:-------------------------------------------------|
+   | `Python Tests (3.12/3.13/3.14)` | `ci.yml` | `pytest tests/ -v` (CI runs all three versions) |
+   | `Docker Build Check` | `ci.yml` | `docker build -t audiobooks .` |
+   | `ShellCheck` | `ci.yml` | `shellcheck scripts/*.sh` |
+   | `YAML Validation` | `ci.yml` | `yamllint .github/ *.yml` |
+   | `ESLint (web-v2)` | `ci.yml` | `npx eslint library/web-v2/js` |
+   | `Ruff Linting` | `python-security.yml` | `ruff check library/` |
+   | `Type Checking` | `python-security.yml` | `mypy .` (see above) |
+   | `Security Scan (Bandit)` | `python-security.yml` | `bandit -r library/` |
+   | `Dependency Vulnerabilities` | `python-security.yml` | `pip-audit -r library/requirements.txt` |
+   | `security-scan` | `security-checks.yml` | credential/secret sweep over the diff |
+
+   `Docker Build Check` is the one most often forgotten, because it fails for
+   reasons unrelated to your change: the Dockerfile pins apt packages to exact
+   Debian Trixie versions, and a Debian security update can invalidate a pin
+   overnight. If it fails on `apt-get install`, re-capture the pins using the
+   command documented in the `Dockerfile` header rather than editing versions by
+   hand.
+
 3. **Write meaningful commit messages**:
 
    ```text

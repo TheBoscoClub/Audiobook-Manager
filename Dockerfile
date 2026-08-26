@@ -62,9 +62,18 @@ LABEL org.opencontainers.image.licenses="MIT"
 # --allow-downgrades and fails the build (exit 100). The 2026-06 Trixie point
 # release bumped ffmpeg 7.1.4→7.1.5 (2026-07 point release; 7.1.4 purged from the
 # mirror, install failed with "Version not found"). 2026-07-28: same failure for
-# curl — deb13u3 purged after the deb13u4 security update, bumped here. Revisit
-# on the next point release — bumping any pin ALSO requires re-validating the CVE
-# notes at the top of this Dockerfile.
+# curl — deb13u3 purged after the deb13u4 security update, bumped here.
+# 2026-08-26: jq deb13u2→deb13u3 and openssl 3.5.6→3.5.7. The jq failure had a
+# different shape worth recognising — the pin was not purged, so the error was
+# not "Version not found" but a dependency conflict:
+#     jq : Depends: libjq1 (= 1.7.1-6+deb13u2) but 1.7.1-6+deb13u3 is to be installed
+# `apt-get upgrade -y` had already pulled the unpinned libjq1 to u3, and the
+# pinned jq=u2 requires libjq1 at exactly u2. Any pinned package whose unpinned
+# shared library gets a security update fails this way, so bump the pin rather
+# than pinning the library too. Revisit on the next point release — bumping any
+# pin ALSO requires re-validating the CVE notes at the top of this Dockerfile
+# (checked 2026-08-26: those notes cover ffmpeg/mesa/mbedtls/ncurses/systemd and
+# are unaffected by the jq and openssl bumps, which move onto security updates).
 #
 # To re-capture every pin at once, run against the digest in `FROM`:
 #   docker run --rm python:3.14-slim@sha256:<digest> bash -c 'apt-get update -qq; \
@@ -73,10 +82,10 @@ LABEL org.opencontainers.image.licenses="MIT"
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     ffmpeg=7:7.1.5-0+deb13u1 \
     mediainfo=25.04-1 \
-    jq=1.7.1-6+deb13u2 \
+    jq=1.7.1-6+deb13u3 \
     curl=8.14.1-2+deb13u4 \
     libsqlcipher-dev=4.6.1-2 \
-    openssl=3.5.6-1~deb13u2 \
+    openssl=3.5.7-1~deb13u2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

@@ -11,7 +11,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Dependency floors advanced (16 Dependabot merges)**: `mypy>=2.3.1`, `ruff>=0.16.3`, `filelock>=3.32.3`,
+  `platformdirs>=4.11.3`, `packaging>=26.3`, `greenlet>=3.5.5`, `librt>=0.15.0`, `marshmallow>=4.3.1`,
+  `pytest-playwright>=0.9.0`, `gevent>=26.8.0`, `pyopenssl>=26.4.0`, `cbor2>=6.1.4` across
+  `library/requirements.txt`, `library/requirements-dev.txt` and `library/requirements-docker.txt`, plus
+  `docker/setup-buildx-action` 4.2.0 → 4.3.0 in `.github/workflows/release.yml`. These merged between
+  2026-08-11 and 2026-08-25 but were never released — this is the first tag to carry them
+
+- **`SECURITY.md` GitHub settings section rewritten from aspiration to fact**: the "Recommended Settings"
+  list claimed `main` required status checks to pass at a time when `required_status_checks.checks` was an
+  empty array. It is now "Enforced Settings", enumerates the 12 required contexts by their exact job
+  `name:` values, records that pull-request reviews are deliberately *not* required on a solo-maintainer
+  repo, and states why the check list and the schedule triggers must not be removed
+
 ### Fixed
+
+- **`mando` pin restored below radon's ceiling — `main` had been unbuildable for two weeks**: Dependabot
+  raised `mando` from `>=0.7.1,<0.8` to `>=0.8.2,<0.9` (#132, 2026-08-11), but `radon 6.0.1` requires
+  `mando>=0.6,<0.8`. Every `pip install -r library/requirements-dev.txt` since then died with
+  `ERROR: ResolutionImpossible`, taking the `Type Checking`, `Dependency Vulnerabilities` and `Python
+  Tests` jobs with it — fifteen consecutive red CI runs, all auto-merged anyway. The bump also
+  contradicted the comment three lines above it, which already documented radon's ceiling. Restored
+  `mando>=0.7.1,<0.8` and added an `ignore` rule for `mando >=0.8` in `.github/dependabot.yml` so the
+  same pull request cannot be re-proposed; remove that rule only when radon relaxes its own constraint
+
+- **Docker `jq` and `openssl` pins advanced to current Trixie security levels**: `Docker Build Check` failed
+  with `jq : Depends: libjq1 (= 1.7.1-6+deb13u2) but 1.7.1-6+deb13u3 is to be installed`. This is a
+  different failure shape from the previous pin drifts — the pinned version was not purged from the mirror,
+  so there was no `Version not found`; instead `apt-get upgrade -y` advanced the *unpinned* `libjq1` to
+  `deb13u3` while the pinned `jq=…u2` requires `libjq1` at exactly `…u2`. Bumped `jq` to `1.7.1-6+deb13u3`
+  and `openssl` to `3.5.7-1~deb13u2` (also stale). Any pinned package whose unpinned shared library takes
+  a security update fails this way — bump the pin rather than also pinning the library. Verified by
+  building the apt layer against the digest in `FROM`: installs clean, `OpenSSL 3.5.7`, `jq-1.7`
+
+### Security
+
+- **Required status checks now gate merges into `main` (12 contexts, `strict: true`)**: branch protection
+  had status checks *enabled with an empty context list*, so `gh pr merge --auto` in
+  `.github/workflows/dependabot-auto-merge.yml` merged each Dependabot pull request the moment it was
+  approved — regardless of CI. Sixteen commits reached `main` that way with CI red. `Python Tests
+  (3.12/3.13/3.14)`, `Docker Build Check`, `ShellCheck`, `YAML Validation`, `ESLint (web-v2)`,
+  `Ruff Linting`, `Type Checking`, `Security Scan (Bandit)`, `Dependency Vulnerabilities` and
+  `security-scan` are now required. `enforce_admins` stays off so maintainer pushes and `/git-release`
+  are unaffected; the `GITHUB_TOKEN` used by auto-merge has no such exemption
+
+- **`main` is re-validated on a schedule, not only on push**: GitHub does not start workflow runs for
+  pushes made with `GITHUB_TOKEN`, so `push: branches: [main]` in `ci.yml` and `security-checks.yml`
+  never fired for an auto-merged dependency PR. The last CI run on `main` stayed pinned to the
+  2026-08-06 release commit for 19 days while `main` could not resolve its own requirements — and
+  nothing went red, because only CodeQL and Dependency Graph were running and both passed. Both
+  workflows now also run daily at 05:00 UTC with `workflow_dispatch` for manual re-checks. In
+  `security-checks.yml` the `Determine diff range` step selects a full-tree scan explicitly for
+  `schedule`/`workflow_dispatch` events rather than arriving there by falling through the force-push
+  branch
+
+- **Pull-request review requirement removed from `main`**: `required_pull_request_reviews` was set with
+  `required_approving_review_count: 0`, which approved nothing and emitted a
+  `Bypassed rule violations` notice on every maintainer push. Merge safety is carried by the required
+  status checks above
 
 ## [8.4.2.0] - 2026-08-05
 
