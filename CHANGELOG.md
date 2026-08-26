@@ -13,6 +13,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.4.2.3] - 2026-08-26
+
+### Fixed
+
+- **`upgrade.sh` no longer refuses a valid passwordless sudo**: `_require_sudo()` gated every privileged
+  operation on `sudo -v`. With no controlling TTY the script's own `sudo` wrapper adds `-n`, making the probe
+  `sudo -n -v` — and `-v` does not ask "can I run a command as root", it asks sudo to validate and refresh the
+  invoking user's authentication timestamp, which modern sudo refuses non-interactively even under
+  `NOPASSWD: ALL` because there is no password to cache. Measured: `sudo -n -v` returns
+  `sudo: a password is required` (exit 1) on a host where `sudo -n true` succeeds and every privileged call in
+  the script would have worked. The false negative aborted a production upgrade immediately after the backup
+  step and printed guidance blaming the absent terminal, which is not the cause. Now probes with `sudo true`,
+  the capability the script actually exercises — matching the remote deploy path, which has always probed
+  correctly with `sudo -n true` over SSH and was therefore never affected (`Audiobook-Manager-4e1`)
+
 ## [8.4.2.2] - 2026-08-26
 
 ### Fixed
@@ -4253,7 +4268,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.3...HEAD
+[8.4.2.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.2...v8.4.2.3
 [8.4.2.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.1...v8.4.2.2
 [8.4.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.0...v8.4.2.1
 [8.4.2.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.1.0...v8.4.2.0

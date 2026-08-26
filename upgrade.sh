@@ -132,7 +132,22 @@ _require_sudo() {
     # Validate sudo access before the first privileged operation. Returns 0
     # when escalation works; otherwise prints one clear, actionable error
     # (instead of dozens of masked per-call failures) and returns 1.
-    if sudo -v 2>/dev/null; then
+    #
+    # Probe with `sudo true`, NOT `sudo -v`. `-v` does not ask "can I run a
+    # command as root?" — it asks sudo to validate and refresh the invoking
+    # user's authentication timestamp, and modern sudo refuses to do that
+    # non-interactively even for a user with NOPASSWD: ALL, because there is
+    # no password to cache. The result is `sudo -n -v` -> "sudo: a password is
+    # required" (exit 1) on a host where `sudo -n true` succeeds and every
+    # privileged call in this script would have worked.
+    #
+    # That false negative aborted a real production upgrade on 2026-08-26 and
+    # was misread as "sudo needs a TTY", sending the operator to an
+    # interactive shell to fix a problem that did not exist. `sudo true`
+    # probes the capability the script actually uses. Note the remote deploy
+    # path already probes correctly with `sudo -n true` over ssh — this makes
+    # the local path agree with it.
+    if sudo true 2>/dev/null; then
         return 0
     fi
     echo -e "${RED}Error: sudo access required but not available${NC}" >&2
