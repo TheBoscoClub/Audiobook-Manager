@@ -11,11 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+## [8.4.2.4] - 2026-08-26
+
+### Added
+
+- **Sampler failure can now be recorded at all** (`Audiobook-Manager-od0`): migration 024 documents the transition `pending -> running -> failed`, defines `sampler_jobs.error TEXT`, and `ALLOWED_EVENT_TYPES` already reserved `sampler_job_failed` — but no code ever wrote any of the three. All 1884 production rows had `error IS NULL`, not because nothing failed but because recording a failure was impossible. Adds `mark_sampler_job_failed()` in `library/translation_monitor/probe.py` as that missing terminal leg
+- **Sampler staleness alert** (`Audiobook-Manager-od0`): `sampler_completion_age_days()` asks the database how long since any `sampler_jobs` row reached `complete`, and `scripts/translation-monitor-sampler.py` logs at `ERROR` past `STALE_COMPLETION_ALERT_DAYS` (3). The subsystem previously reported healthy for ~11 weeks while completing nothing, because `systemctl is-active` describes the timer, not the work
+
+### Changed
+
 - **All outbound mail now submits to the host's local relay instead of a provider directly** (`Audiobook-Manager-9nu`): `scripts/email-report.py` submitted straight to `smtp.resend.com:587`, negotiating its own STARTTLS, calling `login()` unconditionally, and holding a credential. It now defaults to `localhost:25` and negotiates TLS + AUTH only when `SMTP_USER` and `SMTP_PASS` are both set — matching the guard `auth_email.py`, `translation_monitor/notify.py`, `auth/audit.py`, and `auth/inbox_cli.py` already used. Its `SMTP_USER` default was also the truthy string `"resend"`, which would have made any `if user and password` guard fire even with no credential configured; it now defaults to empty. The other four senders needed no change. `systemd/audiobook-api-derive-secrets.conf.example` drops its `RESEND_KEY_LIBRARY` -> `/run/audiobooks/smtp-pass` derive line, which becomes dead machinery once no sender holds an SMTP password — and `derive-service-secret` fails closed on a missing variable, so a pointless derive is also a startup fragility. Deployments submitting directly to a provider keep working by setting `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS` explicitly
+- **The library Refresh button now performs a real hard reload** (`Audiobook-Manager-017`): it cleared Cache Storage and purged the CDN, then reloaded data in place — which leaves the stale bundle running, since `caches.delete()` neither evicts the browser's HTTP cache nor re-evaluates the JS/CSS already executing. It now navigates with a changing `_cb` query parameter (`location.reload(true)` is deprecated and ignored by modern browsers). `searchParams.set()` overwrites any previous `_cb` rather than accumulating, and preserves existing params and the hash. Runs even when the CDN purge failed, so whatever is locally clearable still gets cleared
+- **Sampler job resets are now bounded** (`Audiobook-Manager-od0`): `reset_stuck_sampler_jobs()` recycled `running -> pending` with no budget, so a job whose backend was gone cycled forever with its `updated_at` moving the whole time — indistinguishable from healthy progress. Past `SAMPLER_JOB_RESET_CAP` (3) the job is marked `failed`, recording how far it got and why
 
 ### Fixed
 
 - **CDN cache purge was a zombie — `derive-service-secret` named a stale credential-store entry**: `systemd/audiobook-api-derive-secrets.conf.example` derived the store entry `CLOUDFLARE_PURGE_TOKEN`, which no longer holds a valid token; the operator's live scoped Zone > Cache Purge token is stored as `CF_TOKEN_CACHE_PURGE`. The drop-in therefore wrote a dead value to `/run/audiobooks/cloudflare-purge-token` at every service start, `_resolve_cf_auth_headers()` fell through to the legacy Global API Key, and that key had itself been revoked upstream — so `POST /api/system/purge-cache` could not have succeeded since the rotation. The plumbing was correct and verified; only the *value* was never exercised. Template now derives `CF_TOKEN_CACHE_PURGE`
+
+- **DeepL failure was silent — a dead key returned English source text as though it were a translation** (`Audiobook-Manager-64p`): `_call_deepl_api()` caught `requests.RequestException`, logged, and returned `None`; `translate()` then filled every miss with the source text and returned a `list[str]` structurally identical to a successful translation. No exception, no flag, no distinguishable result, which is why the recent key outage was invisible. Adds `TranslationUnavailableError` and a `strict=` parameter: live and UI callers keep degrading gracefully, while callers that PERSIST results must be strict — `library/localization/pipeline.py` (both `.{locale}.vtt`-writing sites) and `library/localization/metadata/lookup.py` (which labels results `source="deepl"`), because English written into a Chinese subtitle file or a metadata row is unrecoverable once nothing downstream can tell it apart. Non-strict callers can still detect it via `degraded` / `degraded_texts` / `_last_error`. Failures now log at `ERROR`, and 401/403 gets a distinct message naming both key validity and the Free-vs-Pro endpoint rule, since a valid Free key sent to the Pro host also returns 403
+
+### Security
+
+- **Pinned two transitive dependencies carrying live advisories** (`library/requirements.txt`, `library/requirements-docker.txt`): `aiohttp>=3.14.3` — versions below it carry PYSEC-2026-2104 (arbitrary code execution via `CookieJar.load()` on untrusted input), PYSEC-2026-3546 (request smuggling through the WebSocket upgrade path), PYSEC-2026-3545 (out-of-bounds heap read in the C response parser) and eight further DoS/cookie-scope issues; and `msgpack>=1.2.1` — PYSEC-2026-3625 (out-of-bounds read / SEGV when an `Unpacker` is reused after a caught error). Neither is used directly; they arrive via `edge-tts` and `CacheControl` respectively, and both pins sit inside their parents' declared ranges (`aiohttp<4.0.0`, `msgpack<2.0.0`). `pip-audit` now reports no known vulnerabilities
 
 ## [8.4.2.3] - 2026-08-26
 
@@ -4272,7 +4291,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.3...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.4...HEAD
+[8.4.2.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.3...v8.4.2.4
 [8.4.2.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.2...v8.4.2.3
 [8.4.2.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.1...v8.4.2.2
 [8.4.2.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.0...v8.4.2.1

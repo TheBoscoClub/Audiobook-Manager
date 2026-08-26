@@ -28,3 +28,17 @@ edge-tts>=7.2.8     # Microsoft Neural TTS (free, no API key)
 pypinyin>=0.55.0    # Mandarin pinyin conversion for zh-Hans sort/search (pure Python, no native deps)
 # NOTE: audible-cli is installed in a separate venv (AUDIOBOOKS_AUDIBLE_VENV)
 # to avoid httpx version conflicts. See lib/audiobook-config.sh.
+
+# ── Transitive security pins ──────────────────────────────────────────────
+# Pulled in by edge-tts / CacheControl, not used directly. Pinned because the
+# versions those packages would otherwise resolve carry live advisories:
+#   aiohttp <3.14.3 — PYSEC-2026-2104 (arbitrary code execution via
+#     CookieJar.load on untrusted input), PYSEC-2026-3546 (request smuggling
+#     via the WebSocket upgrade path), PYSEC-2026-3545 (out-of-bounds heap
+#     read in the C response parser), plus 8 further DoS/cookie-scope issues.
+#   msgpack <1.2.1 — PYSEC-2026-3625 (out-of-bounds read / SEGV when an
+#     Unpacker is reused after a caught error).
+# Both are within their parents' declared ranges (edge-tts: aiohttp<4.0.0;
+# CacheControl: msgpack<2.0.0), so this constrains without conflicting.
+aiohttp>=3.14.3
+msgpack>=1.2.1

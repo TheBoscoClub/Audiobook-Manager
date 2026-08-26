@@ -29,3 +29,17 @@ cbor2>=6.1.4        # CVE-2026-26209 (DoS via CBOR recursion, used by webauthn)
 idna>=3.19          # CVE floor; transitive via requests/cryptography
 edge-tts>=7.2.8     # streaming TTS worker shells out to python -m edge_tts
 pypinyin>=0.55.0    # search_cjk uses pypinyin for Chinese character romanization
+
+# ── Transitive security pins ──────────────────────────────────────────────
+# Pulled in by edge-tts / CacheControl, not used directly. Pinned because the
+# versions those packages would otherwise resolve carry live advisories:
+#   aiohttp <3.14.3 — PYSEC-2026-2104 (arbitrary code execution via
+#     CookieJar.load on untrusted input), PYSEC-2026-3546 (request smuggling
+#     via the WebSocket upgrade path), PYSEC-2026-3545 (out-of-bounds heap
+#     read in the C response parser), plus 8 further DoS/cookie-scope issues.
+#   msgpack <1.2.1 — PYSEC-2026-3625 (out-of-bounds read / SEGV when an
+#     Unpacker is reused after a caught error).
+# Both are within their parents' declared ranges (edge-tts: aiohttp<4.0.0;
+# CacheControl: msgpack<2.0.0), so this constrains without conflicting.
+aiohttp>=3.14.3
+msgpack>=1.2.1
