@@ -147,14 +147,39 @@ git check-ignore -v sensitive-file.conf
 
 ## GitHub Security Settings
 
-### Recommended Settings (Repository Owner)
+### Enforced Settings (Repository Owner)
 
-**Branch Protection Rules:**
+These describe how `main` is actually configured, not an aspiration. Verify with
+`gh api repos/TheBoscoClub/Audiobook-Manager/branches/main/protection`.
 
-1. Require pull request reviews before merging
-2. Require status checks to pass
-3. Require conversation resolution before merging
-4. Restrict who can push to protected branches
+**Branch Protection Rules on `main`:**
+
+1. **Required status checks — 12 contexts, `strict: true`.** No pull request can
+   merge until all of these report success, and the branch must be up to date
+   first: `Python Tests (3.12/3.13/3.14)`, `Docker Build Check`, `ShellCheck`,
+   `YAML Validation`, `ESLint (web-v2)`, `Ruff Linting`, `Type Checking`,
+   `Security Scan (Bandit)`, `Dependency Vulnerabilities`, `security-scan`.
+   This list must stay in sync with the job `name:` values in `ci.yml`,
+   `python-security.yml` and `security-checks.yml` — a required context that no
+   workflow ever produces blocks every PR permanently.
+2. **Signed commits required.**
+3. **Force pushes and branch deletion blocked.**
+4. **Conversation resolution required before merging.**
+5. **Pull request reviews are deliberately NOT required.** This is a
+   solo-maintainer repository; a review requirement approves nothing and only
+   produces a "Bypassed rule violations" notice on every direct push. Merge
+   safety here comes from the required status checks in (1), which apply to
+   bot-authored pull requests — including Dependabot's — because
+   `enforce_admins` is off for the maintainer but the `GITHUB_TOKEN` used by
+   `dependabot-auto-merge.yml` has no such exemption.
+
+**Why (1) is load-bearing:** between 2026-08-11 and 2026-08-25 this repository
+had required status checks *enabled with an empty context list*. `gh pr merge
+--auto` therefore merged each Dependabot pull request the instant it was
+approved, with CI red. Sixteen commits landed that way, one of which
+(`mando>=0.8.2,<0.9`, conflicting with radon's `mando<0.8` ceiling) made
+`requirements-dev.txt` unresolvable and left `main` unable to run its own type
+checks for two weeks. Do not empty this list.
 
 **Repository Settings:**
 
@@ -162,6 +187,14 @@ git check-ignore -v sensitive-file.conf
 - ✅ Enable automated security fixes
 - ✅ Enable private vulnerability reporting
 - ✅ Review access permissions regularly
+
+**Scheduled re-validation:** `ci.yml` and `security-checks.yml` both run daily
+at 05:00 UTC in addition to push/PR, and `python-security.yml` runs weekly.
+This is not redundancy. GitHub does not start workflow runs for pushes made
+with `GITHUB_TOKEN`, so an auto-merged pull request lands on `main` without
+re-triggering the push-event workflows; without a schedule, `main` can stop
+being tested while every visible check stays green. Do not remove these
+schedules on the grounds that push coverage already exists.
 
 ## Security Checklist for Contributors
 
