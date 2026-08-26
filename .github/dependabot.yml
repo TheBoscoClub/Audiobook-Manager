@@ -17,6 +17,14 @@ updates:
       python-minor-patch:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+    ignore:
+      # radon 6.0.1 caps mando at <0.8. Dependabot bumped mando to
+      # >=0.8.2,<0.9 in #132 (2026-08-11); the result is unresolvable and it
+      # broke every CI run on main for two weeks before anyone noticed,
+      # because auto-merge had no status-check gate at the time. Keep mando
+      # out of Dependabot's reach until radon relaxes its ceiling.
+      - dependency-name: "mando"
+        versions: [">=0.8"]
     labels: ["dependencies", "python"]
     commit-message:
       prefix: "deps(py)"

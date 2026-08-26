@@ -35,10 +35,16 @@ librt>=0.15.0
 # the constraint without the tool it exists to constrain.
 radon>=6.0.1
 # radon 6.0.1 requires mando>=0.6,<0.8; stay on the 0.7.x line (latest
-# pre-0.8 release is 0.7.1) so `pip check` stays clean. The floor previously
-# read `>=0.8.2,<0.9`, which contradicted this comment and is outside radon's
-# supported range.
-mando>=0.8.2,<0.9
+# pre-0.8 release is 0.7.1) so `pip check` stays clean.
+#
+# DO NOT BUMP. mando 0.8.x is outside radon's supported range and makes the
+# whole file unresolvable — `pip install -r requirements-dev.txt` dies with
+# ResolutionImpossible, taking mypy, radon and every downstream CI job with it.
+# This exact bump landed once already (#132, 2026-08-11) and left main red for
+# two weeks. `.github/dependabot.yml` now carries an `ignore` rule for mando
+# `>=0.8` so Dependabot cannot re-propose it; remove that rule only when radon
+# itself relaxes its mando ceiling.
+mando>=0.7.1,<0.8
 # astroid is NOT pinned here, deliberately. It is pylint's AST engine and
 # nothing else in this file depends on it; pylint itself was never declared as
 # a dev dependency (it is not a CI gate — ruff and mypy are), so the pin
