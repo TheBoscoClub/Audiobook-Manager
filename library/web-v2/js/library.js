@@ -3456,9 +3456,28 @@ class AudiobookLibraryV2 {
       // clearable should still be cleared. searchParams.set() overwrites any
       // previous _cb rather than accumulating them, and preserves the rest of
       // the URL (filters, page, hash).
-      const _url = new URL(window.location.href);
+      // This document runs INSIDE the shell's #content-frame iframe, so a bare
+      // window.location.replace() reloads ONLY the iframe. Verified against
+      // production 2026-08-26: the iframe URL gained _cb and re-navigated while
+      // the top URL was untouched and the shell document was never replaced —
+      // leaving the shell's 14 scripts (player, websocket, streaming-translate,
+      // version-poller, subtitles) on exactly the cached copies this button
+      // exists to evict. Target the TOP window so both documents reload.
+      //
+      // Guarded two ways: window.top is same-origin here but throws on a
+      // cross-origin ancestor, and this file is also loaded standalone (tests,
+      // direct /index.html) where window.top === window.
+      let _w = window;
+      try {
+        if (window.top && window.top.location.href) {
+          _w = window.top;
+        }
+      } catch {
+        _w = window; // cross-origin ancestor — fall back to our own document
+      }
+      const _url = new URL(_w.location.href);
       _url.searchParams.set("_cb", Date.now().toString());
-      window.location.replace(_url.toString());
+      _w.location.replace(_url.toString());
       return;
     } catch (error) {
       console.error("Error refreshing library:", error);
