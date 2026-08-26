@@ -3442,12 +3442,24 @@ class AudiobookLibraryV2 {
         console.warn("CDN cache purge unavailable");
       }
 
-      // Reload stats, filters, and current page
-      await this.loadStats();
-      await this.loadFilters();
-      await this.loadAudiobooks();
-
-      // Silent on success — no notification needed
+      // Hard reload with a cache-buster (Audiobook-Manager-017).
+      //
+      // caches.delete() above only clears the Cache Storage API. It does NOT
+      // evict assets the browser already holds in its HTTP cache, and it does
+      // not re-evaluate the JS/CSS currently executing — so without a
+      // navigation, a stale bundle survives the very button meant to clear it.
+      // location.reload(true) is deprecated and ignored by modern browsers;
+      // a changing query parameter is the reliable cross-browser way to force
+      // a cache-bypassing fetch.
+      //
+      // This runs even when the CDN purge failed: whatever is locally
+      // clearable should still be cleared. searchParams.set() overwrites any
+      // previous _cb rather than accumulating them, and preserves the rest of
+      // the URL (filters, page, hash).
+      const _url = new URL(window.location.href);
+      _url.searchParams.set("_cb", Date.now().toString());
+      window.location.replace(_url.toString());
+      return;
     } catch (error) {
       console.error("Error refreshing library:", error);
       const _failKey = "library.js.refreshFailed";
