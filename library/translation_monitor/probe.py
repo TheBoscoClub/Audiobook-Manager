@@ -63,6 +63,14 @@ SAMPLER_JOB_RUNNING_TIMEOUT_SEC = 2 * 3600
 # on but never marked as failed because it crashed mid-handler.
 RETRY_CAP = 3
 
+# How many times a sampler_job may be bounced running -> pending before it is
+# declared failed. Audiobook-Manager-od0: without a cap the reset path is an
+# UNBOUNDED retry loop -- a job whose backend is gone cycles forever, its
+# updated_at keeps moving so it looks alive, and because nothing ever wrote
+# sampler_jobs.error the whole subsystem reported healthy while completing
+# nothing for 11 weeks.
+SAMPLER_JOB_RESET_CAP = 3
+
 # A live segment that has been pending/processing/claimed for more than this
 # many seconds is past the latency point a human listener would tolerate.
 # Distinct from LIVE_CLAIM_TIMEOUT_SEC (which catches *worker-stuck* claims
@@ -188,7 +196,10 @@ def reset_stuck_sampler_claims(
 
 
 def reset_stuck_sampler_jobs(
-    conn: sqlite3.Connection, *, timeout_sec: int = SAMPLER_JOB_RUNNING_TIMEOUT_SEC
+    conn: sqlite3.Connection,
+    *,
+    timeout_sec: int = SAMPLER_JOB_RUNNING_TIMEOUT_SEC,
+    reset_cap: int = SAMPLER_JOB_RESET_CAP,
 ) -> list[int]:
     """Reset sampler_jobs stuck in status='running' past ``timeout_sec``.
 
@@ -209,6 +220,26 @@ def reset_stuck_sampler_jobs(
     affected: list[int] = []
     for row in rows:
         job_id = row["id"]
+
+        # Retry budget. Count how often this job has already been bounced; past
+        # the cap, stop recycling it and record the failure so it is visible.
+        prior = conn.execute(
+            "SELECT COUNT(*) AS n FROM translation_monitor_events "
+            "WHERE event_type='sampler_job_reset' AND sampler_job_id = ?",
+            (job_id,),
+        ).fetchone()
+        if prior is not None and prior["n"] >= reset_cap:
+            mark_sampler_job_failed(
+                conn,
+                job_id,
+                f"exceeded {reset_cap} running->pending resets without completing "
+                f"(stalled at {row['segments_done']}/{row['segments_target']} segments); "
+                f"the STT/translation backend is not completing work",
+                audiobook_id=row["audiobook_id"],
+            )
+            affected.append(job_id)
+            continue
+
         conn.execute(
             "UPDATE sampler_jobs "
             "SET status='pending', updated_at=CURRENT_TIMESTAMP "
@@ -232,6 +263,48 @@ def reset_stuck_sampler_jobs(
         affected.append(job_id)
     conn.commit()
     return affected
+
+
+def mark_sampler_job_failed(
+    conn: sqlite3.Connection, job_id: int, error: str, *, audiobook_id: int | None = None
+) -> None:
+    """Move a sampler_job to the terminal ``failed`` state, recording why.
+
+    Audiobook-Manager-od0: migration 024 documents the transition
+    ``pending -> running -> failed`` and defines an ``error TEXT`` column, but
+    until now NO code path wrote either one. Every one of the 1884 rows in
+    production had ``error IS NULL`` -- not because nothing failed, but because
+    recording a failure was impossible. This function is that missing leg.
+    """
+    conn.execute(
+        "UPDATE sampler_jobs SET status='failed', error=?, updated_at=CURRENT_TIMESTAMP "
+        "WHERE id = ?",
+        (error, job_id),
+    )
+    log_event(
+        conn,
+        monitor="sampler",
+        event_type="sampler_job_failed",
+        audiobook_id=audiobook_id,
+        sampler_job_id=job_id,
+        details={"error": error},
+    )
+
+
+def sampler_completion_age_days(conn: sqlite3.Connection) -> float | None:
+    """Days since the most recent sampler_job reached ``complete``.
+
+    Returns ``None`` when nothing has ever completed. Exists because
+    ``systemctl is-active`` reported the sampler healthy for 11 weeks while it
+    completed nothing: liveness of the timer is not liveness of the work.
+    """
+    row = conn.execute(
+        "SELECT (julianday('now') - julianday(MAX(updated_at))) AS age "
+        "FROM sampler_jobs WHERE status='complete'"
+    ).fetchone()
+    if row is None or row["age"] is None:
+        return None
+    return float(row["age"])
 
 
 # ─── Retry-budget detector (both tiers) ───────────────────────────────────
