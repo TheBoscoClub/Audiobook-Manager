@@ -69,18 +69,28 @@ def test_dockerfile_app_version_matches_version(project_version):
     )
 
 
+# The README release table labels its top row by the KIND of the release —
+# "Latest major", "Latest minor", "Latest patch" or "Latest tweak" — per the
+# status-label rule in the /git-release skill. Matching the literal string
+# "Latest patch" made this guard pass only for patch releases and fail every
+# other kind; v8.4.2.1 is a tweak, and the guard failed on a README that was
+# correct. Match the row by its "Latest " prefix so the assertion is about the
+# version, which is what this test exists to check.
+LATEST_ROW = re.compile(r"\|\s*Latest (major|minor|patch|tweak)\s*\|")
+
+
 def test_readme_latest_release_row_matches_version(project_version):
     """The README's first release-table row names the current version."""
     for line in README.read_text().splitlines():
-        if "Latest patch" not in line:
+        if not LATEST_ROW.search(line):
             continue
         match = re.search(r"\[v([0-9.]+)\]", line)
-        assert match, f"'Latest patch' row has no version tag link: {line}"
+        assert match, f"'Latest ...' row has no version tag link: {line}"
         assert match.group(1) == project_version, (
-            f"README 'Latest patch' row says v{match.group(1)}, VERSION says {project_version}"
+            f"README 'Latest ...' row says v{match.group(1)}, VERSION says {project_version}"
         )
         return
-    pytest.fail("README.md has no 'Latest patch' release-table row")
+    pytest.fail("README.md has no 'Latest major|minor|patch|tweak' release-table row")
 
 
 def test_deploy_scripts_ship_install_manifest():
