@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **CDN cache purge was a zombie — `derive-service-secret` named a stale credential-store entry**: `systemd/audiobook-api-derive-secrets.conf.example` derived the store entry `CLOUDFLARE_PURGE_TOKEN`, which no longer holds a valid token; the operator's live scoped Zone > Cache Purge token is stored as `CF_TOKEN_CACHE_PURGE`. The drop-in therefore wrote a dead value to `/run/audiobooks/cloudflare-purge-token` at every service start, `_resolve_cf_auth_headers()` fell through to the legacy Global API Key, and that key had itself been revoked upstream — so `POST /api/system/purge-cache` could not have succeeded since the rotation. The plumbing was correct and verified; only the *value* was never exercised. Template now derives `CF_TOKEN_CACHE_PURGE`
+
 ## [8.4.2.3] - 2026-08-26
 
 ### Fixed
