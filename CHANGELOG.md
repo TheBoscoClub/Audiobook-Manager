@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Mutation-testing gate in CI** (`Audiobook-Manager-d39`): `scripts/mutation-gate.py` runs mutmut over `library/localization/translation/quota.py` and gates on the **counters**, not the tool's exit code — mutmut exits 0 both when every mutant was caught and when none was ever generated, so the raw command is not a gate. The script asserts independently that mutants exist, that some died (zero kills means the test command is broken inside the `mutants/` copy, not that the suite is weak), that the stats and the survivor listing agree, and that every survivor is named in `library/mutants-allowlist.txt` with a written reason. Both failure directions were exercised: removing one allowlist entry exits 1 naming the mutant, and a scope that matches no file exits non-zero rather than passing cheerfully. The allowlist is a **dated baseline of 106 pre-existing survivors**, not an approval — it buys the property that a *new* survivor turns CI red while the existing debt stays counted and visible
+
 ### Changed
 
 ### Fixed
+
+- **The translation memory cached English as the zh-Hans translation, permanently** (`Audiobook-Manager-xiy`): 70 rows in `string_translations` held `translation == source`, written during the April 2026 DeepL outages before `09z` made short responses raise. Because a cache hit is never retried, those books showed English in Chinese locale forever — and deleting the `audiobook_translations` rows did **not** help, because the TM re-served the same English on the very next request. That is what made this invisible: the obvious repair looked like it had worked while changing nothing. `_merge_translations_into_output()` now refuses to cache any pair whose translation equals its source: a genuine identity result (a bare number, a coined title) is indistinguishable from a degraded pass-through, and the cost of not caching one is a re-translation of a short string, while the cost of caching one wrongly is permanent. Production repaired: the 70 poisoned entries were purged and the 24 affected books re-requested through the live endpoint — 22 now carry real Chinese (`Three Mile Island | Fight or Flight` → `三英里岛 | 战斗或逃跑`), and the 2 that remain identical (`Bossypants`, `14`) were confirmed as legitimate identity translations by a working DeepL with zero failures
 
 ## [8.4.3.5] - 2026-08-27
 

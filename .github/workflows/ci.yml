@@ -131,6 +131,43 @@ jobs:
           name: audiobook-manager
           fail_ci_if_error: ${{ secrets.CODECOV_TOKEN != '' }}
 
+  mutation-gate:
+    name: Mutation Gate (quota)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: >-
+          actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        # v7.0.1
+
+      - name: Set up Python
+        uses: >-
+          actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        # v7.0.0
+        with:
+          python-version: '3.14'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+      # A mutation tool's own exit code is NOT a gate: mutmut exits 0 when every
+      # mutant was caught and when none was ever generated. scripts/mutation-gate.py
+      # asserts both counters independently — mutants exist, some died, and every
+      # survivor is named in library/mutants-allowlist.txt with a reason.
+      #
+      # Runs from library/ because conftest.py puts that directory on sys.path:
+      # the tests import `localization.…`, so a repo-root run makes mutmut look
+      # for `library.localization.…` and abort on a module-key mismatch.
+      - name: Mutation gate
+        run: python scripts/mutation-gate.py --mutmut "$(command -v mutmut)"
+
   docker-build:
     name: Docker Build Check
     runs-on: ubuntu-latest

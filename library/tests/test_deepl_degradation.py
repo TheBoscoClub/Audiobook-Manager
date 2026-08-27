@@ -278,3 +278,46 @@ class TestStaleGlossaryIsSelfHealing:
         out = t.translate(["Hello"], "zh-Hans")
         assert out == ["Hello"]
         assert t.degraded is True
+
+
+class TestIdentityResultsAreNeverCached:
+    """A 'translation' equal to its source must never enter the TM.
+
+    Audiobook-Manager-xiy. 70 such rows accumulated during the April 2026
+    outages. They survived deleting every audiobook_translations row, because
+    the translation memory re-served them on the next request — a cache hit is
+    never retried, so the poison is permanent and silent.
+    """
+
+    def test_identity_translation_is_not_stored(self, monkeypatch, tmp_path):
+        t = DeepLTranslator(api_key="pro-key", db_path=tmp_path / "q.db")
+        t._glossary_resolved = True
+        stored: list = []
+        monkeypatch.setattr(t, "_tm_store", lambda pairs, locale: stored.append(pairs))
+        monkeypatch.setattr(t, "_call_deepl_api", lambda payload: ["Borne"])
+
+        out = t.translate(["Borne"], "zh-Hans")
+
+        assert out == ["Borne"], "the caller still receives what DeepL returned"
+        assert stored == [[]], f"an identity result was cached: {stored}"
+
+    def test_real_translations_are_still_stored(self, monkeypatch, tmp_path):
+        t = DeepLTranslator(api_key="pro-key", db_path=tmp_path / "q.db")
+        t._glossary_resolved = True
+        stored: list = []
+        monkeypatch.setattr(t, "_tm_store", lambda pairs, locale: stored.append(pairs))
+        monkeypatch.setattr(t, "_call_deepl_api", lambda payload: ["霸级"])
+
+        t.translate(["Overlord"], "zh-Hans")
+        assert stored == [[("Overlord", "霸级")]]
+
+    def test_mixed_batch_stores_only_the_real_one(self, monkeypatch, tmp_path):
+        t = DeepLTranslator(api_key="pro-key", db_path=tmp_path / "q.db")
+        t._glossary_resolved = True
+        stored: list = []
+        monkeypatch.setattr(t, "_tm_store", lambda pairs, locale: stored.append(pairs))
+        monkeypatch.setattr(t, "_call_deepl_api", lambda payload: ["14", "霸级"])
+
+        out = t.translate(["14", "Overlord"], "zh-Hans")
+        assert out == ["14", "霸级"]
+        assert stored == [[("Overlord", "霸级")]]

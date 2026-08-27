@@ -1,0 +1,142 @@
+# Mutation-testing allowlist — surviving mutants that will NOT fail the build.
+#
+# Format:  <mutant name>   # reason
+#
+# scripts/mutation-gate.py fails CI on any survivor NOT listed here, so this
+# file is the only place a live mutant can be tolerated, and every entry has to
+# carry a reason someone wrote down.
+#
+# ─────────────────────────────────────────────────────────────────────────────
+# THIS IS A FROZEN BASELINE, NOT AN APPROVAL. Captured 2026-08-27 against
+# library/localization/translation/quota.py: 322 mutants, 216 killed, 106
+# survived, 0 uncovered.
+#
+# The 106 below are pre-existing test-strength debt in code that predates this
+# cycle (refresh_from_api, snapshot, record_usage, set_limit, reset_period and
+# friends have no dedicated tests). Freezing them buys the property that
+# matters immediately: a NEW survivor — i.e. a regression in test strength —
+# turns CI red, while the existing debt is visible, counted and tracked rather
+# than hidden behind a percentage.
+#
+# Do not add to this file to make a build pass. Shrink it.
+# Tracked: Audiobook-Manager-d39.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Analysed individually (the code written this cycle). Every BEHAVIOURAL mutant
+# in _reconcile_if_stale was killed by tests derived from the survivors
+# themselves; these are what remained:
+#   * 7 log-message mutants — they alter the WARNING's format string or its
+#     arguments. Killing them means asserting exact log wording, which is
+#     brittle and tests the message rather than the behaviour.
+#   * 2 boundary mutants — `<` vs `<=` on a 300s retry floor and a 3600s
+#     staleness interval. Immaterial at those magnitudes.
+#   * 1 EQUIVALENT mutant — row["last_api_check"] -> row["LAST_API_CHECK"].
+#     sqlite3.Row lookup is case-insensitive, so no test can distinguish it.
+#     This one is unkillable by construction.
+#
+localization.translation.quota.xǁQuotaTrackerǁ__init____mutmut_1   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ__init____mutmut_2   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ__init____mutmut_5   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ__init____mutmut_6   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ__init____mutmut_9   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ__init____mutmut_10   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ__init____mutmut_11   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_ensure_schema__mutmut_7   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_load_row__mutmut_4   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_load_row__mutmut_9   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_load_row__mutmut_14   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_8   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_15   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_16   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_17   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_20   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_21   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_22   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_30   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_31   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_32   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_33   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_34   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_35   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_36   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_44   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_52   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁsnapshot__mutmut_56   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_reconcile_if_stale__mutmut_7   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_reconcile_if_stale__mutmut_11   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_reconcile_if_stale__mutmut_14   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_reconcile_if_stale__mutmut_17   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_reconcile_if_stale__mutmut_18   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_reconcile_if_stale__mutmut_22   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_reconcile_if_stale__mutmut_23   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_reconcile_if_stale__mutmut_25   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_reconcile_if_stale__mutmut_26   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁ_reconcile_if_stale__mutmut_27   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁcheck_before_translate__mutmut_2   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁcheck_before_translate__mutmut_11   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁcheck_before_translate__mutmut_12   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁcheck_before_translate__mutmut_13   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁcheck_before_translate__mutmut_15   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁcheck_before_translate__mutmut_16   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁcheck_before_translate__mutmut_26   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁcheck_before_translate__mutmut_27   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁcheck_before_translate__mutmut_29   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁcheck_before_translate__mutmut_30   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁcheck_before_translate__mutmut_31   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrecord_usage__mutmut_1   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrecord_usage__mutmut_2   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrecord_usage__mutmut_9   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrecord_usage__mutmut_10   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrecord_usage__mutmut_12   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrecord_usage__mutmut_13   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrecord_usage__mutmut_15   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrecord_usage__mutmut_16   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrecord_usage__mutmut_18   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁset_limit__mutmut_2   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁset_limit__mutmut_3   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁset_limit__mutmut_4   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁset_limit__mutmut_5   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁset_limit__mutmut_12   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁset_limit__mutmut_13   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁset_limit__mutmut_15   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁset_glossary__mutmut_7   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁset_glossary__mutmut_8   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁset_glossary__mutmut_10   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁset_glossary__mutmut_12   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁget_glossary__mutmut_3   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁget_glossary__mutmut_5   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁreset_period__mutmut_4   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁreset_period__mutmut_5   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁreset_period__mutmut_7   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁreset_period__mutmut_8   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁreset_period__mutmut_10   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_1   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_5   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_10   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_11   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_13   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_14   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_15   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_16   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_17   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_18   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_24   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_26   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_29   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_33   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_35   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_38   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_41   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_42   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_49   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_50   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_52   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_53   # baseline 2026-08-27
+localization.translation.quota.xǁQuotaTrackerǁrefresh_from_api__mutmut_55   # baseline 2026-08-27
+localization.translation.quota.x__age_seconds__mutmut_11   # baseline 2026-08-27
+localization.translation.quota.x__age_seconds__mutmut_12   # baseline 2026-08-27
+localization.translation.quota.x__age_seconds__mutmut_13   # baseline 2026-08-27
+localization.translation.quota.x__compute_reset_date__mutmut_9   # baseline 2026-08-27
+localization.translation.quota.x__compute_reset_date__mutmut_10   # baseline 2026-08-27
+localization.translation.quota.x__compute_reset_date__mutmut_13   # baseline 2026-08-27
+localization.translation.quota.x__compute_reset_date__mutmut_15   # baseline 2026-08-27

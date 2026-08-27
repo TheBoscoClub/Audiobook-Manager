@@ -312,9 +312,30 @@ class DeepLTranslator:
     ) -> None:
         """Store translation pairs into TM and fill output slots."""
         pairs_to_store: list[tuple[str, str]] = []
+        identity_results = 0
         for (idx, src), translated in zip(misses, translations):
             output[idx] = translated
+            # NEVER cache a "translation" identical to its source. A real
+            # identity result (a bare number, a proper noun) is indistinguishable
+            # from a degraded pass-through, and once cached the translation
+            # memory serves English as though it were the target language —
+            # permanently, because a cache hit is never retried. 70 such rows
+            # accumulated during the April 2026 outages and survived every
+            # later fix, including a full delete of the audiobook_translations
+            # rows, because the TM re-served them (Audiobook-Manager-xiy).
+            # The cost of not caching these is one re-translation of a short
+            # string; the cost of caching one wrongly is permanent.
+            if translated == src:
+                identity_results += 1
+                continue
             pairs_to_store.append((src, translated))
+        if identity_results:
+            logger.info(
+                "Not caching %d identity result(s) for %s — a translation equal to "
+                "its source is indistinguishable from a degraded pass-through",
+                identity_results,
+                _safe_for_log(target_locale),
+            )
         self._tm_store(pairs_to_store, target_locale)
         if self._tracker is not None:
             self._tracker.record_usage(char_count)
