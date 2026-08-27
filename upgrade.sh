@@ -1985,7 +1985,7 @@ do_upgrade() {
             if [[ -f "$script" ]] && [[ "$(basename "$script")" != "__pycache__" ]]; then
                 local script_name=$(basename "$script")
                 case "$script_name" in
-                    install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
+                    install-hooks.sh | purge-users.sh) continue ;;
                 esac
                 if [[ "$DRY_RUN" == "true" ]]; then
                     echo "  [DRY-RUN] Would update: $script_name"

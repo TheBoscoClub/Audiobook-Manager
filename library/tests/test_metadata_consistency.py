@@ -34,6 +34,7 @@ from scanner.metadata_utils import (  # noqa: E402
     extract_author_from_tags,
     run_ffprobe,
 )
+from scanner.utils.canonical import iter_source_files  # noqa: E402
 
 from config import AUDIOBOOKS_DATABASE, AUDIOBOOKS_LIBRARY, AUDIOBOOKS_SOURCES  # noqa: E402
 
@@ -380,7 +381,10 @@ class TestAsinConsistency:
         cursor = conn.cursor()
 
         # Sample source files
-        source_files = list(PROD_SOURCES_DIR.glob("*.aaxc"))[:SAMPLE_SIZE]
+        # Recursive, matching the production walks (Audiobook-Manager-0hb/e3s).
+        # glob() here would UNDER-SAMPLE if Sources ever nests — the test
+        # would silently check fewer files and still pass.
+        source_files = list(iter_source_files(PROD_SOURCES_DIR))[:SAMPLE_SIZE]
 
         for source_file in source_files:
             asin = extract_asin_from_source_filename(source_file.name)
@@ -599,7 +603,7 @@ class TestSourceToConvertedConsistency:
             db_title = row["title"]
 
             # Find matching source file
-            source_files = list(PROD_SOURCES_DIR.glob(f"{asin}_*.aaxc"))
+            source_files = list(iter_source_files(PROD_SOURCES_DIR, (f"{asin}_*.aaxc",)))
             if not source_files:
                 continue
 

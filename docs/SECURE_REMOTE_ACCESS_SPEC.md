@@ -1180,8 +1180,8 @@ $ audiobook-backup restore 2026-01-18
 **Note:** Passkey/WebAuthn backend deferred to Phase 5. Magic link emails are
 submitted to a local mail relay on `127.0.0.1:25` with no credential — see
 [EMAIL-SETUP.md](EMAIL-SETUP.md). (This originally specified Protonmail Bridge via
-`scripts/setup-email.sh`; that path was dropped and the script is no longer
-installed.)
+`scripts/setup-email.sh`; that path was dropped and the script was deleted in
+v8.4.3.1.)
 
 ---
 

@@ -76,7 +76,7 @@ hardware:
     model: "${gpu_model}"
     # NOTE: If this is a consumer AMD Radeon (RDNA 2 / RDNA 3), local GPU
     # transcription has been demonstrated to be unsafe on this class of
-    # hardware. The maintainer uses remote GPU (RunPod serverless) for all
+    # hardware. The reference deployment has NO STT/TTS backend configured for
     # transcription work. See README.md for the cautionary tale.
   motherboard:
     manufacturer: "${mb_maker}"
@@ -99,7 +99,8 @@ notes:
   - "This is the single machine the project is developed and smoke-tested on."
   - "It is consumer hardware the maintainer happened to have — not chosen for AI workloads."
   - "Local GPU transcription is NOT exercised on this rig (see README cautionary tale)."
-  - "All transcription and TTS work is routed to a remote GPU provider (RunPod serverless)."
+  - "No STT/TTS backend is configured. RunPod was decommissioned 2026-08-26 and the
+     Vast.ai path was never enabled; audio translation is inert until a backend is supplied."
 YAML
 
 echo "Reference-system snapshot written: ${OUTPUT}"

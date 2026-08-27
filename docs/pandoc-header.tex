@@ -1,0 +1,13 @@
+\usepackage{etoolbox}
+\BeforeBeginEnvironment{Shaded}{\begin{minipage}{\linewidth}\vspace{6pt}}
+\AfterEndEnvironment{Shaded}{\end{minipage}\vspace{6pt}}
+\BeforeBeginEnvironment{verbatim}{\begin{minipage}{\linewidth}}
+\AfterEndEnvironment{verbatim}{\end{minipage}}
+
+% The CJK monospace font carries no geometric shapes, so these two arrows would
+% be dropped SILENTLY from code blocks. Map just those codepoints to a font that
+% has them rather than losing characters the reader is meant to see.
+\usepackage{newunicodechar}
+\newfontfamily\shapefallback{DejaVu Sans Mono}
+\newunicodechar{►}{{\shapefallback ►}}
+\newunicodechar{◄}{{\shapefallback ◄}}

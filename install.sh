@@ -1721,7 +1721,7 @@ EOF
             if [[ -f "$script" ]]; then
                 local script_name=$(basename "$script")
                 case "$script_name" in
-                    install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
+                    install-hooks.sh | purge-users.sh) continue ;;
                 esac
                 sudo cp "$script" "${APP_SCRIPTS_DIR}/"
                 sudo chmod 755 "${APP_SCRIPTS_DIR}/${script_name}"
@@ -2426,7 +2426,7 @@ EOF
             if [[ -f "$script" ]]; then
                 local script_name=$(basename "$script")
                 case "$script_name" in
-                    install-hooks.sh | purge-users.sh | setup-email.sh) continue ;;
+                    install-hooks.sh | purge-users.sh) continue ;;
                 esac
                 # Map script names to consistent audiobook- prefix
                 local target_name

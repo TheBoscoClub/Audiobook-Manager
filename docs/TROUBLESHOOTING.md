@@ -737,10 +737,10 @@ secret service, so it is down after any unattended reboot. A service that must
 send mail unattended cannot depend on it. If you want Bridge for an interactive
 desktop mail client, that is a separate concern from this application.
 
-> **Stale artifact**: `scripts/setup-email.sh` still exists in the repository and
-> configures Protonmail Bridge. It is **not installed** — `install.sh` and
-> `upgrade.sh` both skip it explicitly — and it configures a path this project no
-> longer uses. Ignore it; it is scheduled for removal.
+> **Removed in v8.4.3.1**: `scripts/setup-email.sh` configured Protonmail Bridge
+> and was never installed — `install.sh` and `upgrade.sh` skipped it explicitly —
+> so it only served to point operators at a transport this project no longer
+> uses. It has been deleted along with those skip-list entries.
 
 See [EMAIL-SETUP.md](EMAIL-SETUP.md) for the full configuration reference,
 including direct-to-provider setups for deployments with no local relay.
