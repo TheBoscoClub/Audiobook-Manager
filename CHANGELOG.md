@@ -13,11 +13,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.4.3.1] - 2026-08-26
+
+### Fixed
+
+- **The operator-intent mechanism shipped in 8.4.3 did not actually keep a unit down** (`Audiobook-Manager-vrc`): it called `systemctl disable`, which only removes the boot-time `WantedBy` symlink. `audiobook.target` declares the three translation units with `Wants=` and `upgrade.sh` starts that target, so a *disabled* unit is still **started**. Measured on the 8.4.3 deploy itself: all three came back `enabled=disabled active=active`. A second attempt using `systemctl mask` also failed, and failed silently — masking wants to symlink `${SYSTEMD_DIR}/<unit>` to `/dev/null`, but these units *are* real files at exactly that path, so the command exits 0 and changes nothing. `_enable_unit_smart` (both the `upgrade.sh` original and the `install.sh` copy) now writes a `zz-operator-disabled.conf` drop-in containing an unsatisfiable `ConditionPathExists=`, which systemd evaluates on **every** start attempt including a `Wants=` pull, and reports in `systemctl status`. Removing the entry from `disabled-units` deletes the drop-in, so the list stays two-way. Verified by starting `audiobook.target` — the exact action that reverted it twice — and confirming all three stay `inactive` with `Condition: start condition unmet`
+- **The 8.4.3 guard test asserted the wrong thing**: it checked only that `_enable_unit_smart` *consults* `disabled-units`, which the broken `disable`-only version did. It now asserts the mechanism — a drop-in with `ConditionPathExists`, and no reliance on `systemctl mask` — and is falsified against both failed approaches. The 8.4.3 verification was likewise invalid: it exercised a throwaway probe unit that nothing declared `Wants=`, so it passed while the real units would still have been started. A test that is not representative of the failing case proves nothing
+
 ## [8.4.3] - 2026-08-26
 
 ### Added
 
-- **Operator intent is now recorded and honoured for unit enablement** (`Audiobook-Manager-vrc`): `install.sh` and `upgrade.sh` consult `${CONFIG_DIR}/disabled-units` inside `_enable_unit_smart` — the single choke point all three force-enable paths already funnelled through, so one guard covers the `Wants=` parse, the `standalone_units` array, and the unconditional belt-and-suspenders enable. A listed unit is not enabled, and is stopped and disabled if currently running, so writing a name into the file *is* the operation. Absence means "no opinion", so newly shipped units still enable normally on upgrade — the case a naive "skip anything disabled" rule would have broken. `systemctl is-enabled` cannot express intent (it reports `disabled` both for a unit the operator switched off and one never enabled), which is why intent is recorded rather than inferred
+- **Operator intent is now recorded and honoured for unit enablement** (`Audiobook-Manager-vrc`): `install.sh` and `upgrade.sh` consult `${CONFIG_DIR}/disabled-units` inside `_enable_unit_smart` — the single choke point all three force-enable paths already funnelled through, so one guard covers the `Wants=` parse, the `standalone_units` array, and the unconditional belt-and-suspenders enable. A listed unit is not enabled, and is stopped and disabled if currently running, so writing a name into the file *is* the operation. **Corrected in 8.4.3.1** — `disable` alone does not prevent `audiobook.target` from starting a `Wants=` unit, so as shipped in 8.4.3 this did not keep the units down. Absence means "no opinion", so newly shipped units still enable normally on upgrade — the case a naive "skip anything disabled" rule would have broken. `systemctl is-enabled` cannot express intent (it reports `disabled` both for a unit the operator switched off and one never enabled), which is why intent is recorded rather than inferred
 - **Corruption report is split by remedy** (`Audiobook-Manager-aw9`): `missing_audiobooks.csv` gains a `remedy` column (`re-download` | `regenerate`) appended as the 6th field, and the text report grows two sections with per-remedy counts. Classification comes from `is_canonical_audiobook_file()` in `scanner/utils/canonical.py`, which is already the union of the two exclusion predicates — so there is exactly one definition of "derived" in the tree rather than a second copy. Detection is deliberately unchanged: a zero-byte `translated/` artifact is still found, it is simply no longer labelled as something to fetch from Audible
 - **Guard tests for three by-vigilance classes** in `library/tests/test_source_guards.py`: no bare `rglob()` over the library root outside the canonical iterator (with a stale-allowlist check so a removed walk cannot leave a live exemption); no `starttls()` outside a credential guard; and both copies of `_enable_unit_smart` honour the operator-intent list without using process substitution. Each was falsified by re-introducing the exact bug it exists to catch
 
@@ -4342,7 +4349,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.1...HEAD
+[8.4.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3...v8.4.3.1
 [8.4.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.5...v8.4.3
 [8.4.2.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.4...v8.4.2.5
 [8.4.2.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.3...v8.4.2.4

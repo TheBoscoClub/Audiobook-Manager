@@ -1964,9 +1964,28 @@ EOF
             # Pipe form, not process substitution — see upgrade.sh for why.
             if [[ -f "$disabled_list" ]] \
                 && sed -e 's/#.*//' -e 's/[[:space:]]//g' "$disabled_list" | grep -qxF "$unit"; then
+                # Drop-in condition, not disable and not mask — see the long
+                # comment in upgrade.sh::_enable_unit_smart. disable only drops
+                # the boot symlink (audiobook.target Wants= these units and
+                # something starts that target), and mask cannot symlink over a
+                # real unit file that already lives in SYSTEMD_DIR.
+                local dropin_dir="${SYSTEMD_DIR}/${unit}.d"
+                sudo mkdir -p "$dropin_dir" 2>/dev/null || true
+                printf '%s\n' \
+                    '[Unit]' \
+                    '# Operator-disabled via /etc/audiobooks/disabled-units.' \
+                    'ConditionPathExists=/nonexistent/audiobook-manager-operator-disabled' \
+                    | sudo tee "${dropin_dir}/zz-operator-disabled.conf" >/dev/null
+                sudo systemctl daemon-reload 2>/dev/null || true
                 sudo systemctl disable --now "$unit" 2>/dev/null || true
-                echo "  Left disabled per ${disabled_list}: $unit"
+                echo "  Disabled per ${disabled_list}: $unit"
                 return 0
+            fi
+            local stale_dropin="${SYSTEMD_DIR}/${unit}.d/zz-operator-disabled.conf"
+            if [[ -f "$stale_dropin" ]]; then
+                sudo rm -f "$stale_dropin" 2>/dev/null || true
+                sudo rmdir "${SYSTEMD_DIR}/${unit}.d" 2>/dev/null || true
+                sudo systemctl daemon-reload 2>/dev/null || true
             fi
 
             local wanted_by

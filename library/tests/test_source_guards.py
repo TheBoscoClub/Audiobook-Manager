@@ -486,6 +486,38 @@ def test_both_enable_helpers_honour_operator_intent():
         )
 
 
+def test_operator_intent_uses_a_drop_in_condition_not_disable_or_mask():
+    """`disable` and `mask` were both tried against the real system and BOTH failed.
+
+    disable — only removes the boot-time WantedBy symlink. audiobook.target
+      declares the translation units with `Wants=` and upgrade.sh starts that
+      target, so a *disabled* unit is still STARTED. Measured on the v8.4.3
+      deploy: all three came back enabled=disabled active=active.
+    mask — needs to symlink SYSTEMD_DIR/<unit> to /dev/null, but these units ARE
+      real files at exactly that path, so the mask silently does nothing and
+      exits 0. Checking only its exit status would have reported success twice.
+
+    Only a drop-in condition survives a `Wants=` pull, so assert the mechanism
+    rather than merely that the list is consulted — the weaker assertion is
+    precisely what let the broken version through.
+    """
+    for rel, body in _enable_helper_bodies().items():
+        code = "\n".join(ln.split("#", 1)[0] for ln in body.splitlines())
+        assert "zz-operator-disabled" in code, (
+            f"{rel}::_enable_unit_smart must write a drop-in for a listed unit; "
+            "disable alone does not stop a target from starting it"
+        )
+        assert "ConditionPathExists" in code, (
+            f"{rel}::_enable_unit_smart must gate the unit on an unsatisfiable "
+            "condition, which systemd evaluates on every start attempt"
+        )
+        assert "systemctl mask" not in code, (
+            f"{rel}::_enable_unit_smart must not rely on `systemctl mask` — it "
+            "cannot mask a unit whose real file lives in the same directory, and "
+            "it fails silently when it cannot"
+        )
+
+
 def test_enable_helpers_do_not_use_process_substitution_for_the_check():
     for rel, body in _enable_helper_bodies().items():
         window = body[: body.find("disabled-units") + 600]

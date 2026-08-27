@@ -1120,14 +1120,45 @@ _enable_unit_smart() {
     # entry that the pipe form matched byte-identically.
     if [[ -f "$disabled_list" ]] \
         && sed -e 's/#.*//' -e 's/[[:space:]]//g' "$disabled_list" | grep -qxF "$unit"; then
-        if [[ "$($use_sudo systemctl is-enabled "$unit" 2>/dev/null)" != "disabled" ]] \
-            || [[ "$($use_sudo systemctl is-active "$unit" 2>/dev/null)" == "active" ]]; then
-            $use_sudo systemctl disable --now "$unit" 2>/dev/null || true
-            echo "  Disabled per ${disabled_list}: $unit"
-        else
-            echo "  Left disabled per ${disabled_list}: $unit"
-        fi
+        # A DROP-IN WITH AN UNSATISFIABLE CONDITION. Two simpler approaches were
+        # tried against the real system and BOTH failed:
+        #   disable  — only removes the boot-time WantedBy symlink.
+        #              audiobook.target declares these with `Wants=` and
+        #              upgrade.sh starts that target, so a *disabled* unit is
+        #              still STARTED. Measured on the v8.4.3 deploy: all three
+        #              came back enabled=disabled active=active.
+        #   mask     — needs to symlink /etc/systemd/system/<unit> to /dev/null,
+        #              but these units ARE real files at exactly that path, so
+        #              the mask silently does nothing (is-enabled stays
+        #              "disabled" and the target still starts them).
+        # A drop-in condition works for both: systemd evaluates it on every
+        # start attempt including a Wants= pull, leaves the unit inactive, and
+        # reports the reason in `systemctl status`.
+        local dropin_dir="${SYSTEMD_DIR:-/etc/systemd/system}/${unit}.d"
+        $use_sudo mkdir -p "$dropin_dir" 2>/dev/null || true
+        printf '%s\n' \
+            '[Unit]' \
+            '# Operator-disabled via /etc/audiobooks/disabled-units.' \
+            '# The path below is never created; the condition therefore always' \
+            '# fails and systemd skips the unit instead of starting it. Remove' \
+            '# the entry from disabled-units and re-run upgrade.sh to restore.' \
+            'ConditionPathExists=/nonexistent/audiobook-manager-operator-disabled' \
+            | $use_sudo tee "${dropin_dir}/zz-operator-disabled.conf" >/dev/null
+        $use_sudo systemctl daemon-reload 2>/dev/null || true
+        $use_sudo systemctl disable --now "$unit" 2>/dev/null || true
+        echo "  Disabled per ${disabled_list}: $unit"
         return 0
+    fi
+
+    # Not listed. Remove any drop-in a previous run left behind, so deleting a
+    # line from the list actually restores the unit rather than leaving it
+    # permanently condition-blocked.
+    local stale_dropin="${SYSTEMD_DIR:-/etc/systemd/system}/${unit}.d/zz-operator-disabled.conf"
+    if [[ -f "$stale_dropin" ]]; then
+        $use_sudo rm -f "$stale_dropin" 2>/dev/null || true
+        $use_sudo rmdir "$(dirname "$stale_dropin")" 2>/dev/null || true
+        $use_sudo systemctl daemon-reload 2>/dev/null || true
+        echo "  Re-enabled (no longer in ${disabled_list}): $unit"
     fi
 
 
