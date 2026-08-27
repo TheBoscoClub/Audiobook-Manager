@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Fixed
+
+## [8.4.3.3] - 2026-08-27
+
+### Changed
+
 - **`.tarball-name` now matches what the release workflow actually publishes** (`Audiobook-Manager-zgq`): the override said `audiobooks` while `create-release.sh` hardcodes `audiobook-manager-${version}`, so following the documented local release procedure attached a second, differently-named tarball of the same tag and the duplicates had to be deleted by hand. Aligned to the workflow, since that is what runs unattended on every tag
 
 ### Fixed
@@ -4373,7 +4379,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.2...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.3...HEAD
+[8.4.3.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.2...v8.4.3.3
 [8.4.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.1...v8.4.3.2
 [8.4.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3...v8.4.3.1
 [8.4.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.5...v8.4.3
