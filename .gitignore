@@ -368,6 +368,10 @@ mypy.ini
 .markdownlint.*
 .markdownlintignore
 setup.cfg
+# ...except the mutation-testing config, which is a project contract, not a
+# machine-local preference: mutmut must be run from library/ (conftest puts
+# that directory on sys.path) and the scope/args have to be reproducible.
+!library/setup.cfg
 rnd/ui-test-logs/
 
 # Claude Code workflow files
