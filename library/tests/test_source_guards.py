@@ -531,3 +531,42 @@ def test_enable_helpers_do_not_use_process_substitution_for_the_check():
             "operator-intent check. That needs /dev/fd; where it is unavailable the "
             "condition evaluates false and the guard silently never fires. Use a pipe."
         )
+
+
+# ---------------------------------------------------------------------------
+# Sender identity (Audiobook-Manager-9nu)
+#
+# The relay selects its upstream credential by envelope sender. A default of
+# `someone@localhost` is therefore not a harmless placeholder: local submission
+# returns 250 OK, the upstream rejects at MAIL FROM with 530, and the message
+# hard-bounces where the application cannot see it. Fourteen messages were lost
+# that way on 2026-08-26, one path being login/OTP mail.
+#
+# The rule: no source file may supply a localhost address as a sender default.
+# Resolve through common_utils.mail_identity.resolve_sender, which refuses.
+# ---------------------------------------------------------------------------
+
+_LOCALHOST_SENDER = re.compile(r"""["'][A-Za-z0-9._%+-]+@localhost[A-Za-z0-9.]*["']""")
+
+
+def test_no_localhost_sender_defaults_in_the_tree():
+    offenders = []
+    for path in _iter_python_files(include_tests=False):
+        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if _LOCALHOST_SENDER.search(line):
+                offenders.append(f"{path}:{i}: {line.strip()}")
+    assert not offenders, (
+        "localhost sender default(s) found — these hard-bounce upstream while "
+        "reporting local success. Use common_utils.mail_identity.resolve_sender:\n"
+        + "\n".join(offenders)
+    )
+
+
+def test_localhost_sender_guard_detects_a_new_offender(tmp_path):
+    """The guard must be able to fail, or it proves nothing."""
+    bad = tmp_path / "bad.py"
+    bad.write_text('FROM = os.environ.get("SMTP_FROM", "noreply@localhost")\n')
+    assert _LOCALHOST_SENDER.search(bad.read_text())
+    good = tmp_path / "good.py"
+    good.write_text('FROM = resolve_sender(os.environ.get("SMTP_FROM"))\n')
+    assert not _LOCALHOST_SENDER.search(good.read_text())

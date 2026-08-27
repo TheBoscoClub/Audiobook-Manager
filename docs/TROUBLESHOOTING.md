@@ -663,6 +663,7 @@ grep "DEFAULT_GRACE_MINUTES" /opt/audiobooks/library/auth/models.py
 **Root causes** (in order of likelihood):
 
 1. **No recipient configured** — neither `ADMIN_EMAIL` nor `SMTP_FROM` is set in `/etc/audiobooks/audiobooks.conf`. The monitor logs `operator alert suppressed for audiobook N: no ADMIN_EMAIL or SMTP_FROM configured`.
+1. **No sender configured** — `SMTP_FROM` is unset or points at `@localhost`. Since v8.4.3.2 the send is refused rather than attempted, and the log reads `Refusing to send translation-monitor alert — SMTP_FROM is not set…`. Set `SMTP_FROM` to an address the relay is authorised to send as; before v8.4.3.2 this case silently hard-bounced upstream.
 2. **Cooldown active** — an alert for the same `audiobook_id` was already sent within the last 60 minutes; the dedup row in `translation_monitor_events` (event_type `live_age_alert_emailed`) blocks the second send. This is intentional. Wait it out, or query the table to see when the cooldown expires.
 3. **Mail submission failure** — the monitor logs `Failed to send operator alert to <addr>: <err>` and the tick exits 0 anyway (so the timer keeps running). With the default relay configuration the usual causes are: no MTA listening on `127.0.0.1:25`, the relay refusing the `SMTP_FROM` envelope sender, or the recipient address being rejected. If `SMTP_USER`/`SMTP_PASS` are set, a fourth cause appears — a credentialed connection to a loopback relay that does not advertise STARTTLS raises `SMTPNotSupportedError`. The relay path is credential-less by design; clear both variables.
 

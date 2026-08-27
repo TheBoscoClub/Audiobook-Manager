@@ -23,19 +23,19 @@
 
 # Root directory containing all audiobook data (sources, library, supplements)
 # Default: /srv/audiobooks (system) or ~/Audiobooks (user)
-#AUDIOBOOKS_DATA="/srv/audiobooks"
+# AUDIOBOOKS_DATA="/srv/audiobooks"
 
 # Converted audiobook files organized by Author/Title
 # Default: ${AUDIOBOOKS_DATA}/Library
-#AUDIOBOOKS_LIBRARY="${AUDIOBOOKS_DATA}/Library"
+# AUDIOBOOKS_LIBRARY="${AUDIOBOOKS_DATA}/Library"
 
 # Original source files (AAXC, vouchers, metadata)
 # Default: ${AUDIOBOOKS_DATA}/Sources
-#AUDIOBOOKS_SOURCES="${AUDIOBOOKS_DATA}/Sources"
+# AUDIOBOOKS_SOURCES="${AUDIOBOOKS_DATA}/Sources"
 
 # PDF supplements and companion materials
 # Default: ${AUDIOBOOKS_DATA}/Supplements
-#AUDIOBOOKS_SUPPLEMENTS="${AUDIOBOOKS_DATA}/Supplements"
+# AUDIOBOOKS_SUPPLEMENTS="${AUDIOBOOKS_DATA}/Supplements"
 
 # =============================================================================
 # Application Directories
@@ -43,31 +43,31 @@
 
 # Project installation directory (contains scripts, web UI, etc.)
 # Default: /opt/audiobooks (system) or detected from script location
-#AUDIOBOOKS_HOME="/opt/audiobooks"
+# AUDIOBOOKS_HOME="/opt/audiobooks"
 
 # Database file location
 # Default: /var/lib/audiobooks/db/audiobooks.db
-#AUDIOBOOKS_DATABASE="/var/lib/audiobooks/db/audiobooks.db"
+# AUDIOBOOKS_DATABASE="/var/lib/audiobooks/db/audiobooks.db"
 
 # Cover art cache directory
 # Default: /var/lib/audiobooks/covers
-#AUDIOBOOKS_COVERS="/var/lib/audiobooks/covers"
+# AUDIOBOOKS_COVERS="/var/lib/audiobooks/covers"
 
 # Runtime directory for locks and FIFOs (scheduler, WebSocket)
 # Default: /var/lib/audiobooks/.run
-#AUDIOBOOKS_RUN_DIR="/var/lib/audiobooks/.run"
+# AUDIOBOOKS_RUN_DIR="/var/lib/audiobooks/.run"
 
 # SSL certificate directory (for HTTPS)
 # Default: ${AUDIOBOOKS_HOME}/library/certs
-#AUDIOBOOKS_CERTS="${AUDIOBOOKS_HOME}/library/certs"
+# AUDIOBOOKS_CERTS="${AUDIOBOOKS_HOME}/library/certs"
 
 # WebM cache directory (for browser-compatible audio streams)
 # Default: ${AUDIOBOOKS_DATA}/.webm-cache
-#AUDIOBOOKS_WEBM_CACHE="${AUDIOBOOKS_DATA}/.webm-cache"
+# AUDIOBOOKS_WEBM_CACHE="${AUDIOBOOKS_DATA}/.webm-cache"
 
 # Log file directory
 # Default: ${AUDIOBOOKS_DATA}/logs
-#AUDIOBOOKS_LOGS="${AUDIOBOOKS_DATA}/logs"
+# AUDIOBOOKS_LOGS="${AUDIOBOOKS_DATA}/logs"
 
 # =============================================================================
 # Server Configuration
@@ -75,19 +75,19 @@
 
 # API server port
 # Default: 5001
-AUDIOBOOKS_API_PORT="5001"
+AUDIOBOOKS_API_PORT = "5001"
 
 # Web server port (HTTPS) - changed from 8090 to 8443
 # Default: 8443
-AUDIOBOOKS_WEB_PORT="8443"
+AUDIOBOOKS_WEB_PORT = "8443"
 
 # Bind address (0.0.0.0 for all interfaces, 127.0.0.1 for localhost only)
 # Default: 0.0.0.0
-AUDIOBOOKS_BIND_ADDRESS="0.0.0.0"
+AUDIOBOOKS_BIND_ADDRESS = "0.0.0.0"
 
 # HTTP to HTTPS redirect port
 # Default: 8080
-AUDIOBOOKS_HTTP_REDIRECT_PORT="8080"
+AUDIOBOOKS_HTTP_REDIRECT_PORT = "8080"
 
 # WSGI server: Gunicorn with the gevent worker (migrated from Waitress in v7.2;
 # audiobook-proxy migrated from a ThreadingHTTPServer to Gunicorn+gevent in v8.4.2.0).
@@ -98,7 +98,7 @@ AUDIOBOOKS_HTTP_REDIRECT_PORT="8080"
 # stateless so this can scale). The API is pinned to 1 worker for its
 # in-memory WebSocket connection manager and is not configurable here.
 # Default: 2
-#AUDIOBOOKS_PROXY_WORKERS="2"
+# AUDIOBOOKS_PROXY_WORKERS="2"
 
 # =============================================================================
 # Optional Features
@@ -106,15 +106,15 @@ AUDIOBOOKS_HTTP_REDIRECT_PORT="8080"
 
 # Enable HTTPS for web server (requires certificate)
 # Default: true
-AUDIOBOOKS_HTTPS_ENABLED="true"
+AUDIOBOOKS_HTTPS_ENABLED = "true"
 
 # Python virtual environment path (for API server)
 # Default: ${AUDIOBOOKS_HOME}/library/venv
-#AUDIOBOOKS_VENV="${AUDIOBOOKS_HOME}/library/venv"
+# AUDIOBOOKS_VENV="${AUDIOBOOKS_HOME}/library/venv"
 
 # AAXtoMP3 converter location
 # Default: ${AUDIOBOOKS_HOME}/converter/AAXtoMP3
-#AUDIOBOOKS_CONVERTER="${AUDIOBOOKS_HOME}/converter/AAXtoMP3"
+# AUDIOBOOKS_CONVERTER="${AUDIOBOOKS_HOME}/converter/AAXtoMP3"
 
 # =============================================================================
 # Authentication (Multi-user Support)
@@ -124,20 +124,20 @@ AUDIOBOOKS_HTTPS_ENABLED="true"
 # When enabled, users must log in to access the library
 # When disabled (default), admin endpoints are restricted to localhost
 # Default: false (standalone mode, no auth required)
-AUTH_ENABLED="false"
+AUTH_ENABLED = "false"
 
 # Authentication database path (SQLCipher encrypted)
 # Default: /var/lib/audiobooks/auth.db
-#AUTH_DATABASE="/var/lib/audiobooks/auth.db"
+# AUTH_DATABASE="/var/lib/audiobooks/auth.db"
 
 # Encryption key file for auth database
 # IMPORTANT: This file must be readable only by the audiobooks user (chmod 600)
 # Default: /etc/audiobooks/auth.key
-#AUTH_KEY_FILE="/etc/audiobooks/auth.key"
+# AUTH_KEY_FILE="/etc/audiobooks/auth.key"
 
 # Development mode for auth (relaxed key permissions, verbose logging)
 # Default: false
-AUDIOBOOKS_DEV_MODE="false"
+AUDIOBOOKS_DEV_MODE = "false"
 
 # =============================================================================
 # Remote Access (only needed when AUTH_ENABLED="true")
@@ -149,17 +149,17 @@ AUDIOBOOKS_DEV_MODE="false"
 # Your public domain or hostname (used for WebAuthn and email links)
 # Examples: library.example.com, audiobooks.myserver.net
 # Default: auto-detected from request (works for localhost without config)
-#AUDIOBOOKS_HOSTNAME=""
+# AUDIOBOOKS_HOSTNAME=""
 
 # Base URL for email links (magic links, invitations)
 # Example: https://library.example.com
 # Default: auto-detected from request
-#BASE_URL=""
+# BASE_URL=""
 
 # Cloudflare CDN cache purge (optional)
 # Set your Cloudflare zone ID to enable automatic cache purging after upgrades.
 # Find it in the Cloudflare dashboard: zone overview → API → Zone ID
-#CF_ZONE_ID=""
+# CF_ZONE_ID=""
 
 # Cloudflare authentication for cache purge. Use a SCOPED API TOKEN — create it
 # with permission `Zone > Cache Purge > Purge`, restricted to this zone only.
@@ -170,8 +170,8 @@ AUDIOBOOKS_DEV_MODE="false"
 #   sudo chown audiobooks:audiobooks /etc/audiobooks/cloudflare-purge-token
 #   sudo chmod 600 /etc/audiobooks/cloudflare-purge-token
 # Precedence: inline CLOUDFLARE_PURGE_TOKEN → CLOUDFLARE_PURGE_TOKEN_FILE → empty.
-#CLOUDFLARE_PURGE_TOKEN_FILE="/etc/audiobooks/cloudflare-purge-token"
-#CLOUDFLARE_PURGE_TOKEN=""
+# CLOUDFLARE_PURGE_TOKEN_FILE="/etc/audiobooks/cloudflare-purge-token"
+# CLOUDFLARE_PURGE_TOKEN=""
 #
 # DEPRECATED — legacy Global API Key auth (CF_GLOBAL_API_KEY + CF_AUTH_EMAIL,
 # read from CF_TOKEN_FILE, default /etc/audiobooks/cloudflare-api-token). Still
@@ -185,13 +185,13 @@ AUDIOBOOKS_DEV_MODE="false"
 # Set this to your public URL for security when exposed to the internet
 # Example: https://library.example.com
 # Default: * (permissive, safe for standalone/localhost)
-#CORS_ORIGIN=""
+# CORS_ORIGIN=""
 
 # WebAuthn/Passkey configuration (auto-derived from AUDIOBOOKS_HOSTNAME)
 # Only set these if you need to override the auto-detection
-#WEBAUTHN_RP_ID=""          # Relying Party ID (usually your domain)
-#WEBAUTHN_RP_NAME=""        # Display name (default: "The Library")
-#WEBAUTHN_ORIGIN=""         # Expected origin (default: https://{AUDIOBOOKS_HOSTNAME})
+# WEBAUTHN_RP_ID=""          # Relying Party ID (usually your domain)
+# WEBAUTHN_RP_NAME=""        # Display name (default: "The Library")
+# WEBAUTHN_ORIGIN=""         # Expected origin (default: https://{AUDIOBOOKS_HOSTNAME})
 
 # =============================================================================
 # Email / SMTP (only needed for invitation and recovery emails)
@@ -199,23 +199,28 @@ AUDIOBOOKS_DEV_MODE="false"
 
 # SMTP server for sending emails (magic links, invitations, notifications)
 # Leave unconfigured if you don't need email — admin can share claim tokens manually
-#SMTP_HOST="smtp.example.com"
-#SMTP_PORT="587"
-#SMTP_USER=""
-#SMTP_PASS=""
-#SMTP_FROM="library@example.com"
+# SMTP_HOST="smtp.example.com"
+# SMTP_PORT="587"
+# SMTP_USER=""
+# SMTP_PASS=""
+# SMTP_FROM is REQUIRED for any outbound mail and has no default. The relay
+# selects its upstream credential by envelope sender, so an unset or
+# @localhost sender is rejected upstream at MAIL FROM *after* local
+# submission returned 250 OK — a silent hard bounce. Every send site now
+# refuses to send rather than bounce under an unmapped identity.
+SMTP_FROM = "library@example.com"
 
 # Alternative: store the password in a separate 0600 file instead of inline.
 # When SMTP_PASS_FILE is set, AM reads the password from that file. If both
 # SMTP_PASS and SMTP_PASS_FILE are set, the inline value wins. Mirrors the
 # existing AUTH_KEY_FILE / CF_TOKEN_FILE pattern.
-#SMTP_PASS_FILE="/etc/audiobooks/smtp-pass"
+# SMTP_PASS_FILE="/etc/audiobooks/smtp-pass"
 
 # Operator alert recipient — receives translation-monitor escalations
 # (chapter-starvation alerts, aged streaming segments). Falls back to
 # SMTP_FROM when unset, so a configured SMTP block alone is enough to
 # get monitor alerts to the same address that sends invitation emails.
-#ADMIN_EMAIL=""
+# ADMIN_EMAIL=""
 
 # =============================================================================
 # Instance Identification
@@ -224,7 +229,7 @@ AUDIOBOOKS_DEV_MODE="false"
 # Badge label shown in the web UI header (e.g., "QA", "DEV", "TEST")
 # Helps distinguish non-production environments at a glance
 # Leave empty or unset for production (no badge shown)
-#INSTANCE_BADGE=""
+# INSTANCE_BADGE=""
 
 # =============================================================================
 # Development / Upgrade
@@ -234,7 +239,7 @@ AUDIOBOOKS_DEV_MODE="false"
 # upgrades. When set, the upgrade UI pre-populates this path and auto-discovers
 # the project. Only used by admins upgrading from a local source checkout.
 # Example: /home/youruser/projects/Audiobook-Manager
-#AUDIOBOOKS_PROJECT_DIR=""
+# AUDIOBOOKS_PROJECT_DIR=""
 
 # =============================================================================
 # Performance & Advanced Settings
@@ -242,15 +247,15 @@ AUDIOBOOKS_DEV_MODE="false"
 
 # Number of parallel conversion jobs
 # Default: number of CPU cores
-AUDIOBOOKS_PARALLEL_JOBS="8"
+AUDIOBOOKS_PARALLEL_JOBS = "8"
 
 # Data directory for scan results and intermediate files
 # Default: /var/lib/audiobooks/data
-#DATA_DIR="/var/lib/audiobooks/data"
+# DATA_DIR="/var/lib/audiobooks/data"
 
 # Index directory for checksum files (duplicates detection)
 # NOTE: Currently unused — reserved for future implementation
-#AUDIOBOOKS_INDEX="/var/lib/audiobooks/db/.index"
+# AUDIOBOOKS_INDEX="/var/lib/audiobooks/db/.index"
 
 # =============================================================================
 # Localization — TTS, STT, Translation
@@ -260,16 +265,16 @@ AUDIOBOOKS_PARALLEL_JOBS="8"
 # Options:
 #   edge-tts       — Microsoft Edge TTS (default, free, CPU, English+Chinese)
 #   xtts-runpod    — Coqui XTTS v2 on RunPod serverless (GPU, voice cloning)
-#AUDIOBOOKS_TTS_PROVIDER="edge-tts"
-#AUDIOBOOKS_TTS_VOICE_ZH="zh-CN-XiaoxiaoNeural"
+# AUDIOBOOKS_TTS_PROVIDER="edge-tts"
+# AUDIOBOOKS_TTS_VOICE_ZH="zh-CN-XiaoxiaoNeural"
 
 # RunPod credentials (for xtts-runpod and STT Whisper)
-#AUDIOBOOKS_RUNPOD_API_KEY=""
-#AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT=""
-#AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT=""
+# AUDIOBOOKS_RUNPOD_API_KEY=""
+# AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT=""
+# AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT=""
 
 # DeepL API key for on-demand text translation (strings, subtitles)
-#AUDIOBOOKS_DEEPL_API_KEY=""
+# AUDIOBOOKS_DEEPL_API_KEY=""
 
 # =============================================================================
 # Credential file alternatives (optional pointer-pattern variants)
@@ -279,5 +284,5 @@ AUDIOBOOKS_PARALLEL_JOBS="8"
 # out of the main config and works well with symlinks to user-level
 # credential stores. Precedence: inline env var → *_FILE pointer → empty.
 # Mirrors the existing AUTH_KEY_FILE / CF_TOKEN_FILE pattern.
-#AUDIOBOOKS_DEEPL_API_KEY_FILE="/etc/audiobooks/deepl-api-key"
-#AUDIOBOOKS_RUNPOD_API_KEY_FILE="/etc/audiobooks/runpod-api-key"
+# AUDIOBOOKS_DEEPL_API_KEY_FILE="/etc/audiobooks/deepl-api-key"
+# AUDIOBOOKS_RUNPOD_API_KEY_FILE="/etc/audiobooks/runpod-api-key"

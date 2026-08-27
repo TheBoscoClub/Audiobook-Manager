@@ -20,6 +20,7 @@ from pathlib import Path
 # Add parent paths for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from common_utils.mail_identity import SenderIdentityError, resolve_sender
 from common_utils.secret_resolver import resolve_secret
 
 from auth import (
@@ -154,7 +155,11 @@ def send_email_reply(to_email: str, username: str, reply_text: str) -> bool:
     smtp_port = int(os.environ.get("SMTP_PORT", "25"))
     smtp_user = os.environ.get("SMTP_USER", "")
     smtp_pass = resolve_secret("SMTP_PASS")
-    smtp_from = os.environ.get("SMTP_FROM", "noreply@localhost")
+    try:
+        smtp_from = resolve_sender(os.environ.get("SMTP_FROM"))
+    except SenderIdentityError as exc:
+        print(f"Refusing to send — {exc}", file=sys.stderr)
+        return False
 
     # No credential precondition. Since the relay migration
     # (Audiobook-Manager-9nu) submission goes to 127.0.0.1:25 with NO

@@ -4,11 +4,11 @@ Audiobook-Manager sends email for a handful of user-facing flows — invitation 
 
 > **TL;DR**: the default configuration needs **no credential at all**. Every sender in this project submits to a local mail relay on `127.0.0.1:25` and lets that relay own the authenticated uplink. Set `SMTP_FROM` to an address your relay is allowed to send as, and you are done. `SMTP_USER` / `SMTP_PASS` are only for deployments that submit directly to a provider instead of running a relay.
 >
-> **Known defect**: three of the send sites still call `starttls()` unconditionally and therefore fail against a loopback relay. See the warning box below before relying on admin alerts or admin replies.
+> **`SMTP_FROM` is required.** The relay picks its upstream credential by envelope sender, so a sender it cannot map is rejected upstream *after* local submission already returned `250 OK`. Since v8.4.3.2 every send site refuses to send rather than bounce under an unmapped identity — see [Sender identity is required](#sender-identity-is-required).
 
 ## The default: submit to a local relay, hold no credential
 
-All five senders in this project share one contract — `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` — and all five default to `localhost` / `25` / no user / no password:
+All five senders in this project share one contract — `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` — and all five default to `localhost` / `25` / no user / no password. `SMTP_FROM` is the exception: it has **no default** and must be set, for the reason given in [Sender identity is required](#sender-identity-is-required).
 
 | Sender | Purpose |
 |---|---|
@@ -30,35 +30,57 @@ with smtplib.SMTP(smtp_host, smtp_port) as server:
 
 With no credential configured, the connection is a plain loopback submission — which is correct, because a loopback relay does not advertise `STARTTLS` and an unconditional `starttls()` raises against it.
 
-> ### ⚠️ Three send sites are NOT guarded, and are broken on the relay
+> ### Fixed in v8.4.3 — previously: three unguarded send sites
 >
-> The guard above is missing at three places, where `starttls()` is called
-> unconditionally and only `login()` is gated:
+> Until v8.4.3, `_send_admin_alert`, `_send_reply_email` and the
+> `audiobook-inbox reply` CLI called `starttls()` unconditionally while gating
+> only `login()`. A loopback relay does not advertise `STARTTLS`, so each raised
+> `SMTPNotSupportedError`, caught it, logged only the exception *class name*, and
+> returned `False` — which `auth.py` discarded. The user saw success; no mail was
+> sent.
 >
-> | Site | Function | Effect |
-> |---|---|---|
-> | `library/backend/api_modular/auth_email.py:182` | `_send_admin_alert` | Admin is never alerted to a new contact message |
-> | `library/backend/api_modular/auth_email.py:213` | `_send_reply_email` | Admin replies to users are never delivered |
-> | `library/auth/inbox_cli.py:181` | operator CLI reply | `audiobook-inbox reply` never sends |
->
-> Measured against the live relay on `127.0.0.1:25`:
->
-> ```text
-> EHLO 250; advertised extensions:
->   8bitmime chunking dsn enhancedstatuscodes etrn pipelining size smtputf8 vrfy
-> STARTTLS advertised?: False
-> starttls() -> RAISES: SMTPNotSupportedError STARTTLS extension not supported by server.
-> ```
->
-> **The failure is silent.** Each site catches `Exception`, logs only the
-> exception *class name* (`Failed to send admin alert: SMTPNotSupportedError`),
-> and returns `False`; `auth.py:881` discards that return value. The user
-> submitting a contact message sees success, and no mail is sent.
->
-> Until these three are brought in line with the other send sites, treat admin
-> alerts and admin replies as **non-functional on the relay path**. A deployment
-> that submits directly to a provider with credentials configured is unaffected,
-> because a provider on port 587 does advertise STARTTLS.
+> All three now wrap `starttls()` and `login()` in `if smtp_user and smtp_pass:`
+> (`auth_email.py:190`, `auth_email.py:225`, `inbox_cli.py:188`), verified by real
+> delivery. `library/tests/test_source_guards.py` fails the build if an
+> unguarded `starttls()` is reintroduced. Nothing is required of operators — this
+> box is retained only so the symptom remains searchable.
+
+### Sender identity is required
+
+`SMTP_FROM` has no default. It is not cosmetic: the relay chooses its upstream
+credential by envelope sender (`smtp_sender_dependent_authentication`), so the
+sender selects the account that sends the message.
+
+An address the relay has no mapping for — anything `@localhost`, or an unset
+value — fails in the worst possible way. Local submission returns `250 OK`, so
+the application records success; the rejection happens upstream at `MAIL FROM`
+with `530` (no credential row matched — distinct from `535`, which would mean a
+bad key), and the message hard-bounces with `dsn=5.0.0`: no queue, no retry. The
+bounce notification is itself undeliverable, because `localhost` is not in
+`mydestination`, so the headers naming the original sender are destroyed too.
+Fourteen messages were lost exactly this way on 2026-08-26, one path being
+login/OTP mail.
+
+Since v8.4.3.2, every send site resolves the sender through
+`common_utils.mail_identity.resolve_sender()`, which **refuses** an empty,
+non-address, or `@localhost` value. The effect is that a misconfigured
+deployment sends nothing and logs why, instead of silently hard-bouncing:
+
+```text
+Refusing to send email — SMTP_FROM is not set. Refusing to send: the relay
+selects its upstream credential by envelope sender, so an unset sender is
+rejected upstream at MAIL FROM after local submission already returned 250 OK
+(a silent hard bounce).
+```
+
+Set it to an address your relay is authorised to send as:
+
+```ini
+SMTP_FROM=library@example.com
+```
+
+A source guard in `library/tests/test_source_guards.py` fails the build if any
+non-test file reintroduces a `someone@localhost` sender default.
 
 **Why this is the default.** The relay holds the provider API key in its own root-owned store (for Postfix, `/etc/postfix/sasl_passwd`), authenticates upstream over certificate-verified TLS, and queues across outages. The application holds nothing, so there is no credential in `audiobooks.conf`, none in the environment, none on the application's disk, and nothing to rotate when the provider key changes. A store-and-forward relay also means a provider outage delays mail instead of dropping it — `smtplib` returning cleanly only proves the relay accepted the message, so letting the relay own delivery is what makes that acceptance meaningful.
 

@@ -339,7 +339,17 @@ class DeepLTranslator:
         payload = self._build_payload(miss_texts, target_locale, source_lang)
         translations = self._call_deepl_api(payload)
 
-        if translations is None:
+        # A short or empty list is as much a failure as None: DeepL's contract
+        # is N translations for N inputs, and _merge_translations_into_output
+        # would zip() past the shortfall and let _fill_misses_with_source
+        # write the ENGLISH SOURCE into the gaps — silently, with
+        # degraded=False, defeating strict= for the callers that persist
+        # results (Audiobook-Manager-09z).
+        if translations is None or len(translations) != len(misses):
+            if translations is not None:
+                self._last_error = (
+                    f"short response: {len(translations)} translation(s) for {len(misses)} input(s)"
+                )
             self.degraded = True
             self.degraded_texts += len(misses)
             logger.error(

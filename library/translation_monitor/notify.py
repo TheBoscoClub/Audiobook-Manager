@@ -32,6 +32,7 @@ import sqlite3
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+from common_utils.mail_identity import SenderIdentityError, resolve_sender
 from common_utils.secret_resolver import resolve_secret
 
 from .events import log_event
@@ -58,7 +59,11 @@ def _send_email(to_email: str, subject: str, body: str) -> bool:
     smtp_port = int(os.environ.get("SMTP_PORT", "25"))
     smtp_user = os.environ.get("SMTP_USER", "")
     smtp_pass = resolve_secret("SMTP_PASS")
-    from_email = os.environ.get("SMTP_FROM", "noreply@localhost")
+    try:
+        from_email = resolve_sender(os.environ.get("SMTP_FROM"))
+    except SenderIdentityError as exc:
+        logger.error("Refusing to send translation-monitor alert — %s", exc)
+        return False
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject

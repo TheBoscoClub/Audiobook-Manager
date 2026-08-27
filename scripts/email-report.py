@@ -23,6 +23,10 @@ _LIB_DIR = _SCRIPT_DIR.parent / "library"
 if str(_LIB_DIR) not in sys.path:
     sys.path.insert(0, str(_LIB_DIR))
 
+from common_utils.mail_identity import (  # noqa: E402
+    SenderIdentityError,
+    resolve_sender,
+)
 from common_utils.secret_resolver import resolve_secret  # noqa: E402
 
 
@@ -124,7 +128,13 @@ def send_email(to: str, subject: str, body: str, conf: dict) -> None:
     port = int(conf.get("SMTP_PORT", "25"))
     user = conf.get("SMTP_USER", "")
     password = conf.get("SMTP_PASS", "") or resolve_secret("SMTP_PASS")
-    from_addr = conf.get("SMTP_FROM", "audiobooks@localhost")
+    try:
+        from_addr = resolve_sender(conf.get("SMTP_FROM"))
+    except SenderIdentityError as exc:
+        print(f"Refusing to send report — {exc}", file=sys.stderr)
+        # Exit non-zero: a silent return would end the run reporting success
+        # while having sent nothing — the failure class this guard removes.
+        raise SystemExit(1)
 
     msg = MIMEMultipart()
     msg["From"] = from_addr

@@ -20,6 +20,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
 
+from common_utils.mail_identity import SenderIdentityError, resolve_sender
 from common_utils.secret_resolver import resolve_secret
 from flask import current_app, request
 
@@ -40,8 +41,22 @@ def _get_email_config() -> tuple[str, int, str, str, str]:
         int(os.environ.get("SMTP_PORT", "25")),
         os.environ.get("SMTP_USER", ""),
         resolve_secret("SMTP_PASS"),
-        os.environ.get("SMTP_FROM", "noreply@localhost"),
+        resolve_sender(os.environ.get("SMTP_FROM")),
     )
+
+
+def _email_config_or_none() -> tuple[str, int, str, str, str] | None:
+    """Return the SMTP config, or None if no deliverable sender is configured.
+
+    Callers return False on None. Fail closed: sending under an unmapped
+    identity hard-bounces upstream while reporting success locally
+    (Audiobook-Manager-9nu).
+    """
+    try:
+        return _get_email_config()
+    except SenderIdentityError as exc:
+        current_app.logger.error("Refusing to send email — %s", exc)
+        return None
 
 
 def _send_magic_link_email(
@@ -50,7 +65,10 @@ def _send_magic_link_email(
     """Send a magic link email for login recovery."""
     from backend.api_modular.email_templates import render_email
 
-    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
+    _cfg = _email_config_or_none()
+    if _cfg is None:
+        return False
+    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _cfg
     base_url = _get_base_url()
 
     full_link = f"{base_url}{magic_link}"
@@ -85,7 +103,10 @@ def _send_approval_email(to_email: str, username: str, locale: str = "en") -> bo
     """Send approval email with setup instructions and claim URL."""
     from backend.api_modular.email_templates import render_email
 
-    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
+    _cfg = _email_config_or_none()
+    if _cfg is None:
+        return False
+    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _cfg
     base_url = _get_base_url()
 
     claim_url = f"{base_url}/claim.html?username={urllib.parse.quote(username)}"
@@ -122,7 +143,10 @@ def _send_denial_email(
     """Send denial notification for access request."""
     from backend.api_modular.email_templates import render_email
 
-    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
+    _cfg = _email_config_or_none()
+    if _cfg is None:
+        return False
+    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _cfg
 
     reason_text = reason if reason else "No specific reason was provided."
 
@@ -154,7 +178,10 @@ def _send_denial_email(
 
 def _send_admin_alert(username: str, message_preview: str) -> bool:
     """Alert admin about new contact message (plain text, no template)."""
-    smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from = _get_email_config()
+    _cfg = _email_config_or_none()
+    if _cfg is None:
+        return False
+    smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from = _cfg
     admin_email = os.environ.get("ADMIN_EMAIL", smtp_from)
 
     # No credential precondition. Since the relay migration
@@ -202,7 +229,10 @@ def _send_reply_email(to_email: str, username: str, reply_text: str, locale: str
     """Send admin reply to user inbox message."""
     from backend.api_modular.email_templates import render_email
 
-    smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from = _get_email_config()
+    _cfg = _email_config_or_none()
+    if _cfg is None:
+        return False
+    smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from = _cfg
 
     subject, body, html_content = render_email(
         "reply", locale, username=username, reply_text=reply_text
@@ -239,7 +269,10 @@ def _send_invitation_email(
     """Send invitation email with claim URL + token (TOTP flow)."""
     from backend.api_modular.email_templates import render_email
 
-    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
+    _cfg = _email_config_or_none()
+    if _cfg is None:
+        return False
+    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _cfg
     base_url = _get_base_url()
 
     claim_url = (
@@ -285,7 +318,10 @@ def _send_activation_email(
     """Send activation email (magic-link flow — single click, no TOTP)."""
     from backend.api_modular.email_templates import render_email
 
-    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _get_email_config()
+    _cfg = _email_config_or_none()
+    if _cfg is None:
+        return False
+    smtp_host, smtp_port, smtp_user, smtp_pass, from_email = _cfg
     base_url = _get_base_url()
 
     activation_url = f"{base_url}/verify.html?token={activation_token}&activate=1"

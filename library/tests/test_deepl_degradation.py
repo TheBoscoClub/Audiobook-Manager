@@ -163,3 +163,50 @@ class TestLogInjection:
         with pytest.raises(TranslationUnavailableError) as ei:
             t.translate(["x"], "zh\nforged", strict=True)
         assert "\n" not in str(ei.value)
+
+
+class TestShortOrEmptyResponseIsDegradation:
+    """A 200 with fewer translations than inputs is a failure, not a success.
+
+    Audiobook-Manager-09z. `_call_deepl_api` returns None only on
+    RequestException; on a 200 it returns `[t["text"] for t in
+    result.get("translations", [])]`, so a missing/empty/truncated array
+    yields [] or a short list. Before the fix that slipped past the
+    `is None` gate, zip() stopped early, and `_fill_misses_with_source`
+    wrote the ENGLISH SOURCE into the gaps with degraded=False and no
+    raise — silently corrupting whatever the caller persisted.
+    """
+
+    def test_empty_array_degrades_instead_of_passing_english_through(self, monkeypatch):
+        t = DeepLTranslator(api_key="k:fx")
+        monkeypatch.setattr(t, "_call_deepl_api", lambda payload: [])
+        out = t.translate(["The Hobbit"], "zh-Hans")
+
+        assert out == ["The Hobbit"]  # non-strict still degrades gracefully
+        assert t.degraded is True  # ...but it is announced
+        assert t.degraded_texts == 1
+
+    def test_empty_array_raises_under_strict(self, monkeypatch):
+        t = DeepLTranslator(api_key="k:fx")
+        monkeypatch.setattr(t, "_call_deepl_api", lambda payload: [])
+        with pytest.raises(TranslationUnavailableError):
+            t.translate(["The Hobbit"], "zh-Hans", strict=True)
+
+    def test_short_array_raises_under_strict(self, monkeypatch):
+        t = DeepLTranslator(api_key="k:fx")
+        monkeypatch.setattr(t, "_call_deepl_api", lambda payload: ["\u9738\u7ea7"])
+        with pytest.raises(TranslationUnavailableError):
+            t.translate(["The Hobbit", "The Silmarillion"], "zh-Hans", strict=True)
+
+    def test_short_response_is_named_in_the_error(self, monkeypatch):
+        t = DeepLTranslator(api_key="k:fx")
+        monkeypatch.setattr(t, "_call_deepl_api", lambda payload: [])
+        t.translate(["The Hobbit"], "zh-Hans")
+        assert "short response" in (t._last_error or "")
+
+    def test_exact_length_match_is_still_a_success(self, monkeypatch):
+        t = DeepLTranslator(api_key="k:fx")
+        monkeypatch.setattr(t, "_call_deepl_api", lambda payload: ["\u9738\u7ea7"])
+        out = t.translate(["The Hobbit"], "zh-Hans", strict=True)
+        assert out == ["\u9738\u7ea7"]
+        assert t.degraded is False
