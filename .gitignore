@@ -447,3 +447,10 @@ test-*-[0-9][0-9].md
 # Beads / Dolt files (added by bd init)
 .dolt/
 .beads-credential-key
+
+# mutmut's working copy — a full mutated duplicate of the source tree. It is
+# regenerated on every run and must never be committed: ruff, mypy, bandit and
+# the credential scanner all walk it and fail on mutated code (414 files landed
+# in one commit on 2026-08-27 via `git add -A` and turned three workflows red).
+mutants/
+library/mutants/
