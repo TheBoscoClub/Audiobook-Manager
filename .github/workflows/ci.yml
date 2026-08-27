@@ -150,10 +150,15 @@ jobs:
         with:
           python-version: '3.14'
 
+      # Dependencies live in library/, not the repo root — the same place the
+      # python-tests job installs from. Installing from the root instead gave
+      # the mutants/ copy no `requests`, so every test errored on import and
+      # the gate correctly reported 322 mutants with 0 killed.
       - name: Install dependencies
         run: |
+          cd library
           python -m pip install --upgrade pip
-          pip install pytest
+          pip install pytest pytest-cov
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
 
