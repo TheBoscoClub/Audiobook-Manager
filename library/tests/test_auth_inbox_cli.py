@@ -417,7 +417,11 @@ class TestSendEmailReply:
         mock_smtp_cls.return_value.__enter__ = MagicMock(return_value=server)
         mock_smtp_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        with patch.dict("os.environ", {"SMTP_USER": "", "SMTP_HOST": "127.0.0.1"}, clear=False):
+        with patch.dict(
+            "os.environ",
+            {"SMTP_USER": "", "SMTP_HOST": "127.0.0.1", "SMTP_FROM": "library@test.invalid"},
+            clear=False,
+        ):
             result = send_email_reply("alice@example.com", "alice", "Hello!")
 
         assert result is True

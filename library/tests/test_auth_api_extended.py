@@ -878,7 +878,10 @@ class TestAdminInbox:
             reply_email="user@test.com",
         )
         msg.save(auth_db)
-        with patch("smtplib.SMTP") as mock_smtp:
+        with (
+            patch("smtplib.SMTP") as mock_smtp,
+            patch.dict("os.environ", {"SMTP_FROM": "library@test.invalid"}, clear=False),
+        ):
             mock_server = MagicMock()
             mock_smtp.return_value.__enter__ = MagicMock(return_value=mock_server)
             mock_smtp.return_value.__exit__ = MagicMock(return_value=False)

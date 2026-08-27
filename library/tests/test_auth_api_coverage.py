@@ -1410,9 +1410,10 @@ class TestAdminInboxExtended:
         )
         msg.save(auth_db)
 
-        r = admin_client.post(
-            f"/auth/admin/inbox/{msg.id}/reply", json={"reply": "Thanks for writing!"}
-        )
+        with patch.dict("os.environ", {"SMTP_FROM": "library@test.invalid"}, clear=False):
+            r = admin_client.post(
+                f"/auth/admin/inbox/{msg.id}/reply", json={"reply": "Thanks for writing!"}
+            )
         assert r.status_code == 200
 
     def test_inbox_archive_message(self, admin_client, auth_db, test_user):

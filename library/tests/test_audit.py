@@ -182,13 +182,32 @@ class TestSendNotificationEmail:
         mock_smtp_cls.return_value.__enter__ = MagicMock(return_value=mock_server)
         mock_smtp_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        # Remove all SMTP env vars to test defaults
+        # Host and port still default to the local relay. SMTP_FROM does NOT
+        # default (Audiobook-Manager-9nu) — an @localhost sender hard-bounces
+        # upstream while local submission reports success — so a configured
+        # deployment always names one.
         env_clear = {k: v for k, v in os.environ.items() if not k.startswith("SMTP_")}
+        env_clear["SMTP_FROM"] = "library@test.invalid"
         with patch.dict(os.environ, env_clear, clear=True):
             result = _send_notification_email("admin@test.com", "Subject", "Body")
 
         assert result is True
         mock_smtp_cls.assert_called_once_with("localhost", 25)
+
+    @patch("auth.audit.smtplib.SMTP")
+    def test_send_refuses_when_no_sender_configured(self, mock_smtp_cls):
+        """No SMTP_FROM: refuse, and never open the connection.
+
+        Before Audiobook-Manager-9nu this substituted noreply@localhost and
+        submitted happily — 250 OK locally, 530 upstream, hard bounce the
+        application never saw.
+        """
+        env_clear = {k: v for k, v in os.environ.items() if not k.startswith("SMTP_")}
+        with patch.dict(os.environ, env_clear, clear=True):
+            result = _send_notification_email("admin@test.com", "Subject", "Body")
+
+        assert result is False
+        mock_smtp_cls.assert_not_called()
 
     @patch("auth.audit.smtplib.SMTP")
     def test_send_reads_password_from_smtp_pass_file(self, mock_smtp_cls, tmp_path):
