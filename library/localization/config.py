@@ -54,3 +54,18 @@ def get_subtitle_dir(library_path: Path, book_folder: str) -> Path:
 def get_translated_audio_dir(library_path: Path, book_folder: str) -> Path:
     """Return the translated audio directory for a book."""
     return library_path / book_folder / "translated"
+
+
+# Database backing the DeepL quota tracker. Imported from the canonical
+# top-level config rather than re-resolved here, so there is exactly one place
+# that decides where the database lives.
+#
+# Every DeepLTranslator MUST be constructed with a db_path. Without one it has
+# no QuotaTracker at all, which silently disables both the 99% hard-limit gate
+# and the usage reconcile — six of seven construction sites were built that way
+# until 2026-08-27 (Audiobook-Manager-2s6). `library/tests/test_source_guards.py`
+# fails the build if a new site omits it.
+try:  # pragma: no cover - exercised by every real entrypoint
+    from config import DATABASE_PATH as QUOTA_DB_PATH
+except ImportError:  # localization used standalone, outside the app
+    QUOTA_DB_PATH = None

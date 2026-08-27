@@ -570,3 +570,55 @@ def test_localhost_sender_guard_detects_a_new_offender(tmp_path):
     good = tmp_path / "good.py"
     good.write_text('FROM = resolve_sender(os.environ.get("SMTP_FROM"))\n')
     assert not _LOCALHOST_SENDER.search(good.read_text())
+
+
+# ---------------------------------------------------------------------------
+# Every DeepLTranslator must carry a quota tracker (Audiobook-Manager-2s6)
+#
+# DeepLTranslator only builds a QuotaTracker when it is given a db_path.
+# Without one, `_precheck_tracker()` finds `self._tracker is None` and quietly
+# does nothing — which disables BOTH the 99% hard-limit gate and the usage
+# reconcile, on that path, silently. Six of seven construction sites were built
+# that way, which is why production's `last_api_check` stayed NULL even after
+# the reconcile was wired: the trackers did not exist to reconcile.
+#
+# An explicit `db_path=None` is still allowed — it is the documented bypass for
+# tests — but it has to be written down, not defaulted into.
+# ---------------------------------------------------------------------------
+
+_TRANSLATOR_CTOR = re.compile(r"DeepLTranslator\s*\(([^)]*)\)", re.S)
+
+
+def _translator_sites_missing_db_path(text: str) -> list[int]:
+    out = []
+    for m in _TRANSLATOR_CTOR.finditer(text):
+        args = m.group(1)
+        if "db_path" in args:
+            continue
+        # the class definition and type annotations are not constructions
+        if not args.strip() or args.strip().startswith(("self", "api_key:")):
+            continue
+        out.append(text[: m.start()].count("\n") + 1)
+    return out
+
+
+def test_every_translator_construction_declares_a_db_path():
+    offenders = []
+    for path in _iter_python_files(include_tests=False):
+        for lineno in _translator_sites_missing_db_path(path.read_text(encoding="utf-8")):
+            offenders.append(f"{path}:{lineno}")
+    assert not offenders, (
+        "DeepLTranslator built without db_path — that silently disables the quota "
+        "gate and the usage reconcile on this path. Pass db_path=..., or "
+        "db_path=None explicitly if the bypass is intended:\n" + "\n".join(offenders)
+    )
+
+
+def test_translator_db_path_guard_detects_a_new_offender(tmp_path):
+    """The guard must be able to fail."""
+    bad = tmp_path / "bad.py"
+    bad.write_text("t = DeepLTranslator(DEEPL_API_KEY)\n")
+    assert _translator_sites_missing_db_path(bad.read_text()) == [1]
+    good = tmp_path / "good.py"
+    good.write_text("t = DeepLTranslator(DEEPL_API_KEY, db_path=str(p))\n")
+    assert _translator_sites_missing_db_path(good.read_text()) == []

@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Six of seven `DeepLTranslator` sites had no quota tracker at all** (`Audiobook-Manager-2s6`, follow-up): wiring the usage reconcile into `check_before_translate()` in 8.4.3.3 was necessary but not sufficient — production's `last_api_check` stayed NULL through a real, verified translation. `DeepLTranslator` only builds a `QuotaTracker` when given a `db_path`, and only `translations.py:1044` passed one. Everywhere else `self._tracker` was `None`, so `_precheck_tracker()` quietly did nothing — disabling not just the new reconcile but the **pre-existing 99% hard-limit gate**, on the paths the library UI and the subtitle pipeline actually use. All six now pass a `db_path`: the four in `translations.py` from the module's `_db_path`, and the two in `localization/pipeline.py` from a new `QUOTA_DB_PATH` in `localization/config.py`, which imports the canonical `DATABASE_PATH` rather than re-resolving it. A source guard in `test_source_guards.py` fails the build if a new construction site omits `db_path`; an explicit `db_path=None` remains allowed as the documented test bypass, but must now be written down rather than defaulted into.
+
+  Found by verifying the 8.4.3.3 deployment against production instead of trusting it: a real endpoint call translated a fresh title (`《童年的终结》`) while `last_api_check` stayed NULL — the unit tests proved the tracker reconciles, but nothing proved the application ever built a tracker.
+
 ## [8.4.3.3] - 2026-08-27
 
 ### Changed

@@ -22,6 +22,7 @@ from pathlib import Path
 from .chapters import extract_chapters, split_chapter
 from .config import (
     DEEPL_API_KEY,
+    QUOTA_DB_PATH,
     RUNPOD_API_KEY,
     RUNPOD_BACKLOG_WHISPER_ENDPOINT,
     RUNPOD_STREAMING_WHISPER_ENDPOINT,
@@ -269,7 +270,7 @@ def generate_subtitles(
         )
         from .translation.deepl_translate import DeepLTranslator
 
-        translator = DeepLTranslator(DEEPL_API_KEY)
+        translator = DeepLTranslator(DEEPL_API_KEY, db_path=QUOTA_DB_PATH)
         # strict=True: this result is written to a .{locale}.vtt file on disk.
         # Passing English through would produce a subtitle file that claims to
         # be a translation and is indistinguishable from a real one forever.
@@ -334,7 +335,7 @@ def _write_translated_chapter_vtt(
         return None
     from .translation.deepl_translate import DeepLTranslator
 
-    translator = DeepLTranslator(DEEPL_API_KEY)
+    translator = DeepLTranslator(DEEPL_API_KEY, db_path=QUOTA_DB_PATH)
     # strict=True: persisted to a .{locale}.vtt file -- see note above.
     translated_texts = translator.translate(
         source_sentences, target_locale, source_lang.upper(), strict=True

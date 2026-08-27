@@ -467,7 +467,7 @@ def _do_translate_missing(conn, missing_ids, locale, result_dict):
 
     from localization.translation.deepl_translate import DeepLTranslator
 
-    translator = DeepLTranslator(DEEPL_API_KEY)
+    translator = DeepLTranslator(DEEPL_API_KEY, db_path=str(_db_path) if _db_path else None)
 
     needs_title = [b for b in books if str(b["id"]) not in result_dict]
     translated_titles, author_map_new = _translate_title_author_batch(
@@ -562,7 +562,7 @@ def _translate_missing_collections(conn, missing_ids, id_to_name, locale, result
 
         from localization.translation.deepl_translate import DeepLTranslator
 
-        translator = DeepLTranslator(DEEPL_API_KEY)
+        translator = DeepLTranslator(DEEPL_API_KEY, db_path=str(_db_path) if _db_path else None)
         translated = translator.translate(unique_names, locale)
         name_map = dict(zip(unique_names, translated))
 
@@ -637,7 +637,7 @@ def _translate_and_cache_strings(conn, missing, locale, result):
 
         from localization.translation.deepl_translate import DeepLTranslator
 
-        translator = DeepLTranslator(DEEPL_API_KEY)
+        translator = DeepLTranslator(DEEPL_API_KEY, db_path=str(_db_path) if _db_path else None)
         hashes = list(missing.keys())
         sources = [missing[h] for h in hashes]
         translated = translator.translate(sources, locale)
@@ -840,7 +840,7 @@ def _do_on_demand_translation(conn, locale, missing_ids, cached):
 
     from localization.translation.deepl_translate import DeepLTranslator
 
-    translator = DeepLTranslator(DEEPL_API_KEY)
+    translator = DeepLTranslator(DEEPL_API_KEY, db_path=str(_db_path) if _db_path else None)
     translated_titles, author_map = _translate_on_demand_titles_authors(
         translator, books_to_translate, locale
     )
