@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.4.3.2] - 2026-08-27
+
+### Fixed
+
 - **DeepL `strict=True` did not fire on a short or empty `translations` array** (`Audiobook-Manager-09z`, found by cloud review of PR #150): the strict-mode guarantee rested on the single predicate `if translations is None:`, but `_call_deepl_api()` returns `None` only on `requests.RequestException` — its success path is `[t["text"] for t in result.get("translations", [])]`, so an HTTP 200 carrying a missing, empty, or truncated array yields `[]` or a short list. `_merge_translations_into_output()` then `zip()`ped past the shortfall and `_fill_misses_with_source()` wrote the **English source** into the gaps, with `degraded=False` and no exception — so the two callers that persist results (`localization/pipeline.py` VTT writers, `localization/metadata/lookup.py`) would write English into a `.zh-Hans.vtt` as though it were translated. The gate is now `if translations is None or len(translations) != len(misses):`, and `_last_error` names the shortfall (`short response: 0 translation(s) for 1 input(s)`) instead of reporting `unknown error`. Five regression tests added to `test_deepl_degradation.py`; verified by reverting the predicate and watching four of them fail
 
 - **Five mail sites substituted a `@localhost` sender for missing configuration** (`Audiobook-Manager-9nu`): `auth_email.py`, `inbox_cli.py`, `audit.py`, `translation_monitor/notify.py` and `scripts/email-report.py` each defaulted `SMTP_FROM` to `noreply@localhost` (the last to `audiobooks@localhost`, which is why a search for the first literal found only four). The relay selects its upstream credential by envelope sender, so an unmapped identity is rejected upstream at `MAIL FROM` with `530` **after** local submission already returned `250 OK` — a hard bounce (`dsn=5.0.0`, no queue, no retry) the application never sees, and whose own bounce notification is undeliverable because `localhost` is not in `mydestination`. All five now resolve through the new `common_utils.mail_identity.resolve_sender()`, which refuses an empty, non-address, or `@localhost` value; callers log the refusal and decline to send, and `scripts/email-report.py` exits non-zero rather than ending a run reporting success having sent nothing. A source guard in `test_source_guards.py` fails the build if any non-test file reintroduces the pattern
@@ -4355,7 +4359,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.1...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.2...HEAD
+[8.4.3.2]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.1...v8.4.3.2
 [8.4.3.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3...v8.4.3.1
 [8.4.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.5...v8.4.3
 [8.4.2.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.4...v8.4.2.5
