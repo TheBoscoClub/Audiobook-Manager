@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.4.3.6] - 2026-08-27
+
+### Added
+
 - **Mutation-testing gate in CI** (`Audiobook-Manager-d39`): `scripts/mutation-gate.py` runs mutmut over `library/localization/translation/quota.py` and gates on the **counters**, not the tool's exit code — mutmut exits 0 both when every mutant was caught and when none was ever generated, so the raw command is not a gate. The script asserts independently that mutants exist, that some died (zero kills means the test command is broken inside the `mutants/` copy, not that the suite is weak), that the stats and the survivor listing agree, and that every survivor is named in `library/mutants-allowlist.txt` with a written reason. Both failure directions were exercised: removing one allowlist entry exits 1 naming the mutant, and a scope that matches no file exits non-zero rather than passing cheerfully. The allowlist is a **dated baseline of 106 pre-existing survivors**, not an approval — it buys the property that a *new* survivor turns CI red while the existing debt stays counted and visible
 
 ### Changed
@@ -4399,7 +4407,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.5...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.6...HEAD
+[8.4.3.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.5...v8.4.3.6
 [8.4.3.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.4...v8.4.3.5
 [8.4.3.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.3...v8.4.3.4
 [8.4.3.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.2...v8.4.3.3
