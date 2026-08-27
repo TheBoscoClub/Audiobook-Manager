@@ -1,0 +1,505 @@
+"""Enrichment pipeline — multi-provider metadata enrichment for audiobooks.
+
+Orchestrates a chain of providers: Local → Audible → Google Books → Open Library.
+Each provider fills only empty fields. The chain short-circuits when all target
+fields are populated.
+"""
+
+import logging
+import sqlite3
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
+
+from backend.name_parser import generate_sort_name
+from scanner.metadata_utils import extract_topics
+from scripts.enrichment.base import EnrichmentProvider
+from scripts.enrichment.provider_audible import AudibleProvider
+from scripts.enrichment.provider_google import GoogleBooksProvider
+from scripts.enrichment.provider_local import LocalProvider
+from scripts.enrichment.provider_openlibrary import OpenLibraryProvider
+
+logger = logging.getLogger(__name__)
+
+# Columns that providers can fill (must exist in audiobooks table)
+_SCALAR_COLUMNS = {
+    "asin",
+    "series",
+    "series_sequence",
+    "subtitle",
+    "language",
+    "format_type",
+    "runtime_length_min",
+    "release_date",
+    "publisher_summary",
+    "rating_overall",
+    "rating_performance",
+    "rating_story",
+    "num_ratings",
+    "num_reviews",
+    "audible_image_url",
+    "sample_url",
+    "audible_sku",
+    "is_adult_product",
+    "content_type",
+    "isbn",
+    "description",
+    "published_date",
+    "published_year",
+    "publisher",
+    "page_count",
+    "narrator",
+}
+
+# Side-table data keys (not columns on audiobooks)
+_SIDE_TABLE_KEYS = {
+    "categories",
+    "editorial_reviews",
+    "author_asins",
+    "narrator_list",
+    "google_categories",
+    "ol_subjects",
+}
+
+# Fields where the schema default should be treated as "unfilled" during merge.
+# content_type defaults to 'Product' in schema, but the Audible API may return
+# a more specific type (Podcast, Show, Episode, Lecture, etc.).
+_DEFAULT_AS_EMPTY = {"content_type": "Product", "narrator": "Unknown Narrator"}
+
+
+def _load_book(cursor: sqlite3.Cursor, book_id: int) -> dict | None:
+    """Load a book row as a plain dict."""
+    cursor.execute("SELECT * FROM audiobooks WHERE id = ?", (book_id,))
+    row = cursor.fetchone()
+    if not row:
+        return None
+    return dict(row)
+
+
+def _merge_updates(current: dict, provider_result: dict) -> dict:
+    """Merge provider result into accumulated updates.
+
+    Only fills fields that are currently empty/null in the book AND
+    not already filled by a prior provider.
+    """
+    merged = {}
+    for key, value in provider_result.items():
+        if key in _SIDE_TABLE_KEYS:
+            # Side-table data always passes through (overwrite is fine)
+            merged[key] = value
+            continue
+        if key not in _SCALAR_COLUMNS:
+            continue
+        # Only fill if book's current value is empty or matches a schema default
+        current_val = current.get(key)
+        default_val = _DEFAULT_AS_EMPTY.get(key)
+        if (
+            current_val is None
+            or current_val == ""
+            or current_val == 0
+            or (default_val is not None and current_val == default_val)
+        ):
+            merged[key] = value
+    return merged
+
+
+def _apply_scalar_updates(
+    cursor: sqlite3.Cursor, book_id: int, updates: dict, enrichment_source: str
+) -> int:
+    """Write scalar column updates to the audiobooks table."""
+    scalar = {
+        k: v for k, v in updates.items() if k in _SCALAR_COLUMNS and k not in _SIDE_TABLE_KEYS
+    }
+    if not scalar:
+        return 0
+
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+    scalar["audible_enriched_at"] = now
+    scalar["enrichment_source"] = enrichment_source
+
+    # Column names are validated against _SCALAR_COLUMNS (hardcoded allowlist)
+    for col in scalar:
+        if col not in _SCALAR_COLUMNS and col not in ("audible_enriched_at", "enrichment_source"):
+            raise ValueError(f"Invalid column name: {col}")
+    set_clause = ", ".join(f"{col} = ?" for col in scalar)
+    params = list(scalar.values()) + [book_id]
+    # Columns validated against _SCALAR_COLUMNS allowlist above; values parameter-bound.
+    _sql_update = f"UPDATE audiobooks SET {set_clause} WHERE id = ?"  # nosec B608  # noqa: S608  # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    # nosemgrep: python.sqlalchemy.security.sqlalchemy-execute-raw-query.sqlalchemy-execute-raw-query
+    cursor.execute(_sql_update, params)
+    return len(scalar) - 2  # Don't count timestamp + source as "fields"
+
+
+def _apply_categories(cursor: sqlite3.Cursor, book_id: int, categories: list[dict]) -> None:
+    """Write categories to the audible_categories side table."""
+    cursor.execute("DELETE FROM audible_categories WHERE audiobook_id = ?", (book_id,))
+    for cat in categories:
+        cursor.execute(
+            """INSERT INTO audible_categories
+               (audiobook_id, category_path, category_name, root_category, depth, audible_category_id)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (
+                book_id,
+                cat.get("category_path", ""),
+                cat.get("category_name", ""),
+                cat.get("root_category", ""),
+                cat.get("depth", 0),
+                cat.get("audible_category_id", ""),
+            ),
+        )
+
+
+def _apply_genres_from_categories(
+    cursor: sqlite3.Cursor, book_id: int, categories: list[dict]
+) -> None:
+    """Populate audiobook_genres from Audible category names.
+
+    Extracts all category_name values from the category hierarchy and inserts
+    them into the genres/audiobook_genres tables. Skips genres that already
+    exist for this book. This bridges the gap between the audible_categories
+    side table and the genres system that collections depend on.
+    """
+    # Get existing genres for this book
+    cursor.execute(
+        """SELECT g.name FROM genres g
+           JOIN audiobook_genres ag ON g.id = ag.genre_id
+           WHERE ag.audiobook_id = ?""",
+        (book_id,),
+    )
+    existing = {row[0] for row in cursor.fetchall()}
+
+    # Remove the generic "general" placeholder if we have real genre data
+    if existing == {"general"} and categories:
+        cursor.execute("DELETE FROM audiobook_genres WHERE audiobook_id = ?", (book_id,))
+        existing = set()
+
+    for cat in categories:
+        name = cat.get("category_name", "")
+        if not name or name in existing:
+            continue
+        # Get or create genre
+        cursor.execute("SELECT id FROM genres WHERE name = ?", (name,))
+        row = cursor.fetchone()
+        if row:
+            genre_id = row[0]
+        else:
+            cursor.execute("INSERT INTO genres (name) VALUES (?)", (name,))
+            genre_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT OR IGNORE INTO audiobook_genres (audiobook_id, genre_id) VALUES (?, ?)",
+            (book_id, genre_id),
+        )
+        existing.add(name)
+
+
+def _apply_topics_from_summary(cursor: sqlite3.Cursor, book_id: int, summary: str) -> None:
+    """Extract and populate topics from a book's publisher summary.
+
+    Uses the scanner's extract_topics() to pull keywords from the description,
+    then populates the topics/audiobook_topics tables. Replaces the generic
+    "general" topic if real topics are found.
+    """
+    topics = extract_topics(summary)
+    if not topics or topics == ["general"]:
+        return
+
+    # Check existing topics
+    cursor.execute(
+        """SELECT t.name FROM topics t
+           JOIN audiobook_topics at ON t.id = at.topic_id
+           WHERE at.audiobook_id = ?""",
+        (book_id,),
+    )
+    existing = {row[0] for row in cursor.fetchall()}
+
+    # Replace "general" placeholder with real topics
+    if existing == {"general"}:
+        cursor.execute("DELETE FROM audiobook_topics WHERE audiobook_id = ?", (book_id,))
+        existing = set()
+
+    for topic_name in topics:
+        if topic_name in existing or topic_name == "general":
+            continue
+        cursor.execute("SELECT id FROM topics WHERE name = ?", (topic_name,))
+        row = cursor.fetchone()
+        if row:
+            topic_id = row[0]
+        else:
+            cursor.execute("INSERT INTO topics (name) VALUES (?)", (topic_name,))
+            topic_id = cursor.lastrowid
+        cursor.execute(
+            "INSERT OR IGNORE INTO audiobook_topics (audiobook_id, topic_id) VALUES (?, ?)",
+            (book_id, topic_id),
+        )
+        existing.add(topic_name)
+
+
+def _apply_editorial_reviews(cursor: sqlite3.Cursor, book_id: int, reviews: list[dict]) -> None:
+    """Write editorial reviews to the editorial_reviews side table."""
+    cursor.execute("DELETE FROM editorial_reviews WHERE audiobook_id = ?", (book_id,))
+    for review in reviews:
+        cursor.execute(
+            """INSERT INTO editorial_reviews (audiobook_id, review_text, source)
+               VALUES (?, ?, ?)""",
+            (book_id, review.get("review_text", ""), review.get("source", "")),
+        )
+
+
+_UNKNOWN_NARRATOR_NAMES = frozenset({"Unknown Narrator", "Unknown"})
+
+
+def _load_existing_narrator_names(cursor: sqlite3.Cursor, book_id: int) -> set[str]:
+    """Return the set of narrator names currently linked to the book."""
+    cursor.execute(
+        """SELECT n.name FROM narrators n
+           JOIN book_narrators bn ON n.id = bn.narrator_id
+           WHERE bn.book_id = ?""",
+        (book_id,),
+    )
+    return {row[0] for row in cursor.fetchall()}
+
+
+def _get_or_create_narrator_id(cursor: sqlite3.Cursor, name: str) -> int:
+    """Return the id of the narrator row matching ``name``, creating it if
+    necessary. The sort_name is derived via generate_sort_name()."""
+    cursor.execute("SELECT id FROM narrators WHERE name = ?", (name,))
+    row = cursor.fetchone()
+    if row:
+        return row[0]
+    sort_name = generate_sort_name(name) or name
+    cursor.execute("INSERT INTO narrators (name, sort_name) VALUES (?, ?)", (name, sort_name))
+    row_id = cursor.lastrowid
+    if row_id is None:
+        raise RuntimeError("sqlite3 lastrowid is None after successful INSERT into narrators")
+    return row_id
+
+
+def _apply_narrators(cursor: sqlite3.Cursor, book_id: int, narrator_list: list[dict]) -> None:
+    """Backfill narrators into the normalized narrators/book_narrators tables.
+
+    Only adds narrators that don't already have junction entries for this book.
+    Replaces "Unknown Narrator" junction entries when real data is available.
+    """
+    if not narrator_list:
+        return
+
+    existing = _load_existing_narrator_names(cursor, book_id)
+
+    # If we only have placeholder narrators and now have real data, clear them.
+    if existing and existing <= _UNKNOWN_NARRATOR_NAMES and narrator_list:
+        cursor.execute("DELETE FROM book_narrators WHERE book_id = ?", (book_id,))
+        existing = set()
+
+    for position, narrator_info in enumerate(narrator_list):
+        name = narrator_info.get("name", "").strip()
+        if not name or name in existing:
+            continue
+
+        narrator_id = _get_or_create_narrator_id(cursor, name)
+        cursor.execute(
+            "INSERT OR IGNORE INTO book_narrators (book_id, narrator_id, position) VALUES (?, ?, ?)",
+            (book_id, narrator_id, position),
+        )
+        existing.add(name)
+
+
+# Known podcast publishers — items whose author matches these are podcasts,
+# even when the Audible API returns content_type='Product'.
+_PODCAST_PUBLISHERS = frozenset(
+    {"wondery", "movewith", "aaptiv", "higher ground", "panoply", "gimlet", "stitcher", "parcast"}
+)
+
+
+def _detect_podcast_by_publisher(book: dict, updates: dict) -> str | None:
+    """Return 'Podcast' if the book's author matches a known podcast publisher.
+
+    Only triggers when content_type is 'Product' (the schema default that
+    real podcasts sometimes inherit from the Audible API).
+    """
+    content_type = updates.get("content_type") or book.get("content_type")
+    if content_type and content_type != "Product":
+        return None  # Already has a specific type
+
+    author = (book.get("author") or "").lower()
+    publisher = (book.get("publisher") or "").lower()
+    combined = author + " " + publisher
+    if any(pub in combined for pub in _PODCAST_PUBLISHERS):
+        return "Podcast"
+    return None
+
+
+def _default_providers(sources_dir: Path | None = None) -> list[EnrichmentProvider]:
+    """Return the default provider chain."""
+    return [
+        LocalProvider(sources_dir=sources_dir),
+        AudibleProvider(),
+        GoogleBooksProvider(),
+        OpenLibraryProvider(),
+    ]
+
+
+def _run_provider(
+    provider: EnrichmentProvider, book: dict, all_updates: dict, result: dict, winning_provider: str
+) -> str:
+    """Run a single provider against the merged book view.
+
+    Mutates ``all_updates`` and ``result`` in place. Returns the (possibly
+    updated) winning_provider name.
+    """
+    if not provider.can_enrich({**book, **all_updates}):
+        return winning_provider
+
+    merged_view = {**book, **{k: v for k, v in all_updates.items() if k not in _SIDE_TABLE_KEYS}}
+    provider_data = provider.enrich(merged_view)
+    if not provider_data:
+        return winning_provider
+
+    new_fields = _merge_updates(merged_view, provider_data)
+    if not new_fields:
+        return winning_provider
+
+    all_updates.update(new_fields)
+    result["providers_used"].append(provider.name)
+    if not winning_provider:
+        winning_provider = provider.name
+
+    if provider.name == "audible":
+        result["audible_enriched"] = True
+    elif provider.name in ("google_books", "openlibrary"):
+        result["isbn_enriched"] = True
+
+    return winning_provider
+
+
+def _run_provider_chain(
+    providers: list[EnrichmentProvider], book: dict, result: dict
+) -> tuple[dict, str]:
+    """Iterate providers, accumulate updates, short-circuit when series is set."""
+    all_updates: dict = {}
+    winning_provider = ""
+    for provider in providers:
+        winning_provider = _run_provider(provider, book, all_updates, result, winning_provider)
+        # Short-circuit: if series is populated, later fallback providers won't help
+        series_val = all_updates.get("series") or book.get("series")
+        if series_val and result["audible_enriched"]:
+            break
+    return all_updates, winning_provider
+
+
+def _apply_podcast_override(book: dict, all_updates: dict, quiet: bool) -> None:
+    """Apply publisher-based podcast detection override."""
+    podcast_override = _detect_podcast_by_publisher(book, all_updates)
+    if podcast_override:
+        all_updates["content_type"] = podcast_override
+        if not quiet:
+            logger.info("  Publisher-based override: content_type → %s", podcast_override)
+
+
+def _apply_side_tables(cursor: sqlite3.Cursor, book_id: int, book: dict, all_updates: dict) -> None:
+    """Apply side-table updates (categories, reviews, narrators, topics)."""
+    if "categories" in all_updates:
+        _apply_categories(cursor, book_id, all_updates["categories"])
+        _apply_genres_from_categories(cursor, book_id, all_updates["categories"])
+
+    if "editorial_reviews" in all_updates:
+        _apply_editorial_reviews(cursor, book_id, all_updates["editorial_reviews"])
+
+    if "narrator_list" in all_updates:
+        _apply_narrators(cursor, book_id, all_updates["narrator_list"])
+
+    summary = all_updates.get("publisher_summary") or book.get("publisher_summary", "")
+    if summary:
+        _apply_topics_from_summary(cursor, book_id, summary)
+
+
+def _persist_updates(
+    conn: sqlite3.Connection,
+    cursor: sqlite3.Cursor,
+    book_id: int,
+    book: dict,
+    all_updates: dict,
+    winning_provider: str,
+    result: dict,
+    quiet: bool,
+) -> None:
+    """Write accumulated updates to the database and commit."""
+    if not all_updates:
+        return
+    fields = _apply_scalar_updates(cursor, book_id, all_updates, winning_provider or "local")
+    result["fields_updated"] = max(fields, 0)
+    _apply_side_tables(cursor, book_id, book, all_updates)
+    conn.commit()
+    if not quiet:
+        logger.info(
+            "  %d fields updated by %s",
+            result["fields_updated"],
+            ", ".join(result["providers_used"]),
+        )
+
+
+def _enrich_book_inner(
+    conn: sqlite3.Connection,
+    cursor: sqlite3.Cursor,
+    book_id: int,
+    quiet: bool,
+    providers: list[EnrichmentProvider],
+    result: dict,
+) -> None:
+    """Core enrichment flow (book load → providers → persist).
+
+    Populates ``result`` in place. Raises on unexpected errors — caller
+    handles the try/except/finally envelope.
+    """
+    book = _load_book(cursor, book_id)
+    if not book:
+        result["errors"].append(f"Book ID {book_id} not found")
+        return
+
+    if not quiet:
+        logger.info("Enriching: %s (ID %d)", book.get("title", "?"), book_id)
+
+    all_updates, winning_provider = _run_provider_chain(providers, book, result)
+    _apply_podcast_override(book, all_updates, quiet)
+    _persist_updates(conn, cursor, book_id, book, all_updates, winning_provider, result, quiet)
+
+
+def enrich_book(
+    book_id: int,
+    db_path: Path | None = None,
+    quiet: bool = False,
+    sources_dir: Path | None = None,
+    providers: list[EnrichmentProvider] | None = None,
+) -> dict:
+    """Run the enrichment chain for a single book.
+
+    Returns a result dict compatible with enrich_single.py's format:
+    {audible_enriched, isbn_enriched, fields_updated, errors, providers_used}
+    """
+    result: dict[str, Any] = {
+        "audible_enriched": False,
+        "isbn_enriched": False,
+        "fields_updated": 0,
+        "errors": [],
+        "providers_used": [],
+    }
+
+    if db_path is None:
+        result["errors"].append("No database path")
+        return result
+
+    if providers is None:
+        providers = _default_providers(sources_dir)
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    try:
+        _enrich_book_inner(conn, cursor, book_id, quiet, providers, result)
+    except Exception as e:
+        result["errors"].append(str(e))
+        logger.exception("Enrichment failed for book %d", book_id)
+    finally:
+        conn.close()
+
+    return result

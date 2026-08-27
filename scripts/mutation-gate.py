@@ -54,8 +54,8 @@ def load_allowlist() -> dict[str, str]:
     return allowed
 
 
-def run(cmd: list[str], **kw) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, cwd=LIBRARY_DIR, text=True, capture_output=True, **kw)
+def run(cmd: list[str], cwd: Path | None = None, **kw) -> subprocess.CompletedProcess:
+    return subprocess.run(cmd, cwd=cwd or LIBRARY_DIR, text=True, capture_output=True, **kw)
 
 
 def main() -> int:
@@ -67,7 +67,7 @@ def main() -> int:
     mutmut = args.mutmut if Path(args.mutmut).exists() else "mutmut"
 
     print("running mutmut …", flush=True)
-    run([mutmut, "run", "--max-children", args.max_children])
+    mutmut_run = run([mutmut, "run", "--max-children", args.max_children])
 
     # Totals come from the stats export, NOT from parsing `mutmut results`:
     # that command prints ONLY survivors, so counting "killed" from its output
@@ -108,6 +108,16 @@ def main() -> int:
             "it) — that is a broken run, not a weak suite.",
             file=sys.stderr,
         )
+        # Print the evidence. A gate that says "broken" without showing WHY just
+        # moves the debugging somewhere less convenient.
+        print("\n--- mutmut run output (tail) ---", file=sys.stderr)
+        combined = (mutmut_run.stdout or "") + (mutmut_run.stderr or "")
+        print(combined.replace("\r", "\n")[-4000:], file=sys.stderr)
+        baseline = run(
+            [sys.executable, "-m", "pytest", "--collect-only", "-q"], cwd=LIBRARY_DIR / "mutants"
+        )
+        print("\n--- pytest collect inside mutants/ (tail) ---", file=sys.stderr)
+        print(((baseline.stdout or "") + (baseline.stderr or ""))[-3000:], file=sys.stderr)
         return 1
     if len(survived) != survived_n:
         print(
