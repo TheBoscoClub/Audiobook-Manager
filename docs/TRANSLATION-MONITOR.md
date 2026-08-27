@@ -1,7 +1,9 @@
 # Translation Monitor — Two-Tier Stuck-Claim / Retry-Budget Watchdog
 
-**Introduced**: v8.3.9
+**Introduced**: v8.3.9. Sampler failure recording, reset budget, and staleness alerting added in v8.4.3.
 **Audience**: operators debugging stalled translations or auditing worker behaviour
+
+> **Note**: this watchdog only supervises the audio-translation pipeline. With no STT backend configured it has nothing to supervise, and the sampler tier will log `SAMPLER STALE` on every tick — that is the intended report of an unconfigured install, not a monitor bug. See "Turning audio translation off" in `docs/MULTI-LANGUAGE-SETUP.md`.
 
 The translation monitor automatically resets translation jobs that are stuck in claimed/running states beyond their expected duration. Without it, a crashed or disconnected worker can leave a `streaming_segments` row claimed indefinitely, blocking subsequent workers from picking it up and stalling the queue.
 
@@ -31,10 +33,11 @@ Why oneshot, not a daemon? A timer-driven oneshot has the simplest possible fail
 ### Sampler tier (every 5 min)
 
 1. **Stuck segment-claim reset** — same as live but for `origin IN ('sampler','backlog')` and a 2-hour ceiling.
-2. **Stuck `sampler_jobs` reset** — `status='running' AND updated_at >2h ago` → flip back to `pending`. `segments_done` is preserved so the next sampler-daemon sweep continues where the dead worker left off.
+2. **Stuck `sampler_jobs` reset, with a budget** — `status='running' AND updated_at >2h ago` → flip back to `pending`, preserving `segments_done` so the next sweep continues where the dead worker left off. **Bounded by `SAMPLER_JOB_RESET_CAP` (3):** the monitor counts the job's prior `sampler_job_reset` events, and past the cap it calls `mark_sampler_job_failed()` instead of recycling. Without the cap this path was an unbounded retry loop — a job whose backend was gone cycled forever, its `updated_at` kept moving so it looked alive, and nothing ever wrote `sampler_jobs.error`.
 3. **Retry budget sweep** — same as live but for sampler/backlog origins.
-4. *(Planned for a future release)* per-book `spent_cents` aggregation + per-book auto-pause on cap breach. Useful for installations that pay per-inference; a no-op for installations using local hardware.
-5. *(Planned for a future release)* daily total spend cap + global queue pause.
+4. **Completion-staleness alert** — `scripts/translation-monitor-sampler.py` calls `sampler_completion_age_days()` each tick and logs at **ERROR** level when nothing has reached `complete` in `STALE_COMPLETION_ALERT_DAYS` (3) days: `SAMPLER STALE: no sampler_job has completed in N days (threshold 3). The timer is running; the work is not.` This is the only check that separates a firing timer from work actually happening — `systemctl is-active` cannot tell them apart, and for 11 weeks it did not.
+5. *(Planned for a future release)* per-book `spent_cents` aggregation + per-book auto-pause on cap breach. Useful for installations that pay per-inference; a no-op for installations using local hardware.
+6. *(Planned for a future release)* daily total spend cap + global queue pause.
 
 ## Audit trail — `translation_monitor_events`
 
@@ -63,8 +66,9 @@ Keep names short and predicate-style. Extend the `ALLOWED_EVENT_TYPES` set in `l
 | `claim_reset` | live, sampler | A stuck claim was cleared |
 | `retry_exceeded` | live, sampler | A segment past `retry_count >= 3` was marked failed |
 | `sampler_job_reset` | sampler | A `sampler_jobs` row stuck in `running` was reset to `pending` |
-| `sampler_job_failed` | sampler | A `sampler_jobs` row was marked failed (retry budget exhausted) |
+| `sampler_job_failed` | sampler | A `sampler_jobs` row reached the terminal `failed` state, with the reason written to `sampler_jobs.error` — either the reset budget was exhausted or a segment error was unrecoverable |
 | `live_age_alert` | live | A live segment past `LIVE_AGE_ALERT_SEC` (default 120s) was logged for escalation |
+| `live_age_alert_emailed` | live | A `live_age_alert` was escalated by email (written before the send, so a slow SMTP round-trip cannot let the next tick double-fire) |
 | `capacity_warning` | live | Pending live queue exceeds `LIVE_PENDING_PRESSURE_THRESHOLD` while workers are active |
 | `spend_pause_book` *(future)* | sampler | A book's sampler job auto-paused on per-book cap |
 | `spend_pause_global` *(future)* | sampler | The whole sampler queue was auto-paused on daily cap |
@@ -107,7 +111,14 @@ Thresholds live as module constants in `library/translation_monitor/probe.py`. E
 | `CAPACITY_WARNING_COOLDOWN_SEC` | 300 (5min) | Idempotency window for `capacity_warning` events |
 | `SAMPLER_CLAIM_TIMEOUT_SEC` | 7200 (2h) | Maximum age of a sampler/backlog claim before reset |
 | `SAMPLER_JOB_RUNNING_TIMEOUT_SEC` | 7200 (2h) | Maximum age of a `sampler_jobs.status='running'` row before reset |
+| `SAMPLER_JOB_RESET_CAP` | 3 | How many times a `sampler_jobs` row may be bounced `running → pending` before it is marked `failed` |
 | `RETRY_CAP` | 3 | Retry budget — segments past this are marked failed |
+
+One threshold lives outside `probe.py`, in `scripts/translation-monitor-sampler.py`:
+
+| Constant | Default | Purpose |
+|----------|---------|---------|
+| `STALE_COMPLETION_ALERT_DAYS` | 3 | Days without any `sampler_jobs` completion before the tick logs `SAMPLER STALE` at ERROR |
 
 The defaults are deliberately conservative on the live tier — the cost of a false negative (stuck claim survives one tick) is at most one segment's worth of inference time, while the cost of a false positive (a healthy slow worker has its claim reset) is at most one redundant inference. The asymmetry favours aggressive resets.
 
@@ -144,6 +155,7 @@ The idempotency is enforced by the SQL predicates: each `UPDATE` is guarded by `
 | `library/translation_monitor/__init__.py` | Public package surface |
 | `library/translation_monitor/db.py` | Connection helper, path resolution, schema gate |
 | `library/translation_monitor/events.py` | Audit-trail writer + reader |
+| `library/translation_monitor/notify.py` | Alert email sender (submits to the local relay — see `docs/EMAIL-SETUP.md`) |
 | `library/translation_monitor/probe.py` | Detector + reset primitives |
 | `scripts/translation-monitor-live.py` | Live tier oneshot |
 | `scripts/translation-monitor-sampler.py` | Sampler tier oneshot |
@@ -153,7 +165,8 @@ The idempotency is enforced by the SQL predicates: each `UPDATE` is guarded by `
 | `systemd/audiobook-translation-monitor-sampler.timer` | Sampler timer (every 5min) |
 | `library/backend/migrations/025_translation_monitor_events.sql` | Schema migration |
 | `data-migrations/009_translation_monitor_events.sh` | Upgrade-time data migration |
-| `library/tests/test_translation_monitor.py` | Test suite (46 tests) |
+| `library/tests/test_translation_monitor.py` | Test suite (51 tests) |
+| `library/tests/test_sampler_failure_recording.py` | Sampler failure recording, reset budget, staleness (9 tests) |
 
 ## Forthcoming
 

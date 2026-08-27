@@ -1173,12 +1173,15 @@ $ audiobook-backup restore 2026-01-18
 - [x] Error pages (401.html, 403.html)
 - [x] Mobile-responsive
 - [x] Help tooltips for layperson users
-- [x] Magic link email endpoint (SMTP config pending - Protonmail Bridge)
+- [x] Magic link email endpoint
 
 **Deliverable:** Complete auth UI
 
-**Note:** Passkey/WebAuthn backend deferred to Phase 5. Magic link emails require
-Protonmail Bridge setup (scripts/setup-email.sh).
+**Note:** Passkey/WebAuthn backend deferred to Phase 5. Magic link emails are
+submitted to a local mail relay on `127.0.0.1:25` with no credential — see
+[EMAIL-SETUP.md](EMAIL-SETUP.md). (This originally specified Protonmail Bridge via
+`scripts/setup-email.sh`; that path was dropped and the script is no longer
+installed.)
 
 ---
 
@@ -1206,7 +1209,7 @@ Protonmail Bridge setup (scripts/setup-email.sh).
 - Admin can reply via in-app notification or email
 - CLI tools for offline notification/inbox management
 - Email alerts sent to admin when new contact messages arrive
-- Reply emails use configured SMTP (Protonmail Bridge)
+- Reply emails use the configured mail path (local relay on `127.0.0.1:25` by default)
 
 ---
 
@@ -1252,7 +1255,7 @@ Protonmail Bridge setup (scripts/setup-email.sh).
 | # | Question | Status |
 |---|----------|--------|
 | 1 | SQLCipher key management - where to store encryption key? | **Resolved**: Key stored in `auth.key` file, separate from database |
-| 2 | Email/SMS provider for verification and magic links | **Partial**: Protonmail Bridge installed, requires interactive login (scripts/setup-email.sh) |
+| 2 | Email/SMS provider for verification and magic links | **Resolved (email)**: submission to a local mail relay on `127.0.0.1:25`; the relay owns the provider credential and the application holds none. No interactive login, so it works unattended. SMS remains out of scope. |
 | 3 | TOTP recovery - what if user loses authenticator device? | **Resolved**: See Section 5.3 Recovery Model |
 | 4 | Account deletion - user-initiated or admin-only? | Open |
 | 5 | Position export - can users export their position data? | Open |

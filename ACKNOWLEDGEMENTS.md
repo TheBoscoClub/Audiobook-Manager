@@ -2,9 +2,13 @@
 
 The maintainer uses the following external services and open-source tools in their personal deployment of Audiobook-Manager. None are required; they're listed here as grateful attribution. Other operators can substitute any equivalent.
 
+## Translation
+
+- **[DeepL](https://www.deepl.com)** — neural machine translation for UI strings, book metadata, and subtitle text. The maintainer's deployment runs on the **API Free** tier (500,000 characters/month).
+
 ## GPU / inference (operator's personal choice)
 
-- **[RunPod](https://runpod.io)** — serverless GPU endpoints for Whisper STT and XTTS narration, used in the maintainer's production.
+- **[RunPod](https://runpod.io)** — serverless GPU endpoints for Whisper STT and XTTS narration. Used in the maintainer's production **until 2026-08**; that account is now decommissioned and no STT backend is currently configured. The client code remains in the tree for operators who want to use it.
 
 Audiobook-Manager's STT layer is provider-agnostic — it accepts any Whisper-compatible backend (RunPod, self-hosted `whisper-gpu`, CPU `faster-whisper`, or anything else you can reach from Python).
 

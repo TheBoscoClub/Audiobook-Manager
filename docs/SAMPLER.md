@@ -1,7 +1,9 @@
 # 6-Minute Pretranslation Sampler
 
-**Status**: v8.3.8 — released in local staged mode (not promoted to prod at time of writing).
+**Status**: v8.4.3. Shipped and running. **Produces nothing without an STT backend** — see the note below.
 **Audience**: operators, contributors, and anyone diagnosing why a book's 🎧 sample button is/isn't showing.
+
+> **The sampler requires an STT backend that this project does not provide.** The maintainer's RunPod account is decommissioned and Vast.ai was never enabled, so in the reference deployment no sampler job can complete. The timers still fire on schedule; the work does not happen. From v8.4.3 this state is reported rather than hidden — see [Detecting a dead sampler](#detecting-a-dead-sampler). To turn the subsystem off, see "Turning audio translation off" in `docs/MULTI-LANGUAGE-SETUP.md`.
 
 ## Purpose (three-at-once)
 
@@ -67,7 +69,7 @@ Warmth probe is cached server-side for 60s to bound provider /health traffic. De
 
 The project treats STT backend choice as an **operator deployment decision**, not a project contract. Any of the following work:
 
-- **RunPod serverless** — pay-per-second, no minimum spend, `AUDIOBOOKS_RUNPOD_*` keys
+- **RunPod serverless** — pay-per-second, no minimum spend, `AUDIOBOOKS_RUNPOD_*` keys. *Client code is present but this path is no longer exercised by the maintainer — the reference deployment's account is decommissioned.*
 - **Self-hosted GPU Whisper service** — CUDA/ROCm/Apple Silicon machine on the LAN, `AUDIOBOOKS_WHISPER_GPU_HOST` + `AUDIOBOOKS_WHISPER_GPU_PORT`
 - **CPU-only `faster-whisper`** — no GPU, slower but zero operating cost; advanced deployment (requires wiring in the provider, see `library/localization/stt/`)
 
@@ -150,14 +152,62 @@ Per `(book, locale)`:
 
 Books users don't touch past the sample never incur full-book cost. This is the "cost control" goal making itself concrete.
 
+## Detecting a dead sampler
+
+Until v8.4.3 a sampler that had stopped doing any work was **indistinguishable from a healthy one**. `sampler_jobs` defines a `status='failed'` state and an `error TEXT` column (migration 024), but no code path ever wrote either — every one of the 1,884 production rows had `error IS NULL`, not because nothing failed but because recording a failure was impossible. Meanwhile `reset_stuck_sampler_jobs` bounced stalled jobs `running → pending` without limit, which kept moving `updated_at` and made every job look freshly active. `systemctl is-active` reported the timers healthy throughout. The subsystem completed nothing for 11 weeks and reported no problem.
+
+Three mechanisms close that gap. All live in `library/translation_monitor/probe.py` unless noted.
+
+### 1. Failure is recordable — `mark_sampler_job_failed()`
+
+The missing leg of the state machine. It sets `status='failed'`, writes the reason into `sampler_jobs.error`, stamps `updated_at`, and logs a `sampler_job_failed` event to `translation_monitor_events`. `sampler_jobs.error` is now a column worth reading.
+
+### 2. The reset loop is bounded — `SAMPLER_JOB_RESET_CAP = 3`
+
+`reset_stuck_sampler_jobs()` counts how many `sampler_job_reset` events a job has already accumulated. Past the cap it stops recycling the job and calls `mark_sampler_job_failed()` instead, with a message naming where it stalled:
+
+```text
+exceeded 3 running->pending resets without completing
+(stalled at 4/12 segments); the STT/translation backend is not completing work
+```
+
+So a job whose backend is gone now reaches a terminal, inspectable state after three attempts rather than cycling forever.
+
+### 3. Staleness is alerted — `STALE_COMPLETION_ALERT_DAYS = 3`
+
+`sampler_completion_age_days()` returns the number of days since any sampler job last reached `complete` (or `None` if none ever has). `scripts/translation-monitor-sampler.py` checks it on every tick and logs at **ERROR** level past the threshold:
+
+```text
+SAMPLER STALE: no sampler_job has completed in 81.9 days (threshold 3).
+The timer is running; the work is not.
+```
+
+This is the check that distinguishes "the timer fired" from "the work happened" — liveness of a timer was never evidence of liveness of the work it triggers.
+
+Useful queries:
+
+```sql
+-- Why did jobs fail, and how many share a cause?
+SELECT error, COUNT(*) FROM sampler_jobs WHERE status='failed' GROUP BY error;
+
+-- When did anything last actually complete?
+SELECT MAX(updated_at) FROM sampler_jobs WHERE status='complete';
+
+-- Recent monitor events for one job
+SELECT event_type, details, created_at FROM translation_monitor_events
+WHERE sampler_job_id = ? ORDER BY created_at DESC;
+```
+
 ## Failure modes & recovery
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | Sample button never appears on any card | No sampler has been enqueued for your locale. | Run `scripts/sampler-reconcile.py --locale X` |
+| `SAMPLER STALE` in the journal every 5 min | No sampler job has completed in ≥3 days. Usually means no STT backend is configured or reachable. | Configure an STT backend (`docs/MULTI-LANGUAGE-SETUP.md`), or disable the subsystem — see "Turning audio translation off" |
 | Status stays `pending` forever | Streaming worker dead / start-limit-hit. | `systemctl status audiobook-stream-translate`; check recent journal |
-| Status stays `running` for hours | Worker can't reach any configured STT backend (network / key wrong / no providers configured). | Check worker logs for HTTP 401/timeout against whichever backends the operator configured (api.runpod.ai, self-hosted whisper-gpu host, etc.) |
-| Status = `failed` | Worker hit an error it couldn't recover from on any segment. | Look at `sampler_jobs.error`; re-enqueue via the admin prefetch endpoint |
+| Status stays `running` for hours | Worker can't reach any configured STT backend (network / key wrong / no providers configured). | Check worker logs for HTTP 401/timeout against whichever backends the operator configured (self-hosted whisper-gpu host, etc.). After 3 resets the job flips to `failed` with the reason recorded. |
+| Status = `failed`, `error` mentions "exceeded 3 running->pending resets" | The reset budget was exhausted — the backend is not completing work at all. | Fix or configure the STT backend, then re-enqueue via the admin prefetch endpoint |
+| Status = `failed`, other `error` text | Worker hit an error it couldn't recover from on a segment. | Read `sampler_jobs.error`; re-enqueue via the admin prefetch endpoint |
 | Sample plays but live buffer never fills | Adaptive threshold never fired — maybe JS error. | Browser dev tools: look for POST `/api/translate/sampler/activate` after segment 3 or 4 |
 
 ## Related docs

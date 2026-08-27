@@ -18,13 +18,79 @@
 audio. If she does not, the decision moves to Option B or C (see the session
 analysis of 2026-08-26) or to leaving the capability permanently off.
 
-**Why parked:** the operationally valuable half of this plan needed no code at
-all. On 2026-08-26 the three translation systemd units were disabled on prod and
-the decommissioned RunPod endpoint IDs were removed from
+**Why parked:** the operationally valuable half of this plan appeared to need no
+code at all. On 2026-08-26 the three translation systemd units were disabled on
+prod and the decommissioned RunPod endpoint IDs were removed from
 `/etc/audiobooks/audiobooks.conf`. `audiobook.target` declares all three units
-with `Wants=` (not `Requires=`), so disabling them cannot break the target. That
-mitigation closed the prod symptom — pointless daemons and a smoke probe
-reporting unreachable backends — without a line of code.
+with `Wants=` (not `Requires=`), so disabling them cannot break the target.
+
+> ### CORRECTION (2026-08-26, later the same day): that mitigation did not hold
+>
+> **The disable was reverted by the v8.4.2.5 deploy, hours after it was applied.**
+> Measured on prod:
+>
+> ```text
+> $ systemctl is-enabled audiobook-translation-monitor-sampler.timer \
+>       audiobook-translation-monitor-live.timer audiobook-stream-translate.service
+> enabled
+> enabled
+> enabled
+>
+> $ journalctl -u audiobook-stream-translate.service
+> Aug 26 18:07:20 systemd[1]: Started Audiobook streaming translation worker.
+>
+> $ journalctl -u audiobook-translation-monitor-sampler.service
+> Aug 26 18:34:13 ERROR SAMPLER STALE: no sampler_job has completed in 81.9 days
+>                 (threshold 3). The timer is running; the work is not.
+> ```
+>
+> `upgrade.sh` re-enables all three units on **every** run, from three independent
+> places: it parses `Wants=` out of the installed `audiobook.target` and enables
+> each; it lists both monitor timers in its `standalone_units` array; and it has a
+> "belt-and-suspenders" unconditional `_enable_unit_smart` **and start** for
+> `audiobook-stream-translate.service`. `install.sh` does the same.
+>
+> **So an operator-side `systemctl disable` is not a durable mitigation** — it
+> survives only until the next upgrade, and is then silently undone. That falsifies
+> the premise this plan was parked on: the no-code mitigation does not exist, and
+> "off" remains a state the installer actively reverses.
+>
+> The staleness alert that produced the evidence above landed in v8.4.3 and is the
+> reason this was caught at all: for the preceding 11 weeks the same condition
+> existed and reported nothing.
+
+---
+
+> ### SECOND CORRECTION (2026-08-26, v8.4.3): a durable "off" now exists
+>
+> The force-enable defect above was **fixed** in v8.4.3, before this plan was
+> decided. `install.sh` and `upgrade.sh` now consult
+> `/etc/audiobooks/disabled-units` in `_enable_unit_smart` — the single choke
+> point all three force-enable paths already funnelled through — and will not
+> re-enable anything named there. The list is authoritative: a listed unit that
+> is running is stopped and disabled, so writing a name into the file is the
+> whole operation. Absence means "no opinion", so newly shipped units still
+> enable normally.
+>
+> Applied on prod 2026-08-26; all three translation units are now
+> `enabled=disabled active=inactive` and will stay that way across upgrades.
+>
+> **So the no-code mitigation now genuinely exists**, which restores — for the
+> first time, honestly — the premise this plan was originally parked on. The
+> choice is no longer "accept the units running, patch locally, or implement the
+> plan". It is narrower:
+>
+> | Question | Answered by `disabled-units`? |
+> |---|---|
+> | Can this deployment durably turn audio translation off? | **Yes** |
+> | Do fresh community installs still get a worker that fails forever? | **No** — `install.sh` honours the same list, but only if the installer writes one; the default is still enabled |
+> | Does the web UI still render translation controls that 404 when off? | **No change** — routes are still registered regardless |
+> | Is "off" a first-class, discoverable configuration state? | **Partly** — it is a systemd-level file, not an application setting |
+>
+> What the capability flag still buys is the last two rows: blueprint gating so
+> the UI hides cleanly rather than 404-ing, and a single documented config key
+> instead of a unit list. Judge the plan on those, not on durability, which is
+> now solved.
 
 What remains in this plan is therefore value for **other deployments and
 future-you**, not for this production instance:
@@ -49,9 +115,10 @@ the capability off has stopped making it visible — that is masking, not fixing
 
 ### Branching guidance if this is unparked
 
-Do **not** put this on a long-lived R&D branch, and do not put it on
-`9.0-refactor-rnd` (that is the `bth` complexity-reduction epic — different
-scope). Measured churn over the 60 days to 2026-08-26: `upgrade.sh` 6 commits,
+Do **not** put this on a long-lived R&D branch. (An earlier draft warned against
+`9.0-refactor-rnd` specifically; that branch does not exist and the 9.0 parallel-
+lineage plan has since been retired — `main` is the only line, local and remote.)
+Measured churn over the 60 days to 2026-08-26: `upgrade.sh` 6 commits,
 `install.sh` 5 commits, 51 distinct test files touched against the 42 this plan
 modifies. A long-lived branch would collide with the release path repeatedly.
 
@@ -75,7 +142,7 @@ These were established by direct inspection. They are the load-bearing facts thi
 | The conditional-registration precedent exists and is tested | `api_modular/__init__.py:155-158` (`_register_auth_blueprints`), `:128-140` (`_init_route_modules`) |
 | `install.sh` enables the streaming worker unconditionally on every fresh install | `install.sh:2009` — `_enable_unit_smart "audiobook-stream-translate.service"` |
 | Scanner coupling is exactly two hook call sites | `scanner/post_insert.py:141-146` (`@register_post_insert("Translation queue")`), `scanner/utils/db_helpers.py:127-129` (→ `sampler_hook.enqueue_sampler_for_new_book`) |
-| Subsystem surface | `library/localization/` 4,779 lines / 31 files; `library/translation_monitor/` 1,056 lines; 5 systemd units; 42 of 233 test modules; ~9 data migrations; 2 web-v2 JS modules |
+| Subsystem surface | `library/localization/` 4,879 lines / 31 files; `library/translation_monitor/` 1,135 lines / 5 files (both grew later on 2026-08-26 with the DeepL strict-mode and sampler-failure work); 5 systemd units; 42 of 233 test modules; ~9 data migrations; 2 web-v2 JS modules |
 
 ---
 
@@ -135,8 +202,10 @@ Semantics, to be honoured identically everywhere:
 **Task 1.1** — Add `AUDIOBOOKS_AUDIO_TRANSLATION_LOCALES` to `lib/audiobook-config.sh` with default `""`, following the existing variable-declaration style. No hardcoded paths.
 
 **Task 1.2** — In `library/localization/config.py`, add:
+
 - `AUDIO_TRANSLATION_LOCALES: list[str]` — parsed, stripped, empty-filtered.
 - `AUDIO_TRANSLATION_ENABLED: bool` — `bool(AUDIO_TRANSLATION_LOCALES)`.
+
 Place these above the existing provider-key block. Do not alter `SUPPORTED_LOCALES`.
 
 **Task 1.3** — In `library/backend/api_modular/__init__.py::_configure_app()` (the function already setting `AUTH_ENABLED` at lines 100-106), set `flask_app.config["AUDIO_TRANSLATION_ENABLED"]` and `["AUDIO_TRANSLATION_LOCALES"]` in the same style.
@@ -226,6 +295,7 @@ Per `.claude/rules/upgrade-consistency.md`, **all eight files in the consistency
 Without this phase the default configuration becomes the untested one, which is the exact mechanism that produced `od0`.
 
 **Task 7.1** — New `library/tests/test_audio_translation_capability.py`:
+
 - capability off → all four blueprint route prefixes absent from `app.url_map`
 - capability on → all four present
 - `i18n_bp` present in **both** cases (layer 1 never gates)

@@ -664,7 +664,7 @@ grep "DEFAULT_GRACE_MINUTES" /opt/audiobooks/library/auth/models.py
 
 1. **No recipient configured** — neither `ADMIN_EMAIL` nor `SMTP_FROM` is set in `/etc/audiobooks/audiobooks.conf`. The monitor logs `operator alert suppressed for audiobook N: no ADMIN_EMAIL or SMTP_FROM configured`.
 2. **Cooldown active** — an alert for the same `audiobook_id` was already sent within the last 60 minutes; the dedup row in `translation_monitor_events` (event_type `live_age_alert_emailed`) blocks the second send. This is intentional. Wait it out, or query the table to see when the cooldown expires.
-3. **SMTP failure** — the monitor logs `Failed to send operator alert to <addr>: <err>` and the tick exits 0 anyway (so the timer keeps running). Common causes: wrong `SMTP_HOST`/`SMTP_PORT`, wrong `SMTP_USER`/`SMTP_PASS`, recipient address rejected by the relay.
+3. **Mail submission failure** — the monitor logs `Failed to send operator alert to <addr>: <err>` and the tick exits 0 anyway (so the timer keeps running). With the default relay configuration the usual causes are: no MTA listening on `127.0.0.1:25`, the relay refusing the `SMTP_FROM` envelope sender, or the recipient address being rejected. If `SMTP_USER`/`SMTP_PASS` are set, a fourth cause appears — a credentialed connection to a loopback relay that does not advertise STARTTLS raises `SMTPNotSupportedError`. The relay path is credential-less by design; clear both variables.
 
 **Verify**:
 
@@ -675,47 +675,75 @@ grep -E '^(ADMIN_EMAIL|SMTP_FROM)=' /etc/audiobooks/audiobooks.conf
 sudo -u audiobooks sqlite3 /var/lib/audiobooks/db/audiobooks.db \
   "SELECT created_at, audiobook_id, details FROM translation_monitor_events \
    WHERE event_type='live_age_alert_emailed' ORDER BY created_at DESC LIMIT 10;"
-# Confirm SMTP works (uses the same env vars as the monitor)
+# Confirm mail submission works (same env-var contract as the monitor).
+# No starttls()/login() — the default relay path is credential-less.
 sudo -u audiobooks bash -c 'set -a; source /etc/audiobooks/audiobooks.conf; \
-  python3 -c "import smtplib,os; s=smtplib.SMTP(os.environ[\"SMTP_HOST\"],int(os.environ.get(\"SMTP_PORT\",25))); s.starttls(); s.login(os.environ[\"SMTP_USER\"],os.environ[\"SMTP_PASS\"]); print(\"ok\"); s.quit()"'
+  python3 -c "
+import smtplib, os
+h = os.environ.get(\"SMTP_HOST\", \"localhost\")
+p = int(os.environ.get(\"SMTP_PORT\", 25))
+u, w = os.environ.get(\"SMTP_USER\", \"\"), os.environ.get(\"SMTP_PASS\", \"\")
+s = smtplib.SMTP(h, p)
+if u and w:
+    s.starttls(); s.login(u, w)
+print(\"submission ok\"); s.quit()"'
 ```
 
-### `protonmail-bridge` is inactive (known state — Resend is canonical SMTP)
-
-**Observed state**: `systemctl --user status protonmail-bridge` shows `inactive (dead)`.
-The service is **intentionally not running** — this is not a defect.
-
-**Background**: Protonmail Bridge wraps all outgoing mail in PGP/MIME
-(`multipart/signed; protocol="application/pgp-signature"`). Apple iCloud/mac.com
-rejects this envelope with `554 5.7.1 [CS01]`. All transactional mail from the
-application goes through **Resend** (SMTP relay at `smtp.resend.com:587`) which
-delivers via Amazon SES without the PGP wrapper.
-
-**Canonical SMTP path** (set in `/etc/audiobooks/audiobooks.conf`):
-
-```ini
-SMTP_HOST=smtp.resend.com
-SMTP_PORT=587
-SMTP_USER=resend
-SMTP_PASS=<send-only Resend API key>
-SMTP_FROM=library@thebosco.club
-```
-
-`SMTP_PASS` may instead be supplied via the `SMTP_PASS_FILE` pointer pattern, including the hardened `derive-service-secret` per-start derivation — see [EMAIL-SETUP.md](EMAIL-SETUP.md).
-
-**Protonmail Bridge status history**: Last stopped cleanly on 2026-05-06 after the
-`secret-service` (KWallet/gnome-keyring) became unavailable in the headless session
-context following a system restart. The service unit is `disabled` (not started on
-login) and will remain so unless explicitly re-enabled for local IMAP use.
-
-**If Bridge is needed for local mail** (not the application): ensure KWallet or
-gnome-keyring is running (`systemctl --user status plasma-kwalletd5`), then:
+Submission succeeding is **not** delivery. If the relay accepted the message but nothing arrived, the fault is downstream of this application — check the relay's own queue and log:
 
 ```bash
-systemctl --user start protonmail-bridge
+mailq                                          # should drain to empty
+sudo journalctl -u postfix --since '-15 min' | grep -E 'status=(sent|bounced|deferred)'
 ```
 
-**If application email fails**, check Resend credentials — Bridge is not involved.
+### Application email — where the credential is (there isn't one)
+
+**This project holds no mail credential.** All five senders submit to a local mail
+relay on `127.0.0.1:25` and let that relay own the authenticated uplink. There is
+no `SMTP_PASS` in `audiobooks.conf`, no Protonmail Bridge in the path, and nothing
+to rotate here when a provider key changes.
+
+**Canonical configuration** (`/etc/audiobooks/audiobooks.conf`):
+
+```ini
+SMTP_HOST=127.0.0.1
+SMTP_PORT=25
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=library@YOUR-DOMAIN
+```
+
+Each sender negotiates TLS and authenticates **only** when `SMTP_USER` and
+`SMTP_PASS` are both non-empty, so the empty values above mean a plain loopback
+submission — which is required, because a loopback relay does not advertise
+STARTTLS and an unconditional `starttls()` raises against it.
+
+**Where mail actually fails, and how to tell.** The application's job ends when the
+relay returns `250`. Split the diagnosis at that boundary:
+
+| Layer | Check | A failure here means |
+|---|---|---|
+| Application → relay | the submission snippet above | Wrong host/port, no MTA listening, or a credential wrongly configured |
+| Relay → provider | `mailq`, `journalctl -u postfix` | The relay's own credentials or the provider — **not** an application problem |
+
+A message sitting in `mailq` was accepted and not delivered. `smtplib` returning
+cleanly proves only the first hop.
+
+**`systemctl --user status protonmail-bridge` shows `inactive (dead)`** — that is
+irrelevant to this application. Bridge is not used by any code path here, for two
+reasons: it wraps outbound mail in PGP/MIME, which Apple iCloud/mac.com rejects
+with `554 5.7.1 [CS01]`; and it decrypts its vault through the desktop session's
+secret service, so it is down after any unattended reboot. A service that must
+send mail unattended cannot depend on it. If you want Bridge for an interactive
+desktop mail client, that is a separate concern from this application.
+
+> **Stale artifact**: `scripts/setup-email.sh` still exists in the repository and
+> configures Protonmail Bridge. It is **not installed** — `install.sh` and
+> `upgrade.sh` both skip it explicitly — and it configures a path this project no
+> longer uses. Ignore it; it is scheduled for removal.
+
+See [EMAIL-SETUP.md](EMAIL-SETUP.md) for the full configuration reference,
+including direct-to-provider setups for deployments with no local relay.
 
 ---
 
@@ -762,6 +790,6 @@ If the manual `curl` returns `{"workers":{"ready":N,...}}` with N>0 but the moni
 | Top Listened counts inflated | History row inserted on every 5 s save | Upgrade to 8.3.10.1+ |
 | Book modal off-screen on mobile | Viewport resize on modal mount | Upgrade to 8.3.10.1+ |
 | `translation-monitor-live` `start-limit-hit` | `StartLimitBurst=5` too low for 30 s cadence | Upgrade to 8.3.10.1+ |
-| Operator alert email never arrives on chapter starvation | `grep -E '^(ADMIN_EMAIL\|SMTP_FROM)=' /etc/audiobooks/audiobooks.conf` | Set `ADMIN_EMAIL` (or rely on `SMTP_FROM` fallback) and verify SMTP credentials |
-| `protonmail-bridge` inactive | `systemctl --user status protonmail-bridge` | Known state — Resend is canonical SMTP; Bridge only needed for local IMAP |
+| Operator alert email never arrives on chapter starvation | `grep -E '^(ADMIN_EMAIL\|SMTP_FROM)=' /etc/audiobooks/audiobooks.conf` | Set `ADMIN_EMAIL` (or rely on `SMTP_FROM` fallback), then check the relay queue with `mailq` — submission is not delivery |
+| `protonmail-bridge` inactive | n/a | Irrelevant to this application — no code path uses Bridge. Mail goes to the local relay on `127.0.0.1:25` |
 | Monitor logs `gpu=unhealthy` while workers serve traffic | Manual `curl /v2/<endpoint>/health` from the host | Fix egress / DNS / cert chain to `api.runpod.ai`; review `gpu_probe_failed` events |

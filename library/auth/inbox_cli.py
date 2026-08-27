@@ -156,9 +156,12 @@ def send_email_reply(to_email: str, username: str, reply_text: str) -> bool:
     smtp_pass = resolve_secret("SMTP_PASS")
     smtp_from = os.environ.get("SMTP_FROM", "noreply@localhost")
 
-    if not smtp_user:
-        print("Warning: SMTP not configured. Set SMTP_USER and SMTP_PASS environment variables.")
-        return False
+    # No credential precondition. Since the relay migration
+    # (Audiobook-Manager-9nu) submission goes to 127.0.0.1:25 with NO
+    # credential, so SMTP_USER is empty BY DESIGN — this guard used to return
+    # False before attempting anything, which is why this path sent nothing at
+    # all. A provider deployment sets SMTP_USER/SMTP_PASS and the guarded
+    # starttls()+login() below still covers it.
 
     subject = "Reply from The Library"
     body = f"""Hi {username},
@@ -178,8 +181,12 @@ This is a reply to your message to The Library.
         msg.attach(MIMEText(body, "plain"))
 
         with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
+            # TLS+AUTH only when a credential is configured. An unconditional
+            # starttls() raises SMTPNotSupportedError against the loopback relay,
+            # which does not advertise STARTTLS — and the broad `except Exception`
+            # below swallowed it, so this send reported failure silently.
             if smtp_user and smtp_pass:
+                server.starttls()
                 server.login(smtp_user, smtp_pass)
             server.sendmail(smtp_from, to_email, msg.as_string())
 

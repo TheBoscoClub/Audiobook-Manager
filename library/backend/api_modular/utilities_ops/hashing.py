@@ -120,14 +120,19 @@ def _collect_checksum_files(sources_dir, library_dir):
     rebuilt from the canonical source). See Audiobook-Manager-94p /
     Audiobook-Manager-6cx.
 
+    Source files come from ``iter_source_files`` — same tree walk, including
+    the nonexistent-directory case that used to be spelled out here
+    (Audiobook-Manager-fud; 6cx consolidated the Library walks and left the
+    Sources ones open-coded).
+
     Returns:
         Tuple of (source_files, library_files).
     """
     # Lazy import: the scanner package resolves via the project root the API
     # puts on sys.path (same pattern as collections.py's categorize_genre).
-    from scanner.utils.canonical import iter_canonical_audiobook_files
+    from scanner.utils.canonical import iter_canonical_audiobook_files, iter_source_files
 
-    source_files = list(sources_dir.rglob("*.aaxc")) if sources_dir.exists() else []
+    source_files = list(iter_source_files(sources_dir))
     library_files = list(iter_canonical_audiobook_files(library_dir, formats=[".opus"]))
     return source_files, library_files
 

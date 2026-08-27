@@ -165,17 +165,20 @@ CONFIG_CANONICAL_DEFAULTS=(
 # SINGLE CANONICAL DEFINITION SITE (Audiobook-Manager-be6): install.sh,
 # upgrade.sh, and scripts/reconcile-filesystem.sh all derive their stub
 # creation / permission reconciliation from this array — never hardcode the
-# stub names anywhere else. install.sh / upgrade.sh create empty stubs at
-# these paths so operators can populate them via
-# `echo "secret" | sudo tee <path>` and then point audiobooks.conf at the
-# file via the env var named in the fourth field (SMTP_PASS_FILE /
-# AUDIOBOOKS_DEEPL_API_KEY_FILE / AUDIOBOOKS_RUNPOD_API_KEY_FILE /
-# CLOUDFLARE_PURGE_TOKEN_FILE).
+# stub names anywhere else. The listed file is reconciled for owner/mode only
+# if it exists; absence is not drift.
+#
+# 2026-08-26 (Audiobook-Manager-ac2/nsz): this list previously held four EMPTY
+# stubs and did not hold the one real credential. All four are now obsolete —
+# mail submits credential-less to the local relay (9nu), RunPod is
+# decommissioned, the DeepL key is inline, and the Cloudflare purge token is
+# DERIVED at service start to /run/audiobooks/ by derive-service-secret rather
+# than read from this directory. Empty placeholders are worse than absent: they
+# were the entire content of the reconciler's per-deploy drift report, and a
+# credential path that exists invites someone to hand-populate it, which is the
+# rotation-drift vector ac2 exists to remove.
 # Format: <path>|<owner>:<group>|<mode>|<env-var-name>
 # ---------------------------------------------------------------------------
 OPTIONAL_CREDENTIAL_FILES=(
-    "${CONFIG_DIR}/smtp-pass|audiobooks:audiobooks|0600|SMTP_PASS_FILE"
-    "${CONFIG_DIR}/deepl-api-key|audiobooks:audiobooks|0600|AUDIOBOOKS_DEEPL_API_KEY_FILE"
-    "${CONFIG_DIR}/runpod-api-key|audiobooks:audiobooks|0600|AUDIOBOOKS_RUNPOD_API_KEY_FILE"
-    "${CONFIG_DIR}/cloudflare-purge-token|audiobooks:audiobooks|0600|CLOUDFLARE_PURGE_TOKEN_FILE"
+    "${CONFIG_DIR}/auth.key|audiobooks:audiobooks|0600|AUTH_KEY_FILE"
 )

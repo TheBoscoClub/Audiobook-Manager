@@ -15,13 +15,46 @@ Practical guide for operating and maintaining the secure remote access authentic
 |------|---------|
 | Check API status | `systemctl status audiobook-api` |
 | View recent logs | `journalctl -u audiobook-api -n 100` |
-| Check user count | `./library/tools/auth_admin.py --list-users` |
-| Create admin | `./library/tools/auth_admin.py --create-admin USERNAME` (or Back Office → USERS → Create User) |
-| Reset user auth | `./library/tools/auth_admin.py --reset-auth USERNAME` (or Back Office → USERS → Reset Credentials) |
-| Force logout user | `./library/tools/auth_admin.py --logout USERNAME` |
+| Check user count | `audiobook-user list` |
+| Create admin | `audiobook-user add USERNAME --admin` (or Back Office → USERS → Create User) |
+| Reset user TOTP | `audiobook-user totp-reset USERNAME` (or Back Office → USERS → Reset Credentials) |
+| Force logout user | `audiobook-user kick USERNAME` |
 | Backup database | `./scripts/backup-auth.sh` |
-| Check inbox | `./library/tools/inbox_cli.py --list` |
-| Send notification | `./library/tools/notify_cli.py --message "TEXT"` |
+| Check inbox | `library/auth/inbox_cli.py list` |
+| Send notification | `library/auth/notify_cli.py create "TEXT"` |
+
+> ### ⚠️ Command syntax below this table is STALE and largely fictional
+>
+> Most command examples in the rest of this runbook invoke
+> **`./library/tools/auth_admin.py`** with GNU-style flags
+> (`--list-users`, `--reset-auth`, `--disable`, `--logout-all`,
+> `--cleanup-sessions`, `--reset-all-auth`, `--add-magic-link`, `--sessions`,
+> `--info`). **`library/tools/` does not exist**, and neither does
+> `auth_admin.py` or `test_email.py`. Do not copy those lines.
+>
+> What actually exists:
+>
+> | Documented (fictional) | Real |
+> |---|---|
+> | `./library/tools/auth_admin.py` | `library/auth/cli.py`, wrapped as **`audiobook-user`** (`scripts/audiobook-user`) |
+> | `./library/tools/inbox_cli.py` | `library/auth/inbox_cli.py` |
+> | `./library/tools/notify_cli.py` | `library/auth/notify_cli.py` |
+> | `./library/tools/test_email.py` | *(nothing — see [EMAIL-SETUP.md](EMAIL-SETUP.md) for a submission smoke test)* |
+>
+> All three real tools use **subcommands, not flags**:
+>
+> - `audiobook-user` — `init`, `list`, `add <user> [--admin] [--totp|--passkey|--fido2] [--no-download]`, `delete <user> [--force] [-y]`, `grant <user>`, `revoke <user>`, `kick <user>`, `info <user>`, `totp-reset <user> [-y]`
+> - `inbox_cli.py` — `list [--all]`, `read <id>`, `reply <id> <text>`, `archive <id>`
+> - `notify_cli.py` — `list`, `create <message> [options]`, `delete <id>`
+>
+> Several documented operations have **no implementation at all**: disabling
+> without deleting, logging out all users at once, bulk auth reset, session
+> cleanup, listing a user's sessions, and adding a magic link to an existing
+> account. Treat those sections as a wish list, not a runbook.
+>
+> This gap predates the v8.4.3 documentation pass and is too large to correct
+> without deciding, per operation, whether to implement the missing command or
+> delete the procedure. It needs its own pass.
 
 ## Daily Operations
 
@@ -383,19 +416,21 @@ All self-service changes are recorded in the audit log and trigger admin email n
 
 ### Email delivery requirements
 
-Admin email alerts are sent to every admin account that has an email address set. Delivery requires valid SMTP configuration in `/etc/audiobooks/audiobooks.conf`:
+Admin email alerts are sent to every admin account that has an email address set. The default configuration submits to a local mail relay and needs **no credential** — set only the envelope sender in `/etc/audiobooks/audiobooks.conf`:
 
 ```ini
-SMTP_HOST=smtp.resend.com
-SMTP_PORT=587
-SMTP_USER=resend
-SMTP_PASS=<api-key>
+SMTP_HOST=127.0.0.1
+SMTP_PORT=25
+SMTP_USER=
+SMTP_PASS=
 SMTP_FROM=library@YOUR_DOMAIN.example
 ```
 
-If SMTP is not configured, the action still succeeds and is logged — only the email delivery is skipped (no error raised).
+The relay holds the provider credential and owns the authenticated uplink; this application holds none. TLS and AUTH are attempted only when `SMTP_USER` and `SMTP_PASS` are both non-empty, so leaving them empty is correct here — a loopback relay does not advertise STARTTLS.
 
-Instead of an inline `SMTP_PASS`, the key can live in a `SMTP_PASS_FILE` pointer file — including the hardened per-start derivation via `derive-service-secret`. See [EMAIL-SETUP.md](EMAIL-SETUP.md) ("Storing the API key in a separate file" and "Hardened setup").
+If mail is not configured at all, the action still succeeds and is logged — only the email delivery is skipped (no error raised).
+
+Deployments with no local relay can submit directly to a provider instead, which does require a credential; `SMTP_PASS` then supports the `SMTP_PASS_FILE` pointer pattern. See [EMAIL-SETUP.md](EMAIL-SETUP.md).
 
 ### Clearing the notification badge
 

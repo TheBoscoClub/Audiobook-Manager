@@ -19,6 +19,7 @@ from typing import Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from common import calculate_sha256
 
+from scanner.utils.canonical import iter_source_files
 from scanner.utils.text_normalize import normalize_freetext
 
 # =============================================================================
@@ -299,7 +300,10 @@ def _extract_asin_from_voucher(filepath: Path, sources_dir: Path) -> Optional[st
         return None
 
     try:
-        voucher_files = list(sources_dir.glob("*.voucher"))
+        # Recursive via the canonical Sources walk. The pattern diverges from
+        # ``iter_source_files``' default (``*.aaxc``) deliberately: this site
+        # wants the licence vouchers, not the originals (Audiobook-Manager-0hb).
+        voucher_files = list(iter_source_files(sources_dir, ("*.voucher",)))
     except OSError:
         return None
 
@@ -337,7 +341,10 @@ def _extract_asin_from_filename(filepath: Path, sources_dir: Path) -> Optional[s
         return None
 
     try:
-        source_files = list(sources_dir.glob("*.aaxc"))
+        # Recursive via the canonical Sources walk, default ``*.aaxc`` pattern
+        # (Audiobook-Manager-0hb). ``_ASIN_FILENAME_RE`` matches ``.name``, so
+        # a nested original matches exactly as a top-level one does.
+        source_files = list(iter_source_files(sources_dir))
     except OSError:
         return None
 

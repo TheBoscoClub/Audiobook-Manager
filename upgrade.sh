@@ -1095,6 +1095,42 @@ _enable_unit_smart() {
         return 0
     fi
 
+    # ── Operator intent (Audiobook-Manager P1, 2026-08-26) ──────────────
+    # An upgrade must not silently re-enable something the operator turned off.
+    # It used to: three independent paths (target Wants= parse, the
+    # standalone_units array, and an unconditional enable of
+    # audiobook-stream-translate) all funnelled through here and none consulted
+    # current state, so `systemctl disable` survived exactly until the next
+    # upgrade. The 6ap mitigation was reverted that way by the v8.4.2.5 deploy.
+    #
+    # `systemctl is-enabled` cannot express intent — it reports "disabled" both
+    # for a unit the operator switched off and for one that has simply never
+    # been enabled — so intent is recorded explicitly instead. Absence from the
+    # list means "no opinion", which is why newly shipped units still enable
+    # normally.
+    #
+    # The list is AUTHORITATIVE, not merely advisory: a listed unit that is
+    # currently running gets stopped and disabled. That makes the file
+    # self-applying — writing a unit into it is the whole operation.
+    local disabled_list="${CONFIG_DIR:-/etc/audiobooks}/disabled-units"
+    # Pipe form, deliberately not `grep ... <(...)`: process substitution needs
+    # /dev/fd, which is not available in every context this script runs under —
+    # and when it is missing the test simply returns false, so the guard would
+    # silently never fire. Measured: the procsub form failed to match a list
+    # entry that the pipe form matched byte-identically.
+    if [[ -f "$disabled_list" ]] \
+        && sed -e 's/#.*//' -e 's/[[:space:]]//g' "$disabled_list" | grep -qxF "$unit"; then
+        if [[ "$($use_sudo systemctl is-enabled "$unit" 2>/dev/null)" != "disabled" ]] \
+            || [[ "$($use_sudo systemctl is-active "$unit" 2>/dev/null)" == "active" ]]; then
+            $use_sudo systemctl disable --now "$unit" 2>/dev/null || true
+            echo "  Disabled per ${disabled_list}: $unit"
+        else
+            echo "  Left disabled per ${disabled_list}: $unit"
+        fi
+        return 0
+    fi
+
+
     # Extract WantedBy= from the [Install] section only.
     local wanted_by
     wanted_by=$(awk '
@@ -2530,8 +2566,21 @@ purge_cloudflare_cache() {
         source "$cf_keys_file"
     fi
 
-    if [[ -z "$CF_GLOBAL_API_KEY" || -z "$CF_AUTH_EMAIL" ]]; then
-        echo -e "${YELLOW}  Cloudflare cache purge skipped (no credentials in $cf_keys_file)${NC}"
+    # Scoped Zone > Cache Purge token. The store entry is CF_TOKEN_CACHE_PURGE;
+    # CLOUDFLARE_PURGE_TOKEN is accepted as an alias so a host configured either
+    # way works.
+    #
+    # This used to require CF_GLOBAL_API_KEY + CF_AUTH_EMAIL and send
+    # X-Auth-Key/X-Auth-Email. That Global key was revoked upstream, and this
+    # function treats failure as non-fatal — so every upgrade has been printing
+    # a soft skip/failure and purging NOTHING, for as long as the key has been
+    # dead. It also diverged from the API endpoint, which moved to the scoped
+    # token: two purge pathways, two different credentials, one of them dead.
+    # A Global key also grants full account access for an operation that needs
+    # only Zone > Cache Purge (~/.claude/rules/security.md).
+    local cf_purge_token="${CF_TOKEN_CACHE_PURGE:-${CLOUDFLARE_PURGE_TOKEN:-}}"
+    if [[ -z "$cf_purge_token" ]]; then
+        echo -e "${YELLOW}  Cloudflare cache purge skipped (no CF_TOKEN_CACHE_PURGE in $cf_keys_file)${NC}"
         return 0
     fi
 
@@ -2550,8 +2599,7 @@ purge_cloudflare_cache() {
 
     local result
     result=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
-        -H "X-Auth-Key: $CF_GLOBAL_API_KEY" \
-        -H "X-Auth-Email: $CF_AUTH_EMAIL" \
+        -H "Authorization: Bearer $cf_purge_token" \
         -H "Content-Type: application/json" \
         --data '{"purge_everything":true}')
     if echo "$result" | python3 -c "import sys,json;sys.exit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then

@@ -1,16 +1,44 @@
 # Streaming Translation Pipeline
 
 On-demand, real-time translation triggered by playback. When a user presses play
-on an untranslated audiobook, the system dispatches chapter-level work to GPU
+on an untranslated audiobook, the system dispatches **30-second segments** to GPU
 workers, buffers three minutes of translated audio, then begins playback.
-Pre-translated books serve instantly from cache.
+Pre-translated books serve instantly from cache. (Chapter-at-a-time work is the
+*batch* pipeline; streaming is segment-granular.)
+
+> ## Not operational in the reference deployment
+>
+> This pipeline requires an STT backend that the project does not provide. The
+> maintainer's RunPod account is **decommissioned** and Vast.ai was never
+> enabled, so no STT endpoint is configured. `library/localization/pipeline.py`
+> raises `RuntimeError("No STT provider configured")` when asked to transcribe.
+>
+> Everything below describes the code as written, and the code is unchanged. But
+> **as deployed, nothing is dispatched and nothing completes**. The three systemd
+> units are enabled and running; the sampler tier logs the truth every 5 minutes:
+>
+> ```text
+> SAMPLER STALE: no sampler_job has completed in N days (threshold 3).
+> The timer is running; the work is not.
+> ```
+>
+> Already-cached chapters continue to serve normally — the cache is unaffected.
+> To turn the subsystem off, see "Turning audio translation off" in
+> `docs/MULTI-LANGUAGE-SETUP.md` (note that `upgrade.sh` re-enables the units on
+> every run, so `systemctl disable` alone is not durable).
 
 ## Why Streaming Exists
 
-The library contains 1,861 audiobooks. Batch-translating all of them upfront
-(STT + DeepL + TTS for every chapter in every locale) would cost hundreds of
-dollars in GPU time. As of v8.3.0, the batch pipeline has pre-translated 327
-books (5,245 chapters). The remaining 1,534 books sit untranslated.
+Batch-translating an entire library upfront (STT + DeepL + TTS for every chapter
+in every locale) would cost hundreds of dollars in GPU time, so the pipeline is
+built to pay only for what a listener actually plays.
+
+*(Earlier revisions quoted "1,861 audiobooks / 327 pre-translated / 5,245
+chapters / 1,534 remaining" as of v8.3.0. Those are one deployment's figures at
+one point in time and have since drifted; they are omitted rather than
+maintained. Note also that a large share of existing `chapter_subtitles` rows are
+stamped `stt_provider='vastai-whisper'` — historical output from a provider whose
+client code was removed in v8.3.10.6.)*
 
 Streaming solves this by paying only for what a listener actually plays.
 
@@ -18,26 +46,40 @@ Streaming solves this by paying only for what a listener actually plays.
 
 | Pipeline | Trigger | Processing | Output |
 |----------|---------|-----------|--------|
-| **Batch** (`batch-translate.py`) | Timer + queue | Entire chapters, background | Permanent VTT + TTS audio |
+| **Batch** (`batch-translate.py`) | Operator-run + queue | Entire chapters, background | Permanent VTT + TTS audio |
 | **Streaming** (`streaming_translate.py`) | Playback | 30-second segments, real-time | Segments → consolidated VTT |
 
 Both pipelines write to the same permanent cache (`chapter_subtitles` and
 `chapter_translations_audio` tables). Once a chapter is translated by either
-pipeline, future plays are free. The system self-heals: listening patterns
-gradually fill the cache, and batch fills the rest during idle time.
+pipeline, future plays are free. By design the cache self-heals: listening
+patterns gradually fill it, and batch fills the rest.
+
+Two caveats on that design. `scripts/batch-translate.py` is **operator-run
+only** — no systemd unit or timer invokes it, so "batch fills the rest during
+idle time" describes an intent, not a mechanism. And in the reference deployment
+neither pipeline runs at all, for want of an STT backend.
 
 ## End-to-End Playback Flow
 
 ### Phase 1 — App Open (GPU Warm-Up)
 
 When the app opens and the user's locale is not English, the frontend sends
-`POST /api/translate/warmup`. This writes a hint to the database so the
-streaming worker can dispatch a priming request to the STREAMING serverless
-endpoint (RunPod). STREAMING endpoints run with `min_workers>=1`, so a worker
-is already resident; the warmup ping verifies connectivity and reduces
-first-segment latency further. See
-`docs/SERVERLESS-OPS.md` for the dual-provider D+C topology and the
-warmup-expiry (15 min) / stuck-segment-reclaim (10 min) contracts.
+`POST /api/translate/warmup`. This writes a row to `streaming_sessions`
+(`audiobook_id=0, locale='warmup'`).
+
+**Nothing consumes that row today.** `grep warmup scripts/stream-translate-worker.py`
+returns no matches, and the handler says as much itself — *"the actual GPU
+warm-up will be handled by the translation daemon when it sees this signal"*
+(`streaming_translate.py:1384-1404`). There is no such daemon. No priming
+request is dispatched and no connectivity is verified; the endpoint is a no-op
+placeholder.
+
+See `docs/SERVERLESS-OPS.md` for the streaming/backlog endpoint split and
+`docs/TRANSLATION-MONITOR.md` for the stuck-claim reset contract (live 60 s,
+sampler 2 h). Earlier revisions of this section referenced a "dual-provider D+C
+topology", a 15-minute warmup expiry, and a 10-minute worker reclaim — Vast.ai
+was removed in v8.3.10.6, and neither of those two timers exists anywhere in the
+code.
 
 ### Phase 2 — Press Play
 
@@ -66,15 +108,22 @@ The frontend state machine transitions from `IDLE` to `BUFFERING`:
 
 The coordinator simultaneously:
 
-- Creates `streaming_segments` rows for the **cursor buffer fill** — the first
-  six 30-second segments (≈3 minutes) forward of the cursor, queued at **P0**
-- Creates rows for the remainder of the current chapter at **P1** (forward
-  chase toward end-of-chapter / next logical break)
+- Creates `streaming_segments` rows for the **entire active chapter** at **P0**
+- Creates rows for the **entire next chapter** at **P1** (prefetch)
 - Each row represents one 30-second segment:
   `(audiobook_id, chapter_index, segment_index, locale, state='pending')`
 
-See [Priority Model](#priority-model-cursor-centric-four-tiers-since-v838) below for the full 3-tier
-semantics.
+Both calls go through `_ensure_chapter_segments(...)`, whose contract is
+*"ensure segment rows exist for the entire chapter at the requested priority"*
+(`streaming_translate.py:475-476, 1062-1069`).
+
+**The six-segment cursor window is a seek-time construct, not a press-play one.**
+`BUFFER_AHEAD_SEGMENTS = 6` (≈3 minutes) is applied only in `handle_seek_impl`
+(`:837-857`). On press-play the whole chapter is queued and the worker's claim
+order determines what actually gets translated first.
+
+See [Priority Model](#priority-model-cursor-centric-four-tiers-since-v838) below
+for the full four-tier semantics.
 
 ### Phase 4 — GPU Worker Processing
 
@@ -82,7 +131,8 @@ semantics.
 order and processes each segment:
 
 ```text
-1. Atomically claim next pending segment (ORDER BY priority, chapter, segment)
+1. Atomically claim next pending segment
+   (ORDER BY priority, active-chapter-first, chapter, segment)
 2. ffmpeg stream-copy → extract 30-second audio slice from the chapter
 3. STT (faster-whisper on GPU) → raw English transcript
 4. Translation (DeepL API) → translated text
@@ -131,7 +181,12 @@ queued at **P1** (forward chase); the gap between the prior translated tail
 and the new cursor is queued at **P2** (back-fill) so the side panel and any
 future backward scrub stay continuous.
 
-**On stop**: all pending segments are downgraded to **P2**. Back-fill
+**On stop**: every `state='pending'` row for (book, locale) is **DELETEd**
+(`stop_streaming_impl`, `streaming_translate.py:862-881`). Segments already in
+`processing` are left alone — the worker finishes them and the segment-complete
+callback lands normally. Pre-v8.3.2 this demoted pending rows instead, but the
+worker drained p0/p1 and then chewed through the demoted rows, so Stop never
+really stopped. Resume re-creates rows from scratch. Historical note — back-fill
 preserves work for future resume and side-panel completeness rather than
 discarding the queue.
 
@@ -141,7 +196,7 @@ When all segments of a chapter complete, `_consolidate_chapter()`:
 
 1. Reads VTT content from all segment rows
 2. Strips duplicate `WEBVTT` headers, merges into a single file
-3. Writes to `subtitles/{audiobook_id}/ch{N}.{locale}.vtt`
+3. Writes to `${AUDIOBOOKS_VAR_DIR}/streaming-subtitles/{audiobook_id}/ch{NNN}.{locale}.vtt` (chapter index zero-padded to 3 digits, under the runtime var root — the install tree is read-only under `ProtectSystem=strict`)
 4. Inserts into `chapter_subtitles` — the same permanent cache used by batch
 
 After consolidation, the chapter is indistinguishable from a batch-translated
@@ -242,7 +297,10 @@ Priority levels (lower = higher urgency):
          cost. See docs/SAMPLER.md. ENFORCED by DB trigger: an INSERT or
          UPDATE that would place an origin='sampler' row at priority<2
          is ABORTed by the engine.
-  3  P3 — back-fill and all other bulk work. Produces segments between
+  3  P3 — RESERVED, NOT IMPLEMENTED. No code path writes priority 3, and
+     no row in production carries it. Back-fill currently shares priority 2
+     with the sampler and is distinguished only by `origin`. Described here
+     as the intended shape. Would produce segments between
          prior translated tail and the cursor; runs after everything
          above is satisfied so the side panel and future backward-scrubbing
          have continuous context.
@@ -251,16 +309,23 @@ Per the trigger + invariant: live playback of the currently-playing book
 always preempts sampler work on any other book. The sampler can never
 pull a GPU slot away from a listener who's actively listening.
 
-On seek-beyond-buffer: existing pending live segments downgraded to P3;
+On seek-beyond-buffer: existing pending live segments are downgraded to
+**P2** (not P3 — `handle_seek_impl:838-843` writes 2);
 six segments forward of the new cursor promoted/inserted at P0;
 end-of-chapter remainder queued at P1; gap between prior tail and new
 cursor queued at P3.
 
-On stop: all pending live segments downgraded to P3 (back-fill preserves
+On stop: all pending live segments are DELETEd, not demoted (see above).
+Historical note — back-fill preserves
 work for future resume / side-panel completeness).
 ```
 
-Worker claim order — `ORDER BY priority, chapter, segment` — is unchanged;
+Worker claim order is `ORDER BY s.priority ASC, CASE WHEN
+sess.active_chapter IS NOT NULL AND s.chapter_index = sess.active_chapter THEN 0
+ELSE 1 END, s.chapter_index ASC, s.segment_index ASC`
+(`scripts/stream-translate-worker.py:336-341`) — an active-chapter tiebreaker was
+added so a P0 row in chapter N+1 wins once the player crosses into N+1. The
+priority-first shape is otherwise unchanged;
 the tier set expanded in v8.3.8 to give the sampler its own protected slot.
 
 ### How the sampler interacts with this model
@@ -335,7 +400,7 @@ Batch-side stuck rows are reset to `pending` by the API reconcile loop.
 
 | File | Purpose |
 |------|---------|
-| `library/backend/api_modular/streaming_translate.py` | Coordinator API (7 endpoints) |
+| `library/backend/api_modular/streaming_translate.py` | Coordinator API (14 endpoints) |
 | `library/web-v2/js/streaming-translate.js` | Frontend state machine |
 | `library/web-v2/css/shell.css` | Buffering overlay styles |
 | `library/web-v2/shell.html` | Overlay markup |
@@ -346,7 +411,7 @@ Batch-side stuck rows are reset to `pending` by the API reconcile loop.
 | `library/localization/pipeline.py` | Shared STT → translate → VTT pipeline (`_remote_stt_candidates` dispatches STREAMING vs BACKLOG) |
 | `library/web-v2/audio/translation-buffering-*.mp3` | Localized notification clips |
 
-## Database Schema (Migration 004)
+## Database Schema (Migration 003)
 
 ```sql
 CREATE TABLE streaming_sessions (
@@ -368,7 +433,7 @@ CREATE TABLE streaming_segments (
     segment_index       INTEGER NOT NULL,
     locale              TEXT NOT NULL,
     state               TEXT DEFAULT 'pending',  -- pending, processing, completed, failed
-    priority            INTEGER DEFAULT 1,       -- 0=P0 cursor buffer, 1=P1 forward chase, 2=P2 back-fill
+    priority            INTEGER NOT NULL DEFAULT 2, -- 0=P0 cursor buffer, 1=P1 forward chase, 2=P2 sampler/back-fill
     worker_id           TEXT,
     vtt_content         TEXT,                    -- translated-locale VTT for completed segments
     source_vtt_content  TEXT,                    -- source-language (English) VTT (v8.3.2+)
@@ -380,10 +445,17 @@ CREATE TABLE streaming_segments (
 );
 ```
 
-Schema evolved across 8.3.2 data-migrations (`003_streaming_segments.sh`,
-`006_streaming_source_vtt.sh`, `007_streaming_retry_count.sh`); all are
-idempotent (`PRAGMA table_info` guards) and boundary-gated via `MIN_VERSION`,
-so cross-version upgrades populate only the columns that are missing.
+Schema evolved across several data-migrations — `003_streaming_segments.sh`
+(`MIN_VERSION=8.3.0`, creates both tables), `005_streaming_audio_webm.sh`,
+`006_streaming_source_vtt.sh`, `007_streaming_retry_count.sh`, and
+`008_streaming_origin_and_sampler.sh` (`MIN_VERSION=8.3.8`, adds the `origin`
+column, the `sampler_jobs` table, and the two `RAISE(ABORT)` priority triggers).
+All are idempotent (`PRAGMA table_info` guards) and boundary-gated via
+`MIN_VERSION`, so cross-version upgrades populate only what is missing.
+
+The SQL above is abridged — it omits `origin`, `error`, `created_at`, the
+foreign keys, the three indexes, the `sampler_jobs` table, and the priority
+triggers. Read the migration scripts for the authoritative schema.
 
 ## In-flight VTT Stitching (v8.3.7+)
 
@@ -396,7 +468,7 @@ subtitle list the moment the first segment lands.
   in `chapter_subtitles` and (b) a deduped `(chapter_index, locale)` index
   built from `streaming_segments`. Polling from `subtitles.js` discovers
   live-streaming tracks without waiting for end-of-chapter consolidation.
-- **`/api/audiobooks/<id>/subtitle/<chapter>/<locale>`** falls through to a
+- **`/api/audiobooks/<id>/subtitles/<chapter>/<locale>`** falls through to a
   stitched VTT built from `streaming_segments` when no cached file exists
   on disk (or a row exists in `chapter_subtitles` but its file is missing).
   Stitching strips per-segment `WEBVTT` headers and emits a single
@@ -421,7 +493,7 @@ every first-open of an untranslated zh-Hans book rendered stale
 `translation_queue` rows that had been failing since the legacy worker
 stopped draining months ago. The canonical progress surface for
 non-en locales is now the streaming overlay
-(`library/web-v2/js/streaming-overlay.js`); completed legacy rows still
+(implemented inside `library/web-v2/js/streaming-translate.js`, with markup at `shell.html`'s `#streaming-overlay` — there is no `streaming-overlay.js` file); completed legacy rows still
 pass through unchanged (legitimate VTT-on-disk cases). `'en'` locale is
 exempt — STT failures for English are real, not stale.
 

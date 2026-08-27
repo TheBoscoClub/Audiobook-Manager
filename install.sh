@@ -1596,21 +1596,20 @@ EOF
         echo "  Auth key file already exists"
     fi
 
-    # Create Cloudflare CDN cache purge token file (placeholder)
-    local cf_token_file="${CONFIG_DIR}/cloudflare-api-token"
-    if [[ ! -f "$cf_token_file" ]]; then
-        echo "  Creating Cloudflare token placeholder..."
-        sudo tee "$cf_token_file" >/dev/null <<'CFEOF'
-# Cloudflare credentials for CDN cache purge
-# Used by audiobook-api service (POST /api/system/purge-cache)
-# Fill in your credentials to enable CDN cache purging from the web UI.
-#CF_GLOBAL_API_KEY=your-global-api-key
-#CF_AUTH_EMAIL=your-cloudflare-email
-CFEOF
-        sudo chown audiobooks:audiobooks "$cf_token_file"
-        sudo chmod 640 "$cf_token_file"
-        echo "  Created: $cf_token_file (edit to enable CDN cache purge)"
-    fi
+    # NOTE (Audiobook-Manager-ac2, 2026-08-26): install no longer creates a
+    # Cloudflare credential placeholder. It used to plant
+    # ${CONFIG_DIR}/cloudflare-api-token pre-filled with commented
+    # CF_GLOBAL_API_KEY / CF_AUTH_EMAIL lines — i.e. it invited the operator to
+    # store a GLOBAL API KEY, which grants full account access, for an endpoint
+    # that needs only Zone > Cache Purge. ~/.claude/rules/security.md is explicit
+    # that a service-readable credential must be the narrowest one that does the
+    # job. A hand-populated file is also the rotation-drift vector ac2 exists to
+    # close: /etc/audiobooks/cloudflare-api-token held a stale pre-rotation
+    # Global key for months (Audiobook-Manager-e7x).
+    #
+    # The supported path is a scoped token derived at service start by
+    # derive-service-secret into /run/audiobooks/cloudflare-purge-token, which
+    # is regenerated every start and therefore cannot drift.
 
     # Create empty stub credential files for the *_FILE pointer pattern.
     # Operators can populate via:
@@ -1957,6 +1956,19 @@ EOF
             local unit="$1"
             local unit_file="${SYSTEMD_DIR}/${unit}"
             [[ ! -f "$unit_file" ]] && return 0
+
+            # Operator intent — see the long comment in upgrade.sh. A fresh
+            # install normally has no list, so this is a no-op; it matters when
+            # re-running install.sh over an existing deployment.
+            local disabled_list="${CONFIG_DIR:-/etc/audiobooks}/disabled-units"
+            # Pipe form, not process substitution — see upgrade.sh for why.
+            if [[ -f "$disabled_list" ]] \
+                && sed -e 's/#.*//' -e 's/[[:space:]]//g' "$disabled_list" | grep -qxF "$unit"; then
+                sudo systemctl disable --now "$unit" 2>/dev/null || true
+                echo "  Left disabled per ${disabled_list}: $unit"
+                return 0
+            fi
+
             local wanted_by
             wanted_by=$(awk '
                 /^\[Install\]/ { in_install = 1; next }

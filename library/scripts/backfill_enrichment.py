@@ -26,6 +26,8 @@ from pathlib import Path
 # Ensure the library directory is on the path for scripts.enrichment imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from scanner.utils.canonical import iter_source_files
+
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", datefmt="%H:%M:%S"
 )
@@ -132,7 +134,10 @@ def phase1_asin_recovery(db_path: Path, sources_dir: Path, dry_run: bool = False
         title_map.setdefault(key, []).append(book["id"])
 
     recovered = 0
-    for voucher_path in sources_dir.glob("*.voucher"):
+    # Recursive via the canonical Sources walk. The pattern diverges from
+    # ``iter_source_files``' default (``*.aaxc``) deliberately: Phase 1 reads
+    # licence vouchers, not the originals (Audiobook-Manager-0hb).
+    for voucher_path in iter_source_files(sources_dir, ("*.voucher",)):
         asin, title_normalized = _voucher_asin_and_title(voucher_path)
         if not asin:
             continue

@@ -14,6 +14,8 @@ from pathlib import Path
 
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from scanner.utils.canonical import iter_source_files
+
 from config import AUDIOBOOKS_SOURCES, DATABASE_PATH
 
 # Paths - use config
@@ -48,8 +50,10 @@ def find_source_file(_book_title, book_path):
     """
     book_basename = Path(book_path).stem
 
-    # Look for AAXC files
-    aaxc_files = list(SOURCES_DIR.glob("*.aaxc"))
+    # Look for AAXC files — recursive via the canonical Sources walk, default
+    # ``*.aaxc`` pattern (Audiobook-Manager-0hb). Matching is on ``.stem``, so a
+    # nested original matches exactly as a top-level one does.
+    aaxc_files = list(iter_source_files(SOURCES_DIR))
 
     if not aaxc_files:
         return None

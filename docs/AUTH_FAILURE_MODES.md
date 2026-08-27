@@ -259,19 +259,32 @@ sudo systemctl restart systemd-timesyncd
 **Recovery:**
 
 ```bash
-# Check SMTP configuration
-grep SMTP /etc/audiobooks/audiobooks.conf
+# Check mail configuration (KEY names only — do not paste values anywhere)
+grep -E '^(SMTP_HOST|SMTP_PORT|SMTP_USER|SMTP_FROM)=' /etc/audiobooks/audiobooks.conf
 
-# Test email delivery
-./library/tools/test_email.py test@example.com
+# Test submission to the local relay (credential-less by default)
+sudo -u audiobooks python3 -c '
+import smtplib
+from email.message import EmailMessage
+m = EmailMessage(); m["Subject"]="test"; m["From"]="library@YOUR-DOMAIN"
+m["To"]="test@example.com"; m.set_content("test")
+with smtplib.SMTP("127.0.0.1", 25) as s: s.send_message(m)
+print("submitted")'
 
-# View email logs
+# Submission is not delivery — confirm the relay handed it off
+mailq
+sudo journalctl -u postfix --since '-15 min' | grep -E 'status=(sent|bounced|deferred)'
+
+# View application-side email logs
 journalctl -u audiobook-api | grep -i "email\|smtp\|magic"
-
-# Workaround: admin generates magic link manually
-./library/tools/auth_admin.py --generate-magic-link USERNAME
-# Gives URL to share with user directly
 ```
+
+> **Note**: `./library/tools/test_email.py` and `./library/tools/auth_admin.py`
+> appear in older revisions of this document. **`library/tools/` does not exist.**
+> The real user-management CLI is `library/auth/cli.py`, wrapped as
+> `audiobook-user`, and it uses subcommands rather than flags — it has no
+> `--generate-magic-link`. See the warning box in
+> [AUTH_RUNBOOK.md](AUTH_RUNBOOK.md) for the full mapping.
 
 ## Network/Proxy Failures
 

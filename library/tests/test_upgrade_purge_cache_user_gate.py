@@ -77,14 +77,28 @@ def test_purge_is_inline_curl_not_script_delegation():
 def test_purge_skips_gracefully_when_credentials_missing():
     """Missing Cloudflare credentials must short-circuit with a non-fatal return 0."""
     body = _read_purge_function()
-    assert '-z "$CF_GLOBAL_API_KEY"' in body and '-z "$CF_AUTH_EMAIL"' in body, (
-        "purge_cloudflare_cache must guard on empty CF_GLOBAL_API_KEY / CF_AUTH_EMAIL"
+    # Assert the BEHAVIOUR (guard on an empty credential, log a skip, return 0),
+    # not the credential's name. This assertion previously required the literal
+    # "no credentials" and broke when the function migrated off the revoked
+    # Global API Key to the scoped Zone > Cache Purge token in v8.4.3 — a test
+    # that pins wording obstructs the very migration it should be protecting.
+    assert "cache purge skipped" in body.lower(), (
+        "purge_cloudflare_cache must log a skip message when the credential is missing"
     )
-    assert "no credentials" in body, (
-        "purge_cloudflare_cache must log a skip message when credentials are missing"
+    assert "-z " in body, (
+        "purge_cloudflare_cache must guard on an empty credential before calling the API"
     )
     assert "return 0" in body, (
-        "purge_cloudflare_cache must return 0 (non-fatal) on the missing-credentials path"
+        "purge_cloudflare_cache must return 0 (non-fatal) on the missing-credential path"
+    )
+    # And it must NOT have regressed to the full-account Global API Key.
+    # Strip shell comments first: the migration DOCUMENTS itself by naming the
+    # header it removed, and asserting on raw text flags that explanation.
+    # (Third guard today to catch its own comment — literal-minded is correct,
+    # it just has to read code rather than prose.)
+    code = "\n".join(ln.split("#", 1)[0] for ln in body.splitlines())
+    assert "X-Auth-Key" not in code, (
+        "purge_cloudflare_cache must use the scoped Bearer token, not a Global API Key"
     )
 
 

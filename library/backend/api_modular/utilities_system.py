@@ -569,72 +569,21 @@ def _scan_single_project(base_dir: str, name: str, seen_paths: set[str]) -> dict
     return {"name": name, "path": proj_path, "version": version}
 
 
-def _load_cf_credentials_from_file(token_file: str) -> tuple[str | None, str | None]:
-    """Read Cloudflare API key and email from token file."""
-    api_key = None
-    auth_email = None
-    if not os.path.isfile(token_file):
-        return api_key, auth_email
-    try:
-        with open(token_file) as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("#") or "=" not in line:
-                    continue
-                key, _, val = line.partition("=")
-                key = key.strip()
-                val = val.strip().strip("'\"")
-                if key == "CF_GLOBAL_API_KEY":
-                    api_key = val
-                elif key == "CF_AUTH_EMAIL":
-                    auth_email = val
-    except (PermissionError, OSError):  # fmt: skip
-        pass
-    return api_key, auth_email
-
-
-def _resolve_cf_credentials() -> tuple[str | None, str | None]:
-    """Resolve Cloudflare credentials from file then environment."""
-    token_file = os.environ.get("CF_TOKEN_FILE", "/etc/audiobooks/cloudflare-api-token")
-    api_key, auth_email = _load_cf_credentials_from_file(token_file)
-
-    # Fall back to env vars
-    if not api_key:
-        api_key = os.environ.get("CF_GLOBAL_API_KEY")
-    if not auth_email:
-        auth_email = os.environ.get("CF_AUTH_EMAIL")
-
-    return api_key, auth_email
-
-
 def _resolve_cf_auth_headers() -> dict[str, str] | None:
     """Resolve Cloudflare authentication headers for the purge request.
 
-    Prefers a scoped API token (``Authorization: Bearer``) over the legacy
-    Global API Key. The token is resolved through the shared secret resolver,
-    so either ``CLOUDFLARE_PURGE_TOKEN`` or a ``CLOUDFLARE_PURGE_TOKEN_FILE``
-    pointer works.
-
-    The Global API Key path is retained only so installations predating the
-    token migration keep working; it grants full account access and should be
-    replaced with a token scoped to Zone > Cache Purge.
+    The only supported credential is an API token scoped to Zone > Cache
+    Purge. It resolves through the shared secret resolver, so either
+    ``CLOUDFLARE_PURGE_TOKEN`` or a ``CLOUDFLARE_PURGE_TOKEN_FILE`` pointer
+    works, and it is sent as an ``Authorization: Bearer`` header.
 
     Returns:
-        A header mapping, or ``None`` when no usable credential is configured.
+        A header mapping, or ``None`` when no token is configured.
     """
     token = resolve_secret("CLOUDFLARE_PURGE_TOKEN")
-    if token:
-        return {"Authorization": f"Bearer {token}"}
-
-    api_key, auth_email = _resolve_cf_credentials()
-    if api_key and auth_email:
-        logger.warning(
-            "Cloudflare purge is using the legacy Global API Key. This grants full "
-            "account access; migrate to CLOUDFLARE_PURGE_TOKEN (Zone > Cache Purge)."
-        )
-        return {"X-Auth-Key": api_key, "X-Auth-Email": auth_email}
-
-    return None
+    if not token:
+        return None
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _execute_cf_purge(zone_id: str, auth_headers: dict[str, str]) -> FlaskResponse:
@@ -1013,15 +962,11 @@ def list_projects() -> FlaskResponse:
 def purge_cdn_cache() -> FlaskResponse:
     """Purge Cloudflare CDN cache for the application domain.
 
-    Credential resolution, in order:
-
-    1. ``CLOUDFLARE_PURGE_TOKEN`` (or a ``CLOUDFLARE_PURGE_TOKEN_FILE``
-       pointer) — a token scoped to Zone > Cache Purge, sent as a Bearer
-       token. This is the supported configuration.
-    2. Legacy ``CF_GLOBAL_API_KEY`` + ``CF_AUTH_EMAIL``, read from
-       ``CF_TOKEN_FILE`` (default ``/etc/audiobooks/cloudflare-api-token``)
-       or the environment. Deprecated — the Global API Key grants full
-       account access and is far broader than this endpoint requires.
+    Requires ``CF_ZONE_ID`` plus ``CLOUDFLARE_PURGE_TOKEN`` (or a
+    ``CLOUDFLARE_PURGE_TOKEN_FILE`` pointer) — a token scoped to
+    Zone > Cache Purge, sent as an ``Authorization: Bearer`` header. That
+    is the only credential this endpoint accepts; a broader account-wide
+    credential is never required to purge a zone cache.
     """
     zone_id = os.environ.get("CF_ZONE_ID", "")
     if not zone_id:

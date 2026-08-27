@@ -696,6 +696,207 @@ class TestFindMissingMain:
         assert (temp_dir / "out.txt").exists()
 
 
+class TestRemedyClassification:
+    """Audiobook-Manager-aw9: findings are split by REMEDY, not filtered out.
+
+    The report detects every zero-byte file — source media AND derived
+    artifacts. What changed is that each row says which of two *different*
+    actions fixes it. These tests pin both halves: the counts must not shrink
+    (detection is unreduced) and each file must land in the right bucket.
+    """
+
+    @staticmethod
+    def _build_mixed_tree(temp_dir):
+        """Synthetic tree with one zero-byte file of each kind.
+
+        Returns the AUDIOBOOK_DIR to scan. Contains:
+          - a zero-byte SOURCE book            -> re-download
+          - a zero-byte translated/ artifact   -> regenerate
+          - a zero-byte cover-art sidecar      -> regenerate
+          - a healthy book (must not be found at all)
+        """
+        library_dir = temp_dir / "Library"
+        book_dir = library_dir / "Some Book"
+        translated_dir = book_dir / "translated"
+        translated_dir.mkdir(parents=True)
+
+        (book_dir / "Some Book.m4b").write_bytes(b"")
+        (translated_dir / "Some Book.ch001.zh-Hans.opus").write_bytes(b"")
+        (book_dir / "Some Book.cover.opus").write_bytes(b"")
+        (book_dir / "Healthy Book.opus").write_bytes(b"real audio bytes")
+
+        return temp_dir
+
+    def test_detection_is_not_reduced(self, temp_dir, monkeypatch):
+        """All three damaged files are still reported — the healthy one is not.
+
+        This is the guard on the operator decision: splitting the report must
+        never become an excuse to stop detecting derived artifacts.
+        """
+        monkeypatch.setattr(
+            "scanner.find_missing_audiobooks.AUDIOBOOK_DIR",
+            self._build_mixed_tree(temp_dir),
+        )
+
+        from scanner.find_missing_audiobooks import find_corrupted_files
+
+        result = find_corrupted_files()
+
+        assert len(result) == 3, f"detection shrank: {[r['filename'] for r in result]}"
+        assert {r["filename"] for r in result} == {
+            "Some Book.m4b",
+            "Some Book.ch001.zh-Hans.opus",
+            "Some Book.cover.opus",
+        }
+
+    def test_each_file_lands_in_the_correct_remedy_bucket(self, temp_dir, monkeypatch):
+        """Source media -> re-download; translated/ and cover art -> regenerate."""
+        monkeypatch.setattr(
+            "scanner.find_missing_audiobooks.AUDIOBOOK_DIR",
+            self._build_mixed_tree(temp_dir),
+        )
+
+        from scanner.find_missing_audiobooks import (
+            REMEDY_REDOWNLOAD,
+            REMEDY_REGENERATE,
+            find_corrupted_files,
+        )
+
+        by_name = {r["filename"]: r["remedy"] for r in find_corrupted_files()}
+
+        assert by_name["Some Book.m4b"] == REMEDY_REDOWNLOAD
+        assert by_name["Some Book.ch001.zh-Hans.opus"] == REMEDY_REGENERATE
+        assert by_name["Some Book.cover.opus"] == REMEDY_REGENERATE
+
+    def test_remedy_bucket_counts(self, temp_dir, monkeypatch):
+        """One re-download, two regenerate — totalling every detected file."""
+        monkeypatch.setattr(
+            "scanner.find_missing_audiobooks.AUDIOBOOK_DIR",
+            self._build_mixed_tree(temp_dir),
+        )
+
+        from scanner.find_missing_audiobooks import (
+            REMEDY_REDOWNLOAD,
+            REMEDY_REGENERATE,
+            _group_by_remedy,
+            find_corrupted_files,
+        )
+
+        corrupted = find_corrupted_files()
+        by_remedy = _group_by_remedy(corrupted)
+
+        assert len(by_remedy[REMEDY_REDOWNLOAD]) == 1
+        assert len(by_remedy[REMEDY_REGENERATE]) == 2
+        assert sum(len(v) for v in by_remedy.values()) == len(corrupted)
+
+    def test_stray_aaxc_in_library_is_redownload(self, temp_dir, monkeypatch):
+        """A zero-byte ``.aaxc`` original is source media, not a derived artifact."""
+        library_dir = temp_dir / "Library" / "Some Book"
+        library_dir.mkdir(parents=True)
+        (library_dir / "Some Book.aaxc").write_bytes(b"")
+
+        monkeypatch.setattr("scanner.find_missing_audiobooks.AUDIOBOOK_DIR", temp_dir)
+
+        from scanner.find_missing_audiobooks import REMEDY_REDOWNLOAD, find_corrupted_files
+
+        result = find_corrupted_files()
+
+        assert len(result) == 1
+        assert result[0]["remedy"] == REMEDY_REDOWNLOAD
+
+    def test_book_titled_translated_is_not_misclassified(self, temp_dir, monkeypatch):
+        """Only a directory NAMED ``translated`` marks an artifact as derived.
+
+        Inherited from ``canonical.is_canonical_audiobook_file`` — asserted
+        here so a future substring-match regression fails in this report too.
+        """
+        book_dir = temp_dir / "Library" / "The Translated Soldier"
+        book_dir.mkdir(parents=True)
+        (book_dir / "The Translated Soldier.m4b").write_bytes(b"")
+
+        monkeypatch.setattr("scanner.find_missing_audiobooks.AUDIOBOOK_DIR", temp_dir)
+
+        from scanner.find_missing_audiobooks import REMEDY_REDOWNLOAD, find_corrupted_files
+
+        result = find_corrupted_files()
+
+        assert len(result) == 1
+        assert result[0]["remedy"] == REMEDY_REDOWNLOAD
+
+
+class TestRemedyReportOutput:
+    """The remedy split has to reach the operator, not just the data structure."""
+
+    def test_csv_has_remedy_column_and_keeps_consumer_columns(self, temp_dir, monkeypatch):
+        """``remedy`` is APPENDED — the columns create_priority_list.py reads survive."""
+        library_dir = temp_dir / "Library" / "Some Book"
+        translated_dir = library_dir / "translated"
+        translated_dir.mkdir(parents=True)
+        (library_dir / "Some Book.m4b").write_bytes(b"")
+        (translated_dir / "Some Book.ch001.zh-Hans.opus").write_bytes(b"")
+
+        out_csv = temp_dir / "out.csv"
+        monkeypatch.setattr("scanner.find_missing_audiobooks.AUDIOBOOK_DIR", temp_dir)
+        monkeypatch.setattr("scanner.find_missing_audiobooks.OUTPUT_CSV", out_csv)
+        monkeypatch.setattr("scanner.find_missing_audiobooks.OUTPUT_TXT", temp_dir / "out.txt")
+        monkeypatch.chdir(temp_dir)
+
+        from scanner.find_missing_audiobooks import main
+
+        main()
+
+        with open(out_csv, newline="", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            fieldnames = list(reader.fieldnames or [])
+            rows = list(reader)
+
+        # Existing consumer columns unchanged, in their original order.
+        assert fieldnames[:5] == ["title", "filename", "directory", "extension", "path"]
+        assert fieldnames[5] == "remedy"
+
+        remedies = {r["filename"]: r["remedy"] for r in rows}
+        assert remedies["Some Book.m4b"] == "re-download"
+        assert remedies["Some Book.ch001.zh-Hans.opus"] == "regenerate"
+
+    def test_text_report_separates_the_two_remedies(self, temp_dir, monkeypatch, capsys):
+        """The txt report no longer tells the operator to re-download an artifact."""
+        library_dir = temp_dir / "Library" / "Some Book"
+        translated_dir = library_dir / "translated"
+        translated_dir.mkdir(parents=True)
+        (library_dir / "Some Book.m4b").write_bytes(b"")
+        (translated_dir / "Some Book.ch001.zh-Hans.opus").write_bytes(b"")
+
+        out_txt = temp_dir / "out.txt"
+        monkeypatch.setattr("scanner.find_missing_audiobooks.AUDIOBOOK_DIR", temp_dir)
+        monkeypatch.setattr("scanner.find_missing_audiobooks.OUTPUT_CSV", temp_dir / "out.csv")
+        monkeypatch.setattr("scanner.find_missing_audiobooks.OUTPUT_TXT", out_txt)
+        monkeypatch.chdir(temp_dir)
+
+        from scanner.find_missing_audiobooks import main
+
+        main()
+
+        content = out_txt.read_text()
+        redownload_at = content.index("RE-DOWNLOAD —")
+        regenerate_at = content.index("REGENERATE —")
+        assert redownload_at < regenerate_at
+
+        # Each file appears in its own section, not the other one.
+        redownload_section = content[redownload_at:regenerate_at]
+        regenerate_section = content[regenerate_at:]
+        assert "Some Book.m4b" in redownload_section
+        assert "Some Book.ch001.zh-Hans.opus" not in redownload_section
+        assert "Some Book.ch001.zh-Hans.opus" in regenerate_section
+
+        # The Audible instructions are scoped to the section they apply to.
+        assert "Log in to your Audible account" in redownload_section
+        assert "Log in to your Audible account" not in regenerate_section
+
+        # Console output surfaces the split too.
+        captured = capsys.readouterr()
+        assert "Breakdown by remedy:" in captured.out
+
+
 # =============================================================================
 # Tests for create_priority_list.py
 # =============================================================================

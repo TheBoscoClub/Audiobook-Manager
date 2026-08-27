@@ -200,6 +200,18 @@ def _count_opus_files(directory: Path) -> int:
     return sum(1 for _ in iter_canonical_audiobook_files(directory, formats=[".opus"]))
 
 
+def _count_source_files(sources_dir: Path) -> int:
+    """Count ``.aaxc`` originals in the Sources tree.
+
+    Delegates to ``scanner.utils.canonical.iter_source_files`` — the single
+    definition of the Sources walk, including the nonexistent-directory case
+    (Audiobook-Manager-fud).
+    """
+    from scanner.utils.canonical import iter_source_files
+
+    return sum(1 for _ in iter_source_files(sources_dir))
+
+
 def _get_remaining_count(sources_dir: Path, aaxc_count: int, total_converted: int) -> int:
     """Get remaining conversion count from queue file or arithmetic fallback."""
     queue_file = sources_dir.parent / ".index" / "queue.txt"
@@ -238,7 +250,7 @@ def _build_conversion_response(
     sources_dir: Path, staging_dir: Path, library_dir: Path
 ) -> FlaskResponse:
     """Build the full conversion status response payload."""
-    aaxc_count = len(list(sources_dir.rglob("*.aaxc"))) if sources_dir.exists() else 0
+    aaxc_count = _count_source_files(sources_dir)
     staged_count = _count_opus_files(staging_dir)
     library_count = _count_opus_files(library_dir)
     total_converted = library_count + staged_count

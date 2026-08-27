@@ -730,15 +730,32 @@ class TestSendAdminAlert:
         finally:
             patcher.stop()
 
-    def test_smtp_not_configured_skips(self, auth_app):
-        """When SMTP_USER is empty, should skip and return False."""
-        env = _email_env()
-        env["SMTP_USER"] = ""
-        with auth_app.test_request_context(), patch.dict(os.environ, env):
-            from backend.api_modular.auth import _send_admin_alert
+    def test_sends_without_a_credential(self, auth_app):
+        """An empty SMTP_USER is the NORMAL relay case — it must still send.
 
-            result = _send_admin_alert("eve", "test message")
-            assert result is False
+        This previously asserted `result is False`, pinning a precondition that
+        returned before attempting anything. After the relay migration
+        (Audiobook-Manager-9nu) SMTP_USER is empty BY DESIGN, so the admin was
+        never alerted to a contact message — and `_send_admin_alert` did not
+        even log. Note it also kept passing after the fix, for the WRONG reason:
+        with no SMTP mock the conftest firewall raises, the broad
+        `except Exception` swallows it, and False comes back anyway. Hence the
+        explicit mock here.
+        """
+        patcher, _mock_smtp, mock_server = _smtp_mock()
+        try:
+            env = _email_env()
+            env["SMTP_USER"] = ""
+            with auth_app.test_request_context(), patch.dict(os.environ, env):
+                from backend.api_modular.auth import _send_admin_alert
+
+                result = _send_admin_alert("eve", "test message")
+                assert result is True
+                mock_server.sendmail.assert_called_once()
+                mock_server.starttls.assert_not_called()
+                mock_server.login.assert_not_called()
+        finally:
+            patcher.stop()
 
     def test_smtp_error_returns_false(self, auth_app):
         """SMTP failure should return False."""

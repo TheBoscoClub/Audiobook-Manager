@@ -13,6 +13,7 @@ A comprehensive guide for adding multi-language support to your Audiobook Manage
   - [Serverless Whisper STT (RunPod)](#serverless-whisper-stt-runpod)
   - [Optional RunPod XTTS endpoint](#optional-runpod-xtts-endpoint)
   - [Local GPU (Optional)](#local-gpu-optional)
+- [Turning audio translation off](#turning-audio-translation-off)
 - [Configuration Reference](#configuration-reference)
 - [Adding a New Language](#adding-a-new-language)
 - [Cost and Time Investment](#cost-and-time-investment)
@@ -25,13 +26,33 @@ A comprehensive guide for adding multi-language support to your Audiobook Manage
 
 ## Overview and Scope
 
-Audiobook Manager (v8.3.7) includes a full localization system that translates both the web interface and audiobook content itself. The system currently ships with English (`en`) and Simplified Chinese (`zh-Hans`), but the architecture supports adding more locales without code changes.
+Audiobook Manager (v8.4.3) includes a full localization system that translates both the web interface and audiobook content itself. The system currently ships with English (`en`) and Simplified Chinese (`zh-Hans`), but the architecture supports adding more locales without code changes.
+
+> ### Status: text translation is live; audio translation needs an STT backend you must supply
+>
+> The two halves of this system have very different operational status, and the difference matters before you follow any of the setup below.
+>
+> | Half | Providers | Status |
+> |---|---|---|
+> | **Text** — UI strings, book metadata, announcements | DeepL | **Live and supported.** Runs on the DeepL API Free tier. |
+> | **Audio** — subtitles (VTT), translated narration | Whisper STT + edge-tts / XTTS | **Requires an STT backend that this project does not provide.** |
+>
+> The maintainer's RunPod account is **decommissioned**, and the Vast.ai path was never enabled. Neither serverless STT provider is available in the reference deployment, and neither is exercised end-to-end any more. The audio-translation code, tests, systemd units, and configuration all remain in the tree and are unchanged — but with no STT endpoint configured, no transcription can complete, so no subtitles and no translated narration will ever be produced.
+>
+> **What you will observe with no STT backend configured**: `audiobook-stream-translate.service` starts and idles; the sampler and live translation-monitor timers keep firing; and from v8.4.3 the sampler logs an explicit staleness alert rather than looking healthy:
+>
+> ```text
+> SAMPLER STALE: no sampler_job has completed in N days (threshold 3).
+> The timer is running; the work is not.
+> ```
+>
+> That message is the intended behaviour of an unconfigured install, not a bug — see [Turning audio translation off](#turning-audio-translation-off).
 
 ### What Is Translated
 
 | Category | Examples | Mechanism |
 |----------|----------|-----------|
-| UI text | Navigation, buttons, labels, headings | Locale JSON files (1,038 keys per language) |
+| UI text | Navigation, buttons, labels, headings | Locale JSON files (1,093 keys per language) |
 | Tooltips | All interactive elements | Locale JSON files |
 | Book descriptions | Synopses, author bios, series info | DeepL API (neural machine translation) |
 | Announcement banners | Admin-authored notices shown to patrons | DeepL API |
@@ -55,7 +76,7 @@ Audiobook Manager (v8.3.7) includes a full localization system that translates b
 | Locale Code | Language | Status |
 |-------------|----------|--------|
 | `en` | English | Default, complete |
-| `zh-Hans` | Simplified Chinese | Complete (1,038 UI keys + book metadata + CJK search/sort) |
+| `zh-Hans` | Simplified Chinese | Complete (1,093 UI keys + book metadata + CJK search/sort) |
 
 The architecture supports any BCP 47 locale code. Adding a new language requires no code changes -- only a locale file and configuration.
 
@@ -88,7 +109,7 @@ Translated Audio + VTT Subtitles
 
 ### Pipeline Components
 
-The localization module lives in `library/localization/` (~3,900 lines of Python across 32 files) and is organized into subpackages:
+The localization module lives in `library/localization/` (~4,900 lines of Python across 31 files) and is organized into subpackages:
 
 | Subpackage | Purpose |
 |------------|---------|
@@ -119,6 +140,17 @@ The workload-aware selection system (`library/localization/selection.py`) distin
 - Quota tracking to stay within API limits
 - Glossary support for domain-specific terms (proper nouns, series names)
 - Batch processing to minimize API calls
+- Translation memory — the `string_translations` table is consulted before every call, so repeats cost no quota
+
+**Failure is announced, never silent.** When DeepL cannot be reached or refuses a request, `translate()` sets `self.degraded` and counts the affected strings in `self.degraded_texts`, and logs at error level. Callers that **persist** the result must pass `strict=True`, which raises `TranslationUnavailableError` instead of returning the English source:
+
+| Caller | Mode | Why |
+|---|---|---|
+| `localization/pipeline.py` (both VTT writers) | `strict=True` | Result is written to a `.{locale}.vtt` file on disk |
+| `localization/metadata/lookup.py` | `strict=True` | Result is returned as `BookMetadata` and stored |
+| Everything else | default (non-strict) | Transient English pass-through is recoverable; check `.degraded` |
+
+The reason for the split is recoverability: an English string silently stored as though it were a Chinese translation is indistinguishable from a real one afterwards, so nothing downstream can ever repair it. A raised exception leaves the artifact unwritten and the job retryable.
 
 ### TTS Providers (Text-to-Speech)
 
@@ -139,14 +171,26 @@ If the remote provider (RunPod) is unreachable, the system automatically falls b
 
 DeepL handles all text translation (UI strings, book metadata, subtitle text).
 
-1. **Sign up** at [deepl.com/pro](https://www.deepl.com/pro) and obtain an API authentication key.
+1. **Sign up** at [deepl.com/pro/change-plan#developer](https://www.deepl.com/pro/change-plan#developer) and obtain an API authentication key.
 
 2. **Choose a plan**:
 
-   | Plan | Character Limit | Cost | Notes |
-   |------|----------------|------|-------|
-   | Free | 500,000 chars/month | $0 | Sufficient for most single-library installations |
-   | Pro | Unlimited (pay-per-use) | ~$20/million chars | Required for large libraries or continuous translation |
+   | Plan | Character Limit | Cost | Key format | API host |
+   |------|----------------|------|-----------|----------|
+   | **API Free** | 500,000 chars/month | $0 | ends in `:fx` | `https://api-free.deepl.com/v2` |
+   | API Pro | Unlimited (pay-per-use) | ~$20/million chars | no suffix | `https://api.deepl.com/v2` |
+
+   **The two tiers are served by different hosts, and a key works on one host only.** A valid Free key sent to `api.deepl.com` gets `403 Forbidden` — the same status a revoked key gets. The two are indistinguishable unless you read the response body, so a mis-hosted key looks exactly like a dead one.
+
+   You do not have to configure the host. `DeepLTranslator.__init__` selects it from the key itself (`library/localization/translation/deepl_translate.py`):
+
+   ```python
+   self._base_url = DEEPL_FREE_API_URL if api_key.endswith(":fx") else DEEPL_API_URL
+   ```
+
+   Paste the key exactly as DeepL issues it — **including the `:fx` suffix**. Stripping it silently routes a Free key at the Pro host and every translation fails with 403.
+
+   > This project's own deployment runs on the **API Free** tier: a 500,000 character/month budget. `QuotaTracker` accounts every call against that budget and raises `QuotaExceededError` on a hard-limit breach. Translation-memory hits (the `string_translations` table) are served from the DB and do **not** bill against it.
 
 3. **Configure the API key**:
 
@@ -159,9 +203,20 @@ DeepL handles all text translation (UI strings, book metadata, subtitle text).
 
 4. **Verify**: The localization pipeline will automatically use DeepL when the key is present. No additional configuration is needed.
 
+   To confirm the key reaches the right host, check your usage endpoint — a `403` here means the key and host disagree, not necessarily that the key is dead:
+
+   ```bash
+   # Free key (ends in :fx)
+   curl -sS -H "Authorization: DeepL-Auth-Key $KEY" https://api-free.deepl.com/v2/usage
+   # Pro key (no suffix)
+   curl -sS -H "Authorization: DeepL-Auth-Key $KEY" https://api.deepl.com/v2/usage
+   ```
+
 **Note**: DeepL also offers an STT service, but it is NOT recommended for audiobooks because it rejects audio files larger than 100 MB. Most audiobook chapters exceed this limit.
 
 ### Serverless Whisper STT (RunPod)
+
+> **Not in use in the reference deployment.** The maintainer's RunPod account is decommissioned and no endpoints exist. The client code, config variables, and tests below all remain in the tree and are unchanged, but this path is **no longer exercised end-to-end by the maintainer** — treat the instructions as a starting point to verify yourself, not as a tested recipe. Vast.ai is likewise not enabled and has no resources provisioned.
 
 STT runs through serverless Whisper endpoints on RunPod. Endpoints scale to zero automatically, so idle cost on cold pools is $0. For the full operator reference, see `docs/SERVERLESS-OPS.md`.
 
@@ -202,8 +257,10 @@ AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT=your-xtts-endpoint-id
 
 ### Local GPU (Optional)
 
-If your host machine has a GPU that is **known-good for sustained AI inference**, you can run Whisper locally instead of (or in addition to) the remote provider. The project's default and only maintainer-tested path is remote GPU (RunPod serverless) — local GPU is an opt-in option and the safety of it depends entirely on your hardware class.
+If your host machine has a GPU that is **known-good for sustained AI inference**, you can run Whisper locally instead of (or in addition to) a remote provider.
 
+> **No STT path is currently maintainer-tested.** Remote GPU (RunPod serverless) was historically the only path tested end-to-end; that account is now decommissioned, so as of v8.4.3 neither the remote nor the local path is being exercised by the maintainer. Local GPU remains opt-in, and its safety depends entirely on your hardware class — read the cautionary tale below before enabling it.
+>
 > ⚠️ **Hardware compatibility matters. Not all GPUs are safe for AI workloads.**
 
 #### Hardware compatibility matrix
@@ -255,6 +312,73 @@ The maintainer **does not have and cannot afford** a GPU that is known-good for 
    - Useful as a testing and development tool; for full-library translation, remote providers are the maintainer-tested path
 
 ---
+
+## Turning audio translation off
+
+If you want text translation (DeepL) but not audio translation, leave every STT
+and TTS variable unset and record your intent in `/etc/audiobooks/disabled-units`:
+
+```bash
+sudo tee -a /etc/audiobooks/disabled-units >/dev/null <<'EOF'
+audiobook-stream-translate.service
+audiobook-translation-monitor-live.timer
+audiobook-translation-monitor-sampler.timer
+EOF
+```
+
+That file is all you need — the next `install.sh` or `upgrade.sh` run disables
+and stops anything named in it. To apply it immediately without waiting for an
+upgrade, disable the units by hand as well:
+
+```bash
+sudo systemctl disable --now audiobook-stream-translate.service
+sudo systemctl disable --now audiobook-translation-monitor-live.timer
+sudo systemctl disable --now audiobook-translation-monitor-sampler.timer
+```
+
+This is safe. `audiobook.target` declares all three with `Wants=`, not
+`Requires=` (see `systemd/audiobook.target`), so a disabled or failed unit
+cannot prevent the target — or any other service — from starting. Text
+translation, the library, the player, and the API are unaffected.
+
+### The `disabled-units` file
+
+One unit name per line. Blank lines and `#` comments are ignored, and inline
+comments and surrounding whitespace are fine:
+
+```text
+# Audio translation — no STT backend since the RunPod decommission
+audiobook-stream-translate.service
+audiobook-translation-monitor-live.timer     # 30s live tier
+audiobook-translation-monitor-sampler.timer  # 5min sampler tier
+```
+
+Two properties worth knowing:
+
+- **Absence means "no opinion", not "enable".** Units you never mention behave
+  exactly as before, so a unit shipped by a future release still gets enabled
+  normally on upgrade. This is why the file lists what to keep off rather than
+  what to turn on.
+- **The list is authoritative, not advisory.** A listed unit that is currently
+  running is stopped and disabled, so writing a name into the file *is* the
+  operation. Removing the name and upgrading turns the unit back on.
+
+> ### Before v8.4.3, `systemctl disable` did not survive an upgrade
+>
+> `upgrade.sh` re-enabled these units every run, from three separate places —
+> the `Wants=` parse of the installed `audiobook.target`, a `standalone_units`
+> array, and an unconditional "belt-and-suspenders" enable **and start** of
+> `audiobook-stream-translate.service`. `install.sh` did the same.
+>
+> An operator-side `systemctl disable` therefore survived only until the next
+> upgrade and was then silently reverted, with the timers firing again as though
+> nothing had happened. This is not hypothetical: the v8.4.2.5 deploy re-enabled
+> and restarted all three units on the reference deployment, undoing a
+> deliberate mitigation that had been in place since 2026-08-26.
+>
+> `systemctl is-enabled` cannot express intent — it reports `disabled` both for a
+> unit the operator switched off and for one that has simply never been enabled —
+> which is why intent is recorded in a file instead of inferred from unit state.
 
 ## Configuration Reference
 
@@ -332,7 +456,7 @@ For example, to add Japanese:
 cp library/locales/en.json library/locales/ja.json
 ```
 
-The locale file contains 1,038 keys organized by UI section. Each key maps to a translated string:
+The locale file contains 1,093 keys organized by UI section. Each key maps to a translated string:
 
 ```json
 {

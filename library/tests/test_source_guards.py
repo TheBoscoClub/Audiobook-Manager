@@ -18,6 +18,21 @@ the normal tooling, so the tooling cannot be the thing that catches it.
    `testadmin` account were committed as default values in
    `library/tests/`. This repository is public. See
    `tests/helpers/vm_credentials.py`.
+
+3. **Bare `rglob` tree walks** — file discovery over the Library tree used to
+   be re-implemented at nine call sites, each carrying its own idea of what to
+   include. That is a by-vigilance pattern, and it failed twice in production:
+   Audiobook-Manager-94p (one collector missed the `translated/`
+   chapter-artifact exclusion, inflating the Conversion Progress card from
+   1,867 books to 5,829) and Audiobook-Manager-2sw (the same artifacts
+   surfacing in the grouped-library API). Fixing each site individually left
+   the class alive — the tenth collector would reproduce it. The rules now
+   live in `scanner/utils/canonical.py`, whose iterators apply them by
+   default; this guard makes writing a new bare `rglob` a deliberate,
+   reviewable act (add an allowlist entry with a reason) instead of the path
+   of least resistance. See Audiobook-Manager-6cx (which introduced the
+   iterator) and Audiobook-Manager-fud (the remaining call sites, and this
+   guard).
 """
 
 from __future__ import annotations
@@ -203,3 +218,284 @@ def test_totp_seed_guard_detects_a_seed():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# ── 3. Bare rglob tree walks ───────────────────────────────────────────
+
+# Every `<expr>.rglob(...)` in non-test source, keyed by
+# (path relative to PROJECT_ROOT, the receiver expression as source text),
+# mapped to how many times it legitimately appears. Counting — rather than
+# just listing the file — is what stops a NEW walk from hiding inside a file
+# that already has a sanctioned one.
+#
+# Adding an entry here is the escape hatch, and it is meant to be used when
+# the walk genuinely is not a Library-tree collection. Justify each one.
+ALLOWED_RGLOB_SITES: dict[tuple[str, str], int] = {
+    # The canonical iterators themselves. `iter_library_files` is the single
+    # definition of the Library walk (cover-art + `translated/` exclusions on
+    # by default); `iter_source_files` is the single definition of the
+    # Sources walk. This is the home the other sites were migrated to.
+    ("library/scanner/utils/canonical.py", "library_dir"): 1,
+    ("library/scanner/utils/canonical.py", "sources_dir"): 1,
+    # Conversion staging (AUDIOBOOKS_STAGING), not the Library. The task
+    # deletes *every* leftover file and then reaps the emptied directories,
+    # so "walk everything, exclude nothing" is the specification rather than
+    # an oversight — routing it through the canonical iterator would invite
+    # someone to switch the exclusions on and silently strand files there.
+    # Two calls: one over files, one over directories in reverse order.
+    ("library/backend/api_modular/maintenance_tasks/cleanup.py", "staging"): 2,
+    # A per-import temporary directory holding an unpacked Google Play ZIP
+    # (`tempfile.mkdtemp(prefix="gplay_")`), walked before anything has been
+    # ingested. Not a library root, and its pattern list is deliberately
+    # different — case variants and `.aac`, matching what that vendor ships.
+    ("library/scripts/google_play_processor.py", "directory"): 1,
+}
+
+
+def _rglob_sites(path: Path) -> list[tuple[str, int]]:
+    """Return (receiver-expression, lineno) for every `X.rglob(...)` call."""
+    try:
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+    except (SyntaxError, UnicodeDecodeError, OSError):  # fmt: skip
+        return []
+    return [
+        (ast.unparse(node.func.value), node.lineno)
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "rglob"
+    ]
+
+
+def _collect_rglob_sites() -> dict[tuple[str, str], list[int]]:
+    sites: dict[tuple[str, str], list[int]] = {}
+    for path in _iter_python_files(include_tests=False):
+        rel = str(path.relative_to(PROJECT_ROOT))
+        for receiver, lineno in _rglob_sites(path):
+            sites.setdefault((rel, receiver), []).append(lineno)
+    return sites
+
+
+def test_no_unallowlisted_rglob_outside_the_canonical_iterator():
+    """A new tree walk must go through `scanner.utils.canonical`.
+
+    The canonical iterators apply the Library exclusions by default, so a
+    collector written against them is correct without its author having to
+    know the rules. A bare `rglob` opts out of that silently — this makes it
+    fail loudly instead.
+    """
+    sites = _collect_rglob_sites()
+    assert sites, "scanner found no rglob calls at all — the guard is broken"
+
+    offenders: list[str] = []
+    for key, linenos in sorted(sites.items()):
+        rel, receiver = key
+        allowed = ALLOWED_RGLOB_SITES.get(key, 0)
+        if len(linenos) > allowed:
+            where = ", ".join(f"line {n}" for n in linenos)
+            offenders.append(
+                f"{rel}: {receiver}.rglob(...) x{len(linenos)} ({where}) — allowed {allowed}"
+            )
+
+    assert not offenders, (
+        "Bare rglob tree walk(s) outside scanner/utils/canonical.py. Use "
+        "`iter_library_files` / `iter_canonical_audiobook_files` for the "
+        "Library tree or `iter_source_files` for Sources — they carry the "
+        "cover-art and `translated/` exclusions that were re-derived (and "
+        "once forgotten) at every call site. If this walk really is over a "
+        "different tree, add it to ALLOWED_RGLOB_SITES with a reason:\n" + "\n".join(offenders)
+    )
+
+
+def test_rglob_allowlist_has_no_stale_entries():
+    """An allowlist entry that no longer matches real code is dead weight.
+
+    Without this, deleting a walk leaves its exemption behind, and the
+    exemption silently pre-authorises the next one written in the same file
+    against the same variable name.
+    """
+    sites = _collect_rglob_sites()
+    stale = [
+        f"{rel}: {receiver} (allowlisted {count}, found {len(sites.get((rel, receiver), []))})"
+        for (rel, receiver), count in sorted(ALLOWED_RGLOB_SITES.items())
+        if len(sites.get((rel, receiver), [])) != count
+    ]
+    assert not stale, "Stale ALLOWED_RGLOB_SITES entries — remove them:\n" + "\n".join(stale)
+
+
+def test_rglob_guard_detects_a_new_bare_walk(tmp_path):
+    """Meta-test: the detector must actually fire on a fresh violation."""
+    sample = tmp_path / "collector.py"
+    sample.write_text(
+        'def collect(library_root):\n    return [p for p in library_root.rglob("*.opus")]\n'
+    )
+    sites = _rglob_sites(sample)
+    assert sites == [("library_root", 2)], sites
+    assert ("collector.py", "library_root") not in ALLOWED_RGLOB_SITES
+
+
+def test_rglob_guard_ignores_the_canonical_iterator_calls(tmp_path):
+    """Meta-test: no false positives on the sanctioned form."""
+    sample = tmp_path / "consumer.py"
+    sample.write_text(
+        "from scanner.utils.canonical import iter_library_files\n"
+        "def collect(root):\n"
+        '    return list(iter_library_files(root, ("*.opus",)))\n'
+    )
+    assert _rglob_sites(sample) == []
+
+
+# ── 4. Unconditional STARTTLS on a mail send ───────────────────────────
+#
+# Since the relay migration (Audiobook-Manager-9nu) the project submits to
+# 127.0.0.1:25 with no credential. That relay does NOT advertise STARTTLS, so a
+# bare `server.starttls()` raises SMTPNotSupportedError. Every send site wraps
+# itself in a broad `except Exception` that logs only the exception CLASS and
+# returns False, and at least one caller (auth.py:881) discards that False — so
+# the failure is invisible end to end and the user is shown success.
+#
+# Three sites shipped that way and went unnoticed through a release
+# (auth_email.py `_send_admin_alert` and `_send_reply_email`, inbox_cli.py's
+# operator reply): admin contact alerts, admin replies, and `audiobook-inbox
+# reply` all silently sent nothing. They were found by an audit, not by a test,
+# and the earlier verification that "missed" them counted `starttls()` calls
+# against guard occurrences and got equal totals — equal counts prove nothing
+# about PAIRING. This guard checks pairing.
+#
+# The rule: starttls() must sit INSIDE `if smtp_user and smtp_pass:` (or the
+# `user and password` spelling), because TLS+AUTH only make sense when there is
+# a credential to protect.
+
+_MAIL_SEND_FILES = (
+    "library/backend/api_modular/auth_email.py",
+    "library/auth/inbox_cli.py",
+    "library/auth/audit.py",
+    "library/translation_monitor/notify.py",
+    "scripts/email-report.py",
+)
+
+_CREDENTIAL_GUARD = re.compile(r"if\s+(smtp_user\s+and\s+smtp_pass|user\s+and\s+password)\s*:")
+
+
+def _unguarded_starttls(text: str) -> list[int]:
+    """Return 1-indexed line numbers of starttls() calls with no credential guard.
+
+    A guard counts when it appears within the preceding 5 lines and is indented
+    LESS than the starttls() call — i.e. starttls() is inside its block.
+    """
+    lines = text.splitlines()
+    bad: list[int] = []
+    for i, line in enumerate(lines):
+        # Strip trailing comments before looking for the call. The fix for the
+        # original bug DOCUMENTS itself with the word starttls() in a comment,
+        # and an earlier cut of this guard flagged its own explanation as an
+        # offence. (A "#" inside a string literal would also cut here; no mail
+        # sender has one, and a false NEGATIVE is impossible — only a missed
+        # detection on a line that is already suspicious enough to inspect.)
+        code = line.split("#", 1)[0]
+        if "starttls()" not in code:
+            continue
+        indent = len(line) - len(line.lstrip())
+        guarded = False
+        for j in range(max(0, i - 5), i):
+            prev = lines[j]
+            if _CREDENTIAL_GUARD.search(prev) and (len(prev) - len(prev.lstrip())) < indent:
+                guarded = True
+                break
+        if not guarded:
+            bad.append(i + 1)
+    return bad
+
+
+def test_no_unconditional_starttls_on_any_mail_send():
+    offenders = []
+    for rel in _MAIL_SEND_FILES:
+        path = PROJECT_ROOT / rel
+        if not path.is_file():
+            continue
+        for lineno in _unguarded_starttls(path.read_text(encoding="utf-8")):
+            offenders.append(f"{rel}:{lineno}")
+    assert not offenders, (
+        "starttls() outside `if smtp_user and smtp_pass:` — this RAISES against the "
+        "credential-less local relay and the surrounding `except Exception` swallows "
+        f"it, so the send fails silently: {offenders}"
+    )
+
+
+def test_starttls_guard_detects_an_unguarded_call(tmp_path):
+    sample = tmp_path / "sender.py"
+    sample.write_text(
+        "with smtplib.SMTP(h, p) as server:\n"
+        "    server.starttls()\n"
+        "    if smtp_user and smtp_pass:\n"
+        "        server.login(smtp_user, smtp_pass)\n",
+        encoding="utf-8",
+    )
+    assert _unguarded_starttls(sample.read_text()) == [2]
+
+
+def test_starttls_guard_accepts_a_properly_guarded_call(tmp_path):
+    sample = tmp_path / "sender.py"
+    sample.write_text(
+        "with smtplib.SMTP(h, p) as server:\n"
+        "    if smtp_user and smtp_pass:\n"
+        "        server.starttls()\n"
+        "        server.login(smtp_user, smtp_pass)\n",
+        encoding="utf-8",
+    )
+    assert _unguarded_starttls(sample.read_text()) == []
+
+
+# ── 5. Operator-intent guard on unit enablement ────────────────────────
+#
+# upgrade.sh force-enabled units from three independent paths and consulted no
+# state, so `systemctl disable` survived only until the next upgrade. The v8.4.2.5
+# deploy silently re-enabled and restarted all three translation units, reverting
+# a deliberate operator mitigation (Audiobook-Manager-6ap).
+#
+# The fix records intent in ${CONFIG_DIR}/disabled-units and honours it in
+# _enable_unit_smart. install.sh carries a deliberately duplicated copy of that
+# helper (it bootstraps before any shared shell library exists on the target),
+# and the two are documented as MUST stay in sync — so drift is the failure mode
+# these tests exist to catch.
+#
+# The process-substitution assertion is not stylistic. The first cut used
+# `grep -qxF "$unit" <(sed ... )`, which needs /dev/fd; where that is
+# unavailable the test simply evaluates false and the guard NEVER FIRES while
+# looking correct. Measured: the procsub form failed to match a list entry the
+# pipe form matched byte-identically.
+
+_ENABLE_HELPER_FILES = ("upgrade.sh", "install.sh")
+
+
+def _enable_helper_bodies() -> dict[str, str]:
+    bodies: dict[str, str] = {}
+    for rel in _ENABLE_HELPER_FILES:
+        text = (PROJECT_ROOT / rel).read_text(encoding="utf-8")
+        idx = text.find("_enable_unit_smart()")
+        assert idx != -1, f"{rel} no longer defines _enable_unit_smart"
+        bodies[rel] = text[idx : idx + 4000]
+    return bodies
+
+
+def test_both_enable_helpers_honour_operator_intent():
+    for rel, body in _enable_helper_bodies().items():
+        assert "disabled-units" in body, (
+            f"{rel}::_enable_unit_smart does not consult the operator-intent list — "
+            "an upgrade would silently re-enable units the operator turned off"
+        )
+
+
+def test_enable_helpers_do_not_use_process_substitution_for_the_check():
+    for rel, body in _enable_helper_bodies().items():
+        window = body[: body.find("disabled-units") + 600]
+        # Strip shell comments first: the fix DOCUMENTS itself by naming the
+        # rejected `<(...)` form, and an earlier cut of this guard flagged its
+        # own explanation. (Second time today a literal-minded guard caught its
+        # own comment — that is the guard working, not misfiring.)
+        code = "\n".join(ln.split("#", 1)[0] for ln in window.splitlines())
+        assert "<(" not in code, (
+            f"{rel}::_enable_unit_smart uses process substitution near the "
+            "operator-intent check. That needs /dev/fd; where it is unavailable the "
+            "condition evaluates false and the guard silently never fires. Use a pipe."
+        )

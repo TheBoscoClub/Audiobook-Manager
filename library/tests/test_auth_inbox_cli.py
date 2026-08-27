@@ -399,14 +399,31 @@ class TestSendEmailReply:
 
         assert result is True
 
-    def test_send_email_no_smtp_user(self, capsys):
+    @patch("auth.inbox_cli.smtplib.SMTP")
+    def test_send_email_without_credential_still_sends(self, mock_smtp_cls):
+        """An empty SMTP_USER is the NORMAL relay case — it must still send.
+
+        This test previously asserted the opposite (result is False, "SMTP not
+        configured" printed), pinning a precondition written for the old
+        credentialed transport. After the relay migration
+        (Audiobook-Manager-9nu) SMTP_USER is empty BY DESIGN, so that guard
+        returned before attempting anything and `audiobook-inbox reply` silently
+        sent nothing. A test that encodes a bug protects it; this one now
+        encodes the requirement.
+        """
         from auth.inbox_cli import send_email_reply
 
-        with patch.dict("os.environ", {"SMTP_USER": ""}, clear=False):
+        server = MagicMock()
+        mock_smtp_cls.return_value.__enter__ = MagicMock(return_value=server)
+        mock_smtp_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        with patch.dict("os.environ", {"SMTP_USER": "", "SMTP_HOST": "127.0.0.1"}, clear=False):
             result = send_email_reply("alice@example.com", "alice", "Hello!")
 
-        assert result is False
-        assert "SMTP not configured" in capsys.readouterr().out
+        assert result is True
+        server.sendmail.assert_called_once()
+        server.starttls.assert_not_called()
+        server.login.assert_not_called()
 
     @patch("auth.inbox_cli.smtplib.SMTP")
     def test_send_email_smtp_error(self, mock_smtp_cls, capsys):

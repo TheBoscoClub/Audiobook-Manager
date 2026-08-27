@@ -13,6 +13,8 @@ from pathlib import Path
 
 # Add parent directories to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+from scanner.utils.canonical import iter_library_files
+
 from config import AUDIOBOOKS_LIBRARY, DATABASE_PATH
 
 
@@ -32,8 +34,16 @@ def main():
     print(f"Backfilling ASINs into database: {DATABASE_PATH}")
     print(f"Scanning library: {AUDIOBOOKS_LIBRARY}")
 
-    # Find all chapters.json files
-    chapters_files = list(AUDIOBOOKS_LIBRARY.rglob("chapters.json"))
+    # Find all chapters.json files. Walked via the canonical library iterator
+    # (Audiobook-Manager-fud) so this collector cannot drift from its siblings.
+    # Both canonicality exclusions are left at their safe defaults: a
+    # cover-art sidecar is never named chapters.json, and the downloader only
+    # ever writes chapters.json beside the book itself — `translated/` holds
+    # generated per-chapter opus and nothing else (see
+    # api_modular/translated_audio.py, which creates it as
+    # `audio_file_path.parent / "translated"`). So the filtering is a no-op on
+    # today's tree and a guard if that ever changes.
+    chapters_files = list(iter_library_files(AUDIOBOOKS_LIBRARY, ("chapters.json",)))
     print(f"Found {len(chapters_files)} chapters.json files")
 
     # Build mapping: directory -> ASIN

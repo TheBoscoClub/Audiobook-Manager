@@ -156,6 +156,16 @@ _reconcile_config() {
 # If the file exists, verify owner/group and mode match; log warning on drift.
 # If the file does not exist, no warning — optional by design.
 # ---------------------------------------------------------------------------
+# Normalise a mode string so the manifest's spelling and stat's agree.
+# `stat -c %a` prints 600; the manifest declares 0600. Those are the SAME mode,
+# but a string compare never matches — so the drift could never clear and chmod
+# re-ran on every single pass, printing four identical warnings per deploy
+# (Audiobook-Manager-nsz). A check that always fires trains the operator to skim
+# the drift section, which is exactly where a real permission regression would
+# appear. Round-tripping through octal converges both spellings and preserves
+# setgid/sticky bits (2770 -> 2770).
+_norm_mode() { printf '%04o' "$((8#${1}))"; }
+
 _reconcile_optional_credentials() {
     [[ "${#OPTIONAL_CREDENTIAL_FILES[@]}" -eq 0 ]] && return 0
     local entry path owner mode _envvar current_owner current_mode
@@ -172,7 +182,7 @@ _reconcile_optional_credentials() {
                 $USE_SUDO chown "$owner" "$path" 2>/dev/null && _fix "chown $owner $path"
             fi
         fi
-        if [[ "$current_mode" != "$mode" ]]; then
+        if [[ "$(_norm_mode "$current_mode")" != "$(_norm_mode "$mode")" ]]; then
             _issue "credential file mode drift: $path (want $mode, got $current_mode)"
             if _should_act; then
                 $USE_SUDO chmod "$mode" "$path" 2>/dev/null && _fix "chmod $mode $path"

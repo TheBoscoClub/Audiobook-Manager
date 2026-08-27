@@ -1,14 +1,40 @@
 # 流式翻译管道
 
 按需实时翻译，由播放触发。当用户按下播放键收听未翻译的有声书时，系统会将
-章节级任务分发给 GPU 工作节点，缓冲三分钟的翻译音频，然后开始播放。已预翻译
-的书籍从缓存中即时加载。
+**30 秒分段**分发给 GPU 工作节点，缓冲三分钟的翻译音频，然后开始播放。已预翻译
+的书籍从缓存中即时加载。（整章处理属于**批量**管道；流式管道以分段为粒度。）
+
+> ## 参考部署中未启用
+>
+> 本管道需要一个本项目并不提供的 STT 后端。维护者的 RunPod 账户已**停用**，
+> Vast.ai 从未启用过，因此没有配置任何 STT 端点。
+> `library/localization/pipeline.py` 在被要求转录时会抛出
+> `RuntimeError("No STT provider configured")`。
+>
+> 下文描述的是代码的实际写法，代码本身未变。但**在当前部署下，不会分发任何
+> 任务，也不会完成任何工作**。三个 systemd 单元处于启用并运行状态；
+> 试听层每 5 分钟如实记录一次：
+>
+> ```text
+> SAMPLER STALE: no sampler_job has completed in N days (threshold 3).
+> The timer is running; the work is not.
+> ```
+>
+> 已缓存的章节仍可正常播放 —— 缓存不受影响。如需关闭该子系统，请参见
+> `docs/MULTI-LANGUAGE-SETUP.md` 中的"Turning audio translation off"
+> （注意 `upgrade.sh` 每次运行都会重新启用这些单元，因此仅执行
+> `systemctl disable` 并不持久）。
 
 ## 为什么需要流式翻译
 
-音频库包含 1,861 本有声书。预先批量翻译所有书籍（每个章节的 STT + DeepL +
-TTS，每种语言）将花费数百美元的 GPU 费用。截至 v8.3.0，批量管道已预翻译
-327 本书（5,245 个章节）。其余 1,534 本书尚未翻译。
+预先批量翻译整个音频库（每个章节的 STT + DeepL + TTS，每种语言）将花费数百
+美元的 GPU 费用，因此本管道的设计目标是：只为用户实际收听的内容付费。
+
+*（早期版本引用了 v8.3.0 时的数字："1,861 本有声书 / 已预翻译 327 本 /
+5,245 个章节 / 剩余 1,534 本"。那是单一部署在某一时间点的数据，此后已经漂移，
+因此不再维护而予以删除。另请注意，现存 `chapter_subtitles` 记录中有相当一部分
+标记为 `stt_provider='vastai-whisper'` —— 这是某个已在 v8.3.10.6 中移除其客户端
+代码的服务商留下的历史输出。）*
 
 流式翻译的解决方案是：只为用户实际收听的内容付费。
 
@@ -16,23 +42,34 @@ TTS，每种语言）将花费数百美元的 GPU 费用。截至 v8.3.0，批�
 
 | 管道 | 触发方式 | 处理方式 | 输出 |
 |------|---------|---------|------|
-| **批量** (`batch-translate.py`) | 定时器 + 队列 | 整章处理，后台运行 | 永久 VTT + TTS 音频 |
+| **批量** (`batch-translate.py`) | 操作员手动运行 + 队列 | 整章处理，后台运行 | 永久 VTT + TTS 音频 |
 | **流式** (`streaming_translate.py`) | 播放触发 | 30 秒分段，实时处理 | 分段 → 合并 VTT |
 
 两条管道都写入同一个永久缓存（`chapter_subtitles` 和 `chapter_translations_audio`
-表）。一旦某个章节被任一管道翻译，以后的播放都是免费的。系统自我修复：用户的
-收听习惯会逐渐填充缓存，批量管道在空闲时处理剩余内容。
+表）。一旦某个章节被任一管道翻译，以后的播放都是免费的。按设计缓存会自我修复：
+用户的收听习惯会逐渐填充缓存，其余部分由批量管道补齐。
+
+关于该设计有两点需要说明。`scripts/batch-translate.py` **仅由操作员手动运行** ——
+没有任何 systemd 单元或定时器调用它，因此"批量管道在空闲时处理剩余内容"描述的
+是一种意图，而非既有机制。而在参考部署中，由于缺少 STT 后端，两条管道都不运行。
 
 ## 端到端播放流程
 
 ### 第一阶段 — 打开应用（GPU 预热）
 
 当应用打开且用户语言不是英语时，前端发送 `POST /api/translate/warmup` 请求。
-这会在数据库中写入提示，流式工作节点据此向 STREAMING serverless 端点
-（RunPod）发送一个预热请求。STREAMING 端点的 `min_workers>=1`，常驻一个
-工作节点；此次预热用于验证连通性并进一步降低首段延迟。完整的端点拓扑、
-预热过期（15 分钟）与卡住分段回收（10 分钟）机制请参见
-`docs/SERVERLESS-OPS.md`。
+这会向 `streaming_sessions` 写入一行（`audiobook_id=0, locale='warmup'`）。
+
+**目前没有任何代码消费这一行。** 在 `scripts/stream-translate-worker.py` 中
+grep `warmup` 没有任何匹配，处理函数本身也这么写着 —— *"实际的 GPU 预热将由
+翻译守护进程在看到该信号时处理"*（`streaming_translate.py:1384-1404`）。而这样
+的守护进程并不存在。既不会发出预热请求，也不会验证连通性；该端点是一个空操作
+占位符。
+
+端点的 streaming/backlog 划分请参见 `docs/SERVERLESS-OPS.md`；卡住领取的重置
+约定（实时 60 秒、试听 2 小时）请参见 `docs/TRANSLATION-MONITOR.md`。本节的早期
+版本提到过"预热过期（15 分钟）"与"卡住分段回收（10 分钟）"—— 代码中并不存在
+这两个计时器。
 
 ### 第二阶段 — 按下播放
 
@@ -61,14 +98,20 @@ TTS，每种语言）将花费数百美元的 GPU 费用。截至 v8.3.0，批�
 
 协调器同时执行：
 
-- 为**光标缓冲填充**创建 `streaming_segments` 行 —— 即光标前方最初的 6 个 30 秒
-  分段（约 3 分钟），以 **P0** 优先级入队
-- 为当前章节剩余部分创建行，以 **P1** 优先级（向前追赶，直到章末或下一个
-  合理断点）入队
+- 为**整个当前章节**创建 `streaming_segments` 行，以 **P0** 优先级入队
+- 为**整个下一章节**创建行，以 **P1** 优先级（预取）入队
 - 每行代表一个 30 秒分段：
   `(audiobook_id, chapter_index, segment_index, locale, state='pending')`
 
-完整的三级语义请参见下文的"优先级模型（以光标为中心）"章节。
+两次调用都经由 `_ensure_chapter_segments(...)`，其约定为*"以指定优先级确保整个
+章节的分段行存在"*（`streaming_translate.py:475-476, 1062-1069`）。
+
+**6 个分段的光标窗口属于跳转（seek）逻辑，而非按下播放时的逻辑。**
+`BUFFER_AHEAD_SEGMENTS = 6`（约 3 分钟）仅在 `handle_seek_impl`
+（`:837-857`）中生效。按下播放时整章都会入队，实际先翻译哪些取决于工作节点的
+领取顺序。
+
+完整的**四层**语义请参见下文的"优先级模型（以光标为中心）"章节。
 
 ### 第四阶段 — GPU 工作节点处理
 
@@ -121,8 +164,11 @@ P0 光标缓冲分段优先处理，以便播放尽快恢复。满足 3 分钟�
 部分排入 **P1**（向前追赶）；上一段已翻译尾部与新光标之间的空缺则排入
 **P2**（回填），以保证侧边字幕面板和将来任何向后拖动操作的连贯性。
 
-**停止播放时**：所有待处理分段会被降级为 **P2**。回填策略会保留已排入的工作
-以便将来继续播放和补全侧边面板，而不是直接丢弃队列。
+**停止播放时**：该（书籍, 语言）下所有 `state='pending'` 的行都会被
+**DELETE 删除**（`stop_streaming_impl`，`streaming_translate.py:862-881`）。已进入
+`processing` 的分段不受影响 —— 工作节点会处理完，segment-complete 回调照常返回。
+v8.3.2 之前这里是把待处理行降级，但工作节点排空 p0/p1 后就会继续啃降级后的行，
+导致"停止"根本停不下来。恢复播放时会重新创建这些行。
 
 ### 第八阶段 — 合并
 
@@ -235,16 +281,19 @@ P0 光标缓冲分段优先处理，以便播放尽快恢复。满足 3 分钟�
 于任何其他书籍的试听工作。试听绝不会从正在收听的用户手中夺走
 GPU 的处理槽位。
 
-跳转超出缓冲范围时：现有待处理的实时分段降级为 P3；新光标前方
-6 个分段被提升或新插入为 P0；章末剩余部分排入 P1；上一段尾部
-与新光标之间的空缺排入 P3。
+跳转超出缓冲范围时：现有待处理的实时分段降级为 **P2**（不是 P3——
+`handle_seek_impl:838-843` 写入的是 2）；新光标前方 6 个分段被提升或
+新插入为 P0；章末剩余部分排入 P1。
 
-停止播放时：所有待处理的实时分段降级为 P3（回填策略保留已排入
-的工作以便将来继续播放和补全侧边面板）。
+停止播放时：所有待处理的实时分段被 DELETE 删除，而非降级（见上文）。
 ```
 
-工作节点的领取顺序 —— `ORDER BY priority, chapter, segment` —— 保持不变；
-v8.3.8 扩展了优先级层级，为试听提供了独立的受保护槽位。
+工作节点的领取顺序为 `ORDER BY s.priority ASC, CASE WHEN
+sess.active_chapter IS NOT NULL AND s.chapter_index = sess.active_chapter THEN 0
+ELSE 1 END, s.chapter_index ASC, s.segment_index ASC`
+（`scripts/stream-translate-worker.py:336-341`）—— 新增了"当前章节优先"的次级
+排序，使得播放器进入第 N+1 章后，该章的 P0 行能够胜出。优先级优先的整体形状
+未变；v8.3.8 扩展了优先级层级，为试听提供了独立的受保护槽位。
 
 ### 试听与本模型的互动
 
@@ -313,7 +362,7 @@ sudo -u audiobooks /opt/audiobooks/library/venv/bin/python \
 
 | 文件 | 用途 |
 |------|------|
-| `library/backend/api_modular/streaming_translate.py` | 协调器 API（7 个端点） |
+| `library/backend/api_modular/streaming_translate.py` | 协调器 API（14 个端点） |
 | `library/web-v2/js/streaming-translate.js` | 前端状态机 |
 | `library/web-v2/css/shell.css` | 缓冲覆盖层样式 |
 | `library/web-v2/shell.html` | 覆盖层标记 |
@@ -324,7 +373,7 @@ sudo -u audiobooks /opt/audiobooks/library/venv/bin/python \
 | `library/localization/pipeline.py` | 共享 STT → 翻译 → VTT 管道（`_remote_stt_candidates` 按 STREAMING 或 BACKLOG 调度） |
 | `library/web-v2/audio/translation-buffering-*.mp3` | 本地化通知音频 |
 
-## 数据库架构（迁移 004）
+## 数据库架构（迁移 003）
 
 ```sql
 CREATE TABLE streaming_sessions (
@@ -346,7 +395,7 @@ CREATE TABLE streaming_segments (
     segment_index       INTEGER NOT NULL,
     locale              TEXT NOT NULL,
     state               TEXT DEFAULT 'pending',  -- pending, processing, completed, failed
-    priority            INTEGER DEFAULT 1,       -- 0=P0 光标缓冲, 1=P1 向前追赶, 2=P2 回填
+    priority            INTEGER NOT NULL DEFAULT 2, -- 0=P0 光标缓冲, 1=P1 向前追赶, 2=P2 试听/回填
     worker_id           TEXT,
     vtt_content         TEXT,                    -- 目标语言（已完成分段）的内联 VTT
     source_vtt_content  TEXT,                    -- 源语言（英文）VTT（v8.3.2+）
@@ -358,10 +407,16 @@ CREATE TABLE streaming_segments (
 );
 ```
 
-该表结构通过 8.3.2 的数据迁移脚本（`003_streaming_segments.sh`、
-`006_streaming_source_vtt.sh`、`007_streaming_retry_count.sh`）逐步演进；
-每个脚本均幂等（`PRAGMA table_info` 守卫）且按版本边界门控
-（`MIN_VERSION`），跨版本升级仅填充缺失的列。
+该表结构通过多个数据迁移脚本逐步演进 —— `003_streaming_segments.sh`
+（`MIN_VERSION=8.3.0`，创建两张表）、`005_streaming_audio_webm.sh`、
+`006_streaming_source_vtt.sh`、`007_streaming_retry_count.sh`，以及
+`008_streaming_origin_and_sampler.sh`（`MIN_VERSION=8.3.8`，新增 `origin` 列、
+`sampler_jobs` 表和两个 `RAISE(ABORT)` 优先级触发器）。每个脚本均幂等
+（`PRAGMA table_info` 守卫）且按版本边界门控（`MIN_VERSION`），跨版本升级仅
+填充缺失的部分。
+
+上方的 SQL 是简化版 —— 省略了 `origin`、`error`、`created_at`、外键、三个索引、
+`sampler_jobs` 表以及优先级触发器。权威架构请以迁移脚本为准。
 
 ## 在途 VTT 拼接（v8.3.7+）
 
@@ -395,7 +450,7 @@ locale 的 `pending` / `processing` / `failed` 行折叠为
 `字幕生成失败 — No STT provider configured` 提示 —— 这些记录早在
 旧批处理 worker 停止运转数月前就已经是失败状态。非英文 locale
 现在的规范进度展示面板是流式 overlay
-（`library/web-v2/js/streaming-overlay.js`）；已完成的遗留记录
+（实现在 `library/web-v2/js/streaming-translate.js` 内，标记位于 `shell.html` 的 `#streaming-overlay`—— 并不存在 `streaming-overlay.js` 这个文件）；已完成的遗留记录
 （合法的磁盘 VTT 情况）仍按原样通过。`'en'` locale 豁免 —— 英文
 的 STT 失败是真实情况，不是过期数据。
 

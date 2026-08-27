@@ -157,8 +157,12 @@ def _send_admin_alert(username: str, message_preview: str) -> bool:
     smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from = _get_email_config()
     admin_email = os.environ.get("ADMIN_EMAIL", smtp_from)
 
-    if not smtp_user:
-        return False
+    # No credential precondition. Since the relay migration
+    # (Audiobook-Manager-9nu) submission goes to 127.0.0.1:25 with NO
+    # credential, so SMTP_USER is empty BY DESIGN — this guard used to return
+    # False before attempting anything, which is why this path sent nothing at
+    # all. A provider deployment sets SMTP_USER/SMTP_PASS and the guarded
+    # starttls()+login() below still covers it.
 
     subject = f"New message from {username} - The Library"
     body = f"""You have a new message from {username} in The Library inbox.
@@ -179,8 +183,12 @@ View all messages:
         msg.attach(MIMEText(body, "plain"))
 
         with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
+            # TLS+AUTH only when a credential is configured. An unconditional
+            # starttls() raises SMTPNotSupportedError against the loopback relay,
+            # which does not advertise STARTTLS — and the broad `except Exception`
+            # below swallowed it, so this send reported failure silently.
             if smtp_user and smtp_pass:
+                server.starttls()
                 server.login(smtp_user, smtp_pass)
             server.sendmail(smtp_from, admin_email, msg.as_string())
 
@@ -210,8 +218,12 @@ def _send_reply_email(to_email: str, username: str, reply_text: str, locale: str
         msg.attach(MIMEText(html_content, "html"))
 
         with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()
+            # TLS+AUTH only when a credential is configured. An unconditional
+            # starttls() raises SMTPNotSupportedError against the loopback relay,
+            # which does not advertise STARTTLS — and the broad `except Exception`
+            # below swallowed it, so this send reported failure silently.
             if smtp_user and smtp_pass:
+                server.starttls()
                 server.login(smtp_user, smtp_pass)
             server.sendmail(smtp_from, to_email, msg.as_string())
 

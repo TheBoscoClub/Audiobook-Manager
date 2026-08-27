@@ -91,8 +91,10 @@ Every function in the codebase is held to a strict cyclomatic complexity standar
 
 **Why this matters.** The v8.0.1.2 audit found 84 functions at C-grade or worse (up to F-62). The v8.0.1.4 audit
 completed the work: all nested Flask route handlers across 14 `api_modular` files were extracted to module level and
-complex functions were decomposed into focused helpers. After both passes, 1353 functions were scanned — zero at
-C-grade or worse. High complexity makes code harder to understand, test, review, and maintain. A function that scores
+complex functions were decomposed into focused helpers. As of v8.4.3, `radon cc library/` analyses **9,162 blocks**,
+of which **46 score C or worse** — 15 of those in non-test code, concentrated in `streaming_translate.py`
+(`_derive_phase` C-19, `segment_complete` C-18, `chapter_complete` C-15). That is tracked debt, not a clean sheet.
+High complexity makes code harder to understand, test, review, and maintain. A function that scores
 F-62 cannot be held in a single person's working memory — bugs hide in branches that no test exercises and no reviewer
 reads. The refactoring was driven by four principles:
 
@@ -111,7 +113,7 @@ reads. The refactoring was driven by four principles:
 | **Guard clauses** | Deep nesting from early-return conditions | `claim_webauthn_complete()` — validate inputs and bail early, happy path at the end |
 | **Parameter objects** | Functions with 5+ related parameters | Grouping filter/sort/pagination args into structured inputs |
 
-**Enforcement.** `radon cc library/ -n C` is run during every `/test` audit (Phase 7). Any function scoring C or above blocks the audit until refactored. This is not a guideline — it is enforced by the audit's governing law.
+**Enforcement.** `radon cc library/ -n C` is run during every `/test` audit (Phase 7). The gate is intended to block *new* C-grade functions; it is demonstrably **not** blocking on the existing 46, which are on `main` at v8.4.3. Treat the target as an invariant for new code and the current 46 as debt to be worked down, not as a claim that the tree is clean.
 
 ---
 
@@ -131,7 +133,7 @@ Audiobook-Manager is designed to run well on modest hardware. The only hard requ
 
 ### Optional: local GPU transcription
 
-Chinese translation (and any future language localization) transcribes source audio with Whisper. The default path uses a remote GPU provider (RunPod serverless) — this is what the maintainer uses in production and what the application is tested against. A local `whisper-gpu` systemd service is available for installers who prefer to keep transcription on-prem.
+Chinese translation (and any future language localization) transcribes source audio with Whisper. The historical default path uses a remote GPU provider (RunPod serverless). **As of v8.4.3 no STT provider is configured or exercised in the reference deployment** — the maintainer's RunPod account is decommissioned and Vast.ai was never enabled — so neither the remote nor the local path is currently tested end-to-end. The client code, config, tests and systemd units all remain in the tree unchanged. An optional local `whisper-gpu` systemd service ships under `extras/whisper-gpu/` (not `systemd/`) for installers who prefer on-prem transcription.
 
 | Local-GPU hardware | Support status |
 |-------------------|----------------|
@@ -141,7 +143,7 @@ Chinese translation (and any future language localization) transcribes source au
 | **Apple Silicon** (M1/M2/M3/M4) | Works via MPS / `whisper.cpp`. No systemd service shipped. |
 | **CPU-only** | Works but slow. Not recommended for libraries over a few dozen hours. |
 
-When no local GPU is available, The Library transcribes via the remote provider path — no configuration is required and nothing in the default install assumes a GPU.
+The remote provider path is **not** zero-configuration: it needs `AUDIOBOOKS_RUNPOD_API_KEY` plus at least one of `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT` / `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT`. With no STT provider configured at all, `_remote_stt_candidates` yields nothing and transcription simply does not run — subtitles and translated narration are never produced, and the sampler tier logs `SAMPLER STALE` every 5 minutes. Nothing else in the default install assumes a GPU, and the rest of the application is unaffected. To turn the subsystem off explicitly, see "Turning audio translation off" in `docs/MULTI-LANGUAGE-SETUP.md`.
 
 ### The maintainer's rig
 
@@ -247,7 +249,7 @@ The API runs with `ProtectSystem=strict` which creates a read-only filesystem ov
 
 ### Dual-Mode Security Architecture (v6.0+)
 
-The application supports two deployment modes, controlled by a single configuration variable (`AUTH_ENABLED`). The `admin_or_localhost` decorator in `auth.py` is the keystone — it adapts endpoint security automatically:
+The application supports two deployment modes, controlled by a single configuration variable (`AUTH_ENABLED`). The `admin_or_localhost` decorator in `auth_shared.py` is the keystone — it adapts endpoint security automatically. (`auth.py` re-exports it via PEP 562, so `auth.admin_or_localhost` still resolves.)
 
 ```text
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -275,7 +277,7 @@ The application supports two deployment modes, controlled by a single configurat
   └────────────────────────────────────────────────────────────────────────┘
 ```
 
-**The `admin_or_localhost` decorator** (`auth.py:312`):
+**The `admin_or_localhost` decorator** (`auth_shared.py:796`):
 
 ```python
 @admin_or_localhost
@@ -286,7 +288,7 @@ def some_admin_endpoint():
     ...
 ```
 
-**Applied to 9 endpoints** in `utilities_system.py`:
+**Applied to 21 endpoints** across `utilities_system.py` (15), `streaming_translate.py` (4), `subtitles.py` (1), and `translated_audio.py` (1). In `utilities_system.py` these cover:
 
 - Service control (start/stop/restart)
 - System status and health
@@ -410,12 +412,16 @@ library/auth/
 ├── models.py         # ORM-like repositories (User, Session, AccessRequest, etc.)
 ├── audit.py          # AuditLog model and AuditLogRepository (v7.4.1+)
 ├── passkey.py        # WebAuthn/FIDO2 registration & authentication ceremonies
+├── access_request.py # Access-request records for pending signups
+├── messaging.py      # User<->admin inbox message model
+├── pending.py        # Pending-user lifecycle
+├── migrations/       # Auth DB schema migrations
 ├── totp.py           # TOTP (RFC 6238) with QR code generation
 ├── backup_codes.py   # Single-use recovery codes (8 per user)
 ├── cli.py            # Admin CLI tool (audiobook-user)
 ├── inbox_cli.py      # Admin inbox management CLI
 ├── notify_cli.py     # Notification management CLI
-└── schema.sql        # Auth database schema (20 tables, v9)
+└── schema.sql        # Auth database schema (20 tables, v10)
 ```
 
 **API-layer auth blueprint layout** (`library/backend/api_modular/`, v8.3.10.6+):
@@ -435,6 +441,8 @@ library/backend/api_modular/
 ├── auth_account.py      # GET/PUT /auth/account/*, self-service profile changes
 ├── auth_admin.py        # GET/POST /auth/admin/*, admin user management
 ├── auth_recovery.py     # POST /auth/recovery/*, magic-link flow
+├── auth_email.py        # ALL SMTP delivery — invitation, activation, recovery,
+│                        # admin alert, admin reply
 └── auth_webauthn.py     # POST /auth/passkey/*, WebAuthn ceremony endpoints
 ```
 
@@ -641,10 +649,15 @@ The scanner subsystem handles metadata extraction, library scanning, and databas
   ├── import_single.py       # Single-directory inline importer
   ├── find_missing_audiobooks.py  # Detect missing/moved files
   ├── create_priority_list.py     # Conversion queue prioritization
+  ├── post_insert.py              # Post-insert hook registry (@register_post_insert)
   └── utils/                      # Shared scanner utilities (v8+)
       ├── __init__.py              # Re-exports constants and helpers
+      ├── canonical.py             # Canonical author/title normalization
       ├── constants.py             # SUPPORTED_FORMATS list, is_cover_art_file()
-      └── db_helpers.py            # get_or_create_lookup_id() for author/narrator/genre tables
+      ├── cover_resolver.py        # Cover-art discovery and selection
+      ├── db_helpers.py            # get_or_create_lookup_id() for author/narrator/genre tables
+      ├── sampler_hook.py          # enqueue_sampler_for_new_book() post-insert hook
+      └── text_normalize.py        # Shared text normalization helpers
 
   library/scripts/           # Standalone utility and enrichment scripts
   ├── enrichment/                  # Enrichment provider chain (v8.0.3.3+)
@@ -760,8 +773,17 @@ The Flask API uses a modular blueprint architecture (`library/backend/api_modula
 | `user_bp` | `/api/user` | Per-user state: history, downloads, library, new books (v6.3+) |
 | `preferences_bp` | `/api/user/preferences` | Key-value user preferences: sort, view, playback, accessibility settings (v8+) |
 | `admin_activity_bp` | `/api/admin` | Admin activity log and statistics (v6.3+) |
-| `user_mgmt_bp` | `/auth/admin` | Admin user management: create, edit roles, switch auth, delete, audit log (v7.4.1+) |
-| `account_bp` | `/auth/account` | Self-service: view profile, edit username/email, switch auth, reset credentials, delete account (v7.4.1+) |
+| `roadmap_bp` | `/api` | Public roadmap entries |
+| `suggestions_bp` | `/api` | User suggestions inbox |
+| `maintenance_bp` | `/api` | Maintenance task scheduling and status |
+| `i18n_bp` | `/api` | Locale catalogs and translation queue (`i18n_routes.py`) |
+| `translations_bp` | `/api/translations` | Hash-based string-translation lookup |
+| `subtitles_bp` | `/api` | Per-chapter VTT subtitle generation and serving |
+| `translated_audio_bp` | `/api` | Translated narration generation and serving |
+| `streaming_bp` | `/api/translate` | Streaming-translation coordinator (`streaming_translate.py`) |
+| `utilities_crud_bp`, `utilities_db_bp`, `utilities_conversion_bp` | `/api` | Nested under `utilities_bp` (`utilities.py`) |
+
+> **Note**: admin user management (`/auth/admin/*`) and self-service account routes (`/auth/account/*`) are registered on the shared `auth_bp` from `auth_admin.py` and `auth_account.py`. There are no separate `user_mgmt_bp` / `account_bp` Blueprint objects, despite earlier revisions of this table listing them.
 
 ### Collections Genre Classification (v8.3.10.1+)
 
@@ -797,6 +819,7 @@ library/backend/api_modular/utilities_ops/
 ├── hashing.py       # Hash generation for duplicate detection
 ├── library.py       # Library content management (rescan, cleanup)
 ├── maintenance.py   # Database maintenance (vacuum, reindex, FTS rebuild)
+├── _subprocess.py   # run_with_progress() — streamed subprocess execution
 └── status.py        # Operation status endpoint handlers
 ```
 
@@ -813,7 +836,7 @@ library/backend/api_modular/utilities_ops/
 
 The localization subsystem (v8.1.0+) provides full multi-language support with three
 layers: static UI translation, dynamic content translation, and audiobook media
-translation. All user-facing content is translated (1,038 keys per locale, plus book
+translation. All user-facing content is translated (1,093 keys per locale, plus book
 descriptions, subtitles, and TTS narration). The admin/backoffice interface
 (`utilities.html`) is intentionally excluded: it is used exclusively by the system
 operator and translating admin-only pages would add maintenance burden with zero patron
@@ -847,24 +870,42 @@ and instructions for adding new languages, see
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### i18n Framework (`library/i18n/`, `library/locales/`)
+### i18n Framework (`library/backend/i18n.py`, `library/locales/`)
 
 | Component | Path | Purpose |
 |-----------|------|---------|
 | Locale catalogs | `library/locales/{locale}.json` | Static UI strings (keys like `shell.play`, `help.title`) |
 | i18n.js | `library/web-v2/js/i18n.js` | Client-side catalog loader, `data-i18n` attribute binder, cross-frame locale sync via `postMessage` |
-| i18n Python module | `library/i18n/__init__.py` | Server-side catalog access, `SUPPORTED_LOCALES`, `get_catalog()` |
-| i18n API routes | `library/backend/api_modular/i18n_routes.py` | `GET /api/i18n/<locale>`, `GET /api/i18n/supported`, `POST /api/i18n/activate` |
+| i18n Python module | `library/backend/i18n.py` | Server-side catalog access, `SUPPORTED_LOCALES`, `get_catalog()`, `reload_catalogs()` |
+| i18n API routes | `library/backend/api_modular/i18n_routes.py` | 7 routes: `GET /api/i18n/supported`, `GET /api/i18n/<locale>`, `POST /api/i18n/reload`, `POST /api/i18n/activate`, `GET /api/translation/queue`, `POST /api/translation/bump`, `GET /api/translation/status/<book_id>/<locale>` |
 
 Supported locales: `en` (default), `zh-Hans` (Simplified Chinese). Adding a new locale requires creating `library/locales/{locale}.json` and adding the locale code to `SUPPORTED_LOCALES`.
 
 ### Dynamic Content Translation (`library/localization/translation/`)
 
-User-facing dynamic content (book titles, author names, collection names, announcements) is translated on-demand via the DeepL Pro API.
+User-facing dynamic content (book titles, author names, collection names, announcements) is translated on-demand via the DeepL API.
+
+**Endpoint selection is derived from the key, not configured.** DeepL serves its Free and Pro tiers from different hosts, and a key works on one host only:
+
+```python
+DEEPL_API_URL = "https://api.deepl.com/v2"  # Pro  — key has no suffix
+DEEPL_FREE_API_URL = "https://api-free.deepl.com/v2"  # Free — key ends in ":fx"
+...
+self._base_url = DEEPL_FREE_API_URL if api_key.endswith(":fx") else DEEPL_API_URL
+```
+
+A valid key sent to the wrong host returns **403 — indistinguishable from a revoked key** unless the response body is read. Keys must therefore be stored verbatim, `:fx` suffix included. The reference deployment runs on the **API Free** tier (500,000 chars/month).
+
+**Failure is not silent (v8.4.2.4+).** A DeepL outage or dead key used to fill every miss with the English source and return a `list[str]` structurally identical to success. `translate()` now takes `strict=`:
+
+- Non-strict callers still degrade to source text, but must check `.degraded` / `.degraded_texts`; the failure is logged at ERROR.
+- Callers that **persist** the result pass `strict=True` and get `TranslationUnavailableError` instead — the two VTT write sites in `library/localization/pipeline.py` and `library/localization/metadata/lookup.py`.
+
+The split exists because an English string silently stored as though it were a translation is unrecoverable: nothing downstream can distinguish it from a real one. A raised exception leaves the artifact unwritten and the job retryable.
 
 | Component | Path | Purpose |
 |-----------|------|---------|
-| DeepL translator | `library/localization/translation/deepl_translate.py` | API client with string cache (SHA-256 hash keys), glossary support, and quota tracking |
+| DeepL translator | `library/localization/translation/deepl_translate.py` | API client with string cache (SHA-256 hash keys), glossary support, quota tracking, suffix-derived Free/Pro endpoint selection, and `strict=` failure signalling (`TranslationUnavailableError`, `.degraded`) |
 | Quota tracker | `library/localization/translation/quota.py` | Monthly character usage in `deepl_quota` table, soft warn at 90%, hard stop at 99% |
 | Glossary manager | `library/localization/translation/glossary.py` | Pushes YAML glossaries (`library/localization/glossary/en-zh.yaml`) to DeepL API |
 | String translations API | `library/backend/api_modular/translations.py` | `POST /api/translations/strings` (hash-based batch lookup), `GET /api/translations/by-locale/{locale}` |
@@ -886,18 +927,18 @@ Audio Chapter ──► STT (Whisper) ──► Translation (DeepL) ──► TT
 
 | Provider | Class | Config Key | Use Case |
 |----------|-------|------------|----------|
-| RunPod serverless Whisper | `WhisperSTT` | `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT` / `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT` | Serverless GPU — warm pool for streaming, cold pool for backlog |
+| RunPod serverless Whisper | `WhisperSTT` | `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT` / `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT` | Serverless GPU — warm pool for streaming, cold pool for backlog. *Client code present; not exercised in the reference deployment (account decommissioned).* |
 | Local GPU | `LocalGPUWhisperSTT` | `AUDIOBOOKS_WHISPER_GPU_HOST` | Self-hosted on known-good AI hardware (NVIDIA CUDA or enterprise AMD Instinct/ROCm); consumer Radeon RDNA 2/3 is unsupported — see docs/MULTI-LANGUAGE-SETUP.md#local-gpu-optional |
-| DeepL Transcription | `DeepLSTT` | `DEEPL_API_KEY` | Legacy fallback (100 MB limit) |
+| DeepL Transcription | `DeepLSTT` | `AUDIOBOOKS_DEEPL_API_KEY` | Legacy fallback (100 MB limit) |
 
-Auto mode (`AUDIOBOOKS_STT_PROVIDER=auto`) dispatches via `_remote_stt_candidates(workload)` in `library/localization/pipeline.py`: `WorkloadHint.STREAMING` → STREAMING endpoint (warm, `min_workers>=1`); `WorkloadHint.LONG_FORM` / `ANY` → BACKLOG endpoint (cold, `min_workers=0`). RunPod serverless is the sole inference backend; see `docs/SERVERLESS-OPS.md`.
+Auto mode (`AUDIOBOOKS_STT_PROVIDER=auto`) dispatches via `_remote_stt_candidates(workload)` in `library/localization/pipeline.py`: `WorkloadHint.STREAMING` → STREAMING endpoint (warm, `min_workers>=1`); `WorkloadHint.LONG_FORM` / `ANY` → BACKLOG endpoint (cold, `min_workers=0`). RunPod is the only serverless STT client remaining in the tree (Vast.ai was removed in v8.3.10.6). It is **not provisioned** in the reference deployment; see `docs/SERVERLESS-OPS.md`.
 
 #### TTS Provider Factory (`library/localization/tts/factory.py`)
 
 | Provider | Config Value | Output | Use Case |
 |----------|-------------|--------|----------|
 | edge-tts | `edge-tts` (default) | MP3 → Opus | CPU, no GPU required, always available |
-| XTTS v2 (RunPod) | `xtts-runpod` | WAV → Opus | GPU serverless, natural voice |
+| XTTS v2 (RunPod) | `xtts-runpod` | WAV → Opus | GPU serverless, natural voice. *Not provisioned in the reference deployment; edge-tts is the path actually in use.* |
 
 #### Translation Queue (`library/localization/queue.py`)
 
@@ -954,7 +995,7 @@ fill the cache.
 
 | Component | Path | Purpose |
 |-----------|------|---------|
-| Coordinator API | `library/backend/api_modular/streaming_translate.py` | 7 endpoints: stream, seek, warmup, segment bitmap, session state, worker callbacks |
+| Coordinator API | `library/backend/api_modular/streaming_translate.py` | 14 endpoints: stream, seek, stop, warmup, warmth, segment bitmap, session state, worker callbacks (segment-complete / chapter-complete), and the sampler surface (activate / prefetch / batch-status / status) |
 | Frontend state machine | `library/web-v2/js/streaming-translate.js` | IDLE → BUFFERING → STREAMING transitions, overlay UI, WebSocket event handling |
 | GPU segment worker | `scripts/stream-translate-worker.py` | Polls `streaming_segments`, splits audio, runs STT + translation, reports completion — `claim_next_segment()` uses active-chapter preference within each priority tier (v8.3.10.5+) |
 | Buffering overlay | `library/web-v2/shell.html` + `css/shell.css` | Gold-themed progress bar with segment count |
@@ -1143,7 +1184,7 @@ Handles group names (Full Cast, BBC Radio), compound last names (de, van, von, l
 #### Frontend Changes
 
 - **Grouped sort view**: "Author (Grouped A-Z)" and "Narrator (Grouped A-Z)" sort options display books under collapsible Art Deco-styled headers
-- **Sidebar filters**: Now show individual names from normalized tables (572 individual authors vs 138 composite strings), sorted by last name
+- **Sidebar filters**: Now show individual names from the normalized `authors` table rather than the raw composite `audiobooks.author` strings, sorted by last name. (Earlier revisions quoted "572 individual authors vs 138 composite strings" from one deployment's database; those figures are library-specific and drift with the catalogue, so they are omitted here.)
 - **Author/narrator filtering**: Uses junction table JOINs for exact per-author matching
 
 ---
@@ -1371,7 +1412,7 @@ Common JavaScript functionality is consolidated into shared modules to eliminate
 
 | Module | Purpose | Key Exports |
 |--------|---------|-------------|
-| `js/api.js` | Centralized API client with error handling and toast notifications | `apiGet()`, `apiPost()`, `apiPut()`, `apiPatch()`, `apiDelete()` |
+| `js/api.js` | Centralized API client with error handling and toast notifications | a single global `api` object — `api.get()`, `api.post()`, `api.put()`, `api.patch()`, `api.delete()` |
 | `js/utils.js` | Shared utility functions | `formatDate()`, `formatDateTime()`, `formatLocal()`, `pollOperation()`, `checkAuthStatus()` |
 
 Page scripts (`account.js`, `utilities.js`, etc.) import from these shared modules rather than defining their own fetch wrappers, date formatters, or polling logic.
@@ -1380,7 +1421,9 @@ Page scripts (`account.js`, `utilities.js`, etc.) import from these shared modul
 
 ```text
 library/tests/helpers/
-└── __init__.py      # wait_for_thread_completion() — shared by utilities_ops test files
+├── __init__.py                # wait_for_thread_completion() — shared by utilities_ops test files
+├── software_authenticator.py  # Software WebAuthn authenticator for passkey tests
+└── vm_credentials.py          # VM credential resolution for --vm integration tests
 ```
 
 The `wait_for_thread_completion()` helper provides consistent thread-join logic for async operation tests across all `utilities_ops` extended test modules.
@@ -1390,7 +1433,7 @@ The `wait_for_thread_completion()` helper provides consistent thread-join logic 
 Critical user management actions trigger notifications on two channels simultaneously:
 
 1. **In-app badge**: The Back Office USERS tab shows an unread-count badge pushed via WebSocket to all connected admin clients. The badge clears when the admin opens the audit log.
-2. **Email alerts**: All admins with an email address on file receive an email summarizing the action (actor, target, action type). Delivery requires `SMTP_*` configuration in `/etc/audiobooks/audiobooks.conf`.
+2. **Email alerts**: All admins with an email address on file receive an email summarizing the action (actor, target, action type). Delivery uses the shared `SMTP_*` contract, which defaults to the host's local mail relay at `127.0.0.1:25` with **no credential** — `SMTP_USER`/`SMTP_PASS` are only needed when submitting directly to a provider. Set `SMTP_FROM` to an address the relay may send as. See `docs/EMAIL-SETUP.md`, which also documents three send sites that are currently broken on the relay path.
 
 **Critical actions that trigger notifications**: username change, auth method switch, credential reset, account deletion (self or admin-initiated).
 
@@ -1484,7 +1527,7 @@ Plugin pattern in `api_modular/maintenance_tasks/`:
 - `MaintenanceRegistry`: Auto-discovers task modules via `pkgutil.iter_modules`
 - `@registry.register` decorator for task registration
 
-Built-in tasks: `db_vacuum`, `db_integrity`, `db_backup`, `library_scan`, `hash_verify`
+Built-in tasks (9 registered): `db_vacuum`, `db_integrity`, `db_backup`, `library_scan`, `hash_verify`, `auth_cleanup`, `backup_retention`, `cleanup_orphaned_supplements`, `staging_cleanup`
 
 ### Notification Bridge
 
@@ -1509,7 +1552,10 @@ The scheduler daemon and API server are separate processes. The notification que
 
 ## Systemd Services Reference
 
-All systemd units are located in `systemd/` and installed to `/etc/systemd/system/`.
+All systemd units are located in `systemd/` and installed to `/etc/systemd/system/`. Two exceptions:
+
+- `systemd/audiobook-api-derive-secrets.conf.example` is a drop-in **template**, not a unit. It is installed to `/etc/systemd/system/audiobook-api.service.d/derive-secrets.conf` only when `/usr/bin/derive-service-secret` exists on the target host.
+- The optional local-GPU unit ships separately at `extras/whisper-gpu/whisper-gpu.service`.
 
 ### Service Units
 
@@ -1524,12 +1570,19 @@ All systemd units are located in `systemd/` and installed to `/etc/systemd/syste
 | `audiobook-upgrade-helper.service` | Service | Privileged operations helper (runs as root) |
 | `audiobook-shutdown-saver.service` | Service | Saves staging to disk on system shutdown |
 | `audiobook-scheduler.service` | Service | Maintenance task scheduler daemon (croniter-based) |
+| `audiobook-enrichment.service` | Service | Metadata enrichment backfill (timer-triggered) |
+| `audiobook-stream-translate.service` | Service | Streaming-translation worker daemon |
+| `audiobook-translation-monitor-live.service` | Service (oneshot) | Live-tier stuck-claim / retry-budget sweep |
+| `audiobook-translation-monitor-sampler.service` | Service (oneshot) | Sampler-tier sweep + completion-staleness alert |
 
 ### Timer Units
 
 | Unit | Schedule | Purpose |
 |------|----------|---------|
 | `audiobook-downloader.timer` | Configurable | Triggers download checks |
+| `audiobook-enrichment.timer` | Nightly | Triggers metadata enrichment catch-up |
+| `audiobook-translation-monitor-live.timer` | Every 30 s | Triggers the live-tier monitor |
+| `audiobook-translation-monitor-sampler.timer` | Every 5 min | Triggers the sampler-tier monitor |
 
 ### Path Units
 
@@ -1948,10 +2001,24 @@ POST /api/system/upgrade
   → Writes upgrade request JSON → triggers helper
 
 POST /api/system/purge-cache
-  → Purges Cloudflare CDN edge cache (requires CF_TOKEN_FILE config)
-  → Called by library Refresh flow to push cache invalidation
-  → Auth: CF token read from file path in config (never hardcoded)
+  → Purges Cloudflare CDN edge cache
+  → Credential: CLOUDFLARE_PURGE_TOKEN (or CLOUDFLARE_PURGE_TOKEN_FILE), via
+    secret_resolver. Scoped Zone > Cache Purge token ONLY — the legacy
+    CF_TOKEN_FILE Global-API-Key fallback was removed in v8.4.3, along with
+    CF_GLOBAL_API_KEY / CF_AUTH_EMAIL and the X-Auth-Key header path. Missing
+    or empty credential is now a hard 503, not a silent downgrade.
+  → Called by the library Refresh flow to push cache invalidation
 ```
+
+### Library Refresh & Cache Invalidation
+
+The Refresh button in the library view (`library/web-v2/js/library.js::refreshLibrary()`) does three things in order:
+
+1. **Clear Cache Storage** — `caches.keys()` then `caches.delete(name)` for every entry.
+2. **Purge the CDN** — `POST /api/system/purge-cache`, wrapped in its own `try/catch` and non-fatal. A failed purge does not block the reload.
+3. **Hard-reload the TOP window with a cache-buster** — resolve `window.top` inside a `try/catch` (a cross-origin ancestor falls back to `window`; a standalone load already has `window.top === window`), then `searchParams.set("_cb", Date.now())` and `location.replace()`. Using `set` overwrites any previous `_cb` rather than accumulating them, and preserves other query params and the hash.
+
+**The `window.top` targeting is load-bearing.** `library.js` runs inside the shell's `#content-frame` iframe, so a bare `location.replace()` reloads *only the iframe* and leaves the shell's scripts — player, websocket, streaming-translate, version-poller, subtitles — on exactly the cached copies the button exists to evict. That was the regression fixed in v8.4.2.5.
 
 ### Traffic Flow During Maintenance
 
@@ -2113,9 +2180,11 @@ Architecture Comparison:
 
 ### Credential Resolution (v8.4.0.0+)
 
-Four credentials (`SMTP_PASS`, `AUDIOBOOKS_DEEPL_API_KEY`, `AUDIOBOOKS_RUNPOD_API_KEY`, `CLOUDFLARE_PURGE_TOKEN`) support an optional `*_FILE` pointer pattern in addition to inline env var values. All reads route through a single resolver at `library/common_utils/secret_resolver.py::resolve_secret(name)`.
+The resolver is name-agnostic, so any credential supports an optional `*_FILE` pointer pattern in addition to an inline env var value — in practice `SMTP_PASS`, `AUDIOBOOKS_DEEPL_API_KEY`, `AUDIOBOOKS_RUNPOD_API_KEY`, and `CLOUDFLARE_PURGE_TOKEN`. All reads route through a single resolver at `library/common_utils/secret_resolver.py::resolve_secret(name)`. Note that the default deployment holds **no** SMTP credential at all (mail goes to a credential-less local relay) and **no** RunPod credential (no STT provider is configured).
 
 Operators wanting root-derived per-boot secrets can point the `*_FILE` pointers at `/run/audiobooks/` paths populated by a `derive-service-secret` systemd drop-in — see the template `systemd/audiobook-api-derive-secrets.conf.example` and `docs/EMAIL-SETUP.md`. The app's contract remains just the pointer pattern; the derive tooling is operator-side and optional.
+
+The shipped template derives exactly **one** secret: the Cloudflare cache-purge token (store entry `CF_TOKEN_CACHE_PURGE` → `/run/audiobooks/cloudflare-purge-token`, mode `0400`, owner `audiobooks`). `audiobook-api.service` provides the target directory via `RuntimeDirectory=audiobooks`, which systemd wipes and recreates on every start — so the derived value is refreshed each start and cannot drift from the canonical store. **No SMTP secret is derived**, because the default mail path has none.
 
 Resolution precedence (first non-empty wins):
 
@@ -2123,9 +2192,9 @@ Resolution precedence (first non-empty wins):
 2. **`*_FILE` pointer** — e.g. `SMTP_PASS_FILE=/etc/audiobooks/smtp-pass` points at a 0600 file whose contents are read and stripped
 3. **Empty string default** — unconfigured credentials never raise; downstream features that need them gracefully skip
 
-File location convention: `/etc/audiobooks/<name>` owned `audiobooks:audiobooks` mode `0600`. `install.sh` and `upgrade.sh` create empty stubs at the canonical paths (`smtp-pass`, `deepl-api-key`, `runpod-api-key`) so operators can populate them without `mkdir`/`touch`/`chmod` boilerplate. Existing files are never overwritten.
+File location convention: `/etc/audiobooks/<name>` owned `audiobooks:audiobooks` mode `0600`. `install.sh` and `upgrade.sh` create exactly **one** optional credential stub — `/etc/audiobooks/auth.key` (`0600 audiobooks:audiobooks`), the sole entry in `OPTIONAL_CREDENTIAL_FILES` in `scripts/install-manifest.sh`. Any other `*_FILE` target is operator-created. Existing files are never overwritten.
 
-This mirrors the established `AUTH_KEY_FILE` and `CF_TOKEN_FILE` patterns in `library/auth/cli.py` and `library/backend/api_modular/utilities_system.py`. The resolver is the single canonical source for credential reads across the codebase — `auth/audit.py`, `auth/inbox_cli.py`, `backend/api_modular/auth_email.py`, `localization/config.py`, `localization/gpu_health.py`, `translation_monitor/notify.py`, and `scripts/email-report.py` all delegate to it.
+This mirrors the established `AUTH_KEY_FILE` and `CLOUDFLARE_PURGE_TOKEN_FILE` pointer patterns in `library/auth/cli.py` and `library/backend/api_modular/utilities_system.py` (`CF_TOKEN_FILE` itself was removed in v8.4.3 with the Global-API-Key path). The resolver is the single canonical source for credential reads across the codebase — `auth/audit.py`, `auth/inbox_cli.py`, `backend/api_modular/auth_email.py`, `localization/config.py`, `localization/gpu_health.py`, `translation_monitor/notify.py`, and `scripts/email-report.py` all delegate to it.
 
 ---
 
@@ -2704,9 +2773,6 @@ sudo systemctl restart audiobook-proxy
 # API health (unauthenticated, for monitoring tools)
 curl -s http://localhost:5001/api/system/health
 
-# API health (legacy endpoint, authenticated)
-curl -s http://localhost:5001/api/health
-
 # Web interface
 curl -sk https://localhost:8443/ -o /dev/null -w '%{http_code}\n'
 
@@ -2765,5 +2831,5 @@ systemctl status audiobook.target --no-pager
 
 ---
 
-*Document Version: 8.3.7*
-*Last Updated: 2026-04-22*
+*Document Version: 8.4.3*
+*Last Updated: 2026-08-26*

@@ -6,6 +6,13 @@ Embed cover art into Opus audiobook files using mutagen.
 This script finds all .opus files in the Library directory and embeds
 the corresponding cover image using METADATA_BLOCK_PICTURE Vorbis comments.
 
+File discovery goes through ``scanner.utils.canonical.iter_library_files``
+(Audiobook-Manager-fud) rather than a bare ``rglob``, but with both
+canonicality exclusions disabled — this tool processes every opus under the
+directory it is given, ``translated/`` chapter artifacts included. Those
+artifacts almost never have a sibling image, so they are reported as
+"no cover found" and skipped; the cost is scan time, not wrong output.
+
 Usage:
     python3 embed-cover-art.py [--dry-run] [--parallel N]
 
@@ -50,6 +57,18 @@ def _require_audiobooks_user() -> None:
     )
     sys.exit(1)
 
+
+# The scanner package lives beside this script in both layouts: the project
+# tree (<project>/scripts + <project>/library) and the installed app
+# (<install>/scripts + <install>/library, per install.sh's wrapper, which
+# execs <install>/library/venv/bin/python <install>/scripts/...). Same
+# sys.path idiom as scripts/email-report.py.
+_LIB_DIR = Path(__file__).resolve().parent.parent / "library"
+if _LIB_DIR.is_dir() and str(_LIB_DIR) not in sys.path:
+    sys.path.insert(0, str(_LIB_DIR))
+
+# noqa on the import: it must follow the sys.path insert above.
+from scanner.utils.canonical import iter_library_files  # noqa: E402
 
 # Configuration from environment with defaults
 LIBRARY_DIR = os.environ.get("AUDIOBOOKS_LIBRARY", "/srv/audiobooks/Library")
@@ -184,9 +203,21 @@ def main():
         print(f"Error: Directory not found: {library_dir}")
         sys.exit(1)
 
-    # Find all opus files
+    # Find all opus files. Walked via the canonical library iterator
+    # (Audiobook-Manager-fud). Both canonicality exclusions are switched OFF
+    # deliberately, preserving this tool's historical reach: it embeds art
+    # into every opus it is pointed at, including `translated/` per-chapter
+    # artifacts, and `--dir` may name a subtree that is not a library root at
+    # all. See the note in the module docstring.
     print(f"Scanning {library_dir} for opus files...")
-    opus_files = list(library_dir.rglob("*.opus"))
+    opus_files = list(
+        iter_library_files(
+            library_dir,
+            ("*.opus",),
+            exclude_cover_art=False,
+            exclude_translated=False,
+        )
+    )
 
     if args.limit > 0:
         opus_files = opus_files[: args.limit]

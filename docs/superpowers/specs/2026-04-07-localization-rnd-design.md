@@ -5,6 +5,13 @@
 **Priority locale:** zh-Hans (Simplified Chinese / Mandarin)
 **Motivation:** A Mandarin-speaking household member wants to navigate the UI, read translated subtitles, and listen to translated audio for English audiobooks.
 
+> **STATUS: HISTORICAL DESIGN RECORD (2026-04-07).** Phases 1 and 2 shipped; the
+> audio half is not operational. Two premises below have since changed: the
+> deployment runs on the DeepL **API Free** tier, not Pro (the client picks its
+> host from the key's `:fx` suffix), and no STT backend is configured at all
+> (RunPod decommissioned, Vast.ai never enabled). See
+> `docs/MULTI-LANGUAGE-SETUP.md` for current status.
+
 ---
 
 ## Scope

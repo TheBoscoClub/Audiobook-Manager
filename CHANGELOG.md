@@ -13,6 +13,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.4.3] - 2026-08-26
+
+### Added
+
+- **Operator intent is now recorded and honoured for unit enablement** (`Audiobook-Manager-vrc`): `install.sh` and `upgrade.sh` consult `${CONFIG_DIR}/disabled-units` inside `_enable_unit_smart` — the single choke point all three force-enable paths already funnelled through, so one guard covers the `Wants=` parse, the `standalone_units` array, and the unconditional belt-and-suspenders enable. A listed unit is not enabled, and is stopped and disabled if currently running, so writing a name into the file *is* the operation. Absence means "no opinion", so newly shipped units still enable normally on upgrade — the case a naive "skip anything disabled" rule would have broken. `systemctl is-enabled` cannot express intent (it reports `disabled` both for a unit the operator switched off and one never enabled), which is why intent is recorded rather than inferred
+- **Corruption report is split by remedy** (`Audiobook-Manager-aw9`): `missing_audiobooks.csv` gains a `remedy` column (`re-download` | `regenerate`) appended as the 6th field, and the text report grows two sections with per-remedy counts. Classification comes from `is_canonical_audiobook_file()` in `scanner/utils/canonical.py`, which is already the union of the two exclusion predicates — so there is exactly one definition of "derived" in the tree rather than a second copy. Detection is deliberately unchanged: a zero-byte `translated/` artifact is still found, it is simply no longer labelled as something to fetch from Audible
+- **Guard tests for three by-vigilance classes** in `library/tests/test_source_guards.py`: no bare `rglob()` over the library root outside the canonical iterator (with a stale-allowlist check so a removed walk cannot leave a live exemption); no `starttls()` outside a credential guard; and both copies of `_enable_unit_smart` honour the operator-intent list without using process substitution. Each was falsified by re-introducing the exact bug it exists to catch
+
+### Changed
+
+- **All four production Sources walks are recursive** (`Audiobook-Manager-0hb`): `metadata_utils.py` (×2), `scripts/backfill_enrichment.py` and `scripts/update_metadata_from_source.py` now use `iter_source_files()` instead of non-recursive `glob()`. Sources is flat today so all five walks agreed by accident; the day anything nests, the checksummer and conversion counter would have seen files that ASIN extraction and enrichment silently could not — books that appear to exist and have checksums but never get metadata, with no error anywhere. The divergent `*.voucher` vs `*.aaxc` pattern sets were **preserved, not harmonised**, and each carries a comment marking the difference deliberate
+- **The filesystem reconciler guards the one real credential instead of four empty stubs** (`Audiobook-Manager-ac2`, `-nsz`): `OPTIONAL_CREDENTIAL_FILES` dropped `smtp-pass`, `deepl-api-key`, `runpod-api-key` and `cloudflare-purge-token` — all zero-byte placeholders, all obsolete now that mail submits credential-less, RunPod is decommissioned, the DeepL key is inline and the Cloudflare token is derived to `/run/audiobooks/` — and gained `auth.key`, which is a real 65-byte credential referenced by four code paths and was tracked by nothing
+- **`create_priority_list.py` filters on remedy** (`Audiobook-Manager-aw9`): it wrote "PRIORITY: ACTUAL AUDIOBOOKS NEEDING RE-DOWNLOAD" while filtering cover art only, so a zero-byte `translated/<book>.zh-Hans.opus` was listed as an audiobook to fetch from Audible — an instruction that cannot be carried out. Falls back to the old cover-only rule when the column is absent, so a CSV from an older scanner still parses
+- **`install.sh` no longer plants a Cloudflare credential placeholder**: it created `cloudflare-api-token` pre-filled with commented `CF_GLOBAL_API_KEY` / `CF_AUTH_EMAIL` lines, inviting the operator to store a full-account credential for an endpoint needing only Zone > Cache Purge
+
+### Fixed
+
+- **Three mail paths sent nothing while reporting success** (`Audiobook-Manager-9nu`): `auth_email.py::_send_admin_alert`, `auth_email.py::_send_reply_email` and `inbox_cli.py`'s operator reply called `starttls()` unconditionally. The local relay does not advertise STARTTLS, so it raised `SMTPNotSupportedError`, the surrounding broad `except Exception` swallowed it logging only the exception CLASS, and `auth.py:881` discarded the returned `False`. Admin contact alerts, admin replies and `audiobook-inbox reply` were all silently dead. **A second, independent bug in two of the same functions**: `if not smtp_user: return False` — a precondition written for the credentialed transport, where `SMTP_USER` is now empty *by design*, so they returned before attempting anything and `_send_admin_alert` did not even log. Verified fixed by a real delivery: `status=sent, tls=secure`
+- **`upgrade.sh` purged nothing on every upgrade** (`Audiobook-Manager-8s8`): `purge_cloudflare_cache()` still required `CF_GLOBAL_API_KEY` + `CF_AUTH_EMAIL` and sent `X-Auth-Key`. That key was revoked upstream and the function treats failure as non-fatal, so it printed a soft skip and purged nothing for as long as the key had been dead — while the API endpoint had already moved to the scoped token. Two purge pathways, two credentials, one dead. Migrated to `CF_TOKEN_CACHE_PURGE` with a Bearer header; verified live against the real zone
+- **The reconciler reported permanent false mode drift** (`Audiobook-Manager-nsz`): it compared the manifest's `0600` against `stat -c %a`'s `600` as strings, so the check could never clear and `chmod` re-ran every pass, printing four identical warnings per deploy. Normalised via an octal round-trip, which also preserves setgid/sticky bits. A security check that fires on every deploy trains the operator to skim the drift section, which is exactly where a real permission regression would appear
+- **Two tests were pinning bugs as expected behaviour** and are rewritten to assert the requirement: `test_send_email_no_smtp_user` and `test_smtp_not_configured_skips` both asserted `result is False` for a credential-less send. The second kept passing after the fix *for the wrong reason* — with no SMTP mock the test-suite firewall raises, the broad `except Exception` swallows it, and `False` comes back anyway
+- **The test suite sent 28 real emails** and now cannot: `library/tests/conftest.py` carries an autouse fixture that makes a genuine SMTP connection impossible and fails loudly with an explanation. Defaulting `SMTP_HOST` to `localhost:25` is correct for production, but on a host running the relay it converted "the test fails to send" into "the test sends" — Postfix accepted 28 messages to fixture addresses and every one bounced `530` upstream, raising an operator alert per bounce. Nothing was delivered and no data left the box
+
+### Removed
+
+- **The legacy Cloudflare Global-API-Key path** (`Audiobook-Manager-8s8`): `_load_cf_credentials_from_file()`, `_resolve_cf_credentials()`, the `X-Auth-Key` / `X-Auth-Email` branch of `_resolve_cf_auth_headers()`, and `CF_TOKEN_FILE`. `_resolve_cf_auth_headers` is now four lines: scoped token → Bearer, or `None`. A missing or empty credential is a hard 503 rather than a silent downgrade to a full-account key
+- **The `9.0-refactor-rnd` branch** (`Audiobook-Manager-bth`), deleted locally and on origin after confirming zero unique commits — it was 264 behind `main` and untouched since the day it was created. `origin/feat/v8.3.2-streaming-wiring` was likewise found fully merged and deleted. `origin` now carries `main` only
+- **Four obsolete zero-byte credential stubs** from `/etc/audiobooks` and from the install manifest, each verified empty before deletion
+
+### Security
+
+- **A Global API Key is no longer an accepted credential anywhere in the purge path.** It grants full account access for an operation needing only Zone > Cache Purge, and this project's copy held a stale pre-rotation key for months because a hand-populated credential has no way to learn about a rotation (`Audiobook-Manager-e7x`). Both pathways now resolve only the scoped token
+- **Log injection hardening carried forward**: `_safe_for_log()` removes CR/LF before the allowlist substitution, because CodeQL does not model a regex `sub()` as a sanitiser and the alerts reappeared against otherwise-correct code until the recognised form was used
+
 ## [8.4.2.5] - 2026-08-26
 
 ### Added
@@ -4308,7 +4342,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.5...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3...HEAD
+[8.4.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.5...v8.4.3
 [8.4.2.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.4...v8.4.2.5
 [8.4.2.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.3...v8.4.2.4
 [8.4.2.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.2.2...v8.4.2.3
