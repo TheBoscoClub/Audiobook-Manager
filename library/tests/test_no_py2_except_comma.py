@@ -1,11 +1,26 @@
-"""Guard against regression of the Py2-style `except A, B:` pattern.
+"""Guard against the unparenthesised `except A, B:` pattern.
 
-Python 3 silently parses `except ValueError, TypeError:` as
-`except ValueError as TypeError:` — it binds the exception object to a
-local variable named `TypeError`, shadowing the built-in. The `TypeError`
-exception class is NOT also caught. This pattern looks like multi-exception
-handling but silently swallows only the first class; any real `TypeError`
-raised inside the block propagates unhandled.
+The reason changed with Python 3.14 and is worth stating precisely, because
+the pattern is no longer what it once was:
+
+- Python 3.0-3.13: `except ValueError, TypeError:` is a **SyntaxError**.
+- Python 3.14 (PEP 758): it is **legal** and means `except (ValueError, TypeError):`.
+
+So on this project's interpreter the line is correct and harmless — and that
+is exactly what makes it dangerous. CI runs the suite on **3.12, 3.13 and
+3.14** (.github/workflows/ci.yml), so a file carrying this form imports fine
+locally and fails to parse on two of three matrix entries.
+
+It gets written by accident rather than by hand: `ruff format` rewrites source
+into syntax legal for its `target-version`, and with `target-version = "py314"`
+it *strips the parentheses* from a correctly-written `except (A, B):`. That is
+how this guard fired on 2026-08-27. The root fix is pinning ruff's
+target-version to the oldest supported interpreter (pyproject.toml), and this
+test is the backstop for when that pin is wrong again.
+
+Historical note: prior to 3.14 the danger was different — `except A as B:`
+semantics were feared, binding the exception to a name shadowing the second
+class. That reading no longer applies, but forbidding the form still does.
 
 The correct form is `except (ValueError, TypeError):` — a parenthesised
 tuple explicitly naming all caught classes.

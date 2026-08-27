@@ -27,6 +27,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -34,6 +35,16 @@ from typing import Any
 import requests
 
 logger = logging.getLogger(__name__)
+
+# How stale the locally-tracked tally may get before it is reconciled with
+# DeepL. Without reconciliation the row is a purely local count that drifts
+# from the vendor's own counter (which resets each billing period), and
+# check_before_translate() gates on a number nobody has verified
+# (Audiobook-Manager-2s6).
+REFRESH_INTERVAL_SECONDS = 3600
+# Floor between *attempts*, so a failing usage endpoint is not retried on
+# every translate call.
+REFRESH_RETRY_SECONDS = 300
 
 SOFT_LIMIT_PCT = 0.90
 HARD_LIMIT_PCT = 0.99
@@ -57,6 +68,7 @@ class QuotaTracker:
 
     def __init__(self, db_path: Path, api_key: str = "", base_url: str = "") -> None:
         self._db_path = Path(db_path)
+        self._last_refresh_attempt = 0.0
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
         self._ensure_schema()
@@ -132,10 +144,41 @@ class QuotaTracker:
         snap = self.snapshot()
         return int(snap["remaining"])
 
+    def _reconcile_if_stale(self) -> None:
+        """Reconcile the local tally with DeepL when it has gone stale.
+
+        Called from :meth:`check_before_translate` — the gate whose decision
+        depends on the numbers being real. Silent by design on failure: a
+        usage-endpoint outage must not block translation, so the tracker
+        carries on with the local tally and says so at WARNING.
+        """
+        if not self._api_key or not self._base_url:
+            return
+        now = time.monotonic()
+        if self._last_refresh_attempt and now - self._last_refresh_attempt < REFRESH_RETRY_SECONDS:
+            return
+
+        row = self._raw_row()
+        last = row["last_api_check"]
+        if last and _age_seconds(last) < REFRESH_INTERVAL_SECONDS:
+            return
+
+        self._last_refresh_attempt = now
+        try:
+            self.refresh_from_api()
+        except Exception as exc:  # noqa: BLE001 — never block a translate on this
+            logger.warning(
+                "DeepL usage reconcile failed (%s: %s) — continuing on the local "
+                "tally, which may have drifted from the vendor's counter",
+                type(exc).__name__,
+                exc,
+            )
+
     def check_before_translate(self, char_count: int) -> None:
         """Block the caller if this request would blow the hard limit."""
         if char_count <= 0:
             return
+        self._reconcile_if_stale()
         snap = self.snapshot()
         projected = snap["used"] + char_count
         limit = snap["limit"]
@@ -263,6 +306,19 @@ class QuotaTracker:
             finally:
                 conn.close()
         return payload
+
+
+def _age_seconds(stamp: str) -> float:
+    """Seconds since a SQLite CURRENT_TIMESTAMP value (UTC, no tz suffix).
+
+    Returns infinity for anything unparseable, so a malformed timestamp is
+    treated as stale rather than as fresh — the safe direction.
+    """
+    try:
+        dt = datetime.strptime(str(stamp).strip(), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return float("inf")
+    return (datetime.now(timezone.utc) - dt).total_seconds()
 
 
 def _compute_reset_date(period_start: str | None) -> str:

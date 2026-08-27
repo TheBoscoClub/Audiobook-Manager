@@ -102,6 +102,22 @@ Copying production data *into* a test/QA environment is fine — once data is on
 - **NEVER** configure Docker `-v` to bind-mount host production paths at runtime
 - **NEVER** give test/QA environments write access to production storage through any mechanism
 
+### Tests must not resolve production paths either
+
+The rule above is about mounts. This one is about *path resolution*, which bit harder.
+
+`library/tests/conftest.py` pins `COVER_DIR`, `AUDIOBOOKS_COVERS`, `AUDIOBOOKS_LIBRARY` and `AUDIOBOOKS_DATA` into a
+per-run temp tree **at module scope** — not in a fixture, because `library/config.py` resolves those at import time and a
+fixture runs far too late. Do not remove that block, and do not add a test that reads these from the ambient environment.
+
+Why it matters: `import_to_db._cleanup_orphaned_covers()` **deletes** every file in `COVER_DIR` the database does not
+reference. With a temp test database that is every cover in the library. Running the suite from a directory where config
+fell back to production defaults attempted exactly that on 2026-08-27 and was stopped only by filesystem permissions —
+which would NOT have stopped it under this file's own documented `sudo -E -u audiobooks … pytest` invocation.
+
+Two guards now exist and both must stay: the conftest pin, and a refusal inside `_cleanup_orphaned_covers()` when a sweep
+would delete every file present (`Audiobook-Manager-d40`).
+
 ### Release leak prevention (COPYRIGHT/LICENSE CRITICAL)
 
 Production audiobook files are personally owned and licensed content. Accidentally including them in a release (GitHub, Docker registry, tarball) would expose private data and create copyright/trademark liability.

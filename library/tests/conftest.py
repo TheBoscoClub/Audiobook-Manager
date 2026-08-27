@@ -18,6 +18,30 @@ from pathlib import Path
 # any script modules are imported.
 os.environ.setdefault("AUDIOBOOKS_SKIP_USER_GATE", "1")
 
+# Pin every path the suite could resolve to a real installation into a
+# per-run temp tree (Audiobook-Manager-d40). MUST be set before any module
+# that reads them is imported — library/config.py resolves these at import
+# time, so a fixture would run far too late.
+#
+# This is not tidiness. `import_to_db._cleanup_orphaned_covers()` deletes
+# every file in COVER_DIR that the database does not reference; with a temp
+# test database that is *every cover in the library*. Running the suite from
+# a directory where config fell back to production defaults attempted exactly
+# that, and was stopped only by filesystem permissions — which would not have
+# stopped it under the documented `sudo -u audiobooks pytest` invocation.
+_TEST_TREE = Path(tempfile.gettempdir()) / f"audiobook-test-tree-{os.getpid()}"
+for _var, _sub in (
+    ("COVER_DIR", "covers"),
+    ("AUDIOBOOKS_COVERS", "covers"),
+    ("AUDIOBOOKS_LIBRARY", "Library"),
+    ("AUDIOBOOKS_DATA", "data"),
+):
+    os.environ.setdefault(_var, str(_TEST_TREE / _sub))
+(_TEST_TREE / "covers").mkdir(parents=True, exist_ok=True)
+
+# ruff: noqa: E402 — every import below must follow the environment pin
+# above; library/config.py resolves these paths at import time.
+
 import pytest
 
 

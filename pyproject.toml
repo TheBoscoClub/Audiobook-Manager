@@ -38,7 +38,13 @@
 
 [tool.ruff]
 line-length = 100
-target-version = "py314"
+# MUST be the OLDEST Python the CI matrix runs (.github/workflows/ci.yml
+# tests 3.12, 3.13 and 3.14), not the newest. `ruff format` REWRITES code
+# into syntax legal for target-version: with py314 it strips the parens
+# from `except (A, B):` per PEP 758, which is a SyntaxError on 3.12/3.13
+# and turns CI red on two of three matrix entries. Raise this only when
+# the matrix floor rises.
+target-version = "py312"
 extend-exclude = [
     "venv",
     ".snapshots",

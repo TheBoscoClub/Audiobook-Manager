@@ -73,6 +73,23 @@ def _cleanup_orphaned_covers(cursor):
         print("\n✓ No orphaned cover files")
         return
 
+    # Refuse an implausible sweep (Audiobook-Manager-d40). If the DB references
+    # no covers at all, or every file on disk is "orphaned", the far likelier
+    # explanation is that COVER_DIR and the database describe different
+    # installations — a test DB pointed at the real library, a misconfigured
+    # COVER_DIR, an empty rescan — than that the entire cover set is genuinely
+    # garbage. Deleting is unrecoverable; refusing costs one rerun. This guard
+    # is what stands between a mispointed run and the whole library's cover art:
+    # until now only filesystem permissions did.
+    if not referenced or orphans == on_disk:
+        print(
+            f"\n⚠ REFUSING to delete {len(orphans)} cover file(s) from {COVER_DIR}: "
+            f"the database references {len(referenced)} cover(s), so this would "
+            f"remove every file present. This almost certainly means COVER_DIR and "
+            f"the database belong to different installations. Nothing was deleted."
+        )
+        return
+
     total_bytes = 0
     for name in orphans:
         path = COVER_DIR / name

@@ -724,6 +724,10 @@ The localization system was built using the following open-source and commercial
 **Symptom**: Translation stops partway through with HTTP 429 or 456 errors.
 
 - **Free tier**: 500,000 characters/month. The quota tracker in `library/localization/translation/quota.py` monitors usage.
+  Since v8.4.3.3 it reconciles with DeepL's own `/v2/usage` figure before a translate when the local tally is more than an
+  hour stale, so `last_api_check` in the `deepl_quota` row is non-NULL on any installation that has translated recently. A
+  NULL there means no reconcile has ever succeeded — previously the normal state, because nothing called the refresh at all.
+  A failed reconcile never blocks translation: it logs at WARNING and carries on with the local tally.
 - **Fix**: Wait for quota reset (monthly) or upgrade to DeepL Pro (pay-per-use, no hard limit).
 - **Workaround**: Export partially-completed translations, then resume next month.
 

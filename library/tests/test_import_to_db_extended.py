@@ -174,23 +174,90 @@ class TestCleanupOrphanedCovers:
         conn.close()
 
     def test_skips_subdirectories(self, tmp_path):
-        """Line 66: only files are collected, subdirectories are ignored."""
+        """Line 66: only files are collected, subdirectories are ignored.
+
+        A referenced cover is present so this is a *plausible* sweep — with no
+        referenced covers at all the routine now refuses outright, which is a
+        different behaviour tested below (Audiobook-Manager-d40).
+        """
         from backend import import_to_db
 
         cover_dir = tmp_path / "covers"
         cover_dir.mkdir()
         (cover_dir / "subdir").mkdir()  # should be ignored
+        (cover_dir / "keep.jpg").write_bytes(b"\xff" * 10)
         (cover_dir / "orphan.jpg").write_bytes(b"\xff" * 10)
 
         db_path = tmp_path / "test.db"
         conn = _create_db_with_schema(db_path)
         cursor = conn.cursor()
-        # No audiobooks → orphan.jpg is orphaned
+        cursor.execute(
+            "INSERT INTO audiobooks (title, file_path, cover_path)"
+            " VALUES ('Book', '/lib/b.opus', 'keep.jpg')"
+        )
+        conn.commit()
+
         with patch.object(import_to_db, "COVER_DIR", cover_dir):
             import_to_db._cleanup_orphaned_covers(cursor)
 
         assert not (cover_dir / "orphan.jpg").exists()
+        assert (cover_dir / "keep.jpg").exists()
         assert (cover_dir / "subdir").is_dir()  # subdirectory untouched
+        conn.close()
+
+    def test_refuses_to_delete_every_cover(self, tmp_path, capsys):
+        """A sweep that would remove EVERY file is refused (d40).
+
+        This is the shape a test database pointed at the real library takes:
+        the DB references nothing on disk, so every cover looks orphaned. It
+        very nearly deleted the production cover art — only filesystem
+        permissions prevented it, and those would not apply under the
+        documented `sudo -u audiobooks pytest` invocation.
+        """
+        from backend import import_to_db
+
+        cover_dir = tmp_path / "covers"
+        cover_dir.mkdir()
+        for name in ("a.jpg", "b.jpg", "c.jpg"):
+            (cover_dir / name).write_bytes(b"\xff" * 32)
+
+        db_path = tmp_path / "test.db"
+        conn = _create_db_with_schema(db_path)
+        cursor = conn.cursor()  # no rows: references nothing
+
+        with patch.object(import_to_db, "COVER_DIR", cover_dir):
+            import_to_db._cleanup_orphaned_covers(cursor)
+
+        out = capsys.readouterr().out
+        assert "REFUSING" in out
+        for name in ("a.jpg", "b.jpg", "c.jpg"):
+            assert (cover_dir / name).exists(), f"{name} was deleted"
+        conn.close()
+
+    def test_refuses_when_db_references_only_absent_covers(self, tmp_path, capsys):
+        """Same guard when the DB references covers, but none that are present."""
+        from backend import import_to_db
+
+        cover_dir = tmp_path / "covers"
+        cover_dir.mkdir()
+        (cover_dir / "real1.jpg").write_bytes(b"\xff" * 32)
+        (cover_dir / "real2.jpg").write_bytes(b"\xff" * 32)
+
+        db_path = tmp_path / "test.db"
+        conn = _create_db_with_schema(db_path)
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO audiobooks (title, file_path, cover_path)"
+            " VALUES ('Elsewhere', '/other/b.opus', '/test/covers/book1.jpg')"
+        )
+        conn.commit()
+
+        with patch.object(import_to_db, "COVER_DIR", cover_dir):
+            import_to_db._cleanup_orphaned_covers(cursor)
+
+        assert "REFUSING" in capsys.readouterr().out
+        assert (cover_dir / "real1.jpg").exists()
+        assert (cover_dir / "real2.jpg").exists()
         conn.close()
 
 
