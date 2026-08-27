@@ -269,4 +269,4 @@ For security concerns, contact the maintainer through GitHub.
 ---
 
 **Last Updated:** 2026-08-05
-**Version:** 8.4.3.4
+**Version:** 8.4.3.5
