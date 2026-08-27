@@ -210,3 +210,71 @@ class TestShortOrEmptyResponseIsDegradation:
         out = t.translate(["The Hobbit"], "zh-Hans", strict=True)
         assert out == ["\u9738\u7ea7"]
         assert t.degraded is False
+
+
+class TestStaleGlossaryIsSelfHealing:
+    """A glossary DeepL will not accept must not degrade every translate forever.
+
+    Audiobook-Manager-2s6 follow-up. `GlossaryManager.ensure()` trusts its
+    cached id whenever the source hash matches, so an id minted under a
+    different DeepL account is resent indefinitely. Production hit exactly
+    this: every translate 404'd and wrote ENGLISH rows tagged translator=
+    'deepl' while the cached id survived.
+    """
+
+    def _translator_with_glossary(self, monkeypatch, tmp_path):
+        from localization.translation.quota import QuotaTracker
+
+        t = DeepLTranslator(api_key="pro-key", db_path=tmp_path / "q.db")
+        assert isinstance(t._tracker, QuotaTracker)
+        t._tracker.set_glossary("stale-id-from-a-dead-account", "hash")
+        t._glossary_id = "stale-id-from-a-dead-account"
+        t._glossary_resolved = True
+        return t
+
+    def test_404_with_glossary_retries_without_it(self, monkeypatch, tmp_path):
+        t = self._translator_with_glossary(monkeypatch, tmp_path)
+        seen: list[dict] = []
+
+        def fake_post(url, headers=None, json=None, timeout=None):
+            seen.append(json)
+            if "glossary_id" in json:
+                raise _fail(404)
+            resp = requests.Response()
+            resp.status_code = 200
+            resp._content = b'{"translations":[{"text":"\\u4f60\\u597d"}]}'
+            return resp
+
+        monkeypatch.setattr("requests.post", fake_post)
+        out = t.translate(["Hello"], "zh-Hans")
+
+        assert len(seen) == 2, "no retry was attempted"
+        assert "glossary_id" in seen[0] and "glossary_id" not in seen[1]
+        assert out == ["你好"], "the retry's translation was not used"
+        assert t.degraded is False
+
+    def test_stale_glossary_id_is_cleared_from_the_db(self, monkeypatch, tmp_path):
+        t = self._translator_with_glossary(monkeypatch, tmp_path)
+
+        def fake_post(url, headers=None, json=None, timeout=None):
+            if "glossary_id" in json:
+                raise _fail(404)
+            resp = requests.Response()
+            resp.status_code = 200
+            resp._content = b'{"translations":[{"text":"\\u4f60\\u597d"}]}'
+            return resp
+
+        monkeypatch.setattr("requests.post", fake_post)
+        t.translate(["Hello"], "zh-Hans")
+
+        cached_id, _ = t._tracker.get_glossary()
+        assert not cached_id, f"stale glossary id survived: {cached_id!r}"
+
+    def test_404_without_a_glossary_still_degrades(self, monkeypatch, tmp_path):
+        """The retry path must not swallow a genuine 404."""
+        t = DeepLTranslator(api_key="pro-key", db_path=tmp_path / "q.db")
+        t._glossary_resolved = True  # no glossary
+        monkeypatch.setattr("requests.post", lambda *a, **k: (_ for _ in ()).throw(_fail(404)))
+        out = t.translate(["Hello"], "zh-Hans")
+        assert out == ["Hello"]
+        assert t.degraded is True

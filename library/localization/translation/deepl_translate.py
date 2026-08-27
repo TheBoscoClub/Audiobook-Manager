@@ -204,6 +204,24 @@ class DeepLTranslator:
             self._glossary_id = None
         return self._glossary_id
 
+    def _invalidate_glossary(self) -> None:
+        """Forget a glossary DeepL will not accept, in memory and in the DB.
+
+        `GlossaryManager.ensure()` trusts its cached id whenever the source
+        hash matches — it never asks DeepL whether the glossary still exists.
+        So an id minted on a different account (or since deleted) is returned
+        forever, and every translate carrying it fails. Clearing the cache lets
+        `ensure()` mint a fresh one against the current account on the next
+        call (Audiobook-Manager-2s6 follow-up).
+        """
+        self._glossary_id = None
+        self._glossary_resolved = True
+        if self._tracker is not None:
+            try:
+                self._tracker.set_glossary("", "")
+            except Exception as exc:  # noqa: BLE001 - never let cleanup break a translate
+                logger.warning("Could not clear the cached glossary id: %s", exc)
+
     # -- public API ------------------------------------------------------
 
     def _build_output_with_hits(self, size: int, hits: dict[int, str]) -> list[str | None]:
@@ -255,6 +273,20 @@ class DeepLTranslator:
                     status,
                     self._base_url,
                 )
+            elif status == 404 and payload.get("glossary_id"):
+                # A 404 with a glossary attached means DeepL does not have that
+                # glossary — the usual cause is an id minted under a different
+                # account. Without this the failure is permanent and silent:
+                # every translate degrades to English while the cached id keeps
+                # being resent. Drop it and retry once; the retry carries no
+                # glossary, so this branch cannot recur.
+                logger.warning(
+                    "DeepL rejected the glossary (HTTP 404) — discarding the cached "
+                    "glossary id and retrying without it"
+                )
+                self._invalidate_glossary()
+                retry_payload = {k: v for k, v in payload.items() if k != "glossary_id"}
+                return self._call_deepl_api(retry_payload)
             else:
                 logger.error("DeepL translate call failed (%s)", self._last_error)
             return None

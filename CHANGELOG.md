@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A glossary DeepL will not accept degraded every translation to English, permanently and silently** (`Audiobook-Manager-2s6` follow-up): `GlossaryManager.ensure()` returns its cached glossary id whenever the YAML source hash matches — it never asks DeepL whether that glossary still exists. The id stored in `deepl_quota` had been minted under the superseded DeepL account, so the Pro account rejected every translate carrying it with **HTTP 404**, and the degradation path wrote the untranslated English source into `audiobook_translations` tagged `translator='deepl'` — indistinguishable from a real translation and never retried. `_call_deepl_api()` now treats a 404 carrying a `glossary_id` as a rejected glossary: it discards the cached id (in memory and in the DB, so `ensure()` mints a fresh one against the current account) and retries once without it. The retry carries no glossary, so the branch cannot recur, and a 404 with no glossary attached still degrades honestly.
+
+  This was a regression introduced in 8.4.3.4 and caught by verifying the deployment rather than trusting it. Giving all six translator sites a `db_path` gave them quota trackers — and `_resolve_glossary()` returns `None` when there is no tracker, so those paths had never sent a glossary before. Wiring the tracker activated a stale id that had been sitting in the database since the account migration. Production was repaired by clearing the cached id (translation verified restored end-to-end) and the two false English rows written during the window were deleted.
+
 ## [8.4.3.4] - 2026-08-27
 
 ### Fixed
