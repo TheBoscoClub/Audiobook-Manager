@@ -65,7 +65,10 @@ def get_translated_audio_dir(library_path: Path, book_folder: str) -> Path:
 # and the usage reconcile — six of seven construction sites were built that way
 # until 2026-08-27 (Audiobook-Manager-2s6). `library/tests/test_source_guards.py`
 # fails the build if a new site omits it.
+QUOTA_DB_PATH: Path | None
 try:  # pragma: no cover - exercised by every real entrypoint
-    from config import DATABASE_PATH as QUOTA_DB_PATH
+    from config import DATABASE_PATH as _CANONICAL_DB_PATH
+
+    QUOTA_DB_PATH = _CANONICAL_DB_PATH
 except ImportError:  # localization used standalone, outside the app
     QUOTA_DB_PATH = None
