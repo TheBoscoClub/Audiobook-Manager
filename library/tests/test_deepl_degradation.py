@@ -321,3 +321,93 @@ class TestIdentityResultsAreNeverCached:
         out = t.translate(["14", "Overlord"], "zh-Hans")
         assert out == ["14", "霸级"]
         assert stored == [[("Overlord", "霸级")]]
+
+
+class TestGlossaryInvalidationIsComplete:
+    """Every field _invalidate_glossary() clears is load-bearing.
+
+    Mutation testing showed 13 living mutants here: dropping the in-memory
+    reset, dropping the DB write, or flipping the resolved flag all passed.
+    Each omission has a distinct, observable consequence.
+    """
+
+    def _t(self, tmp_path):
+        t = DeepLTranslator(api_key="pro-key", db_path=tmp_path / "q.db")
+        assert t._tracker is not None  # db_path was given, so a tracker exists
+        t._tracker.set_glossary("stale-id", "hash")
+        t._glossary_id = "stale-id"
+        t._glossary_resolved = True
+        return t
+
+    def test_clears_the_in_memory_id(self, tmp_path):
+        t = self._t(tmp_path)
+        t._invalidate_glossary()
+        assert t._glossary_id is None, "the stale id would be re-sent on the retry"
+
+    def test_clears_the_persisted_id(self, tmp_path):
+        t = self._t(tmp_path)
+        t._invalidate_glossary()
+        cached_id, cached_hash = t._tracker.get_glossary()
+        assert not cached_id, "ensure() would hand the same dead id back next call"
+        assert not cached_hash
+
+    def test_leaves_resolution_marked_done(self, tmp_path):
+        """_glossary_resolved must stay True: the retry must NOT re-resolve.
+
+        If it flipped to False, _build_payload would call _resolve_glossary()
+        again mid-retry and could re-attach a glossary to the very request
+        that is retrying without one.
+        """
+        t = self._t(tmp_path)
+        t._invalidate_glossary()
+        assert t._glossary_resolved is True
+
+    def test_a_failing_tracker_does_not_break_the_retry(self, tmp_path, caplog):
+        import logging
+
+        t = self._t(tmp_path)
+
+        def boom(*a, **k):
+            raise RuntimeError("db gone")
+
+        t._tracker.set_glossary = boom
+        with caplog.at_level(logging.WARNING):
+            t._invalidate_glossary()  # must not raise
+        assert t._glossary_id is None  # in-memory clear still happened
+        assert any("glossary" in r.getMessage().lower() for r in caplog.records)
+
+
+class TestIdentityCountingIsAccurate:
+    """The identity skip must count and report exactly what it skipped."""
+
+    def _t(self, tmp_path, monkeypatch, returns):
+        t = DeepLTranslator(api_key="pro-key", db_path=tmp_path / "q.db")
+        t._glossary_resolved = True
+        stored: list = []
+        monkeypatch.setattr(t, "_tm_store", lambda pairs, locale: stored.append(pairs))
+        monkeypatch.setattr(t, "_call_deepl_api", lambda payload: returns)
+        return t, stored
+
+    def test_every_identity_in_a_batch_is_skipped_not_just_the_first(self, tmp_path, monkeypatch):
+        t, stored = self._t(tmp_path, monkeypatch, ["14", "99", "霸级"])
+        out = t.translate(["14", "99", "Overlord"], "zh-Hans")
+        assert out == ["14", "99", "霸级"]
+        assert stored == [[("Overlord", "霸级")]], f"partial skip: {stored}"
+
+    def test_the_count_is_logged_and_matches(self, tmp_path, monkeypatch, caplog):
+        import logging
+
+        t, _ = self._t(tmp_path, monkeypatch, ["14", "99"])
+        with caplog.at_level(logging.INFO):
+            t.translate(["14", "99"], "zh-Hans")
+        msgs = [r.getMessage() for r in caplog.records if "Not caching" in r.getMessage()]
+        assert msgs, "the skip was silent"
+        assert "2 identity" in msgs[0], f"wrong count reported: {msgs[0]}"
+
+    def test_no_identity_results_logs_nothing(self, tmp_path, monkeypatch, caplog):
+        import logging
+
+        t, _ = self._t(tmp_path, monkeypatch, ["霸级"])
+        with caplog.at_level(logging.INFO):
+            t.translate(["Overlord"], "zh-Hans")
+        assert not [r for r in caplog.records if "Not caching" in r.getMessage()]

@@ -6,6 +6,7 @@
 2. **PROJECT/APP SEPARATION** — Project and installed application are COMPLETELY SEPARATE with zero dependencies. See `rules/paths-and-separation.md`.
 3. **VM TESTING** — Dev machine for unit tests only. All integration/API/UI tests on `test-audiobook-cachyos`. See `rules/testing.md`.
 4. **OPUS METADATA** — Opus stores metadata in `streams[0].tags`, not `format.tags`. Check both. See `rules/audio-metadata.md`.
+5. **VM LIFECYCLE** — Boot VMs on demand with `vm-session up`, shut them down after. Never leave one idling. See `rules/vm-lifecycle.md`.
 
 ## Source File Protection
 

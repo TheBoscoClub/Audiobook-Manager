@@ -132,7 +132,7 @@ jobs:
           fail_ci_if_error: ${{ secrets.CODECOV_TOKEN != '' }}
 
   mutation-gate:
-    name: Mutation Gate (quota)
+    name: Mutation Gate
     runs-on: ubuntu-latest
     permissions:
       contents: read
