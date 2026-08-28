@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The nightly credential sweep failed on a function signature**: `security-checks.yml` matched `(api.?key|password|token|secret).*=.*["'][a-zA-Z0-9]{16,}["']`, and the `.*` between the keyword and the `=` meant any line that merely *mentioned* a credential word and also contained a 16-plus character quoted string matched. The scheduled run is a full-tree sweep (push runs scan only added lines), so it flagged `library/auth/cli.py:62` — `def generate_totp_uri(..., secret: bytes, issuer: str = "AudiobookLibrary")`, where the "credential" is a TOTP issuer label that is exactly 16 characters. The keyword must now be the **assignment target**, with an optional type annotation that may not contain a comma — a comma is precisely what let a parameter list through. Verified against six real-secret shapes (`API_KEY = "…"`, `self.api_key="…"`, `password: str = "…"`, `TOKEN='…'`, `client_secret = "…"`, `some_token: str = "…"`), all still caught, and the false positive no longer matches; the full-tree scan goes from 1 match to 0, and re-fires when a secret is planted
+
 ## [8.4.3.6] - 2026-08-27
 
 ### Added

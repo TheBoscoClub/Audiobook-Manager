@@ -88,7 +88,17 @@ jobs:
           # positives on every issue that mentions a token. Real credentials are
           # prohibited there by policy — see ~/.claude/rules/beads.md "bd remember
           # — Sensitive Data Policy".
-          PATTERN='(api.?key|password|token|secret).*=.*["'"'"'][a-zA-Z0-9]{16,}["'"'"']'
+          # The credential keyword must be the ASSIGNMENT TARGET, not merely
+          # present somewhere on the line. The previous pattern used `.*`
+          # between the keyword and the `=`, so any line that mentioned
+          # "secret"/"token" AND contained a 16+ character quoted string
+          # matched — including function signatures. The nightly full-tree
+          # sweep failed on 2026-08-28 for exactly that reason:
+          #   def generate_totp_uri(..., secret: bytes, issuer: str = "AudiobookLibrary")
+          # where the "credential" was a TOTP issuer label of exactly 16 chars.
+          # An optional type annotation is allowed (`token: str = "..."`) but it
+          # may not contain a comma, which is what let a parameter list through.
+          PATTERN='(api.?key|password|token|secret)[a-zA-Z0-9_]*[[:space:]]*(:[[:space:]]*[A-Za-z_][A-Za-z0-9_.]*)?[[:space:]]*=[[:space:]]*["'"'"'][a-zA-Z0-9]{16,}["'"'"']'
           # Diff to a file first so a git failure fails the step instead of
           # being swallowed by an empty pipe into grep.
           #
