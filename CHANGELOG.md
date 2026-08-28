@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.4.3.7] - 2026-08-28
+
+### Added
+
 - **VM lifecycle automation** (`.claude/rules/vm-lifecycle.md`): the dev/QA/test VMs are booted for a specific job and shut down after, rather than idling. `~/.claude/bin/vm-session up <vm>` starts a VM, waits for SSH and prints its address; `down` shuts it down **only if we started it** — a VM the operator brought up by hand is never touched, verified by removing the marker and watching `down` decline while the VM kept running. A `SessionEnd` hook runs `vm-session reap` as a safety net, so a session that dies mid-way still releases the VMs it booted. The helper also filters loopback and link-local from `virsh domifaddr`, which previously reported `127.0.0.1` first for these guests — pointing a remote deploy at that address aims it at the host
 
 ### Changed
@@ -4417,7 +4425,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.6...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.7...HEAD
+[8.4.3.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.6...v8.4.3.7
 [8.4.3.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.5...v8.4.3.6
 [8.4.3.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.4...v8.4.3.5
 [8.4.3.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.3...v8.4.3.4
