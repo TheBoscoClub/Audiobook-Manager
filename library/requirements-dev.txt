@@ -55,7 +55,7 @@ mando>=0.7.1,<0.8
 # `[tool.pylint.typecheck]` in pyproject.toml is retained for ad-hoc runs; if
 # pylint is ever made a gate, declare pylint here and let it resolve astroid.
 packaging>=26.3
-platformdirs>=4.11.3
+platformdirs>=4.11.4
 types-croniter>=6.2.4.20260711
 types-requests>=2.33.0.20260712
 zope.interface>=8.6
