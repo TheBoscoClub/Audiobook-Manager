@@ -58,5 +58,5 @@ packaging>=26.3
 platformdirs>=4.11.3
 types-croniter>=6.2.4.20260711
 types-requests>=2.33.0.20260712
-zope.interface>=8.5
+zope.interface>=8.6
 mutmut>=3.7,<4  # mutation testing — scripts/mutation-gate.py
