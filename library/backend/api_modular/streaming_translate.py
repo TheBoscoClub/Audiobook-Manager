@@ -2051,7 +2051,13 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
         "INSERT OR REPLACE INTO chapter_subtitles "
         "(audiobook_id, chapter_index, locale, vtt_path, stt_provider, translation_provider) "
         "VALUES (?, ?, ?, ?, 'streaming', ?)",
-        (audiobook_id, chapter_index, locale, str(translated_vtt_path), translation_provider_name()),
+        (
+            audiobook_id,
+            chapter_index,
+            locale,
+            str(translated_vtt_path),
+            translation_provider_name(),
+        ),
     )
     # Insert English source row so the bilingual transcript panel
     # (双语文字记录) can render after consolidation. Mirrors the

@@ -44,8 +44,9 @@ def tm_lookup(
     hashes = list(hash_by_index.values())
     placeholders = ",".join("?" * len(hashes))
 
-    conn = sqlite3.connect(str(db_path))
+    conn = None
     try:
+        conn = sqlite3.connect(str(db_path))
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
             f"SELECT source_hash, translation FROM string_translations "  # nosec B608  # noqa: S608
@@ -53,10 +54,12 @@ def tm_lookup(
             (locale, *hashes),
         ).fetchall()
     except sqlite3.Error:
+        # A broken TM is a cache miss, never an exception.
         logger.exception("TM lookup failed")
         return {}, [(i, t) for i, t in enumerate(texts)]
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
     hit_by_hash = {r["source_hash"]: r["translation"] for r in rows}
     hits: dict[int, str] = {}
@@ -99,8 +102,9 @@ def tm_store(
         )
     if not storable:
         return
-    conn = sqlite3.connect(str(db_path))
+    conn = None
     try:
+        conn = sqlite3.connect(str(db_path))
         for source, translation in storable:
             conn.execute(
                 """INSERT INTO string_translations
@@ -117,7 +121,8 @@ def tm_store(
     except sqlite3.Error:
         logger.exception("TM store failed")
     finally:
-        conn.close()
+        if conn is not None:
+            conn.close()
 
 
 def prune_translation_memory(db_path: Path | str, older_than_days: int) -> int:

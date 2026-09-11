@@ -19,6 +19,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+from localization.stt.base import STTProvider
 from localization.translation.base import TranslationProvider, TranslationUnavailableError
 from localization.translation.factory import get_translation_provider, translation_provider_name
 from localization.translation.memory import (
@@ -140,21 +141,73 @@ class TestTranslationMemory:
         assert [text for _i, text in misses] == ["Old"]
 
     def test_prune_refuses_negative_days(self, tm_db: Path):
-        with pytest.raises(ValueError, match="must be >= 0"):
+        with pytest.raises(ValueError, match=r"^older_than_days must be >= 0$"):
             prune_translation_memory(tm_db, -1)
+
+    def test_prune_zero_days_is_valid_and_sweeps_everything(self, tm_db: Path):
+        """0 is a legal argument (the guard is strictly `< 0`) and means
+        "older than now" — with a backdated row, that row goes."""
+        tm_store(tm_db, [("Old", "旧")], "zh-Hans", "stub-mt")
+        conn = sqlite3.connect(str(tm_db))
+        try:
+            conn.execute("UPDATE string_translations SET updated_at = datetime('now', '-1 hour')")
+            conn.commit()
+        finally:
+            conn.close()
+        assert prune_translation_memory(tm_db, 0) == 1
+
+    def test_prune_empty_table_returns_zero(self, tm_db: Path):
+        assert prune_translation_memory(tm_db, 30) == 0
+
+    def test_lookup_on_unreadable_db_degrades_to_all_misses(self, tmp_path: Path, caplog):
+        """A broken TM is a cache miss, never an exception — every text
+        comes back as a miss and the failure is logged for the operator."""
+        bogus = tmp_path / "not-a-dir" / "tm.db"  # parent missing → sqlite3.OperationalError
+        with caplog.at_level("ERROR", logger="localization.translation.memory"):
+            hits, misses = tm_lookup(bogus, ["One", "Two"], "zh-Hans")
+        assert hits == {}
+        assert misses == [(0, "One"), (1, "Two")]
+        assert any(r.getMessage() == "TM lookup failed" for r in caplog.records)
+
+    def test_store_on_unreadable_db_logs_and_does_not_raise(self, tmp_path: Path, caplog):
+        bogus = tmp_path / "not-a-dir" / "tm.db"
+        with caplog.at_level("ERROR", logger="localization.translation.memory"):
+            tm_store(bogus, [("One", "一")], "zh-Hans", "stub-mt")
+        assert any(r.getMessage() == "TM store failed" for r in caplog.records)
+
+    def test_identity_skip_is_logged_with_the_exact_count(self, tm_db: Path, caplog):
+        """The skip log is the only operator-visible signal that identity
+        results were withheld — its count must be right (2 of 3 here)."""
+        with caplog.at_level("INFO", logger="localization.translation.memory"):
+            tm_store(
+                tm_db,
+                [("42", "42"), ("Hello", "你好"), ("N/A", "N/A")],
+                "zh-Hans",
+                "stub-mt",
+            )
+        messages = [r.getMessage() for r in caplog.records]
+        assert (
+            "Not caching 2 identity result(s) — a translation equal to its "
+            "source is indistinguishable from a degraded pass-through" in messages
+        )
+        hits, _misses = tm_lookup(tm_db, ["42", "Hello", "N/A"], "zh-Hans")
+        assert hits == {1: "你好"}
 
 
 # ── pipeline degradation without a provider ──
 
 
-class _StubSTT:
-    """Canned-transcript STT provider (duck-typed to STTProvider)."""
+class _StubSTT(STTProvider):
+    """Canned-transcript STT provider."""
 
     is_local = True
-    name = "stub-stt"
 
     def __init__(self, transcript):
         self._transcript = transcript
+
+    @property
+    def name(self) -> str:
+        return "stub-stt"
 
     def transcribe(self, audio_path, language="en"):
         return self._transcript
