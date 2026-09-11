@@ -31,7 +31,7 @@ else
 fi
 
 # Defensive: also source /etc/audiobooks/audiobooks.conf so operator
-# overrides (path remappings + STT/DeepL/TTS credentials) are present when
+# overrides (path remappings + STT/MT/TTS credentials) are present when
 # this script is invoked outside systemd (manual debug, cron, burst
 # wrappers). Under systemd, EnvironmentFile= already populated these, so
 # re-sourcing is an idempotent no-op. set -a exports every assignment so

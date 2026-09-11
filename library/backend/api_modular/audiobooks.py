@@ -360,7 +360,7 @@ def _build_cjk_search_clause(query: str) -> tuple[str, list[str]]:
       original metadata already contains CJK, e.g. original-language
       imports)
     - the translated columns via ``audiobook_translations`` for any
-      zh-* locale (catches books translated via DeepL)
+      zh-* locale (catches machine-translated books)
 
     Every bigram must match in at least one of the searched columns.
     See ``search_cjk.cjk_bigram_like_clause`` for the tradeoff docstring.

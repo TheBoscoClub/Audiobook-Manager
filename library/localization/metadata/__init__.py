@@ -1,4 +1,4 @@
-"""Book metadata lookup — Douban, DeepL fallback."""
+"""Book metadata lookup — Douban."""
 
 from .lookup import BookMetadata, MetadataLookup
 

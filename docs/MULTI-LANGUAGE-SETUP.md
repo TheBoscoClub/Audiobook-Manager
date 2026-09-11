@@ -9,7 +9,7 @@ A comprehensive guide for adding multi-language support to your Audiobook Manage
 - [Overview and Scope](#overview-and-scope)
 - [Architecture Overview](#architecture-overview)
 - [Provider Setup Instructions](#provider-setup-instructions)
-  - [DeepL (Translation)](#deepl-translation)
+  - [Machine translation provider](#machine-translation-provider)
   - [Serverless Whisper STT (RunPod)](#serverless-whisper-stt-runpod)
   - [Optional RunPod XTTS endpoint](#optional-runpod-xtts-endpoint)
   - [Local GPU (Optional)](#local-gpu-optional)
@@ -28,13 +28,13 @@ A comprehensive guide for adding multi-language support to your Audiobook Manage
 
 Audiobook Manager (v8.4.3) includes a full localization system that translates both the web interface and audiobook content itself. The system currently ships with English (`en`) and Simplified Chinese (`zh-Hans`), but the architecture supports adding more locales without code changes.
 
-> ### Status: text translation is live; audio translation needs an STT backend you must supply
+> ### Status: text translations serve from cache; audio translation needs an STT backend you must supply
 >
 > The two halves of this system have very different operational status, and the difference matters before you follow any of the setup below.
 >
 > | Half | Providers | Status |
 > |---|---|---|
-> | **Text** — UI strings, book metadata, announcements | DeepL | **Live and supported.** Runs on the DeepL API Free tier. |
+> | **Text** — UI strings, book metadata, announcements | (none configured) | **Existing translations serve from the translation cache/DB.** No machine-translation provider is currently bundled; strings not already cached fall back to English. |
 > | **Audio** — subtitles (VTT), translated narration | Whisper STT + edge-tts / XTTS | **Requires an STT backend that this project does not provide.** |
 >
 > The maintainer's RunPod account is **decommissioned**, and the Vast.ai path was never enabled. Neither serverless STT provider is available in the reference deployment, and neither is exercised end-to-end any more. The audio-translation code, tests, systemd units, and configuration all remain in the tree and are unchanged — but with no STT endpoint configured, no transcription can complete, so no subtitles and no translated narration will ever be produced.
@@ -54,11 +54,11 @@ Audiobook Manager (v8.4.3) includes a full localization system that translates b
 |----------|----------|-----------|
 | UI text | Navigation, buttons, labels, headings | Locale JSON files (1,093 keys per language) |
 | Tooltips | All interactive elements | Locale JSON files |
-| Book descriptions | Synopses, author bios, series info | DeepL API (neural machine translation) |
-| Announcement banners | Admin-authored notices shown to patrons | DeepL API |
+| Book descriptions | Synopses, author bios, series info | Translation cache (machine translation) |
+| Announcement banners | Admin-authored notices shown to patrons | Translation cache (machine translation) |
 | Help pages | User-facing documentation | Locale JSON files |
 | Error messages | User-visible errors and validation | Locale JSON files |
-| Subtitles (VTT) | Per-chapter synchronized captions | STT pipeline (Whisper transcription + DeepL translation) |
+| Subtitles (VTT) | Per-chapter synchronized captions | STT pipeline (Whisper transcription + machine translation) |
 | Translated audio narration | Full audiobook narration in target language | TTS pipeline (edge-tts or XTTS voice cloning) |
 
 ### What Is NOT Translated
@@ -98,7 +98,7 @@ Source Audio (English)
 [STT] Speech-to-Text (Whisper)
     |  Transcribes English audio to timestamped text
     v
-[Translation] DeepL API
+[Translation] Machine translation
     |  Translates English text to target language
     v
 [TTS] Text-to-Speech (edge-tts or XTTS)
@@ -113,8 +113,8 @@ The localization module lives in `library/localization/` (~4,900 lines of Python
 
 | Subpackage | Purpose |
 |------------|---------|
-| `stt/` | Speech-to-text providers (Whisper via RunPod serverless, local GPU, DeepL fallback) |
-| `translation/` | DeepL translation, glossary management, quota tracking |
+| `stt/` | Speech-to-text providers (Whisper via RunPod serverless, local GPU) |
+| `translation/` | Provider abstraction (`TranslationProvider` protocol), provider factory, SQLite translation memory |
 | `tts/` | Text-to-speech providers (edge-tts, XTTS via RunPod) |
 | `subtitles/` | VTT subtitle generation and chapter synchronization |
 | `metadata/` | Book metadata translation (title, author, description) and Douban lookup |
@@ -129,20 +129,17 @@ The STT layer uses OpenAI's Whisper model. When `AUDIOBOOKS_STT_PROVIDER` is set
 | **RunPod Whisper (streaming)** | Real-time per-segment inference for the live player | Warm pool (`min_workers>=1`) — first segment returns in seconds. Small ongoing hourly cost for the resident worker. |
 | **RunPod Whisper (backlog)** | Long-form audiobook transcription, sampler/backfill jobs | Cold pool (`min_workers=0`) — scales to zero, pay only when processing. 10-30 s cold start on the first request after idle. |
 | **Local GPU Whisper** | Testing, small batches, users with known-good AI hardware | Uses host GPU. Safe only on hardware classes designed for sustained AI inference (NVIDIA CUDA, enterprise AMD Instinct/ROCm). **Consumer AMD Radeon RDNA 2/3 + ROCm is known-unstable — see the cautionary tale in [Local GPU (Optional)](#local-gpu-optional).** |
-| **DeepL transcription** | Tiny clips only | Fallback path — DeepL's transcribe endpoint rejects payloads above ~100 MB, so it cannot handle a whole audiobook. |
 
 The workload-aware selection system (`library/localization/selection.py`) distinguishes between short clips (prefer local to avoid cold-start latency) and long-form batch work (prefer the cold backlog endpoint for cheapest throughput).
 
 ### Translation Provider
 
-**DeepL API** is used for all text translation. DeepL consistently produces the most natural Chinese renderings compared to alternatives. The translation layer includes:
+**No machine-translation provider is currently bundled.** Text translation runs through a provider abstraction — `library/localization/translation/base.py` defines the `TranslationProvider` protocol, and `factory.py` returns the configured provider (currently none) — so a backend can be wired in later without changing callers. The translation layer includes:
 
-- Quota tracking to stay within API limits
-- Glossary support for domain-specific terms (proper nouns, series names)
-- Batch processing to minimize API calls
-- Translation memory — the `string_translations` table is consulted before every call, so repeats cost no quota
+- Batch processing to minimize provider calls
+- Translation memory — the `string_translations` table is consulted before every call, so already-translated strings are served from the database with no provider at all
 
-**Failure is announced, never silent.** When DeepL cannot be reached or refuses a request, `translate()` sets `self.degraded` and counts the affected strings in `self.degraded_texts`, and logs at error level. Callers that **persist** the result must pass `strict=True`, which raises `TranslationUnavailableError` instead of returning the English source:
+**Failure is announced, never silent.** When no provider is configured, or the configured provider cannot be reached or refuses a request, `translate()` sets `self.degraded` and counts the affected strings in `self.degraded_texts`, and logs at error level. Callers that **persist** the result must pass `strict=True`, which raises `TranslationUnavailableError` instead of returning the English source:
 
 | Caller | Mode | Why |
 |---|---|---|
@@ -167,52 +164,11 @@ If the remote provider (RunPod) is unreachable, the system automatically falls b
 
 ## Provider Setup Instructions
 
-### DeepL (Translation)
+### Machine translation provider
 
-DeepL handles all text translation (UI strings, book metadata, subtitle text).
+**No machine-translation provider is currently bundled**, so there is nothing to sign up for or configure here. Text translation (UI strings, book metadata, subtitle text) runs through a provider abstraction — `library/localization/translation/base.py` defines the `TranslationProvider` protocol, and `factory.py` returns the configured provider, currently none — so a future backend can be wired in without changing callers.
 
-1. **Sign up** at [deepl.com/pro/change-plan#developer](https://www.deepl.com/pro/change-plan#developer) and obtain an API authentication key.
-
-2. **Choose a plan**:
-
-   | Plan | Character Limit | Cost | Key format | API host |
-   |------|----------------|------|-----------|----------|
-   | **API Free** | 500,000 chars/month | $0 | ends in `:fx` | `https://api-free.deepl.com/v2` |
-   | API Pro | Unlimited (pay-per-use) | ~$20/million chars | no suffix | `https://api.deepl.com/v2` |
-
-   **The two tiers are served by different hosts, and a key works on one host only.** A valid Free key sent to `api.deepl.com` gets `403 Forbidden` — the same status a revoked key gets. The two are indistinguishable unless you read the response body, so a mis-hosted key looks exactly like a dead one.
-
-   You do not have to configure the host. `DeepLTranslator.__init__` selects it from the key itself (`library/localization/translation/deepl_translate.py`):
-
-   ```python
-   self._base_url = DEEPL_FREE_API_URL if api_key.endswith(":fx") else DEEPL_API_URL
-   ```
-
-   Paste the key exactly as DeepL issues it — **including the `:fx` suffix**. Stripping it silently routes a Free key at the Pro host and every translation fails with 403.
-
-   > This project's own deployment runs on the **API Free** tier: a 500,000 character/month budget. `QuotaTracker` accounts every call against that budget and raises `QuotaExceededError` on a hard-limit breach. Translation-memory hits (the `string_translations` table) are served from the DB and do **not** bill against it.
-
-3. **Configure the API key**:
-
-   Add to `~/.config/api-keys.env`:
-
-   ```bash
-   # DeepL — translation API key for audiobook localization
-   AUDIOBOOKS_DEEPL_API_KEY=your-key-here
-   ```
-
-4. **Verify**: The localization pipeline will automatically use DeepL when the key is present. No additional configuration is needed.
-
-   To confirm the key reaches the right host, check your usage endpoint — a `403` here means the key and host disagree, not necessarily that the key is dead:
-
-   ```bash
-   # Free key (ends in :fx)
-   curl -sS -H "Authorization: DeepL-Auth-Key $KEY" https://api-free.deepl.com/v2/usage
-   # Pro key (no suffix)
-   curl -sS -H "Authorization: DeepL-Auth-Key $KEY" https://api.deepl.com/v2/usage
-   ```
-
-**Note**: DeepL also offers an STT service, but it is NOT recommended for audiobooks because it rejects audio files larger than 100 MB. Most audiobook chapters exceed this limit.
+Existing translations continue to serve from the translation cache: the `string_translations` table (translation memory) is consulted before any provider call, so an installation with a populated cache keeps serving translated content with no provider configured. Strings not in the cache fall back to the English source.
 
 ### Serverless Whisper STT (RunPod)
 
@@ -315,7 +271,7 @@ The maintainer **does not have and cannot afford** a GPU that is known-good for 
 
 ## Turning audio translation off
 
-If you want text translation (DeepL) but not audio translation, leave every STT
+If you want text translation but not audio translation, leave every STT
 and TTS variable unset and record your intent in `/etc/audiobooks/disabled-units`:
 
 ```bash
@@ -395,7 +351,7 @@ All localization settings are environment variables, read from `/etc/audiobooks/
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AUDIOBOOKS_STT_PROVIDER` | `auto` | Provider selection: `auto`, `whisper` (RunPod single-endpoint transitional path), `local-gpu`, or `deepl`. Auto is the default and dispatches via workload hint (STREAMING vs BACKLOG) across the configured serverless endpoints. |
+| `AUDIOBOOKS_STT_PROVIDER` | `auto` | Provider selection: `auto`, `whisper` (RunPod single-endpoint transitional path), or `local-gpu`. Auto is the default and dispatches via workload hint (STREAMING vs BACKLOG) across the configured serverless endpoints. |
 
 ### TTS (Text-to-Speech)
 
@@ -416,7 +372,6 @@ edge-tts --list-voices
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AUDIOBOOKS_DEEPL_API_KEY` | (none) | DeepL API authentication key |
 | `AUDIOBOOKS_RUNPOD_API_KEY` | (none) | RunPod serverless API key |
 
 ### Provider Endpoints
@@ -469,7 +424,7 @@ The locale file contains 1,093 keys organized by UI section. Each key maps to a 
 }
 ```
 
-You can translate the file manually, use the DeepL API programmatically, or use any translation tool of your choice. Every key must have a translation -- missing keys fall back to the English value at runtime.
+You can translate the file manually, use a machine translation API programmatically, or use any translation tool of your choice. Every key must have a translation -- missing keys fall back to the English value at runtime.
 
 ### Step 2: Register the Locale
 
@@ -535,7 +490,7 @@ AUDIOBOOKS_TTS_VOICE_JA="ja-JP-NanamiNeural"
 2. Open user preferences (profile settings)
 3. Select your new locale from the language dropdown
 4. Verify all UI text renders in the target language
-5. Check that book descriptions translate on demand (requires DeepL API key)
+5. Check that book descriptions translate on demand (requires cached translations or a configured machine-translation provider)
 
 ### Step 5: CJK Considerations
 
@@ -569,7 +524,7 @@ The translation/multilingual subsystem represents a meaningful fraction of the t
 |----------|----------|-------|
 | Developer time on localization | 150-250 hours | i18n architecture, STT/TTS pipeline, locale files, testing, provider integration, subtitle generation |
 | Developer labor value | ~$10,500-17,500 | At ~$70/hour |
-| DeepL API | $0-50 | Free tier (500k chars/month) was sufficient. 1,038 UI strings + book descriptions consumed a fraction of the free tier. |
+| Machine translation API | $0-50 | A free tier (500k chars/month) was sufficient. 1,038 UI strings + book descriptions consumed a fraction of it. |
 | GPU rental (STT + TTS) | $150-450 | For a library of 600-800 audiobooks (~2,000-4,000 hours of audio). Varies by GPU pricing and audio length. |
 | **Total localization cost** | **~$10,650-18,000** | Mostly developer time |
 
@@ -589,7 +544,7 @@ For a library of ~600-800 audiobooks:
 | Scenario | Time | Cost |
 |----------|------|------|
 | **Using a shipped language** (en or zh-Hans) with existing locale files | Hours | $0 (edge-tts) or $150-450 (XTTS) in GPU for audio narration |
-| **Adding a new language** with DeepL + edge-tts | 1-3 days | $0-50 (DeepL free tier + free TTS). GPU for STT: $10-75. |
+| **Adding a new language** with a machine-translation provider + edge-tts | 1-3 days | $0-50 (free-tier MT + free TTS). GPU for STT: $10-75. |
 | **Adding a new language** with XTTS voice cloning | 1-3 days + GPU processing time | $150-450 depending on library size |
 | **Building this from scratch** (as this project did) | Months of engineering | $10,000+ in developer time alone |
 
@@ -663,7 +618,7 @@ If `--db` is not specified, the tool uses `$AUDIOBOOKS_DATABASE` from your confi
 | ffmpeg | 7.0+ | Audio conversion, chapter detection, format transcoding |
 | SQLite | 3.38+ (with JSON1) | Translation metadata storage |
 | `edge-tts` | 7.0+ | Default TTS provider (Microsoft Neural TTS) |
-| `requests` | 2.33+ | HTTP client for DeepL API, GPU provider APIs, and all remote calls |
+| `requests` | 2.33+ | HTTP client for GPU provider APIs and all remote calls |
 | `pypinyin` | 0.55+ | Mandarin pinyin conversion for CJK sort and search (zh-Hans locale) |
 
 ### Optional
@@ -697,7 +652,6 @@ The localization system was built using the following open-source and commercial
 | Component | Role | License/Terms |
 |-----------|------|---------------|
 | [OpenAI Whisper](https://github.com/openai/whisper) | Speech-to-text transcription | MIT License |
-| [DeepL](https://www.deepl.com/) | Neural machine translation | Commercial API (free tier available) |
 | [Microsoft Edge TTS](https://github.com/rany2/edge-tts) | Neural text-to-speech synthesis | MIT License (library); Microsoft terms (service) |
 | [XTTS / Coqui TTS](https://github.com/coqui-ai/TTS) | Multilingual voice cloning | MPL-2.0 License |
 | [RunPod](https://www.runpod.io/) | Serverless GPU platform | Commercial |
@@ -715,21 +669,8 @@ The localization system was built using the following open-source and commercial
 |----------|-------------|-----|
 | RunPod | Serverless cold start timeout | First request after idle period takes 10-30 seconds. Increase client timeout or send a warm-up request. |
 | Local GPU | Service not started | Verify the Whisper service is running on the configured host and port. |
-| DeepL | Invalid or expired API key | Verify key at [deepl.com/account](https://www.deepl.com/account). Free keys end with `:fx`. |
 
 **Fallback behavior**: When a remote provider fails, the system falls back to local processing once per request. If you see "falling back to local" in logs, your remote provider is unreachable but translation is still proceeding (slowly).
-
-### DeepL Rate Limits
-
-**Symptom**: Translation stops partway through with HTTP 429 or 456 errors.
-
-- **Free tier**: 500,000 characters/month. The quota tracker in `library/localization/translation/quota.py` monitors usage.
-  Since v8.4.3.3 it reconciles with DeepL's own `/v2/usage` figure before a translate when the local tally is more than an
-  hour stale, so `last_api_check` in the `deepl_quota` row is non-NULL on any installation that has translated recently. A
-  NULL there means no reconcile has ever succeeded — previously the normal state, because nothing called the refresh at all.
-  A failed reconcile never blocks translation: it logs at WARNING and carries on with the local tally.
-- **Fix**: Wait for quota reset (monthly) or upgrade to DeepL Pro (pay-per-use, no hard limit).
-- **Workaround**: Export partially-completed translations, then resume next month.
 
 ### GPU Cold Starts
 
@@ -770,8 +711,8 @@ The localization system was built using the following open-source and commercial
 
 **Symptom**: Translated text reads unnaturally or contains errors.
 
-- DeepL quality varies by language pair. English-to-Chinese is generally excellent.
-- **Glossary support**: Add domain-specific terms to `library/localization/glossary/` to override DeepL's default translations for proper nouns, series names, and specialized vocabulary.
+- Machine translation quality varies by provider and language pair. English-to-Chinese is generally excellent.
+- **Glossary support**: Add domain-specific terms to `library/localization/glossary/` to override default machine translations for proper nouns, series names, and specialized vocabulary.
 - **Manual correction**: Edit translated strings directly in the locale JSON file or the database. Manual edits are preserved across re-translations.
 
 ### edge-tts Voice Issues

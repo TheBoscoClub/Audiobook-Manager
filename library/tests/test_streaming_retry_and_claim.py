@@ -9,7 +9,7 @@ Covers:
 
 These tests exercise the worker's claim_next_segment and the SQL contract
 behind the retry path. The worker's actual exception handler is exercised
-at /test audit time on test-audiobook-cachyos with real RunPod/DeepL calls;
+at /test audit time on test-audiobook-cachyos with real provider calls;
 here we verify the shape the worker depends on.
 """
 

@@ -819,7 +819,8 @@ class TestRunSttAndTranslate:
             assert by_locale["en"][3] is None
             assert by_locale["zh-Hans"][1] == str(tr)
             assert by_locale["zh-Hans"][2] == "whisper-turbo"
-            assert by_locale["zh-Hans"][3] == "deepl"
+            # No machine-translation provider is configured, so provenance is NULL.
+            assert by_locale["zh-Hans"][3] is None
         finally:
             conn.close()
 

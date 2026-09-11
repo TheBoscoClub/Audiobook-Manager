@@ -722,7 +722,7 @@ def test_process_segment_skips_stt_when_vtt_content_already_present(tmp_path):
     broken-burst row reset to pending, or a legacy .opus orphan whose
     audio file is missing), the worker MUST skip STT + translation and
     regenerate only the per-segment TTS. This preserves the translated
-    text (saves DeepL per-char cost and is the only way to recover the
+    text (saves per-character translation cost and is the only way to recover the
     400 legacy .opus rows whose source audio may no longer exist) and
     avoids a RunPod GPU hit (~$0.30-1/hr, unnecessary for recovery work).
 

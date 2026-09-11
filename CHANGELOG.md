@@ -13,6 +13,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.5.0] - 2026-09-11
+
+### Added
+
+- **Machine-translation provider abstraction** (`library/localization/translation/`): `base.py` defines the `TranslationProvider` ABC (`translate`, `translate_one`, `name`, `degraded`/`degraded_texts`, `TranslationUnavailableError`) mirroring the STT/TTS provider layers; `factory.py` `get_translation_provider()` returns the configured backend — currently `None`, so pipelines emit source-language output only and on-demand endpoints return 503 `No translation provider configured`; `translation_provider_name()` supplies row provenance for the `translator`/`translation_provider` columns at persist time
+- **Provider-neutral translation memory** (`library/localization/translation/memory.py`): `hash_source`/`tm_lookup`/`tm_store`/`prune_translation_memory` extracted from the removed vendor module — the `string_translations` cache and its ~25k rows survive provider changes; `tm_store` refuses identity pairs (translation equal to its source) so a degraded pass-through can never be cached as a real translation (Audiobook-Manager-xiy class)
+- **Source guard: no DeepL, anywhere** (`library/tests/test_source_guards.py` §6): scans `library/`, `scripts/`, `systemd/`, `lib/`, `etc/`, `caddy/`, `install.sh`, `upgrade.sh`, `config.env` for any occurrence of the vendor token in runtime code (`deeply` exempt, applied migrations and the teardown exempt by name) — the "provably unable to reach the vendor" requirement of Audiobook-Manager-4uj, falsified both directions
+- **New test module** `library/tests/test_translation_provider_layer.py`: 16 tests covering the factory, hash convention parity with `backend.api_modular.translations._hash_source`, TM round-trip/identity-rejection/prune, pipeline degradation to source-only VTT, and the provider ABC contract
+
+### Changed
+
+- **Translation call sites are provider-agnostic**: `localization/pipeline.py`, `backend/api_modular/translations.py` (all five on-demand/batch/collection/string paths), `subtitles.py`, `streaming_translate.py`, `localization/queue.py` and `scripts/batch-translate.py` now consult `get_translation_provider()` instead of testing for a vendor API key, and write the provider's name (or `NULL`) as row provenance instead of a hardcoded `'deepl'` literal
+- **`localization/config.py`**: `QUOTA_DB_PATH` renamed `TRANSLATION_DB_PATH` (it backs the translation memory, not a vendor quota); `STT_PROVIDER` valid values are now `whisper`, `local-gpu`, `auto`
+- **`MetadataLookup` is Douban-only** (`localization/metadata/lookup.py`): the MT metadata fallback is gone; `BookMetadata.source` is `admin` or `douban`. Filed Audiobook-Manager-sgn — the class has no production caller
+- **`glossary/en-zh.yaml`** retained as the curated en→zh terminology asset for any future MT backend; its vendor-specific header and glossary-slot mechanics were rewritten
+
+### Removed
+
+- **DeepL integration, entirely** (Audiobook-Manager-4uj — measured cost for the remaining corpus was $3,350–$16,800 against ~$315 of burst GPU time): `localization/translation/deepl_translate.py`, `quota.py`, `glossary.py` (the `/v2/usage` and `/v2/glossaries` HTTP clients), `localization/stt/deepl_stt.py`, the `/api/admin/localization/quota` endpoint, the `provider` field on `POST /api/translations/batch`, the `AUDIOBOOKS_DEEPL_API_KEY` config key (from `install.sh` — both duplicate blocks — `etc/audiobooks.conf.example`, and the release-requirements manifest), the `deepl` STT provider option, five vendor test modules, and all ~130 vendor entries in `mutants-allowlist.txt`. Existing translations are untouched and keep serving; historical rows keep `translator='deepl'` as accurate provenance
+- **`deepl_quota` table**: dropped by migration 021 (`backend/migrations/021_drop_deepl_quota.sql`), executed in-code at API startup by `backend/api_modular/legacy_teardown.py::migrate_drop_legacy_quota` — the one runtime module exempt from the source guard, because the teardown must name the table it drops
+
+### Security
+
+- **Leaked vendor key removed from the installed config** (Audiobook-Manager-6d5): the cleartext key line was deleted from `/etc/audiobooks/audiobooks.conf` and all conf-loading services restarted — verified live by exercising `POST /api/translations/on-demand` and observing the degraded no-key path. Vendor-side deactivation (permanent, console) is the remaining operator step; code removal plus deactivation moots the FILE-pointer migration the issue originally called for
+
 ## [8.4.3.7] - 2026-08-28
 
 ### Added
@@ -4425,7 +4450,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.7...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.5.0...HEAD
+[8.5.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.7...v8.5.0
 [8.4.3.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.6...v8.4.3.7
 [8.4.3.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.5...v8.4.3.6
 [8.4.3.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.4...v8.4.3.5

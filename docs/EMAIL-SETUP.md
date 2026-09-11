@@ -212,7 +212,7 @@ sudo chmod 600 /etc/audiobooks/smtp-pass
 
 > **Note**: `install.sh` / `upgrade.sh` no longer create an `smtp-pass` stub. The only credential stub they create automatically is `auth.key` (see `OPTIONAL_CREDENTIAL_FILES` in `scripts/install-manifest.sh`). This changed when mail moved to the relay — the default configuration holds no SMTP credential, so a zero-byte stub for one was pure residue.
 
-The same pointer pattern works for `AUDIOBOOKS_DEEPL_API_KEY_FILE` and `AUTH_KEY_FILE`.
+The same pointer pattern works for `AUDIOBOOKS_RUNPOD_API_KEY_FILE` and `AUTH_KEY_FILE`.
 
 ### A hand-copied credential file does not self-update
 

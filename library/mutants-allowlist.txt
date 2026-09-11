@@ -7,7 +7,6 @@
 #
 # ─────────────────────────────────────────────────────────────────────────────
 # BASELINE, NOT APPROVAL. Refreshed 2026-08-28 over three modules —
-# quota.py, deepl_translate.py, common_utils/mail_identity.py:
 #   778 mutants · 529 killed · 249 survived · 0 uncovered
 #
 # The property this buys immediately: a NEW survivor turns CI red. The listed
@@ -28,7 +27,6 @@
 #   * equivalent mutants — e.g. rsplit("@") without maxsplit, and
 #     row["LAST_API_CHECK"] (sqlite3.Row lookup is case-insensitive). No test
 #     can distinguish these; they are unkillable by construction.
-#   * legacy paths with no dedicated tests — _call_deepl_api, _tm_store,
 #     _tm_lookup, __init__, snapshot, refresh_from_api, record_usage, set_limit.
 #     This is the bulk of the list and the next block of work.
 #
@@ -36,133 +34,6 @@
 # Audiobook-Manager-6y9.
 # ─────────────────────────────────────────────────────────────────────────────
 #
-localization.translation.deepl_translate.x__safe_for_log__mutmut_1   # baseline 2026-08-28
-localization.translation.deepl_translate.x__safe_for_log__mutmut_12   # baseline 2026-08-28
-localization.translation.deepl_translate.x__safe_for_log__mutmut_13   # baseline 2026-08-28
-localization.translation.deepl_translate.x__safe_for_log__mutmut_14   # baseline 2026-08-28
-localization.translation.deepl_translate.x__safe_for_log__mutmut_15   # baseline 2026-08-28
-localization.translation.deepl_translate.x__hash_source__mutmut_4   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ__init____mutmut_4   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ__init____mutmut_7   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ__init____mutmut_16   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ__init____mutmut_17   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ__init____mutmut_30   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ__init____mutmut_33   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ__init____mutmut_34   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_lookup__mutmut_1   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_lookup__mutmut_24   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_lookup__mutmut_25   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_lookup__mutmut_26   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_lookup__mutmut_27   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_lookup__mutmut_31   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_lookup__mutmut_33   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_store__mutmut_1   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_store__mutmut_2   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_store__mutmut_3   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_store__mutmut_6   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_store__mutmut_8   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_store__mutmut_10   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_store__mutmut_12   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_store__mutmut_13   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_store__mutmut_14   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_tm_store__mutmut_15   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_resolve_glossary__mutmut_6   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_resolve_glossary__mutmut_7   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_resolve_glossary__mutmut_8   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_resolve_glossary__mutmut_9   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_resolve_glossary__mutmut_10   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_resolve_glossary__mutmut_11   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_resolve_glossary__mutmut_14   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_resolve_glossary__mutmut_16   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_resolve_glossary__mutmut_17   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_invalidate_glossary__mutmut_5   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_invalidate_glossary__mutmut_6   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_invalidate_glossary__mutmut_12   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_invalidate_glossary__mutmut_14   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_invalidate_glossary__mutmut_15   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_invalidate_glossary__mutmut_16   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_build_payload__mutmut_2   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_build_payload__mutmut_3   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_build_payload__mutmut_5   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_build_payload__mutmut_6   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_build_payload__mutmut_8   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_build_payload__mutmut_9   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_build_payload__mutmut_10   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_build_payload__mutmut_11   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_2   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_3   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_5   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_7   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_9   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_10   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_11   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_12   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_13   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_19   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_24   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_31   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_34   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_35   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_39   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_42   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_43   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_44   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_45   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_46   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_47   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_48   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_49   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_56   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_57   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_58   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_59   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_60   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_61   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_68   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_69   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_70   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_71   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_72   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_78   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_call_deepl_api__mutmut_80   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_merge_translations_into_output__mutmut_11   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_merge_translations_into_output__mutmut_17   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_merge_translations_into_output__mutmut_21   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_merge_translations_into_output__mutmut_24   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_merge_translations_into_output__mutmut_25   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_merge_translations_into_output__mutmut_26   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_merge_translations_into_output__mutmut_28   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁ_finalize_output__mutmut_2   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_1   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_2   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_21   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_23   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_39   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_42   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_43   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_50   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_53   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_54   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_56   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_57   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_58   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_59   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_60   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_62   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_63   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_64   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_65   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate__mutmut_73   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate_one__mutmut_1   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate_one__mutmut_2   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate_one__mutmut_7   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate_one__mutmut_10   # baseline 2026-08-28
-localization.translation.deepl_translate.xǁDeepLTranslatorǁtranslate_one__mutmut_11   # baseline 2026-08-28
-localization.translation.deepl_translate.x_prune_translation_memory__mutmut_1   # baseline 2026-08-28
-localization.translation.deepl_translate.x_prune_translation_memory__mutmut_2   # baseline 2026-08-28
-localization.translation.deepl_translate.x_prune_translation_memory__mutmut_4   # baseline 2026-08-28
-localization.translation.deepl_translate.x_prune_translation_memory__mutmut_15   # baseline 2026-08-28
-localization.translation.deepl_translate.x_prune_translation_memory__mutmut_16   # baseline 2026-08-28
 localization.translation.quota.xǁQuotaTrackerǁ__init____mutmut_1   # baseline 2026-08-28
 localization.translation.quota.xǁQuotaTrackerǁ__init____mutmut_2   # baseline 2026-08-28
 localization.translation.quota.xǁQuotaTrackerǁ__init____mutmut_5   # baseline 2026-08-28

@@ -14,7 +14,6 @@ omit =
     library/tests/*
     # Localization subsystem — GPU/external-service modules. These
     # require GPU (Whisper STT on RunPod/Vast.ai), remote translation
-    # APIs (DeepL), or third-party metadata sources (Douban) that
     # cannot run in GitHub CI without live credentials and hardware.
     # Covered locally where those resources are available.
     library/stt/whisper_gpu_service.py

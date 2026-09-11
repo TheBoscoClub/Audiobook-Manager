@@ -142,9 +142,6 @@ via `AUDIOBOOKS_STT_PROVIDER`:
 
 - `whisper` — force the transitional RunPod single-endpoint path
 - `local-gpu` — force the self-hosted `whisper-gpu` service (see below)
-- `deepl` — force `DeepLSTT`. Deliberately excluded from the auto chain because
-  DeepL's transcribe endpoint rejects payloads above ~100 MB, which most
-  audiobook chapters exceed
 - `local` — **recognised but rejected**; raises a migration `ValueError`. Use
   `local-gpu`
 

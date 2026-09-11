@@ -444,7 +444,7 @@ class TestProcessOneChapter:
             patch.object(mod, "_transcribe_with_fallback", return_value=transcript),
             patch.object(mod, "align_translations", return_value=([], [])),
             patch.object(mod, "generate_vtt", side_effect=lambda _c, p: p),
-            patch.object(mod, "DEEPL_API_KEY", ""),
+            patch.object(mod, "get_translation_provider", return_value=None),
         ):
             result = mod._process_one_chapter(audio, chapter, provider, tmp_path, "zh-Hans", "en")
         assert result is not None
@@ -1529,169 +1529,134 @@ class TestXTTSProvider:
             XTTSProvider("key", "ep").synthesize("hi", "zh", "default", tmp_path / "o.wav")
 
 
-# ── deepl_stt.py ──
+# ── translation provider pathways (pipeline.py) ──
 
 
-class TestDeepLSTT:
-    """DeepL speech-to-text provider."""
+class _StubProvider:
+    """Minimal concrete TranslationProvider for pipeline tests."""
 
-    def test_init_requires_api_key(self):
-        from localization.stt.deepl_stt import DeepLSTT
+    def __init__(self, outputs=None, raise_strict=False):
+        self._outputs = outputs
+        self._raise_strict = raise_strict
+        self.degraded = False
+        self.degraded_texts = 0
+        self.calls: list[tuple[list[str], str, str, bool]] = []
 
-        with pytest.raises(ValueError, match="API key"):
-            DeepLSTT("")
+    @property
+    def name(self) -> str:
+        return "stub-mt"
 
-    def test_pro_vs_free_base_url(self):
-        from localization.stt.deepl_stt import DeepLSTT
+    def translate(self, texts, target_locale, source_lang="EN", strict=False):
+        from localization.translation.base import TranslationUnavailableError
 
-        pro = DeepLSTT("pro-key")
-        free = DeepLSTT("free-key:fx")
-        assert "api-free" not in pro._base_url
-        assert "api-free" in free._base_url
+        self.calls.append((list(texts), target_locale, source_lang, strict))
+        if self._raise_strict and strict:
+            raise TranslationUnavailableError("backend down")
+        if self._outputs is not None:
+            return list(self._outputs)
+        return list(texts)
 
-    def test_name_is_deepl(self):
-        from localization.stt.deepl_stt import DeepLSTT
 
-        assert DeepLSTT("k").name == "deepl"
+class TestTranslationProviderPathways:
+    """Cover generate_subtitles / _write_translated_chapter_vtt against the
+    provider abstraction: no provider → source-only VTT; a stub provider →
+    dual VTT; a strict failure → TranslationUnavailableError propagates."""
 
-    def test_supports_language_honors_allowlist(self):
-        from localization.stt.deepl_stt import DeepLSTT
+    def _stub_stt(self):
+        provider = MagicMock()
+        provider.name = "stub-stt"
+        provider.is_local = True
+        return provider
 
-        stt = DeepLSTT("k")
-        assert stt.supports_language("en")
-        assert stt.supports_language("ZH-Hans")  # case + suffix insensitive
-        assert not stt.supports_language("xx")
+    def _transcript(self):
+        transcript = MagicMock()
+        transcript.sentence_texts.return_value = ["Hello world.", "Goodbye."]
+        return transcript
 
-    def test_usage_remaining_divides_by_char_per_minute(self, requests_mock):
-        from localization.stt.deepl_stt import DeepLSTT
+    def test_generate_subtitles_source_only_when_no_provider(self, tmp_path, caplog):
+        import logging
 
-        requests_mock.get(
-            "https://api.deepl.com/v2/usage", json={"character_count": 0, "character_limit": 7500}
-        )
-        # 7500 chars / 750 per minute = 10 minutes
-        assert DeepLSTT("k").usage_remaining() == 10
+        from localization import pipeline as mod
 
-    def test_usage_remaining_caps_at_zero(self, requests_mock):
-        from localization.stt.deepl_stt import DeepLSTT
-
-        requests_mock.get(
-            "https://api.deepl.com/v2/usage",
-            json={"character_count": 10000, "character_limit": 5000},
-        )
-        # negative → max(0, ...) clamps
-        assert DeepLSTT("k").usage_remaining() == 0
-
-    def test_usage_remaining_swallows_http_error(self, requests_mock):
-        from localization.stt.deepl_stt import DeepLSTT
-
-        requests_mock.get("https://api.deepl.com/v2/usage", status_code=500)
-        assert DeepLSTT("k").usage_remaining() is None
-
-    def test_transcribe_file_missing_raises(self, tmp_path):
-        from localization.stt.deepl_stt import DeepLSTT
-
-        with pytest.raises(FileNotFoundError):
-            DeepLSTT("k").transcribe(tmp_path / "missing.opus", "en")
-
-    def test_transcribe_unsupported_language_raises(self, tmp_path):
-        from localization.stt.deepl_stt import DeepLSTT
-
-        audio = tmp_path / "a.opus"
+        audio = tmp_path / "book.opus"
         audio.write_bytes(b"x")
-        with pytest.raises(ValueError, match="not supported"):
-            DeepLSTT("k").transcribe(audio, "xx")
+        with (
+            patch.object(mod, "_transcribe_with_fallback", return_value=self._transcript()),
+            patch.object(mod, "align_translations", return_value=([], [])),
+            patch.object(mod, "generate_vtt", side_effect=lambda _c, p: p),
+            patch.object(mod, "get_translation_provider", return_value=None),
+            caplog.at_level(logging.INFO, logger="localization.pipeline"),
+        ):
+            source_vtt, translated_vtt = mod.generate_subtitles(
+                audio, tmp_path, "zh-Hans", "en", stt_provider=self._stub_stt()
+            )
+        assert translated_vtt is None
+        assert str(source_vtt).endswith(".en.vtt")
+        assert any("no translation provider configured" in r.message for r in caplog.records)
 
-    def test_transcribe_happy_path(self, tmp_path, requests_mock):
-        from localization.stt.deepl_stt import DeepLSTT
+    def test_generate_subtitles_dual_vtt_with_stub_provider(self, tmp_path):
+        from localization import pipeline as mod
 
-        audio = tmp_path / "a.opus"
-        audio.write_bytes(b"audio-bytes")
-        requests_mock.post(
-            "https://api.deepl.com/v2/transcribe",
-            json={
-                "segments": [
-                    {
-                        "words": [
-                            {"word": "hello", "start": 0.0, "end": 0.5},
-                            {"word": "world", "start": 0.6, "end": 1.0},
-                        ]
-                    }
-                ],
-                "duration": 1.5,
-            },
-        )
-        result = DeepLSTT("k").transcribe(audio, "en")
-        assert len(result.words) == 2
-        assert result.words[0].word == "hello"
-        assert result.words[0].end_ms == 500
-        assert result.duration_ms == 1500
-        assert result.provider == "deepl"
+        audio = tmp_path / "book.opus"
+        audio.write_bytes(b"x")
+        stub = _StubProvider(outputs=["你好，世界。", "再见。"])
+        with (
+            patch.object(mod, "_transcribe_with_fallback", return_value=self._transcript()),
+            patch.object(mod, "align_translations", return_value=([], [])),
+            patch.object(mod, "generate_vtt", side_effect=lambda _c, p: p),
+            patch.object(mod, "get_translation_provider", return_value=stub),
+        ):
+            source_vtt, translated_vtt = mod.generate_subtitles(
+                audio, tmp_path, "zh-Hans", "en", stt_provider=self._stub_stt()
+            )
+        assert translated_vtt is not None
+        assert str(translated_vtt).endswith(".zh-Hans.vtt")
+        assert str(source_vtt).endswith(".en.vtt")
+        # Persisting caller MUST pass strict=True with upper-cased source lang.
+        assert stub.calls == [(["Hello world.", "Goodbye."], "zh-Hans", "EN", True)]
 
+    def test_generate_subtitles_strict_failure_propagates(self, tmp_path):
+        from localization import pipeline as mod
+        from localization.translation.base import TranslationUnavailableError
 
-# ── deepl_translate.py ──
+        audio = tmp_path / "book.opus"
+        audio.write_bytes(b"x")
+        stub = _StubProvider(raise_strict=True)
+        with (
+            patch.object(mod, "_transcribe_with_fallback", return_value=self._transcript()),
+            patch.object(mod, "align_translations", return_value=([], [])),
+            patch.object(mod, "generate_vtt", side_effect=lambda _c, p: p),
+            patch.object(mod, "get_translation_provider", return_value=stub),
+        ):
+            with pytest.raises(TranslationUnavailableError):
+                mod.generate_subtitles(
+                    audio, tmp_path, "zh-Hans", "en", stt_provider=self._stub_stt()
+                )
 
+    def test_write_translated_chapter_vtt_none_without_provider(self, tmp_path):
+        from localization import pipeline as mod
+        from localization.chapters import Chapter
 
-class TestDeepLTranslator:
-    """DeepL translation provider (text API + TM cache hooks)."""
+        chapter = Chapter(index=0, title="Zero", start_ms=0, end_ms=1_000)
+        with patch.object(mod, "get_translation_provider", return_value=None):
+            result = mod._write_translated_chapter_vtt(
+                MagicMock(), ["Hello."], chapter, "ch000", tmp_path, "zh-Hans", "en"
+            )
+        assert result is None
 
-    def test_init_requires_api_key(self):
-        from localization.translation.deepl_translate import DeepLTranslator
+    def test_write_translated_chapter_vtt_writes_with_provider(self, tmp_path):
+        from localization import pipeline as mod
+        from localization.chapters import Chapter
 
-        with pytest.raises(ValueError, match="API key"):
-            DeepLTranslator("")
-
-    def test_pro_vs_free_base_url(self):
-        from localization.translation.deepl_translate import DeepLTranslator
-
-        pro = DeepLTranslator("pro-key")
-        free = DeepLTranslator("free-key:fx")
-        assert "api-free" not in pro._base_url
-        assert "api-free" in free._base_url
-
-    def test_translate_empty_returns_empty(self):
-        from localization.translation.deepl_translate import DeepLTranslator
-
-        assert DeepLTranslator("k").translate([], "zh-Hans") == []
-
-    def test_translate_uses_deepl_codes(self, requests_mock):
-        from localization.translation.deepl_translate import DeepLTranslator
-
-        requests_mock.post(
-            "https://api.deepl.com/v2/translate",
-            json={"translations": [{"text": "你好"}, {"text": "世界"}]},
-        )
-        out = DeepLTranslator("k").translate(["hello", "world"], "zh-Hans")
-        assert out == ["你好", "世界"]
-        req = requests_mock.request_history[0]
-        # Verify target_lang gets mapped to DeepL's ZH-HANS
-        body = req.text or ""
-        assert "target_lang" in body
-
-    def test_translate_returns_originals_on_http_error(self, requests_mock):
-        from localization.translation.deepl_translate import DeepLTranslator
-
-        requests_mock.post("https://api.deepl.com/v2/translate", status_code=500)
-        # Error is swallowed — returns originals as safe fallback
-        result = DeepLTranslator("k").translate(["hi"], "zh-Hans")
-        # Either returns originals or empty — key is no crash
-        assert isinstance(result, list)
-
-
-# ── deepl_translate _hash_source / map_locale_for_deepl ──
-
-
-class TestDeepLTranslatorHelpers:
-    def test_hash_source_is_stable(self):
-        from localization.translation.deepl_translate import _hash_source
-
-        assert _hash_source("hello") == _hash_source("hello")
-        assert _hash_source("a") != _hash_source("b")
-
-    def test_locale_to_deepl_map_has_known_entries(self):
-        """Verify the LOCALE_TO_DEEPL translation table has the key languages."""
-        from localization.translation.deepl_translate import LOCALE_TO_DEEPL
-
-        # Chinese simplified → DeepL's ZH-HANS
-        assert LOCALE_TO_DEEPL.get("zh-Hans") == "ZH-HANS"
-        # Upper case lookup for unknown should fall through
-        assert LOCALE_TO_DEEPL.get("xx") is None
+        chapter = Chapter(index=0, title="Zero", start_ms=500, end_ms=1_000)
+        stub = _StubProvider(outputs=["你好。"])
+        with (
+            patch.object(mod, "align_translations", return_value=([], [])),
+            patch.object(mod, "generate_vtt", side_effect=lambda _c, p: p),
+            patch.object(mod, "get_translation_provider", return_value=stub),
+        ):
+            result = mod._write_translated_chapter_vtt(
+                MagicMock(), ["Hello."], chapter, "ch000", tmp_path, "zh-Hans", "en"
+            )
+        assert result == tmp_path / "ch000.zh-Hans.vtt"
+        assert stub.calls[0][3] is True  # strict — this VTT is persisted

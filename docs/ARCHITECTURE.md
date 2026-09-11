@@ -853,12 +853,12 @@ and instructions for adding new languages, see
 │                                                                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐          │
 │  │  UI STRINGS  │  │   DYNAMIC    │  │    MEDIA     │          │
-│  │  (Catalogs)  │  │  (DeepL API) │  │  (Pipeline)  │          │
+│  │  (Catalogs)  │  │  (MT cache)  │  │  (Pipeline)  │          │
 │  │              │  │              │  │              │          │
 │  │ en.json      │  │ String cache │  │ STT (Whisper)│          │
 │  │ zh-Hans.json │  │ Hash-keyed   │  │ Translation  │          │
-│  │ i18n.js      │  │ Quota track  │  │ TTS (edge/   │          │
-│  │              │  │ Glossary     │  │   XTTS)      │          │
+│  │ i18n.js      │  │ Provider     │  │ TTS (edge/   │          │
+│  │              │  │ abstraction  │  │   XTTS)      │          │
 │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘          │
 │         │                  │                  │                  │
 │         ▼                  ▼                  ▼                  │
@@ -883,20 +883,11 @@ Supported locales: `en` (default), `zh-Hans` (Simplified Chinese). Adding a new 
 
 ### Dynamic Content Translation (`library/localization/translation/`)
 
-User-facing dynamic content (book titles, author names, collection names, announcements) is translated on-demand via the DeepL API.
+User-facing dynamic content (book titles, author names, collection names, announcements) is served from the on-demand translation cache.
 
-**Endpoint selection is derived from the key, not configured.** DeepL serves its Free and Pro tiers from different hosts, and a key works on one host only:
+**No machine-translation provider is currently configured.** The package retains a provider abstraction so a backend can be added later: `base.py` defines the `TranslationProvider` protocol, and the factory returns no provider today. Existing zh-Hans translations continue to serve from the translation cache/DB.
 
-```python
-DEEPL_API_URL = "https://api.deepl.com/v2"  # Pro  — key has no suffix
-DEEPL_FREE_API_URL = "https://api-free.deepl.com/v2"  # Free — key ends in ":fx"
-...
-self._base_url = DEEPL_FREE_API_URL if api_key.endswith(":fx") else DEEPL_API_URL
-```
-
-A valid key sent to the wrong host returns **403 — indistinguishable from a revoked key** unless the response body is read. Keys must therefore be stored verbatim, `:fx` suffix included. The reference deployment runs on the **API Free** tier (500,000 chars/month).
-
-**Failure is not silent (v8.4.2.4+).** A DeepL outage or dead key used to fill every miss with the English source and return a `list[str]` structurally identical to success. `translate()` now takes `strict=`:
+**Failure is not silent (v8.4.2.4+).** A provider outage or dead key used to fill every miss with the English source and return a `list[str]` structurally identical to success. `translate()` now takes `strict=`:
 
 - Non-strict callers still degrade to source text, but must check `.degraded` / `.degraded_texts`; the failure is logged at ERROR.
 - Callers that **persist** the result pass `strict=True` and get `TranslationUnavailableError` instead — the two VTT write sites in `library/localization/pipeline.py` and `library/localization/metadata/lookup.py`.
@@ -905,9 +896,9 @@ The split exists because an English string silently stored as though it were a t
 
 | Component | Path | Purpose |
 |-----------|------|---------|
-| DeepL translator | `library/localization/translation/deepl_translate.py` | API client with string cache (SHA-256 hash keys), glossary support, quota tracking, suffix-derived Free/Pro endpoint selection, and `strict=` failure signalling (`TranslationUnavailableError`, `.degraded`) |
-| Quota tracker | `library/localization/translation/quota.py` | Monthly character usage in `deepl_quota` table, soft warn at 90%, hard stop at 99% |
-| Glossary manager | `library/localization/translation/glossary.py` | Pushes YAML glossaries (`library/localization/glossary/en-zh.yaml`) to DeepL API |
+| Provider protocol | `library/localization/translation/base.py` | `TranslationProvider` protocol — the interface any future MT backend implements, with `strict=` failure signalling (`TranslationUnavailableError`, `.degraded`) |
+| Provider factory | `library/localization/translation/factory.py` | Returns the configured provider — currently none (no MT backend configured) |
+| Translation memory | `library/localization/translation/memory.py` | Provider-neutral SQLite translation memory (SHA-256 hash keys) |
 | String translations API | `library/backend/api_modular/translations.py` | `POST /api/translations/strings` (hash-based batch lookup), `GET /api/translations/by-locale/{locale}` |
 
 ### Media Translation Pipeline (`library/localization/`)
@@ -915,7 +906,7 @@ The split exists because an English string silently stored as though it were a t
 The three-step pipeline generates bilingual subtitles and translated audio for audiobook chapters:
 
 ```text
-Audio Chapter ──► STT (Whisper) ──► Translation (DeepL) ──► TTS (edge-tts/XTTS)
+Audio Chapter ──► STT (Whisper) ──► Machine Translation ──► TTS (edge-tts/XTTS)
                      │                    │                       │
                      ▼                    ▼                       ▼
                English VTT         Translated VTT          Translated Opus
@@ -929,7 +920,6 @@ Audio Chapter ──► STT (Whisper) ──► Translation (DeepL) ──► TT
 |----------|-------|------------|----------|
 | RunPod serverless Whisper | `WhisperSTT` | `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT` / `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT` | Serverless GPU — warm pool for streaming, cold pool for backlog. *Client code present; not exercised in the reference deployment (account decommissioned).* |
 | Local GPU | `LocalGPUWhisperSTT` | `AUDIOBOOKS_WHISPER_GPU_HOST` | Self-hosted on known-good AI hardware (NVIDIA CUDA or enterprise AMD Instinct/ROCm); consumer Radeon RDNA 2/3 is unsupported — see docs/MULTI-LANGUAGE-SETUP.md#local-gpu-optional |
-| DeepL Transcription | `DeepLSTT` | `AUDIOBOOKS_DEEPL_API_KEY` | Legacy fallback (100 MB limit) |
 
 Auto mode (`AUDIOBOOKS_STT_PROVIDER=auto`) dispatches via `_remote_stt_candidates(workload)` in `library/localization/pipeline.py`: `WorkloadHint.STREAMING` → STREAMING endpoint (warm, `min_workers>=1`); `WorkloadHint.LONG_FORM` / `ANY` → BACKLOG endpoint (cold, `min_workers=0`). RunPod is the only serverless STT client remaining in the tree (Vast.ai was removed in v8.3.10.6). It is **not provisioned** in the reference deployment; see `docs/SERVERLESS-OPS.md`.
 
@@ -974,9 +964,8 @@ Import reconstructs the nested arc key, then extracts to the target env's stream
 | `chapter_translations_audio` | Per-chapter translated audio paths, TTS provider, duration |
 | `audiobook_translations` | Per-book translated title, author, series, description, pinyin sort |
 | `collection_translations` | Genre/series name translations |
-| `string_translations` | DeepL cache: SHA-256 hash → translated string |
+| `string_translations` | Translation memory: SHA-256 hash → translated string |
 | `translation_queue` | Job queue: audiobook_id, locale, state, step, priority |
-| `deepl_quota` | Monthly character usage tracking |
 | `streaming_sessions` | Active streaming session tracking, GPU warm-up signal |
 | `streaming_segments` | Per-segment state (pending/processing/completed/failed), priority, translated `vtt_content`, source-language `source_vtt_content` (v8.3.2+), per-segment opus `audio_path`, `retry_count` for transient failure recovery (v8.3.2+) |
 
@@ -2180,7 +2169,7 @@ Architecture Comparison:
 
 ### Credential Resolution (v8.4.0.0+)
 
-The resolver is name-agnostic, so any credential supports an optional `*_FILE` pointer pattern in addition to an inline env var value — in practice `SMTP_PASS`, `AUDIOBOOKS_DEEPL_API_KEY`, `AUDIOBOOKS_RUNPOD_API_KEY`, and `CLOUDFLARE_PURGE_TOKEN`. All reads route through a single resolver at `library/common_utils/secret_resolver.py::resolve_secret(name)`. Note that the default deployment holds **no** SMTP credential at all (mail goes to a credential-less local relay) and **no** RunPod credential (no STT provider is configured).
+The resolver is name-agnostic, so any credential supports an optional `*_FILE` pointer pattern in addition to an inline env var value — in practice `SMTP_PASS`, `AUDIOBOOKS_RUNPOD_API_KEY`, and `CLOUDFLARE_PURGE_TOKEN`. All reads route through a single resolver at `library/common_utils/secret_resolver.py::resolve_secret(name)`. Note that the default deployment holds **no** SMTP credential at all (mail goes to a credential-less local relay) and **no** RunPod credential (no STT provider is configured).
 
 Operators wanting root-derived per-boot secrets can point the `*_FILE` pointers at `/run/audiobooks/` paths populated by a `derive-service-secret` systemd drop-in — see the template `systemd/audiobook-api-derive-secrets.conf.example` and `docs/EMAIL-SETUP.md`. The app's contract remains just the pointer pattern; the derive tooling is operator-side and optional.
 

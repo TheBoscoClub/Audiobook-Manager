@@ -2907,7 +2907,7 @@ verify_installation_permissions() {
         [[ -f "$_var_dir/auth.key" ]] && sudo chmod 600 "$_var_dir/auth.key"
         [[ -f "$_var_dir/auth.db" ]] && sudo chmod 640 "$_var_dir/auth.db"
         # v8.4.0.0+ — ensure stub credential files exist for the *_FILE
-        # pointer pattern (SMTP_PASS_FILE / AUDIOBOOKS_DEEPL_API_KEY_FILE /
+        # pointer pattern (SMTP_PASS_FILE / AUDIOBOOKS_RUNPOD_API_KEY_FILE /
         # AUDIOBOOKS_RUNPOD_API_KEY_FILE / CLOUDFLARE_PURGE_TOKEN_FILE).
         # Created empty; operator populates as needed. Never overwrites
         # existing operator-curated files.

@@ -51,10 +51,9 @@ RELEASE_REQUIREMENTS_VERSION="8.3.9"
 # faster-whisper — and the choice is an operator deployment decision, not a
 # project contract. Functional readiness of whichever backend(s) the operator
 # configured is validated by smoke_probe.sh (_probe_stt_providers), not
-# declaratively here. DeepL is currently the only supported translation
+# declaratively here. There is currently NO machine-translation backend; translation
 # backend, so its key remains a feature-gated project requirement.
 REQUIRED_CONFIG_KEYS=(
-    "AUDIOBOOKS_DEEPL_API_KEY|required_for_feature|translation|DeepL API key for text translation (get one at https://www.deepl.com/pro-api)"
     "AUDIOBOOKS_TTS_PROVIDER|optional|streaming|TTS engine selector (edge-tts / xtts / etc). Default: edge-tts"
 )
 

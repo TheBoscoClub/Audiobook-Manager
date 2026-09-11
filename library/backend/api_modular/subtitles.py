@@ -134,12 +134,21 @@ def _start_generation(
                         (book_id, ch_idx, str(source_vtt), stt.name),
                     )
                     if translated_vtt:
+                        from localization.translation.factory import translation_provider_name
+
                         gen_conn.execute(
                             "INSERT OR REPLACE INTO chapter_subtitles "
                             "(audiobook_id, chapter_index, locale, vtt_path, "
                             " stt_provider, translation_provider) "
-                            "VALUES (?, ?, ?, ?, ?, 'deepl')",
-                            (book_id, ch_idx, locale, str(translated_vtt), stt.name),
+                            "VALUES (?, ?, ?, ?, ?, ?)",
+                            (
+                                book_id,
+                                ch_idx,
+                                locale,
+                                str(translated_vtt),
+                                stt.name,
+                                translation_provider_name(),
+                            ),
                         )
                     gen_conn.commit()
                     logger.info("Chapter %d subtitles saved — player can display them now", ch_idx)
@@ -399,7 +408,7 @@ def generate_subtitles_endpoint():
         {
             "audiobook_id": 42,
             "locale": "zh-Hans",       -- target translation locale
-            "provider": ""             -- "deepl", "whisper", "local", or "" for auto
+            "provider": ""             -- "whisper", "local-gpu", or "" for auto
         }
 
     Single-file audiobooks use chapter_index 0.

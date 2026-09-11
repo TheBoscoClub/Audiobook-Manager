@@ -1775,11 +1775,13 @@ def chapter_complete():
 
     # Insert into chapter_subtitles (permanent cache)
     if safe_translated_vtt:
+        from localization.translation.factory import translation_provider_name
+
         db.execute(
             "INSERT OR REPLACE INTO chapter_subtitles "
             "(audiobook_id, chapter_index, locale, vtt_path, stt_provider, translation_provider) "
-            "VALUES (?, ?, ?, ?, 'streaming', 'deepl')",
-            (audiobook_id, chapter_index, locale, safe_translated_vtt),
+            "VALUES (?, ?, ?, ?, 'streaming', ?)",
+            (audiobook_id, chapter_index, locale, safe_translated_vtt, translation_provider_name()),
         )
     if safe_source_vtt:
         db.execute(
@@ -2043,11 +2045,13 @@ def _consolidate_chapter(db, audiobook_id: int, chapter_index: int, locale: str)
             source_vtt_path = None
 
     # Insert translated locale row into permanent cache
+    from localization.translation.factory import translation_provider_name
+
     db.execute(
         "INSERT OR REPLACE INTO chapter_subtitles "
         "(audiobook_id, chapter_index, locale, vtt_path, stt_provider, translation_provider) "
-        "VALUES (?, ?, ?, ?, 'streaming', 'deepl')",
-        (audiobook_id, chapter_index, locale, str(translated_vtt_path)),
+        "VALUES (?, ?, ?, ?, 'streaming', ?)",
+        (audiobook_id, chapter_index, locale, str(translated_vtt_path), translation_provider_name()),
     )
     # Insert English source row so the bilingual transcript panel
     # (双语文字记录) can render after consolidation. Mirrors the

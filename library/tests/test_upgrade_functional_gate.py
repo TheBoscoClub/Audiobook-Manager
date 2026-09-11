@@ -273,7 +273,6 @@ def test_install_sh_writes_streaming_config_stubs():
     """install.sh's audiobooks.conf template must include commented streaming stubs."""
     body = _read("install.sh")
     for stub in (
-        "AUDIOBOOKS_DEEPL_API_KEY",
         "AUDIOBOOKS_RUNPOD_API_KEY",
         "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT",
         "AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT",

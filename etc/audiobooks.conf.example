@@ -273,9 +273,6 @@ AUDIOBOOKS_PARALLEL_JOBS = "8"
 # AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT=""
 # AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT=""
 
-# DeepL API key for on-demand text translation (strings, subtitles)
-# AUDIOBOOKS_DEEPL_API_KEY=""
-
 # =============================================================================
 # Credential file alternatives (optional pointer-pattern variants)
 # =============================================================================
@@ -284,5 +281,4 @@ AUDIOBOOKS_PARALLEL_JOBS = "8"
 # out of the main config and works well with symlinks to user-level
 # credential stores. Precedence: inline env var → *_FILE pointer → empty.
 # Mirrors the existing AUTH_KEY_FILE / CF_TOKEN_FILE pattern.
-# AUDIOBOOKS_DEEPL_API_KEY_FILE="/etc/audiobooks/deepl-api-key"
 # AUDIOBOOKS_RUNPOD_API_KEY_FILE="/etc/audiobooks/runpod-api-key"

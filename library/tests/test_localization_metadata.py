@@ -1,8 +1,10 @@
-"""Tests for localization metadata lookup (Douban + DeepL fallback).
+"""Tests for localization metadata lookup (Douban).
 
 Covers ``localization/metadata/douban.py`` and ``localization/metadata/lookup.py``.
-All HTTP calls are mocked via ``requests_mock``. The DeepL translator is a
-stub so we verify orchestration without hitting the real API.
+All HTTP calls are mocked via ``requests_mock``. The machine-translation
+fallback that used to sit behind Douban was removed with the hosted-MT
+integration (Audiobook-Manager-4uj) — lookup now returns None when Douban
+has no answer.
 """
 
 from __future__ import annotations
@@ -12,7 +14,6 @@ from typing import cast
 import requests
 from localization.metadata.douban import DOUBAN_API_URL, DoubanClient
 from localization.metadata.lookup import BookMetadata, MetadataLookup
-from localization.translation.deepl_translate import DeepLTranslator
 
 # --- DoubanClient.search_by_isbn ---------------------------------------------
 
@@ -147,22 +148,6 @@ class _StubDouban:
         return self.title_result
 
 
-class _StubDeepL:
-    """DeepL translator stand-in; can be told to succeed or raise."""
-
-    def __init__(self, output: list[str] | None = None, raise_exc: bool = False) -> None:
-        self.output = output or []
-        self.raise_exc = raise_exc
-        self.calls: list[tuple[list[str], str]] = []
-
-    # strict= added by Audiobook-Manager-64p: metadata lookup passes it.
-    def translate(self, texts, target_locale: str, strict: bool = False):
-        self.calls.append((list(texts), target_locale))
-        if self.raise_exc:
-            raise RuntimeError("deepl boom")
-        return list(self.output)
-
-
 class TestMetadataLookup:
     def test_empty_lookup_returns_none(self) -> None:
         assert MetadataLookup().lookup("x", "y", "zh-Hans") is None
@@ -200,31 +185,10 @@ class TestMetadataLookup:
         assert meta.source == "douban"
         assert douban.isbn_calls == []
 
-    def test_deepl_fallback_when_douban_misses(self) -> None:
+    def test_no_mt_fallback_when_douban_misses(self) -> None:
+        """With the MT integration removed, a Douban miss is a lookup miss."""
         douban = _StubDouban(isbn_result=None, title_result=None)
-        deepl = _StubDeepL(output=["书", "作者"])
-        lookup = MetadataLookup(
-            douban_client=cast(DoubanClient, douban), deepl_translator=cast(DeepLTranslator, deepl)
-        )
-        meta = lookup.lookup("Book", "Author", "zh-Hans")
-        assert meta is not None
-        assert meta.title == "书"
-        assert meta.author_display == "作者"
-        assert meta.translator == ""
-        assert meta.source == "deepl"
-        assert deepl.calls == [(["Book", "Author"], "zh-Hans")]
-
-    def test_deepl_only_when_no_douban(self) -> None:
-        deepl = _StubDeepL(output=["T", "A"])
-        lookup = MetadataLookup(deepl_translator=cast(DeepLTranslator, deepl))
-        meta = lookup.lookup("Title", "Auth", "fr")
-        assert meta is not None
-        assert meta.source == "deepl"
-
-    def test_deepl_exception_returns_none(self) -> None:
-        douban = _StubDouban()
-        deepl = _StubDeepL(raise_exc=True)
-        lookup = MetadataLookup(
-            douban_client=cast(DoubanClient, douban), deepl_translator=cast(DeepLTranslator, deepl)
-        )
+        lookup = MetadataLookup(douban_client=cast(DoubanClient, douban))
         assert lookup.lookup("Book", "Author", "zh-Hans") is None
+        # Both Douban strategies were still attempted before giving up.
+        assert douban.title_calls == [("Book", "Author")]

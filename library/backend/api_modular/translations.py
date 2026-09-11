@@ -3,7 +3,8 @@ Audiobook Translations API blueprint.
 
 Manages per-locale metadata translations for book cards.
 Translations can be created manually by admins or auto-generated
-via DeepL machine translation on demand.
+on demand when a machine-translation provider is configured
+(none currently is — see localization/translation/factory.py).
 
 Endpoints:
     GET  /api/audiobooks/<id>/translations          — all translations for a book
@@ -20,7 +21,8 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from .auth import admin_if_enabled, admin_required, guest_allowed
+from .auth import admin_if_enabled, guest_allowed
+from .legacy_teardown import migrate_drop_legacy_quota as _migrate_drop_legacy_quota
 from .search_cjk import pinyin_sort_key
 
 translations_bp = Blueprint("translations", __name__)
@@ -112,7 +114,7 @@ def _migrate_collection_translations(conn):
             collection_id TEXT NOT NULL,
             locale TEXT NOT NULL,
             name TEXT NOT NULL,
-            translator TEXT DEFAULT 'deepl',
+            translator TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (collection_id, locale)
@@ -130,7 +132,7 @@ def _migrate_string_translations(conn):
             locale TEXT NOT NULL,
             source TEXT NOT NULL,
             translation TEXT NOT NULL,
-            translator TEXT DEFAULT 'deepl',
+            translator TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (source_hash, locale)
@@ -138,21 +140,6 @@ def _migrate_string_translations(conn):
     conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_string_translations_locale ON string_translations(locale)"
     )
-
-
-def _migrate_deepl_quota(conn):
-    """Migration 020: deepl_quota single-row bookkeeping for quota/glossary."""
-    conn.execute("""CREATE TABLE IF NOT EXISTS deepl_quota (
-            id TEXT PRIMARY KEY DEFAULT 'default',
-            chars_used INTEGER NOT NULL DEFAULT 0,
-            char_limit INTEGER NOT NULL DEFAULT 500000,
-            period_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            last_api_check TIMESTAMP,
-            glossary_id TEXT,
-            glossary_source_hash TEXT,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )""")
-    conn.execute("INSERT OR IGNORE INTO deepl_quota (id) VALUES ('default')")
 
 
 # Each entry: (error log label, migration callable taking a live conn).
@@ -164,7 +151,7 @@ _MIGRATIONS: tuple[tuple[str, object], ...] = (
     ("Failed to ensure audiobook_translations.pinyin_sort column", _migrate_pinyin_sort),
     ("Failed to ensure collection_translations table", _migrate_collection_translations),
     ("Failed to ensure string_translations table", _migrate_string_translations),
-    ("Failed to ensure deepl_quota table", _migrate_deepl_quota),
+    ("Failed to drop the legacy vendor quota table", _migrate_drop_legacy_quota),
 )
 
 
@@ -341,8 +328,9 @@ def get_translations_by_locale(locale):
     Used by the frontend to overlay translated metadata on book cards.
 
     Optional query param:
-        ?ids=123,456,789  — visible book IDs; triggers on-demand DeepL
-                            translation for any IDs missing from the cache.
+        ?ids=123,456,789  — visible book IDs; triggers on-demand
+                            translation for any IDs missing from the cache
+                            (requires a configured translation provider).
     """
     if locale == "en":
         return jsonify({})
@@ -395,14 +383,16 @@ def _translate_unique_series(translator, books, locale):
     return dict(zip(unique_series, translated_series)), unique_series
 
 
-def _insert_fresh_translation(conn, book, locale, t_title, t_author, t_series, result_dict):
+def _insert_fresh_translation(
+    conn, book, locale, t_title, t_author, t_series, result_dict, translator_name
+):
     """INSERT a fresh translation row and update result_dict."""
     pinyin = pinyin_sort_key(t_title) if locale.startswith("zh") else None
     conn.execute(
         """INSERT INTO audiobook_translations
            (audiobook_id, locale, title, author_display,
             series_display, translator, pinyin_sort)
-           VALUES (?, ?, ?, ?, ?, 'deepl', ?)
+           VALUES (?, ?, ?, ?, ?, ?, ?)
            ON CONFLICT(audiobook_id, locale) DO UPDATE SET
                title = excluded.title,
                author_display = excluded.author_display,
@@ -411,7 +401,7 @@ def _insert_fresh_translation(conn, book, locale, t_title, t_author, t_series, r
                pinyin_sort = excluded.pinyin_sort,
                updated_at = CURRENT_TIMESTAMP
         """,
-        (book["id"], locale, t_title, t_author, t_series, pinyin),
+        (book["id"], locale, t_title, t_author, t_series, translator_name, pinyin),
     )
     result_dict[str(book["id"])] = {
         "title": t_title,
@@ -433,7 +423,14 @@ def _update_series_only(conn, book, locale, t_series, result_dict):
 
 
 def _apply_translations(
-    conn, books, locale, translated_titles, author_map_new, series_translation, result_dict
+    conn,
+    books,
+    locale,
+    translated_titles,
+    author_map_new,
+    series_translation,
+    result_dict,
+    translator_name,
 ):
     """Apply title/author/series translations to DB and result_dict."""
     title_iter = iter(translated_titles)
@@ -448,26 +445,25 @@ def _apply_translations(
         if book_id_str not in result_dict:
             t_title = next(title_iter, book["title"])
             t_author = next(author_iter2, book["author"] or "")
-            _insert_fresh_translation(conn, book, locale, t_title, t_author, t_series, result_dict)
+            _insert_fresh_translation(
+                conn, book, locale, t_title, t_author, t_series, result_dict, translator_name
+            )
         else:
             _update_series_only(conn, book, locale, t_series, result_dict)
 
 
 def _do_translate_missing(conn, missing_ids, locale, result_dict):
     """Inner body for _translate_missing (exception-wrapped by caller)."""
-    from localization.config import DEEPL_API_KEY
+    from localization.translation.factory import get_translation_provider
 
-    if not DEEPL_API_KEY:
-        logger.warning("On-demand translation: no DeepL API key configured")
+    translator = get_translation_provider()
+    if translator is None:
+        logger.warning("On-demand translation: no translation provider configured")
         return
 
     books = _load_books_for_missing(conn, missing_ids)
     if not books:
         return
-
-    from localization.translation.deepl_translate import DeepLTranslator
-
-    translator = DeepLTranslator(DEEPL_API_KEY, db_path=str(_db_path) if _db_path else None)
 
     needs_title = [b for b in books if str(b["id"]) not in result_dict]
     translated_titles, author_map_new = _translate_title_author_batch(
@@ -475,12 +471,19 @@ def _do_translate_missing(conn, missing_ids, locale, result_dict):
     )
     series_translation, unique_series = _translate_unique_series(translator, books, locale)
     _apply_translations(
-        conn, books, locale, translated_titles, author_map_new, series_translation, result_dict
+        conn,
+        books,
+        locale,
+        translated_titles,
+        author_map_new,
+        series_translation,
+        result_dict,
+        translator.name,
     )
 
     conn.commit()
     logger.info(
-        "On-demand translated %d books (%d unique series) to %s via DeepL",
+        "On-demand translated %d books (%d unique series) to %s",
         len(books),
         len(unique_series),
         _sanitize_log(locale),
@@ -488,7 +491,7 @@ def _do_translate_missing(conn, missing_ids, locale, result_dict):
 
 
 def _translate_missing(conn, missing_ids, locale, result_dict):
-    """Translate missing book metadata via DeepL and store in DB.
+    """Translate missing book metadata via the configured provider and store in DB.
 
     Translates titles and authors per-book, and series names de-duplicated
     (many books share the same series — translating once keeps API usage
@@ -509,7 +512,7 @@ def get_collection_translations(locale):
 
     Walks the live collection tree (same source as /api/collections),
     returns cached translations, and on-demand translates any missing
-    names via DeepL. English short-circuits to an empty dict.
+    names when a provider is configured. English short-circuits to an empty dict.
     """
     if locale == "en":
         return jsonify({})
@@ -544,25 +547,23 @@ def get_collection_translations(locale):
 
 
 def _translate_missing_collections(conn, missing_ids, id_to_name, locale, result_dict):
-    """Translate missing collection names via DeepL and cache them.
+    """Translate missing collection names and cache them.
 
-    Deduplicates by source name so DeepL is called once per unique label.
-    Updates result_dict in place.
+    Deduplicates by source name so the provider is called once per unique
+    label. Updates result_dict in place.
     """
     try:
-        from localization.config import DEEPL_API_KEY
+        from localization.translation.factory import get_translation_provider
 
-        if not DEEPL_API_KEY:
-            logger.warning("Collection translation: no DeepL API key configured")
+        translator = get_translation_provider()
+        if translator is None:
+            logger.warning("Collection translation: no translation provider configured")
             return
 
         unique_names = sorted({id_to_name[cid] for cid in missing_ids if id_to_name.get(cid)})
         if not unique_names:
             return
 
-        from localization.translation.deepl_translate import DeepLTranslator
-
-        translator = DeepLTranslator(DEEPL_API_KEY, db_path=str(_db_path) if _db_path else None)
         translated = translator.translate(unique_names, locale)
         name_map = dict(zip(unique_names, translated))
 
@@ -574,13 +575,13 @@ def _translate_missing_collections(conn, missing_ids, id_to_name, locale, result
             conn.execute(
                 """INSERT INTO collection_translations
                    (collection_id, locale, name, translator)
-                   VALUES (?, ?, ?, 'deepl')
+                   VALUES (?, ?, ?, ?)
                    ON CONFLICT(collection_id, locale) DO UPDATE SET
                        name = excluded.name,
                        translator = excluded.translator,
                        updated_at = CURRENT_TIMESTAMP
                 """,
-                (cid, locale, t_name),
+                (cid, locale, t_name, translator.name),
             )
             result_dict[cid] = t_name
 
@@ -627,17 +628,15 @@ def _fetch_cached_string_translations(conn, locale, seen):
 
 
 def _translate_and_cache_strings(conn, missing, locale, result):
-    """Translate missing strings via DeepL and cache them. Updates result in place."""
+    """Translate missing strings and cache them. Updates result in place."""
     try:
-        from localization.config import DEEPL_API_KEY
+        from localization.translation.factory import get_translation_provider
 
-        if not DEEPL_API_KEY:
-            logger.warning("String translation: no DeepL API key configured")
+        translator = get_translation_provider()
+        if translator is None:
+            logger.warning("String translation: no translation provider configured")
             return
 
-        from localization.translation.deepl_translate import DeepLTranslator
-
-        translator = DeepLTranslator(DEEPL_API_KEY, db_path=str(_db_path) if _db_path else None)
         hashes = list(missing.keys())
         sources = [missing[h] for h in hashes]
         translated = translator.translate(sources, locale)
@@ -645,18 +644,18 @@ def _translate_and_cache_strings(conn, missing, locale, result):
             conn.execute(
                 """INSERT INTO string_translations
                    (source_hash, locale, source, translation, translator)
-                   VALUES (?, ?, ?, ?, 'deepl')
+                   VALUES (?, ?, ?, ?, ?)
                    ON CONFLICT(source_hash, locale) DO UPDATE SET
                        translation = excluded.translation,
                        translator = excluded.translator,
                        updated_at = CURRENT_TIMESTAMP
                 """,
-                (h, locale, src, tgt),
+                (h, locale, src, tgt, translator.name),
             )
             result[h] = tgt
         conn.commit()
         logger.info(
-            "String-translated %d unique strings to %s via DeepL",
+            "String-translated %d unique strings to %s",
             len(missing),
             _sanitize_log(locale),
         )
@@ -768,7 +767,7 @@ def _translate_on_demand_titles_authors(translator, books_to_translate, locale):
 
 
 def _persist_on_demand_translations(
-    conn, books_to_translate, translated_titles, author_map, locale
+    conn, books_to_translate, translated_titles, author_map, locale, translator_name
 ):
     """Store on-demand translations in DB; return new_translations dict."""
     new_translations = {}
@@ -780,7 +779,7 @@ def _persist_on_demand_translations(
         conn.execute(
             """INSERT INTO audiobook_translations
                (audiobook_id, locale, title, author_display, translator, pinyin_sort)
-               VALUES (?, ?, ?, ?, 'deepl', ?)
+               VALUES (?, ?, ?, ?, ?, ?)
                ON CONFLICT(audiobook_id, locale) DO UPDATE SET
                    title = excluded.title,
                    author_display = excluded.author_display,
@@ -788,7 +787,7 @@ def _persist_on_demand_translations(
                    pinyin_sort = excluded.pinyin_sort,
                    updated_at = CURRENT_TIMESTAMP
             """,
-            (book["id"], locale, t_title, t_author, pinyin),
+            (book["id"], locale, t_title, t_author, translator_name, pinyin),
         )
         new_translations[str(book["id"])] = {
             "title": t_title,
@@ -821,15 +820,16 @@ def _validate_on_demand_request(data):
 
 
 def _do_on_demand_translation(conn, locale, missing_ids, cached):
-    """Perform DeepL translation for missing ids and merge into cached.
+    """Translate missing ids via the configured provider and merge into cached.
 
     Returns True if any translation happened (for logging alignment);
     callers treat None / no-op equivalently via the cached response.
     """
-    from localization.config import DEEPL_API_KEY
+    from localization.translation.factory import get_translation_provider
 
-    if not DEEPL_API_KEY:
-        logger.warning("On-demand translation requested but no DeepL API key configured")
+    translator = get_translation_provider()
+    if translator is None:
+        logger.warning("On-demand translation requested but no translation provider configured")
         return
 
     all_books = conn.execute("SELECT id, title, author FROM audiobooks").fetchall()
@@ -838,19 +838,16 @@ def _do_on_demand_translation(conn, locale, missing_ids, cached):
     if not books_to_translate:
         return
 
-    from localization.translation.deepl_translate import DeepLTranslator
-
-    translator = DeepLTranslator(DEEPL_API_KEY, db_path=str(_db_path) if _db_path else None)
     translated_titles, author_map = _translate_on_demand_titles_authors(
         translator, books_to_translate, locale
     )
     new_translations = _persist_on_demand_translations(
-        conn, books_to_translate, translated_titles, author_map, locale
+        conn, books_to_translate, translated_titles, author_map, locale, translator.name
     )
 
     conn.commit()
     logger.info(
-        "On-demand translated %d books to %s via DeepL",
+        "On-demand translated %d books to %s",
         len(books_to_translate),
         _sanitize_log(locale),
     )
@@ -882,7 +879,7 @@ def on_demand_translate():
 
     Called automatically by the frontend when a non-English locale is
     active and book cards are missing translations. Translates titles
-    and author names via DeepL, caches results in the DB, and returns
+    and author names via the configured provider, caches results in the DB, and returns
     the translations keyed by audiobook_id.
 
     Request body:
@@ -912,11 +909,7 @@ def _validate_batch_request(data):
         return None, None, (jsonify({"error": "locale is required"}), 400)
 
     locale = data["locale"]
-    provider = data.get("provider", "deepl")
     book_ids = data.get("audiobook_ids")
-
-    if provider != "deepl":
-        return (None, None, (jsonify({"error": "Only 'deepl' provider is supported"}), 400))
 
     if isinstance(book_ids, list):
         try:
@@ -978,7 +971,14 @@ def _translate_batch_descriptions(translator, descriptions, locale):
 
 
 def _persist_batch_translations(
-    conn, needs_translation, translated_titles, author_map, series_map, desc_map, locale
+    conn,
+    needs_translation,
+    translated_titles,
+    author_map,
+    series_map,
+    desc_map,
+    locale,
+    translator_name,
 ):
     """Insert/update rows in DB; return translations dict keyed by id string."""
     translations = {}
@@ -993,7 +993,7 @@ def _persist_batch_translations(
             """INSERT INTO audiobook_translations
                (audiobook_id, locale, title, author_display, series_display,
                 description, translator, pinyin_sort)
-               VALUES (?, ?, ?, ?, ?, ?, 'deepl', ?)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(audiobook_id, locale) DO UPDATE SET
                    title = excluded.title,
                    author_display = excluded.author_display,
@@ -1003,7 +1003,7 @@ def _persist_batch_translations(
                    pinyin_sort = excluded.pinyin_sort,
                    updated_at = CURRENT_TIMESTAMP
             """,
-            (book["id"], locale, t_title, t_author, t_series, t_desc, pinyin),
+            (book["id"], locale, t_title, t_author, t_series, t_desc, translator_name, pinyin),
         )
         translations[str(book["id"])] = {
             "title": t_title,
@@ -1033,20 +1033,25 @@ def _translate_batch_all_fields(translator, needs_translation, locale):
 
 
 def _run_batch_translation(conn, locale, needs_translation):
-    """Run DeepL translations + persist. Returns (translations, err_or_None)."""
-    from localization.config import DEEPL_API_KEY
+    """Run provider translations + persist. Returns (translations, err_or_None)."""
+    from localization.translation.factory import get_translation_provider
 
-    if not DEEPL_API_KEY:
-        return None, (jsonify({"error": "DeepL API key not configured"}), 503)
+    translator = get_translation_provider()
+    if translator is None:
+        return None, (jsonify({"error": "No translation provider configured"}), 503)
 
-    from localization.translation.deepl_translate import DeepLTranslator
-
-    translator = DeepLTranslator(DEEPL_API_KEY, db_path=str(_db_path))
     translated_titles, author_map, series_map, desc_map = _translate_batch_all_fields(
         translator, needs_translation, locale
     )
     translations = _persist_batch_translations(
-        conn, needs_translation, translated_titles, author_map, series_map, desc_map, locale
+        conn,
+        needs_translation,
+        translated_titles,
+        author_map,
+        series_map,
+        desc_map,
+        locale,
+        translator.name,
     )
     conn.commit()
     logger.info("Batch translated %d books to %s", len(needs_translation), _sanitize_log(locale))
@@ -1096,8 +1101,7 @@ def batch_translate():
     Request body:
         {
             "audiobook_ids": [1, 2, 3],  -- or "all" for entire library
-            "locale": "zh-Hans",
-            "provider": "deepl"          -- only "deepl" supported for now
+            "locale": "zh-Hans"
         }
     """
     locale, requested_ids, err = _validate_batch_request(request.get_json())
@@ -1111,40 +1115,6 @@ def batch_translate():
         conn.close()
 
 
-@translations_bp.route("/api/admin/localization/quota", methods=["GET"])
-@admin_required
-def admin_localization_quota():
-    """Return DeepL quota + glossary status for the backoffice.
-
-    Admin-only. The backoffice utilities page will eventually surface
-    this — until then, admins can read it directly via:
-        curl -b session.cookie https://host/api/admin/localization/quota
-
-    Response shape:
-        {
-          "used": int,        # characters billed this period
-          "limit": int,       # character cap (DeepL free tier = 500000)
-          "percent": float,   # used / limit * 100
-          "remaining": int,
-          "reset_date": str,  # YYYY-MM-DD of next monthly reset
-          "glossary_id": str | null,
-          "note": str
-        }
-    """
-    if _db_path is None:
-        return jsonify({"error": "quota unavailable (db not initialized)"}), 500
-    try:
-        from localization.translation.quota import QuotaTracker
-
-        tracker = QuotaTracker(db_path=_db_path)
-        snap = tracker.snapshot()
-    except Exception:
-        logger.exception("Failed to read DeepL quota snapshot")
-        return jsonify({"error": "quota unavailable"}), 500
-
-    snap["note"] = (
-        "DeepL quota + glossary status. Hard limit at 99% triggers "
-        "pass-through English fallback. Refresh glossary by restarting "
-        "the backend or editing library/localization/glossary/en-zh.yaml."
-    )
-    return jsonify(snap)
+# The /api/admin/localization/quota endpoint was removed with the hosted-MT
+# integration (Audiobook-Manager-4uj): quota tracking was a property of that
+# vendor's billing model, and no translation provider is configured now.

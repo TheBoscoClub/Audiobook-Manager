@@ -1555,12 +1555,11 @@ AUTH_KEY_FILE="/etc/audiobooks/auth.key"
 
 # --- Streaming translation (optional) ---
 # Enables the real-time streaming translation pipeline (non-EN locales).
-# If no STT backend is configured, streaming translation is disabled and only
-# DeepL text-only translation runs. See docs/STREAMING-TRANSLATION.md and
-# docs/SERVERLESS-OPS.md for setup.
+# If no STT backend is configured, streaming translation is disabled.
+# See docs/STREAMING-TRANSLATION.md and docs/SERVERLESS-OPS.md for setup.
 #
-# Translation backend — DeepL is currently the only supported translator.
-#AUDIOBOOKS_DEEPL_API_KEY=""                        # Get one at https://www.deepl.com/pro-api
+# Translation backend — none currently ships; new translations are
+# unavailable until a provider is configured (existing ones keep serving).
 #
 # STT backend — choose ONE OR MORE of the options below. Endpoint IDs must
 # be provisioned separately per deployment.
@@ -2339,12 +2338,11 @@ AUTH_ENABLED="true"
 
 # --- Streaming translation (optional) ---
 # Enables the real-time streaming translation pipeline (non-EN locales).
-# If no STT backend is configured, streaming translation is disabled and only
-# DeepL text-only translation runs. See docs/STREAMING-TRANSLATION.md and
-# docs/SERVERLESS-OPS.md for setup.
+# If no STT backend is configured, streaming translation is disabled.
+# See docs/STREAMING-TRANSLATION.md and docs/SERVERLESS-OPS.md for setup.
 #
-# Translation backend — DeepL is currently the only supported translator.
-#AUDIOBOOKS_DEEPL_API_KEY=""                        # Get one at https://www.deepl.com/pro-api
+# Translation backend — none currently ships; new translations are
+# unavailable until a provider is configured (existing ones keep serving).
 #
 # STT backend — choose ONE OR MORE of the options below. Endpoint IDs must
 # be provisioned separately per deployment.

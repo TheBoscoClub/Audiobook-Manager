@@ -91,8 +91,9 @@ def test_probe_runpod_warmth_backcompat_shim():
 
 
 def test_release_requirements_does_not_list_stt_providers_as_required():
-    """Operator-specific STT backend keys must NOT be project-level requirements.
-    Only DeepL (currently the sole translation backend) and TTS_PROVIDER stay."""
+    """Operator-specific STT backend keys must NOT be project-level requirements,
+    and translation must require no credential at all (no MT provider exists —
+    Audiobook-Manager-4uj removed the hosted integration)."""
     content = (SCRIPTS_DIR / "release-requirements.sh").read_text()
     # Ensure none of the STT provider keys appear in REQUIRED_CONFIG_KEYS.
     # We look for the key name immediately followed by a SEVERITY token.
@@ -107,8 +108,15 @@ def test_release_requirements_does_not_list_stt_providers_as_required():
             f"requirement: {token}. STT backend choice belongs to the operator's "
             f"audiobooks.conf, not the project contract."
         )
-    # But DeepL and TTS_PROVIDER should still be there.
-    assert "AUDIOBOOKS_DEEPL_API_KEY|required_for_feature|translation" in content
+    # The translation feature must not gate on any credential: there is no
+    # machine-translation provider, so no manifest row may declare a key as
+    # required_for_feature|translation.
+    assert "required_for_feature|translation" not in content, (
+        "release-requirements.sh declares a credential as required for the "
+        "translation feature — no machine-translation provider exists, so "
+        "translation requires no key."
+    )
+    # TTS_PROVIDER should still be there.
     assert "AUDIOBOOKS_TTS_PROVIDER|optional" in content
 
 

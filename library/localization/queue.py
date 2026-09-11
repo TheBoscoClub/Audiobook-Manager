@@ -529,12 +529,21 @@ def _run_stt_and_translate(
                 (book_id, ch_idx, str(source_vtt), stt.name),
             )
             if translated_vtt:
+                from .translation.factory import translation_provider_name
+
                 gen_conn.execute(
                     "INSERT OR REPLACE INTO chapter_subtitles "
                     "(audiobook_id, chapter_index, locale, vtt_path, "
                     " stt_provider, translation_provider) "
-                    "VALUES (?, ?, ?, ?, ?, 'deepl')",
-                    (book_id, ch_idx, locale, str(translated_vtt), stt.name),
+                    "VALUES (?, ?, ?, ?, ?, ?)",
+                    (
+                        book_id,
+                        ch_idx,
+                        locale,
+                        str(translated_vtt),
+                        stt.name,
+                        translation_provider_name(),
+                    ),
                 )
             gen_conn.commit()
 

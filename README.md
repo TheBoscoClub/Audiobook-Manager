@@ -16,7 +16,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![8](https://img.shields.io/badge/8-brightgreen)![4](https://img.shields.io/badge/4-darkgreen)![3](https://img.shields.io/badge/3-green)![7](https://img.shields.io/badge/7-yellow) | Latest tweak | [v8.4.3.7](../../releases/tag/v8.4.3.7) |
+| ![8](https://img.shields.io/badge/8-brightgreen)![5](https://img.shields.io/badge/5-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest minor | [v8.5.0](../../releases/tag/v8.5.0) |
+| ![8](https://img.shields.io/badge/8-brightred)![4](https://img.shields.io/badge/4-darkred)![3](https://img.shields.io/badge/3-red)![7](https://img.shields.io/badge/7-orange) | Prior tweak | [v8.4.3.7](../../releases/tag/v8.4.3.7) |
 | ![8](https://img.shields.io/badge/8-brightred)![4](https://img.shields.io/badge/4-darkred)![3](https://img.shields.io/badge/3-red)![6](https://img.shields.io/badge/6-orange) | Prior tweak | [v8.4.3.6](../../releases/tag/v8.4.3.6) |
 | ![8](https://img.shields.io/badge/8-brightred)![4](https://img.shields.io/badge/4-darkred)![3](https://img.shields.io/badge/3-red)![5](https://img.shields.io/badge/5-orange) | Prior tweak | [v8.4.3.5](../../releases/tag/v8.4.3.5) |
 | ![8](https://img.shields.io/badge/8-brightred)![4](https://img.shields.io/badge/4-darkred)![3](https://img.shields.io/badge/3-red)![4](https://img.shields.io/badge/4-orange) | Prior tweak | [v8.4.3.4](../../releases/tag/v8.4.3.4) |
@@ -327,14 +328,13 @@ Web-based audiobook library browser with:
 - **Accessibility quick panel** — slide-out panel with font size, contrast, reduced motion, and dyslexia-friendly font controls (v8.0+)
 - **Account preferences UI** — user-facing settings page for display, notification, and accessibility preferences (v8.0+)
 - **Multi-session login** — admin-configurable concurrent device sessions with global default and per-user override (v8.0.1.2+)
-- **Multi-language support** — full i18n with Simplified Chinese (zh-Hans) as first non-English locale; catalog-based UI strings with DeepL-powered dynamic content translation. All user-facing content is translated (1,038 keys per locale); admin/backoffice UI remains English-only by design since only the operator sees it. See [Multi-Language Setup Guide](docs/MULTI-LANGUAGE-SETUP.md) for installation, provider setup, and cost estimates (v8.1.0+)
-- **Bilingual subtitles** — on-demand STT transcription via Whisper (RunPod serverless or local GPU) with DeepL translation, producing per-chapter VTT files with word-level timestamps. Inline translated banner + bilingual transcript side panel (v8.1.0+)
+- **Multi-language support** — full i18n with Simplified Chinese (zh-Hans) as first non-English locale; catalog-based UI strings with cached dynamic content translation. All user-facing content is translated (1,038 keys per locale); admin/backoffice UI remains English-only by design since only the operator sees it. See [Multi-Language Setup Guide](docs/MULTI-LANGUAGE-SETUP.md) for installation, provider setup, and cost estimates (v8.1.0+)
+- **Bilingual subtitles** — on-demand STT transcription via Whisper (RunPod serverless or local GPU) with machine translation, producing per-chapter VTT files with word-level timestamps. Inline translated banner + bilingual transcript side panel (v8.1.0+)
 - **Text-to-speech translated audio** — TTS generation via edge-tts (CPU) or XTTS v2 (GPU) producing translated Opus audio tracks per chapter (v8.1.0+)
 - **Translation pipeline** — three-step chain (STT → Translation → TTS) with background queue processing, priority bumping on book open, and chapter-by-chapter progress reporting (v8.1.0+)
 - **Pinyin sort order** — Chinese locale uses pypinyin-based sort for natural Han character ordering with English title fallback (v8.1.0+)
 - **CJK bigram search** — queries with CJK characters use LIKE-based bigram matching instead of FTS (SQLite unicode61 drops CJK tokens) (v8.1.0+)
 - **Translation asset transfer** — `audiobook-translations` CLI tool exports/imports subtitles, TTS audio, and metadata translations between environments to avoid re-translating (v8.2.0+)
-- **DeepL quota tracking** — monthly character usage with soft warning at 90% and hard stop at 99%, admin dashboard endpoint (v8.1.0+)
 - **Real-time streaming translation** — play any book in a non-English locale and the first ~3 minutes translate on demand while a cursor-centric buffer runs ahead of your position; seeks re-prioritize on the fly; chapter-by-chapter cache is shared across all listeners (v8.3.0+)
 - **6-minute pretranslation sampler** — every book gets its opening ~6 minutes pretranslated in every enabled non-EN locale at ingest time. Any listener can browse the library and play any book's preview instantly (no GPU wait), and for books they commit to, the sample covers GPU cold-start runway so transitioning to live translation is seamless. Sampler runs at dedicated priority p2 and can never starve live playback — enforced at the DB layer. See [`docs/SAMPLER.md`](docs/SAMPLER.md) (v8.3.8+)
 - **Original Print Year sort** — third sort dimension alongside publish/acquired date, backed by an Open Library-enriched `original_publish_year` column with a `COALESCE`-to-`published_year` fallback so real Open Library data stays distinguishable from the fallback. New imports populate it automatically via a post-insert hook; existing libraries backfill with the resumable `library/scripts/original_print_year.py` CLI (v8.4.2.0+)
@@ -1087,7 +1087,7 @@ An Art Deco neon-styled marquee highlights audiobooks added since your last visi
 
 ### About Page
 
-Version info (displayed prominently at the top, fetched live from the API), credits, third-party attributions (FFmpeg, SQLCipher, Flask, mutagen, PyOTP, FIDO2/WebAuthn, Howler.js, DeepL, OpenAI Whisper, Coqui XTTS), and project links. Accessible from the Help page header.
+Version info (displayed prominently at the top, fetched live from the API), credits, third-party attributions (FFmpeg, SQLCipher, Flask, mutagen, PyOTP, FIDO2/WebAuthn, Howler.js, OpenAI Whisper, Coqui XTTS), and project links. Accessible from the Help page header.
 
 ### Shell Architecture
 
@@ -2369,9 +2369,9 @@ See [GitHub Releases](https://github.com/TheBoscoClub/Audiobook-Manager/releases
 
 **Localization & Multi-Language (v8.1)**
 
-- ~~**Internationalization Framework**~~: ✅ Catalog-based i18n with cross-frame locale sync, document chrome localization, and DeepL-powered dynamic content overlay
+- ~~**Internationalization Framework**~~: ✅ Catalog-based i18n with cross-frame locale sync, document chrome localization, and machine-translated dynamic content overlay
 - ~~**Simplified Chinese (zh-Hans)**~~: ✅ Full locale including UI strings, book metadata, collection names, email templates, sort order, and CJK search
-- ~~**Subtitle Pipeline**~~: ✅ On-demand chapter-by-chapter STT (Whisper) → Translation (DeepL) → VTT generation with bilingual transcript panel
+- ~~**Subtitle Pipeline**~~: ✅ On-demand chapter-by-chapter STT (Whisper) → Translation → VTT generation with bilingual transcript panel
 - ~~**Text-to-Speech**~~: ✅ Translated audio via edge-tts or XTTS v2 with provider fallback
 - ~~**Translation Portability**~~: ✅ Export/import CLI tool for transferring GPU-generated assets between environments
 

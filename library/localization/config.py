@@ -8,7 +8,7 @@ from common_utils.secret_resolver import resolve_secret
 DEFAULT_LOCALE = os.environ.get("AUDIOBOOKS_DEFAULT_LOCALE", "en")
 SUPPORTED_LOCALES = os.environ.get("AUDIOBOOKS_SUPPORTED_LOCALES", "en,zh-Hans").split(",")
 
-# STT provider: "deepl", "whisper", or "auto"
+# STT provider: "whisper", "local-gpu", or "auto"
 STT_PROVIDER = os.environ.get("AUDIOBOOKS_STT_PROVIDER", "auto")
 
 # TTS provider: "edge-tts" or "xtts-runpod"
@@ -16,9 +16,8 @@ TTS_PROVIDER = os.environ.get("AUDIOBOOKS_TTS_PROVIDER", "edge-tts")
 TTS_VOICE_ZH = os.environ.get("AUDIOBOOKS_TTS_VOICE_ZH", "zh-CN-XiaoxiaoNeural")
 
 # API keys — resolved via env var OR *_FILE pointer. The pointer variant
-# reads from a 0600 file referenced by AUDIOBOOKS_DEEPL_API_KEY_FILE /
-# AUDIOBOOKS_RUNPOD_API_KEY_FILE so secrets can live outside audiobooks.conf.
-DEEPL_API_KEY = resolve_secret("AUDIOBOOKS_DEEPL_API_KEY")
+# reads from a 0600 file referenced by AUDIOBOOKS_RUNPOD_API_KEY_FILE so
+# secrets can live outside audiobooks.conf.
 RUNPOD_API_KEY = resolve_secret("AUDIOBOOKS_RUNPOD_API_KEY")
 RUNPOD_WHISPER_ENDPOINT = os.environ.get("AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT", "")
 RUNPOD_XTTS_ENDPOINT = os.environ.get("AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT", "")
@@ -56,19 +55,14 @@ def get_translated_audio_dir(library_path: Path, book_folder: str) -> Path:
     return library_path / book_folder / "translated"
 
 
-# Database backing the DeepL quota tracker. Imported from the canonical
-# top-level config rather than re-resolved here, so there is exactly one place
-# that decides where the database lives.
-#
-# Every DeepLTranslator MUST be constructed with a db_path. Without one it has
-# no QuotaTracker at all, which silently disables both the 99% hard-limit gate
-# and the usage reconcile — six of seven construction sites were built that way
-# until 2026-08-27 (Audiobook-Manager-2s6). `library/tests/test_source_guards.py`
-# fails the build if a new site omits it.
-QUOTA_DB_PATH: Path | None
+# Database backing the translation memory (string_translations table).
+# Imported from the canonical top-level config rather than re-resolved here,
+# so there is exactly one place that decides where the database lives. Any
+# future TranslationProvider backend routes its TM through this path.
+TRANSLATION_DB_PATH: Path | None
 try:  # pragma: no cover - exercised by every real entrypoint
     from config import DATABASE_PATH as _CANONICAL_DB_PATH
 
-    QUOTA_DB_PATH = _CANONICAL_DB_PATH
+    TRANSLATION_DB_PATH = _CANONICAL_DB_PATH
 except ImportError:  # localization used standalone, outside the app
-    QUOTA_DB_PATH = None
+    TRANSLATION_DB_PATH = None

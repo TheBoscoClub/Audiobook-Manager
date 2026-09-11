@@ -3,13 +3,16 @@
 Priority order:
 1. Admin override (already in DB)
 2. Douban Books lookup by ISBN or title+author
-3. DeepL translation fallback
+
+A machine-translation fallback used to sit behind Douban; it was removed
+with the hosted-MT integration (Audiobook-Manager-4uj). If a
+TranslationProvider backend returns, restore the fallback against the
+provider abstraction — not against a concrete vendor client.
 """
 
 import logging
 from dataclasses import dataclass
 
-from ..translation.deepl_translate import DeepLTranslator
 from .douban import DoubanClient
 
 logger = logging.getLogger(__name__)
@@ -22,29 +25,23 @@ class BookMetadata:
     title: str
     author_display: str
     translator: str  # book translator name, not "how we translated"
-    source: str  # "admin", "douban", "deepl"
+    source: str  # "admin" or "douban"
 
 
 class MetadataLookup:
     """Resolve localized book metadata using a tiered lookup strategy."""
 
-    def __init__(
-        self,
-        douban_client: DoubanClient | None = None,
-        deepl_translator: DeepLTranslator | None = None,
-    ):
+    def __init__(self, douban_client: DoubanClient | None = None):
         self._douban = douban_client
-        self._deepl = deepl_translator
 
     def lookup(
         self, title: str, author: str, target_locale: str, isbn: str = ""
     ) -> BookMetadata | None:
         """Look up localized metadata for a book.
 
-        Tries Douban first (if configured), then falls back to DeepL translation.
-        Returns None if no translation source is available.
+        Tries Douban by ISBN first, then by title+author.
+        Returns None if no metadata source is available or nothing matched.
         """
-        # Try Douban by ISBN first, then by title
         if self._douban:
             result = None
             if isbn:
@@ -58,21 +55,5 @@ class MetadataLookup:
                     translator=result.get("translator", ""),
                     source="douban",
                 )
-
-        # Fall back to DeepL machine translation
-        if self._deepl:
-            try:
-                # strict=True: the result is returned as BookMetadata with
-                # source="deepl". Untranslated English labelled as a DeepL
-                # translation is a lie the caller cannot detect; the except
-                # below turns the raise into a clean "no metadata" instead.
-                translated = self._deepl.translate(
-                    [title, author], target_locale=target_locale, strict=True
-                )
-                return BookMetadata(
-                    title=translated[0], author_display=translated[1], translator="", source="deepl"
-                )
-            except Exception:
-                logger.warning("DeepL translation failed for '%s'", title)
 
         return None

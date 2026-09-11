@@ -281,10 +281,10 @@ def test_i18n_keys_present_in_en_catalog():
 def test_i18n_keys_present_in_zh_hans_catalog():
     """zh-Hans must have curated translations for any new player UI strings —
     feedback_in_app_docs_i18n_parity.md mandates first-party translation,
-    not DeepL fallback."""
+    not machine-translation fallback."""
     assert "player.skipBackChapterTitle" in ZH_JSON, (
         "zh-Hans curated translation missing — would fall back to en string "
-        "or DeepL overlay, against the i18n parity rule"
+        "or a machine-translation overlay, against the i18n parity rule"
     )
     assert "player.skipForwardChapterTitle" in ZH_JSON
 

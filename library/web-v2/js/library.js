@@ -348,7 +348,7 @@ class AudiobookLibraryV2 {
       // Backend caps ?ids= at 60 per call; long URLs (grouped view, full
       // library load) also 400 at Cloudflare/Caddy. Chunk into batches of
       // 50 so every visible card — not just the first 60 — gets the
-      // on-demand DeepL overlay, and no URL overflows.
+      // on-demand translation overlay, and no URL overflows.
       const CHUNK = 50;
       const base = `${API_BASE}/translations/by-locale/${encodeURIComponent(locale)}?t=1`;
       let translations = {};
@@ -2612,7 +2612,7 @@ class AudiobookLibraryV2 {
 
     // Async: overlay translated title + author if a non-English locale
     // is active. Modal opens immediately with raw values so there's no
-    // visible latency; the overlay swaps in when DeepL/cache responds.
+    // visible latency; the overlay swaps in when the translation cache responds.
     const locale = typeof i18n !== "undefined" ? i18n.getLocale() : "en";
     if (locale !== "en") {
       this._overlayModalTranslation(book, titleEl, authorEl, locale);

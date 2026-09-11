@@ -40,7 +40,6 @@
   "about.creationHeading": "Concept & Creation",
   "about.creationP1": "The Library was conceived and designed by Bosco, who envisioned a self-hosted audiobook platform that treats a personal collection with the care and presentation it deserves — encrypted authentication, position syncing across devices, and an interface that makes browsing a pleasure rather than a chore.",
   "about.creationP2": "Development is a collaborative effort between Bosco and Claude (by Anthropic). From architecture decisions and security hardening to the Art Deco visual language and audio playback engine, every feature has been shaped through genuine partnership — human vision guiding AI capability, each strengthening the other.",
-  "about.deeplDesc": "Neural machine translation for book descriptions, UI strings, and on-demand text translation — consistently producing the most natural Chinese renderings of English prose we tested.",
   "about.ffmpegDesc": "Audio conversion and metadata extraction. The backbone of the audiobook processing pipeline, handling format transcoding, chapter detection, and cover art extraction.",
   "about.fido2Desc": "Passkey authentication support enabling passwordless sign-in with hardware security keys, biometrics, and platform authenticators.",
   "about.flaskDesc": "Python web framework powering the API server and back-office administration interface. Lightweight, flexible, and battle-tested.",

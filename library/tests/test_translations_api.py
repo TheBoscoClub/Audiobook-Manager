@@ -6,14 +6,16 @@ on-demand / batch / by-locale caching endpoints, and the pure helper
 functions used internally (payload normalization, hashing, and the
 small mapping helpers used by the batch translator).
 
-DeepL-backed paths are exercised via the DEEPL_API_KEY=None branch,
-which short-circuits cleanly without making real API calls.
+Provider-backed paths are exercised via the no-provider branch — with no
+machine-translation provider configured (the current default,
+``get_translation_provider()`` returns ``None``), the endpoints skip
+translation or return 503 without making any API calls.
 """
 
 from __future__ import annotations
 
 import sqlite3
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 from backend.api_modular import translations as tr
@@ -106,7 +108,7 @@ class TestTranslateBatchFieldWithMap:
 
     def test_falls_back_when_translator_returns_less(self):
         translator = MagicMock()
-        translator.translate.return_value = []  # DeepL returned nothing
+        translator.translate.return_value = []  # provider returned nothing
         result = _translate_batch_field_with_map(translator, ["hello"], "zh-Hans")
         assert result == ["hello"]
 
@@ -192,10 +194,6 @@ class TestValidateBatchRequest:
 
     def test_missing_locale(self, _app_context):
         locale, ids, err = _validate_batch_request({})
-        assert err is not None
-
-    def test_wrong_provider(self, _app_context):
-        locale, ids, err = _validate_batch_request({"locale": "zh-Hans", "provider": "google"})
         assert err is not None
 
     def test_empty_ids_list(self, _app_context):
@@ -400,10 +398,10 @@ class TestGetTranslationsByLocale:
         assert "1" in body
         assert body["1"]["title"] == "戒指"
 
-    def test_ids_param_with_no_deepl_key_returns_cached_only(self, app_client, translations_db):
-        """When DEEPL_API_KEY is missing, missing ids should gracefully skip."""
-        with patch("localization.config.DEEPL_API_KEY", None):
-            resp = app_client.get("/api/translations/by-locale/zh-Hans?ids=1,2,3")
+    def test_ids_param_with_no_provider_returns_cached_only(self, app_client, translations_db):
+        """With no translation provider configured (the default), missing ids
+        gracefully skip — the endpoint still returns 200 with cached rows."""
+        resp = app_client.get("/api/translations/by-locale/zh-Hans?ids=1,2,3")
         assert resp.status_code == 200
 
     def test_ids_param_invalid_format_ignored(self, app_client, translations_db):
@@ -444,17 +442,17 @@ class TestTranslateStringsEndpoint:
         conn.execute(
             "INSERT INTO string_translations "
             "(source_hash, locale, source, translation, translator) "
-            "VALUES (?, 'zh-Hans', 'hello', '你好', 'deepl')",
+            "VALUES (?, 'zh-Hans', 'hello', '你好', 'legacy-mt')",
             (hash_key,),
         )
         conn.commit()
         conn.close()
 
-        with patch("localization.config.DEEPL_API_KEY", None):
-            resp = app_client.post(
-                "/api/translations/strings",
-                json={"locale": "zh-Hans", "strings": ["hello", "world"]},
-            )
+        # No provider configured (default) — cached hits still served.
+        resp = app_client.post(
+            "/api/translations/strings",
+            json={"locale": "zh-Hans", "strings": ["hello", "world"]},
+        )
         assert resp.status_code == 200
         body = resp.get_json()
         assert body.get(hash_key) == "你好"
@@ -482,7 +480,7 @@ class TestOnDemandTranslate:
         assert resp.status_code == 200
         assert resp.get_json() == {}
 
-    def test_returns_cached_when_no_api_key(self, app_client, translations_db):
+    def test_returns_cached_when_no_provider(self, app_client, translations_db):
         conn = sqlite3.connect(str(translations_db))
         conn.execute(
             "INSERT INTO audiobook_translations "
@@ -492,10 +490,10 @@ class TestOnDemandTranslate:
         conn.commit()
         conn.close()
 
-        with patch("localization.config.DEEPL_API_KEY", None):
-            resp = app_client.post(
-                "/api/translations/on-demand", json={"locale": "zh-Hans", "audiobook_ids": [1, 2]}
-            )
+        # No provider configured (default) — cached rows returned, uncached skipped.
+        resp = app_client.post(
+            "/api/translations/on-demand", json={"locale": "zh-Hans", "audiobook_ids": [1, 2]}
+        )
         assert resp.status_code == 200
         body = resp.get_json()
         assert "1" in body
@@ -506,25 +504,19 @@ class TestBatchTranslate:
         resp = app_client.post("/api/translations/batch", json={})
         assert resp.status_code == 400
 
-    def test_wrong_provider_400(self, app_client, translations_db):
-        resp = app_client.post(
-            "/api/translations/batch",
-            json={"locale": "zh-Hans", "provider": "google", "audiobook_ids": "all"},
-        )
-        assert resp.status_code == 400
-
     def test_empty_ids_400(self, app_client, translations_db):
         resp = app_client.post(
             "/api/translations/batch", json={"locale": "zh-Hans", "audiobook_ids": []}
         )
         assert resp.status_code == 400
 
-    def test_no_api_key_returns_503(self, app_client, translations_db):
-        with patch("localization.config.DEEPL_API_KEY", None):
-            resp = app_client.post(
-                "/api/translations/batch", json={"locale": "zh-Hans", "audiobook_ids": [1]}
-            )
+    def test_no_provider_returns_503(self, app_client, translations_db):
+        # No provider configured (default) → batch translation is unavailable.
+        resp = app_client.post(
+            "/api/translations/batch", json={"locale": "zh-Hans", "audiobook_ids": [1]}
+        )
         assert resp.status_code == 503
+        assert resp.get_json()["error"] == "No translation provider configured"
 
 
 class TestCollectionTranslations:
@@ -534,10 +526,9 @@ class TestCollectionTranslations:
         assert resp.get_json() == {}
 
     def test_non_english_returns_cached(self, app_client, translations_db):
-        # Works against whatever dynamic collections exist. Without DeepL,
-        # missing names just won't be in the response.
-        with patch("localization.config.DEEPL_API_KEY", None):
-            resp = app_client.get("/api/translations/collections/zh-Hans")
+        # Works against whatever dynamic collections exist. Without a
+        # translation provider, missing names just won't be in the response.
+        resp = app_client.get("/api/translations/collections/zh-Hans")
         assert resp.status_code == 200
         assert isinstance(resp.get_json(), dict)
 
@@ -551,7 +542,7 @@ class TestFetchCachedStringTranslations:
         conn.execute(
             "INSERT INTO string_translations "
             "(source_hash, locale, source, translation, translator) "
-            "VALUES (?, 'zh-Hans', 'hello', '你好', 'deepl')",
+            "VALUES (?, 'zh-Hans', 'hello', '你好', 'legacy-mt')",
             (h,),
         )
         conn.row_factory = sqlite3.Row

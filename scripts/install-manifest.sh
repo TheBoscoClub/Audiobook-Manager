@@ -171,7 +171,7 @@ CONFIG_CANONICAL_DEFAULTS=(
 # 2026-08-26 (Audiobook-Manager-ac2/nsz): this list previously held four EMPTY
 # stubs and did not hold the one real credential. All four are now obsolete —
 # mail submits credential-less to the local relay (9nu), RunPod is
-# decommissioned, the DeepL key is inline, and the Cloudflare purge token is
+# decommissioned, and the Cloudflare purge token is
 # DERIVED at service start to /run/audiobooks/ by derive-service-secret rather
 # than read from this directory. Empty placeholders are worse than absent: they
 # were the entire content of the reconciler's per-deploy drift report, and a

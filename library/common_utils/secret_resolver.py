@@ -1,6 +1,6 @@
 """Resolve credentials from env var OR *_FILE pointer.
 
-Existing inline env-var values (SMTP_PASS=..., AUDIOBOOKS_DEEPL_API_KEY=...) work
+Existing inline env-var values (SMTP_PASS=..., AUDIOBOOKS_RUNPOD_API_KEY=...) work
 unchanged. Additionally, operators can store the secret in a separate 0600 file
 and set the *_FILE env var to that path — useful for keeping secrets out of the
 main config and avoiding drift between credential stores.
@@ -27,7 +27,7 @@ def resolve_secret(name: str, default: str = "") -> str:
     """Return the value of credential `name` from env or `${name}_FILE`.
 
     Args:
-        name: env var name (e.g. "SMTP_PASS", "AUDIOBOOKS_DEEPL_API_KEY").
+        name: env var name (e.g. "SMTP_PASS", "AUDIOBOOKS_RUNPOD_API_KEY").
         default: fallback when neither env var nor *_FILE is set.
 
     Returns:

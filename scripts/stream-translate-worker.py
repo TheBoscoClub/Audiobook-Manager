@@ -699,7 +699,7 @@ def process_segment(
         # is missing — e.g. a broken burst worker, a legacy .opus orphan,
         # or a manual reset to repair orphaned audio_path), skip STT and
         # translation entirely and regenerate only the per-segment TTS.
-        # This is a pure economic optimization (no STT GPU cost, no DeepL
+        # This is a pure economic optimization (no STT GPU cost, no MT
         # per-char cost) AND the correctness primitive that lets an
         # operator reset orphan rows to pending to recover missing audio.
         vtt_raw = segment.get("vtt_content") or ""

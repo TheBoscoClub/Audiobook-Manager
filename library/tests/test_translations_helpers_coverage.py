@@ -1,17 +1,18 @@
 """Coverage-focused tests for translations.py pure helpers.
 
 Targets helper functions in ``backend.api_modular.translations`` that aren't
-reachable through the public endpoints without patching DeepL. These tests
-exercise pure logic (``_load_books_for_missing``, ``_insert_fresh_translation``,
-``_update_series_only``, ``_apply_translations``, ``_load_cached_on_demand``,
-``_persist_on_demand_translations``, ``_translate_batch_field_with_map``,
-``_translate_batch_descriptions``, ``_persist_batch_translations``,
-``_load_batch_books``, ``_find_existing_translations``,
-``_batch_nothing_to_do_response``) directly.
+reachable through the public endpoints without patching in a translation
+provider. These tests exercise pure logic (``_load_books_for_missing``,
+``_insert_fresh_translation``, ``_update_series_only``, ``_apply_translations``,
+``_load_cached_on_demand``, ``_persist_on_demand_translations``,
+``_translate_batch_field_with_map``, ``_translate_batch_descriptions``,
+``_persist_batch_translations``, ``_load_batch_books``,
+``_find_existing_translations``, ``_batch_nothing_to_do_response``) directly.
 
-These paths execute when DeepL is configured; the existing endpoint tests
-take the DEEPL_API_KEY=None short-circuit. Covering them here lifts the
-blueprint's coverage without requiring a real DeepL client.
+These paths execute when a translation provider is configured; the endpoint
+tests take the no-provider short-circuit (``get_translation_provider()``
+returns ``None`` — see ``localization/translation/factory.py``). Covering
+them here lifts the blueprint's coverage with stub provider objects.
 """
 
 from __future__ import annotations
@@ -54,7 +55,7 @@ def seeded_db(tmp_path: Path) -> Path:
             author_display TEXT,
             series_display TEXT,
             description TEXT,
-            translator TEXT DEFAULT 'deepl',
+            translator TEXT DEFAULT '',
             pinyin_sort TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -227,6 +228,7 @@ class TestApplyTranslations:
                 ["托尔金"],  # only the fresh book needs an author
                 {"Middle-earth": "中土"},
                 result,
+                "stub-mt",
             )
             conn.commit()
 
@@ -259,7 +261,9 @@ class TestApplyTranslations:
         try:
             result: dict = {}
             books = [{"id": 4, "title": "Standalone", "author": "Single Author", "series": None}]
-            tr._apply_translations(conn, books, "zh-Hans", ["孤本"], ["作者"], {}, result)
+            tr._apply_translations(
+                conn, books, "zh-Hans", ["孤本"], ["作者"], {}, result, "stub-mt"
+            )
             conn.commit()
             row = conn.execute(
                 "SELECT series_display FROM audiobook_translations WHERE audiobook_id = 4"
@@ -313,7 +317,7 @@ class TestPersistOnDemand:
                 {"id": 2, "title": "Hobbit", "author": "Tolkien"},
             ]
             result = tr._persist_on_demand_translations(
-                conn, books, ["魔戒", "霍比特"], ["托尔金", "托尔金"], "zh-Hans"
+                conn, books, ["魔戒", "霍比特"], ["托尔金", "托尔金"], "zh-Hans", "stub-mt"
             )
             conn.commit()
 
@@ -333,7 +337,7 @@ class TestPersistOnDemand:
         conn.row_factory = sqlite3.Row
         try:
             books = [{"id": 4, "title": "Standalone", "author": "Single Author"}]
-            tr._persist_on_demand_translations(conn, books, ["Solo"], ["Autor"], "es")
+            tr._persist_on_demand_translations(conn, books, ["Solo"], ["Autor"], "es", "stub-mt")
             conn.commit()
             row = conn.execute(
                 "SELECT pinyin_sort FROM audiobook_translations WHERE audiobook_id = 4"
@@ -352,7 +356,7 @@ class TestPersistOnDemand:
                 {"id": 1, "title": "Book 1", "author": "Author 1"},
                 {"id": 2, "title": "Book 2", "author": "Author 2"},
             ]
-            tr._persist_on_demand_translations(conn, books, ["译1"], [], "zh-Hans")
+            tr._persist_on_demand_translations(conn, books, ["译1"], [], "zh-Hans", "stub-mt")
             conn.commit()
             rows = conn.execute(
                 "SELECT audiobook_id, title, author_display "
@@ -480,7 +484,7 @@ class TestPersistBatchTranslations:
                 }
             ]
             result = tr._persist_batch_translations(
-                conn, books, ["魔戒"], ["托尔金"], ["中土"], ["史诗"], "zh-Hans"
+                conn, books, ["魔戒"], ["托尔金"], ["中土"], ["史诗"], "zh-Hans", "stub-mt"
             )
             conn.commit()
             row = conn.execute(
@@ -519,7 +523,7 @@ class TestPersistBatchTranslations:
                 },
             ]
             # Empty translation arrays — helper uses source as fallback.
-            tr._persist_batch_translations(conn, books, [], [], [], ["", ""], "es")
+            tr._persist_batch_translations(conn, books, [], [], [], ["", ""], "es", "stub-mt")
             conn.commit()
             rows = conn.execute(
                 "SELECT audiobook_id, title, author_display "
@@ -653,20 +657,41 @@ class TestNormalizeStringsPayload:
         assert len(seen) == 200
 
 
+# ── shared stub provider plumbing ──
+
+# translations.py imports get_translation_provider INSIDE each function
+# (``from localization.translation.factory import get_translation_provider``),
+# so the factory module attribute is the correct patch target.
+_FACTORY = "localization.translation.factory.get_translation_provider"
+
+
+def _stub_provider(side_effect=None, return_value=None):
+    """A MagicMock satisfying the TranslationProvider surface used here."""
+    provider = MagicMock()
+    provider.name = "stub-mt"
+    if side_effect is not None:
+        provider.translate.side_effect = side_effect
+    if return_value is not None:
+        provider.translate.return_value = return_value
+    return provider
+
+
 # ── _do_translate_missing / _translate_and_cache_strings short-circuits ──
 
 
-class TestDeepLKeyShortCircuits:
-    def test_do_translate_missing_no_key(self, seeded_db: Path):
+class TestNoProviderShortCircuits:
+    """No translation provider configured (the current default) → skip + log."""
+
+    def test_do_translate_missing_no_provider(self, seeded_db: Path):
         conn = sqlite3.connect(str(seeded_db))
-        with patch("localization.config.DEEPL_API_KEY", ""):
+        with patch(_FACTORY, return_value=None):
             tr._do_translate_missing(conn, [1], "zh-Hans", {})
         # No rows should be inserted.
         n = conn.execute("SELECT COUNT(*) AS c FROM audiobook_translations").fetchone()[0]
         assert n == 0
         conn.close()
 
-    def test_translate_and_cache_strings_no_key(self, seeded_db: Path):
+    def test_translate_and_cache_strings_no_provider(self, seeded_db: Path):
         conn = sqlite3.connect(str(seeded_db))
         conn.row_factory = sqlite3.Row
         # Create string_translations table for this isolated DB.
@@ -675,10 +700,10 @@ class TestDeepLKeyShortCircuits:
                 locale TEXT NOT NULL,
                 source TEXT NOT NULL,
                 translation TEXT NOT NULL,
-                translator TEXT DEFAULT 'deepl',
+                translator TEXT DEFAULT '',
                 PRIMARY KEY (source_hash, locale)
             )""")
-        with patch("localization.config.DEEPL_API_KEY", ""):
+        with patch(_FACTORY, return_value=None):
             result: dict = {}
             tr._translate_and_cache_strings(conn, {"abc123": "hello"}, "zh-Hans", result)
             assert result == {}
@@ -689,17 +714,16 @@ class TestDeepLKeyShortCircuits:
 
 
 class TestDoTranslateMissing:
-    """Verify the DeepL-backed translation orchestrator runs end to end."""
+    """Verify the provider-backed translation orchestrator runs end to end."""
 
-    def test_no_api_key_short_circuits(self, seeded_db: Path):
+    def test_no_provider_short_circuits(self, seeded_db: Path):
         conn = sqlite3.connect(str(seeded_db))
         conn.row_factory = sqlite3.Row
         try:
-            with patch("localization.config.DEEPL_API_KEY", ""):
-                # Should return silently without touching the translator
-                result: dict = {}
-                tr._do_translate_missing(conn, [1, 2], "zh-Hans", result)
-                assert result == {}
+            # Default runtime state: get_translation_provider() returns None.
+            result: dict = {}
+            tr._do_translate_missing(conn, [1, 2], "zh-Hans", result)
+            assert result == {}
         finally:
             conn.close()
 
@@ -707,16 +731,12 @@ class TestDoTranslateMissing:
         conn = sqlite3.connect(str(seeded_db))
         conn.row_factory = sqlite3.Row
         try:
-            with (
-                patch("localization.config.DEEPL_API_KEY", "key"),
-                patch(
-                    "localization.translation.deepl_translate.DeepLTranslator"
-                ) as TranslatorClass,
-            ):
+            provider = _stub_provider()
+            with patch(_FACTORY, return_value=provider):
                 result: dict = {}
                 # No matching books for these ids
                 tr._do_translate_missing(conn, [999, 1000], "zh-Hans", result)
-                TranslatorClass.assert_not_called()
+                provider.translate.assert_not_called()
                 assert result == {}
         finally:
             conn.close()
@@ -725,23 +745,24 @@ class TestDoTranslateMissing:
         conn = sqlite3.connect(str(seeded_db))
         conn.row_factory = sqlite3.Row
         try:
-            # Create the translator stub that returns predictable translations
-            translator = MagicMock()
-            translator.translate.side_effect = [
-                ["魔戒", "霍比特人"],  # titles
-                ["托尔金", "托尔金"],  # authors
-                ["中土"],  # unique_series
-            ]
-            with (
-                patch("localization.config.DEEPL_API_KEY", "key"),
-                patch(
-                    "localization.translation.deepl_translate.DeepLTranslator",
-                    return_value=translator,
-                ),
-            ):
+            # Stub provider that returns predictable translations
+            provider = _stub_provider(
+                side_effect=[
+                    ["魔戒", "霍比特人"],  # titles
+                    ["托尔金", "托尔金"],  # authors
+                    ["中土"],  # unique_series
+                ]
+            )
+            with patch(_FACTORY, return_value=provider):
                 result: dict = {}
                 tr._do_translate_missing(conn, [1, 2], "zh-Hans", result)
                 assert "1" in result or 1 in result
+            # Provenance: rows record the provider's name.
+            row = conn.execute(
+                "SELECT translator FROM audiobook_translations "
+                "WHERE audiobook_id = 1 AND locale = 'zh-Hans'"
+            ).fetchone()
+            assert row["translator"] == "stub-mt"
         finally:
             conn.close()
 
@@ -770,7 +791,7 @@ class TestTranslateMissingCollections:
                 collection_id TEXT NOT NULL,
                 locale TEXT NOT NULL,
                 name TEXT NOT NULL,
-                translator TEXT DEFAULT 'deepl',
+                translator TEXT DEFAULT '',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (collection_id, locale)
@@ -779,69 +800,53 @@ class TestTranslateMissingCollections:
         conn.commit()
         return conn
 
-    def test_no_api_key_short_circuits(self, seeded_db: Path):
+    def test_no_provider_short_circuits(self, seeded_db: Path):
         conn = self._setup_collection_db(seeded_db)
         try:
-            with patch("localization.config.DEEPL_API_KEY", ""):
-                result: dict = {}
-                tr._translate_missing_collections(conn, ["c1"], {"c1": "A"}, "zh-Hans", result)
-                assert result == {}
+            # Default runtime state: no provider configured.
+            result: dict = {}
+            tr._translate_missing_collections(conn, ["c1"], {"c1": "A"}, "zh-Hans", result)
+            assert result == {}
         finally:
             conn.close()
 
     def test_no_unique_names_short_circuits(self, seeded_db: Path):
         conn = self._setup_collection_db(seeded_db)
         try:
-            with (
-                patch("localization.config.DEEPL_API_KEY", "key"),
-                patch(
-                    "localization.translation.deepl_translate.DeepLTranslator"
-                ) as TranslatorClass,
-            ):
+            provider = _stub_provider()
+            with patch(_FACTORY, return_value=provider):
                 result: dict = {}
                 # id_to_name has no matches for the missing_ids → empty unique_names
                 tr._translate_missing_collections(conn, ["c1"], {"c2": "A"}, "zh-Hans", result)
-                TranslatorClass.assert_not_called()
+                provider.translate.assert_not_called()
         finally:
             conn.close()
 
     def test_happy_path_translates_and_caches(self, seeded_db: Path):
         conn = self._setup_collection_db(seeded_db)
         try:
-            translator = MagicMock()
-            translator.translate.return_value = ["翻译A", "翻译B"]
-            with (
-                patch("localization.config.DEEPL_API_KEY", "key"),
-                patch(
-                    "localization.translation.deepl_translate.DeepLTranslator",
-                    return_value=translator,
-                ),
-            ):
+            provider = _stub_provider(return_value=["翻译A", "翻译B"])
+            with patch(_FACTORY, return_value=provider):
                 result: dict = {}
                 tr._translate_missing_collections(
                     conn, ["c1", "c2"], {"c1": "Alpha", "c2": "Beta"}, "zh-Hans", result
                 )
                 assert result == {"c1": "翻译A", "c2": "翻译B"}
-                # Verify cache row was written
+                # Verify cache row was written with the provider's name
                 row = conn.execute(
-                    "SELECT name FROM collection_translations WHERE collection_id='c1' AND locale='zh-Hans'"
+                    "SELECT name, translator FROM collection_translations "
+                    "WHERE collection_id='c1' AND locale='zh-Hans'"
                 ).fetchone()
                 assert row[0] == "翻译A"
+                assert row[1] == "stub-mt"
         finally:
             conn.close()
 
     def test_exception_is_swallowed(self, seeded_db: Path):
         conn = self._setup_collection_db(seeded_db)
         try:
-            translator = MagicMock()
-            translator.translate.side_effect = RuntimeError("api down")
-            with (
-                patch("localization.config.DEEPL_API_KEY", "key"),
-                patch(
-                    "localization.translation.deepl_translate.DeepLTranslator",
-                    return_value=translator,
-                ),
-            ):
+            provider = _stub_provider(side_effect=RuntimeError("api down"))
+            with patch(_FACTORY, return_value=provider):
                 # Should NOT raise — function logs and returns
                 tr._translate_missing_collections(conn, ["c1"], {"c1": "A"}, "zh-Hans", {})
         finally:
@@ -859,7 +864,7 @@ class TestTranslateAndCacheStringsHappy:
                 locale TEXT NOT NULL,
                 source TEXT NOT NULL,
                 translation TEXT NOT NULL,
-                translator TEXT DEFAULT 'deepl',
+                translator TEXT DEFAULT '',
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (source_hash, locale)
             )""")
@@ -869,15 +874,8 @@ class TestTranslateAndCacheStringsHappy:
     def test_translates_and_caches(self, seeded_db: Path):
         conn = self._setup_strings_db(seeded_db)
         try:
-            translator = MagicMock()
-            translator.translate.return_value = ["你好", "再见"]
-            with (
-                patch("localization.config.DEEPL_API_KEY", "key"),
-                patch(
-                    "localization.translation.deepl_translate.DeepLTranslator",
-                    return_value=translator,
-                ),
-            ):
+            provider = _stub_provider(return_value=["你好", "再见"])
+            with patch(_FACTORY, return_value=provider):
                 result: dict = {}
                 tr._translate_and_cache_strings(
                     conn, {"hash1": "Hello", "hash2": "Goodbye"}, "zh-Hans", result
@@ -889,15 +887,8 @@ class TestTranslateAndCacheStringsHappy:
     def test_exception_is_swallowed(self, seeded_db: Path):
         conn = self._setup_strings_db(seeded_db)
         try:
-            translator = MagicMock()
-            translator.translate.side_effect = RuntimeError("boom")
-            with (
-                patch("localization.config.DEEPL_API_KEY", "key"),
-                patch(
-                    "localization.translation.deepl_translate.DeepLTranslator",
-                    return_value=translator,
-                ),
-            ):
+            provider = _stub_provider(side_effect=RuntimeError("boom"))
+            with patch(_FACTORY, return_value=provider):
                 tr._translate_and_cache_strings(conn, {"h": "X"}, "zh-Hans", {})
         finally:
             conn.close()
@@ -907,14 +898,14 @@ class TestTranslateAndCacheStringsHappy:
 
 
 class TestDoOnDemandTranslation:
-    def test_no_api_key_short_circuits(self, seeded_db: Path):
+    def test_no_provider_short_circuits(self, seeded_db: Path):
         conn = sqlite3.connect(str(seeded_db))
         conn.row_factory = sqlite3.Row
         try:
-            with patch("localization.config.DEEPL_API_KEY", ""):
-                cached: dict = {}
-                tr._do_on_demand_translation(conn, "zh-Hans", [1, 2], cached)
-                assert cached == {}
+            # Default runtime state: no provider configured.
+            cached: dict = {}
+            tr._do_on_demand_translation(conn, "zh-Hans", [1, 2], cached)
+            assert cached == {}
         finally:
             conn.close()
 
@@ -922,14 +913,10 @@ class TestDoOnDemandTranslation:
         conn = sqlite3.connect(str(seeded_db))
         conn.row_factory = sqlite3.Row
         try:
-            with (
-                patch("localization.config.DEEPL_API_KEY", "key"),
-                patch(
-                    "localization.translation.deepl_translate.DeepLTranslator"
-                ) as TranslatorClass,
-            ):
+            provider = _stub_provider()
+            with patch(_FACTORY, return_value=provider):
                 tr._do_on_demand_translation(conn, "zh-Hans", [9999], {})
-                TranslatorClass.assert_not_called()
+                provider.translate.assert_not_called()
         finally:
             conn.close()
 
@@ -937,19 +924,14 @@ class TestDoOnDemandTranslation:
         conn = sqlite3.connect(str(seeded_db))
         conn.row_factory = sqlite3.Row
         try:
-            translator = MagicMock()
             # _translate_on_demand_titles_authors needs titles + author batch
-            translator.translate.side_effect = [
-                ["魔戒", "霍比特人"],  # titles
-                ["托尔金", "托尔金"],  # authors
-            ]
-            with (
-                patch("localization.config.DEEPL_API_KEY", "key"),
-                patch(
-                    "localization.translation.deepl_translate.DeepLTranslator",
-                    return_value=translator,
-                ),
-            ):
+            provider = _stub_provider(
+                side_effect=[
+                    ["魔戒", "霍比特人"],  # titles
+                    ["托尔金", "托尔金"],  # authors
+                ]
+            )
+            with patch(_FACTORY, return_value=provider):
                 cached: dict = {}
                 tr._do_on_demand_translation(conn, "zh-Hans", [1, 2], cached)
                 # Cached should be populated with the new translations
@@ -1004,21 +986,21 @@ class TestTranslateBatchAllFields:
 
 
 class TestRunBatchTranslation:
-    def test_no_api_key_returns_503(self, seeded_db: Path):
+    def test_no_provider_returns_503(self, seeded_db: Path):
         conn = sqlite3.connect(str(seeded_db))
         conn.row_factory = sqlite3.Row
         try:
             tr._db_path = seeded_db
-            with patch("localization.config.DEEPL_API_KEY", ""):
-                from flask import Flask
+            # Default runtime state: no provider configured → 503.
+            from flask import Flask
 
-                app = Flask(__name__)
-                with app.app_context():
-                    translations, err = tr._run_batch_translation(conn, "zh-Hans", [])
-                    assert translations is None
-                    assert err is not None
-                    _, status = err
-                    assert status == 503
+            app = Flask(__name__)
+            with app.app_context():
+                translations, err = tr._run_batch_translation(conn, "zh-Hans", [])
+                assert translations is None
+                assert err is not None
+                _, status = err
+                assert status == 503
         finally:
             conn.close()
 
@@ -1027,13 +1009,14 @@ class TestRunBatchTranslation:
         conn.row_factory = sqlite3.Row
         try:
             tr._db_path = seeded_db
-            translator = MagicMock()
-            translator.translate.side_effect = [
-                ["魔戒"],  # titles
-                ["托尔金"],  # unique authors
-                ["中土"],  # unique series
-                ["史诗"],  # descriptions
-            ]
+            provider = _stub_provider(
+                side_effect=[
+                    ["魔戒"],  # titles
+                    ["托尔金"],  # unique authors
+                    ["中土"],  # unique series
+                    ["史诗"],  # descriptions
+                ]
+            )
             needs = [
                 {
                     "id": 1,
@@ -1044,13 +1027,7 @@ class TestRunBatchTranslation:
                     "publisher_summary": None,
                 }
             ]
-            with (
-                patch("localization.config.DEEPL_API_KEY", "key"),
-                patch(
-                    "localization.translation.deepl_translate.DeepLTranslator",
-                    return_value=translator,
-                ),
-            ):
+            with patch(_FACTORY, return_value=provider):
                 translations, err = tr._run_batch_translation(conn, "zh-Hans", needs)
                 assert err is None
                 assert translations is not None
@@ -1098,11 +1075,68 @@ class TestBatchExecute:
 
             app = Flask(__name__)
             with app.app_context():
-                with patch("localization.config.DEEPL_API_KEY", ""):
-                    # No API key → _run_batch_translation returns (None, (jsonify, 503))
-                    resp = tr._batch_execute(conn, "zh-Hans", [1, 2])
-                    # Unpack tuple: (response, status)
-                    response, status = resp  # type: ignore[misc]
-                    assert status == 503
+                # No provider configured → _run_batch_translation returns
+                # (None, (jsonify, 503)) and _batch_execute passes it through.
+                resp = tr._batch_execute(conn, "zh-Hans", [1, 2])
+                # Unpack tuple: (response, status)
+                response, status = resp  # type: ignore[misc]
+                assert status == 503
         finally:
             conn.close()
+
+
+# ── legacy vendor teardown (migration 021, wired into _MIGRATIONS) ──
+
+
+class TestLegacyTeardownMigration:
+    """The in-code migration must drop the removed vendor's quota table.
+
+    The table name is deliberately never written in this file (the source
+    guard bans the vendor token everywhere but the teardown module itself),
+    so it is extracted from the teardown module's own source at runtime.
+    """
+
+    @staticmethod
+    def _legacy_table_name() -> str:
+        import re
+
+        from backend.api_modular import legacy_teardown
+
+        source = Path(legacy_teardown.__file__).read_text(encoding="utf-8")
+        match = re.search(r"DROP TABLE IF EXISTS (\w+)", source)
+        assert match, "legacy_teardown.py no longer contains a DROP TABLE statement"
+        return match.group(1)
+
+    def test_drops_preexisting_legacy_table(self, tmp_path: Path):
+        from backend.api_modular.legacy_teardown import migrate_drop_legacy_quota
+
+        table = self._legacy_table_name()
+        db_path = tmp_path / "teardown.db"
+        conn = sqlite3.connect(str(db_path))
+        try:
+            conn.execute(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY)")  # nosec B608  # noqa: S608
+            conn.commit()
+            migrate_drop_legacy_quota(conn)
+            conn.commit()
+            remaining = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table,)
+            ).fetchall()
+            assert remaining == []
+        finally:
+            conn.close()
+
+    def test_idempotent_when_table_absent(self, tmp_path: Path):
+        """Running the migration on a DB without the table must not raise."""
+        from backend.api_modular.legacy_teardown import migrate_drop_legacy_quota
+
+        conn = sqlite3.connect(str(tmp_path / "teardown_clean.db"))
+        try:
+            migrate_drop_legacy_quota(conn)  # no error
+        finally:
+            conn.close()
+
+    def test_wired_into_migrations_tuple(self):
+        """The teardown must actually run at API startup — not just exist."""
+        from backend.api_modular.legacy_teardown import migrate_drop_legacy_quota
+
+        assert migrate_drop_legacy_quota in [fn for _label, fn in tr._MIGRATIONS]

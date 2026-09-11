@@ -29,7 +29,7 @@ Pre-translated books serve instantly from cache. (Chapter-at-a-time work is the
 
 ## Why Streaming Exists
 
-Batch-translating an entire library upfront (STT + DeepL + TTS for every chapter
+Batch-translating an entire library upfront (STT + MT + TTS for every chapter
 in every locale) would cost hundreds of dollars in GPU time, so the pipeline is
 built to pay only for what a listener actually plays.
 
@@ -135,7 +135,7 @@ order and processes each segment:
    (ORDER BY priority, active-chapter-first, chapter, segment)
 2. ffmpeg stream-copy → extract 30-second audio slice from the chapter
 3. STT (faster-whisper on GPU) → raw English transcript
-4. Translation (DeepL API) → translated text
+4. Translation (MT provider) → translated text
 5. Generate VTT with timestamps
 6. Offset timestamps for segment position within the chapter
 7. POST /api/translate/segment-complete → report inline VTT content
@@ -256,7 +256,7 @@ one.
 │  │ Poll streaming_segments (priority order)                 │      │
 │  │  → ffmpeg: extract 30s audio segment                    │      │
 │  │  → faster-whisper: STT on GPU                           │      │
-│  │  → DeepL API: translate transcript                      │      │
+│  │  → MT provider: translate transcript                    │      │
 │  │  → Generate VTT with offset timestamps                  │      │
 │  │  → POST /api/translate/segment-complete                 │      │
 │  └─────────────────────────────────────────────────────────┘      │

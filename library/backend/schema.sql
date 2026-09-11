@@ -418,7 +418,7 @@ CREATE TABLE IF NOT EXISTS audiobook_translations (
     author_display TEXT,                -- Translated/transliterated author name
     series_display TEXT,                -- Translated series name
     description TEXT,                   -- Translated description/summary
-    translator TEXT,                    -- Who/what translated ('deepl', 'manual', etc.)
+    translator TEXT,                    -- Who/what translated (provider name, 'manual', etc.)
     pinyin_sort TEXT,                   -- Tone-stripped lowercase pinyin of title (zh sort key)
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

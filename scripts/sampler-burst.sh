@@ -31,7 +31,7 @@ set -euo pipefail
 # Two-layer sourcing mirrors the systemd units (Environment= then
 # EnvironmentFile=): canonical DEFAULTS first (audiobook-config.sh), then
 # OPERATOR OVERRIDES on top (/etc/audiobooks/audiobooks.conf — contains the
-# library path override plus STT/DeepL/TTS backend credentials).
+# library path override plus STT/MT/TTS backend credentials).
 #
 # Without this, burst workers inherit only the bare defaults and dispatch to
 # /srv/audiobooks/Library with no provider configured → every segment fails.
@@ -49,7 +49,7 @@ fi
 
 # Operator overrides + provider credentials. set -a exports every assignment
 # so the spawned Python workers inherit AUDIOBOOKS_RUNPOD_*,
-# AUDIOBOOKS_DEEPL_API_KEY, AUDIOBOOKS_WHISPER_GPU_*, etc.
+# AUDIOBOOKS_WHISPER_GPU_*, etc.
 CONFIG_ENV="${AUDIOBOOKS_CONFIG:-/etc/audiobooks/audiobooks.conf}"
 if [[ -f "$CONFIG_ENV" ]]; then
     set -a

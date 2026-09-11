@@ -23,8 +23,8 @@ def _scrub_env(monkeypatch):
     for key in (
         "SMTP_PASS",
         "SMTP_PASS_FILE",
-        "AUDIOBOOKS_DEEPL_API_KEY",
-        "AUDIOBOOKS_DEEPL_API_KEY_FILE",
+        "AUDIOBOOKS_EXAMPLE_TOKEN",
+        "AUDIOBOOKS_EXAMPLE_TOKEN_FILE",
         "AUDIOBOOKS_RUNPOD_API_KEY",
         "AUDIOBOOKS_RUNPOD_API_KEY_FILE",
         "TEST_SECRET_RESOLVER",
@@ -42,10 +42,10 @@ def test_env_var_only_returns_env_value(monkeypatch):
     assert resolve_secret("SMTP_PASS") == "inline-secret-123"
 
 
-def test_env_var_only_works_for_all_three_supported_credentials(monkeypatch):
-    monkeypatch.setenv("AUDIOBOOKS_DEEPL_API_KEY", "deepl-abc")
+def test_env_var_only_works_for_multiple_credentials(monkeypatch):
+    monkeypatch.setenv("AUDIOBOOKS_EXAMPLE_TOKEN", "example-abc")
     monkeypatch.setenv("AUDIOBOOKS_RUNPOD_API_KEY", "runpod-xyz")
-    assert resolve_secret("AUDIOBOOKS_DEEPL_API_KEY") == "deepl-abc"
+    assert resolve_secret("AUDIOBOOKS_EXAMPLE_TOKEN") == "example-abc"
     assert resolve_secret("AUDIOBOOKS_RUNPOD_API_KEY") == "runpod-xyz"
 
 
@@ -59,14 +59,14 @@ def test_file_only_returns_file_content(monkeypatch, tmp_path: Path):
     assert resolve_secret("SMTP_PASS") == "file-secret-abc"
 
 
-def test_file_only_works_for_deepl_runpod(monkeypatch, tmp_path: Path):
-    deepl_file = tmp_path / "deepl-key"
+def test_file_only_works_for_multiple_credentials(monkeypatch, tmp_path: Path):
+    example_file = tmp_path / "example-token"
     runpod_file = tmp_path / "runpod-key"
-    deepl_file.write_text("deepl-from-file")
+    example_file.write_text("example-from-file")
     runpod_file.write_text("runpod-from-file")
-    monkeypatch.setenv("AUDIOBOOKS_DEEPL_API_KEY_FILE", str(deepl_file))
+    monkeypatch.setenv("AUDIOBOOKS_EXAMPLE_TOKEN_FILE", str(example_file))
     monkeypatch.setenv("AUDIOBOOKS_RUNPOD_API_KEY_FILE", str(runpod_file))
-    assert resolve_secret("AUDIOBOOKS_DEEPL_API_KEY") == "deepl-from-file"
+    assert resolve_secret("AUDIOBOOKS_EXAMPLE_TOKEN") == "example-from-file"
     assert resolve_secret("AUDIOBOOKS_RUNPOD_API_KEY") == "runpod-from-file"
 
 

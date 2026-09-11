@@ -152,7 +152,7 @@ def _populate_source(
         "(audiobook_id, chapter_index, chapter_title, locale, vtt_path, "
         "stt_provider, translation_provider) "
         "VALUES (?, ?, ?, ?, ?, ?, ?)",
-        (1, 0, "Prologue", "zh-Hans", str(vtt_zh), "whisper", "deepl"),
+        (1, 0, "Prologue", "zh-Hans", str(vtt_zh), "whisper", "legacy-mt"),
     )
     conn.execute(
         "INSERT INTO chapter_translations_audio "
@@ -169,13 +169,13 @@ def _populate_source(
     conn.execute(
         "INSERT INTO collection_translations "
         "(collection_id, locale, name, translator) VALUES (?, ?, ?, ?)",
-        ("epic-fantasy", "zh-Hans", "史诗奇幻", "deepl"),
+        ("epic-fantasy", "zh-Hans", "史诗奇幻", "legacy-mt"),
     )
     conn.execute(
         "INSERT INTO string_translations "
         "(source_hash, locale, source, translation, translator) "
         "VALUES (?, ?, ?, ?, ?)",
-        ("hash001", "zh-Hans", "Library", "图书馆", "deepl"),
+        ("hash001", "zh-Hans", "Library", "图书馆", "legacy-mt"),
     )
     conn.execute(
         "INSERT INTO translation_queue "

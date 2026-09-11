@@ -51,7 +51,7 @@ function initMarquee() {
               }
             });
             // Any book still showing its English title falls back to the
-            // generic on-demand DeepL cache via /api/translations/strings.
+            // generic on-demand translation cache via /api/translations/strings.
             // This catches brand-new books that haven't been enriched yet.
             return translateMissingTitles(data.books).then(function () {
               buildMarquee(container, data.books);
@@ -260,7 +260,7 @@ function buildMarquee(container, books) {
 
   // Re-fetch on locale change so book titles AND the "NEW"/dismiss
   // labels all translate without a page refresh. Calling initMarquee
-  // re-runs the /api/user/new-books fetch + the DeepL overlay so the
+  // re-runs the /api/user/new-books fetch + the translation overlay so the
   // cycle is rebuilt with translated titles for the new locale.
   if (!container._localeListener) {
     container._localeListener = function () {

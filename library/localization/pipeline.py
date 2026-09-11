@@ -21,8 +21,6 @@ from pathlib import Path
 
 from .chapters import extract_chapters, split_chapter
 from .config import (
-    DEEPL_API_KEY,
-    QUOTA_DB_PATH,
     RUNPOD_API_KEY,
     RUNPOD_BACKLOG_WHISPER_ENDPOINT,
     RUNPOD_STREAMING_WHISPER_ENDPOINT,
@@ -38,6 +36,7 @@ from .stt.local_gpu_whisper import LocalGPUWhisperSTT
 from .stt.whisper_stt import WhisperSTT
 from .subtitles.sync import align_translations
 from .subtitles.vtt_generator import VTTCue, generate_vtt
+from .translation.factory import get_translation_provider
 
 logger = logging.getLogger(__name__)
 
@@ -112,13 +111,9 @@ def get_stt_provider(
       (cold, min_workers=0). Cheapest GPU time; user isn't waiting on
       first-segment latency.
 
-    DeepL STT is intentionally NOT in the auto chain: its transcribe
-    endpoint rejects payloads above ~100 MB, and audiobooks are routinely
-    200–500 MB. Callers who need it must opt in via ``provider_name="deepl"``.
-
     Args:
         provider_name: Override — ``"local-gpu"``, ``"whisper"`` (RunPod
-            single-endpoint), ``"deepl"``, or empty for auto mode.
+            single-endpoint), or empty for auto mode.
         workload: Hint describing the work shape. Defaults to ``ANY``.
 
     Returns:
@@ -215,10 +210,6 @@ def _stt_by_explicit_name(name: str) -> STTProvider | None:
             "RunPod Whisper requested but AUDIOBOOKS_RUNPOD_API_KEY / "
             "AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT not configured"
         )
-    if name == "deepl":
-        from .stt.deepl_stt import DeepLSTT
-
-        return DeepLSTT(DEEPL_API_KEY)
     return None
 
 
@@ -232,10 +223,10 @@ def generate_subtitles(
 ) -> tuple[Path, Path | None]:
     """Generate subtitles for a single audio file.
 
-    Pipeline: STT → sentence detection → (translation if API key) → VTT.
+    Pipeline: STT → sentence detection → (translation if provider) → VTT.
 
-    If a DeepL API key is configured, generates dual-language VTTs
-    (source + translated). Without a key, generates source-language
+    If a translation provider is configured, generates dual-language VTTs
+    (source + translated). Without one, generates source-language
     subtitles only.
 
     Args:
@@ -262,15 +253,13 @@ def generate_subtitles(
     if not source_sentences:
         raise ValueError(f"No speech detected in {audio_path.name}")
 
-    # Step 2: Translate sentences (if DeepL key available and target != source)
+    # Step 2: Translate sentences (if a provider is configured and target != source)
     translated_vtt = None
-    if DEEPL_API_KEY and target_locale != source_lang:
+    translator = get_translation_provider()
+    if translator is not None and target_locale != source_lang:
         logger.info(
             "Step 2/3: Translating %d sentences to %s", len(source_sentences), target_locale
         )
-        from .translation.deepl_translate import DeepLTranslator
-
-        translator = DeepLTranslator(DEEPL_API_KEY, db_path=QUOTA_DB_PATH)
         # strict=True: this result is written to a .{locale}.vtt file on disk.
         # Passing English through would produce a subtitle file that claims to
         # be a translation and is indistinguishable from a real one forever.
@@ -285,8 +274,8 @@ def generate_subtitles(
             translated_cues, output_dir / f"{chapter_name}.{target_locale}.vtt"
         )
     else:
-        if not DEEPL_API_KEY:
-            logger.info("Step 2/3: Skipping translation (no DeepL API key)")
+        if translator is None:
+            logger.info("Step 2/3: Skipping translation (no translation provider configured)")
         logger.info("Step 3/3: Generating source-language VTT file")
         source_cues, _ = align_translations(transcript, source_sentences)
 
@@ -329,13 +318,11 @@ def _write_translated_chapter_vtt(
     source_lang: str,
 ) -> Path | None:
     """Translate source sentences + write target-locale VTT. Returns None
-    when no DeepL key is configured or target == source.
+    when no translation provider is configured or target == source.
     """
-    if not (DEEPL_API_KEY and target_locale != source_lang):
+    translator = get_translation_provider()
+    if translator is None or target_locale == source_lang:
         return None
-    from .translation.deepl_translate import DeepLTranslator
-
-    translator = DeepLTranslator(DEEPL_API_KEY, db_path=QUOTA_DB_PATH)
     # strict=True: persisted to a .{locale}.vtt file -- see note above.
     translated_texts = translator.translate(
         source_sentences, target_locale, source_lang.upper(), strict=True

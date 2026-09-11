@@ -573,52 +573,107 @@ def test_localhost_sender_guard_detects_a_new_offender(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Every DeepLTranslator must carry a quota tracker (Audiobook-Manager-2s6)
+# ── 6. No DeepL, anywhere, ever (Audiobook-Manager-4uj) ────────────────
 #
-# DeepLTranslator only builds a QuotaTracker when it is given a db_path.
-# Without one, `_precheck_tracker()` finds `self._tracker is None` and quietly
-# does nothing — which disables BOTH the 99% hard-limit gate and the usage
-# reconcile, on that path, silently. Six of seven construction sites were built
-# that way, which is why production's `last_api_check` stayed NULL even after
-# the reconcile was wired: the trackers did not exist to reconcile.
+# (This section replaced the former "every DeepLTranslator must carry a
+# quota tracker" guard from Audiobook-Manager-2s6 — that class, its quota
+# tracker, and the vendor they guarded were all removed together.)
 #
-# An explicit `db_path=None` is still allowed — it is the documented bypass for
-# tests — but it has to be written down, not defaulted into.
+# Operator decision 2026-09-11: the DeepL integration was removed outright —
+# the measured cost of translating the remaining corpus through DeepL was
+# $3,350–$16,800 against ~$315 on burst GPU. The requirement is stronger than
+# "the provider is unconfigured": the application must be PROVABLY UNABLE to
+# reach DeepL. Any reappearance of the token in runtime code — an import, a
+# hostname, an auth header, a config key, a provider literal — is a
+# regression, not a style issue. Historical provenance is untouched: DB rows
+# tagged 'deepl' remain accurate history, and applied migrations are exempt
+# below because applied migrations are never edited.
 # ---------------------------------------------------------------------------
 
-_TRANSLATOR_CTOR = re.compile(r"DeepLTranslator\s*\(([^)]*)\)", re.S)
+# `deeply` is English; every other occurrence of the stem is the vendor.
+_DEEPL_TOKEN_RE = re.compile(r"deepl(?!y\b)", re.IGNORECASE)
+
+# Runtime surface: everything that ships or executes. Docs and CHANGELOG are
+# history and deliberately NOT scanned.
+_DEEPL_SCAN_ROOTS = ("library", "scripts", "systemd", "lib", "etc", "caddy")
+_DEEPL_SCAN_TOP_FILES = ("install.sh", "upgrade.sh", "config.env")
+
+# Path suffix → reason. Keep this list short and justified; adding to it is a
+# deliberate, reviewable act.
+_DEEPL_EXEMPT = {
+    "library/tests/test_source_guards.py": "this guard names the token it hunts",
+    "library/backend/migrations/016_audiobook_translations.sql": "applied migration — never edited",
+    "library/backend/migrations/018_collection_translations.sql": "applied migration — never edited",
+    "library/backend/migrations/019_string_translations.sql": "applied migration — never edited",
+    "library/backend/migrations/020_deepl_quota.sql": "applied migration — never edited",
+    "library/backend/migrations/021_drop_deepl_quota.sql": "the teardown itself must name the table it drops",
+    "library/backend/api_modular/legacy_teardown.py": "the in-code executor of migration 021 — same reason",
+}
 
 
-def _translator_sites_missing_db_path(text: str) -> list[int]:
-    out = []
-    for m in _TRANSLATOR_CTOR.finditer(text):
-        args = m.group(1)
-        if "db_path" in args:
+def _deepl_sites(text: str) -> list[int]:
+    return [
+        lineno
+        for lineno, line in enumerate(text.splitlines(), start=1)
+        if _DEEPL_TOKEN_RE.search(line)
+    ]
+
+
+def _iter_deepl_scan_files() -> list[Path]:
+    files: list[Path] = []
+    for root in _DEEPL_SCAN_ROOTS:
+        base = PROJECT_ROOT / root
+        if not base.exists():
             continue
-        # the class definition and type annotations are not constructions
-        if not args.strip() or args.strip().startswith(("self", "api_key:")):
-            continue
-        out.append(text[: m.start()].count("\n") + 1)
-    return out
+        for path in base.rglob("*"):
+            if not path.is_file():
+                continue
+            if any(part in EXCLUDE_DIRS for part in path.parts):
+                continue
+            # session/coverage artifacts are generated, not shipped
+            if any(part.startswith(".") for part in path.relative_to(base).parts):
+                continue
+            if path.name in {"coverage.xml", "coverage.json"}:
+                continue
+            files.append(path)
+    for name in _DEEPL_SCAN_TOP_FILES:
+        path = PROJECT_ROOT / name
+        if path.exists():
+            files.append(path)
+    return sorted(files)
 
 
-def test_every_translator_construction_declares_a_db_path():
+def test_no_deepl_reference_in_runtime_code():
     offenders = []
-    for path in _iter_python_files(include_tests=False):
-        for lineno in _translator_sites_missing_db_path(path.read_text(encoding="utf-8")):
-            offenders.append(f"{path}:{lineno}")
+    for path in _iter_deepl_scan_files():
+        rel = path.relative_to(PROJECT_ROOT).as_posix()
+        if rel in _DEEPL_EXEMPT:
+            continue
+        try:
+            text = path.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue  # binary asset — cannot carry an API call
+        for lineno in _deepl_sites(text):
+            offenders.append(f"{rel}:{lineno}")
     assert not offenders, (
-        "DeepLTranslator built without db_path — that silently disables the quota "
-        "gate and the usage reconcile on this path. Pass db_path=..., or "
-        "db_path=None explicitly if the bypass is intended:\n" + "\n".join(offenders)
+        "DeepL reference in runtime code — the integration was removed "
+        "(Audiobook-Manager-4uj) and the app must be provably unable to reach "
+        "DeepL. Remove the reference, or add a justified exemption:\n" + "\n".join(offenders)
     )
 
 
-def test_translator_db_path_guard_detects_a_new_offender(tmp_path):
-    """The guard must be able to fail."""
-    bad = tmp_path / "bad.py"
-    bad.write_text("t = DeepLTranslator(DEEPL_API_KEY)\n")
-    assert _translator_sites_missing_db_path(bad.read_text()) == [1]
-    good = tmp_path / "good.py"
-    good.write_text("t = DeepLTranslator(DEEPL_API_KEY, db_path=str(p))\n")
-    assert _translator_sites_missing_db_path(good.read_text()) == []
+def test_deepl_guard_detects_an_offender():
+    """The guard must be able to fail — on every disguise of the token."""
+    assert _deepl_sites('requests.post("https://api.deepl.com/v2/translate")') == [1]
+    assert _deepl_sites("AUDIOBOOKS_DEEPL_API_KEY=x") == [1]
+    assert _deepl_sites('headers={"Authorization": "DeepL-Auth-Key ..."}') == [1]
+    assert _deepl_sites("provider = 'deepl'") == [1]
+    # ...and must NOT fire on English or unrelated code
+    assert _deepl_sites("we are deeply grateful") == []
+    assert _deepl_sites("translator.translate(sentences)") == []
+
+
+def test_deepl_exemption_list_has_no_stale_entries():
+    """An exemption for a file that no longer exists is dead weight."""
+    stale = [rel for rel in _DEEPL_EXEMPT if not (PROJECT_ROOT / rel).exists()]
+    assert not stale, "stale _DEEPL_EXEMPT entries: " + ", ".join(stale)
