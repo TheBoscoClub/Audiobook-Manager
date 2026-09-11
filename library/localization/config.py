@@ -36,10 +36,6 @@ RUNPOD_BACKLOG_WHISPER_ENDPOINT = os.environ.get("AUDIOBOOKS_RUNPOD_BACKLOG_WHIS
 WHISPER_GPU_HOST = os.environ.get("AUDIOBOOKS_WHISPER_GPU_HOST", "")
 WHISPER_GPU_PORT = int(os.environ.get("AUDIOBOOKS_WHISPER_GPU_PORT", "8765"))
 
-# Douban Books API (access restricted since 2019)
-DOUBAN_API_KEY = os.environ.get("AUDIOBOOKS_DOUBAN_API_KEY", "")
-
-
 def validate_locale(locale: str) -> bool:
     """Check if a locale code is in the supported list."""
     return locale in SUPPORTED_LOCALES

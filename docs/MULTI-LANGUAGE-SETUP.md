@@ -117,7 +117,6 @@ The localization module lives in `library/localization/` (~4,900 lines of Python
 | `translation/` | Provider abstraction (`TranslationProvider` protocol), provider factory, SQLite translation memory |
 | `tts/` | Text-to-speech providers (edge-tts, XTTS via RunPod) |
 | `subtitles/` | VTT subtitle generation and chapter synchronization |
-| `metadata/` | Book metadata translation (title, author, description) and Douban lookup |
 | `glossary/` | Domain-specific translation glossaries for consistency |
 
 ### STT Providers (Speech-to-Text)
@@ -144,7 +143,6 @@ The workload-aware selection system (`library/localization/selection.py`) distin
 | Caller | Mode | Why |
 |---|---|---|
 | `localization/pipeline.py` (both VTT writers) | `strict=True` | Result is written to a `.{locale}.vtt` file on disk |
-| `localization/metadata/lookup.py` | `strict=True` | Result is returned as `BookMetadata` and stored |
 | Everything else | default (non-strict) | Transient English pass-through is recoverable; check `.degraded` |
 
 The reason for the split is recoverability: an English string silently stored as though it were a Chinese translation is indistinguishable from a real one afterwards, so nothing downstream can ever repair it. A raised exception leaves the artifact unwritten and the job retryable.
@@ -389,7 +387,6 @@ edge-tts --list-voices
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `AUDIOBOOKS_DOUBAN_API_KEY` | (none) | Douban Books API key for Chinese book metadata lookup (optional, API access has been restricted since 2019) |
 
 ---
 

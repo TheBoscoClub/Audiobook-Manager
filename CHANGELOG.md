@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+### Removed
+
+- **`localization/metadata/` package** (Audiobook-Manager-sgn): `MetadataLookup`, `BookMetadata` and the `DoubanClient` had zero production callers — the orchestrator was exported and documented but never wired into any runtime path, and Douban's Books API has been access-restricted since 2019 so its key (`AUDIOBOOKS_DOUBAN_API_KEY`, also removed from `localization/config.py`) was unobtainable anyway. Localized book metadata is served by the on-demand translation endpoints; `test_localization_metadata.py` deleted with the package
+
 ### Fixed
 
 ## [8.5.0] - 2026-09-11
