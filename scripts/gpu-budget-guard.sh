@@ -22,8 +22,18 @@
 #   not any human or agent is watching.
 #
 # USAGE
-#   scripts/gpu-budget-guard.sh --cap 12            # destroy past $12 of spend
-#   scripts/gpu-budget-guard.sh --cap 12 --check    # one-shot report, no action
+#   scripts/gpu-budget-guard.sh --cap 35             # per-session spend ceiling
+#   scripts/gpu-budget-guard.sh --cap 35 --floor 64  # ...and a credit floor
+#   scripts/gpu-budget-guard.sh --cap 35 --check     # one-shot report, no action
+#
+#   --cap   is arithmetic I compute (uptime x rate, summed over labeled
+#           instances). It resets when an instance is replaced, so it bounds
+#           ONE session.
+#   --floor is the account's real credit balance as Vast reports it. It is
+#           cumulative, survives node cycling, and needs no assumption about
+#           the rate — which is precisely the blind spot that let a $6.74/hr
+#           instance run against a $2.70 listing. PREFER --floor for a
+#           campaign; use both for belt and braces.
 #
 # TEARDOWN IS VERIFIED, NOT ASSUMED
 #   After issuing DELETE the guard re-queries the API up to VERIFY_TRIES times
@@ -36,6 +46,7 @@ set -uo pipefail
 API_BASE="https://console.vast.ai/api/v0"
 LABEL="${GPU_NODE_LABEL:-abm-translate}"
 CAP=""
+FLOOR=""
 CHECK_ONLY=0
 POLL_SECONDS="${GUARD_POLL_SECONDS:-120}"
 VERIFY_TRIES=5
@@ -47,6 +58,7 @@ say() { printf '%s guard: %s\n' "$(date '+%F %T')" "$*" | tee -a "$LOG"; }
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --cap) CAP="${2:-}"; shift 2 ;;
+        --floor) FLOOR="${2:-}"; shift 2 ;;
         --check) CHECK_ONLY=1; shift ;;
         --label) LABEL="${2:-}"; shift 2 ;;
         *) die "unknown argument: $1" ;;
@@ -58,6 +70,7 @@ if [[ -z "${VAST_API_KEY:-}" ]]; then
     WITH_SECRET="${HOME}/.claude/bin/with-secret"
     [[ -x "$WITH_SECRET" ]] || die "VAST_API_KEY unset and with-secret not found"
     exec "$WITH_SECRET" VAST_API_KEY -- "$0" --cap "$CAP" --label "$LABEL" \
+        $([[ -n "$FLOOR" ]] && echo --floor "$FLOOR") \
         $([[ $CHECK_ONLY -eq 1 ]] && echo --check)
 fi
 
@@ -78,6 +91,10 @@ api() {
 # Every labeled instance in ANY state — an exited instance still bills storage.
 labeled() {
     api GET "/instances/" | jq --arg l "$LABEL" '[.instances[]? | select(.label == $l)]'
+}
+
+credit_now() {
+    api GET "/users/current/" | jq -r '.credit // 0'
 }
 
 spend_now() {
@@ -114,8 +131,8 @@ report() {
     spend="$(spend_now)"
     count="$(labeled | jq 'length')"
     credit="$(api GET "/users/current/" | jq -r '.credit // 0')"
-    printf 'instances=%s spend_this_session=$%.2f cap=$%s credit=$%.2f\n' \
-        "$count" "$spend" "$CAP" "$credit"
+    printf 'instances=%s spend_this_session=$%.2f cap=$%s credit=$%.2f floor=$%s\n' \
+        "$count" "$spend" "$CAP" "$credit" "${FLOOR:-none}"
 }
 
 if [[ $CHECK_ONLY -eq 1 ]]; then
@@ -123,7 +140,7 @@ if [[ $CHECK_ONLY -eq 1 ]]; then
     exit 0
 fi
 
-say "guard armed: cap \$${CAP}, label '${LABEL}', polling every ${POLL_SECONDS}s"
+say "guard armed: cap \$${CAP}${FLOOR:+, credit floor \$${FLOOR}}, label '${LABEL}', polling every ${POLL_SECONDS}s"
 while true; do
     count="$(labeled | jq 'length')"
     if [[ "$count" == "0" ]]; then
@@ -137,6 +154,16 @@ while true; do
         destroy_all_verified
         exit $?
     fi
-    say "spend \$$(printf '%.2f' "$spend") of \$${CAP}"
+    credit=""
+    if [[ -n "$FLOOR" ]]; then
+        credit="$(credit_now)"
+        under="$(awk -v c="$credit" -v f="$FLOOR" 'BEGIN { print (c <= f) ? 1 : 0 }')"
+        if [[ "$under" == "1" ]]; then
+            say "CREDIT FLOOR HIT: \$$(printf '%.2f' "$credit") <= \$${FLOOR} — tearing down"
+            destroy_all_verified
+            exit $?
+        fi
+    fi
+    say "spend \$$(printf '%.2f' "$spend") of \$${CAP}${credit:+ | credit \$$(printf '%.2f' "$credit") floor \$${FLOOR}}"
     sleep "$POLL_SECONDS"
 done
