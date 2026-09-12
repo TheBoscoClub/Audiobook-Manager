@@ -109,12 +109,22 @@ def scan(conn: sqlite3.Connection) -> dict[str, list[tuple[int, int, str, float]
 
 
 def purge(conn: sqlite3.Connection, corrupt: list[tuple[int, int, str, float]]) -> int:
-    """Delete corrupt rows + files. Returns rows deleted. Caller commits."""
+    """Delete corrupt zh rows + files AND the same chapters' en rows.
+
+    The en row must go too: the batch driver's resume logic
+    (``skip_chapters=existing_en`` in scripts/batch-translate.py) skips any
+    chapter that still has an English row, so a zh-only purge would leave
+    the chapter permanently untranslated. Deleting both forces a full
+    re-process (STT + MT) of exactly these chapters; the en VTT file on
+    disk is left in place and simply overwritten by the redo.
+
+    Returns zh rows deleted. Caller commits.
+    """
     deleted = 0
     for book_id, chapter, vtt_path, _frac in corrupt:
         conn.execute(
             "DELETE FROM chapter_subtitles WHERE audiobook_id = ? AND "
-            "chapter_index = ? AND locale = 'zh-Hans'",
+            "chapter_index = ? AND locale IN ('zh-Hans', 'en')",
             (book_id, chapter),
         )
         deleted += 1

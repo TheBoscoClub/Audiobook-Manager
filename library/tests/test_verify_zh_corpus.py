@@ -76,11 +76,13 @@ def corpus(tmp_path: Path):
     bad = _write(tmp_path, "bad.zh-Hans.vtt", EN_VTT)
     sus = _write(tmp_path, "sus.zh-Hans.vtt", MIXED_VTT)
     en = _write(tmp_path, "ok.en.vtt", EN_VTT)
+    en_bad = _write(tmp_path, "bad.en.vtt", EN_VTT)
     rows = [
         (1, 0, "zh-Hans", str(ok)),
         (1, 1, "zh-Hans", str(bad)),
         (2, 3, "zh-Hans", str(sus)),
         (1, 0, "en", str(en)),
+        (1, 1, "en", str(en_bad)),
     ]
     conn.executemany("INSERT INTO chapter_subtitles VALUES (?, ?, ?, ?, 'x', 'y')", rows)
     conn.commit()
@@ -94,8 +96,10 @@ class TestScanAndPurge:
         assert [(b, c) for b, c, _p, _f in result["corrupt"]] == [(1, 1)]
         assert [(b, c) for b, c, _p, _f in result["suspect"]] == [(2, 3)]
 
-    def test_purge_is_surgical(self, corpus):
-        """Only the corrupt row and file go; ok/suspect/en all survive."""
+    def test_purge_is_surgical_and_takes_the_en_row_with_it(self, corpus):
+        """The corrupt chapter loses BOTH its zh and en rows (the batch
+        driver skips any chapter with an en row — see purge docstring);
+        other chapters' rows and every non-corrupt file survive."""
         conn, _tmp, files = corpus
         result = vzc.scan(conn)
         deleted = vzc.purge(conn, result["corrupt"])
@@ -107,6 +111,8 @@ class TestScanAndPurge:
             "SELECT audiobook_id, chapter_index, locale FROM chapter_subtitles ORDER BY 1,2,3"
         ).fetchall()
         assert (1, 1, "zh-Hans") not in remaining
+        assert (1, 1, "en") not in remaining  # forces full re-process
+        assert (1, 0, "en") in remaining  # untouched chapter keeps its transcript
         assert len(remaining) == 3
 
     def test_chapter0_suspect_is_exempt(self, corpus):
