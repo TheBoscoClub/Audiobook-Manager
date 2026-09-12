@@ -1667,3 +1667,56 @@ class TestTranslationProviderPathways:
             )
         assert result == tmp_path / "ch000.zh-Hans.vtt"
         assert stub.calls[0][3] is False  # budget boundary owns refusal now
+
+
+class TestChapterClampToAudio:
+    """A chapter cannot extend past the end of its own audio file.
+
+    Audiobook-Manager-536 fleet run: a 266-hour Dostoyevsky omnibus carried a
+    final chapter claiming 10,000 minutes (166 hours). Splitting it produced a
+    ~7 GB temp file that the transcription service refused with HTTP 413,
+    failing the whole book.
+    """
+
+    def test_overrunning_chapter_is_clamped(self, monkeypatch, tmp_path):
+        from localization import chapters as ch_mod
+
+        monkeypatch.setattr(ch_mod, "probe_duration_ms", lambda p: 3_600_000)  # 60 min
+        chs = [
+            ch_mod.Chapter(index=0, title="One", start_ms=0, end_ms=1_800_000),
+            ch_mod.Chapter(index=1, title="Runaway", start_ms=1_800_000, end_ms=600_024_000),
+        ]
+        out = ch_mod._clamp_to_audio(chs, tmp_path / "book.opus")
+        assert len(out) == 2
+        assert out[1].end_ms == 3_600_000  # clamped to the real duration
+        assert out[0].end_ms == 1_800_000  # untouched
+
+    def test_chapter_starting_past_the_end_is_dropped(self, monkeypatch, tmp_path):
+        from localization import chapters as ch_mod
+
+        monkeypatch.setattr(ch_mod, "probe_duration_ms", lambda p: 3_600_000)
+        chs = [
+            ch_mod.Chapter(index=0, title="One", start_ms=0, end_ms=3_600_000),
+            ch_mod.Chapter(index=1, title="Phantom", start_ms=7_200_000, end_ms=9_000_000),
+        ]
+        out = ch_mod._clamp_to_audio(chs, tmp_path / "book.opus")
+        assert [c.title for c in out] == ["One"]
+
+    def test_sane_chapters_pass_through_untouched(self, monkeypatch, tmp_path):
+        from localization import chapters as ch_mod
+
+        monkeypatch.setattr(ch_mod, "probe_duration_ms", lambda p: 3_600_000)
+        chs = [
+            ch_mod.Chapter(index=0, title="One", start_ms=0, end_ms=1_800_000),
+            ch_mod.Chapter(index=1, title="Two", start_ms=1_800_000, end_ms=3_600_000),
+        ]
+        assert ch_mod._clamp_to_audio(chs, tmp_path / "book.opus") == chs
+
+    def test_unprobeable_audio_leaves_chapters_alone(self, monkeypatch, tmp_path):
+        """No duration means no invariant to enforce — never drop data on a
+        failed probe."""
+        from localization import chapters as ch_mod
+
+        monkeypatch.setattr(ch_mod, "probe_duration_ms", lambda p: None)
+        chs = [ch_mod.Chapter(index=0, title="One", start_ms=0, end_ms=600_024_000)]
+        assert ch_mod._clamp_to_audio(chs, tmp_path / "book.opus") == chs

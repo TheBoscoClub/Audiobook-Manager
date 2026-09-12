@@ -35,16 +35,89 @@ class Chapter:
         return self.end_ms / 1000.0
 
 
+def probe_duration_ms(audio_path: Path) -> int | None:
+    """Container duration in milliseconds, or None if ffprobe cannot say."""
+    try:
+        result = subprocess.run(  # noqa: S603,S607 — system-installed tool, internal path  # nosec B607,B603
+            [
+                "ffprobe",
+                "-v",
+                "quiet",
+                "-print_format",
+                "json",
+                "-show_format",
+                str(audio_path),
+            ],
+            capture_output=True,
+            text=True,
+            errors="replace",
+            timeout=60,
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        seconds = json.loads(result.stdout).get("format", {}).get("duration")
+        return int(round(float(seconds) * 1000)) if seconds else None
+    except (json.JSONDecodeError, OSError, ValueError, subprocess.SubprocessError):
+        return None
+
+
+def _clamp_to_audio(chapters: list[Chapter], audio_path: Path) -> list[Chapter]:
+    """Enforce the invariant that a chapter fits inside its own audio file.
+
+    Chapter metadata is supplied by the source (embedded tags, or an Audible
+    ``chapters.json`` whose ``length_ms`` we trust blindly). Nothing upstream
+    guarantees it is sane, and one book proved it: a 266-hour Dostoyevsky
+    omnibus carried a final chapter claiming 10,000 MINUTES — 166 hours —
+    after its other 428 chapters had already covered the whole file. Splitting
+    it produced a ~7 GB temp file, which the transcription service refused
+    with HTTP 413, failing the book (2026-09-12).
+
+    A chapter that starts at or past the end of the audio is dropped; one
+    that merely overruns the end is clamped to it. Both are logged, because
+    silently repairing bad metadata is how bad metadata survives.
+    """
+    duration_ms = probe_duration_ms(audio_path)
+    if not duration_ms:
+        return chapters
+    kept: list[Chapter] = []
+    for ch in chapters:
+        if ch.start_ms >= duration_ms:
+            logger.warning(
+                "Dropping chapter %d (%s): starts at %.1f min, past the file's %.1f min",
+                ch.index,
+                ch.title,
+                ch.start_ms / 60_000,
+                duration_ms / 60_000,
+            )
+            continue
+        if ch.end_ms > duration_ms:
+            logger.warning(
+                "Clamping chapter %d (%s): claimed end %.1f min exceeds the file's %.1f min",
+                ch.index,
+                ch.title,
+                ch.end_ms / 60_000,
+                duration_ms / 60_000,
+            )
+            ch = Chapter(index=ch.index, title=ch.title, start_ms=ch.start_ms, end_ms=duration_ms)
+        kept.append(ch)
+    return kept
+
+
 def extract_chapters(audio_path: Path) -> list[Chapter]:
     """Extract chapter list from an audiobook file.
 
     Tries embedded chapter metadata first (ffprobe -show_chapters), then
     falls back to an Audible chapters.json sidecar in the same directory.
-    Returns an empty list if no chapter data is found.
+    Returns an empty list if no chapter data is found. Whatever the source,
+    the result is clamped to the audio's real duration — see
+    :func:`_clamp_to_audio`.
     """
     chapters = _chapters_from_ffprobe(audio_path)
     if not chapters:
         chapters = _chapters_from_sidecar(audio_path)
+    if chapters:
+        chapters = _clamp_to_audio(chapters, audio_path)
     if chapters:
         logger.info(
             "Found %d chapters in %s (total %.1f min)",
