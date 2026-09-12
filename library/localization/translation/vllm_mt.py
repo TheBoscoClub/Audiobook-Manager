@@ -16,8 +16,10 @@ Design constraints, each paid for by a measured incident:
   translation per input, and a length mismatch fails the batch rather than
   zipping past the shortfall (the 09z class).
 * **Per-item output gates** (CJK targets): character-ratio band
-  0.18–0.60 zh:en (corpus median 0.333 — invention inflates it,
-  truncation deflates it), CJK-fraction ≥ 0.30 (the bd-536 class:
+  0.18–0.90 zh:en (corpus median 0.333 at chapter scale; sentence-level
+  variance runs wider — legit sentences measured at 0.63 on the pilot —
+  while observed invention inflates to 2.5–83×, so the ceiling keeps a
+  wide margin; truncation deflates below the floor), CJK-fraction ≥ 0.30 (the bd-536 class:
   English stored as Chinese), and identity rejection. A gated item is
   returned as source text and counted in ``degraded_texts``; it is never
   cached.
@@ -47,7 +49,7 @@ logger = logging.getLogger(__name__)
 # Output gates, calibrated on the existing corpus (median zh:en ratio 0.333
 # over 6,629 chapter pairs). Short sources are ratio-noisy, so the band
 # widens below _RATIO_STRICT_MIN_LEN source characters.
-_RATIO_BAND = (0.18, 0.60)
+_RATIO_BAND = (0.18, 0.90)
 _RATIO_BAND_SHORT = (0.10, 1.50)
 _RATIO_STRICT_MIN_LEN = 20
 _CJK_MIN_FRACTION = 0.30
