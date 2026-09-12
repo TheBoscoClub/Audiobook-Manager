@@ -183,14 +183,55 @@ class TestOutputGuards:
         assert out[0] == SRC_EN[0]
         assert t.degraded is True
 
-    def test_identity_result_is_rejected(self):
+    def test_confirmed_identity_is_accepted_but_never_cached(self, tmp_path: Path):
+        """Names/interjections legitimately survive unchanged — accepted when
+        the plain tier independently agrees, and NEVER written to the TM
+        (the xiy poison stays impossible)."""
+        db = tmp_path / "tm.db"
+        conn = sqlite3.connect(str(db))
+        conn.execute(
+            "CREATE TABLE string_translations (source_hash TEXT, locale TEXT, "
+            "source TEXT, translation TEXT, translator TEXT DEFAULT '', "
+            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
+            "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
+            "PRIMARY KEY (source_hash, locale))"
+        )
+        conn.commit()
+        conn.close()
+        t = _mk(db_path=db)
+        responses = iter(
+            [
+                _FakeResp(_chat_response([SRC_EN[0], GOOD_ZH[1]])),  # batch: #1 identity
+                _FakeResp(
+                    {"choices": [{"message": {"content": SRC_EN[0]}}]}
+                ),  # plain confirm: same
+            ]
+        )
+        with patch.object(t._session, "post", side_effect=lambda *a, **k: next(responses)):
+            out = t.translate(SRC_EN, "zh-Hans", strict=True)
+        assert out == [SRC_EN[0], GOOD_ZH[1]]
+        assert t.degraded is False
+        conn = sqlite3.connect(str(db))
+        rows = conn.execute("SELECT source FROM string_translations").fetchall()
+        conn.close()
+        assert rows == [(SRC_EN[1],)]  # only the real translation cached
+
+    def test_unconfirmed_identity_takes_the_plain_translation(self):
+        """When the plain tier disagrees with an identity candidate and
+        produces a real translation, the real translation wins."""
         t = _mk()
-        with patch.object(
-            t._session, "post", return_value=_FakeResp(_chat_response([SRC_EN[0], GOOD_ZH[1]]))
-        ):
-            out = t.translate(SRC_EN, "zh-Hans")
-        assert t.degraded is True
-        assert out[1] == GOOD_ZH[1]
+        responses = iter(
+            [
+                _FakeResp(_chat_response([SRC_EN[0], GOOD_ZH[1]])),  # batch: #1 identity
+                _FakeResp(
+                    {"choices": [{"message": {"content": "你好，世界。"}}]}
+                ),  # plain: real zh
+            ]
+        )
+        with patch.object(t._session, "post", side_effect=lambda *a, **k: next(responses)):
+            out = t.translate(SRC_EN, "zh-Hans", strict=True)
+        assert out == ["你好，世界。", GOOD_ZH[1]]
+        assert t.degraded is False
 
     def test_guards_do_not_fire_for_non_cjk_targets(self):
         """A pt-BR translation is legitimately latin — CJK guard must scope

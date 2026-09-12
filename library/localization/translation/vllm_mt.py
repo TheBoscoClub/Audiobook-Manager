@@ -234,6 +234,38 @@ class VLLMTranslator(TranslationProvider):
         text = _JSON_FENCE_RE.sub("", text).strip().strip('"').strip()
         return text or None
 
+    def _resolve_item(
+        self, src: str, candidate: str, target_locale: str, source_lang: str
+    ) -> tuple[str | None, str]:
+        """Gate a candidate translation for one sentence.
+
+        Returns ``(text, "cache")`` for a gate-passing translation,
+        ``(text, "no-cache")`` for a CONFIRMED identity, or
+        ``(None, reason)`` for a rejection.
+
+        Identity needs the extra step: names, interjections and
+        sound-effect cues legitimately survive translation unchanged
+        (observed live: 16 such sentences in one Alice chapter), but
+        wholesale identity is the xiy/64p poison class. A candidate equal
+        to its source is therefore accepted only when an INDEPENDENT
+        plain-tier request agrees the text stays unchanged — and even
+        then it is never cached, so the TM cannot be poisoned. A dead
+        endpoint cannot fake this: it fails at transport, not by echoing.
+        """
+        reason = self._gate(src, candidate, target_locale)
+        if reason is None:
+            return candidate, "cache"
+        if reason.startswith("identity"):
+            confirm = self._request_single_plain(src, target_locale, source_lang)
+            if confirm is not None:
+                if confirm.strip() == src.strip():
+                    return src, "no-cache"
+                second = self._gate(src, confirm, target_locale)
+                if second is None:
+                    return confirm, "cache"
+                reason = second
+        return None, reason
+
     # ── output gates ──
 
     def _gate(self, source: str, translated: str, target_locale: str) -> str | None:
@@ -302,20 +334,22 @@ class VLLMTranslator(TranslationProvider):
                             failed.append((idx, src, self._last_error))
                             continue
                         single = [plain]
-                    reason = self._gate(src, single[0], target_locale)
-                    if reason is None:
-                        output[idx] = single[0]
-                        accepted_pairs.append((src, single[0]))
+                    text, verdict = self._resolve_item(src, single[0], target_locale, source_lang)
+                    if text is None:
+                        failed.append((idx, src, verdict))
                     else:
-                        failed.append((idx, src, reason))
+                        output[idx] = text
+                        if verdict == "cache":
+                            accepted_pairs.append((src, text))
                 continue
             for (idx, src), tgt in zip(chunk, translations):
-                reason = self._gate(src, tgt, target_locale)
-                if reason is None:
-                    output[idx] = tgt
-                    accepted_pairs.append((src, tgt))
+                text, verdict = self._resolve_item(src, tgt, target_locale, source_lang)
+                if text is None:
+                    failed.append((idx, src, verdict))
                 else:
-                    failed.append((idx, src, reason))
+                    output[idx] = text
+                    if verdict == "cache":
+                        accepted_pairs.append((src, text))
 
         if accepted_pairs and self._db_path is not None:
             tm_store(self._db_path, accepted_pairs, target_locale, self.name)
