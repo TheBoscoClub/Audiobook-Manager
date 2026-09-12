@@ -121,9 +121,20 @@ our_instances() {
         | jq --arg label "$LABEL" '[.instances[]? | select(.label == $label)]'
 }
 
-# Newest live labeled instance (exited/destroyed rows filtered), or "null".
+# Newest RUNNING labeled instance, or "null". Used by tunnel/bootstrap-status,
+# which need a machine that can actually answer.
 our_live_instance() {
     our_instances | jq '[.[] | select((.actual_status // "") != "exited")] | sort_by(.id) | last'
+}
+
+# Newest labeled instance in ANY state, or "null". `down` must use this:
+# an instance whose container has exited is NOT free — its disk keeps
+# billing until the instance is DESTROYED, and Vast auto-stops instances
+# when credit runs out, so the exact moment `down` matters most is the
+# moment the old filter hid the instance and reported "nothing to destroy"
+# (observed 2026-09-12 on instance 50749707).
+our_any_instance() {
+    our_instances | jq 'sort_by(.id) | last'
 }
 
 build_search_query() {
@@ -366,8 +377,11 @@ cmd_down() {
     local yes=0
     [[ "${1:-}" == "--yes" ]] && yes=1
     local inst
-    inst="$(our_live_instance)"
-    [[ "$inst" != "null" && -n "$inst" ]] || { info "no live '${LABEL}' instance — nothing to destroy."; return 0; }
+    inst="$(our_any_instance)"
+    [[ "$inst" != "null" && -n "$inst" ]] || { info "no '${LABEL}' instance — nothing to destroy."; return 0; }
+    local state
+    state="$(jq -r '.actual_status // "unknown"' <<<"$inst")"
+    [[ "$state" == "exited" ]] && info "instance has exited (container stopped) but its DISK STILL BILLS — destroying."
     local id dph start now
     id="$(jq -r '.id' <<<"$inst")"
     dph="$(jq -r '.dph_total // 0' <<<"$inst")"
