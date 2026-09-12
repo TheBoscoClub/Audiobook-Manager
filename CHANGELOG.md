@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.6.0] - 2026-09-11
+
+### Added
+
 - **vLLM machine-translation provider** (`library/localization/translation/vllm_mt.py`, Audiobook-Manager-r6h): the first backend for the v8.5.0 provider abstraction — Qwen3-8B served by vLLM on a rented GPU node, reached via `AUDIOBOOKS_MT_ENDPOINT` (burst-shaped: set only while a node session is up; unset, the factory returns none and callers degrade as before). Carries the guards the corpus paid for: JSON-array contract with strict length validation (no zip-past misalignment), per-item zh:en character-ratio band 0.18–0.60, CJK-fraction ≥ 0.30 output gate (makes the bd-536 English-as-Chinese class unstorable), identity rejection, `en-zh.yaml` glossary applied in-prompt, translation-memory integration via `memory.py`, and `strict=True` refusal semantics
 - **Vast.ai GPU-node lifecycle tool** (`scripts/gpu-node.sh`): operator runbook in one script — `search`/`up`/`status`/`tunnel`/`down`/`bootstrap-status` against the Vast.ai API, bootstrapping `vllm/vllm-openai` + the whisper service on a verified 1× H100 SXM (~$1.74 per GPU-hour measured). API key rides a 0600 curl config via `with-secret`, never argv; `down` is label-scoped with confirmation
 - **zh-corpus verify/purge tool** (`scripts/verify-zh-corpus.py` + `library/tests/test_verify_zh_corpus.py`): permanent home for the bd-536 audit — CJK-fraction classifier (corrupt < 2%, suspect < 30% non-ch0, chapter-0 boilerplate exempt), read-only audit mode that exits non-zero on findings, and a `--delete-corrupt --yes` purge proven surgical by tests (only corrupt rows and files go; the resumable batch driver then re-translates exactly those chapters)
@@ -21,8 +29,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - **`localization/metadata/` package** (Audiobook-Manager-sgn): `MetadataLookup`, `BookMetadata` and the `DoubanClient` had zero production callers — the orchestrator was exported and documented but never wired into any runtime path, and Douban's Books API has been access-restricted since 2019 so its key (`AUDIOBOOKS_DOUBAN_API_KEY`, also removed from `localization/config.py`) was unobtainable anyway. Localized book metadata is served by the on-demand translation endpoints; `test_localization_metadata.py` deleted with the package
-
-### Fixed
 
 ## [8.5.0] - 2026-09-11
 
@@ -4461,7 +4467,8 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.5.0...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.6.0...HEAD
+[8.6.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.5.0...v8.6.0
 [8.5.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.7...v8.5.0
 [8.4.3.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.6...v8.4.3.7
 [8.4.3.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.5...v8.4.3.6
