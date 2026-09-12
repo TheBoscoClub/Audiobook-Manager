@@ -50,7 +50,7 @@ logger = logging.getLogger(__name__)
 # over 6,629 chapter pairs). Short sources are ratio-noisy, so the band
 # widens below _RATIO_STRICT_MIN_LEN source characters.
 _RATIO_BAND = (0.14, 0.90)
-_RATIO_BAND_SHORT = (0.10, 1.50)
+_RATIO_BAND_SHORT = (0.05, 4.00)
 _RATIO_STRICT_MIN_LEN = 20
 _CJK_MIN_FRACTION = 0.10
 

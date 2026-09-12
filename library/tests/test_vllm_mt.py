@@ -356,3 +356,20 @@ class TestFleetCalibration:
             out = t.translate(src, "zh-Hans", strict=True)
         assert out == src
         assert t.degraded is False
+
+    def test_short_source_ratio_is_generous(self):
+        """Five-character sources are ratio-unstable (observed live: 1.60 on
+        Pachinko). The short band tolerates up to 4x; paragraph-invention
+        multiplies far past that and still fails."""
+        t = _mk()
+        src = ["Go on."]
+        with patch.object(
+            t._session, "post", return_value=_FakeResp(_chat_response(["继续说下去吧。"]))
+        ):
+            assert t.translate(src, "zh-Hans", strict=True) == ["继续说下去吧。"]
+        t2 = _mk()
+        invented = ["继续说下去吧。" * 6]  # 42 chars for a 6-char source: ratio 7
+        with patch.object(t2._session, "post", return_value=_FakeResp(_chat_response(invented))):
+            out = t2.translate(src, "zh-Hans")
+        assert out == src
+        assert t2.degraded is True

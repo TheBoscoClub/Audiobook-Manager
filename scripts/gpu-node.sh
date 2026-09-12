@@ -158,8 +158,13 @@ set -e
 # vllm is a no-op on the vllm/vllm-openai image and a real install on
 # generic CUDA images (vastai/pytorch fallback when proxy-SSH misbehaves)
 pip install --no-cache-dir vllm faster-whisper flask >> /workspace/bootstrap.log 2>&1
+# FLASH_ATTN backend: flashinfer JIT-compiles CUDA kernels at startup and
+# fails on hosts whose local nvcc mismatches (observed on instance 50695675).
+# 0.55 VRAM cap leaves ~35 GB for the whisper service on the same GPU.
+VLLM_USE_FLASHINFER_SAMPLER=0 VLLM_ATTENTION_BACKEND=FLASH_ATTN \
 nohup python3 -m vllm.entrypoints.openai.api_server \
     --model ${VLLM_MODEL} --port 8000 --max-model-len 8192 \
+    --gpu-memory-utilization 0.55 \
     > /workspace/vllm.log 2>&1 &
 EOF
 }
@@ -253,7 +258,7 @@ cmd_up() {
             disk: $disk,
             label: $label,
             onstart: $onstart,
-            runtype: "ssh",
+            runtype: "ssh_direct",
             env: {}
         }')"
 
