@@ -154,7 +154,9 @@ onstart_script() {
     cat <<EOF
 #!/bin/bash
 set -e
-pip install --no-cache-dir faster-whisper flask >> /workspace/bootstrap.log 2>&1
+# vllm is a no-op on the vllm/vllm-openai image and a real install on
+# generic CUDA images (vastai/pytorch fallback when proxy-SSH misbehaves)
+pip install --no-cache-dir vllm faster-whisper flask >> /workspace/bootstrap.log 2>&1
 nohup python3 -m vllm.entrypoints.openai.api_server \
     --model ${VLLM_MODEL} --port 8000 --max-model-len 8192 \
     > /workspace/vllm.log 2>&1 &
@@ -288,7 +290,7 @@ cmd_up() {
         "root@${SSH_HOST}:/workspace/whisper_gpu_service.py" \
         || die "scp failed — is your SSH public key registered at console.vast.ai -> Keys?"
     ssh "${opts[@]}" -p "$SSH_PORT" "root@${SSH_HOST}" \
-        "WHISPER_MODEL=large-v3 nohup python3 /workspace/whisper_gpu_service.py --model large-v3 --port 8765 > /workspace/whisper.log 2>&1 & sleep 1; echo whisper launched" \
+        "while pgrep -f 'pip install' >/dev/null; do sleep 10; done; WHISPER_MODEL=large-v3 nohup python3 /workspace/whisper_gpu_service.py --model large-v3 --port 8765 > /workspace/whisper.log 2>&1 & sleep 1; echo whisper launched" \
         || die "whisper service launch failed"
 
     info "up complete. Next: '$0 tunnel' then '$0 bootstrap-status'."
