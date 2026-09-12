@@ -94,11 +94,13 @@ def test_pipeline_dual_language_with_stub_provider(tmp_path: Path):
         degraded = False
         degraded_texts = 0
 
-        # strict= added by Audiobook-Manager-64p: persisting callers demand it.
+        # Persisting callers now run under the persistence budget: the
+        # provider is called strict=False and refusal happens at the
+        # budget boundary (Audiobook-Manager-64p lineage).
         def translate(self, sentences, target_locale, source_lang="EN", strict=False):
             assert target_locale == "zh-Hans"
             assert source_lang == "EN"
-            assert strict is True  # this result is persisted to disk
+            assert strict is False  # budget boundary owns refusal
             return ["你好，世界。", "图书馆在等你。"]
 
     with patch(

@@ -1535,9 +1535,10 @@ class TestXTTSProvider:
 class _StubProvider:
     """Minimal concrete TranslationProvider for pipeline tests."""
 
-    def __init__(self, outputs=None, raise_strict=False):
+    def __init__(self, outputs=None, raise_strict=False, degrade=0):
         self._outputs = outputs
         self._raise_strict = raise_strict
+        self._degrade = degrade
         self.degraded = False
         self.degraded_texts = 0
         self.calls: list[tuple[list[str], str, str, bool]] = []
@@ -1550,6 +1551,9 @@ class _StubProvider:
         from localization.translation.base import TranslationUnavailableError
 
         self.calls.append((list(texts), target_locale, source_lang, strict))
+        if self._degrade:
+            self.degraded = True
+            self.degraded_texts += self._degrade
         if self._raise_strict and strict:
             raise TranslationUnavailableError("backend down")
         if self._outputs is not None:
@@ -1612,16 +1616,19 @@ class TestTranslationProviderPathways:
         assert translated_vtt is not None
         assert str(translated_vtt).endswith(".zh-Hans.vtt")
         assert str(source_vtt).endswith(".en.vtt")
-        # Persisting caller MUST pass strict=True with upper-cased source lang.
-        assert stub.calls == [(["Hello world.", "Goodbye."], "zh-Hans", "EN", True)]
+        # Persisting caller uses the persistence budget (strict=False at the
+        # provider; refusal happens at the budget boundary) with upper-cased
+        # source lang.
+        assert stub.calls == [(["Hello world.", "Goodbye."], "zh-Hans", "EN", False)]
 
-    def test_generate_subtitles_strict_failure_propagates(self, tmp_path):
+    def test_generate_subtitles_over_budget_failure_propagates(self, tmp_path):
         from localization import pipeline as mod
         from localization.translation.base import TranslationUnavailableError
 
         audio = tmp_path / "book.opus"
         audio.write_bytes(b"x")
-        stub = _StubProvider(raise_strict=True)
+        # Degrade more texts than max(2, 2% of 2 sentences) allows.
+        stub = _StubProvider(degrade=3)
         with (
             patch.object(mod, "_transcribe_with_fallback", return_value=self._transcript()),
             patch.object(mod, "align_translations", return_value=([], [])),
@@ -1659,4 +1666,4 @@ class TestTranslationProviderPathways:
                 MagicMock(), ["Hello."], chapter, "ch000", tmp_path, "zh-Hans", "en"
             )
         assert result == tmp_path / "ch000.zh-Hans.vtt"
-        assert stub.calls[0][3] is True  # strict — this VTT is persisted
+        assert stub.calls[0][3] is False  # budget boundary owns refusal now
