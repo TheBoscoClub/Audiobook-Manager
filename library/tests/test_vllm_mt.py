@@ -55,6 +55,24 @@ def _mk(db_path=None, **kw) -> VLLMTranslator:
     return VLLMTranslator(db_path=db_path, **kw)
 
 
+def _endpoint(answer_for):
+    """Simulate a vLLM endpoint honestly: JSON-array requests get equal-length
+    arrays, bare-text (plain tier) requests get bare text. ``answer_for(src)``
+    decides each sentence's answer, so retry tiers can be modelled."""
+
+    def post(url, **kw):
+        user = kw["json"]["messages"][1]["content"]
+        try:
+            parsed = json.loads(user)
+        except ValueError:
+            parsed = None
+        if isinstance(parsed, list):
+            return _FakeResp(_chat_response([answer_for(s) for s in parsed]))
+        return _FakeResp({"choices": [{"message": {"content": answer_for(user)}}]})
+
+    return post
+
+
 GOOD_ZH = ["你好，世界。", "船长伸手去拿罗盘。"]
 SRC_EN = ["Hello, world.", "The captain reached for the compass."]
 
@@ -175,17 +193,23 @@ class TestOutputGuards:
         assert t.degraded_texts == 1
 
     def test_cjk_guard_rejects_english_as_chinese(self):
-        """The bd 536 class: English text stored as a zh translation."""
+        """The bd 536 class: English text stored as a zh translation. The
+        endpoint answers English at EVERY tier, so the isolated retries
+        cannot rescue it and the item degrades."""
         t = _mk()
-        pass_through = ["Hello there, world.", GOOD_ZH[1]]
-        with patch.object(t._session, "post", return_value=_FakeResp(_chat_response(pass_through))):
+
+        def answer(s):
+            return "Hello there, world." if s == SRC_EN[0] else GOOD_ZH[1]
+
+        with patch.object(t._session, "post", side_effect=_endpoint(answer)):
             out = t.translate(SRC_EN, "zh-Hans")
         assert out[0] == SRC_EN[0]
+        assert out[1] == GOOD_ZH[1]
         assert t.degraded is True
 
     def test_confirmed_identity_is_accepted_but_never_cached(self, tmp_path: Path):
         """Names/interjections legitimately survive unchanged — accepted when
-        the plain tier independently agrees, and NEVER written to the TM
+        the independent plain tier agrees, and NEVER written to the TM
         (the xiy poison stays impossible)."""
         db = tmp_path / "tm.db"
         conn = sqlite3.connect(str(db))
@@ -199,15 +223,12 @@ class TestOutputGuards:
         conn.commit()
         conn.close()
         t = _mk(db_path=db)
-        responses = iter(
-            [
-                _FakeResp(_chat_response([SRC_EN[0], GOOD_ZH[1]])),  # batch: #1 identity
-                _FakeResp(
-                    {"choices": [{"message": {"content": SRC_EN[0]}}]}
-                ),  # plain confirm: same
-            ]
-        )
-        with patch.object(t._session, "post", side_effect=lambda *a, **k: next(responses)):
+
+        # Every tier returns the source unchanged for item 0.
+        def answer(s):
+            return SRC_EN[0] if s == SRC_EN[0] else GOOD_ZH[1]
+
+        with patch.object(t._session, "post", side_effect=_endpoint(answer)):
             out = t.translate(SRC_EN, "zh-Hans", strict=True)
         assert out == [SRC_EN[0], GOOD_ZH[1]]
         assert t.degraded is False
@@ -216,21 +237,33 @@ class TestOutputGuards:
         conn.close()
         assert rows == [(SRC_EN[1],)]  # only the real translation cached
 
-    def test_unconfirmed_identity_takes_the_plain_translation(self):
-        """When the plain tier disagrees with an identity candidate and
-        produces a real translation, the real translation wins."""
+    def test_isolated_retry_rescues_a_batch_echo(self):
+        """MEASURED: six of eight consecutive Karamazov courtroom sentences
+        echoed inside a batch and every one translated correctly alone. A
+        gate rejection must therefore trigger an isolated retry, whose
+        result wins."""
         t = _mk()
-        responses = iter(
-            [
-                _FakeResp(_chat_response([SRC_EN[0], GOOD_ZH[1]])),  # batch: #1 identity
-                _FakeResp(
-                    {"choices": [{"message": {"content": "你好，世界。"}}]}
-                ),  # plain: real zh
-            ]
-        )
-        with patch.object(t._session, "post", side_effect=lambda *a, **k: next(responses)):
+        state = {"batch_seen": False}
+
+        def post(url, **kw):
+            user = kw["json"]["messages"][1]["content"]
+            try:
+                parsed = json.loads(user)
+            except ValueError:
+                parsed = None
+            if isinstance(parsed, list) and len(parsed) > 1:
+                state["batch_seen"] = True
+                return _FakeResp(_chat_response(list(parsed)))  # echo the batch
+            one = parsed[0] if isinstance(parsed, list) else user
+            zh = GOOD_ZH[0] if one == SRC_EN[0] else GOOD_ZH[1]
+            if isinstance(parsed, list):
+                return _FakeResp(_chat_response([zh]))
+            return _FakeResp({"choices": [{"message": {"content": zh}}]})
+
+        with patch.object(t._session, "post", side_effect=post):
             out = t.translate(SRC_EN, "zh-Hans", strict=True)
-        assert out == ["你好，世界。", GOOD_ZH[1]]
+        assert state["batch_seen"]
+        assert out == GOOD_ZH
         assert t.degraded is False
 
     def test_guards_do_not_fire_for_non_cjk_targets(self):
@@ -284,9 +317,11 @@ class TestTranslationMemory:
 
     def test_rejected_items_are_never_cached(self, tm_db: Path):
         t = _mk(db_path=tm_db)
-        with patch.object(
-            t._session, "post", return_value=_FakeResp(_chat_response(["English junk", GOOD_ZH[1]]))
-        ):
+
+        def answer(s):
+            return "English junk stays junk" if s == SRC_EN[0] else GOOD_ZH[1]
+
+        with patch.object(t._session, "post", side_effect=_endpoint(answer)):
             t.translate(SRC_EN, "zh-Hans")
         conn = sqlite3.connect(str(tm_db))
         rows = conn.execute("SELECT source FROM string_translations").fetchall()
@@ -379,36 +414,21 @@ class TestFleetCalibration:
 
 
 class TestPersistenceBudget:
-    @staticmethod
-    def _chunk_aware_post(bad_markers: set[str]):
-        """Answer each request with correctly-sized arrays; sentences whose
-        text carries a bad marker get gate-failing English."""
-
-        def post(url, **kw):
-            user = kw["json"]["messages"][1]["content"]
-            try:
-                parsed = json.loads(user)
-            except ValueError:
-                parsed = None
-
-            def answer(s):
-                if any(m in s for m in bad_markers):
-                    return "English junk output stays English"
-                return "这一句是中文翻译，长度合适哦。"
-
-            if isinstance(parsed, list):
-                return _FakeResp(_chat_response([answer(s) for s in parsed]))
-            return _FakeResp({"choices": [{"message": {"content": answer(user)}}]})
-
-        return post
-
     def test_within_budget_persists_with_source_cues(self):
         from localization.pipeline import _translate_for_persistence
 
         t = _mk()
         srcs = [f"Sentence number {i} of the chapter, moderately long." for i in range(100)]
         with patch.object(
-            t._session, "post", side_effect=self._chunk_aware_post({"number 98 ", "number 99 "})
+            t._session,
+            "post",
+            side_effect=_endpoint(
+                lambda s: (
+                    "English junk output stays English"
+                    if ("number 98 " in s or "number 99 " in s)
+                    else "这一句是中文翻译，长度合适哦。"
+                )
+            ),
         ):
             out = _translate_for_persistence(t, srcs, "zh-Hans", "en")
         assert len(out) == 100
@@ -422,6 +442,16 @@ class TestPersistenceBudget:
         t = _mk()
         srcs = [f"Sentence number {i} of the chapter, moderately long." for i in range(100)]
         bad = {f"number 9{i} " for i in range(10)}
-        with patch.object(t._session, "post", side_effect=self._chunk_aware_post(bad)):
+        with patch.object(
+            t._session,
+            "post",
+            side_effect=_endpoint(
+                lambda s: (
+                    "English junk output stays English"
+                    if any(m in s for m in bad)
+                    else "这一句是中文翻译，长度合适哦。"
+                )
+            ),
+        ):
             with pytest.raises(TranslationUnavailableError, match="persistence budget"):
                 _translate_for_persistence(t, srcs, "zh-Hans", "en")

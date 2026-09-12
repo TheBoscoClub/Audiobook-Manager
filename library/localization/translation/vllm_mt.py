@@ -237,34 +237,51 @@ class VLLMTranslator(TranslationProvider):
     def _resolve_item(
         self, src: str, candidate: str, target_locale: str, source_lang: str
     ) -> tuple[str | None, str]:
-        """Gate a candidate translation for one sentence.
+        """Gate a candidate translation for one sentence, retrying in isolation.
 
         Returns ``(text, "cache")`` for a gate-passing translation,
         ``(text, "no-cache")`` for a CONFIRMED identity, or
         ``(None, reason)`` for a rejection.
 
-        Identity needs the extra step: names, interjections and
-        sound-effect cues legitimately survive translation unchanged
-        (observed live: 16 such sentences in one Alice chapter), but
-        wholesale identity is the xiy/64p poison class. A candidate equal
-        to its source is therefore accepted only when an INDEPENDENT
-        plain-tier request agrees the text stays unchanged — and even
-        then it is never cached, so the TM cannot be poisoned. A dead
-        endpoint cannot fake this: it fails at transport, not by echoing.
+        **Batch context is a measured derailer.** Eight consecutive
+        nested-quotation sentences from the Karamazov courtroom scene were
+        echoed back as English by six of eight array slots — and every one
+        of them translated correctly when sent alone. So a gate rejection
+        is not a verdict on the sentence; it is first a reason to ask
+        again without the batch around it. The isolated retries are a JSON
+        single, then the bare-text tier.
+
+        Identity keeps its extra requirement: names, interjections and
+        sound-effect cues legitimately survive unchanged (16 such
+        sentences in one Alice chapter), but wholesale identity is the
+        xiy/64p poison class. Unchanged text is accepted only when the
+        INDEPENDENT plain tier agrees, and is never cached, so the TM
+        cannot be poisoned. A dead endpoint cannot fake that agreement —
+        it fails at transport rather than echoing.
         """
         reason = self._gate(src, candidate, target_locale)
         if reason is None:
             return candidate, "cache"
-        if reason.startswith("identity"):
-            confirm = self._request_single_plain(src, target_locale, source_lang)
-            if confirm is not None:
-                if confirm.strip() == src.strip():
-                    return src, "no-cache"
-                second = self._gate(src, confirm, target_locale)
-                if second is None:
-                    return confirm, "cache"
-                reason = second
-        return None, reason
+
+        # Retry 1: the same JSON contract, one sentence, no batch context.
+        single = self._request_chunk([src], target_locale, source_lang)
+        if single is not None:
+            retry_reason = self._gate(src, single[0], target_locale)
+            if retry_reason is None:
+                return single[0], "cache"
+            reason = retry_reason
+
+        # Retry 2: bare text, a genuinely different prompt shape.
+        plain = self._request_single_plain(src, target_locale, source_lang)
+        if plain is None:
+            return None, reason
+        if plain.strip() == src.strip():
+            # Independently unchanged — accept, but never cache.
+            return src, "no-cache"
+        final_reason = self._gate(src, plain, target_locale)
+        if final_reason is None:
+            return plain, "cache"
+        return None, final_reason
 
     # ── output gates ──
 
