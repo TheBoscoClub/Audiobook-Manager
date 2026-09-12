@@ -43,6 +43,48 @@ logger = logging.getLogger(__name__)
 ProgressCallback = Callable[[int, int, str], None]
 
 
+def _translate_for_persistence(
+    translator, source_sentences: list[str], target_locale: str, source_lang: str
+) -> list[str]:
+    """Translate sentences destined for disk, under a bounded degradation budget.
+
+    The wholesale failure this pipeline must never persist is a file of
+    English wearing a translation's name (bd 536: 1,326 such files). That
+    class is 100%-degraded output. A handful of cues the model rightly
+    declines — chapter-title headers, name lists, foreign-language passages —
+    is qualitatively different: a human subtitler leaves those too. So a
+    chapter persists when failed cues stay within max(2, 2% of sentences),
+    with the failures passing through as honest source text; past the
+    budget, refuse the chapter (TranslationUnavailableError) exactly as
+    strict= always did. The corpus audit's per-file CJK-fraction gate
+    (scripts/verify-zh-corpus.py, >=30% aggregate) remains the backstop
+    that would catch anything approaching the wholesale class.
+    """
+    from .translation.base import TranslationUnavailableError
+
+    before = translator.degraded_texts
+    translated = translator.translate(
+        source_sentences, target_locale, source_lang.upper(), strict=False
+    )
+    failed = translator.degraded_texts - before
+    budget = max(2, -(-len(source_sentences) * 2 // 100))  # ceil(2%)
+    if failed > budget:
+        raise TranslationUnavailableError(
+            f"{failed} of {len(source_sentences)} sentence(s) failed translation to "
+            f"{target_locale} — over the persistence budget of {budget}; refusing to "
+            "write a degraded chapter"
+        )
+    if failed:
+        logger.warning(
+            "Persisting chapter with %d of %d cue(s) as source text (budget %d) — "
+            "headers/names/foreign passages the model declined to translate",
+            failed,
+            len(source_sentences),
+            budget,
+        )
+    return translated
+
+
 def _transcribe_with_fallback(
     provider: STTProvider, audio_path: Path, source_lang: str
 ) -> Transcript:
@@ -260,11 +302,11 @@ def generate_subtitles(
         logger.info(
             "Step 2/3: Translating %d sentences to %s", len(source_sentences), target_locale
         )
-        # strict=True: this result is written to a .{locale}.vtt file on disk.
-        # Passing English through would produce a subtitle file that claims to
-        # be a translation and is indistinguishable from a real one forever.
-        translated_sentences = translator.translate(
-            source_sentences, target_locale, source_lang.upper(), strict=True
+        # Persistence budget: refuse wholesale degradation, tolerate the
+        # handful of cues a translator legitimately leaves — see
+        # _translate_for_persistence.
+        translated_sentences = _translate_for_persistence(
+            translator, source_sentences, target_locale, source_lang
         )
 
         # Align and generate both VTTs
@@ -323,9 +365,9 @@ def _write_translated_chapter_vtt(
     translator = get_translation_provider()
     if translator is None or target_locale == source_lang:
         return None
-    # strict=True: persisted to a .{locale}.vtt file -- see note above.
-    translated_texts = translator.translate(
-        source_sentences, target_locale, source_lang.upper(), strict=True
+    # Persistence budget applies here too -- see _translate_for_persistence.
+    translated_texts = _translate_for_persistence(
+        translator, source_sentences, target_locale, source_lang
     )
     _, tr_cues = align_translations(transcript, translated_texts)
     tr_cues = _offset_cues(tr_cues, chapter.start_ms)

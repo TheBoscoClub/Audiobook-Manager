@@ -373,3 +373,55 @@ class TestFleetCalibration:
             out = t2.translate(src, "zh-Hans")
         assert out == src
         assert t2.degraded is True
+
+
+# ── persistence budget (pipeline boundary) ──
+
+
+class TestPersistenceBudget:
+    @staticmethod
+    def _chunk_aware_post(bad_markers: set[str]):
+        """Answer each request with correctly-sized arrays; sentences whose
+        text carries a bad marker get gate-failing English."""
+
+        def post(url, **kw):
+            user = kw["json"]["messages"][1]["content"]
+            try:
+                parsed = json.loads(user)
+            except ValueError:
+                parsed = None
+
+            def answer(s):
+                if any(m in s for m in bad_markers):
+                    return "English junk output stays English"
+                return "这一句是中文翻译，长度合适哦。"
+
+            if isinstance(parsed, list):
+                return _FakeResp(_chat_response([answer(s) for s in parsed]))
+            return _FakeResp({"choices": [{"message": {"content": answer(user)}}]})
+
+        return post
+
+    def test_within_budget_persists_with_source_cues(self):
+        from localization.pipeline import _translate_for_persistence
+
+        t = _mk()
+        srcs = [f"Sentence number {i} of the chapter, moderately long." for i in range(100)]
+        with patch.object(
+            t._session, "post", side_effect=self._chunk_aware_post({"number 98 ", "number 99 "})
+        ):
+            out = _translate_for_persistence(t, srcs, "zh-Hans", "en")
+        assert len(out) == 100
+        assert out[98] == srcs[98]  # honest source pass-through
+        assert out[0] == "这一句是中文翻译，长度合适哦。"
+        assert t.degraded_texts == 2
+
+    def test_over_budget_refuses_the_chapter(self):
+        from localization.pipeline import _translate_for_persistence
+
+        t = _mk()
+        srcs = [f"Sentence number {i} of the chapter, moderately long." for i in range(100)]
+        bad = {f"number 9{i} " for i in range(10)}
+        with patch.object(t._session, "post", side_effect=self._chunk_aware_post(bad)):
+            with pytest.raises(TranslationUnavailableError, match="persistence budget"):
+                _translate_for_persistence(t, srcs, "zh-Hans", "en")
