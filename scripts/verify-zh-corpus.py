@@ -144,6 +144,12 @@ def main() -> int:
     )
     ap.add_argument("--delete-corrupt", action="store_true")
     ap.add_argument("--yes", action="store_true", help="confirm deletion")
+    ap.add_argument(
+        "--book-id",
+        type=int,
+        default=None,
+        help="scope the audit/purge to one audiobook id (pilot runs)",
+    )
     args = ap.parse_args()
     if not args.db:
         ap.error("--db required (or set AUDIOBOOKS_DATABASE)")
@@ -152,6 +158,10 @@ def main() -> int:
     conn = sqlite3.connect(f"file:{args.db}?mode={mode}", uri=True)
     try:
         result = scan(conn)
+        if args.book_id is not None:
+            result = {
+                bucket: [r for r in rows if r[0] == args.book_id] for bucket, rows in result.items()
+            }
         corrupt, suspect, missing = result["corrupt"], result["suspect"], result["missing"]
         by_book = Counter(b for b, _c, _p, _f in corrupt)
         print(
