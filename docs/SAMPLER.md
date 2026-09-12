@@ -3,7 +3,20 @@
 **Status**: v8.4.3. Shipped and running. **Produces nothing without an STT backend** — see the note below.
 **Audience**: operators, contributors, and anyone diagnosing why a book's 🎧 sample button is/isn't showing.
 
-> **The sampler requires an STT backend that this project does not provide.** The maintainer's RunPod account is decommissioned and Vast.ai was never enabled, so in the reference deployment no sampler job can complete. The timers still fire on schedule; the work does not happen. From v8.4.3 this state is reported rather than hidden — see [Detecting a dead sampler](#detecting-a-dead-sampler). To turn the subsystem off, see "Turning audio translation off" in `docs/MULTI-LANGUAGE-SETUP.md`.
+> **The sampler requires an STT backend.** It ran successfully against the
+> then-live backend from 2026-04-23 to 2026-06-06, producing **23,893
+> completed segments across 1,869 of 1,923 books** (96% verified as real
+> Chinese by CJK-fraction scan, 2026-09-12). It then went idle when that
+> backend was decommissioned: timers kept firing, no work happened, and
+> 14 jobs remain `failed`. From v8.4.3 the idle state is reported rather
+> than hidden — see [Detecting a dead sampler](#detecting-a-dead-sampler).
+>
+> **Do not read this section as "the sampler has never worked."** An earlier
+> revision said no job could complete, which was true only of the period
+> after the backend went away; the accumulated corpus was already there and
+> that wording caused it to be overlooked. Count `streaming_segments` before
+> concluding anything about coverage. To turn the subsystem off, see
+> "Turning audio translation off" in `docs/MULTI-LANGUAGE-SETUP.md`.
 
 ## Purpose (three-at-once)
 
