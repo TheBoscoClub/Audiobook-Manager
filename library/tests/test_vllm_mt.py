@@ -329,3 +329,30 @@ class TestFactory:
         provider = factory_mod.get_translation_provider()
         assert isinstance(provider, VLLMTranslator)
         assert factory_mod.translation_provider_name() == "vllm:qwen3-8b"
+
+
+# ── gate calibration from the first fleet run ──
+
+
+class TestFleetCalibration:
+    def test_proper_noun_dense_sentence_is_accepted(self):
+        """Latin proper nouns legitimately survive into Chinese — a sentence
+        keeping 'Nathan Heller' and 'Chicago' sits near CJK 0.2 and must
+        pass (the 536 corruption signature is ~0.0)."""
+        t = _mk()
+        src = ["Nathan Heller worked for the Chicago Tribune in 1938."]
+        zh = ["Nathan Heller 于1938年供职于 Chicago Tribune。"]
+        with patch.object(t._session, "post", return_value=_FakeResp(_chat_response(zh))):
+            out = t.translate(src, "zh-Hans", strict=True)
+        assert out == zh
+        assert t.degraded is False
+
+    def test_native_chinese_source_is_ungated(self):
+        """Bilingual books carry Chinese narration: nothing to translate, so
+        no gate applies — ratio 1.0 must not fail (observed live on 呼啸山庄)."""
+        t = _mk()
+        src = ["他们在暴风雨中走过荒野，一路上谁也没有说话。"]
+        with patch.object(t._session, "post", return_value=_FakeResp(_chat_response(src))):
+            out = t.translate(src, "zh-Hans", strict=True)
+        assert out == src
+        assert t.degraded is False

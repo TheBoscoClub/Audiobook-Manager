@@ -19,7 +19,7 @@ Design constraints, each paid for by a measured incident:
   0.14–0.90 zh:en (corpus median 0.333 at chapter scale; sentence-level
   variance runs wider — legit sentences measured at 0.63 on the pilot —
   while observed invention inflates to 2.5–83×, so the ceiling keeps a
-  wide margin; truncation deflates below the floor), CJK-fraction ≥ 0.30 (the bd-536 class:
+  wide margin; truncation deflates below the floor), CJK-fraction ≥ 0.10 per sentence (the bd-536 class:
   English stored as Chinese), and identity rejection. A gated item is
   returned as source text and counted in ``degraded_texts``; it is never
   cached.
@@ -52,7 +52,7 @@ logger = logging.getLogger(__name__)
 _RATIO_BAND = (0.14, 0.90)
 _RATIO_BAND_SHORT = (0.10, 1.50)
 _RATIO_STRICT_MIN_LEN = 20
-_CJK_MIN_FRACTION = 0.30
+_CJK_MIN_FRACTION = 0.10
 
 _MAX_SENTENCES_PER_REQUEST = 16
 _CJK_RE = re.compile(r"[一-鿿㐀-䶿]")
@@ -273,9 +273,14 @@ class VLLMTranslator(TranslationProvider):
         if not _is_cjk_locale(target_locale):
             return None
         translatable = bool(_ALPHA_RE.search(source))
-        if translatable and translated.strip() == source.strip():
+        if not translatable:
+            # No Latin letters in the source (bilingual books carry native
+            # Chinese narration; numeric/sound-effect cues) — there is
+            # nothing to translate, so no gate is meaningful.
+            return None
+        if translated.strip() == source.strip():
             return "identity (source returned unchanged)"
-        if translatable and _cjk_fraction(translated) < _CJK_MIN_FRACTION:
+        if _cjk_fraction(translated) < _CJK_MIN_FRACTION:
             return f"cjk fraction {_cjk_fraction(translated):.2f} < {_CJK_MIN_FRACTION}"
         if source:
             lo, hi = _RATIO_BAND if len(source) >= _RATIO_STRICT_MIN_LEN else _RATIO_BAND_SHORT
