@@ -83,7 +83,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     ffmpeg=7:7.1.5-0+deb13u1 \
     mediainfo=25.04-1 \
     jq=1.7.1-6+deb13u3 \
-    curl=8.14.1-2+deb13u4 \
+    curl=8.14.1-2+deb13u5 \
     libsqlcipher-dev=4.6.1-2 \
     openssl=3.5.7-1~deb13u2 \
     && rm -rf /var/lib/apt/lists/*
