@@ -197,6 +197,43 @@ class VLLMTranslator(TranslationProvider):
             return None
         return [str(item) for item in parsed]
 
+    def _request_single_plain(
+        self, source: str, target_locale: str, source_lang: str
+    ) -> str | None:
+        """Bare-text translation of ONE sentence — the last fallback tier.
+
+        Only ever called with a single sentence, where alignment is trivial
+        and the output gates carry the correctness burden.
+        """
+        target = _LOCALE_NAMES.get(target_locale, target_locale)
+        payload: dict[str, Any] = {
+            "model": self._model,
+            "temperature": 0,
+            "max_tokens": 2048,
+            "chat_template_kwargs": {"enable_thinking": False},
+            "messages": [
+                {
+                    "role": "system",
+                    "content": (
+                        f"Translate the user's text from {source_lang} to {target}. "
+                        "Reply with ONLY the translation — no quotes, no commentary."
+                    ),
+                },
+                {"role": "user", "content": source},
+            ],
+        }
+        try:
+            resp = self._session.post(
+                f"{self._endpoint}/v1/chat/completions", json=payload, timeout=self._timeout
+            )
+            resp.raise_for_status()
+            text = resp.json()["choices"][0]["message"]["content"].strip()
+        except Exception as exc:  # noqa: BLE001 — any failure degrades this item
+            self._last_error = exc.__class__.__name__
+            return None
+        text = _JSON_FENCE_RE.sub("", text).strip().strip('"').strip()
+        return text or None
+
     # ── output gates ──
 
     def _gate(self, source: str, translated: str, target_locale: str) -> str | None:
@@ -256,8 +293,15 @@ class VLLMTranslator(TranslationProvider):
                 for idx, src in chunk:
                     single = self._request_chunk([src], target_locale, source_lang)
                     if single is None:
-                        failed.append((idx, src, self._last_error))
-                        continue
+                        # Last tier: some inputs push the model into prose
+                        # even for a single-element array. With exactly one
+                        # sentence there is nothing to misalign, so ask for
+                        # the bare translation and let the gates judge it.
+                        plain = self._request_single_plain(src, target_locale, source_lang)
+                        if plain is None:
+                            failed.append((idx, src, self._last_error))
+                            continue
+                        single = [plain]
                     reason = self._gate(src, single[0], target_locale)
                     if reason is None:
                         output[idx] = single[0]

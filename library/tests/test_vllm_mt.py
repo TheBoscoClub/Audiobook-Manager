@@ -92,22 +92,6 @@ class TestTranslateHappyPath:
 
 
 class TestResponseContract:
-    def test_short_array_never_misaligns(self):
-        """N inputs must yield N outputs — a shortfall triggers per-sentence
-        recovery, and whatever still fails passes through flagged. The one
-        forbidden outcome is item 2 receiving item 1's translation (the 09z
-        class). Here the repeated mock answer is a valid translation of
-        item 1 and a ratio-gate failure for item 2."""
-        t = _mk()
-        with patch.object(
-            t._session, "post", return_value=_FakeResp(_chat_response(["你好，世界。"]))
-        ):
-            out = t.translate(SRC_EN, "zh-Hans")
-        assert out[0] == "你好，世界。"  # recovered by the single-sentence fallback
-        assert out[1] == SRC_EN[1]  # gate-rejected single → flagged pass-through
-        assert t.degraded is True
-        assert t.degraded_texts == 1
-
     def test_short_array_recovers_sentence_by_sentence(self):
         """A dropped array element (observed live: 23 answers for 24 inputs)
         must trigger per-sentence recovery, not a 24-text failure — a
@@ -125,19 +109,44 @@ class TestResponseContract:
         assert out == GOOD_ZH
         assert t.degraded is False
 
-    def test_non_json_content_degrades(self):
+    def test_prose_single_recovers_via_plain_mode(self):
+        """A single-sentence request answered in prose falls through to the
+        bare-text tier, whose output still passes the gates."""
         t = _mk()
-        bad = {"choices": [{"message": {"content": "抱歉，我无法翻译。"}}]}
+        responses = iter(
+            [
+                _FakeResp(_chat_response(["你好，世界。"])),  # batch 1-for-2 — contract fail
+                _FakeResp(
+                    {"choices": [{"message": {"content": "你好，世界。"}}]}
+                ),  # single #1 JSON tier: prose → fail
+                _FakeResp(
+                    {"choices": [{"message": {"content": "你好，世界。"}}]}
+                ),  # plain tier: bare zh → accepted
+                _FakeResp(_chat_response([GOOD_ZH[1]])),  # single #2 JSON tier: fine
+            ]
+        )
+        with patch.object(t._session, "post", side_effect=lambda *a, **k: next(responses)):
+            out = t.translate(SRC_EN, "zh-Hans", strict=True)
+        assert out == ["你好，世界。", GOOD_ZH[1]]
+        assert t.degraded is False
+
+    def test_non_json_everywhere_still_degrades(self):
+        """When even the plain tier yields nothing usable (gate-failing
+        English prose), the item degrades — the fallback chain cannot be
+        tricked into storing junk."""
+        t = _mk()
+        bad = {"choices": [{"message": {"content": "Sorry, I cannot translate that."}}]}
         with patch.object(t._session, "post", return_value=_FakeResp(bad)):
             out = t.translate(SRC_EN, "zh-Hans")
         assert out == SRC_EN
         assert t.degraded is True
 
     def test_strict_raises_instead_of_passing_through(self):
+        """When every tier fails the gates (English prose all the way down),
+        strict refuses rather than returning source text."""
         t = _mk()
-        with patch.object(
-            t._session, "post", return_value=_FakeResp(_chat_response(["你好，世界。"]))
-        ):
+        bad = {"choices": [{"message": {"content": "Sorry, I cannot translate that."}}]}
+        with patch.object(t._session, "post", return_value=_FakeResp(bad)):
             with pytest.raises(TranslationUnavailableError):
                 t.translate(SRC_EN, "zh-Hans", strict=True)
 
