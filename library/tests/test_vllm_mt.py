@@ -92,17 +92,38 @@ class TestTranslateHappyPath:
 
 
 class TestResponseContract:
-    def test_short_array_is_a_failure_not_a_zip_past(self):
-        """N inputs must yield N outputs — a shortfall degrades, never
-        silently misaligns (the 09z class)."""
+    def test_short_array_never_misaligns(self):
+        """N inputs must yield N outputs — a shortfall triggers per-sentence
+        recovery, and whatever still fails passes through flagged. The one
+        forbidden outcome is item 2 receiving item 1's translation (the 09z
+        class). Here the repeated mock answer is a valid translation of
+        item 1 and a ratio-gate failure for item 2."""
         t = _mk()
         with patch.object(
             t._session, "post", return_value=_FakeResp(_chat_response(["你好，世界。"]))
         ):
             out = t.translate(SRC_EN, "zh-Hans")
-        assert out == SRC_EN  # pass-through, flagged
+        assert out[0] == "你好，世界。"  # recovered by the single-sentence fallback
+        assert out[1] == SRC_EN[1]  # gate-rejected single → flagged pass-through
         assert t.degraded is True
-        assert t.degraded_texts == 2
+        assert t.degraded_texts == 1
+
+    def test_short_array_recovers_sentence_by_sentence(self):
+        """A dropped array element (observed live: 23 answers for 24 inputs)
+        must trigger per-sentence recovery, not a 24-text failure — a
+        length-1 array cannot misalign."""
+        t = _mk()
+        responses = iter(
+            [
+                _FakeResp(_chat_response(["你好，世界。"])),  # batch: 1 for 2 — contract fail
+                _FakeResp(_chat_response([GOOD_ZH[0]])),  # single #1
+                _FakeResp(_chat_response([GOOD_ZH[1]])),  # single #2
+            ]
+        )
+        with patch.object(t._session, "post", side_effect=lambda *a, **k: next(responses)):
+            out = t.translate(SRC_EN, "zh-Hans", strict=True)
+        assert out == GOOD_ZH
+        assert t.degraded is False
 
     def test_non_json_content_degrades(self):
         t = _mk()

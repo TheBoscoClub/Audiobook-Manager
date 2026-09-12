@@ -60,7 +60,7 @@
 #   GPU_NODE_LABEL      instance label / ownership tag   (default: abm-translate)
 #   GPU_NODE_GPU        gpu_name filter for search/up    (default: H100 SXM)
 #   GPU_NODE_MAX_PRICE  max dph_total in dollars/hr      (default: unset = no cap)
-#   GPU_NODE_IMAGE      docker image                     (default: vllm/vllm-openai:latest)
+#   GPU_NODE_IMAGE      docker image                     (default: vastai/pytorch)
 #   GPU_NODE_DISK_GB    instance disk, GB                (default: 80)
 #   GPU_NODE_MODEL      vLLM model to serve              (default: Qwen/Qwen3-8B)
 #   GPU_NODE_SSH_KEY    ssh -i identity file             (default: ssh default keys)
@@ -72,7 +72,7 @@ API_BASE="https://console.vast.ai/api/v0"
 LABEL="${GPU_NODE_LABEL:-abm-translate}"
 GPU_NAME="${GPU_NODE_GPU:-H100 SXM}"
 MAX_PRICE="${GPU_NODE_MAX_PRICE:-}"
-IMAGE="${GPU_NODE_IMAGE:-vllm/vllm-openai:latest}"
+IMAGE="${GPU_NODE_IMAGE:-vastai/pytorch}"  # vllm/vllm-openai breaks Vast proxy-SSH (hard entrypoint)
 DISK_GB="${GPU_NODE_DISK_GB:-80}"
 VLLM_MODEL="${GPU_NODE_MODEL:-Qwen/Qwen3-8B}"
 TUNNEL_PIDFILE="${TMPDIR:-/tmp}/gpu-node-tunnel-${LABEL}.pid"
@@ -135,6 +135,7 @@ build_search_query() {
             gpu_name: {eq: $gpu},
             rentable: {eq: true},
             num_gpus: {eq: 1},
+            cuda_max_good: {gte: 13.0},
             verification: {eq: "verified"},
             type: "ask",
             order: [["dph_total", "asc"]],
@@ -290,7 +291,7 @@ cmd_up() {
         "root@${SSH_HOST}:/workspace/whisper_gpu_service.py" \
         || die "scp failed — is your SSH public key registered at console.vast.ai -> Keys?"
     ssh "${opts[@]}" -p "$SSH_PORT" "root@${SSH_HOST}" \
-        "while pgrep -f 'pip install' >/dev/null; do sleep 10; done; WHISPER_MODEL=large-v3 nohup python3 /workspace/whisper_gpu_service.py --model large-v3 --port 8765 > /workspace/whisper.log 2>&1 & sleep 1; echo whisper launched" \
+        "while pgrep -f '[p]ip install' >/dev/null; do sleep 10; done; WHISPER_MODEL=large-v3 nohup python3 /workspace/whisper_gpu_service.py --model large-v3 --port 8765 > /workspace/whisper.log 2>&1 & sleep 1; echo whisper launched" \
         || die "whisper service launch failed"
 
     info "up complete. Next: '$0 tunnel' then '$0 bootstrap-status'."

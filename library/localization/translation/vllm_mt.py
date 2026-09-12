@@ -52,7 +52,7 @@ _RATIO_BAND_SHORT = (0.10, 1.50)
 _RATIO_STRICT_MIN_LEN = 20
 _CJK_MIN_FRACTION = 0.30
 
-_MAX_SENTENCES_PER_REQUEST = 24
+_MAX_SENTENCES_PER_REQUEST = 16
 _CJK_RE = re.compile(r"[一-鿿㐀-䶿]")
 _ALPHA_RE = re.compile(r"[A-Za-z]")
 _JSON_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
@@ -242,7 +242,26 @@ class VLLMTranslator(TranslationProvider):
             chunk_texts = [t for _, t in chunk]
             translations = self._request_chunk(chunk_texts, target_locale, source_lang)
             if translations is None:
-                failed.extend((i, t, self._last_error) for i, t in chunk)
+                # Batch contract failed (usually the model dropping one array
+                # element from a long batch). A length-1 array cannot
+                # misalign, so recover the chunk sentence-by-sentence instead
+                # of failing 24 texts for one dropped element.
+                logger.warning(
+                    "Batch of %d failed (%s) — retrying sentence-by-sentence",
+                    len(chunk),
+                    self._last_error,
+                )
+                for idx, src in chunk:
+                    single = self._request_chunk([src], target_locale, source_lang)
+                    if single is None:
+                        failed.append((idx, src, self._last_error))
+                        continue
+                    reason = self._gate(src, single[0], target_locale)
+                    if reason is None:
+                        output[idx] = single[0]
+                        accepted_pairs.append((src, single[0]))
+                    else:
+                        failed.append((idx, src, reason))
                 continue
             for (idx, src), tgt in zip(chunk, translations):
                 reason = self._gate(src, tgt, target_locale)
