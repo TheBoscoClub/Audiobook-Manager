@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
 """Standalone Whisper GPU transcription service.
 
-Runs as a system service on the host where the AMD GPU lives. Accepts
+Runs as a system service on the host where the GPU lives. Accepts
 audio uploads via HTTP and returns word-level timestamps. The audiobook
 API (on VMs or the host) calls this instead of loading Whisper in-process.
+
+Backed by faster-whisper (CTranslate2) with BatchedInferencePipeline for
+batched decoding — same HTTP contract as the original openai-whisper
+implementation.
 
 Usage:
     python3 whisper_gpu_service.py [--host 0.0.0.0] [--port 8765] [--model large-v3]
 
-Requires: python-pytorch-opt-rocm, python-openai-whisper (system packages)
+Environment:
+    WHISPER_MODEL       default model name (CLI --model overrides; default large-v3)
+    WHISPER_BATCH_SIZE  batch size for BatchedInferencePipeline (default 16)
+
+Requires: python-pytorch-opt-rocm (GPU detection), faster-whisper (pip)
 """
 
 import argparse
 import logging
+import os
 import tempfile
 import time
 from pathlib import Path
@@ -21,7 +30,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger("whisper-gpu")
 
 _model = None
-_model_name = "large-v3"
+_model_name = os.environ.get("WHISPER_MODEL", "large-v3")
 
 
 def _load_model():
@@ -30,7 +39,10 @@ def _load_model():
         return _model
 
     import torch  # type: ignore[import-not-found]
-    import whisper  # type: ignore[import-not-found]
+    from faster_whisper import (  # type: ignore[import-not-found]
+        BatchedInferencePipeline,
+        WhisperModel,
+    )
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     if device == "cuda":
@@ -40,9 +52,11 @@ def _load_model():
     else:
         logger.warning("No GPU detected — running on CPU (will be slow)")
 
+    compute_type = "float16" if device == "cuda" else "int8"
     logger.info("Loading Whisper model '%s' on %s…", _model_name, device)
     start = time.monotonic()
-    _model = whisper.load_model(_model_name, device=device)
+    base_model = WhisperModel(_model_name, device=device, compute_type=compute_type)
+    _model = BatchedInferencePipeline(model=base_model)
     elapsed = time.monotonic() - start
     logger.info("Model loaded in %.1f seconds", elapsed)
     return _model
@@ -51,22 +65,23 @@ def _load_model():
 def transcribe_file(audio_path: Path, language: str = "en") -> dict:
     """Transcribe an audio file and return structured results."""
     model = _load_model()
+    batch_size = int(os.environ.get("WHISPER_BATCH_SIZE", "16"))
 
     logger.info("Transcribing %s (language=%s)", audio_path.name, language)
     start = time.monotonic()
 
-    result = model.transcribe(
-        str(audio_path), language=language, word_timestamps=True, verbose=False
+    segments, info = model.transcribe(
+        str(audio_path), language=language, word_timestamps=True, batch_size=batch_size
     )
+
+    words = []
+    for segment in segments:
+        for w in segment.words or []:
+            words.append({"word": w.word.strip(), "start": w.start, "end": w.end})
 
     elapsed = time.monotonic() - start
 
-    words = []
-    for segment in result.get("segments", []):
-        for w in segment.get("words", []):
-            words.append({"word": w["word"].strip(), "start": w["start"], "end": w["end"]})
-
-    duration = result.get("segments", [{}])[-1].get("end", 0) if result.get("segments") else 0
+    duration = getattr(info, "duration", 0) or 0
 
     logger.info(
         "Transcription complete: %d words, %.1fs audio, %.1fs wall time",
@@ -77,7 +92,7 @@ def transcribe_file(audio_path: Path, language: str = "en") -> dict:
 
     return {
         "words": words,
-        "language": result.get("language", language),
+        "language": getattr(info, "language", None) or language,
         "duration": duration,
         "model": _model_name,
         "elapsed_seconds": round(elapsed, 2),
@@ -136,6 +151,8 @@ def create_app():
 
 
 def main():
+    global _model_name
+
     parser = argparse.ArgumentParser(description="Whisper GPU transcription service")
     parser.add_argument(
         "--host",
@@ -143,11 +160,10 @@ def main():
         help="Bind address",
     )  # nosec B104
     parser.add_argument("--port", type=int, default=8765, help="Listen port")
-    parser.add_argument("--model", default="large-v3", help="Whisper model size")
+    parser.add_argument("--model", default=_model_name, help="Whisper model size")
     parser.add_argument("--preload", action="store_true", help="Load model at startup")
     args = parser.parse_args()
 
-    global _model_name
     _model_name = args.model
 
     if args.preload:

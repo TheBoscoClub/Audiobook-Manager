@@ -1558,8 +1558,12 @@ AUTH_KEY_FILE="/etc/audiobooks/auth.key"
 # If no STT backend is configured, streaming translation is disabled.
 # See docs/STREAMING-TRANSLATION.md and docs/SERVERLESS-OPS.md for setup.
 #
-# Translation backend — none currently ships; new translations are
-# unavailable until a provider is configured (existing ones keep serving).
+# Translation backend — burst-shaped, not always-on. During a GPU node
+# session (scripts/gpu-node.sh), export AUDIOBOOKS_MT_ENDPOINT (vLLM
+# OpenAI-compatible URL, e.g. http://localhost:8000 through the tunnel)
+# and optionally AUDIOBOOKS_MT_MODEL (default Qwen/Qwen3-8B). Unset —
+# the normal state — new translations are unavailable and existing
+# ones keep serving.
 #
 # STT backend — choose ONE OR MORE of the options below. Endpoint IDs must
 # be provisioned separately per deployment.
@@ -2341,8 +2345,12 @@ AUTH_ENABLED="true"
 # If no STT backend is configured, streaming translation is disabled.
 # See docs/STREAMING-TRANSLATION.md and docs/SERVERLESS-OPS.md for setup.
 #
-# Translation backend — none currently ships; new translations are
-# unavailable until a provider is configured (existing ones keep serving).
+# Translation backend — burst-shaped, not always-on. During a GPU node
+# session (scripts/gpu-node.sh), export AUDIOBOOKS_MT_ENDPOINT (vLLM
+# OpenAI-compatible URL, e.g. http://localhost:8000 through the tunnel)
+# and optionally AUDIOBOOKS_MT_MODEL (default Qwen/Qwen3-8B). Unset —
+# the normal state — new translations are unavailable and existing
+# ones keep serving.
 #
 # STT backend — choose ONE OR MORE of the options below. Endpoint IDs must
 # be provisioned separately per deployment.

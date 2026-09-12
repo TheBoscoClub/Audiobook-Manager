@@ -13,8 +13,8 @@
 #   3. You want local GPU-accelerated transcription instead of remote providers
 #
 # Requires (Arch/CachyOS examples — adapt to your distro):
-#   NVIDIA + CUDA: nvidia + cuda + python-pytorch-cuda + python-openai-whisper
-#   Enterprise AMD + ROCm: rocm-hip-runtime + python-pytorch-opt-rocm + python-openai-whisper
+#   NVIDIA + CUDA: nvidia + cuda + python-pytorch-cuda + faster-whisper (pip)
+#   Enterprise AMD + ROCm: rocm-hip-runtime + python-pytorch-opt-rocm + faster-whisper (pip)
 #
 # Usage: sudo ./setup.sh [--uninstall]
 
@@ -54,17 +54,17 @@ if ! python3 -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; th
     echo -e "${RED}Error: PyTorch with CUDA/ROCm is not installed or no GPU detected.${NC}"
     echo ""
     echo "On CachyOS/Arch:"
-    echo "  NVIDIA + CUDA:          sudo pacman -S nvidia cuda python-pytorch-cuda python-openai-whisper"
-    echo "  Enterprise AMD + ROCm:  sudo pacman -S rocm-hip-runtime python-pytorch-opt-rocm python-openai-whisper"
+    echo "  NVIDIA + CUDA:          sudo pacman -S nvidia cuda python-pytorch-cuda"
+    echo "  Enterprise AMD + ROCm:  sudo pacman -S rocm-hip-runtime python-pytorch-opt-rocm"
     echo ""
     echo "Then verify GPU detection:"
     echo "  python3 -c \"import torch; print(torch.cuda.get_device_name(0))\""
     exit 1
 fi
 
-if ! python3 -c "import whisper" 2>/dev/null; then
-    echo -e "${RED}Error: OpenAI Whisper is not installed.${NC}"
-    echo "  sudo pacman -S python-openai-whisper"
+if ! python3 -c "import faster_whisper" 2>/dev/null; then
+    echo -e "${RED}Error: faster-whisper is not installed.${NC}"
+    echo "  python3 -m pip install faster-whisper"
     exit 1
 fi
 

@@ -9,7 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **vLLM machine-translation provider** (`library/localization/translation/vllm_mt.py`, Audiobook-Manager-r6h): the first backend for the v8.5.0 provider abstraction — Qwen3-8B served by vLLM on a rented GPU node, reached via `AUDIOBOOKS_MT_ENDPOINT` (burst-shaped: set only while a node session is up; unset, the factory returns none and callers degrade as before). Carries the guards the corpus paid for: JSON-array contract with strict length validation (no zip-past misalignment), per-item zh:en character-ratio band 0.18–0.60, CJK-fraction ≥ 0.30 output gate (makes the bd-536 English-as-Chinese class unstorable), identity rejection, `en-zh.yaml` glossary applied in-prompt, translation-memory integration via `memory.py`, and `strict=True` refusal semantics
+- **Vast.ai GPU-node lifecycle tool** (`scripts/gpu-node.sh`): operator runbook in one script — `search`/`up`/`status`/`tunnel`/`down`/`bootstrap-status` against the Vast.ai API, bootstrapping `vllm/vllm-openai` + the whisper service on a verified 1× H100 SXM (~$1.74 per GPU-hour measured). API key rides a 0600 curl config via `with-secret`, never argv; `down` is label-scoped with confirmation
+- **zh-corpus verify/purge tool** (`scripts/verify-zh-corpus.py` + `library/tests/test_verify_zh_corpus.py`): permanent home for the bd-536 audit — CJK-fraction classifier (corrupt < 2%, suspect < 30% non-ch0, chapter-0 boilerplate exempt), read-only audit mode that exits non-zero on findings, and a `--delete-corrupt --yes` purge proven surgical by tests (only corrupt rows and files go; the resumable batch driver then re-translates exactly those chapters)
+
 ### Changed
+
+- **`whisper_gpu_service.py` swapped to faster-whisper** (`BatchedInferencePipeline`, `WHISPER_BATCH_SIZE` env, default 16): same `/health` + `/transcribe` HTTP contract, zero client changes — the measured difference is ~10–15× realtime (openai-whisper reference) vs 144.9× (faster-whisper batch 32 on H100), which is the difference that makes burst translation affordable. `extras/whisper-gpu/setup.sh` dependency checks updated to match
+- **`translation/factory.py`** now resolves the backend at call time from `AUDIOBOOKS_MT_ENDPOINT`/`AUDIOBOOKS_MT_MODEL` — documented in `install.sh` (both config blocks) and `etc/audiobooks.conf.example`
 
 ### Removed
 
