@@ -51,9 +51,18 @@ def _translate_for_persistence(
     The wholesale failure this pipeline must never persist is a file of
     English wearing a translation's name (bd 536: 1,326 such files). That
     class is 100%-degraded output. A handful of cues the model rightly
-    declines — chapter-title headers, name lists, foreign-language passages —
-    is qualitatively different: a human subtitler leaves those too. So a
-    chapter persists when failed cues stay within max(2, 2% of sentences),
+    declines — bare proper names ("Bassam Mansour."), onomatopoeia ("Boom,
+    ba-ba, boom"), chapter-title headers — is qualitatively different: a
+    human subtitler leaves those too.
+
+    No ITEM-level test can separate the two, because both produce
+    untranslated text: a gate that accepted "the model declined twice" as
+    proof of untranslatability would also accept a systematically broken
+    translator, which is precisely how the bd-536 corruption class returns.
+    What distinguishes them is context — an untranslatable fragment fails
+    while its neighbours succeed, a broken translator fails at everything —
+    so a PROPORTION is the right instrument and this is where it belongs. A
+    chapter persists when failed cues stay within max(6, 5% of sentences),
     with the failures passing through as honest source text; past the
     budget, refuse the chapter (TranslationUnavailableError) exactly as
     strict= always did. The corpus audit's per-file CJK-fraction gate
@@ -67,7 +76,7 @@ def _translate_for_persistence(
         source_sentences, target_locale, source_lang.upper(), strict=False
     )
     failed = translator.degraded_texts - before
-    budget = max(2, -(-len(source_sentences) * 2 // 100))  # ceil(2%)
+    budget = max(6, -(-len(source_sentences) * 5 // 100))  # ceil(5%)
     if failed > budget:
         raise TranslationUnavailableError(
             f"{failed} of {len(source_sentences)} sentence(s) failed translation to "

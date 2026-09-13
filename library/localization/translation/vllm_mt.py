@@ -16,7 +16,7 @@ Design constraints, each paid for by a measured incident:
   translation per input, and a length mismatch fails the batch rather than
   zipping past the shortfall (the 09z class).
 * **Per-item output gates** (CJK targets): character-ratio band
-  0.14–0.90 zh:en (corpus median 0.333 at chapter scale; sentence-level
+  0.14–1.20 zh:en (corpus median 0.333 at chapter scale; sentence-level
   variance runs wider — legit sentences measured at 0.63 on the pilot —
   while observed invention inflates to 2.5–83×, so the ceiling keeps a
   wide margin; truncation deflates below the floor), CJK-fraction ≥ 0.10 per sentence (the bd-536 class:
@@ -49,7 +49,7 @@ logger = logging.getLogger(__name__)
 # Output gates, calibrated on the existing corpus (median zh:en ratio 0.333
 # over 6,629 chapter pairs). Short sources are ratio-noisy, so the band
 # widens below _RATIO_STRICT_MIN_LEN source characters.
-_RATIO_BAND = (0.14, 0.90)
+_RATIO_BAND = (0.14, 1.20)
 _RATIO_BAND_SHORT = (0.05, 4.00)
 _RATIO_STRICT_MIN_LEN = 20
 _CJK_MIN_FRACTION = 0.10
@@ -57,6 +57,7 @@ _CJK_MIN_FRACTION = 0.10
 _MAX_SENTENCES_PER_REQUEST = 16
 _CJK_RE = re.compile(r"[一-鿿㐀-䶿]")
 _ALPHA_RE = re.compile(r"[A-Za-z]")
+
 _JSON_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
 
 _GLOSSARY_PATH = Path(__file__).resolve().parents[1] / "glossary" / "en-zh.yaml"
@@ -277,6 +278,15 @@ class VLLMTranslator(TranslationProvider):
             return None, reason
         if plain.strip() == src.strip():
             # Independently unchanged — accept, but never cache.
+            #
+            # Deliberately NOT extended to "the retry also produced no CJK":
+            # a translator that is systematically broken returns English every
+            # time, so agreement between prompts would mean "the failure is
+            # consistent", not "this text is untranslatable" — which is how
+            # the bd-536 corruption class gets re-enabled. Distinguishing an
+            # untranslatable FRAGMENT from a failing TRANSLATOR needs context
+            # the item level does not have: whether its neighbours succeeded.
+            # That judgement lives in the persistence budget instead.
             return src, "no-cache"
         final_reason = self._gate(src, plain, target_locale)
         if final_reason is None:

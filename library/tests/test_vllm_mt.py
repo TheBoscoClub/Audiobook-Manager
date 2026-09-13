@@ -455,3 +455,37 @@ class TestPersistenceBudget:
         ):
             with pytest.raises(TranslationUnavailableError, match="persistence budget"):
                 _translate_for_persistence(t, srcs, "zh-Hans", "en")
+
+    def test_budget_boundary_is_max_6_or_5_percent(self):
+        """Pin the threshold itself: 6 failures of 100 persist, 7 refuse.
+
+        Raised from max(2, 2%) on 2026-09-13 — two books were blocked by
+        3 untranslatable cues each (bare proper names, onomatopoeia). The
+        wholesale corruption this guards against is 100% degraded, so 5%
+        still refuses it by a factor of twenty, and the corpus audit's
+        per-file CJK gate remains the aggregate backstop.
+        """
+        from localization.pipeline import _translate_for_persistence
+
+        srcs = [f"Sentence number {i} of the chapter, moderately long." for i in range(100)]
+
+        def run(n_bad):
+            t = _mk()
+            bad = {f"number {i} " for i in range(100 - n_bad, 100)}
+            with patch.object(
+                t._session,
+                "post",
+                side_effect=_endpoint(
+                    lambda s: (
+                        "English junk output stays English"
+                        if any(m in s for m in bad)
+                        else "这一句是中文翻译，长度合适哦。"
+                    )
+                ),
+            ):
+                return _translate_for_persistence(t, srcs, "zh-Hans", "en")
+
+        out = run(6)  # exactly at the budget
+        assert out[99] == srcs[99]
+        with pytest.raises(TranslationUnavailableError, match="persistence budget"):
+            run(7)  # one past it

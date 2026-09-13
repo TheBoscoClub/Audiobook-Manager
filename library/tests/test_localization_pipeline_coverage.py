@@ -1627,8 +1627,8 @@ class TestTranslationProviderPathways:
 
         audio = tmp_path / "book.opus"
         audio.write_bytes(b"x")
-        # Degrade more texts than max(2, 2% of 2 sentences) allows.
-        stub = _StubProvider(degrade=3)
+        # Degrade more texts than max(6, 5% of 2 sentences) allows.
+        stub = _StubProvider(degrade=7)
         with (
             patch.object(mod, "_transcribe_with_fallback", return_value=self._transcript()),
             patch.object(mod, "align_translations", return_value=([], [])),
