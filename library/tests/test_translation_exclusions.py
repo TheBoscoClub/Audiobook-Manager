@@ -133,10 +133,9 @@ class TestAdminEndpoint:
 
     @pytest.fixture
     def client(self, tmp_path, monkeypatch):
-        from flask import Flask
-
         from backend.api_modular import auth_shared
         from backend.api_modular import translations as tr
+        from flask import Flask
 
         # admin_required resolves the caller through get_current_user(); the
         # endpoint's authorization is exercised separately in the auth suite,

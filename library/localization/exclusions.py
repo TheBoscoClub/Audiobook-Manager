@@ -90,9 +90,7 @@ def excluded_ids(conn, exclusions: dict[str, str] | None = None) -> set[int]:
     try:
         ids.update(
             row[0]
-            for row in conn.execute(
-                "SELECT id FROM audiobooks WHERE translation_excluded = 1"
-            )
+            for row in conn.execute("SELECT id FROM audiobooks WHERE translation_excluded = 1")
         )
     except Exception:  # noqa: BLE001 — pre-migration schemas simply have no flags
         pass
