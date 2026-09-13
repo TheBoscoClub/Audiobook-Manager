@@ -92,7 +92,7 @@ class TestExtractChapters:
         audio.write_bytes(b"x")
         fake = MagicMock(returncode=1, stdout="", stderr="error")
         with patch.object(mod.subprocess, "run", return_value=fake):
-            assert mod._chapters_from_ffprobe(audio) == []
+            assert mod._chapters_from_ffprobe(audio) == ([], None)
 
     def test_ffprobe_timeout_returns_empty_list(self, tmp_path):
         from localization import chapters as mod
@@ -104,7 +104,7 @@ class TestExtractChapters:
             raise subprocess.TimeoutExpired(cmd="ffprobe", timeout=1)
 
         with patch.object(mod.subprocess, "run", side_effect=boom):
-            assert mod._chapters_from_ffprobe(audio) == []
+            assert mod._chapters_from_ffprobe(audio) == ([], None)
 
     def test_ffprobe_json_decode_error_returns_empty_list(self, tmp_path):
         from localization import chapters as mod
@@ -113,7 +113,7 @@ class TestExtractChapters:
         audio.write_bytes(b"x")
         fake = MagicMock(returncode=0, stdout="not-json", stderr="")
         with patch.object(mod.subprocess, "run", return_value=fake):
-            assert mod._chapters_from_ffprobe(audio) == []
+            assert mod._chapters_from_ffprobe(audio) == ([], None)
 
     def test_sidecar_fallback_when_ffprobe_returns_nothing(self, tmp_path):
         from localization import chapters as mod
@@ -1678,45 +1678,45 @@ class TestChapterClampToAudio:
     failing the whole book.
     """
 
-    def test_overrunning_chapter_is_clamped(self, monkeypatch, tmp_path):
+    def test_overrunning_chapter_is_clamped(self):
         from localization import chapters as ch_mod
 
-        monkeypatch.setattr(ch_mod, "probe_duration_ms", lambda p: 3_600_000)  # 60 min
+        DURATION_MS = 3_600_000  # 60 min
         chs = [
             ch_mod.Chapter(index=0, title="One", start_ms=0, end_ms=1_800_000),
             ch_mod.Chapter(index=1, title="Runaway", start_ms=1_800_000, end_ms=600_024_000),
         ]
-        out = ch_mod._clamp_to_audio(chs, tmp_path / "book.opus")
+        out = ch_mod._clamp_to_audio(chs, DURATION_MS)
         assert len(out) == 2
         assert out[1].end_ms == 3_600_000  # clamped to the real duration
         assert out[0].end_ms == 1_800_000  # untouched
 
-    def test_chapter_starting_past_the_end_is_dropped(self, monkeypatch, tmp_path):
+    def test_chapter_starting_past_the_end_is_dropped(self):
         from localization import chapters as ch_mod
 
-        monkeypatch.setattr(ch_mod, "probe_duration_ms", lambda p: 3_600_000)
+        DURATION_MS = 3_600_000
         chs = [
             ch_mod.Chapter(index=0, title="One", start_ms=0, end_ms=3_600_000),
             ch_mod.Chapter(index=1, title="Phantom", start_ms=7_200_000, end_ms=9_000_000),
         ]
-        out = ch_mod._clamp_to_audio(chs, tmp_path / "book.opus")
+        out = ch_mod._clamp_to_audio(chs, DURATION_MS)
         assert [c.title for c in out] == ["One"]
 
-    def test_sane_chapters_pass_through_untouched(self, monkeypatch, tmp_path):
+    def test_sane_chapters_pass_through_untouched(self):
         from localization import chapters as ch_mod
 
-        monkeypatch.setattr(ch_mod, "probe_duration_ms", lambda p: 3_600_000)
+        DURATION_MS = 3_600_000
         chs = [
             ch_mod.Chapter(index=0, title="One", start_ms=0, end_ms=1_800_000),
             ch_mod.Chapter(index=1, title="Two", start_ms=1_800_000, end_ms=3_600_000),
         ]
-        assert ch_mod._clamp_to_audio(chs, tmp_path / "book.opus") == chs
+        assert ch_mod._clamp_to_audio(chs, DURATION_MS) == chs
 
-    def test_unprobeable_audio_leaves_chapters_alone(self, monkeypatch, tmp_path):
+    def test_unprobeable_audio_leaves_chapters_alone(self):
         """No duration means no invariant to enforce — never drop data on a
         failed probe."""
         from localization import chapters as ch_mod
 
-        monkeypatch.setattr(ch_mod, "probe_duration_ms", lambda p: None)
+        DURATION_MS = None
         chs = [ch_mod.Chapter(index=0, title="One", start_ms=0, end_ms=600_024_000)]
-        assert ch_mod._clamp_to_audio(chs, tmp_path / "book.opus") == chs
+        assert ch_mod._clamp_to_audio(chs, DURATION_MS) == chs

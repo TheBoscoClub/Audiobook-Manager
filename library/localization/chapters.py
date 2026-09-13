@@ -35,34 +35,7 @@ class Chapter:
         return self.end_ms / 1000.0
 
 
-def probe_duration_ms(audio_path: Path) -> int | None:
-    """Container duration in milliseconds, or None if ffprobe cannot say."""
-    try:
-        result = subprocess.run(  # noqa: S603,S607 — system-installed tool, internal path  # nosec B607,B603
-            [
-                "ffprobe",
-                "-v",
-                "quiet",
-                "-print_format",
-                "json",
-                "-show_format",
-                str(audio_path),
-            ],
-            capture_output=True,
-            text=True,
-            errors="replace",
-            timeout=60,
-            check=False,
-        )
-        if result.returncode != 0:
-            return None
-        seconds = json.loads(result.stdout).get("format", {}).get("duration")
-        return int(round(float(seconds) * 1000)) if seconds else None
-    except (json.JSONDecodeError, OSError, ValueError, subprocess.SubprocessError):
-        return None
-
-
-def _clamp_to_audio(chapters: list[Chapter], audio_path: Path) -> list[Chapter]:
+def _clamp_to_audio(chapters: list[Chapter], duration_ms: int | None) -> list[Chapter]:
     """Enforce the invariant that a chapter fits inside its own audio file.
 
     Chapter metadata is supplied by the source (embedded tags, or an Audible
@@ -77,7 +50,6 @@ def _clamp_to_audio(chapters: list[Chapter], audio_path: Path) -> list[Chapter]:
     that merely overruns the end is clamped to it. Both are logged, because
     silently repairing bad metadata is how bad metadata survives.
     """
-    duration_ms = probe_duration_ms(audio_path)
     if not duration_ms:
         return chapters
     kept: list[Chapter] = []
@@ -113,11 +85,11 @@ def extract_chapters(audio_path: Path) -> list[Chapter]:
     the result is clamped to the audio's real duration — see
     :func:`_clamp_to_audio`.
     """
-    chapters = _chapters_from_ffprobe(audio_path)
+    chapters, duration_ms = _chapters_from_ffprobe(audio_path)
     if not chapters:
         chapters = _chapters_from_sidecar(audio_path)
     if chapters:
-        chapters = _clamp_to_audio(chapters, audio_path)
+        chapters = _clamp_to_audio(chapters, duration_ms)
     if chapters:
         logger.info(
             "Found %d chapters in %s (total %.1f min)",
@@ -128,7 +100,15 @@ def extract_chapters(audio_path: Path) -> list[Chapter]:
     return chapters
 
 
-def _chapters_from_ffprobe(audio_path: Path) -> list[Chapter]:
+def _chapters_from_ffprobe(audio_path: Path) -> tuple[list[Chapter], int | None]:
+    """Return (chapters, container duration in ms).
+
+    The duration rides along from the SAME ffprobe invocation that reads the
+    chapters: it is needed to validate them (see :func:`_clamp_to_audio`),
+    and spawning a second process per book to learn it would both waste a
+    fork and break the per-worker single-ffprobe guarantee the chapters API
+    depends on.
+    """
     try:
         # `errors="replace"` defends against non-UTF-8 bytes in source-file
         # metadata (chapter titles authored in legacy single-byte encodings).
@@ -141,6 +121,7 @@ def _chapters_from_ffprobe(audio_path: Path) -> list[Chapter]:
                 "-print_format",
                 "json",
                 "-show_chapters",
+                "-show_format",
                 str(audio_path),
             ],
             capture_output=True,
@@ -149,11 +130,19 @@ def _chapters_from_ffprobe(audio_path: Path) -> list[Chapter]:
             timeout=30,
         )
         if result.returncode != 0:
-            return []
+            return [], None
         data = json.loads(result.stdout)
     except (subprocess.TimeoutExpired, json.JSONDecodeError, OSError) as e:
         logger.warning("ffprobe chapter extraction failed: %s", e)
-        return []
+        return [], None
+
+    duration_ms: int | None = None
+    raw_duration = data.get("format", {}).get("duration")
+    if raw_duration:
+        try:
+            duration_ms = int(round(float(raw_duration) * 1000))
+        except (TypeError, ValueError):
+            duration_ms = None
 
     chapters: list[Chapter] = []
     for ch in data.get("chapters", []):
@@ -166,7 +155,7 @@ def _chapters_from_ffprobe(audio_path: Path) -> list[Chapter]:
         tags = ch.get("tags") or {}
         title = tags.get("title", f"Chapter {ch.get('id', len(chapters)) + 1}")
         chapters.append(Chapter(index=len(chapters), title=title, start_ms=start_ms, end_ms=end_ms))
-    return chapters
+    return chapters, duration_ms
 
 
 def _chapters_from_sidecar(audio_path: Path) -> list[Chapter]:
