@@ -23,12 +23,27 @@ vzc = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(vzc)
 
 
-ZH_VTT = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n船长伸手去拿罗盘。\n\n00:00:03.000 --> 00:00:05.000\n你好，世界。\n"
-EN_VTT = "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\nThe captain reached for the compass.\n"
+# Fixtures are deliberately CHAPTER-sized. The real bd-536 corruption was
+# whole chapters of English prose; a handful of characters is a chapter
+# marker or a sound cue, which the audit must not treat as corruption
+# (TRIVIAL_MAX_CHARS).
+ZH_VTT = (
+    "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n船长伸手去拿罗盘，夜色深沉，海面平静无波。\n\n"
+    "00:00:03.000 --> 00:00:05.000\n你好，世界。他低声说道，仿佛在对自己讲话一般。\n"
+)
+EN_VTT = (
+    "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n"
+    "The captain reached for the compass, and the night was deep.\n\n"
+    "00:00:03.000 --> 00:00:06.000\n"
+    "He spoke quietly, as though addressing no one but himself.\n"
+)
 MIXED_VTT = (
     "WEBVTT\n\n00:00:01.000 --> 00:00:03.000\n"
-    "Chapter One 第一章 spoken by the narrator in mostly English text here\n"
+    "Chapter One 第一章 spoken by the narrator in mostly English text here, "
+    "continuing for long enough to be a real chapter rather than a marker\n"
 )
+TRIVIAL_VTT = "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\nBASH!\n"
+NUMERIC_VTT = "WEBVTT\n\n00:00:01.000 --> 00:00:02.000\n1986.\n"
 
 
 def _write(tmp_path: Path, name: str, content: str) -> Path:
@@ -51,6 +66,21 @@ class TestClassifier:
     def test_mixed_content_is_suspect_not_corrupt(self, tmp_path: Path):
         verdict, _frac = vzc.classify(_write(tmp_path, "c.zh-Hans.vtt", MIXED_VTT))
         assert verdict == "suspect"
+
+    def test_sound_cue_is_trivial_not_corrupt(self, tmp_path: Path):
+        """ "BASH!" has nothing to translate — its lack of Chinese is the
+        correct result, and purging it would loop forever."""
+        verdict, _frac = vzc.classify(_write(tmp_path, "t.zh-Hans.vtt", TRIVIAL_VTT))
+        assert verdict == "trivial"
+
+    def test_bare_number_is_trivial_not_corrupt(self, tmp_path: Path):
+        verdict, _frac = vzc.classify(_write(tmp_path, "n.zh-Hans.vtt", NUMERIC_VTT))
+        assert verdict == "trivial"
+
+    def test_a_chapter_of_english_prose_is_still_corrupt(self, tmp_path: Path):
+        """The guard must keep catching what it was built for."""
+        verdict, _frac = vzc.classify(_write(tmp_path, "b.zh-Hans.vtt", EN_VTT))
+        assert verdict == "corrupt"
 
     def test_headers_and_timestamps_do_not_dilute_the_fraction(self, tmp_path: Path):
         """WEBVTT scaffolding is Latin — counting it would misclassify real

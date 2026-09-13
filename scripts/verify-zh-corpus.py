@@ -46,6 +46,17 @@ _TIMESTAMP_RE = re.compile(r"^\d\d:\d\d")
 CORRUPT_MAX_CJK_FRACTION = 0.02
 SUSPECT_MAX_CJK_FRACTION = 0.30
 
+# ...but only once there is enough text for "no Chinese" to MEAN anything.
+# The bd-536 corruption was whole chapters of English prose — hundreds to
+# thousands of characters. A chapter whose entire cue text is "18.", "1986."
+# or "BASH!" is a chapter marker or a sound effect: it has no translatable
+# content, so its lack of Chinese is the correct result, not a defect. Six
+# such micro-chapters were re-translated three times in a row on 2026-09-13,
+# each time "failing" an audit that could not tell a 5-character marker from
+# a failed translation. Below this length the file is reported as trivial
+# and never purged.
+TRIVIAL_MAX_CHARS = 50
+
 
 def cjk_fraction(text: str) -> float:
     """Fraction of characters in the CJK unified blocks."""
@@ -70,11 +81,18 @@ def vtt_cue_text(path: Path) -> str:
 
 
 def classify(path: Path) -> tuple[str, float]:
-    """Classify one zh VTT file: ('corrupt'|'suspect'|'ok'|'empty', fraction)."""
+    """Classify one zh VTT file.
+
+    Returns ('corrupt'|'suspect'|'trivial'|'empty'|'ok', cjk_fraction).
+    Only 'corrupt' is ever purged.
+    """
     text = vtt_cue_text(path)
     if not text:
         return "empty", 0.0
     frac = cjk_fraction(text)
+    if len(text) < TRIVIAL_MAX_CHARS and frac < SUSPECT_MAX_CJK_FRACTION:
+        # Too little text for the absence of Chinese to be evidence.
+        return "trivial", frac
     if frac < CORRUPT_MAX_CJK_FRACTION:
         return "corrupt", frac
     if frac < SUSPECT_MAX_CJK_FRACTION:
@@ -87,6 +105,7 @@ def scan(conn: sqlite3.Connection) -> dict[str, list[tuple[int, int, str, float]
     out: dict[str, list[tuple[int, int, str, float]]] = {
         "corrupt": [],
         "suspect": [],
+        "trivial": [],
         "missing": [],
     }
     rows = conn.execute(
@@ -111,8 +130,13 @@ def scan(conn: sqlite3.Connection) -> dict[str, list[tuple[int, int, str, float]
             out["missing"].append((book_id, chapter, vtt_path, 0.0))
             continue
         verdict, frac = classify(p)
-        if verdict == "corrupt" or verdict == "empty":
+        if verdict == "corrupt":
             out["corrupt"].append((book_id, chapter, vtt_path, frac))
+        elif verdict in ("trivial", "empty"):
+            # Reported, never purged: a chapter marker, a sound cue or a
+            # silent chapter has nothing to re-translate, and deleting it
+            # would loop forever (purge -> re-translate -> flag -> purge).
+            out["trivial"].append((book_id, chapter, vtt_path, frac))
         elif verdict == "suspect" and chapter > 0:
             # chapter 0 is canned intro boilerplate on many books — mixed
             # Latin content there is expected, not evidence of corruption.
@@ -175,6 +199,7 @@ def main() -> int:
                 bucket: [r for r in rows if r[0] == args.book_id] for bucket, rows in result.items()
             }
         corrupt, suspect, missing = result["corrupt"], result["suspect"], result["missing"]
+        trivial = result.get("trivial", [])
         by_book = Counter(b for b, _c, _p, _f in corrupt)
         print(
             f"corrupt (CJK < {CORRUPT_MAX_CJK_FRACTION:.0%}): {len(corrupt)} files "
@@ -188,6 +213,11 @@ def main() -> int:
         )
         for book, chapter, _p, frac in suspect[:10]:
             print(f"  book {book} ch {chapter}: cjk={frac:.2f}")
+        if trivial:
+            print(
+                f"trivial (<{TRIVIAL_MAX_CHARS} chars: markers, sound cues, silence): "
+                f"{len(trivial)} — expected, never purged"
+            )
         if missing:
             print(f"rows whose VTT file is missing on disk: {len(missing)}")
 
