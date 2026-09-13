@@ -93,6 +93,20 @@ def next_pending_job(db_path: str, book_id: int | None = None) -> dict | None:
     conn = get_db(db_path)
     try:
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+        # Permanently excluded books are retired here rather than skipped,
+        # so a reset of failed rows to pending cannot resurrect them (which
+        # is exactly how they kept coming back during the 2026-09 campaign).
+        from localization.exclusions import excluded_ids
+
+        for ex_id in excluded_ids(conn):
+            changed = conn.execute(
+                "UPDATE translation_queue SET state = 'excluded' "
+                "WHERE audiobook_id = ? AND state IN ('pending', 'failed', 'processing')",
+                (ex_id,),
+            ).rowcount
+            if changed:
+                logger.info("Book %d is permanently excluded from translation — retiring", ex_id)
+        conn.commit()
         if book_id:
             row = conn.execute(
                 "UPDATE translation_queue "

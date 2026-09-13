@@ -2580,6 +2580,74 @@ class AudiobookLibraryV2 {
     body.appendChild(info);
     body.appendChild(actions);
 
+    // Admin: permanently mark this title untranslatable. The mark lives on
+    // the book row (not the translation queue), so it survives the queue
+    // resets that routinely happen during repair runs, and every translation
+    // entry point consults it.
+    if (library.user && library.user.is_admin) {
+      const exclWrap = document.createElement("div");
+      exclWrap.className = "detail-admin-exclusion";
+      const exclLabel = document.createElement("label");
+      exclLabel.className = "exclusion-toggle";
+      const exclBox = document.createElement("input");
+      exclBox.type = "checkbox";
+      exclBox.id = "translation-excluded-toggle";
+      const exclText = document.createElement("span");
+      exclText.textContent = t("book.excludeFromTranslation");
+      exclLabel.title = t("book.excludeFromTranslationTip");
+      exclLabel.appendChild(exclBox);
+      exclLabel.appendChild(exclText);
+      const exclNote = document.createElement("small");
+      exclNote.className = "exclusion-note";
+      exclWrap.appendChild(exclLabel);
+      exclWrap.appendChild(exclNote);
+      body.appendChild(exclWrap);
+
+      const renderExclusion = (data) => {
+        exclBox.checked = !!(data && data.excluded);
+        if (data && data.excluded) {
+          const who = data.excluded_by ? ` — ${data.excluded_by}` : "";
+          exclNote.textContent = `${data.reason || ""}${who}`;
+        } else {
+          exclNote.textContent = "";
+        }
+      };
+
+      api
+        .get(`${API_BASE}/audiobooks/${book.id}/translation-exclusion`, { toast: false })
+        .then(renderExclusion)
+        .catch(() => {});
+
+      exclBox.addEventListener("change", async (e) => {
+        e.stopPropagation();
+        const wantExcluded = exclBox.checked;
+        let reason = "";
+        if (wantExcluded) {
+          reason = (window.prompt(t("book.excludeReasonPrompt")) || "").trim();
+          if (!reason) {
+            exclBox.checked = false; // a reason is mandatory server-side too
+            return;
+          }
+        }
+        exclBox.disabled = true;
+        try {
+          const res = await api.post(
+            `${API_BASE}/audiobooks/${book.id}/translation-exclusion`,
+            { excluded: wantExcluded, reason },
+          );
+          renderExclusion({
+            excluded: res.excluded,
+            reason: res.reason,
+            excluded_by: null,
+          });
+        } catch (err) {
+          exclBox.checked = !wantExcluded; // server rejected — reflect truth
+        } finally {
+          exclBox.disabled = false;
+        }
+      });
+    }
+
     content.appendChild(header);
     content.appendChild(body);
     modal.appendChild(content);

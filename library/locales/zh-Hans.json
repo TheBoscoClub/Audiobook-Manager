@@ -1090,5 +1090,8 @@
   "webauthn.js.regCancelled": "注册已取消或超时",
   "webauthn.js.regVerifyFailed": "注册验证失败",
   "webauthn.js.startAuthFailed": "无法开始身份验证",
-  "webauthn.js.startRegFailed": "无法开始注册"
+  "webauthn.js.startRegFailed": "无法开始注册",
+  "book.excludeFromTranslation": "永不翻译此书",
+  "book.excludeFromTranslationTip": "永久将此书排除在所有翻译队列和流程之外",
+  "book.excludeReasonPrompt": "为什么此书不可翻译？（原因将与排除记录一起保存）"
 }

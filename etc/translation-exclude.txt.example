@@ -1,0 +1,17 @@
+# Books permanently excluded from translation.
+#
+# One audiobook id OR ASIN per line; '#' starts a comment and the inline
+# comment records WHY. Deployed to /etc/audiobooks/translation-exclude.txt.
+#
+# This list is deliberately external to translation_queue: a book merely
+# marked 'failed' in the queue returns the moment anyone resets failed rows
+# to pending. Entries here are retired to state='excluded' on every drain,
+# so the exclusion survives that churn.
+#
+# Consulted by: scripts/batch-translate.py, scripts/verify-zh-corpus.py,
+# scripts/sampler-reconcile.py (see library/localization/exclusions.py).
+
+# 114213  # example: The Fyodor Dostoyevsky Complete Collection — 266 audio-hours
+#         # whose final chapter marker spans 166 of them in one piece, producing
+#         # a ~7 GB transcription upload. Operator decision 2026-09-13: out of
+#         # scope permanently rather than build chapter subdivision for one book.

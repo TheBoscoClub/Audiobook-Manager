@@ -98,6 +98,11 @@ def _enqueue_one_locale(
     happen here since we filter, but defensive), or ``"failed"``.
     """
     try:
+        from localization.exclusions import is_excluded
+
+        if is_excluded(audiobook_id):
+            logging.info("skipped: book=%d is permanently excluded from translation", audiobook_id)
+            return "skipped"
         result = enqueue_sampler(conn, audiobook_id, locale, chapter_durations)
         status = result.get("status")
         if status in ("running", "pending"):

@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Admin control: mark a title permanently untranslatable** (Audiobook-Manager-536 follow-up): an admin-only checkbox in the book-detail modal excludes a title from every translation queue and workflow, with a mandatory reason recorded alongside who set it and when. Backed by migration 022 (`audiobooks.translation_excluded` plus `_reason`/`_at`/`_by`) and `GET|POST /api/audiobooks/<id>/translation-exclusion`. The flag lives on the book row, **not** the queue: a book merely marked `failed` returns the moment anyone resets failed rows to pending, which happened repeatedly during the September repair campaign. Excluding also retires the book's queue rows to `excluded` in the same transaction
+- **`library/localization/exclusions.py`**: the single source every translation entry point consults — `scripts/batch-translate.py` (retires excluded books on each drain), `scripts/verify-zh-corpus.py` (neither reports nor *purges* an excluded book's files, which would destroy the only subtitles it has) and `scripts/sampler-reconcile.py`. Unions the database flag with an operator override file (`/etc/audiobooks/translation-exclude.txt`, example in `etc/`) for seeding an exclusion before import or when the app is unreachable. 16 tests, including the reset-cannot-resurrect property the mechanism exists for
+
 ### Changed
 
 ### Fixed

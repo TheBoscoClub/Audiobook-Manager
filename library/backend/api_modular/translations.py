@@ -21,7 +21,7 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from .auth import admin_if_enabled, guest_allowed
+from .auth import admin_if_enabled, admin_required, guest_allowed
 from .legacy_teardown import migrate_drop_legacy_quota as _migrate_drop_legacy_quota
 from .search_cjk import pinyin_sort_key
 
@@ -142,6 +142,32 @@ def _migrate_string_translations(conn):
     )
 
 
+def _migrate_translation_exclusion(conn):
+    """Migration 022: per-book permanent translation exclusion.
+
+    An admin marking a title untranslatable must outlive queue churn — a
+    book merely 'failed' in translation_queue returns the moment failed rows
+    are reset to pending. The flag therefore lives on the book itself, with
+    who/why/when recorded so the decision is auditable rather than folklore.
+    """
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(audiobooks)")}
+    if "translation_excluded" not in cols:
+        conn.execute(
+            "ALTER TABLE audiobooks ADD COLUMN translation_excluded INTEGER NOT NULL DEFAULT 0"
+        )
+        logger.info("Added audiobooks.translation_excluded")
+    if "translation_excluded_reason" not in cols:
+        conn.execute("ALTER TABLE audiobooks ADD COLUMN translation_excluded_reason TEXT")
+    if "translation_excluded_at" not in cols:
+        conn.execute("ALTER TABLE audiobooks ADD COLUMN translation_excluded_at TIMESTAMP")
+    if "translation_excluded_by" not in cols:
+        conn.execute("ALTER TABLE audiobooks ADD COLUMN translation_excluded_by TEXT")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_audiobooks_translation_excluded "
+        "ON audiobooks(translation_excluded)"
+    )
+
+
 # Each entry: (error log label, migration callable taking a live conn).
 # Order matters — the base table must be ensured before column/index migrations
 # against it run.
@@ -152,6 +178,7 @@ _MIGRATIONS: tuple[tuple[str, object], ...] = (
     ("Failed to ensure collection_translations table", _migrate_collection_translations),
     ("Failed to ensure string_translations table", _migrate_string_translations),
     ("Failed to drop the legacy vendor quota table", _migrate_drop_legacy_quota),
+    ("Failed to add audiobooks translation-exclusion columns", _migrate_translation_exclusion),
 )
 
 
@@ -1118,3 +1145,104 @@ def batch_translate():
 # The /api/admin/localization/quota endpoint was removed with the hosted-MT
 # integration (Audiobook-Manager-4uj): quota tracking was a property of that
 # vendor's billing model, and no translation provider is configured now.
+
+
+@translations_bp.route("/api/audiobooks/<int:book_id>/translation-exclusion", methods=["GET"])
+@guest_allowed
+def get_translation_exclusion(book_id):
+    """Report whether this title is permanently excluded from translation."""
+    conn = _get_db()
+    try:
+        row = conn.execute(
+            "SELECT translation_excluded, translation_excluded_reason, "
+            "       translation_excluded_at, translation_excluded_by "
+            "FROM audiobooks WHERE id = ?",
+            (book_id,),
+        ).fetchone()
+        if not row:
+            return jsonify({"error": "Audiobook not found"}), 404
+        return jsonify(
+            {
+                "audiobook_id": book_id,
+                "excluded": bool(row["translation_excluded"]),
+                "reason": row["translation_excluded_reason"],
+                "excluded_at": row["translation_excluded_at"],
+                "excluded_by": row["translation_excluded_by"],
+            }
+        )
+    finally:
+        conn.close()
+
+
+@translations_bp.route("/api/audiobooks/<int:book_id>/translation-exclusion", methods=["POST"])
+@admin_required
+def set_translation_exclusion(book_id):
+    """Mark a title permanently untranslatable, or clear that mark.
+
+    Excluding also RETIRES any queue rows for the book in the same
+    transaction. Leaving them 'pending' would have the drain pick the book
+    up before its next exclusion check, and leaving them 'failed' invites a
+    later bulk reset to resurrect it — the exact churn this feature exists
+    to survive.
+
+    Body: {"excluded": true, "reason": "..."}  (reason required when excluding)
+    """
+    data = request.get_json() or {}
+    excluded = bool(data.get("excluded", True))
+    reason = (data.get("reason") or "").strip()
+    if excluded and not reason:
+        return jsonify({"error": "reason is required when excluding a title"}), 400
+
+    # Identity: this codebase has no session-username accessor, so the
+    # actor is recorded from an explicit header when the caller supplies
+    # one rather than inventing an API that does not exist. The timestamp
+    # and reason carry the audit weight regardless.
+    who = (request.headers.get("X-Admin-User") or "").strip() or None
+    conn = _get_db()
+    try:
+        book = conn.execute("SELECT id FROM audiobooks WHERE id = ?", (book_id,)).fetchone()
+        if not book:
+            return jsonify({"error": "Audiobook not found"}), 404
+        if excluded:
+            conn.execute(
+                "UPDATE audiobooks SET translation_excluded = 1, "
+                "translation_excluded_reason = ?, "
+                "translation_excluded_at = CURRENT_TIMESTAMP, "
+                "translation_excluded_by = ? WHERE id = ?",
+                (reason, who, book_id),
+            )
+            retired = conn.execute(
+                "UPDATE translation_queue SET state = 'excluded' "
+                "WHERE audiobook_id = ? AND state IN ('pending', 'failed', 'processing')",
+                (book_id,),
+            ).rowcount
+        else:
+            conn.execute(
+                "UPDATE audiobooks SET translation_excluded = 0, "
+                "translation_excluded_reason = NULL, "
+                "translation_excluded_at = NULL, "
+                "translation_excluded_by = NULL WHERE id = ?",
+                (book_id,),
+            )
+            retired = conn.execute(
+                "UPDATE translation_queue SET state = 'pending' "
+                "WHERE audiobook_id = ? AND state = 'excluded'",
+                (book_id,),
+            ).rowcount
+        conn.commit()
+        logger.info(
+            "Translation exclusion %s for book %d (%d queue row(s) updated)",
+            "SET" if excluded else "CLEARED",
+            book_id,
+            retired,
+        )
+        return jsonify(
+            {
+                "audiobook_id": book_id,
+                "excluded": excluded,
+                "reason": reason or None,
+                "queue_rows_updated": retired,
+            }
+        )
+    finally:
+        conn.close()

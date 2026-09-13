@@ -93,7 +93,19 @@ def scan(conn: sqlite3.Connection) -> dict[str, list[tuple[int, int, str, float]
         "SELECT audiobook_id, chapter_index, vtt_path FROM chapter_subtitles "
         "WHERE locale = 'zh-Hans'"
     ).fetchall()
+    # A permanently excluded book will never be re-translated, so reporting
+    # its files as "corrupt" is noise and PURGING them would destroy the only
+    # subtitles it has.
+    try:
+        sys.path.insert(0, "/opt/audiobooks/library")
+        from localization.exclusions import excluded_ids as _excluded_ids
+
+        skip = _excluded_ids(conn)
+    except Exception:  # noqa: BLE001 — the audit must run even without the library
+        skip = set()
     for book_id, chapter, vtt_path in rows:
+        if book_id in skip:
+            continue
         p = Path(vtt_path)
         if not p.exists():
             out["missing"].append((book_id, chapter, vtt_path, 0.0))

@@ -1090,5 +1090,8 @@
   "webauthn.js.regCancelled": "Registration was cancelled or timed out",
   "webauthn.js.regVerifyFailed": "Registration verification failed",
   "webauthn.js.startAuthFailed": "Failed to start authentication",
-  "webauthn.js.startRegFailed": "Failed to start registration"
+  "webauthn.js.startRegFailed": "Failed to start registration",
+  "book.excludeFromTranslation": "Never translate this title",
+  "book.excludeFromTranslationTip": "Permanently exclude this title from all translation queues and workflows",
+  "book.excludeReasonPrompt": "Why is this title untranslatable? (recorded with the exclusion)"
 }
