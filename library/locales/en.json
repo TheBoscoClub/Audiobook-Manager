@@ -1093,5 +1093,8 @@
   "webauthn.js.startRegFailed": "Failed to start registration",
   "book.excludeFromTranslation": "Never translate this title",
   "book.excludeFromTranslationTip": "Permanently exclude this title from all translation queues and workflows",
-  "book.excludeReasonPrompt": "Why is this title untranslatable? (recorded with the exclusion)"
+  "book.excludeReasonPrompt": "Why is this title untranslatable? (recorded with the exclusion)",
+  "book.untranslatable": "This title cannot be translated",
+  "book.untranslatableTip": "An administrator marked this title untranslatable; the audio still plays normally",
+  "library.hideUntranslatable": "Hide titles that cannot be translated"
 }

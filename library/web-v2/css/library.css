@@ -587,3 +587,52 @@
         padding: var(--spacing-sm);
     }
 }
+
+/* Untranslatable titles (Audiobook-Manager-536 follow-up).
+   The note appears only in a non-English view, where an untranslated card
+   would otherwise read as a bug. Muted rather than alarming: the book is
+   perfectly playable, the translation simply is not coming. */
+.book-untranslatable {
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  line-height: 1.3;
+  color: var(--text-muted, #8a8a8a);
+  opacity: 0.9;
+}
+
+/* Reader-level filter — available to every user, not just admins. */
+.filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--text-muted, #8a8a8a);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.filter-toggle input {
+  cursor: pointer;
+}
+
+/* Admin-only control in the book-detail sheet. */
+.detail-admin-exclusion {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color, #333);
+}
+
+.detail-admin-exclusion .exclusion-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.detail-admin-exclusion .exclusion-note {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--text-muted, #8a8a8a);
+}

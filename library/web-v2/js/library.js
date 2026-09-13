@@ -53,6 +53,10 @@ class AudiobookLibraryV2 {
       narrator: "",
       sort: "title",
       order: "asc",
+      // Reader preference, available to EVERY user (only MARKING a title
+      // untranslatable is admin-gated). Off by default: the audio plays
+      // fine, so hiding is the reader's choice rather than the app's.
+      hideUntranslatable: localStorage.getItem("hideUntranslatable") === "1",
     };
     this.filters = {
       authors: [],
@@ -2010,6 +2014,8 @@ class AudiobookLibraryV2 {
         params.append("sort", this.currentFilters.sort);
       if (this.currentFilters.order)
         params.append("order", this.currentFilters.order);
+      if (this.currentFilters.hideUntranslatable)
+        params.append("hide_untranslatable", "1");
 
       const data = await api.get(`${API_BASE}/audiobooks?${params}`, {
         toast: false,
@@ -2102,6 +2108,13 @@ class AudiobookLibraryV2 {
     const coverPathSafe = book.cover_path
       ? encodeURI(String(book.cover_path)).replace(/"/g, "%22")
       : "";
+    // "This title cannot be translated" — shown only in a non-English view,
+    // where an untranslated card would otherwise look like a bug. The book
+    // stays listed and playable; the note explains, it does not exclude.
+    const viewLocale =
+      window.i18n && window.i18n.getLocale ? window.i18n.getLocale() : "en";
+    const showUntranslatableNote =
+      !!book.translation_excluded && viewLocale !== "en";
     const hasSupplement = book.supplement_count > 0;
     const hasEditions = book.edition_count && book.edition_count > 1;
 
@@ -2130,6 +2143,7 @@ class AudiobookLibraryV2 {
                     <span class="book-format">${formatQuality}${quality}</span>
                     <span class="book-duration">${durationFormatted}</span>
                 </div>
+                ${showUntranslatableNote ? `<div class="book-untranslatable" title="${this.escapeHtml(t("book.untranslatableTip"))}">\u24D8 ${this.escapeHtml(t("book.untranslatable"))}</div>` : ""}
                 ${
                   hasContinue
                     ? `
@@ -3308,7 +3322,27 @@ class AudiobookLibraryV2 {
     this.loadMyLibrary();
   }
 
+  setupUntranslatableFilter() {
+    // Available to EVERY user — only MARKING a title untranslatable is
+    // admin-gated. Hidden in the English view, where the notion has no
+    // meaning (nothing is being translated).
+    const wrap = document.getElementById("hide-untranslatable-wrap");
+    const box = document.getElementById("hide-untranslatable");
+    if (!wrap || !box) return;
+    const locale =
+      window.i18n && window.i18n.getLocale ? window.i18n.getLocale() : "en";
+    wrap.style.display = locale === "en" ? "none" : "";
+    box.checked = !!this.currentFilters.hideUntranslatable;
+    box.addEventListener("change", () => {
+      this.currentFilters.hideUntranslatable = box.checked;
+      localStorage.setItem("hideUntranslatable", box.checked ? "1" : "0");
+      this.currentPage = 1;
+      this.loadAudiobooks();
+    });
+  }
+
   setupEventListeners() {
+    this.setupUntranslatableFilter();
     // Back Office gate — intercept clicks from non-admins
     const boLink = document.getElementById("admin-backoffice-link");
     if (boLink) {

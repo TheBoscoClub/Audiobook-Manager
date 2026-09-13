@@ -239,6 +239,11 @@ def _parse_query_params(req) -> dict:
         "genre": req.args.get("genre", "").strip(),
         "format_filter": req.args.get("format", "").strip(),
         "collection": req.args.get("collection", "").strip(),
+        # Optional zh-Hans browse aid: omit titles an admin marked
+        # untranslatable. Off by default — the audio is perfectly playable,
+        # so hiding is the reader's choice, not the app's.
+        "hide_untranslatable": req.args.get("hide_untranslatable", "").strip().lower()
+        in ("1", "true", "yes"),
         "sort_field": req.args.get("sort", "title"),
         "sort_order": sort_order,
         "locale": req.args.get("locale", "").strip(),
@@ -422,6 +427,12 @@ def _build_filter_clauses(params: dict) -> tuple[list[str], list]:
 
     bypasses = collection_data and collection_data.get("bypasses_filter", False)
     where_clauses: list[str] = [] if bypasses else [AUDIOBOOK_FILTER]
+
+    # Reader-chosen: hide titles an admin marked untranslatable. Applied even
+    # under a collection bypass, because it expresses the reader's intent for
+    # the whole browse rather than a property of the library.
+    if params.get("hide_untranslatable"):
+        where_clauses.append("COALESCE(audiobooks.translation_excluded, 0) = 0")
 
     # Defense-in-depth: never surface translated/ chapter artifacts even if
     # the scanner write-side filter is bypassed (e.g. by a manual INSERT or a
@@ -690,7 +701,8 @@ def get_audiobooks() -> Response:
         " audiobooks.narrator_last_name, audiobooks.narrator_first_name,"
         " audiobooks.duration_hours, audiobooks.duration_formatted,"
         " audiobooks.file_size_mb, audiobooks.file_path, audiobooks.cover_path,"
-        " audiobooks.format, audiobooks.quality, audiobooks.description"
+        " audiobooks.format, audiobooks.quality, audiobooks.description,"
+        " audiobooks.translation_excluded"
         " FROM audiobooks"
         f"{join_sql}"
         f" {where_sql}"
