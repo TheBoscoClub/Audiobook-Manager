@@ -269,6 +269,25 @@ def get_db(db_path: str) -> sqlite3.Connection:
     return conn
 
 
+MAX_SEGMENT_RETRIES = 3
+
+
+def _unclaimable_pending_count(db_path: str) -> int:
+    """Pending rows the claim query can never take (retry budget exhausted)."""
+    try:
+        conn = sqlite3.connect(db_path)
+        try:
+            return conn.execute(
+                "SELECT COUNT(*) FROM streaming_segments "
+                "WHERE state = 'pending' AND COALESCE(retry_count, 0) >= ?",
+                (MAX_SEGMENT_RETRIES,),
+            ).fetchone()[0]
+        finally:
+            conn.close()
+    except sqlite3.Error:
+        return 0
+
+
 def claim_next_segment(db_path: str) -> dict | None:
     """Atomically claim the next pending streaming segment.
 
@@ -318,7 +337,11 @@ def claim_next_segment(db_path: str) -> dict | None:
         # transition the session state back to 'buffering' to resume
         # work. That was the exact snag that delayed orphan repair on
         # books 115401, 115852, and 116062 during the v8.3.8.6 repair.
-        row = conn.execute(
+        # nosec B608 — the only interpolated value is MAX_SEGMENT_RETRIES, a
+        # module-level int constant shared with _unclaimable_pending_count so
+        # the claim cap and the warning about it can never disagree. Every
+        # caller-supplied value below is bound through a ? placeholder.
+        row = conn.execute(  # nosec B608  # noqa: S608
             "UPDATE streaming_segments "
             "SET state = 'processing', worker_id = ?, started_at = ? "
             "WHERE id = (SELECT s.id FROM streaming_segments s "
@@ -328,7 +351,7 @@ def claim_next_segment(db_path: str) -> dict | None:
             "                              AND locale = s.locale "
             "                            ORDER BY id DESC LIMIT 1) "
             "            WHERE s.state = 'pending' "
-            "              AND COALESCE(s.retry_count, 0) < 3 "
+            f"              AND COALESCE(s.retry_count, 0) < {MAX_SEGMENT_RETRIES} "
             "              AND (s.origin != 'live' "
             "                   OR sess.state IS NULL "
             "                   OR sess.state NOT IN "
@@ -875,6 +898,25 @@ def main():
     logger.info("DB: %s", db_path)
     logger.info("API: %s", api_base)
 
+    # Fail fast on a missing local dependency rather than after the expensive
+    # part. The TTS provider shells out to `sys.executable -m edge_tts`, so a
+    # worker started under an interpreter without it does STT + translation
+    # on rented GPU time and only THEN dies — 29 sampler segments burned that
+    # way on 2026-09-13 before anyone noticed the wrong python was in use.
+    # (stream-translate-daemon.sh already uses the venv; this catches a
+    # hand-rolled invocation.)
+    try:
+        import edge_tts  # noqa: F401
+    except ImportError:
+        logger.error(
+            "edge_tts is not importable under %s — TTS would fail AFTER "
+            "transcription and translation are already paid for. Run this "
+            "worker with the venv interpreter "
+            "(/opt/audiobooks/library/venv/bin/python3) or install edge-tts.",
+            sys.executable,
+        )
+        return 1
+
     # Cache chapter info to avoid repeated ffprobe calls
     chapter_cache: dict[tuple[int, int], tuple[Path, float, float]] = {}
 
@@ -884,7 +926,24 @@ def main():
         if not segment:
             idle_count += 1
             if idle_count % 30 == 1:
-                logger.debug("No pending segments — polling")
+                # "Nothing to do" and "work I am forbidden to touch" look
+                # identical from here, and the second one stalls silently:
+                # the claim query skips rows whose retry_count has reached
+                # the cap, so a reset that clears `state` but not
+                # `retry_count` leaves rows sitting pending forever while a
+                # worker polls beside them (observed 2026-09-13). Say which
+                # it is.
+                stuck = _unclaimable_pending_count(db_path)
+                if stuck:
+                    logger.warning(
+                        "No CLAIMABLE segments, but %d pending row(s) have "
+                        "retry_count >= %d and can never be claimed. Reset "
+                        "retry_count to 0 to requeue them.",
+                        stuck,
+                        MAX_SEGMENT_RETRIES,
+                    )
+                else:
+                    logger.debug("No pending segments — polling")
             time.sleep(args.poll_interval)
             continue
 
