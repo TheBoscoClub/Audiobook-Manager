@@ -64,7 +64,7 @@ def _job(conn, *, status, book=1, locale="zh-Hans"):
     conn.commit()
 
 
-def _segments(conn, *, n, state="pending", book=1, locale="zh-Hans", origin="sampler"):
+def _segments(conn, *, n, state="pending", book=1, locale="zh-Hans", origin="sampler", base=0):
     for i in range(n):
         conn.execute(
             "INSERT INTO streaming_segments "
@@ -89,6 +89,28 @@ class TestStrandedJobsAreRequeued:
     def test_no_job_row_at_all_still_needs_sampling(self, conn):
         assert reconcile._pending_locales(conn, 1, TARGETS) == ["zh-Hans"]
 
+    def test_all_segments_done_but_job_never_flipped(self, conn):
+        """Observed live on four books: every segment completed while the row
+        sat at `pending`, and the completion flip required `running`. Nothing
+        is outstanding and nothing will ever fire again, so the job needs
+        re-running to be told it is finished.
+
+        An earlier version of this file asserted the opposite — that completed
+        segments proved the job healthy. The production data refuted it: that
+        is precisely what a job stuck below its target looks like."""
+        _job(conn, status="pending")
+        _segments(conn, n=5, state="completed")
+        assert reconcile._pending_locales(conn, 1, TARGETS) == ["zh-Hans"]
+
+    def test_partly_live_covered_job_can_never_reach_target(self, conn):
+        """The counter only ever counts sampler-origin completions, so slots
+        filled by live playback leave it permanently short. Outstanding work
+        is zero, so nothing will move it again."""
+        _job(conn, status="running")
+        _segments(conn, n=3, state="completed")
+        _segments(conn, n=2, state="completed", origin="live")
+        assert reconcile._pending_locales(conn, 1, TARGETS) == ["zh-Hans"]
+
 
 class TestWorkInFlightIsLeftAlone:
     def test_pending_job_with_queued_segments_is_not_touched(self, conn):
@@ -98,9 +120,17 @@ class TestWorkInFlightIsLeftAlone:
         _segments(conn, n=5)
         assert reconcile._pending_locales(conn, 1, TARGETS) == []
 
-    def test_completed_segments_count_as_work_to_show(self, conn):
+    def test_processing_segments_are_in_flight(self, conn):
+        """A worker holds this one right now. Re-enqueueing would race it."""
         _job(conn, status="running")
-        _segments(conn, n=5, state="completed")
+        _segments(conn, n=5, state="processing")
+        assert reconcile._pending_locales(conn, 1, TARGETS) == []
+
+    def test_failed_segments_are_outstanding_work(self, conn):
+        """A failed segment is for the retry path to pick up, not for the
+        reconciler to paper over by re-enqueueing the whole job."""
+        _job(conn, status="running")
+        _segments(conn, n=5, state="failed")
         assert reconcile._pending_locales(conn, 1, TARGETS) == []
 
 

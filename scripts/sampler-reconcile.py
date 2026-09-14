@@ -80,21 +80,36 @@ def _pending_locales(conn: sqlite3.Connection, audiobook_id: int, targets: list[
     """Return the locales in ``targets`` that still need a sampler job.
 
     A locale qualifies when it has no ``sampler_jobs`` row, or when its row is
-    *stranded*: non-terminal, yet with no sampler ``streaming_segments`` rows
-    anywhere. A stranded row was scheduled and never enqueued, which puts it
-    out of reach of everything — a worker can only claim segments that exist,
-    and the admin reset path acts on ``failed``. Two books sat that way from
-    April to September 2026 carrying a note asking for a requeue that nothing
-    could perform.
+    *stranded*: non-terminal, with no sampler segment left in a state any
+    worker would act on. Such a job is waiting for an event that cannot occur.
+    Three real variants, all observed on 2026-09-13, all indistinguishable
+    from the job's own point of view:
 
-    The presence of a job row proves work was SCHEDULED; it was being read as
-    proof work HAPPENED. Those agree until scheduling is what failed.
+    * **Never enqueued** — scheduled in April, zero segments ever created. No
+      worker can claim what does not exist, and the admin reset path acts on
+      ``failed``, so nothing could move it either way.
+    * **Counter short of target forever** — some slots were already filled by
+      ``origin='live'`` playback rows, and the sampler's ``INSERT OR IGNORE``
+      yields to those. ``segments_done`` only counts sampler-origin
+      completions, so it can never reach ``segments_target``.
+    * **At target, never flipped** — every segment finished while the row sat
+      at ``pending`` rather than ``running``, and the completion flip used to
+      require ``running`` exactly.
 
-    Terminal rows are deliberately excluded. A finished book also has zero
-    segments — they are pruned once the Chinese lands in ``chapter_subtitles``
-    — so emptiness alone would re-translate the entire completed corpus.
-    ``enqueue_sampler`` refuses ``complete`` independently, but this predicate
-    must not rely on that to avoid spending GPU hours.
+    Re-running ``enqueue_sampler`` resolves all three: it credits completed
+    slots whatever their origin, and reports ``complete`` when the scope is
+    covered. Nothing is re-translated — completed segments are left as they
+    are, and the cost of a wrong guess here is one query, not GPU time.
+
+    "Has completed segments" deliberately does NOT count as healthy. That
+    reading was tried first and the live data refuted it: it is exactly what
+    the last two variants look like.
+
+    Terminal rows are excluded. A finished book also has no outstanding work
+    — its segments are pruned once the Chinese lands in ``chapter_subtitles``
+    — so this predicate would otherwise sweep up the entire completed corpus.
+    ``enqueue_sampler`` refuses ``complete`` independently, but this must not
+    lean on that.
     """
     covered: set[str] = set()
     for row in conn.execute(
@@ -102,11 +117,12 @@ def _pending_locales(conn: sqlite3.Connection, audiobook_id: int, targets: list[
         "       (SELECT COUNT(*) FROM streaming_segments s "
         "         WHERE s.audiobook_id = j.audiobook_id "
         "           AND s.locale = j.locale "
-        "           AND s.origin = 'sampler') AS segments "
+        "           AND s.origin = 'sampler' "
+        "           AND s.state IN ('pending', 'processing', 'failed')) AS outstanding "
         "  FROM sampler_jobs j WHERE j.audiobook_id = ?",
         (audiobook_id,),
     ).fetchall():
-        stranded = row["status"] not in _TERMINAL_JOB_STATUSES and row["segments"] == 0
+        stranded = row["status"] not in _TERMINAL_JOB_STATUSES and row["outstanding"] == 0
         if not stranded:
             covered.add(row["locale"])
     return [loc for loc in targets if loc not in covered]

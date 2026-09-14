@@ -1625,7 +1625,15 @@ def segment_complete():
         cur_flip = db.execute(
             "UPDATE sampler_jobs SET status = 'complete', updated_at = ? "
             "WHERE audiobook_id = ? AND locale = ? "
-            "AND status = 'running' AND segments_done >= segments_target",
+            # Any non-terminal status, not 'running' alone. A job reset by an
+            # operator or a backfill sits at 'pending' until enqueue_sampler
+            # promotes it, and segments completing in that window would drive
+            # the counter to target with no state left that could ever flip —
+            # done work, permanently reported as unfinished. Four books were
+            # in exactly that state on 2026-09-13. Still fires exactly once:
+            # after the flip the status is 'complete' and this WHERE matches
+            # nothing, which is what the caller's transition detection needs.
+            "AND status IN ('pending', 'running') AND segments_done >= segments_target",
             (now, audiobook_id, locale),
         )
         sampler_just_completed = cur_flip.rowcount > 0
