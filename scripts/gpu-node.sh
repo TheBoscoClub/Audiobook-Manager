@@ -75,6 +75,11 @@ MAX_PRICE="${GPU_NODE_MAX_PRICE:-}"
 IMAGE="${GPU_NODE_IMAGE:-vastai/pytorch}"  # vllm/vllm-openai breaks Vast proxy-SSH (hard entrypoint)
 DISK_GB="${GPU_NODE_DISK_GB:-80}"
 VLLM_MODEL="${GPU_NODE_MODEL:-Qwen/Qwen3-8B}"
+# Forwarded ports, defined once: the tunnel opens them and `tunnel --stop`
+# sweeps for them by signature. Two literals would let the sweep silently stop
+# matching the tunnel it is meant to find.
+MT_LOCAL_PORT="${GPU_NODE_MT_PORT:-8000}"
+WHISPER_LOCAL_PORT="${GPU_NODE_WHISPER_PORT:-8765}"
 TUNNEL_PIDFILE="${TMPDIR:-/tmp}/gpu-node-tunnel-${LABEL}.pid"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -339,15 +344,49 @@ cmd_status() {
 
 cmd_tunnel() {
     if [[ "${1:-}" == "--stop" ]]; then
-        [[ -f "$TUNNEL_PIDFILE" ]] || { info "no tunnel pidfile (${TUNNEL_PIDFILE})"; return 0; }
-        local pid
-        pid="$(cat "$TUNNEL_PIDFILE")"
-        if kill "$pid" 2>/dev/null; then
-            info "tunnel (pid ${pid}) stopped."
+        local pid stopped=0
+        if [[ -f "$TUNNEL_PIDFILE" ]]; then
+            pid="$(cat "$TUNNEL_PIDFILE")"
+            if kill "$pid" 2>/dev/null; then
+                info "tunnel (pid ${pid}) stopped."
+                stopped=$((stopped + 1))
+            else
+                info "tunnel pid ${pid} from pidfile was not running."
+            fi
+            rm -f "$TUNNEL_PIDFILE"
         else
-            info "tunnel pid ${pid} was not running."
+            info "no tunnel pidfile (${TUNNEL_PIDFILE})"
         fi
-        rm -f "$TUNNEL_PIDFILE"
+
+        # Sweep by signature as well, because the pidfile is not authoritative.
+        # It lives under $TMPDIR, which differs between invocations, so a
+        # tunnel started in one shell writes a pidfile the next one never
+        # looks at; and a respawning keeper leaves the recorded pid stale
+        # while a live process carries on. On 2026-09-13 this printed "was not
+        # running" about a tunnel that was running, which is the failure this
+        # whole script exists to avoid: a stop that cannot report a miss.
+        # Bracketed class so the pgrep never matches itself.
+        local -a orphans=()
+        mapfile -t orphans < <(pgrep -f -- "-L ${MT_LOCAL_PORT}:localhost:${MT_LOCAL_PORT}" 2>/dev/null || true)
+        local orphan
+        for orphan in "${orphans[@]}"; do
+            [[ -n "$orphan" ]] || continue
+            # Match on IDENTITY, not on text. `pgrep -f` searches the whole
+            # command line, so any shell, editor or grep that merely MENTIONS
+            # the forward also matches — while testing this sweep it killed
+            # the test harness itself, whose only crime was quoting the
+            # pattern. Only a process whose executable really is ssh is a
+            # tunnel. Killing the wrong process is far worse than leaving a
+            # harmless orphan, so this filter must stay.
+            [[ "$(cat "/proc/${orphan}/comm" 2>/dev/null)" == "ssh" ]] || continue
+            [[ "$orphan" != "$$" ]] || continue
+            if kill "$orphan" 2>/dev/null; then
+                info "stopped orphaned tunnel pid ${orphan} (not in any pidfile)."
+                stopped=$((stopped + 1))
+            fi
+        done
+
+        [[ $stopped -gt 0 ]] || info "no tunnel process found."
         return 0
     fi
     [[ $# -eq 0 ]] || die "tunnel: unknown option '$1' (only --stop)"
@@ -363,7 +402,8 @@ cmd_tunnel() {
     # hides the final PID, which would leave nothing truthful to put in the
     # pidfile. & + $! gives the real, killable PID (same detached effect).
     ssh -N "${opts[@]}" -o ExitOnForwardFailure=yes -p "$SSH_PORT" \
-        -L 8000:localhost:8000 -L 8765:localhost:8765 "root@${SSH_HOST}" &
+        -L "${MT_LOCAL_PORT}:localhost:${MT_LOCAL_PORT}" \
+        -L "${WHISPER_LOCAL_PORT}:localhost:${WHISPER_LOCAL_PORT}" "root@${SSH_HOST}" &
     local pid=$!
     disown "$pid"
     sleep 2
