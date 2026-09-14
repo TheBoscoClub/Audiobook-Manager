@@ -7,9 +7,20 @@ Run this when:
   - A batch of books was imported before the scan-time sampler hook existed
   - You suspect some sampler_jobs rows went missing
 
-Idempotent: only enqueues sampler jobs for (book, locale) pairs that don't
-already have a sampler_jobs row. Existing rows (pending/running/complete/failed)
-are left alone — admin must explicitly reset failures via the API.
+Idempotent: enqueues a sampler job for a (book, locale) pair that has no
+``sampler_jobs`` row, and for one whose row is *stranded* — non-terminal, yet
+with no sampler ``streaming_segments`` to show for itself. A stranded row is
+unreachable by every other mechanism (a worker can only claim segments that
+exist; the admin reset path acts on ``failed``), so nothing else will ever
+move it.
+
+``complete`` and ``failed`` rows are left alone: the first is done, and the
+second is the admin's to reset via the API.
+
+A book a listener already streamed may report ``satisfied`` rather than
+``enqueued`` — its slots are translated, and ``enqueue_sampler`` now credits
+that existing work instead of waiting on sampler-origin segments that can
+never be created over the top of it.
 
 The enqueue inserts segments at priority=2 origin='sampler' — live playback
 work (p0/p1) always dominates, so running this reconciler during active use
@@ -60,15 +71,45 @@ def _supported_non_en_locales() -> list[str]:
     ]
 
 
+#: Job states nobody else is coming back for. ``complete`` is done; ``failed``
+#: is the admin's to reset, per this script's contract above.
+_TERMINAL_JOB_STATUSES = frozenset({"complete", "failed"})
+
+
 def _pending_locales(conn: sqlite3.Connection, audiobook_id: int, targets: list[str]) -> list[str]:
-    """Return the locales in ``targets`` with no sampler_jobs row for this book."""
-    existing_locales = {
-        row["locale"]
-        for row in conn.execute(
-            "SELECT locale FROM sampler_jobs WHERE audiobook_id = ?", (audiobook_id,)
-        ).fetchall()
-    }
-    return [loc for loc in targets if loc not in existing_locales]
+    """Return the locales in ``targets`` that still need a sampler job.
+
+    A locale qualifies when it has no ``sampler_jobs`` row, or when its row is
+    *stranded*: non-terminal, yet with no sampler ``streaming_segments`` rows
+    anywhere. A stranded row was scheduled and never enqueued, which puts it
+    out of reach of everything — a worker can only claim segments that exist,
+    and the admin reset path acts on ``failed``. Two books sat that way from
+    April to September 2026 carrying a note asking for a requeue that nothing
+    could perform.
+
+    The presence of a job row proves work was SCHEDULED; it was being read as
+    proof work HAPPENED. Those agree until scheduling is what failed.
+
+    Terminal rows are deliberately excluded. A finished book also has zero
+    segments — they are pruned once the Chinese lands in ``chapter_subtitles``
+    — so emptiness alone would re-translate the entire completed corpus.
+    ``enqueue_sampler`` refuses ``complete`` independently, but this predicate
+    must not rely on that to avoid spending GPU hours.
+    """
+    covered: set[str] = set()
+    for row in conn.execute(
+        "SELECT j.locale AS locale, j.status AS status, "
+        "       (SELECT COUNT(*) FROM streaming_segments s "
+        "         WHERE s.audiobook_id = j.audiobook_id "
+        "           AND s.locale = j.locale "
+        "           AND s.origin = 'sampler') AS segments "
+        "  FROM sampler_jobs j WHERE j.audiobook_id = ?",
+        (audiobook_id,),
+    ).fetchall():
+        stranded = row["status"] not in _TERMINAL_JOB_STATUSES and row["segments"] == 0
+        if not stranded:
+            covered.add(row["locale"])
+    return [loc for loc in targets if loc not in covered]
 
 
 def _chapter_durations_for_book(extract_chapters, audiobook_id: int, file_path: str) -> list[float]:
@@ -94,8 +135,10 @@ def _enqueue_one_locale(
 ) -> str:
     """Enqueue a single (book, locale) sampler job.
 
-    Returns ``"enqueued"``, ``"skipped"`` (en* source locale — shouldn't
-    happen here since we filter, but defensive), or ``"failed"``.
+    Returns ``"enqueued"``, ``"satisfied"`` (the scope was already translated,
+    typically by a listener streaming the book before it was ever sampled),
+    ``"skipped"`` (en* source locale — shouldn't happen here since we filter,
+    but defensive), or ``"failed"``.
     """
     try:
         from localization.exclusions import is_excluded
@@ -113,6 +156,18 @@ def _enqueue_one_locale(
                 result.get("segments_target", 0),
             )
             return "enqueued"
+        if status == "complete":
+            # The work exists already; the job simply could not see it until
+            # enqueue_sampler learned to count segments it did not create.
+            # Counting this as a failure would report two successes as faults.
+            logging.info(
+                "already satisfied: book=%d locale=%s done=%d/%d",
+                audiobook_id,
+                locale,
+                result.get("segments_done", 0),
+                result.get("segments_target", 0),
+            )
+            return "satisfied"
         if status == "skipped":
             return "skipped"
         logging.warning(
@@ -135,9 +190,12 @@ def _enqueue_needed_locales(
     needed: list[str],
     chapter_durations: list[float],
     dry_run: bool,
-) -> tuple[int, int]:
-    """Enqueue sampler jobs for each needed locale. Returns (enqueued, failed)."""
+) -> tuple[int, int, int]:
+    """Enqueue sampler jobs for each needed locale.
+
+    Returns ``(enqueued, satisfied, failed)``."""
     enqueued = 0
+    satisfied = 0
     failed = 0
     for locale in needed:
         if dry_run:
@@ -147,11 +205,13 @@ def _enqueue_needed_locales(
         outcome = _enqueue_one_locale(
             conn, enqueue_sampler, audiobook_id, locale, chapter_durations
         )
-        if outcome == "enqueued":
+        if outcome == "satisfied":
+            satisfied += 1
+        elif outcome == "enqueued":
             enqueued += 1
         elif outcome == "failed":
             failed += 1
-    return enqueued, failed
+    return enqueued, satisfied, failed
 
 
 def reconcile(
@@ -195,6 +255,7 @@ def reconcile(
     )
 
     enqueued = 0
+    satisfied = 0
     skipped_existing = 0
     skipped_no_chapters = 0
     failed = 0
@@ -219,16 +280,19 @@ def reconcile(
             logging.debug("book=%d has no chapter metadata — skipping", audiobook_id)
             continue
 
-        book_enqueued, book_failed = _enqueue_needed_locales(
+        book_enqueued, book_satisfied, book_failed = _enqueue_needed_locales(
             conn, enqueue_sampler, audiobook_id, needed, chapter_durations, dry_run
         )
         enqueued += book_enqueued
+        satisfied += book_satisfied
         failed += book_failed
 
     conn.close()
     logging.info(
-        "Reconcile summary: enqueued=%d skipped_existing=%d skipped_no_chapters=%d failed=%d",
+        "Reconcile summary: enqueued=%d satisfied=%d skipped_existing=%d "
+        "skipped_no_chapters=%d failed=%d",
         enqueued,
+        satisfied,
         skipped_existing,
         skipped_no_chapters,
         failed,

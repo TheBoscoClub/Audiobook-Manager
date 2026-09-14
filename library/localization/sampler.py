@@ -195,8 +195,53 @@ def enqueue_sampler(
                 (audiobook_id, ch_idx, seg_idx, locale, SAMPLER_PRIORITY),
             )
 
+    # Credit translation that already exists for these slots, whoever produced
+    # it. `segments_done` is only ever incremented by a sampler-origin segment
+    # completing, and `streaming_segments` is unique on
+    # (audiobook_id, chapter_index, segment_index, locale) — so on a book a
+    # listener already streamed, the INSERT OR IGNORE above yields to those
+    # origin='live' rows and no sampler-origin completion can ever fire for
+    # them. Without this seed the counter is frozen below target and the job
+    # stays 'running' forever with nothing left to do. Only 'completed' counts:
+    # a pending or failed row is work outstanding, and crediting it would mark
+    # a book finished that was never translated.
+    covered = 0
+    for ch_idx, seg_count in scope:
+        covered += conn.execute(
+            "SELECT COUNT(*) FROM streaming_segments "
+            "WHERE audiobook_id = ? AND locale = ? AND chapter_index = ? "
+            "AND segment_index < ? AND state = 'completed'",
+            (audiobook_id, locale, ch_idx, seg_count),
+        ).fetchone()[0]
+
+    if covered >= segments_target:
+        conn.execute(
+            "UPDATE sampler_jobs SET status = 'complete', segments_done = ?, "
+            "updated_at = ? WHERE id = ?",
+            (covered, now, job_id),
+        )
+        conn.commit()
+        logger.info(
+            "sampler already satisfied by existing translations: book=%d locale=%s covered=%d",
+            int(audiobook_id),
+            _safe_log(locale),
+            covered,
+        )
+        return {
+            "id": job_id,
+            "audiobook_id": audiobook_id,
+            "locale": locale,
+            "status": "complete",
+            "segments_target": segments_target,
+            "segments_done": covered,
+            "reason": "scope already covered by existing translations",
+            "scope": [{"chapter": ch, "segments": segs} for ch, segs in scope],
+        }
+
     conn.execute(
-        "UPDATE sampler_jobs SET status = 'running', updated_at = ? WHERE id = ?", (now, job_id)
+        "UPDATE sampler_jobs SET status = 'running', segments_done = ?, updated_at = ? "
+        "WHERE id = ?",
+        (covered, now, job_id),
     )
     conn.commit()
 
@@ -214,6 +259,6 @@ def enqueue_sampler(
         "locale": locale,
         "status": "running",
         "segments_target": segments_target,
-        "segments_done": 0,
+        "segments_done": covered,
         "scope": [{"chapter": ch, "segments": segs} for ch, segs in scope],
     }
