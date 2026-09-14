@@ -22,6 +22,7 @@
 #   not any human or agent is watching.
 #
 # USAGE
+#   scripts/gpu-budget-guard.sh --max-idle 15        # destroy after 15 idle minutes
 #   scripts/gpu-budget-guard.sh --cap 35             # per-session spend ceiling
 #   scripts/gpu-budget-guard.sh --cap 35 --floor 64  # ...and a credit floor
 #   scripts/gpu-budget-guard.sh --cap 35 --check     # one-shot report, no action
@@ -29,6 +30,13 @@
 #   --cap   is arithmetic I compute (uptime x rate, summed over labeled
 #           instances). It resets when an instance is replaced, so it bounds
 #           ONE session.
+#   --max-idle destroys the node once no translation work has been running
+#           locally for N consecutive minutes. This is the one that saves
+#           money rather than merely bounding the loss: on 2026-09-13 a
+#           repair finished in 25 minutes and the node then sat idle for
+#           NINE HOURS while its operator waited to be asked whether to
+#           tear it down — $0.90 of work, $18.75 of nothing. Re-renting
+#           takes about two minutes, so an idle GPU is never worth holding.
 #   --floor is the account's real credit balance as Vast reports it. It is
 #           cumulative, survives node cycling, and needs no assumption about
 #           the rate — which is precisely the blind spot that let a $6.74/hr
@@ -47,6 +55,7 @@ API_BASE="https://console.vast.ai/api/v0"
 LABEL="${GPU_NODE_LABEL:-abm-translate}"
 CAP=""
 FLOOR=""
+MAX_IDLE=""
 CHECK_ONLY=0
 POLL_SECONDS="${GUARD_POLL_SECONDS:-120}"
 VERIFY_TRIES=5
@@ -59,6 +68,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --cap) CAP="${2:-}"; shift 2 ;;
         --floor) FLOOR="${2:-}"; shift 2 ;;
+        --max-idle) MAX_IDLE="${2:-}"; shift 2 ;;
         --check) CHECK_ONLY=1; shift ;;
         --label) LABEL="${2:-}"; shift 2 ;;
         *) die "unknown argument: $1" ;;
@@ -71,6 +81,7 @@ if [[ -z "${VAST_API_KEY:-}" ]]; then
     [[ -x "$WITH_SECRET" ]] || die "VAST_API_KEY unset and with-secret not found"
     exec "$WITH_SECRET" VAST_API_KEY -- "$0" --cap "$CAP" --label "$LABEL" \
         $([[ -n "$FLOOR" ]] && echo --floor "$FLOOR") \
+        $([[ -n "$MAX_IDLE" ]] && echo --max-idle "$MAX_IDLE") \
         $([[ $CHECK_ONLY -eq 1 ]] && echo --check)
 fi
 
@@ -91,6 +102,16 @@ api() {
 # Every labeled instance in ANY state — an exited instance still bills storage.
 labeled() {
     api GET "/instances/" | jq --arg l "$LABEL" '[.instances[]? | select(.label == $l)]'
+}
+
+# Is any local translation work in flight? Patterns are bracketed so the
+# check never matches the shell running it (a self-match once spun a watcher
+# for three idle hours on 2026-09-12).
+work_running() {
+    pgrep -f "[b]atch-translate.py" >/dev/null 2>&1 && return 0
+    pgrep -f "[s]tream-translate-worker.py" >/dev/null 2>&1 && return 0
+    pgrep -f "[s]ampler-reconcile.py" >/dev/null 2>&1 && return 0
+    return 1
 }
 
 credit_now() {
@@ -140,7 +161,8 @@ if [[ $CHECK_ONLY -eq 1 ]]; then
     exit 0
 fi
 
-say "guard armed: cap \$${CAP}${FLOOR:+, credit floor \$${FLOOR}}, label '${LABEL}', polling every ${POLL_SECONDS}s"
+say "guard armed: cap \$${CAP}${FLOOR:+, credit floor \$${FLOOR}}${MAX_IDLE:+, max idle ${MAX_IDLE}m}, label '${LABEL}', polling every ${POLL_SECONDS}s"
+idle_since=""
 while true; do
     count="$(labeled | jq 'length')"
     if [[ "$count" == "0" ]]; then
@@ -153,6 +175,19 @@ while true; do
         say "CAP REACHED: \$$(printf '%.2f' "$spend") >= \$${CAP} — tearing down"
         destroy_all_verified
         exit $?
+    fi
+    if [[ -n "$MAX_IDLE" ]]; then
+        if work_running; then
+            idle_since=""
+        else
+            [[ -n "$idle_since" ]] || idle_since="$(date +%s)"
+            idle_min=$(( ( $(date +%s) - idle_since ) / 60 ))
+            if (( idle_min >= MAX_IDLE )); then
+                say "IDLE ${idle_min}m >= ${MAX_IDLE}m with no translation work — tearing down"
+                destroy_all_verified
+                exit $?
+            fi
+        fi
     fi
     credit=""
     if [[ -n "$FLOOR" ]]; then
