@@ -74,8 +74,7 @@ def _prefill(conn, slots, *, state="completed", origin="live", book=1):
 
 def _job(conn, book=1):
     return conn.execute(
-        "SELECT status, segments_target, segments_done FROM sampler_jobs "
-        "WHERE audiobook_id = ?",
+        "SELECT status, segments_target, segments_done FROM sampler_jobs WHERE audiobook_id = ?",
         (book,),
     ).fetchone()
 
