@@ -445,7 +445,17 @@ cmd_down() {
             printf "gpu-node: ran %.2f hours at %.3f $/hr -> estimated compute cost %.2f dollars (excludes storage/bandwidth)\n", h, d, h * d
         }'
     fi
-    [[ -f "$TUNNEL_PIDFILE" ]] && info "note: tunnel pidfile still present — run '$0 tunnel --stop'"
+    # Close the tunnel rather than advising someone to. The node it points at
+    # no longer exists, so every surviving forwarder is now an infinite
+    # reconnect loop against a destroyed host — and it is silent, costs no
+    # money, and therefore nothing makes anyone go and read the advice.
+    # Measured 2026-09-15: three such loops outlived a teardown by 38, 50 and
+    # 87 hours, logging 27,632 failed reconnects and 1.8 MB before anyone
+    # noticed, and they were found only because the terminal refused to exit.
+    # A destroyed node and a live tunnel to it is never a state worth keeping,
+    # so the teardown owns both ends.
+    info "closing tunnel (the node it pointed at is gone)"
+    cmd_tunnel --stop
     return 0
 }
 
