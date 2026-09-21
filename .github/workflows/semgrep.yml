@@ -1,0 +1,70 @@
+# Semgrep — SAST, Secrets and Supply Chain scanning, findings reported to the
+# Semgrep AppSec Platform (deployment gjbr-pm-me). This is the SOLE integration
+# with Semgrep: no GitHub App is installed on the org, and the only credential
+# involved is SEMGREP_APP_TOKEN, an Agent (CI) scoped token that can upload
+# findings and nothing else. Source never leaves the GitHub runner.
+#
+# Scan modes (decided by `semgrep ci` from the event):
+#   pull_request        -> diff-aware: only findings introduced by the PR
+#   push to main        -> full scan of the branch
+#   schedule / dispatch -> full scan, keeps the platform baseline current
+#
+# The engine image is pinned tag@digest (the container equivalent of a full
+# commit SHA). Rules and policies are fetched from the platform at scan time,
+# so a pinned engine still runs current rules. Dependabot does not bump
+# `container.image`; to move the engine, look up the new index digest with
+#   docker manifest inspect semgrep/semgrep:<ver> | sha256sum   (or the registry
+#   Docker-Content-Digest header) and update both the tag and the digest.
+name: Semgrep
+
+"on":
+  pull_request: {}
+  push:
+    branches: [main]
+  schedule:
+    # Weekly full scan, Monday 04:17 UTC — off the hour to avoid the top-of-hour crush
+    - cron: "17 4 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+# Supersede in-flight runs for the same ref: a rapid push sequence should scan
+# the newest commit, not race N scans and let the slowest report last.
+concurrency:
+  group: semgrep-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semgrep:
+    name: semgrep/ci
+    # Dependabot-authored PRs cannot read repository secrets, so the token would
+    # be empty and the job would fail for a reason unrelated to the code.
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container:
+      image: semgrep/semgrep:1.177.0@sha256:acaac22ffc7b7cc5926de0751b223bce0b2491c33d18422fa72f632c78d81198
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Refuse to run without a platform token
+        # Without a token `semgrep ci` prints "run `semgrep login`" and EXITS 0:
+        # a green job that ran no rules and uploaded nothing (observed on the
+        # first run of this workflow). A missing secret must be a loud failure.
+        run: |
+          if [ -z "$SEMGREP_APP_TOKEN" ]; then
+            echo "::error::SEMGREP_APP_TOKEN is empty — org secret missing, or not shared with this repository"
+            exit 1
+          fi
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Run semgrep ci
+        # --no-suppress-errors: an analysis error (unparseable file, rule fetch
+        # failure) is a coverage gap and must fail the job, not be summarised
+        # away behind "no blocking findings".
+        run: semgrep ci --no-suppress-errors
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
