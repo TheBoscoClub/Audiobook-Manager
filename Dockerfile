@@ -74,6 +74,8 @@ LABEL org.opencontainers.image.licenses="MIT"
 # pin ALSO requires re-validating the CVE notes at the top of this Dockerfile
 # (checked 2026-08-26: those notes cover ffmpeg/mesa/mbedtls/ncurses/systemd and
 # are unaffected by the jq and openssl bumps, which move onto security updates).
+# 2026-10-02: the same libjq1 conflict again — jq deb13u3→deb13u4 and openssl
+# deb13u2→deb13u3 (CVE notes re-checked, same reasoning, still unaffected).
 #
 # To re-capture every pin at once, run against the digest in `FROM`:
 #   docker run --rm python:3.14-slim@sha256:<digest> bash -c 'apt-get update -qq; \
@@ -82,10 +84,10 @@ LABEL org.opencontainers.image.licenses="MIT"
 RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-recommends \
     ffmpeg=7:7.1.5-0+deb13u1 \
     mediainfo=25.04-1 \
-    jq=1.7.1-6+deb13u3 \
+    jq=1.7.1-6+deb13u4 \
     curl=8.14.1-2+deb13u5 \
     libsqlcipher-dev=4.6.1-2 \
-    openssl=3.5.7-1~deb13u2 \
+    openssl=3.5.7-1~deb13u3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory

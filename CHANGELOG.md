@@ -18,6 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Docker `jq` and `openssl` pins advanced again to current Trixie security levels**: `Docker Build Check` had been red on `main` since the 2026-09-29 scheduled run with the same dependency conflict as 2026-08-26 — `apt-get upgrade -y` advanced the unpinned `libjq1` past the pinned `jq`, which requires `libjq1` at exactly its own revision. Bumped `jq` to `1.7.1-6+deb13u4` and `openssl` to `3.5.7-1~deb13u3` (also stale), re-captured against the digest in `FROM`; the other four pins were already current. Verified by building the full image as CI does — `jq` and `libjq1` both install at `deb13u4`
+
 ## [8.6.0] - 2026-09-11
 
 ### Added
