@@ -1,12 +1,39 @@
 ---
 name: Dependabot Auto-Merge
 
+# Merges Dependabot patch/minor PRs ONLY after every other check on the PR head
+# has concluded green. Branch protection cannot do this here: the solo-workflow
+# baseline keeps required_status_checks null on main (every direct push would
+# otherwise print bypass notices), and `gh pr merge --auto` waits for REQUIRED
+# checks only — so with nothing required it merged the moment the PR was
+# mergeable. PRs #155 and #177 landed on 2026-09-29 with "Docker Build Check:
+# FAILURE" on their own heads (Audiobook-Manager-0xl). The gate therefore lives
+# in this workflow: .github/scripts/dependabot-merge-gate.sh polls the head
+# commit's check runs and the merge step runs only on a GREEN verdict, pinned
+# to the exact SHA that was evaluated (--match-head-commit).
+#
+# workflow_dispatch exists so the gate can be exercised against a real PR by
+# hand: the default is a dry run that reports the verdict without merging.
+
 "on":
   pull_request:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull request number to evaluate'
+        required: true
+        type: string
+      merge:
+        description: 'Merge on GREEN (default: report the verdict only)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: write
   pull-requests: write
+  checks: read
+  statuses: read
 
 # One run at a time per PR. No cancel-in-progress: this workflow approves and
 # merges — interrupting it mid-flight can leave a PR approved but unmerged.
@@ -18,29 +45,113 @@ jobs:
   auto-merge:
     name: Auto-Merge Dependabot
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]'
+    # CI on this repository takes ~5 minutes; the gate polls for up to 45.
+    timeout-minutes: 60
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.actor == 'dependabot[bot]'
 
     steps:
+      - name: Checkout gate script
+        uses: >-
+          actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        # v7.0.1
+        with:
+          sparse-checkout: .github/scripts
+          sparse-checkout-cone-mode: false
+
       - name: Fetch Dependabot metadata
         id: metadata
+        if: github.event_name == 'pull_request'
         uses: >-
           dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98
         # v3.1.0
 
-      - name: Auto-approve patch and minor updates
+      - name: Resolve pull request
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_PR_NUMBER: ${{ github.event.pull_request.number }}
+          EVENT_PR_SHA: ${{ github.event.pull_request.head.sha }}
+          EVENT_PR_URL: ${{ github.event.pull_request.html_url }}
+          INPUT_PR_NUMBER: ${{ inputs.pr_number }}
+          INPUT_MERGE: ${{ inputs.merge }}
+          UPDATE_TYPE: ${{ steps.metadata.outputs.update-type }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            number="$EVENT_PR_NUMBER"; sha="$EVENT_PR_SHA"; url="$EVENT_PR_URL"
+            case "$UPDATE_TYPE" in
+              version-update:semver-patch|version-update:semver-minor) eligible=true ;;
+              *) eligible=false ;;
+            esac
+            merge=true
+          else
+            number="$INPUT_PR_NUMBER"
+            sha=$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json headRefOid --jq .headRefOid)
+            url=$(gh pr view "$number" --repo "$GITHUB_REPOSITORY" --json url --jq .url)
+            eligible=true
+            merge="$INPUT_MERGE"
+          fi
+          echo "number=$number sha=$sha eligible=$eligible merge=$merge update-type=${UPDATE_TYPE:-n/a}"
+          {
+            echo "number=$number"
+            echo "sha=$sha"
+            echo "url=$url"
+            echo "eligible=$eligible"
+            echo "merge=$merge"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Gate — wait for every other check on the head to conclude green
+        id: gate
+        if: steps.pr.outputs.eligible == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_SHA: ${{ steps.pr.outputs.sha }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+        run: |
+          set -uo pipefail
+          set +e
+          .github/scripts/dependabot-merge-gate.sh wait "$GITHUB_REPOSITORY" "$PR_SHA" 45 30 \
+            | tee gate.log
+          rc=${PIPESTATUS[0]}
+          set -e
+          verdict=$(tail -n 1 gate.log)
+          echo "verdict=$verdict" >> "$GITHUB_OUTPUT"
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::Auto-merge withheld for $PR_SHA — $verdict"
+            body="Auto-merge withheld: $verdict"
+            body+=$'\n\n'"Head \`$PR_SHA\` is not merged. Fix the failing check (or re-run it);"
+            body+=" the gate re-evaluates on the next push to this branch."
+            gh pr comment "$PR_URL" --body "$body"
+            exit "$rc"
+          fi
+
+      - name: Approve
         if: >-
-          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
-          steps.metadata.outputs.update-type == 'version-update:semver-minor'
+          steps.pr.outputs.eligible == 'true' &&
+          steps.pr.outputs.merge == 'true' &&
+          github.event_name == 'pull_request'
         run: gh pr review "$PR_URL" --approve
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_URL: ${{ steps.pr.outputs.url }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Enable auto-merge for patch and minor updates
+      - name: Merge the evaluated head
         if: >-
-          steps.metadata.outputs.update-type == 'version-update:semver-patch' ||
-          steps.metadata.outputs.update-type == 'version-update:semver-minor'
-        run: gh pr merge "$PR_URL" --auto --squash
+          steps.pr.outputs.eligible == 'true' &&
+          steps.pr.outputs.merge == 'true'
+        run: gh pr merge "$PR_URL" --squash --match-head-commit "$PR_SHA"
         env:
-          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_URL: ${{ steps.pr.outputs.url }}
+          PR_SHA: ${{ steps.pr.outputs.sha }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Report (dry run)
+        if: >-
+          steps.pr.outputs.eligible == 'true' &&
+          steps.pr.outputs.merge != 'true'
+        env:
+          VERDICT: ${{ steps.gate.outputs.verdict }}
+        run: echo "Dry run — would merge. $VERDICT"

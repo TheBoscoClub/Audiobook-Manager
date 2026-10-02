@@ -18,8 +18,8 @@ name: CI
   # Dependency Graph were running, and both were green throughout.
   #
   # This schedule is the backstop: it re-tests main's actual tree on a cadence
-  # nothing in the merge path can suppress. Keep it even after the required
-  # status checks are in place — those gate the PR, this one watches the branch.
+  # nothing in the merge path can suppress. Keep it alongside the merge gate in
+  # dependabot-auto-merge.yml — that gates the PR, this one watches the branch.
   schedule:
     - cron: '0 5 * * *'  # Daily at 05:00 UTC
   # Manual re-validation, e.g. after changing branch protection or unblocking a

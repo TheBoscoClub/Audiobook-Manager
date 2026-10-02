@@ -8,6 +8,10 @@ pytest-cov>=7.1.0
 pytest-asyncio>=1.4.0
 pytest-playwright>=0.9.0
 requests-mock>=1.12.1
+# tests/test_dependabot_merge_gate.py parses the auto-merge workflow. Previously
+# only present transitively (bandit, libcst); declared so the test cannot lose
+# its parser when either of those drops the dependency.
+pyyaml>=6.0.3
 
 # Linters / formatters
 # ruff is the canonical formatter AND import sorter (`ruff format`, plus the
