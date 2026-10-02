@@ -1,0 +1,735 @@
+{
+ "_about": "Local CodeQL (security-extended) triage ledger. Every finding of the scan dated below is either fixed (with a falsified test) or dismissed with the file:line of the constraint that makes it safe. Line numbers are those of the scan that produced the finding; code edits in the same cycle shift later lines. Re-scan and reconcile with build-ledger.py / reconcile step in the bd issue.",
+ "scanner": "codeql-scan-all (CodeQL CLI, codeql-suites/<lang>-security-extended.qls)",
+ "scan_date": "2026-10-02",
+ "triage_date": "2026-10-02",
+ "issue": "Audiobook-Manager-o9s",
+ "dismissed": [
+  {
+   "rule": "py/log-injection",
+   "file": "docker/whisper-server/whisper_server.py",
+   "line": 98,
+   "decision": "dismissed",
+   "reason": "language is rewritten at whisper_server.py:91 as re.sub(r'[^a-zA-Z0-9\\-]', '', raw_language)[:16] or 'en' — an allowlist that removes every control character before the log call.",
+   "group": "C"
+  },
+  {
+   "rule": "py/clear-text-logging-sensitive-data",
+   "file": "library/auth/cli.py",
+   "line": 154,
+   "decision": "dismissed",
+   "reason": "Intended design: `audiobooks-auth create` prints the freshly generated TOTP secret once, to the operator's terminal via print(), so it can be entered into the authenticator; enrolment is impossible without disclosing the shared secret at generation time. Not written to any log file (generated at 132, shown only inside the TOTP branch at 150).",
+   "group": "D"
+  },
+  {
+   "rule": "py/clear-text-logging-sensitive-data",
+   "file": "library/auth/cli.py",
+   "line": 155,
+   "decision": "dismissed",
+   "reason": "Same one-time enrolment output: the otpauth:// URI (153) is the QR-code form of the same secret.",
+   "group": "D"
+  },
+  {
+   "rule": "py/clear-text-logging-sensitive-data",
+   "file": "library/auth/cli.py",
+   "line": 389,
+   "decision": "dismissed",
+   "reason": "`audiobooks-auth reset-totp` generates a NEW secret (377), invalidates all sessions (383) and prints the new secret once for the operator to hand to the user (393). Same one-time enrolment design as create.",
+   "group": "D"
+  },
+  {
+   "rule": "py/clear-text-logging-sensitive-data",
+   "file": "library/auth/cli.py",
+   "line": 390,
+   "decision": "dismissed",
+   "reason": "otpauth:// URI form of the same new secret from 388; one-time operator output.",
+   "group": "D"
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/auth/models.py",
+   "line": 1101,
+   "decision": "dismissed",
+   "reason": "The sole caller of HiddenBookRepository.hide is user_state.py:379, which first rejects the body with 400 unless `isinstance(ids, list) and all(isinstance(i, int) for i in ids)` (user_state.py:375-376); each logged aid is an int.",
+   "group": "C"
+  },
+  {
+   "rule": "py/sql-injection",
+   "file": "library/backend/api_modular/audiobooks.py",
+   "line": 713,
+   "decision": "dismissed",
+   "reason": "sort_order is clamped to the literal set ('asc','desc') at audiobooks.py:228-230 before it enters any f-string; sort_field is only ever used as a KEY into the static _SORT_MAPPINGS dict (audiobooks.py:176-194, lookup at :253 with default 'title'), so the SQL text is composed solely from module-level literals; locale (_build_pinyin_sort_join, :615-632) is bound as a ? parameter; all _FILTER_SPECS clauses (:329-363) are literal SQL with ? placeholders. No request bytes reach SQL text.",
+   "group": "C"
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/audiobooks.py",
+   "line": 1047,
+   "decision": "dismissed",
+   "reason": "audiobook_id is a Flask <int:audiobook_id> route converter (audiobooks.py:1074) formatted with %d; an int cannot carry control characters.",
+   "group": "C"
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/audiobooks.py",
+   "line": 1054,
+   "decision": "dismissed",
+   "reason": "Same value and %d format as :1047 — <int:audiobook_id> at audiobooks.py:1074.",
+   "group": "C"
+  },
+  {
+   "rule": "py/cookie-injection",
+   "file": "library/backend/api_modular/auth_shared.py",
+   "line": 845,
+   "decision": "dismissed",
+   "reason": "set_session_cookie validates the token against _SAFE_SESSION_TOKEN_RE = ^[A-Za-z0-9_\\-+/=.]{16,512}$ (auth_shared.py:835) and raises ValueError otherwise (840-841); the caller auth.py:327-329 only passes a token that already exists in the session table (server-generated). Covered by tests/test_auth_session_renewal.py:243-253.",
+   "group": "D"
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/duplicates.py",
+   "line": 48,
+   "decision": "dismissed",
+   "reason": "This IS the containment validator: _is_safe_path (duplicates.py:30-63) calls resolve() and only compares the result with relative_to(base); the resolved path is never opened, read or written; OSError/RuntimeError return False (:60-63).",
+   "group": "C"
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/duplicates.py",
+   "line": 116,
+   "decision": "dismissed",
+   "reason": "filepath.exists() in _delete_file_and_index is reached only via _delete_library_file_with_db/_delete_source_file, both called after `if not _is_safe_path(filepath, allowed_bases): ... continue` at duplicates.py:872-874; allowed_bases is restricted to the configured Library or Sources dir (:850-858).",
+   "group": "C"
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/duplicates.py",
+   "line": 117,
+   "decision": "dismissed",
+   "reason": "filepath.unlink() — same guard, duplicates.py:872-874 (resolve()+relative_to containment).",
+   "group": "C"
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/duplicates.py",
+   "line": 392,
+   "decision": "dismissed",
+   "reason": "Logged value passes through _sanitize_for_log (duplicates.py:23-27), which keeps only str.isprintable() chars and replaces \\r \\n \\t and other control chars with '_'; CodeQL does not model a generator-rebuild as a sanitiser. Pinned by tests/test_duplicates_extended.py:15-44.",
+   "group": "C"
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/duplicates.py",
+   "line": 395,
+   "decision": "dismissed",
+   "reason": "filepath.exists() in the library branch — guarded by _is_safe_path at duplicates.py:872-874.",
+   "group": "C"
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/duplicates.py",
+   "line": 401,
+   "decision": "dismissed",
+   "reason": "_sanitize_for_log applied (duplicates.py:23-27), same as :392.",
+   "group": "C"
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/duplicates.py",
+   "line": 416,
+   "decision": "dismissed",
+   "reason": "filepath.exists() in _delete_source_file — guarded by _is_safe_path at duplicates.py:872-874.",
+   "group": "C"
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/duplicates.py",
+   "line": 423,
+   "decision": "dismissed",
+   "reason": "_sanitize_for_log applied (duplicates.py:23-27), same as :392.",
+   "group": "C"
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 242,
+   "decision": "dismissed",
+   "reason": "Sink is inside _safe_subtitles_path: audiobook_id/chapter_index isinstance-int checked (224-227); locale re-validated by _sanitize_locale (229) whose regex forbids '/', '.', '\\\\'; result resolve()d and rejected unless is_relative_to(root) (237-239).",
+   "test": "tests/test_codeql_group_b_streaming_translate.py::TestSanitizeLocaleTrailingNewline",
+   "group": "B",
+   "line_at_triage": 237
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 268,
+   "decision": "dismissed",
+   "reason": "The flagged resolve(strict=False) IS the containment step of _validate_audio_path: the next line resolved.relative_to(audio_root) (264) raises for anything outside _streaming_audio_root, caught at 266 and returned as None → HTTP 400 (1578-1579). Nothing is read or written at the resolve.",
+   "group": "B",
+   "line_at_triage": 263
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 575,
+   "decision": "dismissed",
+   "reason": "Logged via _safe_log_value (streaming_translate.py:165-181): _LOG_SCRUB_RE replaces every CR/LF/NUL/C0/DEL byte with '_' and urllib.parse.quote percent-encodes anything outside an ASCII allowlist, so the record cannot span lines; locale also passed _sanitize_locale upstream (1348). Pinned by tests/test_codeql_group_b_streaming_translate.py::TestSafeLogValueSink.",
+   "group": "B",
+   "line_at_triage": 570
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 1115,
+   "decision": "dismissed",
+   "reason": "Logged via _safe_log_value (streaming_translate.py:165-181): _LOG_SCRUB_RE replaces every CR/LF/NUL/C0/DEL byte with '_' and urllib.parse.quote percent-encodes anything outside an ASCII allowlist, so the record cannot span lines; locale also passed _sanitize_locale upstream (_parse_stream_request 906). Pinned by tests/test_codeql_group_b_streaming_translate.py::TestSafeLogValueSink.",
+   "group": "B",
+   "line_at_triage": 1110
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 1378,
+   "decision": "dismissed",
+   "reason": "Logged via _safe_log_value (streaming_translate.py:165-181): _LOG_SCRUB_RE replaces every CR/LF/NUL/C0/DEL byte with '_' and urllib.parse.quote percent-encodes anything outside an ASCII allowlist, so the record cannot span lines; locale also passed _sanitize_locale upstream (1348). Pinned by tests/test_codeql_group_b_streaming_translate.py::TestSafeLogValueSink.",
+   "group": "B",
+   "line_at_triage": 1373
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 1453,
+   "decision": "dismissed",
+   "reason": "Logged via _safe_log_value (streaming_translate.py:165-181): _LOG_SCRUB_RE replaces every CR/LF/NUL/C0/DEL byte with '_' and urllib.parse.quote percent-encodes anything outside an ASCII allowlist, so the record cannot span lines; locale also passed _sanitize_locale upstream (1434). Pinned by tests/test_codeql_group_b_streaming_translate.py::TestSafeLogValueSink.",
+   "group": "B",
+   "line_at_triage": 1448
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 1694,
+   "decision": "dismissed",
+   "reason": "Logged via _safe_log_value (streaming_translate.py:165-181): _LOG_SCRUB_RE replaces every CR/LF/NUL/C0/DEL byte with '_' and urllib.parse.quote percent-encodes anything outside an ASCII allowlist, so the record cannot span lines; locale also passed _sanitize_locale upstream (1571). Pinned by tests/test_codeql_group_b_streaming_translate.py::TestSafeLogValueSink.",
+   "group": "B",
+   "line_at_triage": 1689
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 1769,
+   "decision": "dismissed",
+   "reason": "Flagged resolve(strict=False) is the containment step of _validate_vtt_path: 1766 rejects unless candidate.is_relative_to(_streaming_subtitles_root), caller returns 400 (1774-1780). The accepted string is only stored in chapter_subtitles.vtt_path; no file is opened in this handler.",
+   "group": "B",
+   "line_at_triage": 1764
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 1860,
+   "decision": "dismissed",
+   "reason": "Logged via _safe_log_value (streaming_translate.py:165-181): _LOG_SCRUB_RE replaces every CR/LF/NUL/C0/DEL byte with '_' and urllib.parse.quote percent-encodes anything outside an ASCII allowlist, so the record cannot span lines; locale also passed _sanitize_locale upstream (1571). Pinned by tests/test_codeql_group_b_streaming_translate.py::TestSafeLogValueSink.",
+   "group": "B",
+   "line_at_triage": 1855
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 1952,
+   "decision": "dismissed",
+   "reason": "Logged via _safe_log_value (streaming_translate.py:165-181): _LOG_SCRUB_RE replaces every CR/LF/NUL/C0/DEL byte with '_' and urllib.parse.quote percent-encodes anything outside an ASCII allowlist, so the record cannot span lines; locale also passed _sanitize_locale upstream (1571). Pinned by tests/test_codeql_group_b_streaming_translate.py::TestSafeLogValueSink.",
+   "group": "B",
+   "line_at_triage": 1947
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 1974,
+   "decision": "dismissed",
+   "reason": "Logged via _safe_log_value (streaming_translate.py:165-181): _LOG_SCRUB_RE replaces every CR/LF/NUL/C0/DEL byte with '_' and urllib.parse.quote percent-encodes anything outside an ASCII allowlist, so the record cannot span lines; locale also passed _sanitize_locale upstream (1571). Pinned by tests/test_codeql_group_b_streaming_translate.py::TestSafeLogValueSink.",
+   "group": "B",
+   "line_at_triage": 1969
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 1984,
+   "decision": "dismissed",
+   "reason": "Logged via _safe_log_value (streaming_translate.py:165-181): _LOG_SCRUB_RE replaces every CR/LF/NUL/C0/DEL byte with '_' and urllib.parse.quote percent-encodes anything outside an ASCII allowlist, so the record cannot span lines; locale also passed _sanitize_locale upstream (1571). Pinned by tests/test_codeql_group_b_streaming_translate.py::TestSafeLogValueSink.",
+   "group": "B",
+   "line_at_triage": 1979
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 2045,
+   "decision": "dismissed",
+   "reason": "translated_vtt_path comes from _safe_subtitles_path (2033): ints type-checked 224-227, locale regex-validated 229, resolve()+is_relative_to(root) 237-239 raise ValueError caught at 2036-2038. mkdir runs only on a path proven inside _streaming_subtitles_root.",
+   "group": "B",
+   "line_at_triage": 2039
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 2044,
+   "decision": "dismissed",
+   "reason": "Same path object as 2039; write_text only reached after _safe_subtitles_path containment (237-239) succeeded.",
+   "group": "B",
+   "line_at_triage": 2040
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 2091,
+   "decision": "dismissed",
+   "reason": "Logged via _safe_log_value (streaming_translate.py:165-181): _LOG_SCRUB_RE replaces every CR/LF/NUL/C0/DEL byte with '_' and urllib.parse.quote percent-encodes anything outside an ASCII allowlist, so the record cannot span lines; locale also passed _sanitize_locale upstream (1571). Pinned by tests/test_codeql_group_b_streaming_translate.py::TestSafeLogValueSink.",
+   "group": "B",
+   "line_at_triage": 2086
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 2105,
+   "decision": "dismissed",
+   "reason": "Logged via _safe_log_value (streaming_translate.py:165-181): _LOG_SCRUB_RE replaces every CR/LF/NUL/C0/DEL byte with '_' and urllib.parse.quote percent-encodes anything outside an ASCII allowlist, so the record cannot span lines; locale also passed _sanitize_locale upstream (1571). Pinned by tests/test_codeql_group_b_streaming_translate.py::TestSafeLogValueSink.",
+   "group": "B",
+   "line_at_triage": 2100
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 2327,
+   "decision": "dismissed",
+   "reason": "Route /streaming-audio/<int:audiobook_id>/<int:chapter_index>/<int:segment_index>/<locale> (2274-2276): three tainted values are Flask int converters formatted with str()/:03d/:04d; locale is allowlisted against SUPPORTED_LOCALES (2301, abort 404). The flagged resolve() feeds is_relative_to(root) at 2334 (abort 403).",
+   "group": "B",
+   "line_at_triage": 2322
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 2346,
+   "decision": "dismissed",
+   "reason": "is_file() runs only after the 2334 containment check (abort 403) on int-converter ids + SUPPORTED_LOCALES-allowlisted locale (2301).",
+   "group": "B",
+   "line_at_triage": 2336
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/streaming_translate.py",
+   "line": 2341,
+   "decision": "dismissed",
+   "reason": "send_file(resolved) runs only after 2334 containment (abort 403) and 2336 is_file (abort 404); inputs constrained by int converters (2274-2276) and the SUPPORTED_LOCALES allowlist (2301).",
+   "group": "B"
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/translations.py",
+   "line": 1236,
+   "decision": "dismissed",
+   "reason": "book_id is a Flask <int:book_id> route converter (translations.py:1177) formatted with %d.",
+   "group": "C"
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/utilities_crud.py",
+   "line": 303,
+   "decision": "dismissed",
+   "reason": "id is a Flask <int:id> route converter (utilities_crud.py:268) formatted with %d.",
+   "group": "C"
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/backend/api_modular/utilities_crud.py",
+   "line": 344,
+   "decision": "dismissed",
+   "reason": "id is a Flask <int:id> route converter (utilities_crud.py:308) formatted with %d.",
+   "group": "C"
+  },
+  {
+   "rule": "py/sql-injection",
+   "file": "library/backend/api_modular/utilities_crud.py",
+   "line": 382,
+   "decision": "dismissed",
+   "reason": "field is rejected with 400 unless it is a member of the static module-level list _BULK_UPDATE_ALLOWED_FIELDS (utilities_crud.py:61, check at :366-370); the only other interpolation is placeholders built from '?' * len(ids) (:379); value and ids are bound as parameters.",
+   "group": "C"
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 341,
+   "decision": "dismissed",
+   "reason": "Sink remains after the fix (the defect was ordering: Path(project_path).resolve() ran before the NUL/'..' guard, so a NUL byte raised an unhandled 500 instead of 400 — guard now precedes it, utilities_system.py:338-341). The resolve() is itself the containment step feeding the VERSION-symlink check; endpoint is admin_or_localhost (auth_shared.py:796-822); an admin-chosen directory is the recorded product decision (CHANGELOG.md:1992).",
+   "test": "library/tests/test_codeql_group_a_path_injection.py::TestStartUpgradeNullByte",
+   "group": "post-fix sink",
+   "line_at_triage": 351
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 342,
+   "decision": "dismissed",
+   "reason": "is_dir() metadata probe reached only by a NUL-free, '..'-free, resolved path (guard now at utilities_system.py:338-341). Endpoint is admin_or_localhost (auth_shared.py:796-822). Admin-chosen arbitrary project directory is the recorded product decision (CHANGELOG.md:1992 'accept admin-typed paths directly'; free-text input utilities.html:1176).",
+   "group": "A",
+   "line_at_triage": 355
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 346,
+   "decision": "dismissed",
+   "reason": "This line IS the containment check: version_file.resolve().parent == project_path_obj rejects a VERSION symlink escaping the directory (test_utilities_system_coverage.py:54-82). Same auth + design bound as 355.",
+   "group": "A",
+   "line_at_triage": 359
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 348,
+   "decision": "dismissed",
+   "reason": "exists() on <resolved dir>/VERSION — fixed filename component, directory already NUL/'..'-filtered and resolved, symlink escape rejected one line earlier. Same auth + design bound as 355.",
+   "group": "A",
+   "line_at_triage": 361
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 517,
+   "decision": "dismissed",
+   "reason": "open(<dir>/VERSION): filename component is the constant 'VERSION'; dir comes from _resolve_user_project_path (absolute, NUL-free, realpath'd, existing directory — utilities_system.py:889-895) or AUDIOBOOKS_PROJECT_DIR. Admin scanning any directory is the recorded decision (CHANGELOG.md:1992) pinned by test_utilities_system.py:679.",
+   "group": "A",
+   "line_at_triage": 530
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 531,
+   "decision": "dismissed",
+   "reason": "os.path.isdir(base_dir) — base_dir is the validated realpath from _resolve_user_project_path (889-895); admin_or_localhost; designed-unbounded per CHANGELOG.md:1992.",
+   "group": "A",
+   "line_at_triage": 544
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 534,
+   "decision": "dismissed",
+   "reason": "os.listdir(base_dir) — same validated base_dir; listing an admin-named directory is the endpoint's documented purpose (list_projects docstring 918-923).",
+   "group": "A",
+   "line_at_triage": 547
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 548,
+   "decision": "dismissed",
+   "reason": "isdir(join(base_dir, name)) — name comes from os.listdir of the validated base_dir, not from the request.",
+   "group": "A",
+   "line_at_triage": 561
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 551,
+   "decision": "dismissed",
+   "reason": "exists(join(proj_path,'VERSION')) — constant filename under a listdir-derived child of the validated base_dir.",
+   "group": "A",
+   "line_at_triage": 564
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 894,
+   "decision": "dismissed",
+   "reason": "Sink remains after the fix (the NUL check now precedes os.path.realpath, which raised ValueError on NUL and made the old guard dead). realpath output is then required to be an absolute, existing directory (_resolve_user_project_path 889-895); admin_or_localhost; designed-unbounded per CHANGELOG.md:1992.",
+   "test": "library/tests/test_codeql_group_a_path_injection.py::TestListProjectsBasePathNullByte",
+   "group": "post-fix sink",
+   "line_at_triage": 905
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 904,
+   "decision": "dismissed",
+   "reason": "isdir(resolved) and isfile(join(resolved,'VERSION')) in _record_direct_project — resolved is the validated output of _resolve_user_project_path (now NUL-safe) or realpath(AUDIOBOOKS_PROJECT_DIR); constant filename; admin_or_localhost; designed-unbounded per CHANGELOG.md:1992. (Two sinks on one line.)",
+   "group": "A",
+   "sinks": 2,
+   "line_at_triage": 915
+  },
+  {
+   "rule": "py/flask-debug",
+   "file": "library/backend/api_server.py",
+   "line": 74,
+   "decision": "dismissed",
+   "reason": "app.run(debug=True) is reachable only under `if __name__ == '__main__'` AND _debug_enabled(): the project's explicit AUDIOBOOKS_DEV_MODE switch AND FLASK_DEBUG must both be truthy (the fix; FLASK_DEBUG alone no longer arms it). Production runs `gunicorn api_server:app` (systemd/audiobook-api.service, docker-entrypoint.sh:218) and never executes the block. CodeQL flags any debug argument that is not the literal False.",
+   "test": "library/tests/test_codeql_group_d_fixes.py::TestFlaskDebugGate",
+   "group": "post-fix sink",
+   "line_at_triage": 56
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/i18n.py",
+   "line": 38,
+   "decision": "dismissed",
+   "reason": "locale cannot reach _load_catalog unless it is a member of the fixed SUPPORTED_LOCALES set: get_locale() returns a request value only if in SUPPORTED_LOCALES (i18n.py:117,122), Accept-Language matching returns only set members (84,90), get_catalog() re-checks and substitutes DEFAULT_LOCALE (49-50), /api/i18n/<locale> checks again (i18n_routes.py:27). Defence in depth: regex ^[a-zA-Z0-9-]+$ at i18n.py:34 excludes '/' and '.'.",
+   "group": "A"
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/i18n.py",
+   "line": 40,
+   "decision": "dismissed",
+   "reason": "open(catalog_path) — same path object as line 38, same four-layer allowlist constraint.",
+   "group": "A"
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/localization/sampler.py",
+   "line": 227,
+   "decision": "dismissed",
+   "reason": "Double-guarded: source validated by _sanitize_locale against _SAFE_LOCALE_RE (streaming_translate.py) before leaving the API, and the sink wraps the value in _safe_log (sampler.py:50-58: strips [\\r\\n\\t\\x00-\\x1f\\x7f], caps at 200 chars).",
+   "group": "C"
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/localization/sampler.py",
+   "line": 251,
+   "decision": "dismissed",
+   "reason": "Same two guards as :227 — _sanitize_locale at the API boundary and _safe_log at sampler.py:50-58 at the sink.",
+   "group": "C"
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/localization/translation/vllm_mt.py",
+   "line": 415,
+   "decision": "dismissed",
+   "reason": "Sink now wrapped in _safe_log (vllm_mt.py: str.isprintable() rebuild of the value plus a 200-char cap) — the fix. CodeQL does not model a character-filter rebuild as a sanitiser (same shape as duplicates.py _sanitize_for_log, dismissed for the same reason). Forged-line attack shown neutralised in the test.",
+   "test": "library/tests/test_codeql_group_c_log_injection.py",
+   "group": "post-fix sink",
+   "line_at_triage": 398
+  },
+  {
+   "rule": "py/incomplete-url-substring-sanitization",
+   "file": "library/tests/test_about_page.py",
+   "line": 42,
+   "decision": "dismissed",
+   "reason": "used in tests: test_has_github_link asserts the static web-v2/about.html content contains 'github.com'. The value is a file the test reads, not a URL being sanitized; content presence, not a security decision.",
+   "group": "E"
+  },
+  {
+   "rule": "py/overly-permissive-file",
+   "file": "library/tests/test_auth_database.py",
+   "line": 83,
+   "decision": "dismissed",
+   "reason": "used in tests: test_insecure_permissions_rejected writes a key file at 0o644 and asserts AuthDatabase._load_key raises EncryptionKeyError('insecure permissions'); library/auth/database.py:100-105 rejects any mode != 0o600. The world-readable mode IS the fixture under test.",
+   "test": "library/tests/test_auth_database.py::TestLoadKey::test_insecure_permissions_rejected",
+   "group": "E"
+  },
+  {
+   "rule": "py/incomplete-url-substring-sanitization",
+   "file": "library/tests/test_auth_email_and_config.py",
+   "line": 893,
+   "decision": "dismissed",
+   "reason": "used in tests: test_claim_url_in_body asserts the mocked SMTP body contains 'library.example.com', which the test itself injected via _email_env()['BASE_URL'] (:474). Assertion over a test-constructed value, not URL sanitization.",
+   "group": "E"
+  },
+  {
+   "rule": "py/overly-permissive-file",
+   "file": "library/tests/test_docker.py",
+   "line": 182,
+   "decision": "dismissed",
+   "reason": "used in tests: _seed_empty_database chmods a per-run mkdtemp directory that is bind-mounted into a throwaway container running as audiobooks UID 935 (Dockerfile:183-185); host runner UID (1000 local / 1001 CI) shares no group with it, so o+rwx is the narrowest mode that works without root/ACL tooling. Holds only a schema-only empty DB and is rmtree'd on teardown.",
+   "group": "E"
+  },
+  {
+   "rule": "py/overly-permissive-file",
+   "file": "library/tests/test_docker.py",
+   "line": 183,
+   "decision": "dismissed",
+   "reason": "used in tests: same fixture as :182 — the seeded audiobooks.db must be writable by container UID 935 while owned by the host test UID; 0o666 on an empty schema-only temp DB deleted at teardown.",
+   "group": "E"
+  },
+  {
+   "rule": "py/overly-permissive-file",
+   "file": "library/tests/test_docker.py",
+   "line": 204,
+   "decision": "dismissed",
+   "reason": "used in tests: covers_dir is a per-run mkdtemp bind-mounted to /app/covers for container UID 935; same cross-UID constraint as :182, removed on teardown.",
+   "group": "E"
+  },
+  {
+   "rule": "py/request-without-cert-validation",
+   "file": "library/tests/test_docker.py",
+   "line": 353,
+   "decision": "dismissed",
+   "reason": "used in tests: URL is built by _https_url as f\"https://127.0.0.1:{port}{path}\" (test_docker.py:344) — loopback hardcoded, port from docker inspect. Target is the test container, whose entrypoint generates a CN=localhost self-signed cert with no SAN (docker-entrypoint.sh:252-255); pinning verify= to it would fail hostname verification against 127.0.0.1.",
+   "group": "E"
+  },
+  {
+   "rule": "py/request-without-cert-validation",
+   "file": "library/tests/test_docker.py",
+   "line": 361,
+   "decision": "dismissed",
+   "reason": "used in tests: same loopback _https_url helper and self-signed CN-only container cert as :353.",
+   "group": "E"
+  },
+  {
+   "rule": "py/request-without-cert-validation",
+   "file": "library/tests/test_docker.py",
+   "line": 369,
+   "decision": "dismissed",
+   "reason": "used in tests: same loopback _https_url helper and self-signed CN-only container cert as :353.",
+   "group": "E"
+  },
+  {
+   "rule": "py/request-without-cert-validation",
+   "file": "library/tests/test_docker.py",
+   "line": 391,
+   "decision": "dismissed",
+   "reason": "used in tests: same loopback _https_url helper and self-signed CN-only container cert as :353.",
+   "group": "E",
+   "line_at_triage": 389
+  },
+  {
+   "rule": "py/request-without-cert-validation",
+   "file": "library/tests/test_docker.py",
+   "line": 476,
+   "decision": "dismissed",
+   "reason": "used in tests: URL is the literal f\"https://127.0.0.1:{mapped}/\" (test_docker.py:472) against the custom-WEB_PORT test container; same CN-only self-signed cert.",
+   "group": "E",
+   "line_at_triage": 474
+  },
+  {
+   "rule": "py/partial-ssrf",
+   "file": "library/web-v2/https_server.py",
+   "line": 116,
+   "decision": "dismissed",
+   "reason": "Target host/port are fixed: HTTPConnection('127.0.0.1', API_PORT) at https_server.py:90; only self.path is forwarded, and it must start with '/auth' or '/api' (API_PREFIXES line 31, enforced by _is_api_request line 80). Verified in this venv (Python 3.14.7): http.client.putrequest raises InvalidURL for a path containing CR/LF or a space.",
+   "group": "D"
+  },
+  {
+   "rule": "py/http-response-splitting",
+   "file": "library/web-v2/https_server.py",
+   "line": 125,
+   "decision": "dismissed",
+   "reason": "Header key/value come from the backend response (fixed localhost target, line 90), not the request. http.client.parse_headers is line-based and can only yield obs-folded values, never a bare split; the backend is gunicorn, which rejects control chars in response headers (gunicorn/http/wsgi.py HEADER_VALUE_RE) and Werkzeug raises on newline in header values. Covers both the key and value sinks CodeQL reports on this line.",
+   "group": "D",
+   "sinks": 2
+  },
+  {
+   "rule": "py/http-response-splitting",
+   "file": "library/web-v2/https_server.py",
+   "line": 166,
+   "decision": "dismissed",
+   "reason": "Explicit sanitizer directly above the sink: https_server.py:161-162 strip \\r, \\n and \\0 from host and path before the Location header is built (164). Load-bearing: http.server.send_header accepts a CRLF value unchanged in Python 3.14.7 — do not remove the strip on the assumption the stdlib covers it.",
+   "group": "D"
+  },
+  {
+   "rule": "py/http-response-splitting",
+   "file": "library/web-v2/redirect_server.py",
+   "line": 49,
+   "decision": "dismissed",
+   "reason": "Same explicit sanitizer: redirect_server.py:44-45 strip \\r, \\n and \\0 from host and path before the Location header is built (47).",
+   "group": "D"
+  },
+  {
+   "rule": "js/user-controlled-bypass",
+   "file": "library/web-v2/verify.html",
+   "line": 229,
+   "decision": "dismissed",
+   "reason": "`if (token)` only chooses between auto-submitting the URL token and showing the manual-entry form; it gates nothing the server does not enforce. POST /auth/magic-link/verify (auth_recovery.py:395-396) independently requires a token (418-420), looks it up (427-429, 400 on miss), rejects expired (431-432) and used (434-435) tokens before any session is created (453).",
+   "group": "D"
+  }
+ ],
+ "fixed": [
+  {
+   "rule": "py/polynomial-redos",
+   "file": "library/backend/api_modular/suggestions.py",
+   "line": 53,
+   "decision": "fixed",
+   "reason": "Real and severe: measured 40,000 '<' = 5.2 s, 80,000 '<' = 20.7 s (quadratic) on a body whose length cap (line 161) is applied AFTER sanitisation. Regex rewritten <[^>]*?> -> <[^<>]*> (0.9 ms at 80,000). Identical on well-formed input; a literal '<' survives on malformed nesting and the admin UI renders via textContent (suggestions-admin.js:94).",
+   "test": "library/tests/test_codeql_group_d_fixes.py::TestSanitizeMessageLinearTime",
+   "group": "D"
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 328,
+   "decision": "fixed",
+   "reason": "check_upgrade used the weak _validate_project_path_basic (no NUL/'..'/symlink checks, unresolved path forwarded to the root helper) while start_upgrade used the strict one — both feed the same privileged helper. Weak validator deleted; check_upgrade now uses _validate_project_path_strict and forwards the resolved real path.",
+   "test": "library/tests/test_codeql_group_a_path_injection.py::TestCheckUpgradeStrictValidation",
+   "group": "A"
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 330,
+   "decision": "fixed",
+   "reason": "Same sink block as 328 (VERSION .exists() followed symlinks out of the directory); code removed, strict validator rejects a VERSION symlink whose resolve().parent != project dir.",
+   "test": "library/tests/test_codeql_group_a_path_injection.py::TestCheckUpgradeStrictValidation::test_version_symlink_escape_rejected",
+   "group": "A"
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 351,
+   "decision": "fixed",
+   "reason": "Path(project_path).resolve() ran BEFORE the NUL/'..' guard; pathlib raises ValueError on an embedded NUL, so the guard was dead for exactly the input it exists for and start_upgrade returned an unhandled 500 instead of 400. Guard moved ahead of resolve().",
+   "test": "library/tests/test_codeql_group_a_path_injection.py::TestStartUpgradeNullByte::test_null_byte_returns_400_not_500",
+   "group": "A"
+  },
+  {
+   "rule": "py/path-injection",
+   "file": "library/backend/api_modular/utilities_system.py",
+   "line": 905,
+   "decision": "fixed",
+   "reason": "os.path.realpath(user_path) at 904 raises ValueError on an embedded NUL, so the NUL guard at 905 could never fire — GET /api/system/projects?base_path=%00 escaped as an unhandled exception. NUL check moved ahead of realpath().",
+   "test": "library/tests/test_codeql_group_a_path_injection.py::TestListProjectsBasePathNullByte::test_null_byte_base_path_ignored",
+   "group": "A"
+  },
+  {
+   "rule": "py/flask-debug",
+   "file": "library/backend/api_server.py",
+   "line": 56,
+   "decision": "fixed",
+   "reason": "debug=True was armed by FLASK_DEBUG alone, a generic Flask variable any environment can carry. _debug_enabled() now requires the project's explicit dev switch AUDIOBOOKS_DEV_MODE AND FLASK_DEBUG. Production (gunicorn api_server:app) never executes the __main__ block regardless.",
+   "test": "library/tests/test_codeql_group_d_fixes.py::TestFlaskDebugGate",
+   "group": "D"
+  },
+  {
+   "rule": "py/log-injection",
+   "file": "library/localization/translation/vllm_mt.py",
+   "line": 398,
+   "decision": "fixed",
+   "reason": "TRUE POSITIVE. target_locale comes from the <locale> URL segment of GET /api/translations/by-locale/<locale> (translations.py:349-372, @guest_allowed) and flowed verbatim into logger.error. Added _safe_log (isprintable() rebuild + 200-char cap) at the sink.",
+   "test": "library/tests/test_codeql_group_c_log_injection.py",
+   "group": "C"
+  },
+  {
+   "rule": "py/incomplete-url-substring-sanitization",
+   "file": "library/tests/test_cover_resolver.py",
+   "line": 145,
+   "decision": "fixed",
+   "reason": "Assertion over the URL passed to the mocked requests.get strengthened from substring to urlparse(url).hostname == 'm.media-amazon.com' (cover_resolver.py:107 builds that host).",
+   "test": "library/tests/test_cover_resolver.py::TestTryAudible::test_success_primary_cdn",
+   "group": "E"
+  },
+  {
+   "rule": "py/incomplete-url-substring-sanitization",
+   "file": "library/tests/test_cover_resolver.py",
+   "line": 158,
+   "decision": "fixed",
+   "reason": "Same as :145 for the fallback CDN: urlparse(url2).hostname == 'images-na.ssl-images-amazon.com' (cover_resolver.py:117).",
+   "test": "library/tests/test_cover_resolver.py::TestTryAudible::test_fallback_to_alternate_cdn",
+   "group": "E"
+  },
+  {
+   "rule": "py/request-without-cert-validation",
+   "file": "library/tests/test_docker.py",
+   "line": 376,
+   "decision": "fixed",
+   "reason": "The request is plain HTTP (_http_url, test_docker.py:348) with allow_redirects=False, so no TLS is negotiated and verify=False was a dead argument. Removed with its noqa/nosec suppressions.",
+   "test": "library/tests/test_docker.py::TestAPIIntegration::test_http_redirect_works",
+   "group": "E"
+  }
+ ],
+ "_reconciled": "re-scan 2026-10-02 after the fixes: 76 findings, each matched one-to-one to a dismissal; `line` is the current scan's line, `line_at_triage` the original where it moved"
+}

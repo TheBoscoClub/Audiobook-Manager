@@ -8,6 +8,7 @@ All HTTP requests are mocked — no real API calls.
 
 import hashlib
 from unittest.mock import MagicMock, Mock, patch
+from urllib.parse import urlparse
 
 import pytest
 import requests
@@ -142,7 +143,7 @@ class TestTryAudible:
         # Should have been called once (primary CDN succeeded)
         assert mock_get.call_count == 1
         url_called = mock_get.call_args[0][0]
-        assert "m.media-amazon.com" in url_called
+        assert urlparse(url_called).hostname == "m.media-amazon.com"
 
     @patch("scanner.utils.cover_resolver.requests.get")
     @patch("scanner.utils.cover_resolver._rate_limit")
@@ -155,7 +156,7 @@ class TestTryAudible:
         assert result is not None
         assert mock_get.call_count == 2
         url2 = mock_get.call_args_list[1][0][0]
-        assert "images-na.ssl-images-amazon.com" in url2
+        assert urlparse(url2).hostname == "images-na.ssl-images-amazon.com"
 
     @patch("scanner.utils.cover_resolver.requests.get")
     @patch("scanner.utils.cover_resolver._rate_limit")

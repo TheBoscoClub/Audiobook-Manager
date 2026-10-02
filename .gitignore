@@ -431,8 +431,14 @@ quality-issues.txt
 .test-skill.md
 test-*-[0-9][0-9].md
 
-# Local CodeQL database (never commit — contains full code + binary analysis data)
-.codeql-db/
+# Local CodeQL databases and SARIF never commit (full code + binary analysis
+# data). The dismissal ledger is a project contract (security.md: every local
+# finding fixed or dismissed with a reason) and IS tracked. The directory is
+# re-included first because ~/.config/git/ignore excludes it wholesale and git
+# never descends into an excluded directory; then everything but the ledger.
+!.codeql-db/
+.codeql-db/*
+!.codeql-db/dismissed.json
 
 # Diagnostic harness ephemera — screenshots, console logs, meta.json, per-run
 # venvs. The harness sources (browserstack_ios_repro.py, playwright_ios_repro.py)

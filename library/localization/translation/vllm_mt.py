@@ -62,6 +62,23 @@ _JSON_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
 
 _GLOSSARY_PATH = Path(__file__).resolve().parents[1] / "glossary" / "en-zh.yaml"
 
+
+def _safe_log(value) -> str:
+    """Neutralise a value for log output (py/log-injection defence).
+
+    ``target_locale`` arrives from an unvalidated ``<locale>`` URL segment
+    (``/api/translations/by-locale/<locale>``), so a caller can put CR/LF or
+    other control characters in it and forge log lines. Every non-printable
+    character becomes ``_`` and the result is capped so one request cannot
+    flood the log. Same shape as ``localization.sampler._safe_log``.
+    """
+    s = str(value) if value is not None else ""
+    s = "".join(c if c.isprintable() else "_" for c in s)
+    if len(s) > 200:
+        s = s[:200] + "...(truncated)"
+    return s
+
+
 _LOCALE_NAMES = {
     "zh-Hans": "Simplified Chinese (简体中文)",
     "zh-Hant": "Traditional Chinese (繁體中文)",
@@ -395,7 +412,7 @@ class VLLMTranslator(TranslationProvider):
                 "%d of %d text(s) failed translation to %s — returning SOURCE text for those",
                 len(failed),
                 len(texts),
-                target_locale,
+                _safe_log(target_locale),
             )
             if strict:
                 raise TranslationUnavailableError(

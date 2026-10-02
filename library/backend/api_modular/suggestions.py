@@ -49,8 +49,11 @@ def sanitize_message(text):
     if not text:
         return ""
 
-    # Strip HTML tags (use lazy quantifier to avoid ReDoS on pathological input)
-    text = re.sub(r"<[^>]*?>", "", text)
+    # Strip HTML tags. The class excludes "<" as well as ">" so the scan from
+    # one "<" stops at the next "<": linear time. A plain [^>] class (lazy or
+    # greedy) rescans the whole remainder from every "<" and is quadratic --
+    # 40,000 "<" characters took 5.2 s, 80,000 took 20.7 s (py/polynomial-redos).
+    text = re.sub(r"<[^<>]*>", "", text)
 
     # Strip HTML entities
     text = re.sub(r"&[#\w]+;", "", text)

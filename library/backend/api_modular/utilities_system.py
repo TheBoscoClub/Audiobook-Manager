@@ -315,30 +315,15 @@ def _check_not_running() -> FlaskResponse | None:
     return None
 
 
-def _validate_project_path_basic(project_path: str | None, source: str) -> FlaskResponse | None:
-    """Validate project_path for check_upgrade (basic validation).
-
-    Returns an error response tuple if invalid, or None if OK.
-    """
-    if source == "project" and not project_path:
-        return jsonify({"error": "project_path required for project source"}), 400
-
-    if source == "project" and project_path:
-        project_path_obj = Path(project_path)
-        if not project_path_obj.is_dir():
-            return (jsonify({"error": "Project path not found or not a directory"}), 400)
-        if not (project_path_obj / "VERSION").exists():
-            return (jsonify({"error": "Invalid project: no VERSION file found"}), 400)
-    return None
-
-
 def _validate_project_path_strict(
     project_path: str | None, source: str
 ) -> tuple[FlaskResponse | None, str | None]:
-    """Validate project_path for start_upgrade (strict security validation).
+    """Validate project_path for check_upgrade and start_upgrade.
 
-    Returns (error_response, resolved_path). If error_response is not None,
-    resolved_path is None and the error should be returned to the caller.
+    Both endpoints forward the path to the root-privileged upgrade helper, so
+    both apply the same checks. Returns (error_response, resolved_path). If
+    error_response is not None, resolved_path is None and the error should be
+    returned to the caller.
     """
     if source == "project" and not project_path:
         return (jsonify({"error": "project_path required for project source"}), 400), None
@@ -346,12 +331,14 @@ def _validate_project_path_strict(
     if source != "project" or not project_path:
         return None, project_path
 
-    # SECURITY: Validate project_path is a real project directory
-    # Resolve symlinks and normalize to prevent path traversal attacks
-    project_path_obj = Path(project_path).resolve()
+    # SECURITY: Validate project_path is a real project directory.
     # Block null bytes and relative path components in the original input
+    # BEFORE touching the filesystem: Path.resolve() raises ValueError on an
+    # embedded NUL, so a guard placed after it can never fire for that input.
     if "\0" in project_path or ".." in Path(project_path).parts:
         return (jsonify({"error": "Invalid project path"}), 400), None
+    # Resolve symlinks and normalize to prevent path traversal attacks
+    project_path_obj = Path(project_path).resolve()
     if not project_path_obj.is_dir():
         return (jsonify({"error": "Project path not found or not a directory"}), 400), None
     # Verify it's an actual audiobooks project (has VERSION file)
@@ -745,7 +732,7 @@ def check_upgrade() -> FlaskResponse:
     project_path = data.get("project_path")
     version = data.get("version")
 
-    path_err = _validate_project_path_basic(project_path, source)
+    path_err, resolved_path = _validate_project_path_strict(project_path, source)
     if path_err:
         return path_err
 
@@ -753,7 +740,7 @@ def check_upgrade() -> FlaskResponse:
     if ver_err:
         return ver_err
 
-    request_data = _build_upgrade_check_request(source, project_path, version)
+    request_data = _build_upgrade_check_request(source, resolved_path, version)
 
     if not _write_request(request_data):
         return _write_request_or_error()
@@ -899,10 +886,12 @@ def _resolve_user_project_path(user_path: str) -> str | None:
     """Validate and return a user-provided project directory path, or None
     if it fails the safety checks (absolute, no null bytes, must exist).
     """
-    if not user_path:
+    # The NUL check must precede realpath(): os.path.realpath raises
+    # ValueError on an embedded NUL, so a guard placed after it never fires.
+    if not user_path or "\x00" in user_path:
         return None
     resolved = os.path.realpath(user_path)
-    if os.path.isabs(resolved) and "\x00" not in user_path and os.path.isdir(resolved):
+    if os.path.isabs(resolved) and os.path.isdir(resolved):
         return resolved
     return None
 

@@ -182,8 +182,13 @@ def _safe_log_value(value) -> str:
 
 
 def _sanitize_locale(locale: str) -> str:
-    """Validate locale string — reject path traversal and log injection."""
-    if not isinstance(locale, str) or not _SAFE_LOCALE_RE.match(locale):
+    """Validate locale string — reject path traversal and log injection.
+
+    Uses ``fullmatch`` rather than ``match``: a ``$``-anchored ``match``
+    accepts a single trailing newline (``"en\n"``), which would let a
+    CR/LF-bearing value past the first validation layer.
+    """
+    if not isinstance(locale, str) or not _SAFE_LOCALE_RE.fullmatch(locale):
         raise ValueError(f"invalid locale: {locale!r}")
     return locale
 

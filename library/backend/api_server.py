@@ -22,6 +22,25 @@ from api_modular import create_app  # noqa: E402
 from config import API_PORT, DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR  # noqa: E402
 
 
+def _env_flag(environ, name: str) -> bool:
+    """Read a boolean switch from an environment mapping ("true", "1", "yes")."""
+    return environ.get(name, "false").lower() in ("true", "1", "yes")
+
+
+def _debug_enabled(environ) -> bool:
+    """Decide whether the Werkzeug debugger may be armed.
+
+    FLASK_DEBUG alone is NOT sufficient. It is a generic Flask variable that a
+    production environment can carry by accident, and the interactive debugger
+    it enables executes arbitrary code (py/flask-debug). The project's own
+    explicit dev switch, AUDIOBOOKS_DEV_MODE (false in
+    etc/audiobooks.conf.example, true only in the dev config.env), must ALSO be
+    set. Production never reaches this decision anyway: it runs
+    ``gunicorn api_server:app`` and the ``__main__`` block is never executed.
+    """
+    return _env_flag(environ, "AUDIOBOOKS_DEV_MODE") and _env_flag(environ, "FLASK_DEBUG")
+
+
 def _create_configured_app():
     """Create and return the configured Flask application."""
     if not DATABASE_PATH.exists():
@@ -29,10 +48,10 @@ def _create_configured_app():
         print("Please run: python3 backend/import_to_db.py")
         sys.exit(1)
 
-    auth_enabled = os.environ.get("AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
+    auth_enabled = _env_flag(os.environ, "AUTH_ENABLED")
     auth_db_path = os.environ.get("AUTH_DATABASE") if auth_enabled else None
     auth_key_path = os.environ.get("AUTH_KEY_FILE") if auth_enabled else None
-    auth_dev_mode = os.environ.get("AUDIOBOOKS_DEV_MODE", "false").lower() in ("true", "1", "yes")
+    auth_dev_mode = _env_flag(os.environ, "AUDIOBOOKS_DEV_MODE")
 
     return create_app(
         database_path=DATABASE_PATH,
@@ -51,9 +70,8 @@ app = _create_configured_app()
 
 if __name__ == "__main__":
     # Direct execution for development/testing only
-    debug = os.environ.get("FLASK_DEBUG", "false").lower() in ("true", "1", "yes")
-    if debug:
-        app.run(host="127.0.0.1", port=API_PORT, debug=True)  # nosec B201 — dev-only path behind __main__ guard; production uses Gunicorn
+    if _debug_enabled(os.environ):
+        app.run(host="127.0.0.1", port=API_PORT, debug=True)  # nosec B201 — dev-only: __main__ guard AND AUDIOBOOKS_DEV_MODE AND FLASK_DEBUG all required; production uses Gunicorn
     else:
         from gevent.pywsgi import WSGIServer  # type: ignore[import-untyped]
 
