@@ -15,6 +15,7 @@
 # `container.image`; to move the engine, look up the new index digest with
 #   docker manifest inspect semgrep/semgrep:<ver> | sha256sum   (or the registry
 #   Docker-Content-Digest header) and update both the tag and the digest.
+---
 name: Semgrep
 
 "on":

@@ -9,7 +9,11 @@
   "config": ".markdownlint.json",
   "globs": ["**/*.md"],
   "ignores": [
-    "node_modules/**",
+    "**/node_modules/**",
+    ".remember/**",
+    ".claude/**",
+    "**/.claude-si-gate-log.md",
+    ".codeql-db/**",
     ".venv/**",
     "venv/**",
     "library/venv/**",
