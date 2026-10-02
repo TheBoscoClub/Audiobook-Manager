@@ -89,7 +89,7 @@ build_release() {
     cp "${SCRIPT_DIR}/VERSION" "${staging_dir}/"
 
     # Main scripts (root level)
-    for script in install.sh upgrade.sh migrate-api.sh; do
+    for script in install.sh upgrade.sh uninstall.sh migrate-api.sh; do
         if [[ -f "${SCRIPT_DIR}/${script}" ]]; then
             cp "${SCRIPT_DIR}/${script}" "${staging_dir}/"
             chmod 755 "${staging_dir}/${script}"
@@ -236,7 +236,7 @@ dry_run() {
     echo ""
 
     echo "=== Root files ==="
-    for f in VERSION install.sh upgrade.sh migrate-api.sh README.md LICENSE CHANGELOG.md; do
+    for f in VERSION install.sh upgrade.sh uninstall.sh migrate-api.sh README.md LICENSE CHANGELOG.md; do
         [[ -f "${SCRIPT_DIR}/${f}" ]] && echo "  ${f}"
     done
 
