@@ -1,6 +1,0 @@
----
-# Deliberately invalid: exists only to turn "YAML Validation" red so the
-# Dependabot merge gate can be observed refusing to merge. Removed before merge.
-key: value
-key: value
-	bad: indent
