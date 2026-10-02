@@ -121,12 +121,18 @@ def _load_debug_helpers():
     """Lift ``_env_flag`` and ``_debug_enabled`` out of api_server.py without importing it."""
     tree = ast.parse(_API_SERVER_SRC.read_text(), filename=str(_API_SERVER_SRC))
     wanted = {"_env_flag", "_debug_enabled"}
-    nodes = [n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in wanted]
-    assert {n.name for n in nodes} == wanted, (
+    nodes: list[ast.stmt] = [
+        n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name in wanted
+    ]
+    assert {n.name for n in nodes if isinstance(n, ast.FunctionDef)} == wanted, (
         "api_server.py must define _env_flag and _debug_enabled"
     )
     namespace: dict = {}
-    exec(compile(ast.Module(body=nodes, type_ignores=[]), str(_API_SERVER_SRC), "exec"), namespace)  # noqa: S102
+    # exec of the project's OWN two helper functions, lifted from api_server.py so
+    # the test does not import the module (import builds the Flask app). No
+    # external input reaches this call.
+    code = compile(ast.Module(body=nodes, type_ignores=[]), str(_API_SERVER_SRC), "exec")
+    exec(code, namespace)  # noqa: S102  # nosec B102
     return namespace["_debug_enabled"]
 
 
