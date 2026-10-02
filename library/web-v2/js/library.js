@@ -2654,7 +2654,7 @@ class AudiobookLibraryV2 {
             reason: res.reason,
             excluded_by: null,
           });
-        } catch (err) {
+        } catch {
           exclBox.checked = !wantExcluded; // server rejected — reflect truth
         } finally {
           exclBox.disabled = false;
