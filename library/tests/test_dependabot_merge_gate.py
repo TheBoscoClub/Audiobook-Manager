@@ -59,6 +59,42 @@ def _evaluate(check_runs: Path, status: Path, run_id: str | None = None):
     )
 
 
+def _fake_gh(tmp_path: Path, check_runs: Path, status: Path) -> Path:
+    """A `gh` shim on PATH that answers the two API GETs the gate makes.
+
+    `wait` mode is where the exit code actually reaches the workflow, so it
+    must be exercised end to end — a RETURN trap once fired twice and turned a
+    GREEN verdict into exit 1 (run 37066878118, 2026-10-02).
+    """
+    bindir = tmp_path / "bin"
+    bindir.mkdir()
+    shim = bindir / "gh"
+    shim.write_text(
+        "#!/bin/bash\n"
+        'case "$2" in\n'
+        f'  *check-runs*) cat "{check_runs}" ;;\n'
+        f'  *status) cat "{status}" ;;\n'
+        '  *) echo "unexpected gh call: $*" >&2; exit 99 ;;\n'
+        "esac\n"
+    )
+    shim.chmod(0o755)
+    return bindir
+
+
+def _wait(tmp_path: Path, check_runs: Path, status: Path, timeout_min: str = "1"):
+    env = dict(os.environ)
+    env.pop("GITHUB_RUN_ID", None)
+    env["PATH"] = f"{_fake_gh(tmp_path, check_runs, status)}:{env['PATH']}"
+    return subprocess.run(
+        [str(GATE), "wait", "owner/repo", "deadbeef", timeout_min, "0"],
+        capture_output=True,
+        text=True,
+        timeout=60,
+        env=env,
+        check=False,
+    )
+
+
 def _fx(name: str) -> Path:
     path = FIXTURES / name
     assert path.is_file(), f"missing fixture {path}"
@@ -154,6 +190,27 @@ def test_synthetic_commit_status_failure_is_red(tmp_path):
     result = _evaluate(_fx("pr169-check-runs.json"), status)
     assert result.returncode == RED, result.stdout + result.stderr
     assert "external/ci=failure" in result.stdout
+
+
+def test_wait_mode_exits_zero_on_green(tmp_path):
+    result = _wait(tmp_path, _fx("pr169-check-runs.json"), _fx("pr169-status.json"))
+    assert result.returncode == GREEN, result.stdout + result.stderr
+    assert "VERDICT=GREEN" in result.stdout
+    assert result.stderr == "", result.stderr
+
+
+def test_wait_mode_exits_one_on_red(tmp_path):
+    result = _wait(tmp_path, _fx("pr177-check-runs.json"), _fx("pr177-status.json"))
+    assert result.returncode == RED, result.stdout + result.stderr
+    assert "Docker Build Check=failure" in result.stdout
+    assert result.stderr == "", result.stderr
+
+
+def test_wait_mode_times_out_as_pending(tmp_path):
+    result = _wait(tmp_path, _fx("main-inflight-check-runs.json"), _fx("pr169-status.json"), "0")
+    assert result.returncode == PENDING, result.stdout + result.stderr
+    assert "VERDICT=TIMEOUT" in result.stdout
+    assert result.stderr == "", result.stderr
 
 
 def test_gate_script_is_executable_in_git():

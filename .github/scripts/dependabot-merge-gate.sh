@@ -36,6 +36,7 @@
 
 set -euo pipefail
 
+WORK_DIR=""
 ACCEPTED='["success","skipped","neutral"]'
 
 die() {
@@ -104,9 +105,14 @@ evaluate() {
 wait_for_green() {
     local repo="$1" sha="$2" timeout_min="${3:-45}" interval="${4:-30}"
     local deadline=$(( $(date +%s) + timeout_min * 60 ))
-    local tmp
-    tmp=$(mktemp -d)
-    trap 'rm -rf "$tmp"' RETURN
+    # Script-level EXIT trap on a global, deliberately: a RETURN trap set here
+    # stays armed after this function returns and fires again when main()
+    # returns, by which time the local is gone — under `set -u` that second
+    # firing was an "unbound variable" error that turned a GREEN verdict into
+    # exit 1 (run 37066878118, 2026-10-02).
+    WORK_DIR=$(mktemp -d)
+    trap 'rm -rf "${WORK_DIR:-}"' EXIT
+    local tmp="$WORK_DIR"
 
     local rc=2
     while :; do
