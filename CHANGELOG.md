@@ -9,13 +9,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.7.0] - 2026-10-02
+
+First published release since v8.4.3.7. The 8.5.0 and 8.6.0 sections below were staged locally and never
+published; everything in them ships here.
+
+### Added
+
 - **Semgrep CI workflow** (`.github/workflows/semgrep.yml`): runs `semgrep ci` — Code (SAST), Secrets and Supply Chain — diff-aware on pull requests, full on pushes to `main`, weekly on schedule and on manual dispatch, reporting to the Semgrep AppSec Platform (deployment `gjbr-pm-me`). Engine image pinned `tag@digest`; the sole credential is the Agent (CI) scoped `SEMGREP_APP_TOKEN` org secret — no GitHub App is installed and Semgrep is granted no code access
 - **Untranslatable titles explain themselves in the Chinese view**: a book an admin marked untranslatable now carries a note on its card — 「此书无法翻译」 — shown only when the view locale is non-English, where an untranslated card would otherwise read as a bug. Any reader (not only admins) can also flip 「隐藏无法翻译的书籍」 to filter such titles out; the choice persists in `localStorage` and is off by default, because the audio plays perfectly well and hiding a listenable book over a subtitle limitation is the reader's call rather than the app's. Served by `?hide_untranslatable=1` on the public listing endpoint (no auth gate — only *marking* is admin-gated) and the new `translation_excluded` field in the listing payload. 10 tests, including a guard that fails if the filter is ever moved inside an `is_admin` branch, one asserting the Chinese strings actually contain Chinese, and one pinning `COALESCE` so pre-migration NULL rows do not vanish when the filter is on
 - **Admin control: mark a title permanently untranslatable** (Audiobook-Manager-536 follow-up): an admin-only checkbox in the book-detail modal excludes a title from every translation queue and workflow, with a mandatory reason recorded alongside who set it and when. Backed by migration 022 (`audiobooks.translation_excluded` plus `_reason`/`_at`/`_by`) and `GET|POST /api/audiobooks/<id>/translation-exclusion`. The flag lives on the book row, **not** the queue: a book merely marked `failed` returns the moment anyone resets failed rows to pending, which happened repeatedly during the September repair campaign. Excluding also retires the book's queue rows to `excluded` in the same transaction
 - **`library/localization/exclusions.py`**: the single source every translation entry point consults — `scripts/batch-translate.py` (retires excluded books on each drain), `scripts/verify-zh-corpus.py` (neither reports nor *purges* an excluded book's files, which would destroy the only subtitles it has) and `scripts/sampler-reconcile.py`. Unions the database flag with an operator override file (`/etc/audiobooks/translation-exclude.txt`, example in `etc/`) for seeding an exclusion before import or when the app is unreachable. 16 tests, including the reset-cannot-resurrect property the mechanism exists for
 
+### Changed
+
+- **Lint configuration covers the whole tree**: `.markdownlint-cli2.jsonc` ignored only a top-level `node_modules/` (the
+  real one is `library/web-v2/node_modules/`, 1,557 phantom errors) and none of the local scratch files; the yamllint
+  config skipped nothing under `.codeql-db/` (1,000 phantom errors from scanner run-info files). `scripts/collect-reference-system.sh`
+  now emits a YAML document start, and `docs/reference-system.yml` is regenerated from this host at 8.7.0
+- **Changelog comparison links for 8.5.0 and 8.6.0 point at commit ranges**: neither tag exists on GitHub, so the
+  tag-to-tag links could never resolve
+
 ### Fixed
 
+- **`docs/TROUBLESHOOTING.md`**: the streaming-translation journal command named a unit that does not exist
+  (`audiobook-stream-translate-worker`); it is `audiobook-stream-translate`. A root-causes list was numbered 1, 1, 2, 3
 - **Docker image: the gunicorn gevent worker could not start** (Audiobook-Manager-r1x): gunicorn 26.2.0 (Dependabot #155)
   imports `packaging` in its gevent worker, and the image had no provider for it — `requirements-docker.txt` never listed
   it and nothing else in the image pulled it in — so `gunicorn -k gevent` died on import, the HTTPS proxy reported
@@ -45,6 +67,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **`urllib3` floor raised to 2.8.0** in `requirements.txt` and `requirements-docker.txt`: CVE-2026-97689 (CVSS 8.9,
+  unbounded chunk-size buffering), CVE-2026-97687 (7.6, HTTPS-proxy TLS configuration ignored) and CVE-2026-97688, all
+  published 2026-09-30. A `>=` floor cannot move a venv that already satisfies the old floor, which is why the production
+  venv still ran 2.7.0 — this release is deployed with a venv rebuild, and the upgrade tool's behaviour is tracked as
+  Audiobook-Manager-gwq
 - **Local CodeQL `security-extended` triage: every one of the 82 findings is now fixed or dismissed with a cited reason**
   (Audiobook-Manager-o9s). Ten were real and are fixed, each with a test shown failing when the fix is reverted:
   - `utilities_system.py`: `check_upgrade` went through a weaker path validator than `start_upgrade` although both feed
@@ -4527,9 +4554,12 @@ sudo /opt/audiobooks/upgrade.sh
 - Basic audiobook scanning
 - JSON metadata export
 
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.6.0...HEAD
-[8.6.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.5.0...v8.6.0
-[8.5.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.7...v8.5.0
+<!-- 8.5.0 and 8.6.0 were staged locally and never published as GitHub releases; their
+     comparison links use the commit SHAs that bounded them (v8.5.0 / v8.6.0 tags do not exist on GitHub). -->
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.7.0...HEAD
+[8.7.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/9de8f3b5...v8.7.0
+[8.6.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/d30d83a6...9de8f3b5
+[8.5.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.7...d30d83a6
 [8.4.3.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.6...v8.4.3.7
 [8.4.3.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.5...v8.4.3.6
 [8.4.3.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.4...v8.4.3.5
@@ -4711,6 +4741,7 @@ sudo /opt/audiobooks/upgrade.sh
 [3.9.8]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v3.9.7...v3.9.8
 [3.9.7]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v3.9.6...v3.9.7
 [3.9.6]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v3.9.5...v3.9.6
+[3.9.5.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v3.9.5...v3.9.5.1
 [3.9.5]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v3.9.4...v3.9.5
 [3.9.4]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v3.9.3...v3.9.4
 [3.9.3]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v3.9.2...v3.9.3
