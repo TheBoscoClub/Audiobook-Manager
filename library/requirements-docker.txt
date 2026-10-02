@@ -7,6 +7,12 @@ mutagen>=1.48.1
 gunicorn>=26.2.0
 gevent>=26.9.0
 gevent-websocket>=0.10.1
+# packaging — imported by gunicorn's gevent worker (gunicorn/workers/ggevent.py)
+# since gunicorn 26.2.0. It was only ever present transitively; the Docker image
+# had no provider at all, so `gunicorn -k gevent` died on import and every
+# containerised API test skipped on "container never became healthy"
+# (Audiobook-Manager-r1x, 2026-10-02). Declared where gunicorn is declared.
+packaging>=26.0
 flask-sock>=0.7.0
 croniter>=6.2.4
 requests>=2.34.2

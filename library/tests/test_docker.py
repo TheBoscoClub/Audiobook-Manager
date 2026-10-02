@@ -259,9 +259,22 @@ def docker_container(docker_image):
 
 @pytest.fixture
 def healthy_container(docker_container):
-    """Wrapper that skips the test if the container never became healthy."""
+    """Fail — not skip — when the container never became healthy.
+
+    These tests only run under ``--docker``, i.e. when the operator asked for
+    the container to be exercised. A container that starts and then dies is
+    then a failure of the image, not an environment limitation, and skipping
+    turned a broken gevent worker (gunicorn importing ``packaging`` that the
+    image did not ship) into a green run with 18 skips
+    (Audiobook-Manager-r1x, 2026-10-02). The log tail is attached so the
+    failure says why.
+    """
     if not docker_container["healthy"]:
-        pytest.skip("Container did not reach healthy state within timeout")
+        logs = _docker("logs", "--tail", "40", docker_container["name"], timeout=30)
+        pytest.fail(
+            "Container did not reach healthy state within timeout.\n"
+            f"--- docker logs --tail 40 ---\n{logs.stdout}{logs.stderr}"
+        )
     return docker_container
 
 
@@ -373,7 +386,9 @@ class TestAPIIntegration:
     def test_http_redirect_works(self, healthy_container):
         """HTTP on 8080 redirects (301/302/307/308) to HTTPS."""
         url = self._http_url(healthy_container, "/")
-        resp = requests.get(url, verify=False, timeout=10, allow_redirects=False)  # noqa: S501 # nosec B501 — self-signed cert on local test container
+        # Plain HTTP with redirects disabled: no TLS is negotiated, so no
+        # certificate-verification override is needed here.
+        resp = requests.get(url, timeout=10, allow_redirects=False)
         assert resp.status_code in (
             301,
             302,

@@ -200,6 +200,33 @@ jobs:
           docker buildx build --load -t audiobooks:test -f Dockerfile .
           echo "Docker image builds successfully"
 
+      # A build that succeeds proves the layers assemble, not that the service
+      # starts. gunicorn 26.2.0's gevent worker imports `packaging`, which the
+      # image did not ship; the image built green while every container died on
+      # import (Audiobook-Manager-r1x, 2026-10-02). The image's own HEALTHCHECK
+      # hits the API, so "healthy" means the worker is actually serving.
+      - name: Smoke-run the image — the worker must actually serve
+        run: |
+          cid=$(docker run --detach --env AUDIOBOOKS_BIND_ADDRESS=0.0.0.0 audiobooks:test)
+          status=starting
+          for i in $(seq 1 36); do
+            status=$(docker inspect --format '{{.State.Health.Status}}' "$cid")
+            running=$(docker inspect --format '{{.State.Running}}' "$cid")
+            if [ "$status" = healthy ]; then
+              echo "container healthy after $((i * 5))s"
+              docker rm -f "$cid" >/dev/null
+              exit 0
+            fi
+            if [ "$status" = unhealthy ] || [ "$running" != true ]; then
+              break
+            fi
+            sleep 5
+          done
+          echo "::error::container never became healthy (health=$status running=$running)"
+          docker logs --tail 60 "$cid" || true
+          docker rm -f "$cid" >/dev/null
+          exit 1
+
   shellcheck:
     name: ShellCheck
     runs-on: ubuntu-latest
