@@ -14,10 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Admin control: mark a title permanently untranslatable** (Audiobook-Manager-536 follow-up): an admin-only checkbox in the book-detail modal excludes a title from every translation queue and workflow, with a mandatory reason recorded alongside who set it and when. Backed by migration 022 (`audiobooks.translation_excluded` plus `_reason`/`_at`/`_by`) and `GET|POST /api/audiobooks/<id>/translation-exclusion`. The flag lives on the book row, **not** the queue: a book merely marked `failed` returns the moment anyone resets failed rows to pending, which happened repeatedly during the September repair campaign. Excluding also retires the book's queue rows to `excluded` in the same transaction
 - **`library/localization/exclusions.py`**: the single source every translation entry point consults — `scripts/batch-translate.py` (retires excluded books on each drain), `scripts/verify-zh-corpus.py` (neither reports nor *purges* an excluded book's files, which would destroy the only subtitles it has) and `scripts/sampler-reconcile.py`. Unions the database flag with an operator override file (`/etc/audiobooks/translation-exclude.txt`, example in `etc/`) for seeding an exclusion before import or when the app is unreachable. 16 tests, including the reset-cannot-resurrect property the mechanism exists for
 
-### Changed
-
 ### Fixed
 
+- **Docker image: the gunicorn gevent worker could not start** (Audiobook-Manager-r1x): gunicorn 26.2.0 (Dependabot #155)
+  imports `packaging` in its gevent worker, and the image had no provider for it — `requirements-docker.txt` never listed
+  it and nothing else in the image pulled it in — so `gunicorn -k gevent` died on import, the HTTPS proxy reported
+  "failed to start", and the container never became healthy. The host venv was unaffected only because `packaging`
+  arrives there transitively. Declared `packaging>=26.0` beside gunicorn in both `requirements.txt` and
+  `requirements-docker.txt`. Three things let this ship green and each is closed: the `Docker Build Check` CI job only
+  built the image, so it now smoke-runs it and fails unless the image's own `HEALTHCHECK` reports healthy (observed
+  failing against a container that exits); the `healthy_container` test fixture *skipped* when the container died, so a
+  broken image produced "1 passed, 18 skipped" — it now fails with the container's log tail; and the containerised suite
+  itself is proof again: `pytest tests/test_docker.py --docker` → 19 passed, 0 skipped
 - **Dependabot auto-merge now waits for every check to go green** (Audiobook-Manager-0xl): `dependabot-auto-merge.yml`
   ran `gh pr merge --auto`, which defers to REQUIRED status checks only — and `main` deliberately has
   `required_status_checks: null` (solo-workflow baseline), so with nothing required it merged the moment a PR was
@@ -29,8 +37,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   exact SHA that was evaluated, and a withheld merge fails the job and comments on the PR naming the failed check.
   `workflow_dispatch` (`pr_number`, `merge`) exercises the same gate against any real PR by hand. 14 tests over real
   API captures — the red #177 head, the green #169 head, an in-flight run on `main` — each shown to fail when the
-  clause it watches is broken; `pyyaml` declared in `requirements-dev.txt` for the workflow-wiring tests
+  clause it watches is broken; `pyyaml` declared in `requirements-dev.txt` for the workflow-wiring tests. Falsified on
+  the live pathway with PR #178: a head carrying a red check was observed withheld with the merge requested, and the same
+  PR was observed merged by the gate once green — the first live run also caught a `RETURN` trap that fired twice and
+  turned a `GREEN` verdict into exit 1, fixed in the same cycle with wait-mode tests through a `gh` shim
 - **Docker `jq` and `openssl` pins advanced again to current Trixie security levels**: `Docker Build Check` had been red on `main` since the 2026-09-29 scheduled run with the same dependency conflict as 2026-08-26 — `apt-get upgrade -y` advanced the unpinned `libjq1` past the pinned `jq`, which requires `libjq1` at exactly its own revision. Bumped `jq` to `1.7.1-6+deb13u4` and `openssl` to `3.5.7-1~deb13u3` (also stale), re-captured against the digest in `FROM`; the other four pins were already current. Verified by building the full image as CI does — `jq` and `libjq1` both install at `deb13u4`
+
+### Security
+
+- **Local CodeQL `security-extended` triage: every one of the 82 findings is now fixed or dismissed with a cited reason**
+  (Audiobook-Manager-o9s). Ten were real and are fixed, each with a test shown failing when the fix is reverted:
+  - `utilities_system.py`: `check_upgrade` went through a weaker path validator than `start_upgrade` although both feed
+    the same privileged helper — the weak one is deleted and the strict validator (NUL/`..`/symlink-escape checks,
+    resolved real path forwarded) is the only one left; two NUL-byte guards sat *after* the `resolve()`/`realpath()`
+    call that raises on a NUL, so they could never fire and the endpoints returned an unhandled 500 — the guards now run
+    first and answer 400
+  - `streaming_translate.py`: `_sanitize_locale` used `match()` on a `$`-anchored pattern, and `$` also matches before a
+    trailing newline — `"zh-Hans\n"` passed; now `fullmatch()`, so a newline-bearing locale cannot become a distinct
+    database key or a `.vtt` filename
+  - `suggestions.py`: the HTML-stripping regex `<[^>]*?>` was quadratic on a run of `<` — measured 5.2 s at 40,000 and
+    20.7 s at 80,000 characters on a body whose length cap applied *after* sanitising; rewritten as `<[^<>]*>`
+    (0.9 ms at 80,000)
+  - `api_server.py`: `debug=True` was armed by `FLASK_DEBUG` alone; it now also requires the project's explicit
+    `AUDIOBOOKS_DEV_MODE` switch, and production never executes the block under gunicorn
+  - `vllm_mt.py`: a guest-reachable locale string flowed verbatim into `logger.error`; the sink now goes through a
+    control-character-stripping `_safe_log`
+  - tests: a dead `verify=False` on a plain-HTTP request removed; two cover-resolver substring assertions replaced by
+    exact `urlparse(...).hostname` comparisons
+  The other 74 dismissals each name the `file:line` of the constraint that makes the sink safe (int route converters,
+  `SUPPORTED_LOCALES` allowlists, `resolve()` + `is_relative_to` containment, sink-side log scrubbers CodeQL does not
+  model, one-time TOTP enrolment output, server-side re-checks behind a client-side branch). The ledger is
+  `.codeql-db/dismissed.json`, now tracked in git (the directory was wholly ignored, including by the global ignore
+  file); a re-scan after the fixes reports 76 results, each matched one-to-one to a ledger entry — the six that vanished
+  are the fixed sinks that no longer exist. Two findings outside the triage's remit were filed instead of fixed:
+  `GET /api/translations/by-locale/<locale>` validates nothing (Audiobook-Manager-yyf, P1) and `duplicates.py` carries
+  hardcoded `/srv/audiobooks` fallbacks (Audiobook-Manager-hi0)
 
 ## [8.6.0] - 2026-09-11
 
