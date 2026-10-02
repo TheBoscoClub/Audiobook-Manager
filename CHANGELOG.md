@@ -18,6 +18,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Dependabot auto-merge now waits for every check to go green** (Audiobook-Manager-0xl): `dependabot-auto-merge.yml`
+  ran `gh pr merge --auto`, which defers to REQUIRED status checks only — and `main` deliberately has
+  `required_status_checks: null` (solo-workflow baseline), so with nothing required it merged the moment a PR was
+  mergeable. PRs #155 and #177 landed on 2026-09-29 with `Docker Build Check: FAILURE` on their own heads, and eleven
+  Dependabot PRs followed onto a red `main` before anyone noticed. The gate now lives in the workflow itself:
+  `.github/scripts/dependabot-merge-gate.sh` polls the head commit's check runs and commit statuses and answers
+  `GREEN` / `RED` / `PENDING` (`skipped` and `neutral` are acceptable, anything else is not, and an empty or truncated
+  payload is an error — never green); the merge step runs only on `GREEN`, pinned with `--match-head-commit` to the
+  exact SHA that was evaluated, and a withheld merge fails the job and comments on the PR naming the failed check.
+  `workflow_dispatch` (`pr_number`, `merge`) exercises the same gate against any real PR by hand. 14 tests over real
+  API captures — the red #177 head, the green #169 head, an in-flight run on `main` — each shown to fail when the
+  clause it watches is broken; `pyyaml` declared in `requirements-dev.txt` for the workflow-wiring tests
 - **Docker `jq` and `openssl` pins advanced again to current Trixie security levels**: `Docker Build Check` had been red on `main` since the 2026-09-29 scheduled run with the same dependency conflict as 2026-08-26 — `apt-get upgrade -y` advanced the unpinned `libjq1` past the pinned `jq`, which requires `libjq1` at exactly its own revision. Bumped `jq` to `1.7.1-6+deb13u4` and `openssl` to `3.5.7-1~deb13u3` (also stale), re-captured against the digest in `FROM`; the other four pins were already current. Verified by building the full image as CI does — `jq` and `libjq1` both install at `deb13u4`
 
 ## [8.6.0] - 2026-09-11
