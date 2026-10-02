@@ -454,3 +454,6 @@ test-*-[0-9][0-9].md
 # in one commit on 2026-08-27 via `git add -A` and turned three workflows red).
 mutants/
 library/mutants/
+
+# Self-interrogation gate log (machine-local audit trail) — never commit
+.claude-si-gate-log.md
