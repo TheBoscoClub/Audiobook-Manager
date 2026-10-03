@@ -13,6 +13,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+## [8.7.1] - 2026-10-02
+
+### Fixed
+
+- **Release tarball ships `uninstall.sh`**: `create-release.sh` copied `install.sh`, `upgrade.sh` and `migrate-api.sh`
+  to the tarball root but never `uninstall.sh`, although README documents it as part of the layout — the published
+  v8.7.0 tarball has no uninstaller. Added to both the copy loop and the manifest listing; verified by building the
+  tarball and listing it
+
 ## [8.7.0] - 2026-10-02
 
 First published release since v8.4.3.7. The 8.5.0 and 8.6.0 sections below were staged locally and never
@@ -4556,7 +4565,8 @@ sudo /opt/audiobooks/upgrade.sh
 
 <!-- 8.5.0 and 8.6.0 were staged locally and never published as GitHub releases; their
      comparison links use the commit SHAs that bounded them (v8.5.0 / v8.6.0 tags do not exist on GitHub). -->
-[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.7.0...HEAD
+[Unreleased]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.7.1...HEAD
+[8.7.1]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.7.0...v8.7.1
 [8.7.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/9de8f3b5...v8.7.0
 [8.6.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/d30d83a6...9de8f3b5
 [8.5.0]: https://github.com/TheBoscoClub/Audiobook-Manager/compare/v8.4.3.7...d30d83a6

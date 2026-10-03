@@ -16,7 +16,8 @@ A comprehensive audiobook management toolkit for converting Audible files and br
 
 | Version | Status | Release |
 |---------|--------|---------|
-| ![8](https://img.shields.io/badge/8-brightgreen)![7](https://img.shields.io/badge/7-darkgreen)![0](https://img.shields.io/badge/0-green) | Latest minor | [v8.7.0](../../releases/tag/v8.7.0) |
+| ![8](https://img.shields.io/badge/8-brightgreen)![7](https://img.shields.io/badge/7-darkgreen)![1](https://img.shields.io/badge/1-green) | Latest patch | [v8.7.1](../../releases/tag/v8.7.1) |
+| ![8](https://img.shields.io/badge/8-brightred)![7](https://img.shields.io/badge/7-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor | [v8.7.0](../../releases/tag/v8.7.0) |
 | ![8](https://img.shields.io/badge/8-brightred)![6](https://img.shields.io/badge/6-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor (staged, never published) | [9de8f3b5](../../commit/9de8f3b5) |
 | ![8](https://img.shields.io/badge/8-brightred)![5](https://img.shields.io/badge/5-darkred)![0](https://img.shields.io/badge/0-red) | Prior minor (staged, never published) | [d30d83a6](../../commit/d30d83a6) |
 | ![8](https://img.shields.io/badge/8-brightred)![4](https://img.shields.io/badge/4-darkred)![3](https://img.shields.io/badge/3-red)![7](https://img.shields.io/badge/7-orange) | Prior tweak | [v8.4.3.7](../../releases/tag/v8.4.3.7) |
@@ -738,7 +739,7 @@ Upgrade your installation directly from GitHub releases:
 audiobook-upgrade
 
 # Upgrade to specific version
-audiobook-upgrade --version 8.7.0
+audiobook-upgrade --version 8.7.1
 
 # Check for updates without installing
 audiobook-upgrade --check

@@ -3,8 +3,8 @@
 # See README.md (Hardware Requirements) and docs/ARCHITECTURE.md for the
 # supported minimum and recommended specs.
 ---
-generated_at: "2026-10-02T22:41:40Z"
-app_version: "8.7.0"
+generated_at: "2026-10-03T00:19:05Z"
+app_version: "8.7.1"
 
 hardware:
   cpu:
