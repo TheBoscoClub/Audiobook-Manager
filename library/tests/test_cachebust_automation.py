@@ -18,6 +18,7 @@ These tests pin the automation contract:
 from __future__ import annotations
 
 import os
+import shutil
 import re
 import subprocess
 from pathlib import Path
@@ -133,7 +134,7 @@ def test_install_sh_invokes_bumper():
 
 def test_bumper_shellcheck_clean():
     """bump-cachebust.sh must have no shellcheck errors."""
-    if not os.path.exists("/usr/bin/shellcheck"):
+    if shutil.which("shellcheck") is None:
         import pytest
 
         pytest.skip("shellcheck not installed")
