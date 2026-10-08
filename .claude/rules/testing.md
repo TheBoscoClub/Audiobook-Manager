@@ -2,11 +2,7 @@
 
 ## Dev Machine vs VM
 
-**Dev machine is for unit tests and code editing ONLY. All integration, API, UI, and E2E tests MUST run against the dedicated test VM.**
-
-- **Dev machine**: Unit tests, linting, static analysis, code editing
-- **VM**: Integration tests, API tests, UI/Playwright tests, auth tests, E2E tests
-- **`/test` handles this automatically**: Phase 10b (VM Lifecycle) detects pristine state and auto-installs before tests run
+**Dev machine: unit tests, linting, static analysis, code editing ONLY. Integration, API, UI/Playwright, auth and E2E tests MUST run on the test VM.** `/test` Phase 10b (VM Lifecycle) detects pristine state and auto-installs before tests.
 
 ### What Runs Where
 
@@ -21,15 +17,15 @@
 
 ## After Syncing Project to Production
 
-After running `upgrade.sh`:
+After `upgrade.sh`:
 
-1. Verify all wrapper scripts execute: `for cmd in /usr/local/bin/audiobooks-*; do $cmd --help 2>&1 | head -1 || echo "BROKEN: $cmd"; done`
-2. Verify API responds: `curl -s http://localhost:5001/api/system/version`
-3. Verify web UI loads and buttons work
+1. Wrapper scripts execute: `for cmd in /usr/local/bin/audiobooks-*; do $cmd --help 2>&1 | head -1 || echo "BROKEN: $cmd"; done`
+2. API responds: `curl -s http://localhost:5001/api/system/version`
+3. Web UI loads and buttons work
 
 ## Running pytest on the Deployed VM (Installed Environment)
 
-When running pytest against the **installed** application (`/opt/audiobooks/library`) rather than the project source, `webauthn` and other packages only exist in the venv, not in system Python. System `pytest` uses system Python, so `sudo` drops the environment. Use this invocation pattern:
+Against `/opt/audiobooks/library`, `webauthn` etc. exist only in the venv and `sudo` drops the environment:
 
 ```bash
 cd /opt/audiobooks/library
@@ -37,62 +33,38 @@ sudo -E -u audiobooks env PYTHONPATH=/opt/audiobooks/library/venv/lib/python3.14
     pytest --vm -k "test_api_behavioral or sort" --tb=short -q
 ```
 
-**Why `sudo -E -u audiobooks`**: `-E` preserves the current environment through `sudo`; combined with explicit `env PYTHONPATH=...`, this makes `webauthn` and other venv packages importable during test collection. Without this, `test_admin_activity_api.py` fails to collect with `ModuleNotFoundError: No module named 'webauthn'`.
+Without `-E` + explicit `PYTHONPATH`, `test_admin_activity_api.py` fails collection with `ModuleNotFoundError: No module named 'webauthn'`.
 
 ## Test VM Lifecycle — Always Shut Down at End of /test
 
-**`test-audiobook-cachyos` is EXCLUSIVELY for `/test` audits.** It has no other purpose, no continuous workload, and no other user. Therefore the VM MUST be shut down at the end of every `/test` audit — regardless of whether `/test` was the process that started it.
+**`test-audiobook-cachyos` is EXCLUSIVELY for `/test` audits** (no other workload or user), so it MUST be shut down at the end of every `/test` audit, even if `/test` did not start it. This overrides the generic "preserve VMs /test didn't start" logic in `~/.claude/skills/test-phases/phase-11-cleanup.md`, which is right for shared VMs only.
 
-This contrasts with the general `/test` cleanup logic in `~/.claude/skills/test-phases/phase-11-cleanup.md` which preserves VMs `/test` did not start (the assumption is that some other workload may need them). That logic is correct for shared VMs but wrong for Audiobook-Manager's exclusive test VM.
+**Authoritative source (the contract)**: `~/.claude/config/project-vm-map.json` sets `"post_test_restore": true` on both `vms.test-audiobook-cachyos` and `projects.Audiobook-Manager`. phase-11-cleanup.md reads it for the current project and, if any matching VM has `post_test_restore: true`, runs `virsh shutdown` unconditionally.
 
-**Authoritative source**: `~/.claude/config/project-vm-map.json` carries `"post_test_restore": true` for both:
-
-- `vms.test-audiobook-cachyos` (the VM)
-- `projects.Audiobook-Manager` (the project mapping)
-
-`post_test_restore: true` is the contract. Cleanup must honor it.
-
-**Required Phase 11 behavior for Audiobook-Manager:**
-
-| VM (per project-vm-map.json) | post_test_restore | Cleanup action |
-|------------------------------|--------------------|----------------|
-| `test-audiobook-cachyos` | true | **ALWAYS shut down** (and revert to pristine BTRFS snapshot on next /test start) |
+| VM | post_test_restore | Phase 11 cleanup action |
+|----|--------------------|----------------|
+| `test-audiobook-cachyos` | true | **ALWAYS shut down** (revert to pristine BTRFS snapshot on next /test start) |
 | `qa-audiobook-cachyos` | false | Leave running (QA mirror for released-version smoke testing) |
 | `dev-audiobook-cachyos` | false | Leave running ONLY if user started it; user owns dev VM lifecycle |
 
-**Implementation**: phase-11-cleanup.md reads `project-vm-map.json` for the current project; if any matching VM entry carries `post_test_restore: true`, the cleanup runs `virsh shutdown` unconditionally — overriding the "leave it running if /test didn't start it" default.
-
-**Verification at end of every /test run on this project**:
-
-```bash
-sudo virsh domstate test-audiobook-cachyos  # must be "shut off"
-```
-
-If it's still running, Phase 11 has a bug — fix the bug, do not work around it by manually shutting down.
+**Verify at end of every /test run**: `sudo virsh domstate test-audiobook-cachyos` must print `shut off`. If not, Phase 11 has a bug — fix it; do not shut down manually as a workaround.
 
 ## CRITICAL: Test/QA Data Isolation
 
-**No test VM, QA VM, or test/QA Docker container may have LIVE ACCESS (mounts) to production storage.**
+**No test VM, QA VM, or test/QA Docker container may have LIVE ACCESS (mounts) to production storage.** Copying production data *onto* the VM's own disk is fine (isolated); live filesystem links are not.
 
-Copying production data *into* a test/QA environment is fine — once data is on the VM's own disk, it's fully isolated. The prohibition is against live filesystem links that let test environments read or write production storage directly.
-
-### What's allowed vs forbidden
-
-| Action | Allowed? | Why |
-|--------|----------|-----|
-| VM creates own fresh DB via `install.sh` | **Yes** | Fully isolated on VM disk |
-| `scp`/`rsync` production DB into VM | **Yes** | It's a copy — isolated on VM disk |
-| Copy production library into VM disk | **Yes** | Isolated copy, up to ~275GB is fine |
-| Mount host production paths via NFS/CIFS/virtiofs | **NEVER** | Live access to production filesystem |
-| Docker `-v` mount to host production paths | **NEVER** | Live access to production filesystem |
-
-### What each environment gets
+| Action | Allowed? |
+|--------|----------|
+| VM creates own fresh DB via `install.sh` | **Yes** |
+| `scp`/`rsync` production DB into VM | **Yes** (copy) |
+| Copy production library onto VM disk (up to ~275GB) | **Yes** |
+| Mount host production paths via NFS/CIFS/virtiofs | **NEVER** |
+| Docker `-v` mount to host production paths | **NEVER** |
 
 | Environment | Databases | Audiobook Library | Configuration |
 |-------------|-----------|-------------------|---------------|
 | **Production** (host) | `/var/lib/audiobooks/db/*.db` | `${AUDIOBOOKS_LIBRARY}` (full) | `/etc/audiobooks/` |
-| **Test VM** | Own DBs on VM disk (fresh or copied) | Own library on VM disk (<275GB) | Own config on VM disk |
-| **QA VM** | Own DBs on VM disk (fresh or copied) | Own library on VM disk (<275GB) | Own config on VM disk |
+| **Test VM** / **QA VM** | Own DBs on VM disk (fresh or copied) | Own library on VM disk (<275GB) | Own config on VM disk |
 | **Docker test** | Ephemeral in-container DB | Sample data via volume or none | Container env vars only |
 
 ### Prohibited actions
@@ -104,75 +76,35 @@ Copying production data *into* a test/QA environment is fine — once data is on
 
 ### Tests must not resolve production paths either
 
-The rule above is about mounts. This one is about *path resolution*, which bit harder.
+`library/tests/conftest.py` pins `COVER_DIR`, `AUDIOBOOKS_COVERS`, `AUDIOBOOKS_LIBRARY` and `AUDIOBOOKS_DATA` into a per-run temp tree **at module scope** (not a fixture — `library/config.py` resolves them at import time). Do not remove that block; do not add tests reading these from the ambient environment.
 
-`library/tests/conftest.py` pins `COVER_DIR`, `AUDIOBOOKS_COVERS`, `AUDIOBOOKS_LIBRARY` and `AUDIOBOOKS_DATA` into a
-per-run temp tree **at module scope** — not in a fixture, because `library/config.py` resolves those at import time and a
-fixture runs far too late. Do not remove that block, and do not add a test that reads these from the ambient environment.
-
-Why it matters: `import_to_db._cleanup_orphaned_covers()` **deletes** every file in `COVER_DIR` the database does not
-reference. With a temp test database that is every cover in the library. Running the suite from a directory where config
-fell back to production defaults attempted exactly that on 2026-08-27 and was stopped only by filesystem permissions —
-which would NOT have stopped it under this file's own documented `sudo -E -u audiobooks … pytest` invocation.
-
-Two guards now exist and both must stay: the conftest pin, and a refusal inside `_cleanup_orphaned_covers()` when a sweep
-would delete every file present (`Audiobook-Manager-d40`).
+Why: `import_to_db._cleanup_orphaned_covers()` **deletes** every file in `COVER_DIR` the DB does not reference — with a temp test DB, every cover. On 2026-08-27 a run with config fallen back to production defaults attempted exactly that, stopped only by filesystem permissions (which the `sudo -E -u audiobooks … pytest` invocation above would NOT have). Both guards must stay: the conftest pin, and the refusal in `_cleanup_orphaned_covers()` when a sweep would delete every file present (`Audiobook-Manager-d40`).
 
 ### Release leak prevention (COPYRIGHT/LICENSE CRITICAL)
 
-Production audiobook files are personally owned and licensed content. Accidentally including them in a release (GitHub, Docker registry, tarball) would expose private data and create copyright/trademark liability.
+Production audiobooks are personally owned licensed content; leaking them into a release (GitHub, Docker registry, tarball) exposes private data and creates copyright/trademark liability.
 
-**Mandatory safeguards:**
-
-- **Docker test containers**: Any production data copied into a test container MUST be cleaned up (container removed) during Phase 9c cleanup or Phase 11, BEFORE `/test` formally ends
-- **Docker test images**: NEVER build a Docker image with production data baked in via `COPY`. Use runtime `-v` mounts or `docker cp` for test data — these don't persist in the image
-- **Project working tree**: NEVER copy production data (audiobooks, databases, configs) into the project directory. If this happens accidentally, remove it BEFORE any commit or release operation
-- **Pre-release guard**: `/git-release` checks for production paths in release artifacts (see separation check in git-release skill). This is the last line of defense.
+- **Docker test containers**: production data copied in MUST be cleaned up (container removed) in Phase 9c cleanup or Phase 11, BEFORE `/test` ends
+- **Docker test images**: NEVER bake production data in via `COPY`; use runtime `-v` mounts or `docker cp`
+- **Project working tree**: NEVER copy production data (audiobooks, databases, configs) into the project; if it happens, remove it BEFORE any commit or release
+- **Pre-release guard**: `/git-release` separation check scans release artifacts for production paths — the last line of defense
 
 ## Browser for UI/E2E Testing
 
-**Use Brave browser for all UI and E2E testing.** If Brave is not installed on a test/QA VM, install it before running browser tests:
-
-```bash
-# CachyOS/Arch: install from chaotic-aur
-sudo pacman -S brave-bin --noconfirm
-```
-
-Brave is Chromium-based with full Opus/WebM codec support. Also ensure codec libraries are present: `sudo pacman -S opus libopus --noconfirm`.
-
-For Playwright, use the `chromium` channel pointing to the Brave binary or launch with `--ignore-https-errors` for self-signed cert environments.
+**Use Brave for all UI/E2E testing.** On a test/QA VM without it: `sudo pacman -S brave-bin --noconfirm` (chaotic-aur), plus codecs `sudo pacman -S opus libopus --noconfirm` (Brave is Chromium-based with full Opus/WebM support). Playwright: `chromium` channel pointed at the Brave binary, or launch with `--ignore-https-errors` for self-signed certs.
 
 ## Version-Gated Test Markers (v8 Separation)
 
-Tests for future major versions use version-gated markers that auto-skip based on the `VERSION` file:
+`@pytest.mark.v8` tests auto-skip when the `VERSION` major < 8 (`conftest.py::pytest_collection_modifyitems` reads `VERSION`; no CLI flag).
 
-```python
-@pytest.mark.v8
-def test_new_v8_feature():
-    """This test only runs when VERSION major >= 8."""
-    ...
-```
-
-**How it works:**
-
-- `conftest.py::pytest_collection_modifyitems` reads `VERSION`, extracts major version
-- Tests marked `@pytest.mark.v8` auto-skip when major < 8
-- No CLI flag needed — version detection is automatic
-
-**Rules for v8 test separation:**
-
-- v8 tests go in their own modules (e.g., `test_v8_feature_name.py`) OR use the `@pytest.mark.v8` marker on individual tests
-- v7 test modules carry forward into v8 unchanged — they test foundational behavior
-- Only mark tests as `v8` when they test features that DON'T EXIST in v7
-- If a v8 feature completely replaces a v7 feature, the v7 test stays (for v7 releases) and a new v8 test is written
-
-**Adding future versions:** To add `v9`, `v10`, etc., follow the same pattern — add marker to `pytest.ini`, register in `pytest_configure`, add gating block in `pytest_collection_modifyitems`.
+- v8 tests go in own modules (`test_v8_feature_name.py`) OR carry `@pytest.mark.v8`
+- v7 modules carry forward into v8 unchanged (foundational behavior)
+- Mark `v8` only for features that DON'T EXIST in v7; if v8 replaces a v7 feature, keep the v7 test and write a new v8 one
+- New versions (`v9`, `v10`): add marker to `pytest.ini`, register in `pytest_configure`, add gating block in `pytest_collection_modifyitems`
 
 ## Cross-Component Holistic Testing (Mandatory)
 
-**Every test — unit, integration, QA, or /test audit — must include cross-component verification.** This project has tightly coupled subsystems (API, web UI, scanner, converter, services, database, auth) where changes to one component frequently break another in non-obvious ways.
-
-**Cross-component checks required for all test types:**
+Every test — unit, integration, QA, or /test audit — must verify cross-component effects; subsystems (API, web UI, scanner, converter, services, database, auth) are tightly coupled.
 
 | Change Area | Must Also Verify |
 |-------------|-----------------|
@@ -184,43 +116,16 @@ def test_new_v8_feature():
 | Config changes | All services that read config, upgrade.sh, install.sh |
 | Systemd service changes | `audiobook.target` ordering, API/proxy startup, upgrade flow |
 
-**The question every test must answer**: "Did this change break something else I didn't know was related?"
-
 ## Verified Proof Required
 
-**No test is complete or successful without verified, verifiable proof.** Every test result MUST be backed by a proof artifact — command output, API response, HTTP status code, screenshot, or log excerpt — that demonstrates the claimed result.
+Global `verification.md` applies. Project proof forms: API → `curl` output with HTTP status + body; services → `systemctl status` showing `active (running)`; web UI → HTTP code + content or Playwright screenshot; tests → `pytest` pass/fail counts + coverage %; upgrade → version file before/after + service status after restart; DB → `PRAGMA integrity_check` output + expected row counts.
 
-| Claim | Required Proof |
-|-------|---------------|
-| "API works" | Actual `curl` output with HTTP status and response body |
-| "Services are running" | `systemctl status` output showing `active (running)` |
-| "Web UI loads" | HTTP response code + page content (or screenshot via Playwright) |
-| "Tests pass" | `pytest` output with pass/fail counts and coverage percentage |
-| "Upgrade succeeded" | Version file before and after, service status after restart |
-| "DB is consistent" | `PRAGMA integrity_check` output, row counts matching expectations |
-
-**"It should work" is not proof. "The code looks correct" is not proof. Only observable output is proof.**
-
-**FVP Protocol**: Every individual fix during a /test audit must emit a structured FVP proof block (Fix-Verify-Proof) with the exact command executed, before/after output, and collateral damage check. See the FVP Protocol in the /test skill for the mandatory format. A fix without a proof block is an incomplete fix.
+**FVP Protocol**: every fix in a /test audit emits an FVP (Fix-Verify-Proof) block — exact command, before/after output, collateral damage check — per the /test skill. A fix without one is incomplete.
 
 ## AI Self-Promotion Prohibition
 
-**All code, documentation, commits, templates, and metadata in this project must be free of AI-generated self-promotion, advertising, branding, and attribution.** This includes:
-
-- `Co-Authored-By:` lines referencing Claude, Anthropic, or any AI tool
-- "Generated with Claude Code", "Built with Claude", "Powered by Anthropic" — anywhere
-- Anthropic URLs (`claude.ai`, `anthropic.com`) injected as attribution
-- AI branding emojis or badges in documentation
-- "AI-assisted" or "AI-generated" attribution in any file
-
-The /test audit (Phase 5c + Phase 8) and QA modules (Step 6h) scan for and remove these automatically. Any new instance introduced by a code generation tool must be caught and removed before commit.
+Global `git-commits.md` applies to all code, docs, commits, templates and metadata here (also: no Anthropic URLs `claude.ai`/`anthropic.com` as attribution, no AI branding emojis/badges). /test (Phase 5c + Phase 8) and QA modules (Step 6h) scan and remove these; remove any new instance before commit.
 
 ## Testing & Validation Notes
 
-When running `/test`:
-
-1. **DO NOT** access production data from project code
-2. **DO NOT** create symlinks from application to project
-3. **DO** use test data in `./library/testdata/`
-4. **DO** verify application works independently if project is deleted
-5. **DO** use `./upgrade.sh` to update the application, never manual symlinks
+When running `/test`: **DO NOT** access production data from project code or create symlinks from application to project; **DO** use `./library/testdata/`, verify the application works independently if the project is deleted, and update the application only via `./upgrade.sh`, never manual symlinks.
