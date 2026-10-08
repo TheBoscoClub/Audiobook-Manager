@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- CI: ruff I001/F401 in `library/tests/test_cachebust_automation.py` (unused `os` import, unsorted block) that had failed Python Security & Quality since 2026-10-07.
+
 ## [8.7.1] - 2026-10-02
 
 ### Fixed

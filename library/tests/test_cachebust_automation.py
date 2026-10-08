@@ -17,9 +17,8 @@ These tests pin the automation contract:
 
 from __future__ import annotations
 
-import os
-import shutil
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
