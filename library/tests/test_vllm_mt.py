@@ -677,3 +677,9 @@ class TestHostileTargetLocaleBarrier:
         with patch.object(t._session, "post") as post, pytest.raises(TranslationUnavailableError):
             t.translate(["hi"], "x" * 200)
         post.assert_not_called()
+
+
+def test_translate_unhashable_locale_raises_unavailable_not_typeerror():
+    t = VLLMTranslator(endpoint="http://localhost:8000")
+    with pytest.raises(TranslationUnavailableError):
+        t.translate(["hi"], ["zh-Hans"])  # type: ignore[arg-type]

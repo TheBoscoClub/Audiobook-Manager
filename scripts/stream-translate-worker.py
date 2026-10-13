@@ -38,6 +38,7 @@ sys.path.insert(0, str(LIB_DIR))
 
 # TTS provider factory — imported at module top so tests can patch it
 # (lazy import would change the patch target and break test coverage).
+from common_utils.locale_safety import is_safe_locale  # noqa: E402
 from localization.tts.factory import get_tts_provider  # noqa: E402
 
 logging.basicConfig(
@@ -272,6 +273,35 @@ def get_db(db_path: str) -> sqlite3.Connection:
 MAX_SEGMENT_RETRIES = 3
 
 
+def claim_next_segment(db_path: str) -> dict | None:
+    """Claim the next pending segment, refusing any with a malformed locale.
+
+    Defense in depth (bd yyf): the locale reaches the STT/translation prompt
+    and filesystem paths. A row failing the locale allowlist is marked
+    ``failed`` with a fixed reason (value not echoed) and the next row is
+    claimed instead.
+    """
+    while True:
+        seg = _claim_next_segment_once(db_path)
+        if seg is None or is_safe_locale(seg["locale"]):
+            return seg
+        logger.warning(
+            "Refusing segment id=%s: malformed locale (len=%d)",
+            seg["id"],
+            len(str(seg["locale"])),
+        )
+        conn = get_db(db_path)
+        try:
+            conn.execute(
+                "UPDATE streaming_segments SET state = 'failed', error = ?, "
+                "worker_id = NULL WHERE id = ?",
+                ("invalid locale", seg["id"]),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
 def _unclaimable_pending_count(db_path: str) -> int:
     """Pending rows the claim query can never take (retry budget exhausted)."""
     try:
@@ -288,7 +318,7 @@ def _unclaimable_pending_count(db_path: str) -> int:
         return 0
 
 
-def claim_next_segment(db_path: str) -> dict | None:
+def _claim_next_segment_once(db_path: str) -> dict | None:
     """Atomically claim the next pending streaming segment.
 
     Prioritizes lower priority numbers using the 3-tier cursor-centric model:

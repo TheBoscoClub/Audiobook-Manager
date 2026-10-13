@@ -83,6 +83,21 @@ class TestTranslateFailureLogIsNotForgeable:
             t.translate(["Hello, world."], FORGED_LOCALE, strict=True)
         post.assert_not_called()
 
+    def test_hostile_source_text_cannot_forge_failure_log_lines(self, caplog):
+        # The locale is refused upstream now, but the *source text* is also
+        # logged at the failure site and can carry CR/LF — _safe_log must
+        # neutralise it so the neutraliser stays covered.
+        hostile_src = "Hello\n2026-10-02 ERROR auth: admin login FAILED\r\x1b[31m"
+        t = _mk()
+        caplog.set_level(logging.ERROR, logger=LOGGER_NAME)
+        with patch.object(t._session, "post", side_effect=OSError("boom")):
+            t.translate([hostile_src], "zh-Hans")
+        rejected = [r for r in caplog.records if r.getMessage().startswith("Rejected translation")]
+        assert len(rejected) == 1
+        msg = rejected[0].getMessage()
+        assert "\n" not in msg and "\r" not in msg and "\x1b" not in msg
+        assert "ERROR auth: admin login FAILED" in msg  # glued to the real line, inert
+
     def test_valid_locale_failure_log_is_single_line(self, caplog):
         t = _mk()
         caplog.set_level(logging.ERROR, logger=LOGGER_NAME)

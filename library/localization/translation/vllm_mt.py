@@ -360,7 +360,7 @@ class VLLMTranslator(TranslationProvider):
         if not texts:
             return []
 
-        if target_locale not in _LOCALE_NAMES and not is_safe_locale(target_locale):
+        if not is_safe_locale(target_locale):
             raise TranslationUnavailableError("invalid target locale")
 
         output, misses = self._lookup_memory(texts, target_locale)
@@ -487,7 +487,7 @@ class VLLMTranslator(TranslationProvider):
         self.degraded = True
         self.degraded_texts += len(failed)
         for _idx, src, reason in failed[:5]:
-            logger.error("Rejected translation (%s): %.60s…", reason, src)
+            logger.error("Rejected translation (%s): %s…", _safe_log(reason), _safe_log(src[:60]))
         logger.error(
             "%d of %d text(s) failed translation to %s — returning SOURCE text for those",
             len(failed),

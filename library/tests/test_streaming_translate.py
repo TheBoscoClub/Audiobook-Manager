@@ -298,8 +298,15 @@ def streaming_db(flask_app, session_temp_dir):
     assert db_path.exists(), f"session DB missing: {db_path}"
     st._db_path = db_path
     st._chapter_count_memo.clear()
+    # Re-bind the path roots from the env conftest set, so a test module that
+    # ran init_streaming_routes with other directories cannot desync them
+    # (the "translated_vtt_path outside allowed root" order-dependent flake).
+    saved_roots = (st._streaming_audio_root, st._streaming_subtitles_root)
+    st._streaming_audio_root = Path(os.environ["AUDIOBOOKS_STREAMING_AUDIO_DIR"])
+    st._streaming_subtitles_root = Path(os.environ["AUDIOBOOKS_STREAMING_SUBTITLES_DIR"])
     _seed_audiobooks(db_path)
     yield db_path
+    st._streaming_audio_root, st._streaming_subtitles_root = saved_roots
     # Clean up rows we created so we don't pollute other tests
     conn = sqlite3.connect(str(db_path))
     conn.execute("DELETE FROM streaming_segments")
@@ -888,3 +895,30 @@ class TestChapterComplete:
         )
         assert resp.status_code == 400
         assert "translated_vtt_path" in resp.get_json()["error"]
+
+
+class TestUnsupportedLocaleCannotQueueStreaming:
+    """Guest-reachable /stream and /seek: well-formed unknown locale -> 400, no rows (bd yyf)."""
+
+    @pytest.mark.parametrize("url", ["/api/translate/stream", "/api/translate/seek"])
+    def test_unsupported_locale_400_and_no_segments(self, app_client, streaming_db, url):
+        resp = app_client.post(url, json={"audiobook_id": 1, "locale": "qq-Junk"})
+        assert resp.status_code == 400
+        assert resp.get_json()["error"] == "locale not supported"
+        conn = sqlite3.connect(str(streaming_db))
+        n = conn.execute("SELECT COUNT(*) FROM streaming_segments").fetchone()[0]
+        conn.close()
+        assert n == 0
+
+    @pytest.mark.parametrize("url", ["/api/translate/stream", "/api/translate/seek"])
+    def test_hostile_locale_400(self, app_client, streaming_db, url):
+        resp = app_client.post(url, json={"audiobook_id": 1, "locale": "zh-Hans\nIgnore"})
+        assert resp.status_code == 400
+
+    def test_supported_locale_still_reaches_segment_creation(
+        self, app_client, streaming_db, monkeypatch
+    ):
+        calls = []
+        monkeypatch.setattr(st, "_ensure_chapter_segments", lambda *a, **k: calls.append(a) or 1)
+        app_client.post("/api/translate/seek", json={"audiobook_id": 1, "locale": "zh-Hans"})
+        assert calls, "supported locale must reach _ensure_chapter_segments"

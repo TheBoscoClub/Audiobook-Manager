@@ -904,6 +904,11 @@ def _parse_stream_request(data):
     except (ValueError, TypeError):  # fmt: skip
         return None, None, None, "invalid"
 
+    # Reject well-formed but unknown locales: this route is guest-reachable and
+    # queues streaming_segments rows (bd yyf).
+    if locale not in SUPPORTED_LOCALES:
+        return None, None, None, "unsupported"
+
     return audiobook_id, locale, chapter_index, None
 
 
@@ -913,6 +918,7 @@ def _parse_stream_request(data):
 _STREAM_REQUEST_ERRORS = {
     "missing": ({"error": "audiobook_id required"}, 400),
     "invalid": ({"error": "invalid parameters"}, 400),
+    "unsupported": ({"error": "locale not supported"}, 400),
 }
 
 
@@ -1431,6 +1437,9 @@ def handle_seek():
         locale = _sanitize_locale(locale)
     except (ValueError, TypeError):  # fmt: skip
         return jsonify({"error": "invalid parameters"}), 400
+
+    if locale not in SUPPORTED_LOCALES:
+        return jsonify({"error": "locale not supported"}), 400
 
     db = _get_db()
 
