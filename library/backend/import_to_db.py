@@ -4,6 +4,10 @@ Import audiobooks from JSON into SQLite database
 Builds indices for fast querying
 """
 
+# Mutation scope (Audiobook-Manager-6y9): only _cleanup_orphaned_covers — the
+# unrecoverable-delete guard — is mutation-tested in this module. The rest of
+# the file is excluded with the pragma blocks below until it has dedicated tests.
+# pragma: no mutate start
 import json
 import logging
 import sqlite3
@@ -46,6 +50,9 @@ def create_database():
 
     print("✓ Database schema created")
     return conn
+
+
+# pragma: no mutate end
 
 
 def _cleanup_orphaned_covers(cursor):
@@ -98,6 +105,9 @@ def _cleanup_orphaned_covers(cursor):
 
     mb = total_bytes / (1024 * 1024)
     print(f"\n✓ Cleaned up {len(orphans)} orphaned cover files ({mb:.1f} MB)")
+
+
+# pragma: no mutate start
 
 
 def _split_sort_name(sort_name):
@@ -714,3 +724,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# pragma: no mutate end

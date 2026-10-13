@@ -260,6 +260,65 @@ class TestCleanupOrphanedCovers:
         assert (cover_dir / "real2.jpg").exists()
         conn.close()
 
+    def test_no_orphans_message_is_exact(self, tmp_path, capsys):
+        """The all-referenced path prints exactly one line, nothing else."""
+        from backend import import_to_db
+
+        cover_dir = tmp_path / "covers"
+        cover_dir.mkdir()
+        (cover_dir / "book1_cover.jpg").write_bytes(b"\xff" * 10)
+        conn = _create_db_with_schema(tmp_path / "test.db")
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO audiobooks (title, file_path, cover_path)"
+            " VALUES ('Book', '/lib/b.opus', 'book1_cover.jpg')"
+        )
+        conn.commit()
+
+        with patch.object(import_to_db, "COVER_DIR", cover_dir):
+            import_to_db._cleanup_orphaned_covers(cursor)
+
+        assert capsys.readouterr().out == "\n\u2713 No orphaned cover files\n"
+        conn.close()
+
+    @pytest.mark.parametrize(
+        ("orphan_sizes", "expected_mb"),
+        [
+            # Two orphans: the total is the SUM (not the last, not a difference)
+            # and the divisor is exactly 1024*1024 — 1101110 B = 1.0501 MiB
+            # rounds to 1.1, but a 1025*1024 divisor yields 1.0.
+            ((1048576, 52534), "1.1"),
+            # 1.25 MiB is an exact rounding tie (-> 1.2); one stray byte of
+            # initial total would tip it to 1.3.
+            ((1048576, 262144), "1.2"),
+        ],
+    )
+    def test_reported_size_is_exact(self, tmp_path, capsys, orphan_sizes, expected_mb):
+        """Freed-space report: summed bytes over 1024*1024, one decimal."""
+        from backend import import_to_db
+
+        cover_dir = tmp_path / "covers"
+        cover_dir.mkdir()
+        (cover_dir / "keep.jpg").write_bytes(b"\xff" * 10)
+        for i, size in enumerate(orphan_sizes):
+            (cover_dir / f"orphan{i}.jpg").write_bytes(b"\x00" * size)
+        conn = _create_db_with_schema(tmp_path / "test.db")
+        cursor = conn.cursor()
+        cursor.execute(
+            "INSERT INTO audiobooks (title, file_path, cover_path)"
+            " VALUES ('Book', '/lib/b.opus', 'keep.jpg')"
+        )
+        conn.commit()
+
+        with patch.object(import_to_db, "COVER_DIR", cover_dir):
+            import_to_db._cleanup_orphaned_covers(cursor)
+
+        assert capsys.readouterr().out == (
+            f"\n\u2713 Cleaned up {len(orphan_sizes)} orphaned cover files ({expected_mb} MB)\n"
+        )
+        assert (cover_dir / "keep.jpg").exists()
+        conn.close()
+
 
 # =====================================================================
 # Junction table rebuild (_populate_names_and_junctions)

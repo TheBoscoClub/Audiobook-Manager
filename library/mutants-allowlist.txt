@@ -3,55 +3,28 @@
 # Format:  <mutant name>   # reason
 #
 # scripts/mutation-gate.py fails CI on any survivor NOT listed here. This file
-# is the only place a live mutant can be tolerated.
+# is the only place a live mutant can be tolerated, and every entry below is a
+# GENUINE EQUIVALENT: a mutant whose behaviour is identical to the original on
+# every input, so no test can tell them apart. A killable survivor does not
+# belong here — write the test.
 #
-# ─────────────────────────────────────────────────────────────────────────────
-# BASELINE, NOT APPROVAL. Refreshed 2026-08-28 over three modules —
-#   778 mutants · 529 killed · 249 survived · 0 uncovered
+# Scope (library/setup.cfg): localization/translation/memory.py,
+# common_utils/mail_identity.py, and backend/import_to_db.py — the last only for
+# _cleanup_orphaned_covers (the rest of that file is excluded by
+# `# pragma: no mutate` blocks until it has dedicated tests).
 #
-# The property this buys immediately: a NEW survivor turns CI red. The listed
-# debt stays counted and visible instead of hidden behind a percentage.
-#
-# Progress this session (guards added during the 2026-08-27 cycle):
-#   resolve_sender                    25 -> 16
-#   _invalidate_glossary              13 ->  6
-#   _merge_translations_into_output   14 ->  7
-# Every test that closed those gaps was derived from a specific surviving
-# mutant, not from a fresh reading of the code.
-#
-# What remains, by kind:
-#   * message/log text — mutmut wraps string literals in XX…XX and flips their
-#     case. Killing these requires asserting messages verbatim, which breaks on
-#     any rewording for no behavioural gain. The operator-actionable content of
-#     each refusal IS asserted (the variable name, the mechanism, the fix).
-#   * equivalent mutants — e.g. rsplit("@") without maxsplit, and
-#     row["LAST_API_CHECK"] (sqlite3.Row lookup is case-insensitive). No test
-#     can distinguish these; they are unkillable by construction.
-#     _tm_lookup, __init__, snapshot, refresh_from_api, record_usage, set_limit.
-#     This is the bulk of the list and the next block of work.
-#
-# Do not add to this file to make a build pass. Shrink it. Tracked in
-# Audiobook-Manager-6y9.
+# Refreshed 2026-10-13 (Audiobook-Manager-6y9). Do not add to this file to make
+# a build pass. Shrink it.
 # ─────────────────────────────────────────────────────────────────────────────
 #
-common_utils.mail_identity.x_resolve_sender__mutmut_6   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_9   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_11   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_12   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_13   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_14   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_16   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_23   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_27   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_28   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_36   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_37   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_39   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_40   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_41   # baseline 2026-08-28
-common_utils.mail_identity.x_resolve_sender__mutmut_42   # baseline 2026-08-28
-# ── memory.py equivalents (2026-09-11, Audiobook-Manager-4uj) — each mutant is
-# functionally identical to the original; no test can distinguish them:
+# ── mail_identity.resolve_sender: the domain test is rsplit("@", 1)[-1] ──
+common_utils.mail_identity.x_resolve_sender__mutmut_23   # rsplit("@") — default maxsplit is -1 (split all); the last piece is the same
+common_utils.mail_identity.x_resolve_sender__mutmut_27   # rsplit("@", 2) — any maxsplit >= 1 leaves the same final piece
+common_utils.mail_identity.x_resolve_sender__mutmut_28   # [+1] for [-1] — "@" in sender is guaranteed above, so the split is always exactly 2 elements and [1] is [-1]
+# ── import_to_db._cleanup_orphaned_covers ──
+backend.import_to_db.x__cleanup_orphaned_covers__mutmut_4   # lowercased SQL keywords — SQLite keywords are case-insensitive
+backend.import_to_db.x__cleanup_orphaned_covers__mutmut_5   # uppercased SQL identifiers — SQLite table/column names are case-insensitive
+# ── memory.py (Audiobook-Manager-4uj) ──
 localization.translation.memory.x_hash_source__mutmut_4   # encode("UTF-8") — codec names are case-insensitive
 localization.translation.memory.x_prune_translation_memory__mutmut_15   # lowercased SQL — SQLite keywords are case-insensitive
 localization.translation.memory.x_prune_translation_memory__mutmut_16   # uppercased SQL — same

@@ -45,6 +45,28 @@ class TestResolveSender:
         with pytest.raises(SenderIdentityError):
             resolve_sender(value)
 
+    def test_unset_refusal_message_is_the_operator_contract(self):
+        """Pin the unset-sender refusal verbatim: it explains the silent bounce."""
+        with pytest.raises(SenderIdentityError) as exc:
+            resolve_sender(None)
+        assert str(exc.value) == (
+            "SMTP_FROM is not set. Refusing to send: the relay selects its "
+            "upstream credential by envelope sender, so an unset sender is "
+            "rejected upstream at MAIL FROM after local submission already "
+            "returned 250 OK (a silent hard bounce)."
+        )
+
+    def test_localhost_refusal_message_is_the_operator_contract(self):
+        """Pin the localhost refusal verbatim: it names the fix."""
+        with pytest.raises(SenderIdentityError) as exc:
+            resolve_sender("noreply@localhost")
+        assert str(exc.value) == (
+            "SMTP_FROM='noreply@localhost' points at localhost, which the relay "
+            "has no sender mapping for. Refusing to send rather than hard-bouncing "
+            "under an unmapped identity. Set SMTP_FROM to an address the relay "
+            "is authorised to send as."
+        )
+
     def test_refusal_names_the_variable_so_the_operator_can_act(self):
         with pytest.raises(SenderIdentityError, match="SMTP_FROM"):
             resolve_sender(None)
