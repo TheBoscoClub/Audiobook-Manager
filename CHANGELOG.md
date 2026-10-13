@@ -43,6 +43,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `NO_BROWSER` is set or there is no display, and docs, setup messages and the UI hint (new `library.js.runHint` key in
   `en` and `zh-Hans`) point at it (Audiobook-Manager-njt)
 
+- **Dependency sync runs `pip install --upgrade` before any file is copied**: `upgrade.sh` syncs the venv against
+  the project's `requirements.txt` ahead of the code, VERSION and migrations, so raised `>=` floors (CVE fixes) now move
+  an existing venv — a failure restores the previous package set and aborts with the old install untouched, an
+  interrupted rebuild is recovered from `venv.pre-upgrade` (completion marker), requirements and the rollback freeze
+  reach the venv owner as a staged world-readable file (works under `sudo -u audiobooks` and from a private
+  `--from-github` dir), the sorted freeze is recorded at `library/.installed-requirements.txt`, and each deploy prints
+  the added/removed/changed packages against the venv as it stood before the sync. Proven on the dev VM over real
+  `sudo`: 8.4.3.7 → 8.7.1, `urllib3` 2.7.0 → 2.8.0 shown as `~ urllib3 2.7.0 -> 2.8.0`, and a bogus requirement
+  aborted with an identical package fingerprint restored (Audiobook-Manager-gwq). The first web-UI upgrade after this
+  release still runs the previously installed `upgrade.sh`; the new ordering applies from the next one
+- **Same service set stopped by CLI and web upgrades**: `AUDIOBOOK_STOP_ORDER` now includes `audiobook-scheduler`,
+  `audiobook-stream-translate` and the translation-monitor timers, and matches the helper's list (test-enforced), so
+  pip never rewrites the venv under a live Python service
+
 ### Removed
 
 - **Dead launchers**: root `launch.sh` (ran the nonexistent `api.py`) and `library/launch.sh` (served the removed
@@ -50,6 +64,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Obsolete install-root files purged**: `OBSOLETE_ROOT_PATHS` in `scripts/install-manifest.sh` lists the stale
+  root scripts, caches, screenshots and the dev-only `scripts/purge-users.sh` — the reconciler removes them only from a
+  real install (never a git checkout, the project tree, `/`, or through a symlinked parent; parent re-checked before each
+  removal) and `library/certs` is deliberately kept (Audiobook-Manager-soo)
+- **Caddy status mirror and directory**: `upgrade-status.json` is removed on every exit path of
+  `upgrade-helper-process` (immediately on failure, no-op and signal; after a 5 s grace only on success) — a stale
+  "complete" file from a no-op check had lingered since May; `AUDIOBOOKS_CADDY_DIR` (environment, installed config,
+  then `/etc/caddy`) feeds `__CADDY_DIR__` in `caddy/audiobooks.conf`, and `unavailable.html` is installed beside
+  `maintenance.html`
+- **TLS key mode in the Docker entrypoint**: `docker-entrypoint.sh` now creates `server.key` as `600`
 - **Pre-commit hardcoded-path guard**: `scripts/hooks/pre-commit` iterates `FORBIDDEN_PATTERNS` over every staged file
   and refuses newly added `/srv/audiobooks`, `/var/lib/audiobooks` and `/run/audiobooks` literals, naming the
   `lib/audiobook-config.sh` variable to use — only added lines are judged (renames, type changes and `++` lines
