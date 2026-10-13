@@ -919,6 +919,11 @@ class TestUnsupportedLocaleCannotQueueStreaming:
         self, app_client, streaming_db, monkeypatch
     ):
         calls = []
-        monkeypatch.setattr(st, "_ensure_chapter_segments", lambda *a, **k: calls.append(a) or 1)
+
+        def _record(*a, **k):
+            calls.append(a)
+            return 1
+
+        monkeypatch.setattr(st, "_ensure_chapter_segments", _record)
         app_client.post("/api/translate/seek", json={"audiobook_id": 1, "locale": "zh-Hans"})
         assert calls, "supported locale must reach _ensure_chapter_segments"

@@ -73,6 +73,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`Python Security & Quality` CI red since 2026-10-12**: newer tool releases, not new code — `b493061` passed 2026-10-08 and failed 2026-10-12 unchanged
+  - `ruff format` 0.17.0 wraps the over-long `_dup_sql` f-string in `library/backend/api_modular/duplicates.py` (formatting only; `nosec`/`nosemgrep` markers kept)
+  - mypy: `importlib` spec narrowing in `test_translation_two_stage.py`, a named recorder replacing `append(a) or 1` in `test_streaming_translate.py`, an asserted regex match in `test_gpu_node_deadman.py`, `driver: webdriver.Remote` in `test_player_navigation_persistence.py` — 12 errors to 0
 - **Obsolete install-root files purged**: `OBSOLETE_ROOT_PATHS` in `scripts/install-manifest.sh` lists the stale
   root scripts, caches, screenshots and the dev-only `scripts/purge-users.sh` — the reconciler removes them only from a
   real install (never a git checkout, the project tree, `/`, or through a symlinked parent; parent re-checked before each

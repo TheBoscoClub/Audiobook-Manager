@@ -464,6 +464,7 @@ def selenium_driver():
     # Don't use headless for audio testing
     # options.add_argument("--headless")
 
+    driver: webdriver.Remote
     try:
         driver = webdriver.Chrome(options=options)
     except Exception:

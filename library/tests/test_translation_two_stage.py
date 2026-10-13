@@ -32,6 +32,7 @@ REPO = Path(__file__).resolve().parents[2]
 _spec = importlib.util.spec_from_file_location(
     "batch_translate_2s", REPO / "scripts" / "batch-translate.py"
 )
+assert _spec is not None and _spec.loader is not None
 bt = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(bt)
 
@@ -495,6 +496,7 @@ def test_release_stale_claims(batch_db):
 
 def test_verify_fix_redoes_only_broken_chapters(batch_db, tmp_path):
     spec = importlib.util.spec_from_file_location("vt", REPO / "scripts" / "verify-translations.py")
+    assert spec is not None and spec.loader is not None
     vt = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(vt)
     good = tmp_path / "good.vtt"
@@ -547,6 +549,7 @@ def test_verify_fix_on_a_passing_book_changes_nothing(batch_db, tmp_path):
     spec = importlib.util.spec_from_file_location(
         "vt2", REPO / "scripts" / "verify-translations.py"
     )
+    assert spec is not None and spec.loader is not None
     vt = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(vt)
     good = tmp_path / "good.vtt"

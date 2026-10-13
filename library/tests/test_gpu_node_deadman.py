@@ -52,7 +52,9 @@ def test_onstart_without_a_lifetime_has_no_switch(tmp_path: Path, value):
 
 def _dead_man(tmp_path: Path) -> Path:
     script = onstart(tmp_path, "5")
-    body = re.search(r"<<'DEADMAN'\n(.*?)\nDEADMAN\n", script, re.S).group(1)
+    match = re.search(r"<<'DEADMAN'\n(.*?)\nDEADMAN\n", script, re.S)
+    assert match is not None, "onstart script has no DEADMAN heredoc"
+    body = match.group(1)
     ws = tmp_path / "ws"
     ws.mkdir()
     path = ws / "dead-man.sh"
