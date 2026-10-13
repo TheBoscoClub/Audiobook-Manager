@@ -455,11 +455,19 @@ class TestInstalledConfigSkip:
     """AUDIOBOOKS_SKIP_SYSTEM_CONFIG (set by launch-v2.sh) bypasses installed config."""
 
     @staticmethod
-    def _resolved_var_dir(tmp_path, skip):
+    def _run(tmp_path, skip, with_config_env):
+        """Import a copy of config.py inside a throwaway project tree."""
         import os
+        import shutil
         import subprocess
         import sys
 
+        project = tmp_path / "proj"
+        (project / "library").mkdir(parents=True)
+        (project / "lib").mkdir()
+        shutil.copy(Path(__file__).resolve().parent.parent / "config.py", project / "library")
+        if with_config_env:
+            (project / "config.env").write_text("DEV_MARKER=from-config-env\n")
         conf_dir = tmp_path / ".config" / "audiobooks"
         conf_dir.mkdir(parents=True)
         (conf_dir / "audiobooks.conf").write_text("AUDIOBOOKS_VAR_DIR=/marker/from-user-conf\n")
@@ -467,21 +475,34 @@ class TestInstalledConfigSkip:
         env["HOME"] = str(tmp_path)
         if skip:
             env["AUDIOBOOKS_SKIP_SYSTEM_CONFIG"] = "1"
-        code = "import config; print(config.get_config('AUDIOBOOKS_VAR_DIR', 'UNSET'))"
-        out = subprocess.run(  # noqa: S603  # nosec B603 - fixed argv, test-only
+        code = (
+            "import config; "
+            "print(config.get_config('AUDIOBOOKS_VAR_DIR', 'UNSET'), "
+            "config.get_config('DEV_MARKER', 'UNSET'))"
+        )
+        return subprocess.run(  # noqa: S603  # nosec B603 - fixed argv, test-only
             [sys.executable, "-c", code],
-            cwd=Path(__file__).resolve().parent.parent,
+            cwd=project / "library",
             env=env,
             capture_output=True,
             text=True,
-            check=True,
         )
-        return out.stdout.strip()
 
     def test_user_config_still_read_without_flag(self, tmp_path):
-        """Production behaviour unchanged: user config is read when the flag is absent."""
-        assert self._resolved_var_dir(tmp_path, skip=False) == "/marker/from-user-conf"
+        """Production behaviour unchanged: user config is read, no config.env needed."""
+        out = self._run(tmp_path, skip=False, with_config_env=False)
+        assert out.returncode == 0, out.stderr
+        assert out.stdout.split() == ["/marker/from-user-conf", "UNSET"]
 
     def test_installed_config_ignored_with_flag(self, tmp_path):
-        """Dev launch: the user/system config is never read."""
-        assert self._resolved_var_dir(tmp_path, skip=True) != "/marker/from-user-conf"
+        """Dev launch with config.env: installed config ignored, config.env loads."""
+        out = self._run(tmp_path, skip=True, with_config_env=True)
+        assert out.returncode == 0, out.stderr
+        assert out.stdout.split() == ["UNSET", "from-config-env"]
+
+    def test_flag_without_config_env_raises(self, tmp_path):
+        """A stray flag without config.env must refuse, not fall back to prod defaults."""
+        out = self._run(tmp_path, skip=True, with_config_env=False)
+        assert out.returncode != 0
+        assert "RuntimeError" in out.stderr
+        assert "config.env" in out.stderr

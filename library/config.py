@@ -95,6 +95,14 @@ if not _skip_installed_config:
 
 # 3. Legacy config.env (backwards compatibility)
 _project_root = _find_project_root()
+if _skip_installed_config and not (_project_root and (_project_root / "config.env").is_file()):
+    # A dev launch always has a project config.env. Without one, skipping the
+    # installed config would silently fall back to production code defaults.
+    raise RuntimeError(
+        "AUDIOBOOKS_SKIP_SYSTEM_CONFIG is set but no project config.env was found "
+        "(copy config.env.example to config.env); refusing to fall back to "
+        "production defaults"
+    )
 if _project_root:
     _config.update(_load_config_file(_project_root / "config.env"))
 

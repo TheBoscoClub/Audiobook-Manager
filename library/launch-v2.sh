@@ -62,34 +62,50 @@ fi
 # Sweep EVERY exported path-like variable (not a fixed list): resolve it
 # (relative -> project root, symlinks, //, ../) BEFORE judging it, and refuse
 # anything inside an installed-application tree. Path-like = a *_DIR, *_PATH,
-# *_HOME, ... name, or an AUDIOBOOKS_* value that looks like a path. Colon
-# lists (PYTHONPATH) and URLs are not single paths and are skipped.
-PATHLIKE_NAME='^(AUDIOBOOKS_.*|.*_DIR|.*_PATH|.*_HOME|AUTH_DATABASE)$'
-PATHLIKE_ALWAYS='(_DIR|_PATH|_HOME|DATABASE|LIBRARY|SOURCES|COVERS|LOGS|CERTS|VENV|CONVERTER|STAGING|CACHE|SUPPLEMENTS)$'
+# *_HOME, *_ROOT, *_FILE, ... name, or an AUDIOBOOKS_* value that looks like a
+# path. Colon lists (PYTHONPATH style) are split and every element judged;
+# URLs (contain "://") and boolean-looking values are skipped.
+# Installed-application trees a dev launch must never touch
+installed_app=audiobooks
+installed_trees=(/var/lib/$installed_app /srv/$installed_app /opt/$installed_app /etc/$installed_app)
+PATHLIKE_NAME='^(AUDIOBOOKS_.*|.*_DIR|.*_PATH|.*_HOME|.*_ROOT|.*_FILE|AUTH_DATABASE)$'
+PATHLIKE_ALWAYS='(_DIR|_PATH|_HOME|_ROOT|_FILE|DATABASE|LIBRARY|SOURCES|COVERS|LOGS|CERTS|VENV|CONVERTER|STAGING|SUPPLEMENTS)$'
 while IFS= read -r var; do
     [[ "$var" =~ $PATHLIKE_NAME ]] || continue
     raw="${!var:-}"
     [ -n "$raw" ] || continue
-    case "$raw" in *://* | *:*) continue ;; esac
-    if ! [[ "$var" =~ $PATHLIKE_ALWAYS ]]; then
-        case "$raw" in /* | ./* | ../*) ;; *) continue ;; esac
-    fi
-    case "$raw" in
-        /*) ;;
-        *) raw="$PROJECT_ROOT/$raw" ;;
-    esac
-    real="$(realpath -m -- "$raw")"
-    case "$real" in
-        /var/lib/audiobooks | /var/lib/audiobooks/* | \
-            /srv/audiobooks | /srv/audiobooks/* | \
-            /opt/audiobooks | /opt/audiobooks/* | \
-            /etc/audiobooks | /etc/audiobooks/*)
-            echo -e "${RED}Error: $var ($real) is an installed-application path.${NC}"
-            echo "  This launcher is for the project working tree; use dev paths."
-            exit 1
-            ;;
-    esac
-    export "$var=$real"
+    case "$raw" in *://*) continue ;; esac
+    case "${raw,,}" in true | false | on | off | yes | no | 0 | 1) continue ;; esac
+    IFS=':' read -r -a elements <<<"$raw"
+    resolved=()
+    for elem in "${elements[@]}"; do
+        if [ -z "$elem" ]; then
+            resolved+=("$elem")
+            continue
+        fi
+        if ! [[ "$var" =~ $PATHLIKE_ALWAYS ]]; then
+            case "$elem" in /* | ./* | ../*) ;; *)
+                resolved+=("$elem")
+                continue
+                ;;
+            esac
+        fi
+        case "$elem" in
+            /*) ;;
+            *) elem="$PROJECT_ROOT/$elem" ;;
+        esac
+        real="$(realpath -m -- "$elem")"
+        for tree in "${installed_trees[@]}"; do
+            if [[ "$real" == "$tree" || "$real" == "$tree"/* ]]; then
+                echo -e "${RED}Error: $var ($real) is an installed-application path.${NC}"
+                echo "  This launcher is for the project working tree; use dev paths."
+                exit 1
+            fi
+        done
+        resolved+=("$real")
+    done
+    joined="$(IFS=':'; echo "${resolved[*]}")"
+    export "$var=$joined"
 done < <(compgen -e)
 
 # Dev state directories named by the config (gitignored) must exist
