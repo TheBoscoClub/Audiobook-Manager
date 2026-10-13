@@ -783,6 +783,30 @@ class TestConfigFilePermissions:
         for b in baks:
             assert (b.stat().st_mode & 0o777) == 0o640, b
 
+    def test_preexisting_world_readable_backups_are_tightened(self, tmp_path):
+        """A backup made by an earlier build keeps the original's 644 forever otherwise."""
+        (tmp_path / "config").mkdir()
+        conf = tmp_path / "config" / "audiobooks.conf"
+        conf.write_text("SMTP_PASS=x\n")
+        conf.chmod(0o640)
+        old = [
+            conf.parent / "audiobooks.conf.bak-expand-20261013-141405",
+            conf.parent / "audiobooks.conf.bak-reconcile",
+            conf.parent / "audiobooks.conf.orig",
+        ]
+        example = conf.parent / "audiobooks.conf.example"
+        for f in (*old, example):
+            f.write_text("copy\n")
+            f.chmod(0o644)
+        report = _run_perm_reconciler(tmp_path, "report")
+        assert report.stdout.count("config backup mode drift") == 3
+        assert all(oct(f.stat().st_mode & 0o777) == "0o644" for f in old)  # report: untouched
+        _run_perm_reconciler(tmp_path, "enforce")
+        assert all(oct(f.stat().st_mode & 0o777) == "0o640" for f in old)
+        assert oct(example.stat().st_mode & 0o777) == "0o644"  # never touched
+        again = _run_perm_reconciler(tmp_path, "enforce")
+        assert "config backup mode drift" not in again.stdout
+
     def test_install_sh_creates_the_config_private_before_writing(self):
         text = INSTALL_SH.read_text()
         sys_i = text.index(

@@ -246,24 +246,41 @@ _conf_backup() {
     $USE_SUDO chmod "$_WANT_MODE" "$_BAK"
 }
 
-_reconcile_config_perms() {
-    $USE_SUDO test -f "$CONF_FILE" || return 0
-    _conf_want
-    local cur_owner cur_mode
-    cur_owner="$($USE_SUDO stat -c '%U:%G' -- "$CONF_FILE" 2>/dev/null || true)"
-    cur_mode="$($USE_SUDO stat -c '%a' -- "$CONF_FILE" 2>/dev/null || true)"
+# Check one file against _WANT_OWNER/_WANT_MODE; fix it in enforce mode.
+_perm_check_one() {
+    local path="$1" label="$2" cur_owner cur_mode
+    cur_owner="$($USE_SUDO stat -c '%U:%G' -- "$path" 2>/dev/null || true)"
+    cur_mode="$($USE_SUDO stat -c '%a' -- "$path" 2>/dev/null || true)"
     if [[ "$cur_owner" != "$_WANT_OWNER" ]]; then
-        _issue "config file owner drift: ${CONF_FILE} (want ${_WANT_OWNER}, got ${cur_owner})"
+        _issue "${label} owner drift: ${path} (want ${_WANT_OWNER}, got ${cur_owner})"
         if _should_act; then
-            $USE_SUDO chown "$_WANT_OWNER" "$CONF_FILE" && _fix "chown ${_WANT_OWNER} ${CONF_FILE}"
+            $USE_SUDO chown "$_WANT_OWNER" "$path" && _fix "chown ${_WANT_OWNER} ${path}"
         fi
     fi
     if [[ -z "$cur_mode" || "$(_norm_mode "$cur_mode")" != "$(_norm_mode "$_WANT_MODE")" ]]; then
-        _issue "config file mode drift: ${CONF_FILE} (want ${_WANT_MODE}, got ${cur_mode}) -- it may hold inline credentials"
+        _issue "${label} mode drift: ${path} (want ${_WANT_MODE}, got ${cur_mode}) -- it may hold inline credentials"
         if _should_act; then
-            $USE_SUDO chmod "$_WANT_MODE" "$CONF_FILE" && _fix "chmod ${_WANT_MODE} ${CONF_FILE}"
+            $USE_SUDO chmod "$_WANT_MODE" "$path" && _fix "chmod ${_WANT_MODE} ${path}"
         fi
     fi
+}
+
+_reconcile_config_perms() {
+    $USE_SUDO test -f "$CONF_FILE" || return 0
+    _conf_want
+    _perm_check_one "$CONF_FILE" "config file"
+
+    # Backups of the config are full copies, credentials included. Builds before
+    # _conf_backup made them with the original's (possibly world-readable) mode.
+    # The codebase has only ever created .bak-expand-* and .bak-reconcile; the
+    # wider .bak* / .orig / .backup patterns catch hand-made copies. The .example
+    # file is not a backup and is never matched. Regular files only (no symlinks).
+    local dir base f
+    dir="$(dirname -- "$CONF_FILE")"
+    base="$(basename -- "$CONF_FILE")"
+    while IFS= read -r -d '' f; do
+        _perm_check_one "$f" "config backup"
+    done < <($USE_SUDO find "$dir" -maxdepth 1 -type f \( -name "${base}.bak*" -o -name "${base}.orig" -o -name "${base}.backup*" \) -print0 2>/dev/null)
 }
 
 # ---------------------------------------------------------------------------
