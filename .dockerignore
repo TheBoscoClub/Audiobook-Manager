@@ -51,6 +51,7 @@ authcode.txt
 credentials.json
 secrets/
 config.env
+config.env.example
 
 # =============================================================================
 # Native Installation Files (NOT needed in Docker)

@@ -598,7 +598,7 @@
   "library.js.groupedCountByAuthor": "{books} books in {groups} author groups",
   "library.js.groupedCountByNarrator": "{books} books in {groups} narrator groups",
   "library.js.refreshFailed": "Failed to refresh library. Please try again.",
-  "library.js.runLabel": "Run:",
+  "library.js.runHint": "Start the services with: sudo systemctl start audiobook.target (developers: ./library/launch-v2.sh)",
   "library.loading": "Loading...",
   "library.myLibrary": "My Library",
   "library.narrators": "narrators",

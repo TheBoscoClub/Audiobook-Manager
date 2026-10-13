@@ -17,9 +17,10 @@ dev-only TLS certificates** used by the local development API server
 
 ## Regenerating
 
-If the dev cert is missing or expired, the `scripts/` toolchain regenerates
-it automatically on the next `library/launch-v2.sh` or equivalent dev-server start.
-You can also regenerate manually:
+Nothing regenerates the dev cert automatically: `library/web-v2/https_server.py`
+exits with a "Certificate files not found" error when it is missing, and
+`install.sh` creates certificates only for installed copies
+(`library/launch-v2.sh` serves plain HTTP and needs none). Regenerate manually:
 
 ```bash
 openssl req -x509 -newkey rsa:4096 -sha256 -days 365 -nodes \

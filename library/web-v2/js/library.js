@@ -2046,8 +2046,11 @@ class AudiobookLibraryV2 {
         _err && _err !== "library.js.errorLoadingApi"
           ? _err
           : "Error loading audiobooks. Please ensure the API server is running.";
-      const _run = _t ? _t("library.js.runLabel") : null;
-      const runText = _run && _run !== "library.js.runLabel" ? _run : "Run:";
+      const _hint = _t ? _t("library.js.runHint") : null;
+      const hintText =
+        _hint && _hint !== "library.js.runHint"
+          ? _hint
+          : "Start the services with: sudo systemctl start audiobook.target (developers: ./library/launch-v2.sh)";
       const grid = document.getElementById("books-grid");
       grid.textContent = "";
       const p = document.createElement("p");
@@ -2056,12 +2059,7 @@ class AudiobookLibraryV2 {
       p.appendChild(document.createTextNode(errText));
       p.appendChild(document.createElement("br"));
       p.appendChild(document.createElement("br"));
-      p.appendChild(document.createTextNode(runText + " "));
-      const code = document.createElement("code");
-      code.style.cssText =
-        "background: var(--wood-dark); padding: 0.5rem; border-radius: 4px;";
-      code.textContent = "./library/launch-v2.sh";
-      p.appendChild(code);
+      p.appendChild(document.createTextNode(hintText));
       grid.appendChild(p);
     } finally {
       this.showLoading(false);

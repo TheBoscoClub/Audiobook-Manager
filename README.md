@@ -354,9 +354,9 @@ sudo systemctl start audiobook.target
 # HTTP requests to port 8080 are automatically redirected to HTTPS
 # Uses Gunicorn with the gevent worker for production-ready performance and WebSocket support
 
-# Or use legacy launcher (development mode, no systemd)
-cd library
-./launch-v2.sh  # Opens http://localhost:8090
+# Or use the development launcher (no systemd) from the project root
+cp config.env.example config.env   # once; dev paths and ports (API 6001, web 9090)
+./library/launch-v2.sh
 ```
 
 **Note**: Your browser will show a security warning (self-signed certificate). Click "Advanced" → "Proceed to localhost" to continue.
@@ -783,7 +783,8 @@ Configuration is loaded from multiple sources in priority order:
 
 1. System config: `/etc/audiobooks/audiobooks.conf`
 2. User config: `~/.config/audiobooks/audiobooks.conf`
-3. Environment variables
+3. Project `config.env` (development only; read by `library/launch-v2.sh` and the dev API, copy from `config.env.example`)
+4. Environment variables (highest priority — these override every file)
 
 ### Configuration Variables
 

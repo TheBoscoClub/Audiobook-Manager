@@ -22,34 +22,72 @@ echo ""
 # Development config: this launcher is for the project working tree only.
 # It refuses to start without a dev config rather than fall back to the
 # production defaults (ports 5001/8443, /var/lib/audiobooks).
+#
+# Precedence: environment variables > <project root>/config.env.
+# Relative paths in the config are resolved against the PROJECT ROOT (the
+# directory holding config.env), not the directory this script runs in.
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-if [ -f "$PROJECT_ROOT/config.env" ]; then
+export PROJECT_DIR="$PROJECT_ROOT"
+CONFIG_FILE="$PROJECT_ROOT/config.env"
+
+if [ -f "$CONFIG_FILE" ]; then
+    # Snapshot every variable the config assigns that is already set in the
+    # environment, source the file, then restore the snapshot: environment wins.
+    declare -A ENV_SNAPSHOT=()
+    while IFS= read -r name; do
+        if [ -n "${!name+x}" ]; then
+            ENV_SNAPSHOT["$name"]="${!name}"
+        fi
+    done < <(grep -o -E '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=' "$CONFIG_FILE" | tr -d ' \t=')
     set -a
     # shellcheck source=/dev/null
-    source "$PROJECT_ROOT/config.env"
+    source "$CONFIG_FILE"
     set +a
+    for name in "${!ENV_SNAPSHOT[@]}"; do
+        export "$name=${ENV_SNAPSHOT[$name]}"
+    done
 fi
 
 if [ -z "${AUDIOBOOKS_DATABASE:-}" ] || [ -z "${AUDIOBOOKS_API_PORT:-}" ] || [ -z "${AUDIOBOOKS_WEB_PORT:-}" ]; then
     echo -e "${RED}Error: no development configuration found.${NC}"
-    echo "  Expected $PROJECT_ROOT/config.env (dev paths and ports), or set"
-    echo "  AUDIOBOOKS_DATABASE, AUDIOBOOKS_API_PORT and AUDIOBOOKS_WEB_PORT in the environment."
+    echo "  Expected $CONFIG_FILE (dev paths and ports). Create it with:"
+    echo "    cp config.env.example config.env"
+    echo "  or set AUDIOBOOKS_DATABASE, AUDIOBOOKS_API_PORT and AUDIOBOOKS_WEB_PORT in the environment."
     echo "  Refusing to start with production defaults."
     exit 1
 fi
 
-case "$AUDIOBOOKS_DATABASE" in
-    /var/lib/audiobooks/* | /srv/audiobooks/* | /opt/audiobooks/*)
-        echo -e "${RED}Error: AUDIOBOOKS_DATABASE ($AUDIOBOOKS_DATABASE) is an installed-application path.${NC}"
-        echo "  This launcher is for the project working tree; use a dev database."
-        exit 1
-        ;;
-esac
+# Resolve each path (relative -> project root, symlinks, //, ../) BEFORE
+# judging it, then refuse anything inside an installed-application tree.
+refuse_installed_path() {
+    local var="$1" raw="${!1:-}" real
+    [ -n "$raw" ] || return 0
+    case "$raw" in
+        /*) ;;
+        *) raw="$PROJECT_ROOT/$raw" ;;
+    esac
+    real="$(realpath -m -- "$raw")"
+    case "$real" in
+        /var/lib/audiobooks | /var/lib/audiobooks/* | \
+            /srv/audiobooks | /srv/audiobooks/* | \
+            /opt/audiobooks | /opt/audiobooks/* | \
+            /etc/audiobooks | /etc/audiobooks/*)
+            echo -e "${RED}Error: $var ($real) is an installed-application path.${NC}"
+            echo "  This launcher is for the project working tree; use dev paths."
+            exit 1
+            ;;
+    esac
+    export "$var=$real"
+}
+for var in AUDIOBOOKS_DATABASE DATABASE_PATH AUDIOBOOKS_DATA AUDIOBOOKS_LIBRARY \
+    AUDIOBOOKS_SOURCES AUDIOBOOKS_COVERS; do
+    refuse_installed_path "$var"
+done
 
 API_PORT="$AUDIOBOOKS_API_PORT"
 PORT="$AUDIOBOOKS_WEB_PORT"
 DB_PATH="$AUDIOBOOKS_DATABASE"
-JSON_PATH="${DATA_DIR:-data}/audiobooks.json"
+JSON_PATH="${DATA_DIR:-$PROJECT_ROOT/library/data}/audiobooks.json"
 
 # Check if database exists
 if [ ! -f "$DB_PATH" ]; then
@@ -73,6 +111,21 @@ if [ ! -d "venv" ]; then
 else
     source venv/bin/activate
 fi
+
+# Stop exactly the processes this script started (by PID) on exit or Ctrl+C.
+API_PID=""
+SERVER_PID=""
+cleanup() {
+    trap - EXIT INT TERM
+    for pid in "$API_PID" "$SERVER_PID"; do
+        if [ -n "$pid" ]; then
+            kill "$pid" 2>/dev/null || true
+        fi
+    done
+}
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Check if API server is already running
 if ss -tln | grep -q ":$API_PORT "; then
@@ -123,14 +176,15 @@ echo -e "  ${BLUE}/api/audiobooks?search=tolkien${NC} - Search"
 echo -e "  ${BLUE}/api/audiobooks?author=sanderson${NC} - Filter"
 echo -e "  ${BLUE}/api/filters${NC} - Available filters"
 echo ""
-echo -e "${YELLOW}Opening browser...${NC}"
 echo -e "${BLUE}========================================${NC}"
 
 # Wait a moment for server to fully start
 sleep 2
 
-# Open in Opera browser
-if command -v opera &>/dev/null; then
+# Open a browser only on a desktop session and when not suppressed
+if [ -n "${NO_BROWSER:-}" ] || { [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ]; }; then
+    echo "Not opening a browser (NO_BROWSER set or no display)"
+elif command -v opera &>/dev/null; then
     opera "http://localhost:$PORT" &
 elif command -v xdg-open &>/dev/null; then
     xdg-open "http://localhost:$PORT" &

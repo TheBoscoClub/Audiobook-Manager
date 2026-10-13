@@ -57,7 +57,7 @@ cd scanner && python3 scan_audiobooks.py
 cd ../backend && python3 import_to_db.py
 
 # 6. Launch the application
-cd .. && ./launch-v2.sh
+cd ../.. && cp -n config.env.example config.env && ./library/launch-v2.sh
 ```
 
 The launcher script will:

@@ -598,7 +598,7 @@
   "library.js.groupedCountByAuthor": "{groups} 位作者下共 {books} 本",
   "library.js.groupedCountByNarrator": "{groups} 位朗读者下共 {books} 本",
   "library.js.refreshFailed": "刷新书架失败，请重试。",
-  "library.js.runLabel": "运行：",
+  "library.js.runHint": "请使用以下命令启动服务：sudo systemctl start audiobook.target（开发者：./library/launch-v2.sh）",
   "library.loading": "加载中……",
   "library.myLibrary": "我的书架",
   "library.narrators": "位朗读者",

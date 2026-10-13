@@ -380,6 +380,7 @@ sudo systemctl start audiobook.target
 #### Using Launch Script
 
 ```bash
+cp -n config.env.example config.env   # once
 ./library/launch-v2.sh
 ```
 

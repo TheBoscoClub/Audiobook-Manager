@@ -14,12 +14,15 @@ sudo systemctl start audiobook-api audiobook-proxy audiobook-redirect
 
 ### Manual Launch (Development Only)
 
+From a project checkout (not the installed `/opt/audiobooks` copy), at the project root:
+
 ```bash
-cd /opt/audiobooks/library
-./launch-v2.sh  # Opens http://localhost:8090
+cp config.env.example config.env   # once; dev paths and ports
+./library/launch-v2.sh             # API on 6001, web on 9090 (from config.env)
 ```
 
-Your browser will open to: **<https://localhost:8443>**
+The dev launcher serves plain HTTP at **<http://localhost:9090>** (dev port from `config.env`).
+For the installed application use systemd (above): **<https://localhost:8443>**
 
 ---
 
