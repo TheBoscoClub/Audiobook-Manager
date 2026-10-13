@@ -2771,7 +2771,8 @@ do_upgrade() {
 
     # Reconcile filesystem against install manifest. Default is enforce: the
     # items the reconciler acts on (PHANTOM_PATHS, OBSOLETE_ROOT_PATHS, legacy config keys listed
-    # in CONFIG_CANONICAL_DEFAULTS, stale __pycache__) are explicitly marked
+    # in CONFIG_CANONICAL_DEFAULTS, ${VAR} references in path-valued config keys
+    # (rewritten to concrete values after a backup), stale __pycache__) are explicitly marked
     # as obsolete in the manifest — the whole point of those arrays is "this
     # must not survive." Report-only meant drift accumulated release after
     # release. Users can still opt into report mode via `RECONCILE_MODE=report`.

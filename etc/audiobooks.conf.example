@@ -21,6 +21,17 @@
 # default. Hardcoding defaults in this file causes drift the next time the
 # canonical defaults change in library/config.py and lib/audiobook-config.sh.
 
+# NOTE ON ${VAR} REFERENCES: systemd's EnvironmentFile= does NOT expand
+# ${...} — a service started from this file receives the text literally. The
+# application expands references itself (library/config.py and
+# lib/audiobook-config.sh resolve ${NAME} / $NAME against other settings and
+# the environment, and refuse to start on an undefined variable or a cycle),
+# so the templates below are safe to uncomment. Do not rely on them in a unit
+# file's own Environment=/ExecStart= lines, where systemd will not expand them
+# either. upgrade.sh rewrites any such line in the installed config to its
+# concrete value (backup beside the file) so what is on disk says what it means.
+# Use concrete paths if another tool also reads this file.
+
 # Root directory containing all audiobook data (sources, library, supplements)
 # Default: /srv/audiobooks (system) or ~/Audiobooks (user)
 # AUDIOBOOKS_DATA="/srv/audiobooks"

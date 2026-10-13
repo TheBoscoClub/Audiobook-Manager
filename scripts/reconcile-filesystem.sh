@@ -5,7 +5,8 @@
 # Runs at the end of install.sh and upgrade.sh. Enforce by default when
 # invoked from install.sh/upgrade.sh — the items actually acted on
 # (PHANTOM_PATHS, OBSOLETE_ROOT_PATHS, legacy config keys listed in
-# CONFIG_CANONICAL_DEFAULTS, stale __pycache__) are explicitly marked as obsolete in the manifest.
+# CONFIG_CANONICAL_DEFAULTS, ${VAR} references in path-valued config keys,
+# stale __pycache__) are explicitly marked as obsolete in the manifest.
 # The script itself defaults to `report` when invoked directly for debugging
 # so ad-hoc runs don't surprise; callers override to `enforce`.
 #
@@ -241,6 +242,119 @@ _reconcile_config() {
 }
 
 # ---------------------------------------------------------------------------
+# Step 6b — ${VAR} references in path-valued config keys
+# systemd EnvironmentFile= does not expand them, so a service gets the literal
+# text and resolves it as a relative path. The app expands references itself
+# now; this step makes the installed file say what it means. Report mode lists
+# every affected line; enforce mode rewrites each to its expanded concrete
+# value after saving a timestamped backup beside the file (a sibling path, not
+# inside any scanned drop-in directory). A line that cannot be resolved
+# (undefined variable, cycle) is reported and left untouched.
+# ---------------------------------------------------------------------------
+declare -A _CFG_RAW=()
+_CFG_STACK=()
+
+# Expand references in $2 (the value of key $1) into the global _CFG_OUT.
+# Lookup order: the file's own settings (recursively), the environment, then
+# the install layout the reconciler was given. Returns 1 and sets _CFG_ERR.
+_cfg_expand() {
+    local key="$1" value="$2" s ref out="" rest raw
+    # shellcheck disable=SC2016  # the regex is deliberately single-quoted
+    local re='^([^$]*)\$(\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))(.*)$'
+    for s in "${_CFG_STACK[@]}"; do
+        if [[ "$s" == "$key" ]]; then
+            _CFG_ERR="circular reference (${_CFG_STACK[*]} -> ${key})"
+            return 1
+        fi
+    done
+    _CFG_STACK+=("$key")
+    rest="$value"
+    while [[ "$rest" =~ $re ]]; do
+        ref="${BASH_REMATCH[3]:-${BASH_REMATCH[4]}}"
+        out+="${BASH_REMATCH[1]}"
+        rest="${BASH_REMATCH[5]}"
+        if [[ -n "${_CFG_RAW[$ref]+x}" ]]; then
+            raw="${_CFG_RAW[$ref]}"
+        elif [[ -n "${!ref+x}" ]]; then
+            raw="${!ref}"
+        elif [[ "$ref" == "AUDIOBOOKS_HOME" && -n "${LIB_DIR:-}" ]]; then
+            raw="$LIB_DIR"
+        elif [[ "$ref" == "AUDIOBOOKS_VAR_DIR" && -n "${STATE_DIR:-}" ]]; then
+            raw="$STATE_DIR"
+        else
+            _CFG_ERR="undefined variable ${ref}"
+            return 1
+        fi
+        _cfg_expand "$ref" "$raw" || return 1
+        out+="$_CFG_OUT"
+    done
+    unset "_CFG_STACK[$((${#_CFG_STACK[@]} - 1))]"
+    _CFG_STACK=("${_CFG_STACK[@]}")
+    _CFG_OUT="${out}${rest}"
+}
+
+_reconcile_config_references() {
+    [[ -f "$CONF_FILE" ]] || return 0
+    [[ "${#CONFIG_PATH_KEYS[@]}" -gt 0 ]] || return 0
+
+    local line key value k is_path
+    local -a hits=()
+    _CFG_RAW=()
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
+        key="${BASH_REMATCH[1]}"
+        value="${BASH_REMATCH[2]}"
+        value="${value%\"}"
+        value="${value#\"}"
+        value="${value%\'}"
+        value="${value#\'}"
+        _CFG_RAW["$key"]="$value"
+        is_path=""
+        for k in "${CONFIG_PATH_KEYS[@]}"; do [[ "$k" == "$key" ]] && is_path=1; done
+        [[ -n "$is_path" && "$value" == *'$'* ]] && hits+=("$key")
+    done <"$CONF_FILE"
+    [[ "${#hits[@]}" -gt 0 ]] || return 0
+
+    local -A new_values=()
+    for key in "${hits[@]}"; do
+        _CFG_STACK=()
+        if _cfg_expand "$key" "${_CFG_RAW[$key]}"; then
+            new_values["$key"]="$_CFG_OUT"
+            _issue "unexpanded reference in ${CONF_FILE}: ${key}=${_CFG_RAW[$key]} (systemd will not expand it) -> ${_CFG_OUT}"
+        else
+            _issue "unexpanded reference in ${CONF_FILE}: ${key}=${_CFG_RAW[$key]} cannot be expanded (${_CFG_ERR}); left as is"
+        fi
+    done
+    _should_act || return 0
+    [[ "${#new_values[@]}" -gt 0 ]] || return 0
+
+    local backup tmp
+    backup="${CONF_FILE}.bak-expand-$(date +%Y%m%d-%H%M%S)"
+    if ! $USE_SUDO cp -p -- "$CONF_FILE" "$backup"; then
+        _issue "could not back up ${CONF_FILE}; references not rewritten"
+        return 0
+    fi
+    tmp="$(mktemp)"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]] &&
+            [[ -n "${new_values[${BASH_REMATCH[1]}]+x}" ]]; then
+            printf '%s="%s"\n' "${BASH_REMATCH[1]}" "${new_values[${BASH_REMATCH[1]}]}" >>"$tmp"
+        else
+            printf '%s\n' "$line" >>"$tmp"
+        fi
+    done <"$CONF_FILE"
+    # tee rewrites in place, so owner, mode and inode of the installed file are kept
+    if $USE_SUDO tee "$CONF_FILE" <"$tmp" >/dev/null; then
+        for key in "${!new_values[@]}"; do
+            _fix "expanded ${key} in ${CONF_FILE} (backup: ${backup})"
+        done
+    else
+        _issue "could not rewrite ${CONF_FILE}; backup left at ${backup}"
+    fi
+    rm -f "$tmp"
+}
+
+# ---------------------------------------------------------------------------
 # Step 7 — audit optional credential files (non-fatal — files may not exist)
 # Format: <path>|<owner>:<group>|<mode>|<env-var-name>
 # If the file exists, verify owner/group and mode match; log warning on drift.
@@ -335,6 +449,7 @@ reconcile_filesystem() {
     _reconcile_units
     _reconcile_wrappers
     _reconcile_config
+    _reconcile_config_references
     _reconcile_optional_credentials
     _reconcile_pycache
     _reconcile_report

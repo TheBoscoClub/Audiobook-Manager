@@ -13,8 +13,9 @@ Configuration priority (later overrides earlier):
 """
 
 import os
+import re
 from pathlib import Path
-from typing import Optional, overload
+from typing import Callable, Optional, overload
 
 # =============================================================================
 # Configuration Loading
@@ -40,17 +41,9 @@ def _load_config_file(filepath: Path) -> dict[str, str]:
             key = key.strip()
             value = value.strip().strip('"').strip("'")
 
-            # Handle variable substitution (simple form)
-            if "${" in value:
-                for var, val in config.items():
-                    value = value.replace("${" + var + "}", val)
-                # Also check environment
-                import re
-
-                for match in re.findall(r"\$\{(\w+)\}", value):
-                    env_val = os.environ.get(match, config.get(match, ""))
-                    value = value.replace("${" + match + "}", env_val)
-
+            # ${VAR} references are NOT expanded here: expansion needs every
+            # source (env, all conf files, computed defaults) plus cycle and
+            # unknown-variable detection, so get_config() does it at lookup.
             config[key] = value
 
     return config
@@ -107,20 +100,102 @@ if _project_root:
     _config.update(_load_config_file(_project_root / "config.env"))
 
 
-def _expand_vars(value: Optional[str]) -> Optional[str]:
-    """Expand ${VAR} references using resolved config, then environment.
+class ConfigError(ValueError):
+    """A configuration value cannot be resolved to a usable setting."""
 
-    systemd EnvironmentFile does not expand shell-style ${VAR} references,
-    so environment values may contain literal '${AUDIOBOOKS_HOME}/...' strings.
-    This function resolves them using the already-expanded _config dict.
+
+# Settings whose resolved value is a filesystem path. A '$' surviving in one
+# of these is never legitimate: it means a reference was not expanded and a
+# service would treat the literal text as a RELATIVE path under its
+# WorkingDirectory (the /opt/audiobooks/${AUDIOBOOKS_DATA}/Library incident).
+_PATH_KEYS = frozenset(
+    {
+        "AUDIOBOOKS_HOME",
+        "AUDIOBOOKS_DATA",
+        "AUDIOBOOKS_LIBRARY",
+        "AUDIOBOOKS_SOURCES",
+        "AUDIOBOOKS_SUPPLEMENTS",
+        "AUDIOBOOKS_VAR_DIR",
+        "AUDIOBOOKS_RUN_DIR",
+        "AUDIOBOOKS_DATABASE",
+        "AUDIOBOOKS_COVERS",
+        "AUDIOBOOKS_STREAMING_AUDIO_DIR",
+        "AUDIOBOOKS_STREAMING_SUBTITLES_DIR",
+        "AUDIOBOOKS_CERTS",
+        "AUDIOBOOKS_LOGS",
+        "AUDIOBOOKS_WEBM_CACHE",
+        "AUDIOBOOKS_STAGING",
+        "AUDIOBOOKS_VENV",
+        "AUDIOBOOKS_CONVERTER",
+        "AUDIOBOOKS_CADDY_DIR",
+        "DATA_DIR",
+    }
+)
+
+# Values this module computes itself (auto-detected home, built-in defaults),
+# registered as they resolve so ${AUDIOBOOKS_HOME} works when that setting is
+# in neither the environment nor any conf file.
+_resolved_defaults: dict[str, str] = {}
+
+_REF_RE = re.compile(r"\$\{(\w+)\}|\$(\w+)")
+
+
+def _raw_lookup(name: str) -> Optional[str]:
+    """Unexpanded value of ``name``: environment, then conf files, then defaults."""
+    if name in os.environ:
+        return os.environ[name]
+    if name in _config:
+        return _config[name]
+    return _resolved_defaults.get(name)
+
+
+def _expand_references(
+    value: str,
+    key: str,
+    _stack: tuple[str, ...] = (),
+    _lookup: Optional[Callable[[str], Optional[str]]] = None,
+) -> str:
+    """Expand ${NAME} / $NAME in ``value``, the value of setting ``key``.
+
+    Referenced settings are expanded first, so chains resolve in dependency
+    order. An undefined reference or a cycle raises ConfigError naming the
+    setting; nothing is ever silently replaced with an empty string.
+
+    systemd's EnvironmentFile does not expand ${...}, so a service routinely
+    receives the literal text of a conf-file template; this is where it is
+    resolved.
     """
-    if value is None or "${" not in value:
+    lookup = _lookup or _raw_lookup
+    if "$" not in value:
         return value
-    import re
+    stack = _stack + (key,)
 
-    for match in re.findall(r"\$\{(\w+)\}", value):
-        replacement = _config.get(match, os.environ.get(match, ""))
-        value = value.replace("${" + match + "}", replacement)
+    def sub(match: "re.Match[str]") -> str:
+        name = match.group(1) or match.group(2)
+        if name in stack:
+            raise ConfigError(f"{key}: circular variable reference ({' -> '.join((*stack, name))})")
+        raw = lookup(name)
+        if raw is None:
+            raise ConfigError(f"{key}: references undefined variable {name} (value: {value!r})")
+        return _expand_references(raw, name, stack, lookup)
+
+    return _REF_RE.sub(sub, value)
+
+
+def _expand_vars(value: Optional[str], key: str = "<value>") -> Optional[str]:
+    """Expand references in ``value``; None passes through."""
+    if value is None:
+        return value
+    return _expand_references(value, key)
+
+
+def _guard_path_value(key: str, value: str) -> str:
+    """Refuse a path setting that still contains '$' after expansion."""
+    if "$" in value:
+        raise ConfigError(
+            f"{key}={value!r} still contains an unexpanded '$' after reference "
+            "expansion; refusing to use it as a path"
+        )
     return value
 
 
@@ -135,7 +210,10 @@ def get_config(key: str, default: str) -> str: ...
 def get_config(key: str, default: Optional[str] = None) -> Optional[str]:
     """Get configuration value with environment override."""
     value = os.environ.get(key, _config.get(key, default))
-    return _expand_vars(value)
+    value = _expand_vars(value, key)
+    if value is not None and key in _PATH_KEYS:
+        _guard_path_value(key, value)
+    return value
 
 
 # =============================================================================
@@ -145,9 +223,11 @@ def get_config(key: str, default: Optional[str] = None) -> Optional[str]:
 # Auto-detect AUDIOBOOKS_HOME if not set
 _detected_home = str(_project_root) if _project_root else None
 AUDIOBOOKS_HOME = Path(get_config("AUDIOBOOKS_HOME", _detected_home or "/opt/audiobooks"))
+_resolved_defaults["AUDIOBOOKS_HOME"] = str(AUDIOBOOKS_HOME)
 
 # Core data directory
 AUDIOBOOKS_DATA = Path(get_config("AUDIOBOOKS_DATA", "/srv/audiobooks"))
+_resolved_defaults["AUDIOBOOKS_DATA"] = str(AUDIOBOOKS_DATA)
 
 # Data subdirectories
 AUDIOBOOKS_LIBRARY = Path(get_config("AUDIOBOOKS_LIBRARY", str(AUDIOBOOKS_DATA / "Library")))
@@ -160,6 +240,7 @@ AUDIOBOOKS_SUPPLEMENTS = Path(
 # Database should be in a data directory, NOT in the code directory
 # AUDIOBOOKS_VAR_DIR is the persistent state directory (default: /var/lib/audiobooks)
 _var_dir = get_config("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
+_resolved_defaults["AUDIOBOOKS_VAR_DIR"] = _var_dir
 AUDIOBOOKS_DATABASE = Path(get_config("AUDIOBOOKS_DATABASE", f"{_var_dir}/db/audiobooks.db"))
 AUDIOBOOKS_COVERS = Path(get_config("AUDIOBOOKS_COVERS", f"{_var_dir}/covers"))
 # Streaming translation audio buffer — short-lived per-segment opus files
@@ -236,6 +317,34 @@ HTTP_REDIRECT_PORT = int(os.environ.get("HTTP_REDIRECT_PORT", str(AUDIOBOOKS_HTT
 HTTP_REDIRECT_ENABLED = os.environ.get(
     "HTTP_REDIRECT_ENABLED", str(AUDIOBOOKS_HTTP_REDIRECT_ENABLED).lower()
 ).lower() in ("true", "1", "yes")
+
+# Final guard: every resolved path constant (including the legacy aliases that
+# read os.environ directly) must be free of unexpanded references.
+for _name, _val in (
+    ("AUDIOBOOKS_HOME", AUDIOBOOKS_HOME),
+    ("AUDIOBOOKS_DATA", AUDIOBOOKS_DATA),
+    ("AUDIOBOOKS_LIBRARY", AUDIOBOOKS_LIBRARY),
+    ("AUDIOBOOKS_SOURCES", AUDIOBOOKS_SOURCES),
+    ("AUDIOBOOKS_SUPPLEMENTS", AUDIOBOOKS_SUPPLEMENTS),
+    ("AUDIOBOOKS_DATABASE", AUDIOBOOKS_DATABASE),
+    ("AUDIOBOOKS_COVERS", AUDIOBOOKS_COVERS),
+    ("AUDIOBOOKS_STREAMING_AUDIO_DIR", AUDIOBOOKS_STREAMING_AUDIO_DIR),
+    ("AUDIOBOOKS_STREAMING_SUBTITLES_DIR", AUDIOBOOKS_STREAMING_SUBTITLES_DIR),
+    ("AUDIOBOOKS_CERTS", AUDIOBOOKS_CERTS),
+    ("AUDIOBOOKS_LOGS", AUDIOBOOKS_LOGS),
+    ("AUDIOBOOKS_WEBM_CACHE", AUDIOBOOKS_WEBM_CACHE),
+    ("AUDIOBOOKS_STAGING", AUDIOBOOKS_STAGING),
+    ("AUDIOBOOKS_VENV", AUDIOBOOKS_VENV),
+    ("AUDIOBOOKS_CONVERTER", AUDIOBOOKS_CONVERTER),
+    ("PROJECT_DIR", PROJECT_DIR),
+    ("AUDIOBOOK_DIR", AUDIOBOOK_DIR),
+    ("DATABASE_PATH", DATABASE_PATH),
+    ("COVER_DIR", COVER_DIR),
+    ("DATA_DIR", DATA_DIR),
+    ("SUPPLEMENTS_DIR", SUPPLEMENTS_DIR),
+):
+    _guard_path_value(_name, str(_val))
+del _name, _val
 
 # =============================================================================
 # Utility Functions

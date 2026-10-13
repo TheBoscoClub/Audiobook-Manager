@@ -24,6 +24,7 @@ _load_config_file() {
     local config_file="$1"
     [[ -f "$config_file" ]] || return 0
 
+    local key value current_val
     while IFS='=' read -r key value; do
         # Skip comments and empty lines
         [[ "$key" =~ ^[[:space:]]*# ]] && continue
@@ -33,14 +34,91 @@ _load_config_file() {
         key=$(echo "$key" | xargs)
         value=$(echo "$value" | xargs | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//")
 
-        # Only set if not already set in environment (portable syntax)
-        eval "current_val=\"\${$key:-}\""
+        # Keys become variable names (and were once eval'd): accept identifiers only
+        [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+
+        # Leading tilde means the invoking user's home
+        # shellcheck disable=SC2088  # matching the literal text '~/', not expanding it
+        if [[ "$value" == '~' || "$value" == '~/'* ]]; then
+            value="${HOME:-}${value:1}"
+        fi
+
+        # Only set if not already set in environment. The value is stored
+        # LITERALLY: ${VAR} references are expanded once, after every source
+        # and default is in place (_ab_expand_config_paths below), with cycle
+        # and undefined-variable detection. Nothing is eval'd.
+        current_val="${!key:-}"
         if [[ -z "$current_val" ]]; then
-            # Expand variables in value
-            value=$(eval echo "$value")
             export "$key=$value"
         fi
     done <"$config_file"
+}
+
+# -----------------------------------------------------------------------------
+# Reference expansion: ${NAME} / $NAME inside path settings
+# -----------------------------------------------------------------------------
+# systemd's EnvironmentFile= does NOT expand ${...}: a service started with
+# `AUDIOBOOKS_LIBRARY=${AUDIOBOOKS_DATA}/Library` receives that literal text,
+# which a WorkingDirectory-relative process then resolves as a relative path
+# (this created /opt/audiobooks/${AUDIOBOOKS_DATA}/Library). Sourcing the conf
+# with bash cannot help when the variable is already set literally in the
+# environment, so every path setting is expanded here regardless of its origin.
+_AB_PATH_VARS=(
+    AUDIOBOOKS_HOME AUDIOBOOKS_DATA AUDIOBOOKS_LIBRARY AUDIOBOOKS_SOURCES
+    AUDIOBOOKS_SUPPLEMENTS AUDIOBOOKS_LOGS AUDIOBOOKS_DATABASE AUDIOBOOKS_COVERS
+    AUDIOBOOKS_CERTS AUDIOBOOKS_VENV AUDIOBOOKS_CADDY_DIR AUDIOBOOKS_CONVERTER
+    AUDIOBOOKS_STAGING AUDIOBOOKS_WEBM_CACHE AUDIOBOOKS_RUN_DIR AUDIOBOOKS_VAR_DIR
+    AUDIOBOOKS_STREAMING_AUDIO_DIR AUDIOBOOKS_STREAMING_SUBTITLES_DIR DATA_DIR
+    AUDIOBOOKS_TRIGGERS AUDIOBOOKS_DOWNLOADER_LOCK AUDIOBOOKS_AUDIBLE_VENV
+    AUDIOBOOKS_AUDIBLE_CMD
+)
+_AB_EXPAND_STACK=()
+
+# Expand references in variable $1 in place (recursively, dependency order).
+# Returns 1 with a message naming the setting on a cycle or undefined reference.
+_ab_resolve_var() {
+    local _ab_name="$1" _ab_s _ab_val _ab_out="" _ab_rest _ab_ref
+    for _ab_s in "${_AB_EXPAND_STACK[@]}"; do
+        if [[ "$_ab_s" == "$_ab_name" ]]; then
+            echo "audiobook-config: ${_AB_EXPAND_STACK[0]}: circular variable reference (${_AB_EXPAND_STACK[*]} -> ${_ab_name})" >&2
+            return 1
+        fi
+    done
+    _ab_val="${!_ab_name-}"
+    [[ "$_ab_val" == *'$'* ]] || return 0
+    _AB_EXPAND_STACK+=("$_ab_name")
+    _ab_rest="$_ab_val"
+    # shellcheck disable=SC2016  # the regex is deliberately single-quoted
+    local _ab_re='^([^$]*)\$(\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))(.*)$'
+    while [[ "$_ab_rest" =~ $_ab_re ]]; do
+        _ab_ref="${BASH_REMATCH[3]:-${BASH_REMATCH[4]}}"
+        _ab_out+="${BASH_REMATCH[1]}"
+        _ab_rest="${BASH_REMATCH[5]}"
+        if [[ -z "${!_ab_ref+x}" ]]; then
+            echo "audiobook-config: ${_ab_name} references undefined variable ${_ab_ref} (value: ${_ab_val})" >&2
+            unset "_AB_EXPAND_STACK[$((${#_AB_EXPAND_STACK[@]} - 1))]"
+            return 1
+        fi
+        _ab_resolve_var "$_ab_ref" || return 1
+        _ab_out+="${!_ab_ref}"
+    done
+    unset "_AB_EXPAND_STACK[$((${#_AB_EXPAND_STACK[@]} - 1))]"
+    _AB_EXPAND_STACK=("${_AB_EXPAND_STACK[@]}")
+    printf -v "$_ab_name" '%s' "${_ab_out}${_ab_rest}"
+    export "${_ab_name?}"
+}
+
+# Expand every path setting, then refuse any that still holds a '$'.
+_ab_expand_config_paths() {
+    local _ab_v
+    _AB_EXPAND_STACK=()
+    for _ab_v in "${_AB_PATH_VARS[@]}"; do
+        _ab_resolve_var "$_ab_v" || return 1
+        if [[ "${!_ab_v-}" == *'$'* ]]; then
+            echo "audiobook-config: ${_ab_v}='${!_ab_v}' still contains an unexpanded '\$' after reference expansion; refusing to use it as a path" >&2
+            return 1
+        fi
+    done
 }
 
 # -----------------------------------------------------------------------------
@@ -171,6 +249,13 @@ _load_config_file "${HOME:-}/.config/audiobooks/audiobooks.conf"
 : "${AUDIOBOOKS_HTTPS_ENABLED:=true}"
 : "${AUDIOBOOKS_HTTP_REDIRECT_ENABLED:=true}" # Enable HTTP to HTTPS redirect
 # AUDIOBOOKS_USE_WAITRESS removed in v7.2 — migrated to Gunicorn+gevent
+
+# Expand ${VAR} references in path settings (systemd delivers them literally);
+# refuse to continue if any path would still hold an unexpanded reference.
+if ! _ab_expand_config_paths; then
+    unset _AUDIOBOOKS_CONFIG_LOADED
+    return 1
+fi
 
 # Export all variables
 export AUDIOBOOKS_DATA AUDIOBOOKS_LIBRARY AUDIOBOOKS_SOURCES AUDIOBOOKS_SUPPLEMENTS

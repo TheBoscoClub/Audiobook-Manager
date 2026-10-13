@@ -204,6 +204,27 @@ CONFIG_CANONICAL_DEFAULTS=(
 )
 
 # ---------------------------------------------------------------------------
+# Path-valued config keys. systemd's EnvironmentFile= does not expand ${VAR},
+# so a line like AUDIOBOOKS_LIBRARY="${AUDIOBOOKS_DATA}/Library" reaches a
+# service as literal text, which WorkingDirectory-relative code resolves as a
+# relative path. The app now expands these itself (library/config.py,
+# lib/audiobook-config.sh); the reconciler reports and, in enforce mode,
+# rewrites such lines in the installed config to concrete values. Only these
+# keys are touched — any other value may legitimately contain a '$'.
+# MUST equal _AB_PATH_VARS in lib/audiobook-config.sh (test_install_manifest_reconciler
+# asserts it) and be a superset of _PATH_KEYS in library/config.py.
+# ---------------------------------------------------------------------------
+CONFIG_PATH_KEYS=(
+    AUDIOBOOKS_HOME AUDIOBOOKS_DATA AUDIOBOOKS_LIBRARY AUDIOBOOKS_SOURCES
+    AUDIOBOOKS_SUPPLEMENTS AUDIOBOOKS_LOGS AUDIOBOOKS_DATABASE AUDIOBOOKS_COVERS
+    AUDIOBOOKS_CERTS AUDIOBOOKS_VENV AUDIOBOOKS_CADDY_DIR AUDIOBOOKS_CONVERTER
+    AUDIOBOOKS_STAGING AUDIOBOOKS_WEBM_CACHE AUDIOBOOKS_RUN_DIR AUDIOBOOKS_VAR_DIR
+    AUDIOBOOKS_STREAMING_AUDIO_DIR AUDIOBOOKS_STREAMING_SUBTITLES_DIR DATA_DIR
+    AUDIOBOOKS_TRIGGERS AUDIOBOOKS_DOWNLOADER_LOCK AUDIOBOOKS_AUDIBLE_VENV
+    AUDIOBOOKS_AUDIBLE_CMD
+)
+
+# ---------------------------------------------------------------------------
 # Optional credential files for the *_FILE pointer pattern (v8.4.0.0+).
 # SINGLE CANONICAL DEFINITION SITE (Audiobook-Manager-be6): install.sh,
 # upgrade.sh, and scripts/reconcile-filesystem.sh all derive their stub
