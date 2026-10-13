@@ -472,3 +472,6 @@ library/mutants/
 
 # Local development state (config.env.example: AUDIOBOOKS_VAR_DIR)
 .dev-state/
+
+# Claude workflow files — never commit (enforced by ~/.claude/scripts/lib-local-only.sh)
+SESSION_RECORD*.md.zst
