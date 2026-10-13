@@ -4,8 +4,8 @@
 #
 # Runs at the end of install.sh and upgrade.sh. Enforce by default when
 # invoked from install.sh/upgrade.sh — the items actually acted on
-# (PHANTOM_PATHS, legacy config keys listed in CONFIG_CANONICAL_DEFAULTS,
-# stale __pycache__) are explicitly marked as obsolete in the manifest.
+# (PHANTOM_PATHS, OBSOLETE_ROOT_PATHS, legacy config keys listed in
+# CONFIG_CANONICAL_DEFAULTS, stale __pycache__) are explicitly marked as obsolete in the manifest.
 # The script itself defaults to `report` when invoked directly for debugging
 # so ad-hoc runs don't surprise; callers override to `enforce`.
 #
@@ -59,6 +59,59 @@ _reconcile_phantoms() {
         if _should_act; then
             $USE_SUDO rm -rf "$path"
             _fix "removed phantom: $path"
+        fi
+    done
+}
+
+# ---------------------------------------------------------------------------
+# Step 1b — delete obsolete install-root files (OBSOLETE_ROOT_PATHS)
+# Explicit relative list from the manifest; never discovery-based. Safety:
+#   * refuses unless LIB_DIR holds VERSION + install-manifest.json
+#   * rejects empty, absolute and ".." entries
+#   * skips an entry whose parent chain contains a symlink (would leave LIB_DIR)
+#   * a symlink entry is unlinked, never followed; directories use rm -rf
+#     --one-file-system, which does not follow links either
+# ---------------------------------------------------------------------------
+_reconcile_obsolete_root_paths() {
+    [[ "${#OBSOLETE_ROOT_PATHS[@]}" -gt 0 ]] || return 0
+    if [[ ! -f "${LIB_DIR}/VERSION" || ! -f "${LIB_DIR}/install-manifest.json" ]]; then
+        _log "obsolete-path purge skipped: ${LIB_DIR} lacks VERSION + install-manifest.json (not an audiobooks install)"
+        return 0
+    fi
+    local rel parent comp cur unsafe
+    for rel in "${OBSOLETE_ROOT_PATHS[@]}"; do
+        if [[ -z "$rel" || "$rel" == /* || "/${rel}/" == */../* ]]; then
+            _issue "invalid OBSOLETE_ROOT_PATHS entry (empty/absolute/..): '${rel}'"
+            continue
+        fi
+        # Walk the parent chain; any symlink means the path may leave LIB_DIR.
+        unsafe=""
+        cur="${LIB_DIR%/}"
+        parent="$(dirname "$rel")"
+        if [[ "$parent" != "." ]]; then
+            local -a parts
+            IFS=/ read -ra parts <<<"$parent"
+            for comp in "${parts[@]}"; do
+                cur="${cur}/${comp}"
+                if [[ -L "$cur" ]]; then
+                    unsafe="$cur"
+                    break
+                fi
+            done
+        fi
+        if [[ -n "$unsafe" ]]; then
+            _issue "obsolete path skipped, symlinked parent ${unsafe}: ${rel}"
+            continue
+        fi
+        local full="${LIB_DIR%/}/${rel}"
+        [[ -e "$full" || -L "$full" ]] || continue
+        _issue "obsolete install-root path present: ${full}"
+        if _should_act; then
+            if $USE_SUDO rm -rf --one-file-system -- "$full"; then
+                _fix "removed obsolete: ${full}"
+            else
+                _issue "could not remove obsolete path: ${full}"
+            fi
         fi
     done
 }
@@ -239,6 +292,7 @@ reconcile_filesystem() {
     echo "=== Reconciling filesystem against install manifest ==="
 
     _reconcile_phantoms
+    _reconcile_obsolete_root_paths
     _reconcile_dirs
     _reconcile_venvs
     _reconcile_units

@@ -253,6 +253,10 @@ if [ ! -f "$AUDIOBOOKS_CERTS/server.crt" ] || [ ! -f "$AUDIOBOOKS_CERTS/server.k
         -keyout "$AUDIOBOOKS_CERTS/server.key" \
         -out "$AUDIOBOOKS_CERTS/server.crt" \
         -days 365 -subj '/CN=localhost' 2>/dev/null
+    # The key was created with the umask default (typically 0644). The proxy runs as
+    # this same user (USER audiobooks in the Dockerfile), so owner-only is enough.
+    chmod 600 "$AUDIOBOOKS_CERTS/server.key"
+    chmod 644 "$AUDIOBOOKS_CERTS/server.crt"
     echo -e "  ${GREEN}Certificate generated${NC}"
 fi
 

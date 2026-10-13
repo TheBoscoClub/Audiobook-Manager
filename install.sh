@@ -1723,6 +1723,12 @@ EOF
         for script in "${SCRIPT_DIR}/scripts/"*; do
             if [[ -f "$script" ]]; then
                 local script_name=$(basename "$script")
+                # Dev-machine tools, deliberately NOT installed (Audiobook-Manager-soo):
+                # purge-users.sh drives a remote VM over HTTPS with an admin TOTP secret to wipe
+                # user rows — a test-environment tool with no role in a production install.
+                # install-hooks.sh wires the project's git hooks and needs a git checkout.
+                # An installed copy is a leftover and is listed in OBSOLETE_ROOT_PATHS
+                # (scripts/install-manifest.sh) so the reconciler removes it.
                 case "$script_name" in
                     install-hooks.sh | purge-users.sh) continue ;;
                 esac
@@ -1777,11 +1783,24 @@ EOF
     # Install all dependencies from requirements.txt
     if [[ -f "${APP_DIR}/library/requirements.txt" ]]; then
         echo -e "${BLUE}Installing Python dependencies from requirements.txt...${NC}"
-        sudo -u audiobooks "${APP_DIR}/library/venv/bin/pip" install --quiet \
-            -r "${APP_DIR}/library/requirements.txt"
+        # --upgrade: same strategy as upgrade.sh so a fresh install and an upgraded
+        # install resolve identical versions. Failure is fatal (no partial venv).
+        if ! sudo -u audiobooks "${APP_DIR}/library/venv/bin/pip" install --upgrade --quiet \
+            -r "${APP_DIR}/library/requirements.txt"; then
+            echo -e "${RED}ERROR: pip install --upgrade -r requirements.txt failed — aborting install${NC}"
+            exit 1
+        fi
+        # Baseline for upgrade.sh's per-deploy package diff (library/.installed-requirements.txt)
+        local frozen
+        if ! frozen=$(sudo -u audiobooks "${APP_DIR}/library/venv/bin/pip" freeze) ||
+            ! printf '%s\n' "$frozen" | LC_ALL=C sort |
+            sudo tee "${APP_DIR}/library/.installed-requirements.txt" >/dev/null; then
+            echo -e "${RED}ERROR: could not record installed packages${NC}"
+            exit 1
+        fi
     else
-        echo -e "${YELLOW}Warning: requirements.txt not found, installing Flask only${NC}"
-        sudo -u audiobooks "${APP_DIR}/library/venv/bin/pip" install --quiet Flask
+        echo -e "${RED}ERROR: ${APP_DIR}/library/requirements.txt not found — refusing to install a partial venv${NC}"
+        exit 1
     fi
 
     # Isolated venv for audible-cli (avoids httpx version conflict with main app)
@@ -1900,7 +1919,8 @@ EOF
         # Install Caddy maintenance page (if Caddy is installed)
         if command -v caddy &>/dev/null; then
             echo -e "${BLUE}Installing Caddy maintenance page configuration...${NC}"
-            sudo mkdir -p /etc/caddy/conf.d
+            local caddy_dir="${AUDIOBOOKS_CADDY_DIR:-/etc/caddy}"
+            sudo mkdir -p "${caddy_dir}/conf.d"
             # Two sites: :8084 -> native app, :8085 -> Docker app.
             # Defaults match the canonical lib/audiobook-config.sh value (8443).
             # Dual-stack hosts (e.g., QA) override AUDIOBOOKS_WEB_PORT (native)
@@ -1909,8 +1929,12 @@ EOF
             local docker_port="${AUDIOBOOKS_DOCKER_PORT:-8443}"
             sed -e "s|__NATIVE_PORT__|${native_port}|g" \
                 -e "s|__DOCKER_PORT__|${docker_port}|g" \
-                "${SCRIPT_DIR}/caddy/audiobooks.conf" | sudo tee /etc/caddy/conf.d/audiobooks.conf >/dev/null
-            sudo cp -f "${SCRIPT_DIR}/caddy/maintenance.html" /etc/caddy/maintenance.html
+                "${SCRIPT_DIR}/caddy/audiobooks.conf" | sudo tee "${caddy_dir}/conf.d/audiobooks.conf" >/dev/null
+            sudo cp -f "${SCRIPT_DIR}/caddy/maintenance.html" "${caddy_dir}/maintenance.html"
+            # unavailable.html: unplanned-outage page (audiobooks.conf falls back to maintenance.html if absent)
+            if [[ -f "${SCRIPT_DIR}/caddy/unavailable.html" ]]; then
+                sudo cp -f "${SCRIPT_DIR}/caddy/unavailable.html" "${caddy_dir}/unavailable.html"
+            fi
             sudo systemctl reload caddy 2>/dev/null || true
             echo "  Installed: Caddy reverse proxy (:8084->native:${native_port}, :8085->docker:${docker_port})"
         fi
@@ -2431,6 +2455,12 @@ EOF
         for script in "${SCRIPT_DIR}/scripts/"*; do
             if [[ -f "$script" ]]; then
                 local script_name=$(basename "$script")
+                # Dev-machine tools, deliberately NOT installed (Audiobook-Manager-soo):
+                # purge-users.sh drives a remote VM over HTTPS with an admin TOTP secret to wipe
+                # user rows — a test-environment tool with no role in a production install.
+                # install-hooks.sh wires the project's git hooks and needs a git checkout.
+                # An installed copy is a leftover and is listed in OBSOLETE_ROOT_PATHS
+                # (scripts/install-manifest.sh) so the reconciler removes it.
                 case "$script_name" in
                     install-hooks.sh | purge-users.sh) continue ;;
                 esac
@@ -2566,11 +2596,21 @@ EOF
     # Install all dependencies from requirements.txt
     if [[ -f "${LIB_DIR}/library/requirements.txt" ]]; then
         echo -e "${BLUE}Installing Python dependencies from requirements.txt...${NC}"
-        "${LIB_DIR}/library/venv/bin/pip" install --quiet \
-            -r "${LIB_DIR}/library/requirements.txt"
+        if ! "${LIB_DIR}/library/venv/bin/pip" install --upgrade --quiet \
+            -r "${LIB_DIR}/library/requirements.txt"; then
+            echo -e "${RED}ERROR: pip install --upgrade -r requirements.txt failed — aborting install${NC}"
+            exit 1
+        fi
+        local frozen
+        if ! frozen=$("${LIB_DIR}/library/venv/bin/pip" freeze) ||
+            ! printf '%s\n' "$frozen" | LC_ALL=C sort \
+                >"${LIB_DIR}/library/.installed-requirements.txt"; then
+            echo -e "${RED}ERROR: could not record installed packages${NC}"
+            exit 1
+        fi
     else
-        echo -e "${YELLOW}Warning: requirements.txt not found, installing Flask only${NC}"
-        "${LIB_DIR}/library/venv/bin/pip" install --quiet Flask
+        echo -e "${RED}ERROR: ${LIB_DIR}/library/requirements.txt not found — refusing to install a partial venv${NC}"
+        exit 1
     fi
 
     # Isolated venv for audible-cli (avoids httpx version conflict with main app)

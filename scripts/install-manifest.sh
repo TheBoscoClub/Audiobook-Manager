@@ -33,6 +33,49 @@ PHANTOM_PATHS=(
 )
 
 # ---------------------------------------------------------------------------
+# Obsolete files the installer NO LONGER ships, left in an install root by an
+# old full-tree copy (Audiobook-Manager-soo). EXPLICIT list, paths RELATIVE to
+# ${LIB_DIR} — never "delete whatever is not shipped". The reconciler
+# (_reconcile_obsolete_root_paths) removes exactly these in enforce mode and
+# only reports them in report mode; it refuses to run unless ${LIB_DIR} holds
+# VERSION + install-manifest.json, rejects absolute/".." entries, and never
+# follows a symlinked parent. Add a path here ONLY if the installer provably
+# does not ship it.
+#
+# Deliberately NOT listed: library/certs — install.sh generates the TLS pair
+# there and AUDIOBOOKS_CERTS defaults to it (CONFIG_CANONICAL_DEFAULTS below).
+# scripts/purge-users.sh and scripts/install-hooks.sh are dev-machine tools
+# skipped by the install/upgrade copy loops; an installed copy is a leftover.
+# ---------------------------------------------------------------------------
+OBSOLETE_ROOT_PATHS=(
+    "upgrade.sh" # stale root copy; the live one is scripts/upgrade.sh
+    "install.sh"
+    "bootstrap-install.sh"
+    "create-release.sh"
+    "launch.sh"
+    "README.md"
+    "Dockerfile"
+    "docker-compose.yml"
+    ".python-version"
+    ".coverage"
+    "test-output.log"
+    ".mypy_cache"
+    ".ruff_cache"
+    "library/.mypy_cache"
+    "scripts/purge-users.sh"   # dev tool, deliberately never copied by install/upgrade
+    "scripts/install-hooks.sh" # dev tool (git hooks), deliberately never copied
+    # Screenshots committed to the repo root before 6e9abc63 (2026-02-21)
+    "codecov-page.png"
+    "css-fix-desktop-1280x720.png"
+    "css-fix-landscape-812x375.png"
+    "css-fix-mobile-375x812.png"
+    "css-fix-small-phone-320x568.png"
+    "css-fix-tablet-768x1024.png"
+    "vm-e2e-main-library.png"
+    "vm-e2e-my-library-tab.png"
+)
+
+# ---------------------------------------------------------------------------
 # Directories that MUST exist (created if missing, owner fixed if wrong).
 # Format: <path>|<owner>:<group>|<mode>
 # ---------------------------------------------------------------------------

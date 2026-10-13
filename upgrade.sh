@@ -835,9 +835,108 @@ apply_schema_migrations() {
 # Major Version Upgrade Functions
 # -----------------------------------------------------------------------------
 
+# Relative path (under the install dir) of the sorted `pip freeze` recorded after
+# every dependency sync. The next deploy diffs against it, so drift between
+# environments (and CVE-floor bumps actually landing) is visible per deploy.
+INSTALLED_REQUIREMENTS_REL="library/.installed-requirements.txt"
+
+_requirements_diff() {
+    # Print added/removed/changed packages between two sorted `pip freeze` files.
+    # ASCII "->" on purpose: scripts/upgrade-helper-process scans output lines for
+    # the unicode arrow to extract old/new VERSION numbers — a package line
+    # containing it would overwrite them.
+    local old_file="$1" new_file="$2"
+    awk '
+        function nm(l, i) { i = index(l, "=="); return i ? substr(l, 1, i - 1) : l }
+        function vr(l, i) { i = index(l, "=="); return i ? substr(l, i + 2) : "" }
+        NR == FNR { if ($0 != "") { k = tolower(nm($0)); old[k] = vr($0); onm[k] = nm($0) } next }
+        $0 != "" {
+            k = tolower(nm($0)); seen[k] = 1
+            if (!(k in old)) printf "  + %s %s\n", nm($0), vr($0)
+            else if (old[k] != vr($0)) printf "  ~ %s %s -> %s\n", nm($0), old[k], vr($0)
+        }
+        END { for (k in old) if (!(k in seen)) printf "  - %s %s\n", onm[k], old[k] }
+    ' "$old_file" "$new_file" | LC_ALL=C sort -k2,2
+}
+
+_record_installed_requirements() {
+    # Write the exact installed package set (sorted pip freeze) into the install
+    # and print a concise diff against the previous deploy's record.
+    # Returns non-zero if the freeze cannot be taken or recorded.
+    local target="$1"
+    local use_sudo="${2:-}"
+    local pip="$target/library/venv/bin/pip"
+    local record="$target/$INSTALLED_REQUIREMENTS_REL"
+    local runner=()
+    [[ -n "$use_sudo" ]] && runner=(sudo -u audiobooks)
+
+    local new_file frozen
+    new_file=$(mktemp) || return 1
+    # Capture first: in a pipeline a failing `pip freeze` would be masked by sort's status.
+    if ! frozen=$("${runner[@]}" "$pip" freeze) || [[ -z "$frozen" ]] \
+        || ! printf '%s\n' "$frozen" | LC_ALL=C sort >"$new_file"; then
+        echo -e "${RED}  Could not record installed packages (pip freeze failed or was empty)${NC}"
+        rm -f "$new_file"
+        return 1
+    fi
+
+    local count
+    count=$(wc -l <"$new_file")
+    if [[ ! -f "$record" ]]; then
+        echo -e "${GREEN}  Installed packages: ${count} (first recorded deploy — no previous record to diff)${NC}"
+    else
+        local diff_out added removed changed
+        diff_out=$(_requirements_diff "$record" "$new_file")
+        if [[ -z "$diff_out" ]]; then
+            echo -e "${GREEN}  Installed packages: ${count} (no changes since last deploy)${NC}"
+        else
+            added=$(grep -c '^  + ' <<<"$diff_out" || true)
+            removed=$(grep -c '^  - ' <<<"$diff_out" || true)
+            changed=$(grep -c '^  ~ ' <<<"$diff_out" || true)
+            echo -e "${GREEN}  Installed packages: ${count} (+${added} added, -${removed} removed, ~${changed} changed)${NC}"
+            echo "$diff_out"
+        fi
+    fi
+
+    if ! $use_sudo install -m 644 "$new_file" "$record"; then
+        echo -e "${RED}  Could not write $record${NC}"
+        rm -f "$new_file"
+        return 1
+    fi
+    [[ -n "$use_sudo" ]] && sudo chown audiobooks:audiobooks "$record"
+    rm -f "$new_file"
+    return 0
+}
+
+sync_python_dependencies() {
+    # Install/upgrade the venv from requirements.txt and record the result.
+    # `--upgrade` on EVERY deploy so a raised `>=` floor (CVE fix) actually moves
+    # an existing venv (Audiobook-Manager-gwq). A failure is FATAL: there is no
+    # minimal-package fallback — a 2-package venv would leave a broken app that
+    # still reports a successful deploy.
+    local target="$1"
+    local use_sudo="${2:-}"
+    local pip="$target/library/venv/bin/pip"
+    local req="$target/library/requirements.txt"
+    local runner=()
+    [[ -n "$use_sudo" ]] && runner=(sudo -u audiobooks)
+
+    if [[ ! -f "$req" ]]; then
+        echo -e "${RED}  requirements.txt missing at $req — cannot sync dependencies${NC}"
+        return 1
+    fi
+    if ! "${runner[@]}" "$pip" install --upgrade --quiet -r "$req"; then
+        echo -e "${RED}  pip install --upgrade FAILED — dependencies are not in a known-good state${NC}"
+        return 1
+    fi
+    echo -e "${GREEN}  Dependencies synced${NC}"
+    _record_installed_requirements "$target" "$use_sudo"
+}
+
 force_venv_rebuild() {
     # Force-rebuild the Python virtual environment from requirements.txt.
     # Ensures new dependencies are installed and old ones are removed.
+    # Returns non-zero (fails the deploy) if the dependency install fails.
     local target="$1"
     local use_sudo="${2:-}"
 
@@ -861,21 +960,12 @@ force_venv_rebuild() {
         sudo rm -rf "$target/library/venv"
         sudo "$sys_python" -m venv "$target/library/venv"
         sudo chown -R audiobooks:audiobooks "$target/library/venv"
-        sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
-            -r "$target/library/requirements.txt" 2>&1 || {
-            echo -e "${RED}  pip install failed — trying minimal fallback${NC}"
-            sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
-                flask mutagen gunicorn gevent
-        }
     else
         rm -rf "$target/library/venv"
         "$sys_python" -m venv "$target/library/venv"
-        "$target/library/venv/bin/pip" install --quiet \
-            -r "$target/library/requirements.txt" 2>&1 || {
-            echo -e "${RED}  pip install failed — trying minimal fallback${NC}"
-            "$target/library/venv/bin/pip" install --quiet flask mutagen gunicorn gevent
-        }
     fi
+
+    sync_python_dependencies "$target" "$use_sudo" || return 1
 
     echo -e "${GREEN}  Venv rebuilt with fresh dependencies${NC}"
 }
@@ -1984,6 +2074,12 @@ do_upgrade() {
         for script in "${project}/scripts/"*; do
             if [[ -f "$script" ]] && [[ "$(basename "$script")" != "__pycache__" ]]; then
                 local script_name=$(basename "$script")
+                # Dev-machine tools, deliberately NOT installed (Audiobook-Manager-soo):
+                # purge-users.sh drives a remote VM over HTTPS with an admin TOTP secret to wipe
+                # user rows — a test-environment tool with no role in a production install.
+                # install-hooks.sh wires the project's git hooks and needs a git checkout.
+                # An installed copy is a leftover and is listed in OBSOLETE_ROOT_PATHS
+                # (scripts/install-manifest.sh) so the reconciler removes it.
                 case "$script_name" in
                     install-hooks.sh | purge-users.sh) continue ;;
                 esac
@@ -2209,13 +2305,13 @@ do_upgrade() {
         if command -v caddy &>/dev/null && [[ -d "${project}/caddy" ]]; then
             echo -e "${BLUE}Upgrading Caddy maintenance page...${NC}"
             local caddy_changed=false
-            for caddy_file in audiobooks.conf maintenance.html; do
+            for caddy_file in audiobooks.conf maintenance.html unavailable.html; do
                 local src="${project}/caddy/${caddy_file}"
                 local dst
                 if [[ "$caddy_file" == "audiobooks.conf" ]]; then
-                    dst="/etc/caddy/conf.d/audiobooks.conf"
+                    dst="${AUDIOBOOKS_CADDY_DIR:-/etc/caddy}/conf.d/audiobooks.conf"
                 else
-                    dst="/etc/caddy/${caddy_file}"
+                    dst="${AUDIOBOOKS_CADDY_DIR:-/etc/caddy}/${caddy_file}"
                 fi
                 if [[ -f "$src" ]]; then
                     # For audiobooks.conf, substitute native + docker upstream ports
@@ -2377,7 +2473,7 @@ do_upgrade() {
     if [[ -d "$target/library" ]]; then
         if [[ "$MAJOR_VERSION" == "true" ]]; then
             # Major version: force complete venv rebuild (new deps in, old deps out)
-            force_venv_rebuild "$target" "$use_sudo"
+            force_venv_rebuild "$target" "$use_sudo" || return 1
         elif [[ "$DRY_RUN" == "false" ]]; then
             # Normal upgrade: only recreate if broken or pointing to /home/ (pyenv)
             # systemd ProtectHome=yes blocks access to /home/, breaking pyenv-created venvs
@@ -2399,32 +2495,19 @@ do_upgrade() {
                     sudo rm -rf "$target/library/venv"
                     sudo "$sys_python" -m venv "$target/library/venv"
                     sudo chown -R audiobooks:audiobooks "$target/library/venv"
-                    sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null \
-                        || sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet flask mutagen
                 else
                     rm -rf "$target/library/venv"
                     "$sys_python" -m venv "$target/library/venv"
-                    "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null \
-                        || "$target/library/venv/bin/pip" install --quiet flask mutagen
                 fi
+                sync_python_dependencies "$target" "$use_sudo" || return 1
                 echo -e "${GREEN}  Venv recreated with system Python${NC}"
             else
                 # Venv exists and works — sync dependencies from requirements.txt
-                # so new packages (added between releases) get installed
-                echo -e "${BLUE}Syncing Python dependencies...${NC}"
-                if [[ -n "$use_sudo" ]]; then
-                    sudo -u audiobooks "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null \
-                        && echo -e "${GREEN}  Dependencies synced${NC}" \
-                        || echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
-                else
-                    "$target/library/venv/bin/pip" install --quiet \
-                        -r "$target/library/requirements.txt" 2>/dev/null \
-                        && echo -e "${GREEN}  Dependencies synced${NC}" \
-                        || echo -e "${YELLOW}  pip sync had warnings (non-fatal)${NC}"
-                fi
+                # with --upgrade so new packages (added between releases) get
+                # installed AND raised >= floors move existing ones. Fatal on
+                # failure; records the installed set and prints the diff.
+                echo -e "${BLUE}Syncing Python dependencies (pip install --upgrade)...${NC}"
+                sync_python_dependencies "$target" "$use_sudo" || return 1
             fi
         fi
     fi
@@ -2541,7 +2624,7 @@ do_upgrade() {
     fi
 
     # Reconcile filesystem against install manifest. Default is enforce: the
-    # items the reconciler acts on (PHANTOM_PATHS, legacy config keys listed
+    # items the reconciler acts on (PHANTOM_PATHS, OBSOLETE_ROOT_PATHS, legacy config keys listed
     # in CONFIG_CANONICAL_DEFAULTS, stale __pycache__) are explicitly marked
     # as obsolete in the manifest — the whole point of those arrays is "this
     # must not survive." Report-only meant drift accumulated release after

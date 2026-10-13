@@ -99,7 +99,7 @@ RUN pip install --no-cache-dir --upgrade pip
 
 # Copy Docker-specific requirements (excludes audible CLI — not needed in standalone container)
 COPY library/requirements-docker.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade -r requirements.txt
 
 # Copy configuration and utility modules (shared by all Python scripts)
 COPY library/config.py /app/config.py

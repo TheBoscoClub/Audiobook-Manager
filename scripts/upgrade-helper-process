@@ -42,6 +42,28 @@ source "${AUDIOBOOKS_HOME:-/opt/audiobooks}/lib/audiobook-config.sh" 2>/dev/null
 CONTROL_DIR="${AUDIOBOOKS_VAR_DIR:?}/.control"
 REQUEST_FILE="${CONTROL_DIR}/upgrade-request"
 STATUS_FILE="${CONTROL_DIR}/upgrade-status"
+# Mirror of the status file in Caddy's static dir so maintenance.html can show
+# live progress while the API is down. Directory comes from
+# lib/audiobook-config.sh (AUDIOBOOKS_CADDY_DIR); the fallback covers a missing lib.
+CADDY_STATUS_FILE="${AUDIOBOOKS_CADDY_DIR:-/etc/caddy}/upgrade-status.json"
+# Grace period before the mirror is removed, so a maintenance page that is
+# mid-poll still sees the final status. Overridable (tests set 0).
+CADDY_STATUS_CLEANUP_DELAY="${AUDIOBOOKS_CADDY_STATUS_CLEANUP_DELAY:-5}"
+
+# EXIT-trap cleanup: EVERY terminal path (success, no-op "Already up to date",
+# failure, early exit, SIGTERM/SIGINT/SIGHUP) removes the Caddy mirror. A stale
+# {"stage":"complete"} left there is served to public visitors by Caddy during
+# 502/503. The control-dir STATUS_FILE keeps its own lifecycle (the API reads
+# and deletes it). Absent mirror = nothing to do, no error.
+# shellcheck disable=SC2329  # invoked via the EXIT trap below
+_cleanup_caddy_status() {
+    [[ -e "$CADDY_STATUS_FILE" ]] || return 0
+    sleep "$CADDY_STATUS_CLEANUP_DELAY"
+    rm -f "$CADDY_STATUS_FILE" 2>/dev/null || true
+}
+trap _cleanup_caddy_status EXIT
+# bash runs the EXIT trap when a fatal SIGHUP/SIGINT/SIGTERM ends the shell, so
+# no separate signal traps are needed (verified by test_sigterm_removes_caddy_mirror).
 # Default install dir — config variable takes precedence if set
 _DEFAULT_INSTALL_DIR="/opt/audiobooks"
 INSTALL_DIR="${AUDIOBOOKS_INSTALL_DIR:-$_DEFAULT_INSTALL_DIR}"
@@ -102,9 +124,9 @@ write_status() {
     chmod 660 "$STATUS_FILE" 2>/dev/null || true
 
     # Mirror to Caddy's static dir so maintenance.html can show live progress
-    # even while the API is down (Caddy serves /etc/caddy/ during 502/503)
-    echo "$status_json" >"/etc/caddy/upgrade-status.json" 2>/dev/null || true
-    chmod 644 "/etc/caddy/upgrade-status.json" 2>/dev/null || true
+    # even while the API is down (Caddy serves its dir during 502/503)
+    { echo "$status_json" >"$CADDY_STATUS_FILE"; } 2>/dev/null || true
+    chmod 644 "$CADDY_STATUS_FILE" 2>/dev/null || true
 }
 
 # Check if service is valid
@@ -614,10 +636,8 @@ do_upgrade() {
         write_status "false" "complete" "Upgrade completed — API may need a moment to start" "true" "$result_json" "${OUTPUT_LINES[@]}"
     fi
 
-    # Clean up Caddy status file after a brief delay (maintenance.html will have
-    # already reloaded by now since the API is back up)
-    sleep 5
-    rm -f "/etc/caddy/upgrade-status.json" 2>/dev/null || true
+    # The Caddy mirror is removed by the EXIT trap (_cleanup_caddy_status) after
+    # a brief delay, on this and every other terminal path.
 }
 
 # =============================================================================
