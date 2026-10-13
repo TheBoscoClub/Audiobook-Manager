@@ -590,6 +590,51 @@ class TestTranslateOrchestration:
         assert msg.endswith("refusing to hand untranslated text to a caller that persists results")
         assert t.degraded is True and t.degraded_texts == 3
 
+    def test_recovery_warning_carries_the_batch_failure_reason(self, caplog):
+        """_last_error must be read when the batch fails, not after the
+        per-sentence calls overwrite it (they fail with OSError here)."""
+        t = _mk()
+        calls = {"n": 0}
+
+        def post(url, **kw):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return _FakeResp(_chat_response(["你好，世界。"]))  # 1 for 2
+            raise OSError("boom")
+
+        with patch.object(t._session, "post", side_effect=post):
+            with caplog.at_level("WARNING", logger="localization.translation.vllm_mt"):
+                out = t.translate(SRC_EN, "zh-Hans")
+        assert out == SRC_EN
+        warns = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+        assert warns == [
+            "Batch of 2 failed (array length 1 for 2 input(s)) — retrying sentence-by-sentence"
+        ]
+
+    def test_recovered_chunk_then_normal_chunk(self, tm_db: Path):
+        """Chunk 1 (16) fails its batch contract and recovers per sentence;
+        chunk 2 (4) must still go through the normal batch path."""
+        t = _mk(db_path=tm_db)
+        texts = self._many(20)
+        sizes: list[int] = []
+
+        def post(url, **kw):
+            parsed = json.loads(kw["json"]["messages"][1]["content"])
+            sizes.append(len(parsed))
+            if len(parsed) == 16:
+                return _FakeResp(_chat_response([GOOD_ZH[1]] * 15))  # dropped one
+            return _FakeResp(_chat_response([GOOD_ZH[1]] * len(parsed)))
+
+        with patch.object(t._session, "post", side_effect=post):
+            out = t.translate(texts, "zh-Hans", strict=True)
+        assert sizes == [16] + [1] * 16 + [4]
+        assert out == [GOOD_ZH[1]] * 20
+        assert t.degraded is False
+        conn = sqlite3.connect(str(tm_db))
+        cached = {r[0] for r in conn.execute("SELECT source FROM string_translations")}
+        conn.close()
+        assert cached == set(texts)
+
     def test_transport_failure_reason_is_last_error_in_degraded_path(self, caplog):
         t = _mk()
         with patch.object(t._session, "post", side_effect=OSError("boom")):
