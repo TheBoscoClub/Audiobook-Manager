@@ -20,6 +20,7 @@ from pathlib import Path
 from flask import Blueprint, g, jsonify, request, send_file
 
 from .auth import admin_or_localhost, guest_allowed
+from .locale_validation import locale_error_response
 
 translated_audio_bp = Blueprint("translated_audio", __name__)
 logger = logging.getLogger(__name__)
@@ -88,6 +89,8 @@ def get_book_translated_audio(book_id):
     on-demand streaming.
     """
     locale = request.args.get("locale")
+    if locale and (bad := locale_error_response(locale)) is not None:
+        return bad
     conn = _get_db()
     try:
         # Determine whether each row is sampler-produced by path prefix.
@@ -193,6 +196,8 @@ def get_book_translated_audio(book_id):
 @guest_allowed
 def stream_translated_chapter(book_id, chapter_index, locale):
     """Stream translated audio for a specific chapter."""
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     conn = _get_db()
     try:
         row = conn.execute(
@@ -246,6 +251,8 @@ def generate_translated_audio():
 
     book_id = data.get("audiobook_id")
     locale = data.get("locale", "zh-Hans")
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     voice = data.get("voice", "zh-CN-XiaoxiaoNeural")
     provider_override = data.get("provider")
 
@@ -502,6 +509,8 @@ def generate_translated_audio():
 @guest_allowed
 def get_tts_job_status(book_id, locale):
     """Poll the progress of a running TTS generation job."""
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     status = _get_status(book_id, locale)
     if not status:
         return jsonify({"state": "idle"})
@@ -621,6 +630,8 @@ def user_request_translated_audio():
     data = request.get_json(silent=True) or {}
     book_id = data.get("audiobook_id")
     locale = data.get("locale", "zh-Hans")
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     if not book_id:
         return jsonify({"error": "audiobook_id is required"}), 400
 

@@ -13,6 +13,8 @@ import logging
 from flask import Blueprint, jsonify, request
 from i18n import DEFAULT_LOCALE, SUPPORTED_LOCALES, get_catalog, reload_catalogs
 
+from .locale_validation import locale_error_response
+
 i18n_bp = Blueprint("i18n", __name__)
 logger = logging.getLogger(__name__)
 
@@ -54,6 +56,8 @@ def activate_locale():
     locale = data.get("locale", "")
     if not locale or locale == "en":
         return jsonify({"status": "ok", "queued": 0})
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
 
     try:
         from localization.queue import enqueue_all_books_for_locale, get_queue_status
@@ -89,6 +93,8 @@ def translation_bump_priority():
     locale = data.get("locale", "")
     if not audiobook_id or not locale or locale == "en":
         return jsonify({"status": "ok"})
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
 
     try:
         from localization.queue import bump_priority, enqueue
@@ -104,6 +110,8 @@ def translation_bump_priority():
 @i18n_bp.route("/api/translation/status/<int:book_id>/<locale>")
 def translation_book_status(book_id, locale):
     """Return translation status for a specific book+locale."""
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     try:
         from localization.queue import get_book_translation_status
 

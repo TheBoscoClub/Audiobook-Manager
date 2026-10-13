@@ -24,6 +24,7 @@ from flask import Blueprint, g, jsonify, request, send_file
 
 from ._audio_paths import resolve_local_audio_path
 from .auth import admin_or_localhost, guest_allowed
+from .locale_validation import locale_error_response
 
 subtitles_bp = Blueprint("subtitles", __name__)
 logger = logging.getLogger(__name__)
@@ -319,6 +320,8 @@ def _stitch_streaming_vtt(conn, book_id: int, chapter_index: int, locale: str) -
 def get_book_subtitles(book_id):
     """List all subtitle entries for a book (cached + streaming)."""
     locale = request.args.get("locale")
+    if locale and (bad := locale_error_response(locale)) is not None:
+        return bad
     conn = _get_db()
     try:
         if locale:
@@ -361,6 +364,8 @@ def get_chapter_subtitle(book_id, chapter_index, locale):
     streaming_segments so in-flight streaming sessions expose live subtitles
     as segments complete (subtitles.js polls this endpoint every 5 s).
     """
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     conn = _get_db()
     try:
         row = conn.execute(
@@ -420,6 +425,8 @@ def generate_subtitles_endpoint():
 
     book_id = data.get("audiobook_id")
     locale = data.get("locale", "zh-Hans")
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     provider_name = data.get("provider", "")
 
     if not book_id:
@@ -469,6 +476,8 @@ def get_subtitle_job_status(book_id, locale):
     "spinning up GPU" / "transcribing" / "done" banner. Safe for
     unauthenticated guests — reveals nothing beyond a phase label.
     """
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     status = _get_status(book_id, locale)
     if not status:
         return jsonify({"state": "idle"})
@@ -547,6 +556,8 @@ def user_request_subtitles():
     data = request.get_json(silent=True) or {}
     book_id = data.get("audiobook_id")
     locale = data.get("locale", "zh-Hans")
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     if not book_id:
         return jsonify({"error": "audiobook_id is required"}), 400
 

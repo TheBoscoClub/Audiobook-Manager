@@ -39,6 +39,7 @@ from flask import Blueprint, abort, g, jsonify, request, send_file
 from i18n import SUPPORTED_LOCALES
 
 from .auth import admin_or_localhost, guest_allowed, localhost_only
+from .locale_validation import SAFE_LOCALE_RE, sanitize_locale
 from .websocket import connection_manager
 
 streaming_bp = Blueprint("streaming_translate", __name__)
@@ -155,8 +156,8 @@ SAMPLER_PRIORITY = 2
 BUFFER_FILL_THRESHOLD_COLD = 3
 BUFFER_FILL_THRESHOLD_WARM = 4
 
-# Allowed locale patterns for path/log safety
-_SAFE_LOCALE_RE = re.compile(r"^[a-zA-Z]{2}(?:-[a-zA-Z0-9]{1,8})?$")
+# Allowed locale patterns for path/log safety (canonical home: locale_validation)
+_SAFE_LOCALE_RE = SAFE_LOCALE_RE
 
 # Control character stripper for log messages (CRLF injection / log forging defense)
 _LOG_SCRUB_RE = re.compile(r"[\r\n\x00-\x1f\x7f]")
@@ -181,16 +182,7 @@ def _safe_log_value(value) -> str:
     return urllib.parse.quote(s, safe="-._~:/=,@()_ ")
 
 
-def _sanitize_locale(locale: str) -> str:
-    """Validate locale string — reject path traversal and log injection.
-
-    Uses ``fullmatch`` rather than ``match``: a ``$``-anchored ``match``
-    accepts a single trailing newline (``"en\n"``), which would let a
-    CR/LF-bearing value past the first validation layer.
-    """
-    if not isinstance(locale, str) or not _SAFE_LOCALE_RE.fullmatch(locale):
-        raise ValueError(f"invalid locale: {locale!r}")
-    return locale
+_sanitize_locale = sanitize_locale
 
 
 def _safe_join_under(base: Path, *parts: str) -> Path:

@@ -23,6 +23,7 @@ from flask import Blueprint, jsonify, request
 
 from .auth import admin_if_enabled, admin_required, guest_allowed
 from .legacy_teardown import migrate_drop_legacy_quota as _migrate_drop_legacy_quota
+from .locale_validation import locale_error_response
 from .search_cjk import pinyin_sort_key
 
 translations_bp = Blueprint("translations", __name__)
@@ -229,6 +230,8 @@ def get_book_translations(book_id):
 @guest_allowed
 def get_translation(book_id, locale):
     """Get translation for a specific locale."""
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     conn = _get_db()
     try:
         row = conn.execute(
@@ -251,6 +254,8 @@ def upsert_translation(book_id):
         return jsonify({"error": "locale is required"}), 400
 
     locale = data["locale"]
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     title = data.get("title")
     author_display = data.get("author_display")
     description = data.get("description")
@@ -294,6 +299,8 @@ def upsert_translation(book_id):
 @admin_if_enabled
 def delete_translation(book_id, locale):
     """Delete a translation for a specific locale."""
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     conn = _get_db()
     try:
         result = conn.execute(
@@ -359,6 +366,8 @@ def get_translations_by_locale(locale):
                             translation for any IDs missing from the cache
                             (requires a configured translation provider).
     """
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     if locale == "en":
         return jsonify({})
 
@@ -541,6 +550,8 @@ def get_collection_translations(locale):
     returns cached translations, and on-demand translates any missing
     names when a provider is configured. English short-circuits to an empty dict.
     """
+    if (bad := locale_error_response(locale)) is not None:
+        return bad
     if locale == "en":
         return jsonify({})
 
@@ -699,6 +710,8 @@ def _validate_translate_strings_request(data):
         return None, None, (jsonify({"error": "locale is required"}), 400)
 
     locale = data["locale"]
+    if (bad := locale_error_response(locale)) is not None:
+        return None, None, bad
     if locale == "en":
         return None, None, jsonify({})
 
@@ -834,6 +847,8 @@ def _validate_on_demand_request(data):
         return (None, None, (jsonify({"error": "locale and audiobook_ids are required"}), 400))
 
     locale = data["locale"]
+    if (bad := locale_error_response(locale)) is not None:
+        return None, None, bad
     if locale == "en":
         return None, None, jsonify({})
 
@@ -936,6 +951,8 @@ def _validate_batch_request(data):
         return None, None, (jsonify({"error": "locale is required"}), 400)
 
     locale = data["locale"]
+    if (bad := locale_error_response(locale)) is not None:
+        return None, None, bad
     book_ids = data.get("audiobook_ids")
 
     if isinstance(book_ids, list):
