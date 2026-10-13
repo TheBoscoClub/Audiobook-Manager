@@ -1196,7 +1196,7 @@ def test_real_pip_as_other_uid_cannot_read_dev_stdin(mode_and_feed):
     repeated as the new uid: a 0600 file (or a pipe) fed on stdin is EACCES."""
     mode, feed = mode_and_feed
     with tempfile.TemporaryDirectory() as d:
-        os.chmod(d, 0o755)
+        os.chmod(d, 0o755)  # nosec B103 — the other uid must traverse the tempdir to reach r.txt
         req = Path(d) / "r.txt"
         req.write_text("pip\n")
         req.chmod(mode)
@@ -1205,7 +1205,7 @@ def test_real_pip_as_other_uid_cannot_read_dev_stdin(mode_and_feed):
         proc = subprocess.run(
             f'{pre}sudo -n -u claude "{REAL_PIP}" install --dry-run --no-index --no-deps '
             f"-r /dev/stdin {src}",
-            shell=True,
+            shell=True,  # nosec B602 — the shell's < redirect / | pipe is what is under test; inputs are test constants
             capture_output=True,
             text=True,
             timeout=120,
