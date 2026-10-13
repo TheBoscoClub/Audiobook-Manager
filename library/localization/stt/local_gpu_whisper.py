@@ -11,6 +11,7 @@ and no billing — the GPU is local.
 """
 
 import logging
+import threading
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -20,6 +21,12 @@ from common_utils.secret_resolver import resolve_secret
 from .base import STTProvider, Transcript, WordTimestamp
 
 logger = logging.getLogger(__name__)
+
+# Endpoints already warned about (cleartext bearer). The pipeline builds a new
+# provider per selection and may run from request threads, so warn once per
+# process per redacted endpoint, under a lock.
+_warned_cleartext: set[str] = set()
+_warned_lock = threading.Lock()
 
 WHISPER_LANGUAGES = {
     "en",
@@ -149,12 +156,17 @@ class LocalGPUWhisperSTT(STTProvider):
         if token is None:
             token = resolve_secret("AUDIOBOOKS_WHISPER_GPU_TOKEN")
         if token and scheme == "http":
-            logger.warning(
-                "Whisper GPU bearer token is configured but the endpoint %s is "
-                "plain http — the token travels unencrypted unless this hop is "
-                "an SSH tunnel or other encrypted link",
-                redact_endpoint(self._base_url),
-            )
+            ep = redact_endpoint(self._base_url)
+            with _warned_lock:
+                first = ep not in _warned_cleartext
+                _warned_cleartext.add(ep)
+            if first:
+                logger.warning(
+                    "Whisper GPU bearer token is configured but the endpoint %s is "
+                    "plain http — the token travels unencrypted unless this hop is "
+                    "an SSH tunnel or other encrypted link",
+                    ep,
+                )
         # Never log or repr this value.
         self._auth_kwargs: dict = {"headers": {"Authorization": f"Bearer {token}"}} if token else {}
 

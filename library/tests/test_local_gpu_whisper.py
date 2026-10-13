@@ -14,6 +14,16 @@ import pytest
 import requests
 from localization.stt.local_gpu_whisper import WHISPER_LANGUAGES, LocalGPUWhisperSTT
 
+
+@pytest.fixture(autouse=True)
+def _reset_cleartext_warning_state():
+    from localization.stt import local_gpu_whisper as mod
+
+    mod._warned_cleartext.clear()
+    yield
+    mod._warned_cleartext.clear()
+
+
 # ── Construction & static helpers ────────────────────────────────────
 
 
@@ -385,6 +395,17 @@ class TestEndpointRedaction:
         recs = [r for r in caplog.records if "unencrypted" in r.getMessage()]
         assert len(recs) == 1
         assert "TOPSECRET-1" not in caplog.text
+
+    def test_cleartext_warning_once_per_endpoint(self, caplog):
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            for _ in range(3):
+                LocalGPUWhisperSTT(host="10.0.0.1", token="t1")
+        assert caplog.text.count("unencrypted") == 1
+        with caplog.at_level(logging.WARNING):
+            LocalGPUWhisperSTT(host="10.0.0.2", token="t1")
+        assert caplog.text.count("unencrypted") == 2
 
     def test_token_over_https_no_warning(self, caplog):
         import logging
