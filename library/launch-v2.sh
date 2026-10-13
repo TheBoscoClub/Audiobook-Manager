@@ -28,6 +28,8 @@ echo ""
 # directory holding config.env), not the directory this script runs in.
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 export PROJECT_DIR="$PROJECT_ROOT"
+# Tell library/config.py not to read /etc/audiobooks or ~/.config/audiobooks
+export AUDIOBOOKS_SKIP_SYSTEM_CONFIG=1
 CONFIG_FILE="$PROJECT_ROOT/config.env"
 
 if [ -f "$CONFIG_FILE" ]; then
@@ -38,7 +40,7 @@ if [ -f "$CONFIG_FILE" ]; then
         if [ -n "${!name+x}" ]; then
             ENV_SNAPSHOT["$name"]="${!name}"
         fi
-    done < <(grep -o -E '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=' "$CONFIG_FILE" | tr -d ' \t=')
+    done < <(sed -n -E 's/^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)=.*/\2/p' "$CONFIG_FILE")
     set -a
     # shellcheck source=/dev/null
     source "$CONFIG_FILE"
@@ -57,11 +59,21 @@ if [ -z "${AUDIOBOOKS_DATABASE:-}" ] || [ -z "${AUDIOBOOKS_API_PORT:-}" ] || [ -
     exit 1
 fi
 
-# Resolve each path (relative -> project root, symlinks, //, ../) BEFORE
-# judging it, then refuse anything inside an installed-application tree.
-refuse_installed_path() {
-    local var="$1" raw="${!1:-}" real
-    [ -n "$raw" ] || return 0
+# Sweep EVERY exported path-like variable (not a fixed list): resolve it
+# (relative -> project root, symlinks, //, ../) BEFORE judging it, and refuse
+# anything inside an installed-application tree. Path-like = a *_DIR, *_PATH,
+# *_HOME, ... name, or an AUDIOBOOKS_* value that looks like a path. Colon
+# lists (PYTHONPATH) and URLs are not single paths and are skipped.
+PATHLIKE_NAME='^(AUDIOBOOKS_.*|.*_DIR|.*_PATH|.*_HOME|AUTH_DATABASE)$'
+PATHLIKE_ALWAYS='(_DIR|_PATH|_HOME|DATABASE|LIBRARY|SOURCES|COVERS|LOGS|CERTS|VENV|CONVERTER|STAGING|CACHE|SUPPLEMENTS)$'
+while IFS= read -r var; do
+    [[ "$var" =~ $PATHLIKE_NAME ]] || continue
+    raw="${!var:-}"
+    [ -n "$raw" ] || continue
+    case "$raw" in *://* | *:*) continue ;; esac
+    if ! [[ "$var" =~ $PATHLIKE_ALWAYS ]]; then
+        case "$raw" in /* | ./* | ../*) ;; *) continue ;; esac
+    fi
     case "$raw" in
         /*) ;;
         *) raw="$PROJECT_ROOT/$raw" ;;
@@ -78,10 +90,13 @@ refuse_installed_path() {
             ;;
     esac
     export "$var=$real"
-}
-for var in AUDIOBOOKS_DATABASE DATABASE_PATH AUDIOBOOKS_DATA AUDIOBOOKS_LIBRARY \
-    AUDIOBOOKS_SOURCES AUDIOBOOKS_COVERS; do
-    refuse_installed_path "$var"
+done < <(compgen -e)
+
+# Dev state directories named by the config (gitignored) must exist
+for var in AUDIOBOOKS_VAR_DIR AUDIOBOOKS_RUN_DIR; do
+    if [ -n "${!var:-}" ]; then
+        mkdir -p -- "${!var}"
+    fi
 done
 
 API_PORT="$AUDIOBOOKS_API_PORT"

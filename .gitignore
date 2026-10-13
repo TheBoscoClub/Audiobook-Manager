@@ -463,3 +463,6 @@ library/mutants/
 
 # Self-interrogation gate log (machine-local audit trail) — never commit
 .claude-si-gate-log.md
+
+# Local development state (config.env.example: AUDIOBOOKS_VAR_DIR)
+.dev-state/

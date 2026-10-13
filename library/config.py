@@ -76,12 +76,22 @@ def _find_project_root() -> Optional[Path]:
 # Load configuration from all sources
 _config = {}
 
-# 1. System config
-_config.update(_load_config_file(Path("/etc/audiobooks/audiobooks.conf")))
+# Development launch (set by library/launch-v2.sh): never read the installed
+# application's system or user config, so nothing falls through to production
+# values for a key the project config.env does not set. Unset = unchanged.
+_skip_installed_config = os.environ.get("AUDIOBOOKS_SKIP_SYSTEM_CONFIG", "").lower() in (
+    "1",
+    "true",
+    "yes",
+)
 
-# 2. User config
-_user_config = Path.home() / ".config" / "audiobooks" / "audiobooks.conf"
-_config.update(_load_config_file(_user_config))
+if not _skip_installed_config:
+    # 1. System config
+    _config.update(_load_config_file(Path("/etc/audiobooks/audiobooks.conf")))
+
+    # 2. User config
+    _user_config = Path.home() / ".config" / "audiobooks" / "audiobooks.conf"
+    _config.update(_load_config_file(_user_config))
 
 # 3. Legacy config.env (backwards compatibility)
 _project_root = _find_project_root()

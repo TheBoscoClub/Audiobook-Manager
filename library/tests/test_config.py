@@ -449,3 +449,39 @@ class TestInstalledAppConfig:
         assert "from config import" in content, (
             "Installed maintenance.py should import from config module"
         )
+
+
+class TestInstalledConfigSkip:
+    """AUDIOBOOKS_SKIP_SYSTEM_CONFIG (set by launch-v2.sh) bypasses installed config."""
+
+    @staticmethod
+    def _resolved_var_dir(tmp_path, skip):
+        import os
+        import subprocess
+        import sys
+
+        conf_dir = tmp_path / ".config" / "audiobooks"
+        conf_dir.mkdir(parents=True)
+        (conf_dir / "audiobooks.conf").write_text("AUDIOBOOKS_VAR_DIR=/marker/from-user-conf\n")
+        env = {k: v for k, v in os.environ.items() if not k.startswith("AUDIOBOOKS_")}
+        env["HOME"] = str(tmp_path)
+        if skip:
+            env["AUDIOBOOKS_SKIP_SYSTEM_CONFIG"] = "1"
+        code = "import config; print(config.get_config('AUDIOBOOKS_VAR_DIR', 'UNSET'))"
+        out = subprocess.run(  # noqa: S603  # nosec B603 - fixed argv, test-only
+            [sys.executable, "-c", code],
+            cwd=Path(__file__).resolve().parent.parent,
+            env=env,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return out.stdout.strip()
+
+    def test_user_config_still_read_without_flag(self, tmp_path):
+        """Production behaviour unchanged: user config is read when the flag is absent."""
+        assert self._resolved_var_dir(tmp_path, skip=False) == "/marker/from-user-conf"
+
+    def test_installed_config_ignored_with_flag(self, tmp_path):
+        """Dev launch: the user/system config is never read."""
+        assert self._resolved_var_dir(tmp_path, skip=True) != "/marker/from-user-conf"
