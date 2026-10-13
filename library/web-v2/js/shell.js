@@ -1148,7 +1148,19 @@ class ShellPlayer {
     this._unavailable = true;
     const btn = document.getElementById("sp-play-pause");
     if (btn) btn.disabled = true;
+    if (btn) btn.setAttribute("aria-disabled", "true");
     this.setPlayPauseIcon(false);
+    // Drop book A's leftovers: queue/TTS banners, subtitle line, transcript,
+    // time display and progress bar.
+    if (typeof window.subtitles !== "undefined" && window.subtitles.reset) {
+      window.subtitles.reset();
+    }
+    const cur = document.getElementById("sp-current-time");
+    if (cur) cur.textContent = "0:00";
+    const tot = document.getElementById("sp-total-time");
+    if (tot) tot.textContent = "0:00";
+    const prog = document.getElementById("sp-progress");
+    if (prog) prog.value = 0;
     const el = document.getElementById("sp-error");
     if (el) {
       el.textContent = message;
@@ -1160,7 +1172,10 @@ class ShellPlayer {
     if (!this._unavailable) return;
     this._unavailable = false;
     const btn = document.getElementById("sp-play-pause");
-    if (btn) btn.disabled = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.removeAttribute("aria-disabled");
+    }
     this.clearPlayerError();
   }
 
@@ -1175,6 +1190,7 @@ class ShellPlayer {
     }
     const toast = document.createElement("div");
     toast.className = `toast ${type}`;
+    toast.setAttribute("role", "status");
     toast.textContent = message;
     container.appendChild(toast);
     setTimeout(() => {

@@ -80,7 +80,12 @@
 
   // ── Subtitle Loading ──
 
+  // Set by reset() when the player enters the guest "not available" state;
+  // keeps in-flight fetches from re-raising the generation banners.
+  var _suppressed = false;
+
   function loadSubtitles(bookId, chapterIndex) {
+    _suppressed = false;
     currentBookId = bookId;
     currentChapterIndex = chapterIndex || 0;
     sourceCues = [];
@@ -317,6 +322,7 @@
   }
 
   function showGenBanner(bookId, locale) {
+    if (_suppressed) return;
     _genBannerBookId = bookId;
     var banner = genBanner();
     if (!banner) return;
@@ -625,6 +631,7 @@
   }
 
   function showTtsBanner(bookId, locale) {
+    if (_suppressed) return;
     _ttsBannerBookId = bookId;
     var banner = ttsBanner();
     if (!banner) return;
@@ -1095,8 +1102,34 @@
 
   // ── Public API ──
 
+  // Clear everything book-specific: cues, the on-screen line, the transcript
+  // and the generation banners ("queued" spinners). Used when the player has
+  // nothing to play for the book (guest, untranslated).
+  function resetSubtitles() {
+    _suppressed = true;
+    stopGenPoll();
+    stopTtsPoll();
+    stopChapterPoll();
+    hideGenBanner();
+    hideTtsBanner();
+    sourceCues = [];
+    translatedCues = [];
+    currentCueIndex = -1;
+    _loadedChapters = {};
+    function clearLines() {
+      if (subtitleTranslated) subtitleTranslated.textContent = "";
+      if (subtitleSource) subtitleSource.textContent = "";
+    }
+    clearLines();
+    // A crossfade timeout may be in flight and would repaint the old cue.
+    setTimeout(clearLines, 350);
+    var tc = document.getElementById("transcript-content");
+    if (tc) tc.textContent = "";
+  }
+
   window.subtitles = {
     load: loadSubtitles,
+    reset: resetSubtitles,
     show: function () { setSubtitlesVisible(true); },
     hide: function () { setSubtitlesVisible(false); },
     toggle: toggleSubtitles,

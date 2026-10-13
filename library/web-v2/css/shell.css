@@ -181,6 +181,15 @@ html body {
     transform: translateY(-1px);
 }
 
+/* Guest "not available" state (bd gau): visibly inert, theme-neutral. */
+.sp-btn:disabled,
+.sp-btn[aria-disabled="true"] {
+  opacity: 0.35;
+  cursor: not-allowed;
+  filter: grayscale(1);
+  pointer-events: none; /* also suppresses the gold hover state */
+}
+
 .sp-btn:active {
     transform: translateY(1px);
     box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.4), 0 1px 1px rgba(0, 0, 0, 0.2);
