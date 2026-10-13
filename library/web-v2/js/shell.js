@@ -1067,7 +1067,29 @@ class ShellPlayer {
     }, this.apiSaveDelay);
   }
 
+  // Who is the viewer? Resolved once from /auth/status and cached for the
+  // page's life (the shell reloads on login/logout). Resolves to
+  // {authEnabled, signedIn}; on failure signedIn is null (unknown) so the
+  // old behaviour (try the server) is kept.
+  _authState() {
+    if (!this._authStatePromise) {
+      this._authStatePromise = (async () => {
+        if (typeof checkAuthStatus !== "function") {
+          return { authEnabled: null, signedIn: null };
+        }
+        const data = await checkAuthStatus();
+        return { authEnabled: !!data.auth_enabled, signedIn: !!data.user };
+      })().catch(() => ({ authEnabled: null, signedIn: null }));
+    }
+    return this._authStatePromise;
+  }
+
   async savePositionToAPI(fileId, positionMs) {
+    // A guest (auth on, nobody signed in) has no server-side position store:
+    // localStorage only. PUTting would 401 and wrongly raise the
+    // "session expired" toast for someone who never had a session.
+    const auth = await this._authState();
+    if (auth.authEnabled && auth.signedIn === false) return;
     try {
       const response = await fetch(`${API_BASE}/position/${fileId}`, {
         method: "PUT",
@@ -1082,7 +1104,8 @@ class ShellPlayer {
         // refresh last_seen). Surface a one-time toast so the user
         // knows their progress is no longer being saved. Audio playback
         // continues unimpeded — only persistence is affected.
-        if (response.status === 401) {
+        if (response.status === 401 && auth.signedIn) {
+          // Only a client that HAD a session can have it expire.
           this._showSessionExpiredToast();
         }
       }
