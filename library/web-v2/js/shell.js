@@ -396,6 +396,15 @@ class ShellPlayer {
       window.streamingTranslate.drain(false);
     }
 
+    // The old book's audio must not outlive the switch: with streaming
+    // needed nothing below assigns a src, so the element would keep playing
+    // the PREVIOUS book under the new book's title and position saves
+    // (bd gau). Detach it; each branch below re-attaches this book's audio.
+    this.audio.pause();
+    this.audio.removeAttribute("src");
+    this.audio.load();
+    this._audioOwnerId = null;
+
     this.currentBook = { ...book, bookId, coverUrl };
 
     // Reset save timer so auto-save doesn't fire immediately with a stale
@@ -445,6 +454,7 @@ class ShellPlayer {
             this.translatedChapterIdx = 0;
             const entry = this.translatedEntries[0];
             this.audio.src = `${API_BASE}/audiobooks/${bookId}/translated-audio/${entry.chapter_index || 0}/${encodeURIComponent(locale)}`;
+            this._audioOwnerId = this.currentBook.id;
           }
         }
       } catch { /* fall through to original audio */ }
@@ -467,7 +477,10 @@ class ShellPlayer {
     if (!useTranslatedAudio && !streamingNeeded) {
       const needsWebm = !this.audio.canPlayType("audio/ogg; codecs=opus");
       this.audio.src = `${API_BASE}/stream/${bookId}${needsWebm ? "?format=webm" : ""}`;
+      this._audioOwnerId = this.currentBook.id;
     }
+    // Streaming path: the MSE chain attaches THIS book's audio later.
+    if (streamingNeeded) this._audioOwnerId = this.currentBook.id;
 
     // _streamingNeeded is captured synchronously so _applyChapterButtonVisibility
     // (called after audio.play() resolves below) can evaluate the playBook-time
@@ -688,6 +701,7 @@ class ShellPlayer {
 
     this.audio.pause();
     this.audio.src = "";
+    this._audioOwnerId = null;
     this.playerBar.hidden = true;
     document.body.classList.remove("player-active");
 
@@ -711,6 +725,8 @@ class ShellPlayer {
   savePosition(fileId, position, duration) {
     // Defense-in-depth: never save near-zero positions (callers should also guard)
     if (position < 5) return;
+    // Never persist a position read from audio that belongs to another book.
+    if (this._audioOwnerId !== fileId) return;
     const data = { position, duration, timestamp: Date.now() };
     localStorage.setItem(
       `${this.storagePrefix}position_${fileId}`,
@@ -1100,11 +1116,17 @@ class ShellPlayer {
         ? i18n.tOr("translation.guestSignIn", "Translation is available to signed-in users")
         : "Translation is available to signed-in users";
     this._showShellToast(message, "info");
-    if (this.currentBook && this.audio && !this.audio.src) {
+    // State-based: only when nothing is attached for this book. The
+    // attribute (not the .src property, which reflects the page URL when
+    // empty) tells us. Left paused: this runs after an async fetch, outside
+    // the user gesture, so autoplay would be rejected anyway.
+    if (this.currentBook && this.audio && !this.audio.getAttribute("src")) {
       const bookId = this.currentBook.bookId || this.currentBook.id;
       const needsWebm = !this.audio.canPlayType("audio/ogg; codecs=opus");
       this.audio.src = `${API_BASE}/stream/${bookId}${needsWebm ? "?format=webm" : ""}`;
-      this.audio.play().catch(() => {});
+      this.audio.load();
+      this._audioOwnerId = this.currentBook.id;
+      this.setPlayPauseIcon(false);
     }
   }
 
@@ -1174,6 +1196,7 @@ class ShellPlayer {
   }
 
   async flushToAPI(fileId, positionSeconds) {
+    if (this._audioOwnerId !== fileId) return; // audio belongs to another book
     if (this.apiSaveTimeout) {
       clearTimeout(this.apiSaveTimeout);
       this.apiSaveTimeout = null;

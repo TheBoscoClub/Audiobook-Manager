@@ -155,6 +155,27 @@ class TestStreamAndSeek:
         assert resp.get_json()["state"] == "cached"
         spy.assert_not_called()
 
+    def test_stream_guest_cached_does_not_mutate_session(self, app_client, streaming_db, as_guest):
+        with (
+            patch.object(st, "_has_cached_subtitles", return_value=True),
+            patch.object(st, "_has_cached_audio", return_value=True),
+            patch.object(st, "_mark_session_streaming") as spy,
+        ):
+            resp = app_client.post(
+                "/api/translate/stream", json={"audiobook_id": 1, "locale": "zh-Hans"}
+            )
+        assert resp.status_code == 200
+        spy.assert_not_called()
+
+    def test_stream_user_cached_marks_session(self, app_client, streaming_db, as_user):
+        with (
+            patch.object(st, "_has_cached_subtitles", return_value=True),
+            patch.object(st, "_has_cached_audio", return_value=True),
+            patch.object(st, "_mark_session_streaming") as spy,
+        ):
+            app_client.post("/api/translate/stream", json={"audiobook_id": 1, "locale": "zh-Hans"})
+        spy.assert_called_once()
+
     def test_stream_user_uncached_queues(self, app_client, streaming_db, as_user):
         resp = app_client.post(
             "/api/translate/stream", json={"audiobook_id": 1, "locale": "zh-Hans"}

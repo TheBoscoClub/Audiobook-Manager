@@ -958,7 +958,9 @@ def _fully_cached_response(db, audiobook_id, chapter_index, locale):
     # Active chapter is cached → player will start playing immediately.
     # Transition any buffering session to streaming so the DB reflects
     # actual state.
-    _mark_session_streaming(db, audiobook_id, locale)
+    # bd gau: guests are read-only; the session row belongs to a signed-in user.
+    if work_allowed():
+        _mark_session_streaming(db, audiobook_id, locale)
 
     chapter_count = _resolve_chapter_count(db, audiobook_id)
     all_cached = True
