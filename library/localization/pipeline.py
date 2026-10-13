@@ -145,7 +145,7 @@ def _remote_stt_candidates(workload: WorkloadHint = WorkloadHint.ANY) -> list[ST
         else:
             logger.debug(
                 "Local GPU Whisper service not reachable at %s",
-                gpu_provider._base_url,
+                gpu_provider.endpoint,
             )
     return providers
 

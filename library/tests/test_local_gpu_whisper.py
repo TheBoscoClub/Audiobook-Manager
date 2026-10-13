@@ -282,3 +282,134 @@ class TestBaseUrlAndAuth:
             p.transcribe(audio)
         assert "SECRET-xyz-789" not in caplog.text
         assert "SECRET-xyz-789" not in repr(p._base_url)
+
+
+class TestEndpointRedaction:
+    def test_userinfo_rejected_without_echo(self):
+        with pytest.raises(ValueError) as ei:
+            LocalGPUWhisperSTT(base_url="https://bob:hunter2@gpu.example.com")
+        msg = str(ei.value)
+        assert "AUDIOBOOKS_WHISPER_GPU_TOKEN" in msg
+        assert "hunter2" not in msg and "bob" not in msg and "gpu.example.com" not in msg
+
+    def test_username_only_rejected(self):
+        with pytest.raises(ValueError, match="AUDIOBOOKS_WHISPER_GPU_TOKEN"):
+            LocalGPUWhisperSTT(base_url="https://s3cretuser@gpu.example.com")
+
+    def test_malformed_port_error_does_not_echo(self):
+        with pytest.raises(ValueError) as ei:
+            LocalGPUWhisperSTT(base_url="https://gpu.example.com:notaport/?key=s3cret")
+        assert "s3cret" not in str(ei.value)
+
+    def test_redact_endpoint_drops_everything_but_origin(self):
+        from localization.stt.local_gpu_whisper import redact_endpoint
+
+        assert (
+            redact_endpoint("https://u:p@Gpu.Example.com:8443/a/b?key=s3cret#f")
+            == "https://gpu.example.com:8443"
+        )
+        assert redact_endpoint("http://[::1]:8765/x") == "http://[::1]:8765"
+        assert redact_endpoint("garbage") == "<invalid-endpoint>"
+
+    @staticmethod
+    def _gate_patches(mod, host, url):
+        return (
+            patch.object(mod, "RUNPOD_API_KEY", ""),
+            patch.object(mod, "RUNPOD_WHISPER_ENDPOINT", ""),
+            patch.object(mod, "RUNPOD_STREAMING_WHISPER_ENDPOINT", ""),
+            patch.object(mod, "RUNPOD_BACKLOG_WHISPER_ENDPOINT", ""),
+            patch.object(mod, "WHISPER_GPU_HOST", host),
+            patch.object(mod, "WHISPER_GPU_URL", url),
+        )
+
+    def test_not_reachable_log_has_origin_only(self, caplog):
+        import contextlib
+        import logging
+
+        from localization import pipeline as mod
+
+        with contextlib.ExitStack() as st:
+            for p in self._gate_patches(mod, "", "https://gpu.example.com/priv/path"):
+                st.enter_context(p)
+            st.enter_context(patch("requests.get", side_effect=requests.ConnectionError("down")))
+            st.enter_context(caplog.at_level(logging.DEBUG))
+            assert mod._remote_stt_candidates() == []
+        assert "https://gpu.example.com" in caplog.text
+        assert "priv/path" not in caplog.text
+
+    def test_query_url_rejected_without_echo(self):
+        with pytest.raises(ValueError) as ei:
+            LocalGPUWhisperSTT(base_url="https://gpu.example.com/?key=s3cret")
+        assert "s3cret" not in str(ei.value)
+        with pytest.raises(ValueError):
+            LocalGPUWhisperSTT(base_url="https://gpu.example.com/#frag")
+
+    def test_empty_hostname_rejected(self):
+        with pytest.raises(ValueError, match="URL with a host"):
+            LocalGPUWhisperSTT(base_url="https://:443")
+
+    def test_gate_url_only_enables_provider(self):
+        import contextlib
+
+        from localization import pipeline as mod
+
+        with contextlib.ExitStack() as st:
+            for p in self._gate_patches(mod, "", "https://gpu.example.com"):
+                st.enter_context(p)
+            st.enter_context(patch("requests.get", return_value=self._ok()))
+            got = mod._remote_stt_candidates()
+        assert [type(x).__name__ for x in got] == ["LocalGPUWhisperSTT"]
+
+    def test_gate_neither_set_no_provider(self):
+        import contextlib
+
+        from localization import pipeline as mod
+
+        with contextlib.ExitStack() as st:
+            for p in self._gate_patches(mod, "", ""):
+                st.enter_context(p)
+            assert mod._remote_stt_candidates() == []
+
+    @staticmethod
+    def _ok():
+        r = MagicMock()
+        r.ok = True
+        r.json.return_value = {"status": "ok"}
+        return r
+
+    def test_token_over_http_warns_once_without_token(self, caplog):
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            LocalGPUWhisperSTT(host="10.0.0.1", token="TOPSECRET-1")
+        recs = [r for r in caplog.records if "unencrypted" in r.getMessage()]
+        assert len(recs) == 1
+        assert "TOPSECRET-1" not in caplog.text
+
+    def test_token_over_https_no_warning(self, caplog):
+        import logging
+
+        with caplog.at_level(logging.WARNING):
+            LocalGPUWhisperSTT(base_url="https://gpu.example.com", token="t")
+        assert "unencrypted" not in caplog.text
+
+    def test_no_token_http_no_warning(self, caplog, monkeypatch):
+        import logging
+
+        monkeypatch.delenv("AUDIOBOOKS_WHISPER_GPU_TOKEN", raising=False)
+        monkeypatch.delenv("AUDIOBOOKS_WHISPER_GPU_TOKEN_FILE", raising=False)
+        with caplog.at_level(logging.WARNING):
+            LocalGPUWhisperSTT(host="10.0.0.1")
+        assert caplog.text == ""
+
+    def test_uppercase_scheme_accepted(self):
+        p = LocalGPUWhisperSTT(base_url="HTTPS://gpu.example.com")
+        assert p.endpoint == "https://gpu.example.com"
+
+    def test_whitespace_padded_url_is_stripped(self):
+        p = LocalGPUWhisperSTT(base_url="  https://gpu.example.com/  \n")
+        assert p._base_url == "https://gpu.example.com"
+
+    def test_whitespace_only_url_falls_back_to_host(self):
+        p = LocalGPUWhisperSTT(host="10.0.0.1", base_url="   ")
+        assert p._base_url == "http://10.0.0.1:8765"

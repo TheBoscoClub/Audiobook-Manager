@@ -75,6 +75,26 @@ WHISPER_LANGUAGES = {
 }
 
 
+def redact_endpoint(url: str) -> str:
+    """Return ``scheme://host[:port]`` only — safe for logs and exceptions.
+
+    Drops userinfo, path, query and fragment so a credential embedded in an
+    operator-supplied URL can never reach a log line. Unparseable input
+    yields a fixed placeholder, never the raw text.
+    """
+    try:
+        parts = urlsplit(url)
+        host = parts.hostname
+        port = parts.port
+    except ValueError:
+        return "<invalid-endpoint>"
+    if not host or not parts.scheme:
+        return "<invalid-endpoint>"
+    if ":" in host:
+        host = f"[{host}]"
+    return f"{parts.scheme}://{host}" + (f":{port}" if port else "")
+
+
 class LocalGPUWhisperSTT(STTProvider):
     """Local GPU Whisper via the host's whisper-gpu service."""
 
@@ -95,16 +115,31 @@ class LocalGPUWhisperSTT(STTProvider):
         """
         base_url = (base_url or "").strip()
         if base_url:
-            parts = urlsplit(base_url)
-            if parts.scheme not in ("http", "https") or not parts.netloc:
+            try:
+                parts = urlsplit(base_url)
+                _ = parts.port  # raises ValueError on a malformed port
+            except ValueError:
+                raise ValueError("AUDIOBOOKS_WHISPER_GPU_URL is not a valid URL") from None
+            if parts.scheme not in ("http", "https") or not parts.hostname:
                 raise ValueError(
                     "AUDIOBOOKS_WHISPER_GPU_URL must be an http:// or https:// "
-                    "URL with a host (got scheme "
-                    f"{parts.scheme!r})"
+                    f"URL with a host (got scheme {parts.scheme!r})"
+                )
+            if parts.query or parts.fragment:
+                raise ValueError(
+                    "AUDIOBOOKS_WHISPER_GPU_URL must be a base URL without a "
+                    "query string or fragment"
+                )
+            if parts.username is not None or parts.password is not None or "@" in parts.netloc:
+                raise ValueError(
+                    "AUDIOBOOKS_WHISPER_GPU_URL must not contain a username or "
+                    "password — use AUDIOBOOKS_WHISPER_GPU_TOKEN instead"
                 )
             self._base_url = base_url.rstrip("/")
+            scheme = parts.scheme
         elif host:
             self._base_url = f"http://{host}:{port}"
+            scheme = "http"
         else:
             raise ValueError(
                 "LocalGPUWhisperSTT requires a host — set "
@@ -113,8 +148,20 @@ class LocalGPUWhisperSTT(STTProvider):
             )
         if token is None:
             token = resolve_secret("AUDIOBOOKS_WHISPER_GPU_TOKEN")
+        if token and scheme == "http":
+            logger.warning(
+                "Whisper GPU bearer token is configured but the endpoint %s is "
+                "plain http — the token travels unencrypted unless this hop is "
+                "an SSH tunnel or other encrypted link",
+                redact_endpoint(self._base_url),
+            )
         # Never log or repr this value.
         self._auth_kwargs: dict = {"headers": {"Authorization": f"Bearer {token}"}} if token else {}
+
+    @property
+    def endpoint(self) -> str:
+        """Redacted ``scheme://host[:port]`` for logs and messages."""
+        return redact_endpoint(self._base_url)
 
     @property
     def name(self) -> str:

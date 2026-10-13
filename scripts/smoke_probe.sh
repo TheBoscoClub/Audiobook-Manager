@@ -286,7 +286,8 @@ _probe_stt_providers() {
     runpod_stream=$(_read_conf_val "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT")
     runpod_backlog=$(_read_conf_val "AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT")
 
-    local whisper_gpu_host whisper_gpu_port
+    local whisper_gpu_host whisper_gpu_port whisper_gpu_url
+    whisper_gpu_url=$(_read_conf_val "AUDIOBOOKS_WHISPER_GPU_URL")
     whisper_gpu_host=$(_read_conf_val "AUDIOBOOKS_WHISPER_GPU_HOST")
     whisper_gpu_port=$(_read_conf_val "AUDIOBOOKS_WHISPER_GPU_PORT")
     [[ -z "$whisper_gpu_port" ]] && whisper_gpu_port="8080"
@@ -328,22 +329,31 @@ _probe_stt_providers() {
 
     # — Local GPU Whisper service —
     _probe_local_gpu() {
-        [[ -z "$whisper_gpu_host" ]] && return 1
+        [[ -z "$whisper_gpu_host" && -z "$whisper_gpu_url" ]] && return 1
         configured=$((configured + 1))
-        local url="http://${whisper_gpu_host}:${whisper_gpu_port}/health"
+        local url label
+        if [[ -n "$whisper_gpu_url" ]]; then
+            # URL overrides host/port (mirrors the Python provider). Label is
+            # scheme://host[:port] only — never userinfo, path or query.
+            url="${whisper_gpu_url%/}/health"
+            label=$(printf '%s' "$whisper_gpu_url" | sed -E 's|^([A-Za-z]+://)([^/?#@]*@)?([^/?#]*).*$|\1\3|')
+        else
+            url="http://${whisper_gpu_host}:${whisper_gpu_port}/health"
+            label="${whisper_gpu_host}:${whisper_gpu_port}"
+        fi
         local response
         response=$(curl -s --max-time 3 "$url" 2>/dev/null || echo "")
         if [[ -z "$response" ]]; then
-            _warn "Local GPU Whisper ${whisper_gpu_host}:${whisper_gpu_port}: unreachable"
+            _warn "Local GPU Whisper ${label}: unreachable"
             return 1
         fi
-        _pass "Local GPU Whisper ${whisper_gpu_host}:${whisper_gpu_port}: reachable"
+        _pass "Local GPU Whisper ${label}: reachable"
         reachable=$((reachable + 1))
         return 0
     }
 
     # Check if any provider key is set before printing the section header.
-    if [[ -z "$runpod_api$runpod_stream$runpod_backlog$whisper_gpu_host" ]]; then
+    if [[ -z "$runpod_api$runpod_stream$runpod_backlog$whisper_gpu_host$whisper_gpu_url" ]]; then
         echo -e "${_blue}STT provider probe: no backend configured — streaming translation disabled (this is fine).${_nc}"
         return
     fi
