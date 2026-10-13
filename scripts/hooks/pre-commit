@@ -10,7 +10,10 @@
 # commit ADDS (git diff --cached -U0), so touching a file that already carries a
 # legacy literal is not blocked - only introducing a new one is.
 
-set -e
+# No `set -e`: another tool may append its own block below this hook (see
+# scripts/install-hooks.sh), and errexit would leak into that block. Failure is
+# explicit: a violation (or any git error) calls exit 1; a clean pass falls off
+# the end WITHOUT exiting, so an appended block still runs.
 
 # Colors for output
 RED='\033[0;31m'
@@ -38,8 +41,8 @@ is_skipped() {
         lib/audiobook-config.sh | library/config.py | etc/audiobooks.conf.example) return 0 ;;
         # This hook itself names the forbidden literals
         scripts/hooks/*) return 0 ;;
-        # Documentation and issue-tracker data describe paths, they do not use them
-        CLAUDE.md | README.md | docs/* | *.md | .beads/* | *.jsonl) return 0 ;;
+        # Prose documentation and issue-tracker data describe paths, they do not use them
+        *.md | .beads/* | *.jsonl) return 0 ;;
         # Tests assert the default behaviour, so they spell the defaults out
         */tests/* | tests/*) return 0 ;;
         # systemd does not expand shell variables in unit files; literals are required
@@ -50,59 +53,94 @@ is_skipped() {
     return 1
 }
 
-# All staged files (added/copied/modified); NUL-safe
-mapfile -d '' STAGED_FILES < <(git diff --cached --name-only -z --diff-filter=ACM)
+# Every diff the hook runs ignores user config that could blind it: colour
+# codes (color.ui=always), external diff drivers/textconv, and `-diff`
+# attributes that turn a file into "Binary files differ" (--text).
+git_diff() {
+    git -c color.ui=never -c color.diff=never diff --cached --no-color \
+        --no-ext-diff --no-textconv --text --no-renames "$@"
+}
 
-if [[ ${#STAGED_FILES[@]} -eq 0 ]]; then
-    exit 0
-fi
+fail_closed() {
+    echo -e "${RED}pre-commit: cannot inspect the staged changes ($1); refusing the commit${NC}" >&2
+    return 1
+}
 
-VIOLATIONS=""
-for file in "${STAGED_FILES[@]}"; do
-    if is_skipped "$file"; then
-        continue
+check_hardcoded_paths() {
+    local names_file file raw added entry regex variable matches
+    names_file=$(mktemp) || {
+        fail_closed "mktemp failed"
+        return 1
+    }
+    # --no-renames: a renamed/copied file is reported as an added file, so its
+    # new path's added lines are judged (R/C would otherwise be missed).
+    if ! git_diff --name-only -z --diff-filter=ACMR >"$names_file"; then
+        rm -f "$names_file"
+        fail_closed "git diff --name-only failed"
+        return 1
     fi
+    local STAGED_FILES=()
+    mapfile -d '' STAGED_FILES <"$names_file"
+    rm -f "$names_file"
 
-    # Lines this commit adds to the file (drop the diff '+' marker, file header
-    # and comment-only lines; '.snapshots' paths are BTRFS snapshot references)
-    added=$(git diff --cached -U0 -- "$file" |
-        grep -E '^\+' | grep -vE '^\+\+\+' | sed 's/^+//' |
-        grep -vE '^[[:space:]]*(#|//)' | grep -v '\.snapshots' || true)
-
-    if [[ -z "$added" ]]; then
-        continue
-    fi
-
-    for entry in "${FORBIDDEN_PATTERNS[@]}"; do
-        regex="${entry%%::*}"
-        variable="${entry#*::}"
-        # -I: a binary blob is never a violation
-        matches=$(printf '%s\n' "$added" | grep -I -nE -- "$regex" || true)
-        if [[ -n "$matches" ]]; then
-            VIOLATIONS="$VIOLATIONS\n${YELLOW}$file${NC}: hardcoded path, use $variable\n$matches\n"
+    local VIOLATIONS=""
+    for file in "${STAGED_FILES[@]}"; do
+        if is_skipped "$file"; then
+            continue
         fi
+
+        if ! raw=$(git_diff -U0 -- ":(literal)$file"); then
+            fail_closed "git diff failed for $file"
+            return 1
+        fi
+
+        # Added lines only: after the first hunk header, take '+' lines (the
+        # '+++ b/file' header precedes any hunk so a real line starting '++'
+        # is kept). Comment-only lines are dropped.
+        added=$(printf '%s\n' "$raw" | awk '
+            /^@@/ { inhunk = 1; next }
+            inhunk && /^\+/ {
+                line = substr($0, 2)
+                if (line !~ /^[[:space:]]*(#|\/\/)/) print line
+            }')
+
+        if [[ -z "$added" ]]; then
+            continue
+        fi
+
+        for entry in "${FORBIDDEN_PATTERNS[@]}"; do
+            regex="${entry%%::*}"
+            variable="${entry#*::}"
+            matches=$(printf '%s\n' "$added" | grep -nE -- "$regex" || true)
+            if [[ -n "$matches" ]]; then
+                VIOLATIONS="$VIOLATIONS\n${YELLOW}$file${NC}: hardcoded path, use $variable\n$matches\n"
+            fi
+        done
     done
-done
 
-if [[ -n "$VIOLATIONS" ]]; then
-    echo -e "${RED}╔════════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${RED}║  COMMIT BLOCKED: Hardcoded paths detected                      ║${NC}"
-    echo -e "${RED}╚════════════════════════════════════════════════════════════════╝${NC}"
-    echo ""
-    echo -e "The following files add hardcoded paths that should use"
-    echo -e "configuration variables from lib/audiobook-config.sh:"
-    echo ""
-    echo -e "$VIOLATIONS"
-    echo ""
-    echo -e "To fix:"
-    echo -e "  1. Replace hardcoded paths with the variable named above"
-    echo -e "     (Python: import it from library/config.py)"
-    echo -e "  2. If no variable exists, add one to lib/audiobook-config.sh"
-    echo -e "  3. Stage your changes and commit again"
-    echo ""
-    echo -e "See .claude/rules/paths-and-separation.md for the list of variables."
-    echo ""
-    exit 1
-fi
+    if [[ -n "$VIOLATIONS" ]]; then
+        echo -e "${RED}╔════════════════════════════════════════════════════════════════╗${NC}"
+        echo -e "${RED}║  COMMIT BLOCKED: Hardcoded paths detected                      ║${NC}"
+        echo -e "${RED}╚════════════════════════════════════════════════════════════════╝${NC}"
+        echo ""
+        echo -e "The following files add hardcoded paths that should use"
+        echo -e "configuration variables from lib/audiobook-config.sh:"
+        echo ""
+        echo -e "$VIOLATIONS"
+        echo ""
+        echo -e "To fix:"
+        echo -e "  1. Replace hardcoded paths with the variable named above"
+        echo -e "     (Python: import it from library/config.py)"
+        echo -e "  2. If no variable exists, add one to lib/audiobook-config.sh"
+        echo -e "  3. Stage your changes and commit again"
+        echo ""
+        echo -e "See .claude/rules/paths-and-separation.md for the list of variables."
+        echo ""
+        return 1
+    fi
+    return 0
+}
 
-exit 0
+check_hardcoded_paths || exit 1
+# Deliberately no trailing `exit 0`: a block appended after this line (beads
+# integration) must still run. Falling off the end exits 0 when nothing follows.

@@ -41,22 +41,40 @@ for hook in "$HOOKS_SOURCE"/*; do
         hook_name=$(basename "$hook")
         dest="$HOOKS_DEST/$hook_name"
 
-        # Check if hook already exists
+        # Another tool (beads) appends a managed block to the installed hook.
+        # Carry it over so replacing the hook does not silently drop it.
+        preserved=""
         if [[ -f "$dest" ]]; then
-            # Check if it's the same
-            if cmp -s "$hook" "$dest"; then
+            preserved=$(awk '
+                /^# --- BEGIN BEADS INTEGRATION/ { keep = 1 }
+                keep { print }
+                /^# --- END BEADS INTEGRATION/ { keep = 0 }' "$dest")
+        fi
+
+        candidate=$(mktemp)
+        cat "$hook" >"$candidate"
+        if [[ -n "$preserved" ]]; then
+            printf '\n%s\n' "$preserved" >>"$candidate"
+        fi
+
+        if [[ -f "$dest" ]]; then
+            if cmp -s "$candidate" "$dest"; then
                 echo -e "  ${GREEN}✓${NC} $hook_name (already installed)"
             else
                 echo -e "  ${YELLOW}!${NC} $hook_name exists but differs - backing up and replacing"
                 mv "$dest" "$dest.backup.$(date +%Y%m%d%H%M%S)"
-                cp "$hook" "$dest"
+                cp "$candidate" "$dest"
                 chmod +x "$dest"
+                if [[ -n "$preserved" ]]; then
+                    echo -e "    preserved the BEADS INTEGRATION block"
+                fi
             fi
         else
-            cp "$hook" "$dest"
+            cp "$candidate" "$dest"
             chmod +x "$dest"
             echo -e "  ${GREEN}✓${NC} $hook_name installed"
         fi
+        rm -f "$candidate"
         installed=$((installed + 1))
     fi
 done

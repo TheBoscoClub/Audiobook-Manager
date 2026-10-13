@@ -122,3 +122,144 @@ def test_only_added_lines_are_judged(repo: Path):
     assert _run_hook(repo).returncode == 0
     _stage(repo, "library/mod.py", legacy + 'NEW = "/srv/audiobooks/Sources"\n')
     assert _run_hook(repo).returncode == 1
+
+
+# --- bypass regressions (review of af556042) --------------------------------
+
+LITERAL = 'p = "/srv/audiobooks/x"\n'
+
+
+def _commit(repo: Path, msg: str = "x") -> None:
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "commit",
+            "-q",
+            "--no-verify",
+            "-m",
+            msg,
+        ],
+        cwd=repo,
+        check=True,
+    )
+
+
+def test_rename_with_added_literal_is_scanned(repo: Path):
+    _stage(repo, "old.py", "x = 1\ny = 2\nz = 3\nw = 4\n")
+    _commit(repo)
+    subprocess.run(["git", "mv", "old.py", "new.py"], cwd=repo, check=True)
+    (repo / "new.py").write_text("x = 1\ny = 2\nz = 3\nw = 4\n" + LITERAL)
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    assert _run_hook(repo).returncode == 1
+
+
+def test_snapshots_word_on_same_line_does_not_hide_literal(repo: Path):
+    _stage(repo, "a.py", 'p = "/srv/audiobooks"; s = ".snapshots"\n')
+    assert _run_hook(repo).returncode == 1
+
+
+def test_line_starting_with_plus_plus_is_scanned(repo: Path):
+    _stage(repo, "a.js", '++n; p = "/srv/audiobooks"\n')
+    assert _run_hook(repo).returncode == 1
+
+
+def test_color_ui_always_does_not_blind_hook(repo: Path):
+    subprocess.run(["git", "config", "color.ui", "always"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "color.diff", "always"], cwd=repo, check=True)
+    _stage(repo, "a.py", LITERAL)
+    assert _run_hook(repo).returncode == 1
+
+
+def test_minus_diff_attribute_does_not_blind_hook(repo: Path):
+    (repo / ".gitattributes").write_text("*.py -diff\n")
+    _stage(repo, "a.py", LITERAL)
+    assert _run_hook(repo).returncode == 1
+
+
+def test_docs_directory_code_is_not_skipped(repo: Path):
+    _stage(repo, "docs/x.py", LITERAL)
+    assert _run_hook(repo).returncode == 1
+
+
+def test_git_failure_fails_closed(repo: Path, tmp_path_factory: pytest.TempPathFactory):
+    _stage(repo, "a.py", "x = 1\n")
+    bad_index = tmp_path_factory.mktemp("badidx") / "index"
+    bad_index.write_text("this is not a git index\n")
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    env["GIT_INDEX_FILE"] = str(bad_index)
+    result = subprocess.run(
+        ["bash", str(HOOK)], cwd=repo, env=env, capture_output=True, text=True, check=False
+    )
+    assert result.returncode != 0
+    assert "refusing the commit" in result.stderr
+
+
+# --- installer + appended-block cooperation ----------------------------------
+
+BEADS_BLOCK = """# --- BEGIN BEADS INTEGRATION v1.0.3 ---
+if command -v bd >/dev/null 2>&1; then
+  bd hooks run pre-commit "$@"
+fi
+# --- END BEADS INTEGRATION v1.0.3 ---
+"""
+
+
+@pytest.fixture
+def installed_repo(tmp_path: Path) -> Path:
+    """Temp repo with scripts/install-hooks.sh + hook and a pre-existing hook
+    that already carries a beads block. Never touches the real repository."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    subprocess.run(["git", "init", "-q"], cwd=tmp_path, check=True, env=env)
+    scripts = tmp_path / "scripts"
+    (scripts / "hooks").mkdir(parents=True)
+    (scripts / "install-hooks.sh").write_text((REPO_ROOT / "scripts/install-hooks.sh").read_text())
+    (scripts / "hooks" / "pre-commit").write_text(HOOK.read_text())
+    old = tmp_path / ".git/hooks/pre-commit"
+    old.write_text("#!/bin/bash\n# old hook\nexit 0\n\n" + BEADS_BLOCK)
+    old.chmod(0o755)
+    return tmp_path
+
+
+def _install(repo: Path) -> None:
+    subprocess.run(["bash", "scripts/install-hooks.sh"], cwd=repo, check=True, capture_output=True)
+
+
+def test_installer_preserves_beads_block(installed_repo: Path):
+    _install(installed_repo)
+    text = (installed_repo / ".git/hooks/pre-commit").read_text()
+    assert text.count("BEGIN BEADS INTEGRATION") == 1
+    assert text.count("END BEADS INTEGRATION") == 1
+    assert "check_hardcoded_paths" in text
+    assert "# old hook" not in text
+    assert list((installed_repo / ".git/hooks").glob("pre-commit.backup.*"))
+    # idempotent: a second run changes nothing and does not duplicate the block
+    _install(installed_repo)
+    assert (installed_repo / ".git/hooks/pre-commit").read_text() == text
+
+
+def test_appended_block_runs_after_clean_pass_and_not_after_refusal(installed_repo: Path):
+    _install(installed_repo)
+    stub_dir = installed_repo / "stubbin"
+    stub_dir.mkdir()
+    marker = installed_repo / "bd-ran"
+    stub = stub_dir / "bd"
+    stub.write_text(f'#!/bin/bash\ntouch "{marker}"\n')
+    stub.chmod(0o755)
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    env["PATH"] = f"{stub_dir}:{env['PATH']}"
+    git = ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "x"]
+
+    _stage(installed_repo, "ok.py", "x = 1\n")
+    ok = subprocess.run(git, cwd=installed_repo, env=env, capture_output=True, text=True)
+    assert ok.returncode == 0, ok.stdout + ok.stderr
+    assert marker.exists(), "appended beads block did not run after a clean pass"
+
+    marker.unlink()
+    _stage(installed_repo, "bad.py", LITERAL)
+    bad = subprocess.run(git, cwd=installed_repo, env=env, capture_output=True, text=True)
+    assert bad.returncode != 0
+    assert "COMMIT BLOCKED" in bad.stderr
