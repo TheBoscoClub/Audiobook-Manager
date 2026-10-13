@@ -205,6 +205,85 @@ def test_report_counts_drift_as_non_zero(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Optional credential file mode audit (Audiobook-Manager-nsz)
+# ---------------------------------------------------------------------------
+
+
+def _credential_env(
+    tmp_path: Path, file_mode: int, want_mode: str, mode: str = "report"
+) -> tuple[dict[str, str], Path]:
+    """Fixture whose manifest declares one optional credential file.
+
+    The real manifest is copied and its OPTIONAL_CREDENTIAL_FILES array is
+    overridden, so the rest of the manifest still loads. The owner is the
+    current user, so only the mode can drift.
+    """
+    fx = _make_fixture(tmp_path)
+    project = tmp_path / "project"
+    (project / "scripts").mkdir(parents=True)
+    cred = fx["CONFIG_DIR"] / "fake-credential"
+    cred.write_text("not-a-secret\n")
+    cred.chmod(file_mode)
+    owner = _current_owner()
+    override = f'\nOPTIONAL_CREDENTIAL_FILES=("{cred}|{owner}|{want_mode}|FAKE_VAR")\n'
+    (project / "scripts" / "install-manifest.sh").write_text(MANIFEST.read_text() + override)
+    env = _env_from_fixture(fx, mode=mode)
+    env["PROJECT_DIR"] = str(project)
+    return env, cred
+
+
+def _current_owner() -> str:
+    import grp
+    import pwd
+
+    return f"{pwd.getpwuid(os.getuid()).pw_name}:{grp.getgrgid(os.getgid()).gr_name}"
+
+
+@pytest.mark.parametrize("want", ["0600", "600"])
+def test_credential_mode_matching_manifest_is_not_drift(tmp_path, want):
+    """0600 on disk (stat prints 600) vs manifest "0600" must not be drift."""
+    env, cred = _credential_env(tmp_path, 0o600, want)
+    result = _run_reconciler(env)
+    assert "mode drift" not in result.stdout, result.stdout
+    assert stat_mode(cred) == 0o600
+
+
+def test_credential_mode_mismatch_is_reported_not_repaired_in_report_mode(tmp_path):
+    env, cred = _credential_env(tmp_path, 0o644, "0600")
+    result = _run_reconciler(env)
+    assert "credential file mode drift" in result.stdout, result.stdout
+    assert stat_mode(cred) == 0o644, "report mode must not chmod"
+
+
+def test_credential_mode_mismatch_is_repaired_in_enforce_mode(tmp_path):
+    env, cred = _credential_env(tmp_path, 0o644, "0600", mode="enforce")
+    result = _run_reconciler(env)
+    assert "credential file mode drift" in result.stdout, result.stdout
+    assert stat_mode(cred) == 0o600
+    # Second pass converges: the repaired file no longer reports drift.
+    again = _run_reconciler(env)
+    assert "mode drift" not in again.stdout, again.stdout
+
+
+def test_credential_setgid_four_digit_mode_compares_numerically(tmp_path):
+    """setgid (2xxx) survives the compare: 2640 on disk is not drift vs "2640"."""
+    env, cred = _credential_env(tmp_path, 0o2640, "2640")
+    cred.chmod(0o2640)  # chmod via pathlib keeps setgid when owner's group matches
+    if stat_mode(cred) != 0o2640:
+        pytest.skip("filesystem did not retain the setgid bit")
+    result = _run_reconciler(env)
+    assert "mode drift" not in result.stdout, result.stdout
+    # Dropping setgid from the file is real drift, even though 640 == 0640 digits.
+    cred.chmod(0o640)
+    result = _run_reconciler(env)
+    assert "credential file mode drift" in result.stdout, result.stdout
+
+
+def stat_mode(path: Path) -> int:
+    return path.stat().st_mode & 0o7777
+
+
+# ---------------------------------------------------------------------------
 # Reconciler behavior — enforce mode
 # ---------------------------------------------------------------------------
 

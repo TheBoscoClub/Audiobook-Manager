@@ -165,21 +165,24 @@ AUDIOBOOKS_DEV_MODE = "false"
 # with permission `Zone > Cache Purge > Purge`, restricted to this zone only.
 # Sent as an `Authorization: Bearer` header.
 #
-# Store it in a 0600 file and point CLOUDFLARE_PURGE_TOKEN_FILE at it:
-#   echo "TOKEN" | sudo tee /etc/audiobooks/cloudflare-purge-token >/dev/null
-#   sudo chown audiobooks:audiobooks /etc/audiobooks/cloudflare-purge-token
-#   sudo chmod 600 /etc/audiobooks/cloudflare-purge-token
-# Precedence: inline CLOUDFLARE_PURGE_TOKEN → CLOUDFLARE_PURGE_TOKEN_FILE → empty.
+# Preferred (hosts with derive-service-secret): the token is derived from the
+# host's canonical credential store into /run/audiobooks at every service
+# start, so it cannot drift from a rotation. install.sh/upgrade.sh install the
+# drop-in systemd/audiobook-api-derive-secrets.conf.example automatically when
+# /usr/bin/derive-service-secret exists; then point:
+# CLOUDFLARE_PURGE_TOKEN_FILE="/run/audiobooks/cloudflare-purge-token"
+#
+# Fallback (no derive-service-secret): a 0600 audiobooks-owned file under
+# /etc/audiobooks. A hand-made copy does NOT follow a rotation in the
+# Cloudflare console — re-copy it after every rotation (a stale copy silently
+# broke purge for months: Audiobook-Manager-e7x).
 # CLOUDFLARE_PURGE_TOKEN_FILE="/etc/audiobooks/cloudflare-purge-token"
+#
+# Precedence: inline CLOUDFLARE_PURGE_TOKEN → CLOUDFLARE_PURGE_TOKEN_FILE → empty.
 # CLOUDFLARE_PURGE_TOKEN=""
 #
-# DEPRECATED — legacy Global API Key auth (CF_GLOBAL_API_KEY + CF_AUTH_EMAIL,
-# read from CF_TOKEN_FILE, default /etc/audiobooks/cloudflare-api-token). Still
-# honoured as a fallback so existing installs keep working, but the Global API
-# Key grants FULL ACCOUNT ACCESS — far broader than a cache purge needs, and it
-# cannot be scoped to one zone. Migrate to the scoped token above. Rotating the
-# global key in the Cloudflare console does NOT update the on-disk copy; that
-# drift silently broke purge for months (Audiobook-Manager-e7x).
+# The legacy Global API Key path (CF_GLOBAL_API_KEY / CF_AUTH_EMAIL via
+# CF_TOKEN_FILE) was removed in v8.4.3 and is no longer read.
 
 # CORS allowed origin (restricts which domains can make API requests)
 # Set this to your public URL for security when exposed to the internet
@@ -213,7 +216,7 @@ SMTP_FROM = "library@example.com"
 # Alternative: store the password in a separate 0600 file instead of inline.
 # When SMTP_PASS_FILE is set, AM reads the password from that file. If both
 # SMTP_PASS and SMTP_PASS_FILE are set, the inline value wins. Mirrors the
-# existing AUTH_KEY_FILE / CF_TOKEN_FILE pattern.
+# existing AUTH_KEY_FILE / CLOUDFLARE_PURGE_TOKEN_FILE pattern.
 # SMTP_PASS_FILE="/etc/audiobooks/smtp-pass"
 
 # Operator alert recipient — receives translation-monitor escalations
@@ -285,5 +288,5 @@ AUDIOBOOKS_PARALLEL_JOBS = "8"
 # referenced by `*_FILE` env vars. The file-pointer variant keeps secrets
 # out of the main config and works well with symlinks to user-level
 # credential stores. Precedence: inline env var → *_FILE pointer → empty.
-# Mirrors the existing AUTH_KEY_FILE / CF_TOKEN_FILE pattern.
+# Mirrors the existing AUTH_KEY_FILE / CLOUDFLARE_PURGE_TOKEN_FILE pattern.
 # AUDIOBOOKS_RUNPOD_API_KEY_FILE="/etc/audiobooks/runpod-api-key"
