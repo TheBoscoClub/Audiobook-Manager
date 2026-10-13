@@ -481,7 +481,11 @@ RC_OP_ENV = {
 
 
 def _reconcile_conf(
-    tmp_path: Path, conf_text: str, mode: str = "enforce", use_sudo: str = ""
+    tmp_path: Path,
+    conf_text: str,
+    mode: str = "enforce",
+    use_sudo: str = "",
+    extra_env: dict[str, str] | None = None,
 ) -> tuple[subprocess.CompletedProcess, Path]:
     cfg = tmp_path / "config"
     cfg.mkdir(exist_ok=True)
@@ -503,6 +507,7 @@ def _reconcile_conf(
         "BIN_DIR": str(tmp_path / "bin"),
         "USE_SUDO": use_sudo,
         "RECONCILE_MODE": mode,
+        **(extra_env or {}),
     }
     result = subprocess.run(
         ["bash", str(RECONCILER)], capture_output=True, text=True, env=proc_env, check=False
@@ -585,6 +590,69 @@ class TestReconcilerLookupAndFormats:
         _reconcile_conf(tmp_path, text, use_sudo=str(wrapper))
         used = set(calls.read_text().split())
         assert {"cat", "cp", "mktemp", "tee", "chown", "chmod", "mv"} <= used
+
+
+class TestStateDirMismatchWarning:
+    """Report-only: VAR_DIR moved but the data still under the built-in default."""
+
+    def _run(self, tmp_path, *, data_at_default, data_at_state, conf="", mode="enforce"):
+        default, state = tmp_path / "default-var", tmp_path / "state"
+        for base, present in ((default, data_at_default), (state, data_at_state)):
+            if present:
+                (base / "db").mkdir(parents=True)
+                (base / "db" / "audiobooks.db").write_bytes(b"x")
+                (base / "covers").mkdir()
+                (base / "covers" / "c.jpg").write_bytes(b"x")
+        before = sorted(p.relative_to(tmp_path) for p in tmp_path.rglob("*"))
+        result, _ = _reconcile_conf(
+            tmp_path, conf, mode=mode, extra_env={"DEFAULT_VAR_DIR": str(default)}
+        )
+        return result, default, state, before
+
+    def test_mismatch_warns_naming_both_paths_and_fix(self, tmp_path):
+        result, default, state, _ = self._run(tmp_path, data_at_default=True, data_at_state=False)
+        out = result.stdout
+        assert out.count("DATA LOCATION MISMATCH") == 2  # database and covers
+        assert f"{default}/db/audiobooks.db" in out and f"{state}/db/audiobooks.db" in out
+        assert "move the data" in out and "set AUDIOBOOKS_DATABASE explicitly" in out
+        assert "Nothing was moved or created" in out
+        assert not (state / "db" / "audiobooks.db").exists()  # never creates
+        assert (default / "db" / "audiobooks.db").read_bytes() == b"x"  # never moves
+
+    def test_consistent_layouts_are_silent(self, tmp_path):
+        for at_default, at_state in ((False, True), (True, True), (False, False)):
+            sub = tmp_path / f"{at_default}{at_state}"
+            sub.mkdir()
+            result, *_ = self._run(sub, data_at_default=at_default, data_at_state=at_state)
+            assert "DATA LOCATION MISMATCH" not in result.stdout
+
+    def test_explicit_database_key_silences_only_its_check(self, tmp_path):
+        result, *_ = self._run(
+            tmp_path,
+            data_at_default=True,
+            data_at_state=False,
+            conf='AUDIOBOOKS_DATABASE="/somewhere/audiobooks.db"\n',
+        )
+        assert result.stdout.count("DATA LOCATION MISMATCH") == 1
+        assert "AUDIOBOOKS_COVERS defaults to" in result.stdout
+
+    def test_default_is_read_from_the_shell_loader_not_repeated(self):
+        grep = subprocess.run(
+            ["grep", "-oP", r'^: "\$\{AUDIOBOOKS_VAR_DIR:=\K[^}]+', str(LIB_SH)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert grep.stdout.split() == ["/var/lib/audiobooks"]
+        code = [ln for ln in RECONCILER.read_text().splitlines() if not ln.lstrip().startswith("#")]
+        assert not [ln for ln in code if "/var/lib/audiobooks" in ln]
+
+    def test_report_mode_gives_the_same_warning_and_changes_nothing(self, tmp_path):
+        result, default, state, _ = self._run(
+            tmp_path, data_at_default=True, data_at_state=False, mode="report"
+        )
+        assert result.stdout.count("DATA LOCATION MISMATCH") == 2
+        assert not (state / "db").exists()
 
 
 def test_example_conf_documents_that_systemd_does_not_expand():

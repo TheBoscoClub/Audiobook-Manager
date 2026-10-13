@@ -423,6 +423,55 @@ _reconcile_config_references() {
 }
 
 # ---------------------------------------------------------------------------
+# Step 6c — state-dir / data-location mismatch (REPORT ONLY, always)
+# The database and covers default to <AUDIOBOOKS_VAR_DIR>/db/audiobooks.db and
+# <AUDIOBOOKS_VAR_DIR>/covers in BOTH config.py and the shell loader. On an
+# install where an operator moved VAR_DIR but the data still sits under the
+# built-in default, consumers now look at an empty place (and sqlite creates an
+# empty DB there on first connect). This only warns -- it never moves data and
+# never creates anything -- whatever RECONCILE_MODE says. Placed here rather
+# than in an upgrade.sh preflight because the reconciler already holds the
+# resolved layout (STATE_DIR) and the conf-file reader, and install.sh runs it
+# too. An explicit AUDIOBOOKS_DATABASE / AUDIOBOOKS_COVERS in the config
+# silences the matching check: the operator has said where the data is.
+# ---------------------------------------------------------------------------
+_cfg_has_data() {
+    if $USE_SUDO test -d "$1"; then
+        [[ -n "$($USE_SUDO ls -A -- "$1" 2>/dev/null)" ]]
+    else
+        $USE_SUDO test -e "$1"
+    fi
+}
+
+_reconcile_state_dir_mismatch() {
+    # The built-in default is read from its canonical home (the shell loader), not
+    # repeated here. DEFAULT_VAR_DIR is an override for the regression suite only.
+    local default="${DEFAULT_VAR_DIR:-}" state="${STATE_DIR:-}"
+    if [[ -z "$default" && -f "${PROJECT_DIR:-}/lib/audiobook-config.sh" ]]; then
+        default="$(grep -oP '^: "\$\{AUDIOBOOKS_VAR_DIR:=\K[^}]+' "${PROJECT_DIR}/lib/audiobook-config.sh" | head -1)"
+    fi
+    [[ -n "$default" && -n "$state" && "${state%/}" != "${default%/}" ]] || return 0
+
+    local conf_text=""
+    if $USE_SUDO test -f "$CONF_FILE"; then
+        conf_text="$($USE_SUDO cat -- "$CONF_FILE" 2>/dev/null || true)"
+    fi
+    local pair key rel
+    for pair in "AUDIOBOOKS_DATABASE|db/audiobooks.db" "AUDIOBOOKS_COVERS|covers"; do
+        IFS='|' read -r key rel <<<"$pair"
+        if grep -qE "^[[:space:]]*(export[[:space:]]+)?${key}[[:space:]]*=" <<<"$conf_text"; then
+            continue
+        fi
+        # "Has data" means: the file exists, or the directory holds something. An
+        # EMPTY directory at the new location does not count -- enforce mode's
+        # REQUIRED_DIRS step creates exactly that, which must not hide the mismatch.
+        if _cfg_has_data "${default}/${rel}" && ! _cfg_has_data "${state}/${rel}"; then
+            _issue "DATA LOCATION MISMATCH: ${key} defaults to ${state}/${rel} (AUDIOBOOKS_VAR_DIR is not the built-in default) but the data is at ${default}/${rel} and ${state}/${rel} does not exist or is empty. Services will see no data (a database would be created empty). Fix: move the data to ${state}/${rel}, or set ${key} explicitly to ${default}/${rel}. Nothing was moved or created."
+        fi
+    done
+}
+
+# ---------------------------------------------------------------------------
 # Step 7 — audit optional credential files (non-fatal — files may not exist)
 # Format: <path>|<owner>:<group>|<mode>|<env-var-name>
 # If the file exists, verify owner/group and mode match; log warning on drift.
@@ -518,6 +567,7 @@ reconcile_filesystem() {
     _reconcile_wrappers
     _reconcile_config
     _reconcile_config_references
+    _reconcile_state_dir_mismatch
     _reconcile_optional_credentials
     _reconcile_pycache
     _reconcile_report
