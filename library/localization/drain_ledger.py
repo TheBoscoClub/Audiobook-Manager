@@ -37,6 +37,8 @@ CLI (used by ``translation-drain.sh`` and ``translation-drain-reaper.sh``)::
     drain_ledger --ledger F mtd [--exclude-run RUN]
     drain_ledger --ledger F reserve --run RUN --amount X
     drain_ledger --ledger F final --run RUN --amount X [--note TEXT]
+    drain_ledger --ledger F settle --run RUN [--accrued X]
+        -> close an orphaned run at max(reservation, accrued): never below its cap
 
 ``DRAIN_LEDGER_NOW`` (epoch seconds) overrides the clock — tests only.
 """
@@ -133,6 +135,24 @@ def _append(path: Path, run_id: str, kind: str, amount: float, note: str = "") -
         os.fsync(fh.fileno())
 
 
+def settle(path: Path, run_id: str, accrued: float = 0.0, note: str = "") -> float:
+    """Close a run whose drain died: record max(reservation, accrued, earlier finals).
+
+    Used for an orphaned run — the node was destroyed by the reaper, or by its
+    own dead-man switch while this host was down — where no process measured
+    the real spend. The reservation is the run's cap, i.e. the most the guard
+    and the node's own timer allowed it to cost, so it is the floor: an
+    orphan is never recorded as cheaper than its cap. Returns the amount.
+    """
+    run = _read(path).get(run_id)
+    floor = 0.0
+    if run is not None:
+        floor = max([run.reserve or 0.0, *run.finals])
+    amount = round(max(floor, accrued), 4)
+    _append(path, run_id, "final", amount, note or "settled orphan (reservation floor)")
+    return amount
+
+
 def budget(
     path: Path, per_run: float, monthly: float, min_run: float
 ) -> tuple[float, float, float]:
@@ -165,6 +185,10 @@ def main(argv: list[str] | None = None) -> int:
     b.add_argument("--min-run", type=float, default=1.0)
     m = sub.add_parser("mtd")
     m.add_argument("--exclude-run", default="")
+    st = sub.add_parser("settle")
+    st.add_argument("--run", required=True)
+    st.add_argument("--accrued", type=float, default=0.0)
+    st.add_argument("--note", default="")
     for kind in ("reserve", "final"):
         k = sub.add_parser(kind)
         k.add_argument("--run", required=True)
@@ -176,6 +200,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "budget":
             cap, mtd, remaining = budget(args.ledger, args.per_run, args.monthly, args.min_run)
             print(f"cap={cap:.2f} mtd={mtd:.2f} remaining={remaining:.2f}")
+        elif args.cmd == "settle":
+            print(f"{settle(args.ledger, args.run, args.accrued, args.note):.4f}")
         elif args.cmd == "mtd":
             print(f"{month_to_date(args.ledger, exclude_run=args.exclude_run):.4f}")
         else:

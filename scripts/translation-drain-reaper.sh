@@ -171,13 +171,9 @@ destroy_verified() {
 }
 
 # --- look ---------------------------------------------------------------------
-rows="$(labeled)" || die "could not list Vast instances — cannot tell whether a node is billing"
-count="$(jq 'length' <<<"$rows")"
-if [[ "$count" == "0" ]]; then
-    heartbeat
-    exit 0
-fi
-
+# Take the lock FIRST, then list: a drain that finished between a listing and
+# the lock would otherwise look like an orphan — a "destroy" of a node that is
+# already gone, a full orphan charge and a false alert.
 drain_live=1
 mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null
 exec 9>>"$LOCK_FILE" || die "cannot open ${LOCK_FILE}"
@@ -186,6 +182,25 @@ if flock -n 9; then
 fi
 live_run=""
 [[ -f "$LIVE_FILE" ]] && live_run="$(head -c 200 "$LIVE_FILE" | tr -d '[:space:]')"
+
+rows="$(labeled)" || die "could not list Vast instances — cannot tell whether a node is billing"
+count="$(jq 'length' <<<"$rows")"
+if [[ "$count" == "0" ]]; then
+    # No node, but a run marker and no live drain: that run died and its node
+    # is already gone — destroyed by its own dead-man switch while this host
+    # was down, or by Vast. Nobody measured what it cost; charge its
+    # reservation (its cap — never less) so the month cannot under-count.
+    if [[ $drain_live -eq 0 && -n "$live_run" ]]; then
+        if amount="$(ledger settle --run "$live_run" --note "reaper: run died, node already gone")"; then
+            log "settled dead run ${live_run} at \$${amount} (its reservation floor)"
+            rm -f "$LIVE_FILE"
+        else
+            die "could not settle dead run ${live_run} in the ledger ${LEDGER}"
+        fi
+    fi
+    heartbeat
+    exit 0
+fi
 now="$(date +%s)"
 accrued_total="$(jq -r --argjson now "$now" \
     '[.[] | ((($now - (.start_date // $now)) / 3600) * (.dph_total // 0))] | add // 0' <<<"$rows")"
@@ -250,10 +265,11 @@ if [[ ${#survivors[@]} -eq 0 ]] && ! ledger mtd >/dev/null; then
     rc=1
 fi
 
-# A dead run's spend is what its node accrued; record it (largest final wins).
+# A dead run's spend: what its node accrued, never less than its reservation
+# (the cap it was allowed) — accrued is only what this listing still shows.
 if [[ $drain_live -eq 0 && $destroyed -gt 0 ]]; then
     run="${live_run:-orphan-$(date +%Y%m%d%H%M%S)}"
-    ledger final --run "$run" --amount "$accrued_total" --note "reaper estimate" \
+    ledger settle --run "$run" --accrued "$accrued_total" --note "reaper: destroyed orphan" >/dev/null \
         || {
             log "!!! could not record \$${accrued_total} in the ledger — the month will under-count !!!"
             rc=1

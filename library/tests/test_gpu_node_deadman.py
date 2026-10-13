@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import re
 import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -71,8 +72,10 @@ exit 0
 """
 
 
-def _run(tmp_path: Path, **env_extra: str) -> list[str]:
+def _run(tmp_path: Path, boot_age: int | None = None, **env_extra: str) -> list[str]:
     dm = _dead_man(tmp_path)
+    if boot_age is not None:
+        (dm.parent / ".dead-man-boot").write_text(f"{int(time.time()) - boot_age}\n")
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
     (bin_dir / "curl").write_text(CURL)
@@ -98,7 +101,7 @@ def _run(tmp_path: Path, **env_extra: str) -> list[str]:
 
 def test_dead_man_destroys_itself_via_instance_key(tmp_path: Path):
     calls = _run(tmp_path)
-    assert calls[0] == "sleep 5", "waits the lifetime first"
+    assert calls[0] in ("sleep 5", "sleep 4"), "waits the lifetime first"
     delete = next(c for c in calls if "DELETE" in c)
     assert "/instances/4242/" in delete and "Bearer instance-scoped" in delete
 
@@ -113,3 +116,29 @@ def test_dead_man_without_vast_vars_still_stops_the_container(tmp_path: Path):
     calls = _run(tmp_path, CONTAINER_ID="", CONTAINER_API_KEY="")
     assert not any(c.startswith("curl") for c in calls)
     assert "kill -TERM 1" in calls and "kill -KILL 1" in calls
+
+
+def test_restart_does_not_rearm_a_full_lifetime(tmp_path: Path):
+    """Vast re-runs onstart on a container restart; the boot epoch persisted
+    on /workspace makes the timer resume, not restart."""
+    calls = _run(tmp_path, boot_age=3)
+    assert calls[0] in ("sleep 2", "sleep 1"), calls[0]
+
+
+def test_restart_after_the_lifetime_acts_at_once(tmp_path: Path):
+    calls = _run(tmp_path, boot_age=100)
+    assert calls[0] == "sleep 0"
+    assert any("DELETE" in c for c in calls)
+
+
+def test_dead_man_log_names_the_step_that_worked(tmp_path: Path):
+    _run(tmp_path)
+    log = (tmp_path / "ws" / "dead-man.log").read_text()
+    assert "RESULT step 1: destroy accepted" in log
+
+
+def test_dead_man_log_when_every_step_fails(tmp_path: Path):
+    _run(tmp_path, FAIL_DELETE="1", FAIL_PUT="1")
+    log = (tmp_path / "ws" / "dead-man.log").read_text()
+    assert "RESULT step" not in log.replace("RESULT: still running", "")
+    assert "RESULT: still running after every step" in log

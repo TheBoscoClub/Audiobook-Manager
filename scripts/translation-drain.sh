@@ -118,8 +118,13 @@ TERM_GRACE="${DRAIN_TERM_GRACE:-300}"
 LOCK_WAIT="${DRAIN_LOCK_WAIT:-120}"
 VERIFY_DELAY="${DRAIN_VERIFY_DELAY:-5}"
 REAPER_MAX_AGE="${DRAIN_REAPER_MAX_AGE:-1800}" # 3 reaper intervals
-UP_WAIT=1500                                   # = drain_limits.UP_WAIT_SECONDS; the guard's --await
+UP_WAIT="${DRAIN_UP_WAIT:-2500}"               # = drain_limits.UP_WAIT_SECONDS: bound on `up`, the guard's --await
 PY="${DRAIN_PYTHON:-${AUDIOBOOKS_VENV}/bin/python}"
+# An operator-set max price is honoured but shortens the node's lifetime so
+# price x lifetime stays within the run's cap (drain_limits.plan).
+EXPLICIT_MAX_PRICE="${GPU_NODE_MAX_PRICE:-}"
+BATCH_SECONDS=""
+LOST_JOB_FILE=""
 
 read -r -a GPU_NODE <<<"${DRAIN_GPU_NODE_CMD:-${SCRIPT_DIR}/gpu-node.sh}"
 read -r -a GUARD <<<"${DRAIN_GUARD_CMD:-${SCRIPT_DIR}/gpu-budget-guard.sh}"
@@ -357,8 +362,12 @@ wait_healthy() {
 run_batch() {
     local stage="$1" max_seconds="$2"
     local -a args=(--db "$AUDIOBOOKS_DATABASE" --library "$AUDIOBOOKS_LIBRARY"
-        --stage "$stage" --owner drain --drain-mode --max-attempts "$MAX_ATTEMPTS"
-        --max-suspect "$MAX_SUSPECT")
+        --stage "$stage" --owner drain --drain-mode --max-attempts "$MAX_ATTEMPTS")
+    if [[ "$stage" == "subtitles" ]]; then
+        LOST_JOB_FILE="${TMPDIR:-/tmp}/translation-drain-lost.$$"
+        rm -f "$LOST_JOB_FILE"
+        args+=(--lost-job-file "$LOST_JOB_FILE")
+    fi
     log "starting ${stage} batch (limit ${max_seconds}s)"
     if [[ "$stage" == "subtitles" ]]; then
         AUDIOBOOKS_MT_ENDPOINT="http://127.0.0.1:${MT_PORT}" \
@@ -369,12 +378,21 @@ run_batch() {
         env -u AUDIOBOOKS_MT_ENDPOINT "${BATCH[@]}" "${args[@]}" 9>&- &
     fi
     BATCH_PID=$!
-    local deadline=$((SECONDS + max_seconds)) next_health=$((SECONDS + HEALTH_EVERY)) misses=0
+    local deadline=$((SECONDS + max_seconds)) next_health=$((SECONDS + HEALTH_EVERY)) misses=0 why=""
     while alive "$BATCH_PID"; do
-        ((SECONDS < deadline)) || gfail "wall-clock limit ${max_seconds}s reached — stopping ${stage} batch" || return 1
+        if ((SECONDS >= deadline)); then
+            why="wall-clock limit ${max_seconds}s reached — stopping ${stage} batch"
+            break
+        fi
         if [[ "$stage" == "subtitles" ]]; then
-            alive "$GUARD_PID" || gfail "budget guard exited mid-batch (cap reached or guard failure)" || return 1
-            tunnel_alive || gfail "tunnel died mid-batch — stopping batch" || return 1
+            if ! alive "$GUARD_PID"; then
+                why="budget guard exited mid-batch (cap reached or guard failure)"
+                break
+            fi
+            if ! tunnel_alive; then
+                why="tunnel died mid-batch — stopping batch"
+                break
+            fi
             if ((SECONDS >= next_health)); then
                 next_health=$((SECONDS + HEALTH_EVERY))
                 sample_accrued
@@ -383,20 +401,57 @@ run_batch() {
                 else
                     misses=$((misses + 1))
                     log "health probe failed (${misses}/3)"
-                    ((misses < 3)) || gfail "node endpoints stopped answering — stopping batch" || return 1
+                    if ((misses >= 3)); then
+                        why="node endpoints stopped answering — stopping batch"
+                        break
+                    fi
                 fi
             fi
         fi
         nap "$POLL"
     done
+    if [[ -n "$why" ]]; then
+        log "ERROR: ${why}"
+        # Stop the batch NOW, while the node is still in the state that made
+        # us stop, so a book lost in flight can be judged before teardown.
+        stop_child "$BATCH_PID" "batch"
+        BATCH_PID=""
+        [[ "$stage" == "subtitles" ]] && judge_lost_job
+        return 1
+    fi
     wait "$BATCH_PID"
     local rc=$?
     BATCH_PID=""
     case "$rc" in
         0) log "${stage} batch finished" ;;
-        4) gfail "batch lost the GPU endpoints (job released to pending)" || return 1 ;;
+        4)
+            judge_lost_job
+            gfail "batch lost the GPU endpoints (job released to pending)" || return 1
+            ;;
         *) gfail "${stage} batch exited ${rc}" || return 1 ;;
     esac
+}
+
+# A book in flight when the endpoints vanished counts toward its 'suspect'
+# quarantine ONLY if the loss was not our own doing (bd 2c9): the node still
+# exists, the tunnel is still up and our guard is still running. If the node
+# is gone (our guard, our reaper, the node's own dead-man switch, Vast) or the
+# tunnel died (host-side), the book is blameless.
+judge_lost_job() {
+    local job=""
+    [[ -n "$LOST_JOB_FILE" && -s "$LOST_JOB_FILE" ]] && job="$(head -c 32 "$LOST_JOB_FILE" | tr -dc '0-9')"
+    rm -f "$LOST_JOB_FILE"
+    [[ -n "$job" ]] || return 0
+    local count
+    count="$(instance_count)"
+    if [[ "$count" =~ ^[1-9][0-9]*$ ]] && tunnel_alive && alive "$GUARD_PID"; then
+        local state
+        state="$(queue_query suspect --job-id "$job" --max-suspect "$MAX_SUSPECT" \
+            --error "GPU endpoints lost while this book was in flight; node still up")" \
+            && log "queue row ${job} was in flight when the node's services died — suspect count raised (row now ${state})"
+    else
+        log "queue row ${job} was in flight when the node went away (node count ${count:-?}, tunnel/guard state) — not the book's fault, not counted"
+    fi
 }
 
 # The independent reaper is the only cap that survives SIGKILL/OOM of this
@@ -431,6 +486,26 @@ reaper_armed() {
     return 0
 }
 
+# A run marker left by a run that died (we hold the lock, so it is not live).
+# If its node is gone — the node's own dead-man switch fired while this host
+# was down, or the reaper got it — charge its reservation (never less) before
+# this run's budget is computed. If its node is somehow still up, do not rent:
+# the reaper destroys it on its next pass.
+settle_dead_run() {
+    [[ -s "$LIVE_FILE" ]] || return 0
+    local dead_run count amount
+    dead_run="$(head -c 200 "$LIVE_FILE" | tr -d '[:space:]')"
+    count="$(instance_count)"
+    if [[ "$count" == "0" ]]; then
+        amount="$(ledger settle --run "$dead_run" --note "drain: run died, node already gone")" \
+            || gfail "could not settle dead run ${dead_run} in ${LEDGER} — not renting" || return 1
+        log "settled dead run ${dead_run} at \$${amount} (its reservation floor)"
+        rm -f "$LIVE_FILE"
+        return 0
+    fi
+    gfail "dead run ${dead_run} left ${count:-an unknown number of} '${LABEL}' instance(s) — not renting; the reaper destroys them" || return 1
+}
+
 gpu_stage() {
     reaper_armed || gfail "the independent reaper is not armed — not renting (enable ${REAPER_TIMER} with a Vast key)" || return 1
     if [[ -z "${VAST_API_KEY:-}" ]]; then
@@ -441,12 +516,45 @@ gpu_stage() {
     fi
     ! ports_busy || gfail "local port ${MT_PORT} or ${WHISPER_PORT} is already in use — refusing to rent (it could answer for another node)" || return 1
 
+    settle_dead_run || return 1
+
     local verdict
     verdict="$(ledger budget --per-run "$BUDGET" --monthly "$MONTHLY" --min-run "$MIN_RUN" 2>&1)" \
         || gfail "monthly budget: ${verdict} — not renting; the queue stays pending" || return 1
     CAP="$(sed -n 's/^cap=\([0-9.]*\) .*/\1/p' <<<"$verdict")"
     is_money "$CAP" || gfail "could not parse budget verdict '${verdict}'" || return 1
     log "budget: ${verdict} (per-run \$${BUDGET}, monthly \$${MONTHLY})"
+
+    # Vast credit is topped up MANUALLY (operator decision). A run the account
+    # cannot pay for would be stopped by Vast mid-batch (credit exhaustion
+    # killed the 2026-09 campaign); refuse it up front and say why, loudly.
+    # An unreadable balance is a refusal too: it cannot be verified.
+    local balance
+    balance="$(credit_now)"
+    is_money "$balance" \
+        || gfail "could not read the Vast account balance — cannot verify the account can pay for a \$${CAP} run; not renting, queued books will wait" || return 1
+    if awk -v b="$balance" -v c="$CAP" 'BEGIN { exit !(b < c) }'; then
+        gfail "Vast balance \$${balance} below run cap \$${CAP} — top up the account manually; queued books will wait" || return 1
+    fi
+    CREDIT_BEFORE="$balance"
+    log "Vast balance \$${balance} covers the \$${CAP} run cap"
+
+    # Price and lifetime: with this host down only the node's own timer ends
+    # it, so an orphan costs at most max price x lifetime — make that <= CAP.
+    local -a price_arg=()
+    [[ -n "$EXPLICIT_MAX_PRICE" ]] && price_arg=(--max-price "$EXPLICIT_MAX_PRICE")
+    local limits
+    limits="$(pyrun -m localization.drain_limits plan --cap "$CAP" --max-minutes "$MAX_MINUTES" \
+        --bootstrap-seconds "$BOOTSTRAP_TIMEOUT" --margin-minutes "$MARGIN_MINUTES" "${price_arg[@]}" 2>&1)" \
+        || gfail "node limits: ${limits} — not renting" || return 1
+    GPU_NODE_MAX_LIFETIME="$(sed -n 's/.*lifetime=\([0-9]*\).*/\1/p' <<<"$limits")"
+    GPU_NODE_MAX_PRICE="$(sed -n 's/.*max_price=\([0-9.]*\).*/\1/p' <<<"$limits")"
+    BATCH_SECONDS="$(sed -n 's/.*batch_seconds=\([0-9]*\).*/\1/p' <<<"$limits")"
+    if ! is_uint "$GPU_NODE_MAX_LIFETIME" || ! is_money "$GPU_NODE_MAX_PRICE" || ! is_uint "$BATCH_SECONDS"; then
+        gfail "could not parse node limits '${limits}'" || return 1
+    fi
+    export GPU_NODE_MAX_LIFETIME GPU_NODE_MAX_PRICE
+    log "node limits: ${limits} (on-node dead-man switch; offers above the price are not rented)"
 
     local run_id="drain-$(date +%s)-$$"
     # The live-run marker tells the reaper which reservation belongs to the
@@ -457,14 +565,6 @@ gpu_stage() {
     ledger reserve --run "$run_id" --amount "$CAP" || gfail "could not write the spend ledger ${LEDGER} — not renting" || return 1
     RUN_ID="$run_id"
     NODE_REQUESTED=1
-    CREDIT_BEFORE="$(credit_now)"
-    # Arms the on-node dead-man switch: the node ends itself after this long
-    # even if this host never speaks to it again.
-    GPU_NODE_MAX_LIFETIME="$(pyrun -m localization.drain_limits lifetime \
-        --max-minutes "$MAX_MINUTES" --bootstrap-seconds "$BOOTSTRAP_TIMEOUT" \
-        --margin-minutes "$MARGIN_MINUTES")" || gfail "could not compute the node lifetime" || return 1
-    export GPU_NODE_MAX_LIFETIME
-    log "node lifetime (on-node dead-man switch): ${GPU_NODE_MAX_LIFETIME}s"
 
     # Armed before the node exists, so the cap covers create + boot too.
     "${GUARD[@]}" --cap "$CAP" --label "$LABEL" --await "$UP_WAIT" 9>&- &
@@ -479,6 +579,13 @@ gpu_stage() {
     RENT_START="$(date +%s)"
     "${GPU_NODE[@]}" up 9>&- &
     UP_PID=$!
+    # `up` is bounded HERE too (drain_limits counts on it): a hung `up` must
+    # not eat into the node lifetime the batch is promised.
+    local up_deadline=$((SECONDS + UP_WAIT))
+    while alive "$UP_PID"; do
+        ((SECONDS < up_deadline)) || gfail "gpu-node.sh up still running after ${UP_WAIT}s" || return 1
+        nap "$POLL"
+    done
     wait "$UP_PID"
     local up_rc=$?
     UP_PID=""
@@ -488,7 +595,7 @@ gpu_stage() {
     ! ports_busy || gfail "local port ${MT_PORT} or ${WHISPER_PORT} became busy — refusing to tunnel" || return 1
     gpu_node tunnel || gfail "gpu-node.sh tunnel failed" || return 1
     wait_healthy || return 1
-    run_batch subtitles "${DRAIN_MAX_SECONDS:-$((MAX_MINUTES * 60))}" || return 1
+    run_batch subtitles "${DRAIN_MAX_SECONDS:-$BATCH_SECONDS}" || return 1
     log "subtitle stage complete"
 }
 

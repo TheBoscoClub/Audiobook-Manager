@@ -197,8 +197,14 @@ build_search_query() {
 #   2. if that fails: STOP the instance via the same key — GPU billing ends,
 #      the instance's DISK STORAGE KEEPS BILLING until it is destroyed (the
 #      host-side reaper does that once the host is back).
-#   3. if that fails too: kill the container's PID 1 — the container exits,
-#      which Vast reports as "exited" (GPU billing ends; storage still bills).
+#   3. if that fails too: signal the container's PID 1. BEST-EFFORT ONLY: the
+#      kernel drops SIGTERM/SIGKILL sent to a PID-namespace init from inside
+#      its own namespace unless init installed a handler, so this often does
+#      nothing. Steps 1-2 are the real mechanism.
+# The lifetime counts from the FIRST boot, persisted on the instance disk
+# (/workspace/.dead-man-boot): Vast re-runs onstart on every container
+# restart, and a restart must not re-arm a fresh full lifetime.
+# The log (/workspace/dead-man.log) records which step succeeded.
 # Live behaviour of 1-3 against Vast is UNVERIFIED by these unit tests; the
 # dev-VM test plan checks it with a short lifetime.
 dead_man_script() {
@@ -210,8 +216,16 @@ cat > /workspace/dead-man.sh <<'DEADMAN'
 #!/bin/bash
 LIFETIME=${lifetime}
 API="https://console.vast.ai/api/v0"
+BOOT_FILE=/workspace/.dead-man-boot
 log() { echo "\$(date -u '+%F %T') dead-man: \$*" >> /workspace/dead-man.log; }
-sleep "\$LIFETIME"
+# First boot writes the epoch; a restart reuses it (remaining time only).
+[ -s "\$BOOT_FILE" ] || date +%s > "\$BOOT_FILE"
+BOOT=\$(cat "\$BOOT_FILE")
+case "\$BOOT" in ''|*[!0-9]*) BOOT=\$(date +%s); echo "\$BOOT" > "\$BOOT_FILE" ;; esac
+REMAINING=\$(( LIFETIME - (\$(date +%s) - BOOT) ))
+[ "\$REMAINING" -lt 0 ] && REMAINING=0
+log "armed: lifetime \${LIFETIME}s from boot \${BOOT}, \${REMAINING}s remaining"
+sleep "\$REMAINING"
 log "lifetime \${LIFETIME}s reached — ending this instance"
 # Vast's variables are in PID 1's environment even if onstart's was trimmed.
 for v in CONTAINER_ID CONTAINER_API_KEY; do
@@ -222,17 +236,20 @@ done
 if [ -n "\${CONTAINER_ID:-}" ] && [ -n "\${CONTAINER_API_KEY:-}" ]; then
   hdr="Authorization: Bearer \$CONTAINER_API_KEY"
   if curl -fsS --max-time 30 -X DELETE -H "\$hdr" "\$API/instances/\$CONTAINER_ID/" >> /workspace/dead-man.log 2>&1; then
-    log "destroy requested"; sleep 120
+    log "RESULT step 1: destroy accepted by the Vast API"; sleep 120
   fi
+  log "step 1 (destroy) did not end this instance — trying stop"
   if curl -fsS --max-time 30 -X PUT -H "\$hdr" -H 'Content-Type: application/json' \\
       -d '{"state":"stopped"}' "\$API/instances/\$CONTAINER_ID/" >> /workspace/dead-man.log 2>&1; then
-    log "stop requested (storage still bills until destroyed)"; sleep 120
+    log "RESULT step 2: stop accepted (GPU billing ends; storage bills until destroyed)"; sleep 120
   fi
+  log "step 2 (stop) did not end this instance either"
 else
   log "CONTAINER_ID/CONTAINER_API_KEY not available — cannot call the Vast API"
 fi
-log "stopping the container (kill PID 1)"
+log "step 3 (best effort): signalling PID 1 — often ignored inside a container"
 kill -TERM 1; sleep 30; kill -KILL 1
+log "RESULT: still running after every step — this instance needs the host-side reaper"
 DEADMAN
 chmod 700 /workspace/dead-man.sh
 setsid nohup /workspace/dead-man.sh > /dev/null 2>&1 < /dev/null &
@@ -397,6 +414,16 @@ cmd_up() {
 
     require_live_instance
     info "instance running: id=${INSTANCE_ID} ssh=root@${SSH_HOST} port ${SSH_PORT}"
+    # The offer search filters on MAX_PRICE, but an instance has billed above
+    # its listing before (2026-09-12: $6.74/hr against $2.70). Refuse it here;
+    # the caller's teardown destroys it (the drain's trap; `down` by hand).
+    if [[ -n "$MAX_PRICE" ]]; then
+        local billed
+        billed="$(our_live_instance | jq -r '.dph_total // 0')"
+        if awk -v b="$billed" -v m="$MAX_PRICE" 'BEGIN { exit !(b > m * 1.02) }'; then
+            die "instance ${INSTANCE_ID} bills ${billed} \$/hr, above GPU_NODE_MAX_PRICE ${MAX_PRICE} — refusing it (run '$0 down')"
+        fi
+    fi
 
     # Post-ssh bootstrap step: ship and start the whisper service.
     local -a opts

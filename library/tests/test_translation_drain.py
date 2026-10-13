@@ -38,7 +38,7 @@ S="$STUB_DIR"
 log() { echo "$*" >> "$S/calls"; }
 case "$1" in
   up)
-    log "up label=${GPU_NODE_LABEL} keyfile=${VAST_API_KEY_FILE:-unset} lifetime=${GPU_NODE_MAX_LIFETIME:-unset} guard_armed=$([[ -f $S/guard-started ]] && echo yes || echo no)"
+    log "up label=${GPU_NODE_LABEL} keyfile=${VAST_API_KEY_FILE:-unset} lifetime=${GPU_NODE_MAX_LIFETIME:-unset} price=${GPU_NODE_MAX_PRICE:-unset} guard_armed=$([[ -f $S/guard-started ]] && echo yes || echo no)"
     if [[ -n "${STUB_UP_SLEEP:-}" ]]; then
       trap 'log up-got-TERM; kill "$sp" 2>/dev/null; exit 143' TERM
       echo 1 > "$S/instances"   # the create landed; up is still "polling"
@@ -74,6 +74,7 @@ case "$1" in
   count)
     cat "$S/instances" 2>/dev/null || echo 0; exit 0 ;;
   billing)
+    [[ -n "${STUB_BILLING_FAIL:-}" ]] && exit 1
     if [[ -f "$S/destroyed" ]]; then
       echo "credit=${STUB_CREDIT_AFTER-47.00}"
       echo "instances=0 accrued=${STUB_ACCRUED_AFTER-0} dph=0"
@@ -119,7 +120,11 @@ case "${STUB_FAIL:-}" in
     q "UPDATE translation_queue SET state='pending', claimed_by=NULL WHERE claimed_by='drain'"
     exit 4 ;;
   hang|sigterm|guard-cap|tunnel-dies|health-dies)
-    trap 'echo batch-got-TERM >> "$S/calls"; exit 143' TERM
+    lost=""; prev=""
+    for a in "$@"; do [[ "$prev" == "--lost-job-file" ]] && lost="$a"; prev="$a"; done
+    # A job in flight when the node's endpoints vanish: what batch-translate
+    # does — hand the id to the drain (only for the endpoint-loss cases).
+    trap 'echo batch-got-TERM >> "$S/calls"; case "${STUB_FAIL}" in guard-cap|health-dies|tunnel-dies) [[ -n "$lost" ]] && echo 1 > "$lost" ;; esac; exit 143' TERM
     touch "$S/batch-running"
     while true; do sleep 0.1 & wait $!; done ;;
 esac
@@ -390,8 +395,11 @@ def test_happy_path_two_stages_in_order(rig: Rig):
     up_line = next(c for c in calls if c.startswith("up "))
     assert "guard_armed=yes" in up_line and "label=abm-drain-testhost " in up_line, up_line
     # On-node dead-man switch armed with the shared lifetime:
-    # up 1500 + bootstrap 1800 + 240 min + grace 300 + margin 30 min = 19800 s.
-    assert "lifetime=19800" in up_line, up_line
+    # up 2500 + bootstrap 1800 + 240 min + grace 300 + margin 30 min = 20800 s,
+    # and the default max price keeps price x lifetime within the $7.50 cap.
+    assert "lifetime=20800 " in up_line, up_line
+    assert "price=1.298 " in up_line, up_line
+    assert 1.298 * 20800 / 3600 <= 7.5
     guard_line = next(c for c in calls if c.startswith("guard "))
     assert "--cap 7.50" in guard_line and "--label abm-drain-testhost" in guard_line
     assert "--await" in guard_line, guard_line
@@ -586,7 +594,7 @@ def test_ledger_survives_between_runs(tmp_path: Path):
 
 
 def test_reservation_stands_when_spend_unmeasurable(rig: Rig):
-    proc = rig.run(STUB_CREDIT_BEFORE="", STUB_CREDIT_AFTER="", STUB_ACCRUED="", STUB_DPH="")
+    proc = rig.run(STUB_CREDIT_AFTER="", STUB_ACCRUED="", STUB_DPH="")
     assert proc.returncode == 0, _out(proc)
     kinds = [ln[3] for ln in rig.ledger_lines()]
     assert kinds == ["reserve"], "an unmeasured run keeps its full reservation"
@@ -766,7 +774,7 @@ def test_lifetime_follows_the_config(rig: Rig):
     )
     assert proc.returncode == 0, _out(proc)
     up_line = next(c for c in rig.calls() if c.startswith("up "))
-    assert f"lifetime={1500 + 600 + 3600 + 300 + 600} " in up_line, up_line
+    assert f"lifetime={2500 + 600 + 3600 + 300 + 600} " in up_line, up_line
 
 
 def test_blanked_key_pointer_falls_back_to_runtime_directory(rig: Rig):
@@ -827,3 +835,125 @@ def test_dead_operator_batch_claim_released_at_start(tmp_path: Path):
     assert "released 1 stale claim" in proc.stdout, _out(proc)
     state = sqlite3.connect(r.db).execute("SELECT state FROM translation_queue").fetchone()[0]
     assert state != "processing"
+
+
+# ── round 4: price x lifetime <= cap, bounded up, dead-run settlement, suspect cause ──
+
+
+def test_explicit_higher_price_shortens_lifetime_and_batch(rig: Rig):
+    proc = rig.run(GPU_NODE_MAX_PRICE="2.5")
+    assert proc.returncode == 0, _out(proc)
+    up_line = next(c for c in rig.calls() if c.startswith("up "))
+    # $10 / $2.50/h = 4 h = 14400 s; batch = 14400 - (2500 + 1800 + 300 + 1800) = 8000 s.
+    assert "lifetime=14400 " in up_line and "price=2.500 " in up_line, up_line
+    assert "starting subtitles batch (limit 8000s)" in proc.stdout
+
+
+def test_price_too_high_for_the_cap_refuses(rig: Rig):
+    proc = rig.run(GPU_NODE_MAX_PRICE="9")
+    assert proc.returncode == 1, _out(proc)
+    assert "node limits" in proc.stdout and "not renting" in proc.stdout
+    _assert_nothing_rented(rig, proc)
+    assert rig.ledger_lines() == [], "a refused run reserves nothing"
+
+
+def test_margin_below_safe_minimum_refuses(rig: Rig):
+    proc = rig.run(AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES="0")
+    assert proc.returncode == 1, _out(proc)
+    assert "MARGIN_MINUTES must be >= 10" in proc.stdout
+    _assert_nothing_rented(rig, proc)
+
+
+def test_hung_up_is_bounded_and_torn_down(rig: Rig):
+    proc = rig.run(STUB_UP_SLEEP="60", DRAIN_UP_WAIT="1")
+    assert proc.returncode == 1, _out(proc)
+    assert "still running after 1s" in proc.stdout
+    assert "up-got-TERM" in rig.calls()
+    _assert_torn_down(rig, proc)
+
+
+def _dead_run(rig: Rig, run: str = "drain-dead-1", reserve: float = 10.0) -> None:
+    rig.ledger.parent.mkdir(parents=True, exist_ok=True)
+    now = time.time()
+    month = time.strftime("%Y-%m", time.localtime(now))
+    rig.ledger.write_text(f"{int(now)}\t{month}\t{run}\treserve\t{reserve:.4f}\t\n")
+    Path(str(rig.ledger) + ".live").write_text(run + "\n")
+
+
+def test_dead_run_with_no_node_is_settled_at_its_reservation(rig: Rig):
+    _dead_run(rig)
+    proc = rig.run()
+    assert proc.returncode == 0, _out(proc)
+    dead = [ln for ln in rig.ledger_lines() if ln[2] == "drain-dead-1"]
+    assert [(ln[3], float(ln[4])) for ln in dead] == [("reserve", 10.0), ("final", 10.0)], dead
+    # $10 settled + this run: cap still $10 of the remaining $90.
+    assert _guard_cap(rig) == "10.00"
+
+
+def test_dead_run_with_node_still_up_refuses(rig: Rig):
+    _dead_run(rig)
+    (rig.stubs / "instances").write_text("1\n")
+    proc = rig.run()
+    assert proc.returncode == 1, _out(proc)
+    assert "the reaper destroys them" in proc.stdout
+    _assert_nothing_rented(rig, proc)
+
+
+def _suspects(rig: Rig) -> int:
+    return (
+        sqlite3.connect(rig.db).execute("SELECT suspect_runs FROM translation_queue").fetchone()[0]
+    )
+
+
+def test_in_flight_loss_with_node_up_counts_as_suspect(rig: Rig):
+    proc = rig.run(STUB_FAIL="health-dies")
+    assert proc.returncode == 1, _out(proc)
+    assert "suspect count raised" in proc.stdout
+    assert _suspects(rig) == 1
+
+
+@pytest.mark.parametrize("fail", ["guard-cap", "tunnel-dies"])
+def test_in_flight_loss_from_our_own_teardown_is_not_counted(rig: Rig, fail):
+    """The guard destroyed the node (or the host-side tunnel died): the book
+    in flight is blameless."""
+    proc = rig.run(STUB_FAIL=fail)
+    assert proc.returncode == 1, _out(proc)
+    assert "not the book's fault" in proc.stdout, _out(proc)
+    assert _suspects(rig) == 0
+
+
+# ── manual top-ups: refuse a run the account cannot pay for ─────────────────
+
+
+def test_balance_at_or_above_cap_rents(rig: Rig):
+    proc = rig.run(STUB_CREDIT_BEFORE="10.00")  # exactly the $10 cap
+    assert proc.returncode == 0, _out(proc)
+    assert "covers the $10.00 run cap" in proc.stdout
+    assert "up" in rig.verbs()
+
+
+def test_balance_below_cap_refuses(rig: Rig):
+    proc = rig.run(STUB_CREDIT_BEFORE="9.99")
+    assert proc.returncode == 1, _out(proc)
+    assert (
+        "Vast balance $9.99 below run cap $10.00 — top up the account manually; "
+        "queued books will wait" in proc.stdout
+    )
+    _assert_nothing_rented(rig, proc)
+    assert rig.ledger_lines() == []
+    assert rig.rows() == [("pending", 0, 0, None)]
+
+
+def test_balance_compared_with_the_effective_cap(rig: Rig):
+    """$95 of $100 spent this month: the run's cap is $5, so $6 suffices."""
+    rig.seed_ledger(95.0)
+    proc = rig.run(STUB_CREDIT_BEFORE="6.00")
+    assert proc.returncode == 0, _out(proc)
+    assert _guard_cap(rig) == "5.00"
+
+
+def test_unreadable_balance_refuses(rig: Rig):
+    proc = rig.run(STUB_BILLING_FAIL="1")
+    assert proc.returncode == 1, _out(proc)
+    assert "could not read the Vast account balance" in proc.stdout
+    _assert_nothing_rented(rig, proc)

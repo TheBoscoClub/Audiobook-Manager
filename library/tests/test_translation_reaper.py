@@ -36,8 +36,28 @@ with open(log, "a") as fh:
 if os.environ.get("STUB_API_DOWN"):
     sys.exit(22)
 data = json.load(open(state))
+lock = os.environ.get("STUB_LOCK")
+if method == "GET" and url.endswith("/instances/") and lock and os.path.exists(lock):
+    import fcntl
+    with open(lock, "a") as lk:
+        try:
+            fcntl.flock(lk, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            fcntl.flock(lk, fcntl.LOCK_UN)
+            held = "unlocked"
+        except OSError:
+            held = "locked"
+    with open(log, "a") as fh:
+        fh.write(f"LIST-WHILE-{{held}}\\n")
 if method == "GET" and url.endswith("/instances/"):
     print(json.dumps({{"instances": data}}))
+elif method == "POST" and url.endswith("/bundles/"):
+    print(json.dumps({{"offers": [{{"id": 77, "dph_total": 1.0}}]}}))
+elif method == "PUT" and "/asks/" in url:
+    data.append({{"id": 900, "label": os.environ.get("GPU_NODE_LABEL", ""), "actual_status": "running",
+                 "dph_total": float(os.environ.get("STUB_BILLED", "1.0")), "start_date": 0,
+                 "ssh_host": "h", "ssh_port": 1}})
+    json.dump(data, open(state, "w"))
+    print(json.dumps({{"new_contract": 900}}))
 elif method == "DELETE":
     iid = int(url.rstrip("/").rsplit("/", 1)[1])
     if not os.environ.get("STUB_DELETE_IGNORED"):
@@ -102,6 +122,7 @@ class Reap:
             "AUDIOBOOKS_DRAIN_LEDGER": str(self.ledger),
             "AUDIOBOOKS_DRAIN_LABEL": L,
             "AUDIOBOOKS_DRAIN_REAPER_HEARTBEAT": str(self.heartbeat),
+            "STUB_LOCK": str(self.lock),
         }
         env.update(extra)
         return env
@@ -186,8 +207,8 @@ def test_live_young_cheap_node_is_left_alone(reap: Reap):
 
 
 def test_live_but_too_old_is_reaped(reap: Reap):
-    # Lifetime at defaults: 240*60 + 1800 + 1500 + 300 + 30*60 = 19800 s.
-    reap.instances([_inst(1, L, age_s=20000, dph=0.01)])
+    # Lifetime at defaults: 2500 + 1800 + 240*60 + 300 + 30*60 = 20800 s.
+    reap.instances([_inst(1, L, age_s=21000, dph=0.01)])
     with reap.hold_lock():
         p = reap.run()
     assert p.returncode == 2, _out(p)
@@ -282,7 +303,7 @@ def test_corrupt_ledger_still_reaps_orphan_then_fails(reap: Reap):
 
 def test_corrupt_ledger_still_reaps_over_age_live_node(reap: Reap):
     _corrupt_ledger(reap)
-    reap.instances([_inst(1, L, age_s=20000, dph=0.01)])
+    reap.instances([_inst(1, L, age_s=21000, dph=0.01)])
     with reap.hold_lock():
         p = reap.run()
     assert reap.remaining_ids() == [], _out(p)
@@ -372,3 +393,99 @@ def test_gpu_node_down_destroys_every_drain_instance_only(tmp_path: Path):
         "DELETE http://127.0.0.1:9/api/v0/instances/11/",
     ]
     assert r.remaining_ids() == [12]
+
+
+# ── round 4 ──────────────────────────────────────────────────────────────────
+
+
+def test_lists_only_after_taking_the_lock(reap: Reap):
+    """A drain finishing between a listing and the lock used to look like an
+    orphan. The reaper must hold the drain lock when it lists."""
+    reap.lock.parent.mkdir(parents=True, exist_ok=True)
+    reap.lock.touch()
+    reap.instances([_inst(1, L)])
+    p = reap.run()
+    assert p.returncode == 2, _out(p)
+    lines = reap.log.read_text().splitlines()
+    assert lines[1] == "LIST-WHILE-locked", lines
+
+
+def _reserve(reap: Reap, run: str, amount: float) -> None:
+    reap.ledger.parent.mkdir(parents=True, exist_ok=True)
+    now = time.time()
+    month = time.strftime("%Y-%m", time.localtime(now))
+    reap.ledger.write_text(f"{int(now)}\t{month}\t{run}\treserve\t{amount:.4f}\t\n")
+    Path(str(reap.ledger) + ".live").write_text(run + "\n")
+
+
+def _finals(reap: Reap, run: str) -> list[float]:
+    return [
+        float(ln.split("\t")[4])
+        for ln in reap.ledger.read_text().splitlines()
+        if ln.split("\t")[2] == run and ln.split("\t")[3] == "final"
+    ]
+
+
+def test_orphan_spend_never_below_its_reservation(reap: Reap):
+    _reserve(reap, "drain-x", 10.0)
+    reap.instances([_inst(1, L, age_s=600, dph=1.5)])  # accrued ~$0.25
+    p = reap.run()
+    assert p.returncode == 2, _out(p)
+    assert _finals(reap, "drain-x") == [10.0]
+
+
+def test_dead_run_whose_node_self_destroyed_is_settled(reap: Reap):
+    """The node's dead-man switch fired while this host was down: zero
+    instances, an open run marker, no live drain."""
+    _reserve(reap, "drain-y", 10.0)
+    p = reap.run()
+    assert p.returncode == 0, _out(p)
+    assert _finals(reap, "drain-y") == [10.0]
+    assert not Path(str(reap.ledger) + ".live").exists()
+    assert reap.deletes() == []
+
+
+def test_live_drain_run_is_not_settled(reap: Reap):
+    _reserve(reap, "drain-z", 10.0)
+    with reap.hold_lock():
+        p = reap.run()
+    assert p.returncode == 0, _out(p)
+    assert _finals(reap, "drain-z") == []
+
+
+def test_gpu_node_up_refuses_an_instance_billing_above_max_price(tmp_path: Path):
+    r = Reap(tmp_path)
+    p = subprocess.run(
+        ["bash", str(REPO / "scripts" / "gpu-node.sh"), "up"],
+        env={**r.env(), "GPU_NODE_LABEL": L, "GPU_NODE_MAX_PRICE": "2.5", "STUB_BILLED": "6.74"},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert p.returncode != 0, _out(p)
+    assert "above GPU_NODE_MAX_PRICE" in p.stderr, _out(p)
+    body = [ln for ln in r.log.read_text().splitlines() if ln.startswith("POST")]
+    assert body, "the offer search ran"
+
+
+def test_gpu_node_search_filters_on_max_price(tmp_path: Path):
+    r = Reap(tmp_path)
+    capture = tmp_path / "bodies"
+    wrapper = tmp_path / "bin" / "curl"
+    real = wrapper.read_text()
+    wrapper.write_text(
+        real.replace(
+            'with open(log, "a") as fh:\n    fh.write(f"{method} {url}\\n")',
+            'with open(log, "a") as fh:\n    fh.write(f"{method} {url}\\n")\n'
+            'if "--data-raw" in args:\n    open(os.environ["CAPTURE"], "a").write(args[args.index("--data-raw") + 1] + "\\n")',
+        )
+    )
+    p = subprocess.run(
+        ["bash", str(REPO / "scripts" / "gpu-node.sh"), "search"],
+        env={**r.env(), "GPU_NODE_MAX_PRICE": "1.298", "CAPTURE": str(capture)},
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert p.returncode == 0, _out(p)
+    assert '"dph_total":{"lte":1.298}' in capture.read_text().replace(" ", "").replace("\n", "")

@@ -240,7 +240,7 @@ Each run:
 1. Takes a lock (`AUDIOBOOKS_DRAIN_LOCK`, shared with the reaper below), so two drains never overlap. Rows a dead earlier run left in `processing` go back to `pending`, as do rows claimed by an operator's hand-run `batch-translate.py` whose process is gone, or by any other owner with no progress for 6 hours.
 2. Counts pending work for each stage. Books permanently excluded from translation and `quarantined` books do not count. With **no pending work in either stage it exits 0 without renting anything**. With narration work only, it skips straight to step 8 and rents nothing.
 3. Refuses to rent unless the [reaper](#the-independent-reaper) is armed — its timer active and a heartbeat from a run that completed with the Vast.ai key, for this drain's label, within the last 30 minutes. It also refuses if no Vast.ai credential is configured, or if anything already listens on local port 8000 or 8765 (a tunnel you opened by hand would otherwise answer for a different node).
-4. Checks the monthly ceiling (below). This run's cap is the smaller of `AUDIOBOOKS_DRAIN_BUDGET_USD` and what is left this month. That amount is written to the spend ledger as a reservation **before** renting.
+4. Checks the monthly ceiling (below). This run's cap is the smaller of `AUDIOBOOKS_DRAIN_BUDGET_USD` and what is left this month. Then it checks the Vast.ai account balance against that cap. Top-ups are manual: if the balance is below the cap, or cannot be read, the drain does not rent. It logs `Vast balance $X below run cap $Y — top up the account manually; queued books will wait` (or that the balance could not be read), leaves the queue pending, and exits non-zero so the unit fails and the operator is alerted. Otherwise the cap is written to the spend ledger as a reservation **before** renting.
 5. Starts `gpu-budget-guard.sh --cap <that amount>` first, so the cap also covers the minutes while the node is being created. Then it runs `gpu-node.sh up` under this host's own label, `abm-drain-<short hostname>` (see [Labels](#labels)), so it never touches a node you rented by hand under `abm-translate` or another host's drain node. `up` also arms an **on-node dead-man switch** (below).
 6. Opens the tunnel and waits up to `AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT` seconds for vLLM and whisper to answer.
 7. Runs `batch-translate.py --stage subtitles --drain-mode`, bounded by `AUDIOBOOKS_DRAIN_MAX_MINUTES`:
@@ -254,7 +254,7 @@ Any early end exits non-zero and leaves the unit `failed`: a step failing, a tim
 
 **Failing books.** A book that fails for a reason of its own (unreadable audio, a translation the quality guard refuses, a narration rejection) goes back to `pending` with the error recorded. It is tried again on the next run. After `AUDIOBOOKS_DRAIN_MAX_ATTEMPTS` consecutive failed runs (default 3) it moves to `quarantined` with the last error kept, and stops counting as work. One broken book therefore cannot make the drain rent a node every day just to fail again.
 
-Failures that belong to the run rather than the book do not count toward that limit: losing the tunnel or node, a bootstrap timeout, a budget stop. One exception: a book whose audio crashes the whisper service makes the node's endpoints vanish on every attempt, which looks exactly like a flaky node. So when the endpoints are lost **while the same book is in flight** on `AUDIOBOOKS_DRAIN_MAX_SUSPECT` consecutive runs (default 3), that book is quarantined as `suspect:` on its own counter. Losing the endpoints before a book starts counts against no book.
+Failures that belong to the run rather than the book do not count toward that limit: losing the tunnel or node, a bootstrap timeout, a budget stop. One exception: a book whose audio crashes the whisper service makes the node's endpoints vanish on every attempt, which looks exactly like a flaky node. So when the endpoints are lost **while the same book is in flight** on `AUDIOBOOKS_DRAIN_MAX_SUSPECT` consecutive runs (default 3), that book is quarantined as `suspect:` on its own counter. It counts only when the node itself is still up, the tunnel is still up and the guard is still running — a node destroyed by our own guard, reaper or dead-man switch is not the book's fault. Losing the endpoints before a book starts counts against no book.
 
 After fixing the cause, put a book back in the queue:
 
@@ -293,15 +293,25 @@ Conditions (a) to (c) need only the Vast.ai listing and are acted on first; the 
 
 It never touches any other label. A reaper that had to destroy something exits 2, so its unit shows failed: a firing is always worth knowing about. Each run that completes with the key writes a heartbeat; the drain will not rent without a recent one.
 
+It takes the drain lock before it lists instances, so a drain that has just finished is never mistaken for an orphan.
+
 Without a Vast.ai credential it exits 0 only on a host where the drain was never configured. Where the drain timer is enabled or a spend ledger exists, a missing key is an error (exit 1), because the reaper would otherwise be silently off. The key also cannot be blanked by accident: if `audiobooks.conf` sets `VAST_API_KEY_FILE=""` (which overrides the drop-in's pointer), the drain and the reaper still use the key the drop-in derived into their runtime directory.
 
 #### The on-node dead-man switch
 
-The reaper runs on this host, so it cannot act while the host is down: power loss, a kernel panic, a network outage. For that case, every drain node carries its own timer, set by the drain's `up` to the same maximum lifetime the reaper uses (`localization/drain_limits.py`; 19,800 seconds, 5 hours 30 minutes, at the defaults). When it expires, the node ends itself without hearing from the host:
+The reaper runs on this host, so it cannot act while the host is down: power loss, a kernel panic, a network outage. For that case, every drain node carries its own timer, set by the drain's `up` to the same maximum lifetime the reaper uses (`localization/drain_limits.py`; 20,800 seconds, 5 hours 47 minutes, at the defaults). The timer counts from the node's first boot, stored on its disk, so a container restart does not start it again. When it expires, the node ends itself without hearing from the host:
 
 1. **Destroy.** It calls the Vast.ai API with the instance's own `CONTAINER_API_KEY`, which Vast injects into every container. This account's key never goes to the node. Destroying ends all billing.
 2. **Stop**, if destroy fails. GPU billing ends; the instance's **disk storage keeps billing** until it is destroyed, which the reaper does once the host is back.
-3. **Kill the container's PID 1**, if both API calls fail. The container exits, which ends GPU billing; storage still bills.
+3. **Signal the container's PID 1**, if both API calls fail. Best effort only: inside a container the kernel ignores SIGTERM and SIGKILL sent to the namespace's PID 1 unless it installed a handler, so this step often does nothing.
+
+The node's `/workspace/dead-man.log` records which step worked.
+
+**Price limit.** With the host down only that timer ends a node, so an orphan can cost up to its hourly price × lifetime. The drain therefore caps the price: by default `GPU_NODE_MAX_PRICE` = the run's cap ÷ lifetime in hours (1.73 dollars per hour for a 10-dollar cap at the default lifetime), and offers above it are not rented. An instance that turns out to bill above it is refused and destroyed. If you set `GPU_NODE_MAX_PRICE` higher yourself, the node's lifetime shrinks to cap ÷ price and the batch's time limit shrinks with it, so price × lifetime still fits the cap; if too little batch time would be left (under 10 minutes), the run is refused.
+
+The verified H100 SXM rate measured in 2026-09 was about 1.74 dollars per hour, just above the 1.73 default for a 10-dollar cap. Either raise `AUDIOBOOKS_DRAIN_BUDGET_USD` (11 dollars allows about 1.90 dollars per hour) or set `GPU_NODE_MAX_PRICE` (at 1.80 dollars per hour the batch limit drops from 4 hours to about 3 hours 47 minutes).
+
+When a run's node disappears without the drain recording its spend (the host was down, or the reaper destroyed it), the next reaper or drain run charges that run its full reservation, never less.
 
 The unit tests prove the switch is armed with the right lifetime and that it calls these three steps in order. Whether Vast honours each step on a live node is not yet verified; the dev-VM test plan checks it with a short lifetime.
 
@@ -324,7 +334,7 @@ Cloned VMs can share a hostname. Give each VM an explicit, distinct `AUDIOBOOKS_
 | `AUDIOBOOKS_DRAIN_MAX_ATTEMPTS` | `3` | Consecutive failed runs before a book is quarantined |
 | `AUDIOBOOKS_DRAIN_LABEL` | `abm-drain-<short hostname>` | Vast.ai instance label the drain owns and the reaper polices; must be `abm-drain-<name>` |
 | `AUDIOBOOKS_DRAIN_MAX_SUSPECT` | `3` | Consecutive runs that lose the node with the same book in flight before it is quarantined as suspect |
-| `AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES` | `30` | Slack past the drain's longest legitimate run, in minutes — used by the reaper and the on-node dead-man switch |
+| `AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES` | `30` | Slack past the drain's longest legitimate run, in minutes — used by the reaper and the on-node dead-man switch; at least 10 |
 | `AUDIOBOOKS_DRAIN_LEDGER` | under `AUDIOBOOKS_VAR_DIR` | The append-only spend ledger |
 | `GPU_NODE_SSH_KEY`, `GPU_NODE_MAX_PRICE`, `GPU_NODE_GPU`, `GPU_NODE_PIP_TIMEOUT` | (see `gpu-node.sh`) | Offer selection, the SSH identity the `audiobooks` user connects with, and the limit on how long `up` waits for the node's `pip install` |
 

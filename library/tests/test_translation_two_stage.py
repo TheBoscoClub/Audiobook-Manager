@@ -419,26 +419,37 @@ def test_loss_before_the_job_counts_against_nothing(batch_db, monkeypatch):
     assert _counters(batch_db)[:3] == ("pending", 0, 0)
 
 
-def test_in_flight_loss_quarantines_as_suspect_after_three_runs(batch_db, monkeypatch):
-    """bd 2c9: the same book in flight every time the node vanishes (audio
-    that crashes whisper) is quarantined as suspect — via its own counter,
-    never drain_attempts."""
+def test_in_flight_loss_is_reported_not_counted_by_the_batch(batch_db, monkeypatch, tmp_path):
+    """The batch cannot tell a node that died under this book from one our
+    own guard/reaper destroyed, so it only reports the job id; the drain
+    decides (tests/test_translation_drain.py)."""
     _one_book(batch_db)
+    lost = tmp_path / "lost"
 
     def crash(*a):
         raise ConnectionError("whisper died")
 
     monkeypatch.setattr(bt, "process_book_stt", crash)
-    seen = []
-    for _run in range(3):
-        health = iter([True, False])  # healthy before the job, gone after
-        monkeypatch.setattr(bt, "endpoints_healthy", lambda: next(health))
-        assert bt._run_batch(batch_db, _args("subtitles", drain=True)) == bt.EXIT_ENDPOINTS_LOST
-        seen.append(_counters(batch_db)[:3])
-    assert seen == [("pending", 0, 1), ("pending", 0, 2), ("quarantined", 0, 3)], seen
-    assert _counters(batch_db)[3].startswith("suspect:")
-    from localization.drain_queue import count_drainable, requeue_quarantined
+    health = iter([True, False])
+    monkeypatch.setattr(bt, "endpoints_healthy", lambda: next(health))
+    args = _args("subtitles", drain=True)
+    args.lost_job_file = str(lost)
+    assert bt._run_batch(batch_db, args) == bt.EXIT_ENDPOINTS_LOST
+    assert _counters(batch_db)[:3] == ("pending", 0, 0)
+    job_id = sqlite3.connect(batch_db).execute("SELECT id FROM translation_queue").fetchone()[0]
+    assert lost.read_text().strip() == str(job_id)
 
+
+def test_mark_suspect_quarantines_after_three(batch_db):
+    """bd 2c9: the drain's verdict, three times for the same book."""
+    from localization.drain_queue import count_drainable, mark_suspect, requeue_quarantined
+
+    _one_book(batch_db)
+    job_id = sqlite3.connect(batch_db).execute("SELECT id FROM translation_queue").fetchone()[0]
+    seen = [mark_suspect(Path(batch_db), job_id, 3, "endpoints lost") for _ in range(3)]
+    assert seen == ["pending", "pending", "quarantined"], seen
+    assert _counters(batch_db)[:3] == ("quarantined", 0, 3)
+    assert _counters(batch_db)[3].startswith("suspect:")
     assert count_drainable(Path(batch_db), "subtitles") == 0
     assert requeue_quarantined(Path(batch_db)) == 1
     assert _counters(batch_db)[:3] == ("pending", 0, 0)

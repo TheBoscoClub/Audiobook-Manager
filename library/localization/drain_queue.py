@@ -24,6 +24,11 @@ unit-tested:
     process no longer runs, or any other non-drain owner with no progress for
     the given hours. The drain calls it at start. Prints the number released.
 
+``suspect --job-id N [--max-suspect 3]``
+    Raises a row's suspect counter (and quarantines it at the limit) — the
+    drain's verdict that the node's services died under this book while the
+    node itself was still up. Prints the row's state.
+
 ``requeue-quarantined [--book-id N] [--locale L]``
     Puts ``quarantined`` rows (a book that failed on
     ``AUDIOBOOKS_DRAIN_MAX_ATTEMPTS`` consecutive drain runs) back to
@@ -155,6 +160,31 @@ def release_stale(db_path: Path, max_age_hours: float = 6.0) -> int:
         conn.close()
 
 
+def mark_suspect(db_path: Path, job_id: int, max_suspect: int, error: str) -> str:
+    """Raise a row's suspect counter; quarantine it at ``max_suspect`` (bd 2c9).
+
+    Called by the drain only when the GPU endpoints died while this book was
+    in flight AND the node still existed (not destroyed by our own guard,
+    reaper or dead-man switch). Returns the row's resulting state.
+    """
+    conn = _connect(db_path)
+    try:
+        ensure_queue_schema(conn)
+        row = conn.execute(
+            "UPDATE translation_queue SET suspect_runs = suspect_runs + 1, "
+            "state = CASE WHEN suspect_runs + 1 >= ? THEN 'quarantined' ELSE state END, "
+            "error = CASE WHEN suspect_runs + 1 >= ? "
+            "  THEN 'suspect: ' || ? || ' on ' || (suspect_runs + 1) || ' consecutive runs' "
+            "  ELSE error END "
+            "WHERE id = ? AND state IN ('pending', 'processing') RETURNING state",
+            (max_suspect, max_suspect, error[:1500], job_id),
+        ).fetchone()
+        conn.commit()
+        return row[0] if row else "missing"
+    finally:
+        conn.close()
+
+
 def requeue_quarantined(
     db_path: Path, book_id: int | None = None, locale: str | None = None
 ) -> int:
@@ -190,6 +220,10 @@ def main(argv: list[str] | None = None) -> int:
     cnt.add_argument("--stage", choices=sorted(STAGE_FILTERS), default="subtitles")
     rel = sub.add_parser("release")
     rel.add_argument("--owner", required=True)
+    sus = sub.add_parser("suspect")
+    sus.add_argument("--job-id", type=int, required=True)
+    sus.add_argument("--max-suspect", type=int, default=3)
+    sus.add_argument("--error", default="GPU endpoints lost while in flight")
     stale = sub.add_parser("release-stale")
     stale.add_argument("--max-age-hours", type=float, default=6.0)
     req = sub.add_parser("requeue-quarantined")
@@ -204,6 +238,8 @@ def main(argv: list[str] | None = None) -> int:
         print(count_drainable(args.db, args.stage))
     elif args.cmd == "release":
         print(release_claims(args.db, args.owner))
+    elif args.cmd == "suspect":
+        print(mark_suspect(args.db, args.job_id, args.max_suspect, args.error))
     elif args.cmd == "release-stale":
         print(release_stale(args.db, args.max_age_hours))
     else:
