@@ -1097,5 +1097,6 @@
   "book.untranslatable": "此书无法翻译",
   "book.untranslatableTip": "管理员已将此书标记为无法翻译；音频仍可正常播放",
   "library.hideUntranslatable": "隐藏无法翻译的书籍",
-  "translation.guestSignIn": "仅限已登录用户使用翻译功能"
+  "translation.guestSignIn": "仅限已登录用户使用翻译功能",
+  "player.error.notTranslatedGuest": "此书尚未翻译——请登录后收听原版"
 }

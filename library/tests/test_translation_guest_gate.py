@@ -368,3 +368,17 @@ class TestI18nReloadAdminOnly:
             resp = app_client.post("/api/i18n/reload", environ_base={"REMOTE_ADDR": "203.0.113.1"})
         assert resp.status_code == 404
         spy.assert_not_called()
+
+
+class TestOriginalAudioStaysLoginOnly:
+    """The guest UI loads no audio for untranslated books because /api/stream
+    is login-only (``@auth_if_enabled`` on stream_audiobook). Pin that contract."""
+
+    def test_guest_stream_401(self, app_client, as_guest):
+        assert app_client.get("/api/stream/1").status_code == 401
+
+    def test_user_stream_not_401(self, app_client, as_user):
+        assert app_client.get("/api/stream/999999").status_code != 401
+
+    def test_standalone_stream_not_401(self, app_client):
+        assert app_client.get("/api/stream/999999").status_code != 401

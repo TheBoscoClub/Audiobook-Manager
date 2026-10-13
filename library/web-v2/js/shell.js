@@ -404,6 +404,7 @@ class ShellPlayer {
     this.audio.removeAttribute("src");
     this.audio.load();
     this._audioOwnerId = null;
+    this._clearUnavailable();
 
     this.currentBook = { ...book, bookId, coverUrl };
 
@@ -629,6 +630,7 @@ class ShellPlayer {
   }
 
   togglePlayPause() {
+    if (this._unavailable) return;
     if (this.audio.paused) {
       this.audio.play();
     } else {
@@ -702,6 +704,7 @@ class ShellPlayer {
     this.audio.pause();
     this.audio.src = "";
     this._audioOwnerId = null;
+    this._clearUnavailable();
     this.playerBar.hidden = true;
     document.body.classList.remove("player-active");
 
@@ -1116,18 +1119,49 @@ class ShellPlayer {
         ? i18n.tOr("translation.guestSignIn", "Translation is available to signed-in users")
         : "Translation is available to signed-in users";
     this._showShellToast(message, "info");
-    // State-based: only when nothing is attached for this book. The
-    // attribute (not the .src property, which reflects the page URL when
-    // empty) tells us. Left paused: this runs after an async fetch, outside
-    // the user gesture, so autoplay would be rejected anyway.
-    if (this.currentBook && this.audio && !this.audio.getAttribute("src")) {
-      const bookId = this.currentBook.bookId || this.currentBook.id;
-      const needsWebm = !this.audio.canPlayType("audio/ogg; codecs=opus");
-      this.audio.src = `${API_BASE}/stream/${bookId}${needsWebm ? "?format=webm" : ""}`;
+    // Design (bd gau): original audio is login-only. Guest access to
+    // /api/stream/<id> is decided by the route decorator
+    // `@auth_if_enabled` on stream_audiobook() in
+    // backend/api_modular/audiobooks.py (no central allowlist), and guests
+    // may only listen to ALREADY-TRANSLATED work. So a guest opening an
+    // untranslated book gets NO audio: nothing is attached, play is
+    // disabled and the player says why. Never call play() or load /stream
+    // here — it would 401.
+    if (this.currentBook && this.audio) {
+      this.audio.pause();
+      this.audio.removeAttribute("src");
       this.audio.load();
-      this._audioOwnerId = this.currentBook.id;
-      this.setPlayPauseIcon(false);
+      this._audioOwnerId = null;
+      this._setUnavailable(
+        typeof i18n !== "undefined" && i18n.tOr
+          ? i18n.tOr(
+              "player.error.notTranslatedGuest",
+              "This book isn't translated yet — sign in to listen to the original",
+            )
+          : "This book isn't translated yet — sign in to listen to the original",
+      );
     }
+  }
+
+  // Explicit "not available" player state: title stays, play is disabled.
+  _setUnavailable(message) {
+    this._unavailable = true;
+    const btn = document.getElementById("sp-play-pause");
+    if (btn) btn.disabled = true;
+    this.setPlayPauseIcon(false);
+    const el = document.getElementById("sp-error");
+    if (el) {
+      el.textContent = message;
+      el.hidden = false;
+    }
+  }
+
+  _clearUnavailable() {
+    if (!this._unavailable) return;
+    this._unavailable = false;
+    const btn = document.getElementById("sp-play-pause");
+    if (btn) btn.disabled = false;
+    this.clearPlayerError();
   }
 
   // Shell-level toast. Uses the #toast-container in shell.html and the

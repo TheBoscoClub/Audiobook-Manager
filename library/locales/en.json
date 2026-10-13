@@ -1097,5 +1097,6 @@
   "book.untranslatable": "This title cannot be translated",
   "book.untranslatableTip": "An administrator marked this title untranslatable; the audio still plays normally",
   "library.hideUntranslatable": "Hide titles that cannot be translated",
-  "translation.guestSignIn": "Translation is available to signed-in users"
+  "translation.guestSignIn": "Translation is available to signed-in users",
+  "player.error.notTranslatedGuest": "This book isn't translated yet — sign in to listen to the original"
 }
