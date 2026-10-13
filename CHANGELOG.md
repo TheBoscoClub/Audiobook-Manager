@@ -57,6 +57,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `audiobook-stream-translate` and the translation-monitor timers, and matches the helper's list (test-enforced), so
   pip never rewrites the venv under a live Python service
 
+- **Release-tested dependency lock**: `library/requirements.lock` pins the exact package set a VM ran and is applied
+  as a pip constraint (`-c`) by `upgrade.sh`, both `install.sh` paths and the Dockerfile — production installs what was
+  tested instead of the newest versions the `>=` floors allow. `scripts/generate-requirements-lock.sh <vm-ip>`
+  regenerates it (from the test VM at release time) and refuses a lock below any `requirements.txt` or
+  `requirements-docker.txt` floor; `library/tests/test_requirements_lock.py` fails CI when a floor is raised or a
+  requirement added without regenerating; a missing lock warns and falls back to floors only, and the sync summary says
+  whether the lock was applied
+
 ### Removed
 
 - **Dead launchers**: root `launch.sh` (ran the nonexistent `api.py`) and `library/launch.sh` (served the removed
