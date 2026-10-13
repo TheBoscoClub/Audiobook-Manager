@@ -46,9 +46,13 @@ STATUS_FILE="${CONTROL_DIR}/upgrade-status"
 # live progress while the API is down. Directory comes from
 # lib/audiobook-config.sh (AUDIOBOOKS_CADDY_DIR); the fallback covers a missing lib.
 CADDY_STATUS_FILE="${AUDIOBOOKS_CADDY_DIR:-/etc/caddy}/upgrade-status.json"
-# Grace period before the mirror is removed, so a maintenance page that is
-# mid-poll still sees the final status. Overridable (tests set 0).
+# Grace period before the mirror is removed on the SUCCESS path only, so a
+# maintenance page that is mid-poll still sees the final status. Every other
+# path (no-op, failure, early exit, signal) removes it immediately: the path unit's
+# ExecStopPost deletes upgrade-request when this process ends, so a sleep on
+# those paths would lose any request filed during it. Overridable (tests set 0).
 CADDY_STATUS_CLEANUP_DELAY="${AUDIOBOOKS_CADDY_STATUS_CLEANUP_DELAY:-5}"
+_CADDY_CLEANUP_SLEEP=0 # do_upgrade's success path raises this to CADDY_STATUS_CLEANUP_DELAY
 
 # EXIT-trap cleanup: EVERY terminal path (success, no-op "Already up to date",
 # failure, early exit, SIGTERM/SIGINT/SIGHUP) removes the Caddy mirror. A stale
@@ -58,7 +62,7 @@ CADDY_STATUS_CLEANUP_DELAY="${AUDIOBOOKS_CADDY_STATUS_CLEANUP_DELAY:-5}"
 # shellcheck disable=SC2329  # invoked via the EXIT trap below
 _cleanup_caddy_status() {
     [[ -e "$CADDY_STATUS_FILE" ]] || return 0
-    sleep "$CADDY_STATUS_CLEANUP_DELAY"
+    [[ "$_CADDY_CLEANUP_SLEEP" -gt 0 ]] && sleep "$_CADDY_CLEANUP_SLEEP"
     rm -f "$CADDY_STATUS_FILE" 2>/dev/null || true
 }
 trap _cleanup_caddy_status EXIT
@@ -636,8 +640,10 @@ do_upgrade() {
         write_status "false" "complete" "Upgrade completed — API may need a moment to start" "true" "$result_json" "${OUTPUT_LINES[@]}"
     fi
 
-    # The Caddy mirror is removed by the EXIT trap (_cleanup_caddy_status) after
-    # a brief delay, on this and every other terminal path.
+    # The Caddy mirror is removed by the EXIT trap (_cleanup_caddy_status). Only
+    # this success path asks for the grace delay (maintenance.html needs a moment
+    # to reload now that the API is back); every other path removes it at once.
+    _CADDY_CLEANUP_SLEEP="$CADDY_STATUS_CLEANUP_DELAY"
 }
 
 # =============================================================================

@@ -34,14 +34,17 @@ RECORD_REL = "library/.installed-requirements.txt"
 def _deps_functions() -> str:
     text = UPGRADE_SH.read_text()
     start = text.index("INSTALLED_REQUIREMENTS_REL=")
-    end = text.index("force_venv_rebuild() {", start)
+    end = text.index("apply_config_migrations() {", start)
     return text[start:end]
 
 
 FAKE_PIP = """#!/bin/bash
 echo "$*" >> "$PIP_LOG"
 case "$1" in
-    install) exit "${PIP_INSTALL_RC:-0}" ;;
+    install)
+        # only the --upgrade sync can fail; a rollback (--no-deps) succeeds
+        [[ " $* " == *" --upgrade "* ]] && exit "${PIP_INSTALL_RC:-0}"
+        exit 0 ;;
     freeze)
         [[ "${PIP_FREEZE_RC:-0}" != 0 ]] && exit "$PIP_FREEZE_RC"
         cat "$PIP_FREEZE_OUT" ;;
@@ -84,7 +87,7 @@ def test_pip_command_uses_upgrade_and_requirements(tmp_path):
     target = _make_install(tmp_path)
     proc, log = _run_sync(tmp_path, target, "flask==3.1.0\n")
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    first = log.splitlines()[0]
+    first = next(ln for ln in log.splitlines() if ln.startswith("install"))
     assert first.startswith("install --upgrade"), first
     assert f"-r {target}/library/requirements.txt" in first
 
@@ -133,7 +136,8 @@ def test_pip_install_failure_fails_loudly_and_keeps_old_record(tmp_path):
     assert proc.returncode != 0
     assert "FAILED" in proc.stdout
     assert (target / RECORD_REL).read_text() == "flask==3.0.0\n", "record must not advance"
-    assert "freeze" not in log, "must not record a state it could not reach"
+    after_install = log.split("install --upgrade", 1)[1]
+    assert "freeze" not in after_install.split("\n", 1)[1], "recorded a state it could not reach"
 
 
 def test_pip_freeze_failure_fails(tmp_path):
@@ -173,8 +177,12 @@ def test_no_swallowed_or_minimal_fallback_pip_installs_remain():
 
 def test_all_venv_populating_paths_use_the_shared_sync():
     text = UPGRADE_SH.read_text()
-    assert text.count('sync_python_dependencies "$target" "$use_sudo"') >= 3
-    assert 'force_venv_rebuild "$target" "$use_sudo" || return 1' in text
+    # Normal sync and rebuild both go through sync_python_dependencies, called from
+    # prepare_python_environment, which do_upgrade runs BEFORE any file copy.
+    assert text.count('sync_python_dependencies "$target" "$use_sudo" "$req"') == 2
+    body = text[text.index("do_upgrade() {") :]
+    assert body.index("prepare_python_environment") < body.index("Upgrading scripts")
+    assert "force_venv_rebuild" not in text
 
 
 # --------------------------------------------------------------------------
@@ -369,7 +377,7 @@ def _helper_env(tmp_path: Path, with_caddy_dir: bool = True):
         AUDIOBOOKS_CADDY_DIR=str(caddy),
         AUDIOBOOKS_INSTALL_DIR=str(inst),
         AUDIOBOOKS_HOME=str(tmp_path / "nohome"),
-        AUDIOBOOKS_CADDY_STATUS_CLEANUP_DELAY="0",
+        AUDIOBOOKS_CADDY_STATUS_CLEANUP_DELAY="30",
     )
     return env, var / ".control", caddy / "upgrade-status.json", inst
 
@@ -463,3 +471,313 @@ def test_docker_entrypoint_restricts_generated_tls_key():
     inst = INSTALL_SH.read_text()
     assert 'chmod 640 "${CERT_DIR}/server.key"' in inst
     assert 'chmod 600 "${CERT_DIR}/server.key"' in inst
+
+
+# --------------------------------------------------------------------------
+# review round: pip failure must abort BEFORE any code is copied
+# --------------------------------------------------------------------------
+def _mk_tree(base: Path, version: str, marker: str) -> Path:
+    for d in ("scripts", "lib", "library/web-v2", "library/venv/bin"):
+        (base / d).mkdir(parents=True, exist_ok=True)
+    (base / "VERSION").write_text(version + "\n")
+    (base / "scripts" / "tool.sh").write_text(marker + "\n")
+    (base / "lib" / "audiobook-config.sh").write_text(marker + "\n")
+    (base / "library" / "web-v2" / "index.html").write_text(marker + "\n")
+    (base / "library" / "requirements.txt").write_text(f"flask>={version}\n")
+    return base
+
+
+def _run_do_upgrade(tmp_path: Path, pip_rc: int, replace_prepare_after_scripts: bool = False):
+    target = _mk_tree(tmp_path / "target", "1.0.0", "OLD")
+    project = _mk_tree(tmp_path / "project", "2.0.0", "NEW")
+    pip = target / "library" / "venv" / "bin" / "pip"
+    pip.write_text(FAKE_PIP)
+    pip.chmod(0o755)
+    py = target / "library" / "venv" / "bin" / "python"
+    py.write_text("#!/bin/bash\nexit 0\n")
+    py.chmod(0o755)
+    freeze = tmp_path / "freeze.out"
+    freeze.write_text("flask==1.0.0\n")
+    calls = tmp_path / "calls.log"
+    script = f"""
+UPGRADE_SH_SOURCE_ONLY=1 source "{UPGRADE_SH}"
+RED="" GREEN="" BLUE="" YELLOW="" NC=""
+DRY_RUN=false MAJOR_VERSION=false
+apply_data_migrations() {{ echo data_migrations >> "{calls}"; }}
+apply_config_migrations() {{ echo config_migrations >> "{calls}"; }}
+do_upgrade "{project}" "{target}"
+echo "RC=$?"
+"""
+    env = os.environ.copy()
+    env.update(
+        PIP_LOG=str(tmp_path / "pip.log"),
+        PIP_FREEZE_OUT=str(freeze),
+        PIP_INSTALL_RC=str(pip_rc),
+    )
+    proc = subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, env=env, timeout=60, check=False
+    )
+    return proc, target, calls
+
+
+def test_pip_failure_aborts_with_old_code_untouched(tmp_path):
+    proc, target, calls = _run_do_upgrade(tmp_path, pip_rc=1)
+    assert "RC=1" in proc.stdout, proc.stdout + proc.stderr
+    assert (target / "VERSION").read_text() == "1.0.0\n"
+    assert (target / "scripts" / "tool.sh").read_text() == "OLD\n"
+    assert (target / "lib" / "audiobook-config.sh").read_text() == "OLD\n"
+    assert (target / "library" / "web-v2" / "index.html").read_text() == "OLD\n"
+    assert not calls.exists(), "migrations ran despite the dependency failure"
+    assert "aborted before any application file was changed" in proc.stdout
+    # the previous package set is put back (freeze re-applied with --no-deps)
+    log = (tmp_path / "pip.log").read_text()
+    assert "install --quiet --no-deps -r" in log
+    assert "Previous package set restored" in proc.stdout
+
+
+def test_main_flow_restarts_services_when_do_upgrade_fails():
+    """Both callers restart services on a non-zero do_upgrade (old code is still on disk)."""
+    text = UPGRADE_SH.read_text()
+    assert text.count('do_upgrade "$PROJECT_DIR" "$TARGET_DIR"\nupgrade_rc=$?') == 1
+    tail = text[text.index('do_upgrade "$PROJECT_DIR" "$TARGET_DIR"') :]
+    assert 'start_services "$use_sudo"' in tail[: tail.index("Start services after upgrade")]
+    helper = HELPER.read_text()
+    fail = helper[helper.index("if [[ $upgrade_exit -ne 0 ]]") :]
+    assert 'systemctl start "${services_stop_order[i]}"' in fail[:900]
+
+
+def test_rsync_preserves_install_record():
+    text = UPGRADE_SH.read_text()
+    assert "--exclude='.installed-requirements.txt'" in text
+    assert "--exclude='venv.pre-upgrade'" in text
+
+
+def test_rebuild_failure_restores_previous_venv(tmp_path):
+    target = _mk_tree(tmp_path / "target", "1.0.0", "OLD")
+    (target / "library" / "venv" / "bin" / "marker").write_text("old venv\n")
+    project = _mk_tree(tmp_path / "project", "2.0.0", "NEW")
+    fake_py = tmp_path / "fakepython"
+    fake_py.write_text("#!/bin/bash\nexit 1\n")  # `-m venv` fails
+    fake_py.chmod(0o755)
+    script = rf"""
+UPGRADE_SH_SOURCE_ONLY=1 source "{UPGRADE_SH}"
+RED="" GREEN="" BLUE="" YELLOW="" NC=""
+set +e
+DRY_RUN=false MAJOR_VERSION=true
+# route the system-python lookup to the failing stub
+prepare_python_environment_py="{fake_py}"
+sed_src=$(declare -f prepare_python_environment | sed 's|"/usr/bin/python3"|"{fake_py}"|; s|\[\[ -x /usr/bin/python3.1[34] \]\][^;]*;||g')
+eval "$sed_src"
+prepare_python_environment "{project}" "{target}" ""
+echo "RC=$?"
+"""
+    proc = subprocess.run(["bash", "-c", script], capture_output=True, text=True, timeout=60)
+    assert "RC=1" in proc.stdout, proc.stdout + proc.stderr
+    assert (target / "library" / "venv" / "bin" / "marker").read_text() == "old venv\n"
+    assert not (target / "library" / "venv.pre-upgrade").exists()
+
+
+# --------------------------------------------------------------------------
+# review round: purge refuses repo checkouts and odd roots
+# --------------------------------------------------------------------------
+def _repo_copy_scenario(tmp_path: Path) -> dict[str, Path]:
+    d = _fixture(tmp_path)
+    _seed_obsolete(d["lib"])
+    return d
+
+
+def test_refuses_git_checkout(tmp_path):
+    d = _repo_copy_scenario(tmp_path)
+    (d["lib"] / ".git").mkdir()
+    proc = _reconcile(d, "enforce")
+    assert (d["lib"] / "upgrade.sh").exists() and (d["lib"] / "README.md").exists()
+    assert "git checkout" in proc.stdout
+
+
+def test_refuses_when_lib_dir_is_project_dir(tmp_path):
+    d = _repo_copy_scenario(tmp_path)
+    env_proj = d["lib"]
+    env = os.environ.copy()
+    env.update(
+        PROJECT_DIR=str(ROOT),
+        LIB_DIR=str(env_proj),
+        STATE_DIR=str(d["state"]),
+        LOG_DIR=str(d["log"]),
+        CONFIG_DIR=str(d["config"]),
+        CONF_FILE=str(d["CONF_FILE"]),
+        USE_SUDO="",
+        RECONCILE_MODE="enforce",
+    )
+    # copy the manifest + reconciler into LIB_DIR so PROJECT_DIR == LIB_DIR resolves
+    (env_proj / "scripts").mkdir(exist_ok=True)
+    for f in ("install-manifest.sh", "reconcile-filesystem.sh"):
+        (env_proj / "scripts" / f).write_text((ROOT / "scripts" / f).read_text())
+    env["PROJECT_DIR"] = str(env_proj)
+    proc = subprocess.run(
+        ["bash", str(env_proj / "scripts" / "reconcile-filesystem.sh")],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=60,
+        check=False,
+    )
+    assert (env_proj / "upgrade.sh").exists() and (env_proj / "README.md").exists()
+    assert "project source tree" in proc.stdout
+
+
+def test_refuses_lib_dir_via_symlink_to_project(tmp_path):
+    """realpath comparison, not string comparison."""
+    d = _repo_copy_scenario(tmp_path)
+    link = tmp_path / "link-to-lib"
+    link.symlink_to(d["lib"])
+    d2 = dict(d)
+    d2["lib"] = link
+    env = os.environ.copy()
+    env.update(
+        PROJECT_DIR=str(d["lib"]),
+        LIB_DIR=str(link),
+        STATE_DIR=str(d["state"]),
+        LOG_DIR=str(d["log"]),
+        CONFIG_DIR=str(d["config"]),
+        CONF_FILE=str(d["CONF_FILE"]),
+        USE_SUDO="",
+        RECONCILE_MODE="enforce",
+    )
+    # PROJECT_DIR must hold the manifest; point a copy at it
+    (d["lib"] / "scripts").mkdir(exist_ok=True)
+    (d["lib"] / "scripts" / "install-manifest.sh").write_text(MANIFEST.read_text())
+    proc = subprocess.run(
+        ["bash", str(RECONCILER)], capture_output=True, text=True, env=env, timeout=60, check=False
+    )
+    assert (d["lib"] / "upgrade.sh").exists()
+    assert "project source tree" in proc.stdout
+
+
+@pytest.mark.parametrize("bad,msg", [("", "empty or /"), ("/", "empty or /")])
+def test_refuses_empty_or_root_lib_dir(tmp_path, bad, msg):
+    harness = f"""
+LIB_DIR="{bad}" PROJECT_DIR="{ROOT}" USE_SUDO="" RECONCILE_MODE=enforce DRY_RUN=false
+source "{RECONCILER}"
+OBSOLETE_ROOT_PATHS=("zz-nonexistent-sentinel")
+_reconcile_obsolete_root_paths
+"""
+    proc = subprocess.run(["bash", "-c", harness], capture_output=True, text=True, timeout=30)
+    assert f"skipped: LIB_DIR is {msg}" in proc.stdout or "LIB_DIR resolves to /" in proc.stdout, (
+        proc.stdout + proc.stderr
+    )
+
+
+def test_dot_entries_rejected(tmp_path):
+    d = _fixture(tmp_path)
+    (d["lib"] / "keep.txt").write_text("keep\n")
+    harness = f"""
+LIB_DIR="{d["lib"]}" PROJECT_DIR="/nonexistent" USE_SUDO="" RECONCILE_MODE=enforce DRY_RUN=false
+source "{RECONCILER}"
+OBSOLETE_ROOT_PATHS=("." "./keep.txt" "a/./b" "../x")
+_reconcile_obsolete_root_paths
+"""
+    proc = subprocess.run(["bash", "-c", harness], capture_output=True, text=True, timeout=30)
+    assert (d["lib"] / "keep.txt").exists() and d["lib"].exists()
+    assert proc.stdout.count("invalid OBSOLETE_ROOT_PATHS entry") == 4, proc.stdout + proc.stderr
+
+
+def test_toctou_parent_swapped_to_symlink_is_not_deleted(tmp_path):
+    """Parent is a real dir during the walk, a symlink by delete time -> skipped."""
+    d = _fixture(tmp_path)
+    (d["lib"] / "library").mkdir()
+    outside = tmp_path / "outside"
+    (outside / ".mypy_cache").mkdir(parents=True)
+    (outside / ".mypy_cache" / "precious").write_text("keep\n")
+    # `realpath` is called right before rm: shadow it to swap the dir for a symlink first
+    swap = tmp_path / "swap.sh"
+    swap.write_text(
+        f"""
+realpath() {{
+    if [[ ! -L "{d["lib"]}/library" && "$*" == *"{d["lib"]}/library"* && -z "${{SWAPPED:-}}" ]] \
+        && [[ -n "${{ARMED:-}}" ]]; then
+        mv "{d["lib"]}/library" "{d["lib"]}/library.real"; ln -s "{outside}" "{d["lib"]}/library"; SWAPPED=1
+    fi
+    command realpath "$@"
+}}
+"""
+    )
+    harness = f"""
+LIB_DIR="{d["lib"]}" PROJECT_DIR="/nonexistent" USE_SUDO="" RECONCILE_MODE=enforce DRY_RUN=false
+source "{RECONCILER}"
+source "{swap}"
+OBSOLETE_ROOT_PATHS=("library/.mypy_cache")
+# the entry exists inside the real dir so the walk accepts it
+mkdir -p "{d["lib"]}/library/.mypy_cache"
+ARMED=1
+_reconcile_obsolete_root_paths
+"""
+    proc = subprocess.run(["bash", "-c", harness], capture_output=True, text=True, timeout=30)
+    assert (outside / ".mypy_cache" / "precious").read_text() == "keep\n", proc.stdout + proc.stderr
+    assert "no longer inside install dir" in proc.stdout
+
+
+# --------------------------------------------------------------------------
+# review round: Caddy dir placeholder, delayed removal only on success
+# --------------------------------------------------------------------------
+def test_caddy_dir_placeholder_substitution_yields_old_text_by_default():
+    conf = (ROOT / "caddy" / "audiobooks.conf").read_text()
+    assert "root /etc/caddy" not in conf and "root * /etc/caddy" not in conf
+    assert conf.count("__CADDY_DIR__") >= 4
+    for path in (UPGRADE_SH, INSTALL_SH):
+        assert "s|__CADDY_DIR__|" in path.read_text(), path.name
+    out = subprocess.run(
+        [
+            "sed",
+            "-e",
+            "s|__CADDY_DIR__|/etc/caddy|g",
+            "-e",
+            "s|__NATIVE_PORT__|8443|g",
+            "-e",
+            "s|__DOCKER_PORT__|8443|g",
+            str(ROOT / "caddy" / "audiobooks.conf"),
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout
+    assert (
+        "__" not in re.sub(r"\{[^}]*\}", "", out).replace("__", "", 0) or "__CADDY_DIR__" not in out
+    )
+    assert out.count("root /etc/caddy") == 3 and out.count("root * /etc/caddy") == 1
+    custom = conf.replace("__CADDY_DIR__", "/srv/caddy-x")
+    assert "root /srv/caddy-x" in custom
+    assert not [
+        ln for ln in custom.splitlines() if ln.strip().startswith("root") and "/etc/caddy" in ln
+    ]
+
+
+def test_noop_path_does_not_sleep_even_with_long_delay(tmp_path):
+    env, control, mirror, inst = _helper_env(tmp_path)  # delay env = 30
+    _stub_upgrade(inst, 'echo "Already at version 1.2.3"; exit 1\n')
+    proj = tmp_path / "proj"
+    proj.mkdir()
+    (control / "upgrade-request").write_text(
+        f'{{"type": "upgrade_check", "source": "project", "project_path": "{proj}"}}'
+    )
+    t0 = time.monotonic()
+    subprocess.run(["bash", str(HELPER)], env=env, capture_output=True, text=True, timeout=60)
+    assert time.monotonic() - t0 < 10, "non-success path slept (would lose a queued request)"
+    assert not mirror.exists()
+
+
+def test_success_path_delays_removal_via_trap_function(tmp_path):
+    text = HELPER.read_text()
+    fn = text[
+        text.index("_cleanup_caddy_status() {") : text.index("trap _cleanup_caddy_status EXIT")
+    ]
+    mirror = tmp_path / "upgrade-status.json"
+    mirror.write_text("{}")
+    script = f'CADDY_STATUS_FILE="{mirror}"; _CADDY_CLEANUP_SLEEP=2\n{fn}\n_cleanup_caddy_status\n'
+    p = subprocess.Popen(["bash", "-c", script])
+    time.sleep(0.7)
+    assert mirror.exists(), "success-path delay not honoured"
+    p.wait(timeout=10)
+    assert not mirror.exists()
+    # and the success tail of do_upgrade is what raises the delay
+    tail = text[text.index("# The Caddy mirror is removed by the EXIT trap") :]
+    assert '_CADDY_CLEANUP_SLEEP="$CADDY_STATUS_CLEANUP_DELAY"' in tail[:600]

@@ -909,15 +909,24 @@ _record_installed_requirements() {
 }
 
 sync_python_dependencies() {
-    # Install/upgrade the venv from requirements.txt and record the result.
+    # Install/upgrade the venv from a requirements file and record the result.
     # `--upgrade` on EVERY deploy so a raised `>=` floor (CVE fix) actually moves
     # an existing venv (Audiobook-Manager-gwq). A failure is FATAL: there is no
     # minimal-package fallback — a 2-package venv would leave a broken app that
     # still reports a successful deploy.
+    #
+    # Called BEFORE any application file is copied (prepare_python_environment),
+    # against the PROJECT's requirements.txt, so a failure aborts the upgrade with
+    # the old code, VERSION and database untouched. If pip fails midway the venv
+    # can hold a mix of old and new packages; the pre-sync freeze is therefore
+    # re-applied best-effort (--no-deps, exact pins) to put the OLD set back.
+    #
+    # Arguments: $1 target install dir, $2 sudo prefix, $3 requirements file
+    # (default: $target/library/requirements.txt)
     local target="$1"
     local use_sudo="${2:-}"
+    local req="${3:-$target/library/requirements.txt}"
     local pip="$target/library/venv/bin/pip"
-    local req="$target/library/requirements.txt"
     local runner=()
     [[ -n "$use_sudo" ]] && runner=(sudo -u audiobooks)
 
@@ -925,48 +934,106 @@ sync_python_dependencies() {
         echo -e "${RED}  requirements.txt missing at $req — cannot sync dependencies${NC}"
         return 1
     fi
+
+    local before
+    before=$(mktemp) || return 1
+    "${runner[@]}" "$pip" freeze >"$before" 2>/dev/null || : >"$before"
+
     if ! "${runner[@]}" "$pip" install --upgrade --quiet -r "$req"; then
         echo -e "${RED}  pip install --upgrade FAILED — dependencies are not in a known-good state${NC}"
+        if [[ -s "$before" ]]; then
+            if "${runner[@]}" "$pip" install --quiet --no-deps -r "$before"; then
+                echo -e "${YELLOW}  Previous package set restored${NC}"
+            else
+                echo -e "${RED}  Could not restore the previous package set — venv may be mixed${NC}"
+            fi
+        fi
+        rm -f "$before"
         return 1
     fi
+    rm -f "$before"
     echo -e "${GREEN}  Dependencies synced${NC}"
     _record_installed_requirements "$target" "$use_sudo"
 }
 
-force_venv_rebuild() {
-    # Force-rebuild the Python virtual environment from requirements.txt.
-    # Ensures new dependencies are installed and old ones are removed.
-    # Returns non-zero (fails the deploy) if the dependency install fails.
+_venv_needs_recreate() {
+    # Succeeds (and says why) when the target venv must be rebuilt rather than synced.
     local target="$1"
-    local use_sudo="${2:-}"
+    if [[ ! -d "$target/library/venv" ]]; then
+        return 0
+    elif ! "$target/library/venv/bin/python" --version &>/dev/null; then
+        echo -e "${YELLOW}Venv has broken Python symlinks — recreating${NC}"
+        return 0
+    # systemd ProtectHome=yes blocks /home/, breaking pyenv-created venvs
+    elif readlink -f "$target/library/venv/bin/python" | grep -q "^/home/"; then
+        echo -e "${YELLOW}Venv points to /home/ (breaks ProtectHome=yes) — recreating${NC}"
+        return 0
+    fi
+    return 1
+}
 
-    if [[ ! -d "$target/library" ]]; then
+prepare_python_environment() {
+    # Bring the install's venv in line with the PROJECT's requirements.txt BEFORE
+    # any application file is copied. Failure returns non-zero with the target's
+    # code, VERSION and data untouched (callers restart services on the old code).
+    # A rebuild moves the old venv aside and restores it on failure — a venv cannot
+    # be built elsewhere and renamed (absolute paths in its script shebangs).
+    local project="$1"
+    local target="$2"
+    local use_sudo="${3:-}"
+    local req="$project/library/requirements.txt"
+
+    [[ -d "$target/library" ]] || return 0
+
+    local rebuild=false
+    if [[ "$MAJOR_VERSION" == "true" ]]; then
+        rebuild=true
+        echo -e "${BLUE}Force-rebuilding Python virtual environment...${NC}"
+    elif _venv_needs_recreate "$target"; then
+        rebuild=true
+        echo -e "${BLUE}Recreating Python virtual environment (system Python)...${NC}"
+    fi
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        if [[ "$rebuild" == "true" ]]; then
+            echo "  [DRY-RUN] Would delete and recreate venv at $target/library/venv"
+        else
+            echo "  [DRY-RUN] Would run pip install --upgrade -r $req"
+        fi
         return 0
     fi
 
-    echo -e "${BLUE}Force-rebuilding Python virtual environment...${NC}"
-
-    if [[ "$DRY_RUN" == "true" ]]; then
-        echo "  [DRY-RUN] Would delete and recreate venv at $target/library/venv"
-        echo "  [DRY-RUN] Would install packages from $target/library/requirements.txt"
-        return 0
+    if [[ "$rebuild" == "false" ]]; then
+        echo -e "${BLUE}Syncing Python dependencies (pip install --upgrade)...${NC}"
+        sync_python_dependencies "$target" "$use_sudo" "$req"
+        return $?
     fi
 
     local sys_python="/usr/bin/python3"
     [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
     [[ -x /usr/bin/python3.13 ]] && [[ ! -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.13"
 
-    if [[ -n "$use_sudo" ]]; then
-        sudo rm -rf "$target/library/venv"
-        sudo "$sys_python" -m venv "$target/library/venv"
-        sudo chown -R audiobooks:audiobooks "$target/library/venv"
-    else
-        rm -rf "$target/library/venv"
-        "$sys_python" -m venv "$target/library/venv"
+    local venv="$target/library/venv"
+    local aside="$target/library/venv.pre-upgrade"
+    $use_sudo rm -rf "$aside"
+    [[ -d "$venv" ]] && $use_sudo mv "$venv" "$aside"
+    local ok=true
+    $use_sudo "$sys_python" -m venv "$venv" || ok=false
+    if [[ "$ok" == "true" && -n "$use_sudo" ]]; then
+        sudo chown -R audiobooks:audiobooks "$venv" || ok=false
     fi
-
-    sync_python_dependencies "$target" "$use_sudo" || return 1
-
+    if [[ "$ok" == "true" ]]; then
+        sync_python_dependencies "$target" "$use_sudo" "$req" || ok=false
+    fi
+    if [[ "$ok" == "false" ]]; then
+        $use_sudo rm -rf "$venv"
+        if [[ -d "$aside" ]]; then
+            $use_sudo mv "$aside" "$venv"
+            echo -e "${YELLOW}  Previous venv restored${NC}"
+        fi
+        return 1
+    fi
+    $use_sudo rm -rf "$aside"
     echo -e "${GREEN}  Venv rebuilt with fresh dependencies${NC}"
 }
 
@@ -2067,6 +2134,16 @@ do_upgrade() {
     echo "Installed: $_pre_upgrade_version"
     echo ""
 
+    # Dependencies FIRST, against the project's requirements.txt, before any
+    # application file, VERSION or migration is touched. If pip fails, return now:
+    # the target still holds the old code + VERSION + schema, and the caller
+    # restarts services on it. (Previously this ran after the copy, leaving new
+    # code + new VERSION + unmigrated DB behind a failed deploy.)
+    prepare_python_environment "$project" "$target" "$use_sudo" || {
+        echo -e "${RED}Upgrade aborted before any application file was changed.${NC}"
+        return 1
+    }
+
     # Upgrade scripts
     # Dev-only scripts (git hooks, dev-machine admin tools) stay in the project
     if [[ -d "$target/scripts" ]]; then
@@ -2143,6 +2220,8 @@ do_upgrade() {
                 -av --delete
                 "${_NEVER_SHIP_EXCLUDES[@]}"
                 --exclude='venv'
+                --exclude='venv.pre-upgrade'
+                --exclude='.installed-requirements.txt'
                 --exclude='.coverage'
                 --exclude='audiobooks.db'
                 --exclude='audiobooks-dev.db'
@@ -2336,7 +2415,8 @@ do_upgrade() {
                         native_port="${native_port:-${AUDIOBOOKS_WEB_PORT:-8443}}"
                         docker_port="${docker_port:-${AUDIOBOOKS_DOCKER_PORT:-8443}}"
                         src_content=$(sed -e "s|__NATIVE_PORT__|${native_port}|g" \
-                            -e "s|__DOCKER_PORT__|${docker_port}|g" "$src")
+                            -e "s|__DOCKER_PORT__|${docker_port}|g" \
+                            -e "s|__CADDY_DIR__|${AUDIOBOOKS_CADDY_DIR:-/etc/caddy}|g" "$src")
                     else
                         src_content=$(cat "$src")
                     fi
@@ -2469,48 +2549,8 @@ do_upgrade() {
         fi
     fi
 
-    # Venv management
-    if [[ -d "$target/library" ]]; then
-        if [[ "$MAJOR_VERSION" == "true" ]]; then
-            # Major version: force complete venv rebuild (new deps in, old deps out)
-            force_venv_rebuild "$target" "$use_sudo" || return 1
-        elif [[ "$DRY_RUN" == "false" ]]; then
-            # Normal upgrade: only recreate if broken or pointing to /home/ (pyenv)
-            # systemd ProtectHome=yes blocks access to /home/, breaking pyenv-created venvs
-            local venv_ok=true
-            if [[ ! -d "$target/library/venv" ]]; then
-                venv_ok=false
-            elif ! "$target/library/venv/bin/python" --version &>/dev/null; then
-                echo -e "${YELLOW}Venv has broken Python symlinks — recreating${NC}"
-                venv_ok=false
-            elif readlink -f "$target/library/venv/bin/python" | grep -q "^/home/"; then
-                echo -e "${YELLOW}Venv points to /home/ (breaks ProtectHome=yes) — recreating${NC}"
-                venv_ok=false
-            fi
-            if [[ "$venv_ok" == "false" ]]; then
-                echo -e "${BLUE}Recreating Python virtual environment (system Python)...${NC}"
-                local sys_python="/usr/bin/python3"
-                [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
-                if [[ -n "$use_sudo" ]]; then
-                    sudo rm -rf "$target/library/venv"
-                    sudo "$sys_python" -m venv "$target/library/venv"
-                    sudo chown -R audiobooks:audiobooks "$target/library/venv"
-                else
-                    rm -rf "$target/library/venv"
-                    "$sys_python" -m venv "$target/library/venv"
-                fi
-                sync_python_dependencies "$target" "$use_sudo" || return 1
-                echo -e "${GREEN}  Venv recreated with system Python${NC}"
-            else
-                # Venv exists and works — sync dependencies from requirements.txt
-                # with --upgrade so new packages (added between releases) get
-                # installed AND raised >= floors move existing ones. Fatal on
-                # failure; records the installed set and prints the diff.
-                echo -e "${BLUE}Syncing Python dependencies (pip install --upgrade)...${NC}"
-                sync_python_dependencies "$target" "$use_sudo" || return 1
-            fi
-        fi
-    fi
+    # Venv management happens EARLY (prepare_python_environment, before any file
+    # copy) so a dependency failure aborts with the old code untouched.
 
     # Sync audible-cli isolated venv
     if [[ "$DRY_RUN" == "false" ]]; then

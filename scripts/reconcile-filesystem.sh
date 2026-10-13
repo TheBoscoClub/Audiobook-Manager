@@ -74,22 +74,48 @@ _reconcile_phantoms() {
 # ---------------------------------------------------------------------------
 _reconcile_obsolete_root_paths() {
     [[ "${#OBSOLETE_ROOT_PATHS[@]}" -gt 0 ]] || return 0
-    if [[ ! -f "${LIB_DIR}/VERSION" || ! -f "${LIB_DIR}/install-manifest.json" ]]; then
+
+    # Refuse unless LIB_DIR is positively an INSTALL. VERSION + install-manifest.json
+    # are also tracked in the git repo, so they alone cannot tell the two apart.
+    local lib_real project_real
+    if [[ -z "${LIB_DIR:-}" || "${LIB_DIR%/}" == "" ]]; then
+        _log "obsolete-path purge skipped: LIB_DIR is empty or /"
+        return 0
+    fi
+    lib_real="$(realpath -e -- "$LIB_DIR" 2>/dev/null)" || {
+        _log "obsolete-path purge skipped: cannot resolve LIB_DIR=${LIB_DIR}"
+        return 0
+    }
+    if [[ "$lib_real" == "/" ]]; then
+        _log "obsolete-path purge skipped: LIB_DIR resolves to /"
+        return 0
+    fi
+    if [[ -e "${lib_real}/.git" ]]; then
+        _log "obsolete-path purge skipped: ${lib_real} is a git checkout, not an install"
+        return 0
+    fi
+    project_real="$(realpath -e -- "${PROJECT_DIR:-}" 2>/dev/null || true)"
+    if [[ -n "$project_real" && "$project_real" == "$lib_real" ]]; then
+        _log "obsolete-path purge skipped: LIB_DIR is the project source tree"
+        return 0
+    fi
+    if [[ ! -f "${lib_real}/VERSION" || ! -f "${lib_real}/install-manifest.json" ]]; then
         _log "obsolete-path purge skipped: ${LIB_DIR} lacks VERSION + install-manifest.json (not an audiobooks install)"
         return 0
     fi
-    local rel parent comp cur unsafe
+
+    local rel parent comp cur unsafe full parent_real
+    local -a parts
     for rel in "${OBSOLETE_ROOT_PATHS[@]}"; do
-        if [[ -z "$rel" || "$rel" == /* || "/${rel}/" == */../* ]]; then
-            _issue "invalid OBSOLETE_ROOT_PATHS entry (empty/absolute/..): '${rel}'"
+        if [[ -z "$rel" || "$rel" == /* || "/${rel}/" == */../* || "/${rel}/" == */./* ]]; then
+            _issue "invalid OBSOLETE_ROOT_PATHS entry (empty/absolute/./..): '${rel}'"
             continue
         fi
         # Walk the parent chain; any symlink means the path may leave LIB_DIR.
         unsafe=""
-        cur="${LIB_DIR%/}"
+        cur="${lib_real}"
         parent="$(dirname "$rel")"
         if [[ "$parent" != "." ]]; then
-            local -a parts
             IFS=/ read -ra parts <<<"$parent"
             for comp in "${parts[@]}"; do
                 cur="${cur}/${comp}"
@@ -103,10 +129,21 @@ _reconcile_obsolete_root_paths() {
             _issue "obsolete path skipped, symlinked parent ${unsafe}: ${rel}"
             continue
         fi
-        local full="${LIB_DIR%/}/${rel}"
+        full="${lib_real}/${rel}"
         [[ -e "$full" || -L "$full" ]] || continue
         _issue "obsolete install-root path present: ${full}"
         if _should_act; then
+            # TOCTOU re-check, immediately before the delete: the parent must STILL
+            # resolve inside LIB_DIR (a symlink swapped in after the walk above is
+            # caught here). The window is not zero — closing it needs openat-style
+            # deletion — but the purge only ever runs as the install owner/root on
+            # a stopped service. The PHANTOM_PATHS purge above shares this weakness
+            # and is left unchanged.
+            parent_real="$(realpath -e -- "$(dirname "$full")" 2>/dev/null || true)"
+            if [[ -z "$parent_real" || ("$parent_real" != "$lib_real" && "$parent_real" != "$lib_real"/*) ]]; then
+                _issue "obsolete path skipped, parent no longer inside install dir: ${full}"
+                continue
+            fi
             if $USE_SUDO rm -rf --one-file-system -- "$full"; then
                 _fix "removed obsolete: ${full}"
             else

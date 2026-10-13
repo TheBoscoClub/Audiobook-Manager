@@ -1929,6 +1929,7 @@ EOF
             local docker_port="${AUDIOBOOKS_DOCKER_PORT:-8443}"
             sed -e "s|__NATIVE_PORT__|${native_port}|g" \
                 -e "s|__DOCKER_PORT__|${docker_port}|g" \
+                -e "s|__CADDY_DIR__|${caddy_dir}|g" \
                 "${SCRIPT_DIR}/caddy/audiobooks.conf" | sudo tee "${caddy_dir}/conf.d/audiobooks.conf" >/dev/null
             sudo cp -f "${SCRIPT_DIR}/caddy/maintenance.html" "${caddy_dir}/maintenance.html"
             # unavailable.html: unplanned-outage page (audiobooks.conf falls back to maintenance.html if absent)
