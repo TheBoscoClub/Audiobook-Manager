@@ -67,7 +67,7 @@ fi
 # URLs (contain "://") and boolean-looking values are skipped.
 # Installed-application trees a dev launch must never touch
 installed_app=audiobooks
-installed_trees=(/var/lib/$installed_app /srv/$installed_app /opt/$installed_app /etc/$installed_app)
+installed_trees=("/var/lib/$installed_app" "/srv/$installed_app" "/opt/$installed_app" "/etc/$installed_app")
 PATHLIKE_NAME='^(AUDIOBOOKS_.*|.*_DIR|.*_PATH|.*_HOME|.*_ROOT|.*_FILE|AUTH_DATABASE)$'
 PATHLIKE_ALWAYS='(_DIR|_PATH|_HOME|_ROOT|_FILE|DATABASE|LIBRARY|SOURCES|COVERS|LOGS|CERTS|VENV|CONVERTER|STAGING|SUPPLEMENTS)$'
 while IFS= read -r var; do
