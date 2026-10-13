@@ -65,7 +65,7 @@ A matching UPDATE trigger catches attempts to demote a sampler row after the fac
 
 When a user plays a cached sample in `zh-Hans`, we need to fire the live-translation pipeline early enough that the buffer catches up before the sample ends. Too early and we waste GPU money on casual browsers; too late and the GPU cold-start extends past the end of the sample and the listener sees a spinner.
 
-We resolve this adaptively based on **current STT provider warmth** — aggregated across every STT backend the operator has configured (the tunnelled Vast.ai whisper node, self-hosted whisper-gpu, historically RunPod serverless):
+We resolve this adaptively based on **current STT provider warmth** — measured only against the providers listed in `library/localization/gpu_health.py` (`_PROVIDERS`), which today is RunPod serverless alone. The tunnelled Vast.ai node and a self-hosted whisper-gpu host are **not probed**:
 
 | State | Threshold | Runway |
 |---|---|---|
@@ -76,7 +76,7 @@ The frontend queries `GET /api/translate/warmth` to learn the current threshold,
 
 The warmth response includes a `providers` array (`[{"name", "ready", "endpoint_id"}, ...]`) so the UI can surface per-provider state when helpful. Warm = **any** provider ready, so a single warm farm is enough to shorten the runway; this matches real behavior, where the dispatcher will pick the warm farm for the first call.
 
-Warmth probe is cached server-side for 60s to bound provider /health traffic. Default on probe failure (timeout, no key configured): assume cold (safer).
+Warmth probe is cached server-side for 60s to bound provider /health traffic. Default on probe failure (timeout, no key configured): assume cold (safer). With the RunPod account decommissioned, the probe reports cold in the reference deployment, so the threshold is always segment 3.
 
 ### Provider options
 

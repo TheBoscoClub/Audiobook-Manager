@@ -245,7 +245,7 @@ This is enough to scan a library, convert AAX/AAXC files, and serve the web UI o
 
 ### Optional — local GPU transcription (advanced)
 
-The translation/subtitles pipeline needs a GPU for Whisper inference, but **you do not need a local one**. The maintainer-tested path is remote GPU via RunPod serverless — rent a GPU by the second, run the job, scale back to zero. That keeps the upfront cost to near zero.
+The translation/subtitles pipeline needs a GPU for Whisper inference, but **you do not need a local one**. The maintainer's path is a rented remote GPU: a Vast.ai node started by hand with `scripts/gpu-node.sh` (faster-whisper for speech-to-text plus Qwen3-8B on vLLM for translation), run for the job, then destroyed with `gpu-node.sh down`. That keeps the upfront cost to near zero. (RunPod serverless was the earlier path and is decommissioned.)
 
 If you want to run Whisper locally instead, only proceed with **known-good** hardware:
 
@@ -332,7 +332,7 @@ Web-based audiobook library browser with:
 - **Account preferences UI** — user-facing settings page for display, notification, and accessibility preferences (v8.0+)
 - **Multi-session login** — admin-configurable concurrent device sessions with global default and per-user override (v8.0.1.2+)
 - **Multi-language support** — full i18n with Simplified Chinese (zh-Hans) as first non-English locale; catalog-based UI strings with cached dynamic content translation. All user-facing content is translated (1,038 keys per locale); admin/backoffice UI remains English-only by design since only the operator sees it. See [Multi-Language Setup Guide](docs/MULTI-LANGUAGE-SETUP.md) for installation, provider setup, and cost estimates (v8.1.0+)
-- **Bilingual subtitles** — on-demand STT transcription via Whisper (RunPod serverless or local GPU) with machine translation, producing per-chapter VTT files with word-level timestamps. Inline translated banner + bilingual transcript side panel (v8.1.0+)
+- **Bilingual subtitles** — on-demand STT transcription via Whisper (`faster-whisper` on a rented Vast.ai GPU node or a local GPU) with vLLM machine translation (Qwen3-8B), producing per-chapter VTT files with word-level timestamps. Inline translated banner + bilingual transcript side panel (v8.1.0+)
 - **Text-to-speech translated audio** — TTS generation via edge-tts (CPU) or XTTS v2 (GPU) producing translated Opus audio tracks per chapter (v8.1.0+)
 - **Translation pipeline** — three-step chain (STT → Translation → TTS) with background queue processing, priority bumping on book open, and chapter-by-chapter progress reporting (v8.1.0+)
 - **Pinyin sort order** — Chinese locale uses pypinyin-based sort for natural Han character ordering with English title fallback (v8.1.0+)
@@ -658,13 +658,13 @@ audiobook-config   # Show configuration
 If localization features are enabled (subtitles, translations for non-English locales) and your host has a GPU that is **known-good for sustained AI inference workloads**, you can run a local Whisper transcription service for GPU-accelerated speech-to-text. This avoids cloud provider costs and latency.
 
 > ⚠️ **Hardware compatibility matters. Not all GPUs are safe for AI workloads.**
-> The project's default and maintainer-tested path is **remote GPU** (RunPod serverless). Local GPU is an opt-in option that the maintainer cannot test end-to-end on production-grade hardware.
+> The maintainer's path is a **rented remote GPU** (Vast.ai node via `scripts/gpu-node.sh`; see `docs/MULTI-LANGUAGE-SETUP.md`). Local GPU is an opt-in option that the maintainer cannot test end-to-end on production-grade hardware.
 
 **Hardware compatibility matrix:**
 
 | Hardware | Status | Notes |
 |----------|--------|-------|
-| NVIDIA consumer/workstation (RTX 30xx, 40xx, A-series, L-series) + CUDA | ✅ Expected to work | Mature CUDA stack, production-grade for AI inference. Remote providers (RunPod) run these — same class of silicon. |
+| NVIDIA consumer/workstation (RTX 30xx, 40xx, A-series, L-series) + CUDA | ✅ Expected to work | Mature CUDA stack, production-grade for AI inference. Rented cloud GPUs (Vast.ai) run these — same class of silicon. |
 | NVIDIA data center (H100, A100, L40S) + CUDA | ✅ Expected to work | Designed for sustained AI workloads. |
 | Enterprise AMD Instinct (MI-series / CDNA) + ROCm | ✅ Expected to work | Purpose-built for compute; ROCm is first-class on this class. |
 | Apple Silicon (M-series) + MPS | ⚠️ Likely works, not integrated here | Whisper runs on MPS via PyTorch, but this project's local-GPU path targets Linux + CUDA/ROCm. Would need adaptation. |
@@ -677,7 +677,7 @@ The maintainer attempted this pipeline on an **AMD Radeon 6800 XT (RDNA 2) + ROC
 
 The maintainer **does not have and cannot afford** a GPU that is known-good for local AI inference. Consequently:
 
-- Remote GPU (RunPod serverless) is the **only path the maintainer tests end-to-end**.
+- A rented remote GPU (Vast.ai node via `scripts/gpu-node.sh`) is the **path the maintainer uses**; RunPod serverless is decommissioned.
 - Local GPU remains available in the codebase for users whose hardware actually supports sustained AI workloads.
 - If you have retail AMD Radeon RDNA 2 or RDNA 3 hardware: **do not assume it will work**. At minimum, run short jobs first, monitor GPU reset counts (`dmesg | grep amdgpu`), keep your project under version control pushed to a remote, and have filesystem/BIOS backups.
 
@@ -706,7 +706,7 @@ AUDIOBOOKS_WHISPER_GPU_PORT=8765
 
 **Removal:** `sudo ./setup.sh --uninstall`
 
-This is entirely optional — the application works without it, falling back to remote GPU (RunPod) or CPU-based transcription.
+This is entirely optional — the application works without it, with no GPU service reachable, new transcription and translation simply do not run while cached content keeps serving.
 
 ## Upgrading
 
