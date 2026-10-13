@@ -129,6 +129,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refuse a malformed locale themselves — a bad `translation_queue` or `streaming_segments` row is marked `failed` with a
   fixed reason instead of being claimed, and `VLLMTranslator.translate()` raises `TranslationUnavailableError` before
   any request or cache lookup
+- **Guests can no longer start translation work**: every route that enqueues or triggers translation, STT or TTS work
+  needs a signed-in user — `/api/i18n/activate`, `/api/translation/bump`, `/api/translate/sampler/activate`, `/warmup`
+  and `/stop` return 401 to guests, `/api/translate/stream` and `/seek` serve cached chapters and answer 401
+  `login_required` otherwise, and `by-locale`, `collections`, `strings` and `on-demand` return cache only
+  (`X-Translation-Guest: cache-only`); `POST /api/i18n/reload` is `admin_or_localhost`. A guest opening an untranslated
+  book gets a clear not-available state (no audio loaded, play disabled, `player.error.notTranslatedGuest`) instead of
+  the previous book's audio, never sends position saves to the server, and no longer sees a false "session expired"
+  toast; `AUTH_ENABLED=false` is unchanged (Audiobook-Manager-gau)
 - **Translation failure log hygiene**: `VLLMTranslator` logged rejected source text and the rejection reason verbatim,
   allowing CR/LF log-line forging — both now pass through `_safe_log`
 
