@@ -61,6 +61,12 @@
 # Default: ${AUDIOBOOKS_HOME}/library/certs
 # AUDIOBOOKS_CERTS="${AUDIOBOOKS_HOME}/library/certs"
 
+# Caddy static dir (maintenance.html, unavailable.html, upgrade-status.json).
+# Read by install.sh, upgrade.sh and upgrade-helper-process so Caddy's root and
+# the upgrade-status mirror always agree.
+# Default: /etc/caddy
+# AUDIOBOOKS_CADDY_DIR="/etc/caddy"
+
 # WebM cache directory (for browser-compatible audio streams)
 # Default: ${AUDIOBOOKS_DATA}/.webm-cache
 # AUDIOBOOKS_WEBM_CACHE="${AUDIOBOOKS_DATA}/.webm-cache"

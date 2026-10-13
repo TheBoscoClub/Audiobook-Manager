@@ -42,6 +42,9 @@ FAKE_PIP = """#!/bin/bash
 echo "$*" >> "$PIP_LOG"
 case "$1" in
     install)
+        if [[ " $* " == *" -r /dev/stdin "* ]]; then
+            echo "STDIN<$(cat)>" >> "$PIP_LOG"
+        fi
         # only the --upgrade sync can fail; a rollback (--no-deps) succeeds
         [[ " $* " == *" --upgrade "* ]] && exit "${PIP_INSTALL_RC:-0}"
         exit 0 ;;
@@ -89,7 +92,8 @@ def test_pip_command_uses_upgrade_and_requirements(tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     first = next(ln for ln in log.splitlines() if ln.startswith("install"))
     assert first.startswith("install --upgrade"), first
-    assert f"-r {target}/library/requirements.txt" in first
+    assert "-r /dev/stdin" in first, first  # requirements go via stdin, not a path
+    assert "flask>=3" in log
 
 
 def test_first_deploy_records_sorted_freeze_and_prints_count_only(tmp_path):
@@ -531,7 +535,8 @@ def test_pip_failure_aborts_with_old_code_untouched(tmp_path):
     assert "aborted before any application file was changed" in proc.stdout
     # the previous package set is put back (freeze re-applied with --no-deps)
     log = (tmp_path / "pip.log").read_text()
-    assert "install --quiet --no-deps -r" in log
+    assert "install --quiet --no-deps -r /dev/stdin" in log
+    assert "STDIN<flask==1.0.0" in log, "rollback must feed the pre-sync freeze"
     assert "Previous package set restored" in proc.stdout
 
 
@@ -781,3 +786,280 @@ def test_success_path_delays_removal_via_trap_function(tmp_path):
     # and the success tail of do_upgrade is what raises the delay
     tail = text[text.index("# The Caddy mirror is removed by the EXIT trap") :]
     assert '_CADDY_CLEANUP_SLEEP="$CADDY_STATUS_CLEANUP_DELAY"' in tail[:600]
+
+
+# --------------------------------------------------------------------------
+# review round 2: sudo path (stdin requirements), interrupted rebuild,
+# scheduler in the CLI service set, configurable Caddy dir
+# --------------------------------------------------------------------------
+SUDO_SHIM = """#!/bin/bash
+# Emulates `sudo -u audiobooks CMD`: the audiobooks user cannot read a data file
+# unless it is world-readable inside a world-searchable directory. Plain `sudo CMD`
+# (root) is unrestricted. `sudo chown` is a no-op here.
+if [[ "$1" == "-u" ]]; then
+    shift 2
+    for a in "$@"; do
+        if [[ -f "$a" && ! -x "$a" ]]; then
+            fmode=$(stat -c %a "$a"); dmode=$(stat -c %a "$(dirname "$a")")
+            if [[ $((8#$fmode & 4)) -eq 0 || $((8#$dmode & 1)) -eq 0 ]]; then
+                echo "audiobooks: Permission denied: $a" >&2
+                exit 1
+            fi
+        fi
+    done
+    exec "$@"
+fi
+[[ "$1" == "chown" ]] && exit 0
+exec "$@"
+"""
+
+
+def _shim_dir(tmp_path: Path) -> Path:
+    d = tmp_path / "shim"
+    d.mkdir()
+    sudo = d / "sudo"
+    sudo.write_text(SUDO_SHIM)
+    sudo.chmod(0o755)
+    return d
+
+
+def _run_sync_sudo(tmp_path: Path, target: Path, req: Path, **env_extra: str):
+    freeze_file = tmp_path / "freeze.out"
+    freeze_file.write_text("flask==1.0.0\n")
+    log = tmp_path / "pip.log"
+    script = (
+        'RED="" GREEN="" BLUE="" YELLOW="" NC=""\n'
+        + _deps_functions()
+        + f'\nsync_python_dependencies "{target}" sudo "{req}"\n'
+    )
+    env = os.environ.copy()
+    env["PATH"] = f"{_shim_dir(tmp_path)}:{env['PATH']}"
+    env.update({"PIP_LOG": str(log), "PIP_FREEZE_OUT": str(freeze_file)})
+    env.update(env_extra)
+    proc = subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, env=env, check=False, timeout=30
+    )
+    return proc, (log.read_text() if log.exists() else "")
+
+
+def test_sudo_path_rollback_actually_restores(tmp_path):
+    """Pre-sync freeze is a 0600 mktemp file the venv owner cannot read: it must go in via stdin."""
+    target = _make_install(tmp_path)
+    proc, log = _run_sync_sudo(
+        tmp_path, target, target / "library" / "requirements.txt", PIP_INSTALL_RC="1"
+    )
+    assert proc.returncode != 0
+    assert "Previous package set restored" in proc.stdout, proc.stdout + proc.stderr
+    assert "Could not restore" not in proc.stdout
+    assert "STDIN<flask==1.0.0" in log
+
+
+def test_from_github_requirements_in_private_dir_reach_venv_owner(tmp_path):
+    """--from-github extracts into mktemp -d (0700); the venv owner cannot enter it."""
+    target = _make_install(tmp_path)
+    release = tmp_path / "release" / "library"
+    release.mkdir(parents=True)
+    req = release / "requirements.txt"
+    req.write_text("flask>=9\n")
+    req.chmod(0o644)
+    release.parent.chmod(0o700)
+    release.chmod(0o700)
+    proc, log = _run_sync_sudo(tmp_path, target, req)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "STDIN<flask>=9" in log
+
+
+def test_sudo_shim_is_a_real_discriminator(tmp_path):
+    """Falsify the shim itself: handing the venv owner a private path must fail."""
+    private = tmp_path / "private"
+    private.mkdir()
+    f = private / "r.txt"
+    f.write_text("x\n")
+    private.chmod(0o700)
+    shim = _shim_dir(tmp_path) / "sudo"
+    ok = subprocess.run([str(shim), "-u", "audiobooks", "true", str(f)], capture_output=True)
+    assert ok.returncode == 1
+
+
+def test_requirements_txt_has_no_includes_so_stdin_is_complete():
+    lines = (ROOT / "library" / "requirements.txt").read_text().splitlines()
+    assert not [ln for ln in lines if re.match(r"\s*(-r|-c|--requirement|--constraint)\b", ln)]
+
+
+def _prepare_harness(tmp_path, target, project, major, prelude=""):
+    """Run the real prepare_python_environment with the system python replaced by a fake
+    that can create a stub venv (so no network and no real pip are involved)."""
+    fake_py = tmp_path / "fakepython"
+    fake_py.write_text(
+        f"""#!/bin/bash
+# fake `python -m venv DIR`: build a stub venv whose pip comes from the shared stub
+if [[ "$1" == "-m" && "$2" == "venv" ]]; then
+    [[ -n "${{FAKE_VENV_FAIL:-}}" ]] && exit 1
+    mkdir -p "$3/bin"
+    cp "{target}/../pip-stub" "$3/bin/pip"
+    printf '#!/bin/bash\\nexit 0\\n' > "$3/bin/python"
+    chmod +x "$3/bin/pip" "$3/bin/python"
+    echo rebuilt > "$3/bin/marker"
+    exit 0
+fi
+exit 1
+"""
+    )
+    fake_py.chmod(0o755)
+    (tmp_path / "pip-stub").write_text(FAKE_PIP)
+    freeze = tmp_path / "freeze.out"
+    freeze.write_text("flask==1.0.0\n")
+    script = f"""
+UPGRADE_SH_SOURCE_ONLY=1 source "{UPGRADE_SH}"
+RED="" GREEN="" BLUE="" YELLOW="" NC=""
+set +e
+DRY_RUN=false MAJOR_VERSION={"true" if major else "false"}
+src=$(declare -f prepare_python_environment | sed 's|"/usr/bin/python3"|"{fake_py}"|; s|\\[\\[ -x /usr/bin/python3.1[34] \\]\\][^;]*;||g')
+eval "$src"
+{prelude}
+prepare_python_environment "{project}" "{target}" ""
+echo "RC=$?"
+"""
+    env = os.environ.copy()
+    env.update(PIP_LOG=str(tmp_path / "pip.log"), PIP_FREEZE_OUT=str(freeze))
+    return subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, timeout=60, env=env, check=False
+    )
+
+
+def _venv_with_marker(root: Path, marker: str) -> None:
+    (root / "bin").mkdir(parents=True, exist_ok=True)
+    pip = root / "bin" / "pip"
+    pip.write_text(FAKE_PIP)
+    pip.chmod(0o755)
+    py = root / "bin" / "python"
+    py.write_text("#!/bin/bash\nexit 0\n")
+    py.chmod(0o755)
+    (root / "bin" / "marker").write_text(marker + "\n")
+
+
+def test_stale_aside_is_restored_not_deleted(tmp_path):
+    target = _mk_tree(tmp_path / "target", "1.0.0", "OLD")
+    lib = target / "library"
+    _venv_with_marker(lib / "venv", "half-built")
+    _venv_with_marker(lib / "venv.pre-upgrade", "good")
+    project = _mk_tree(tmp_path / "project", "2.0.0", "NEW")
+    proc = _prepare_harness(tmp_path, target, project, major=False)
+    assert "RC=0" in proc.stdout, proc.stdout + proc.stderr
+    assert "interrupted rebuild" in proc.stdout
+    assert (lib / "venv" / "bin" / "marker").read_text() == "good\n"
+    assert not (lib / "venv.pre-upgrade").exists()
+
+
+def test_stale_aside_survives_a_rebuild_run(tmp_path):
+    """The NEXT --major-version run must not rm -rf the only good copy."""
+    target = _mk_tree(tmp_path / "target", "1.0.0", "OLD")
+    lib = target / "library"
+    _venv_with_marker(lib / "venv", "half-built")
+    _venv_with_marker(lib / "venv.pre-upgrade", "good")
+    project = _mk_tree(tmp_path / "project", "2.0.0", "NEW")
+    # rebuild fails: the restored good venv must be what is left
+    proc = _prepare_harness(
+        tmp_path, target, project, major=True, prelude="export FAKE_VENV_FAIL=1"
+    )
+    assert "RC=1" in proc.stdout, proc.stdout + proc.stderr
+    assert (lib / "venv" / "bin" / "marker").read_text() == "good\n"
+
+
+def test_mv_failure_aborts_without_deleting_original(tmp_path):
+    target = _mk_tree(tmp_path / "target", "1.0.0", "OLD")
+    lib = target / "library"
+    _venv_with_marker(lib / "venv", "original")
+    project = _mk_tree(tmp_path / "project", "2.0.0", "NEW")
+    prelude = "mv() { return 1; }; export FAKE_VENV_FAIL=1"
+    proc = _prepare_harness(tmp_path, target, project, major=True, prelude=prelude)
+    assert "RC=1" in proc.stdout, proc.stdout + proc.stderr
+    assert "Could not move" in proc.stdout
+    assert (lib / "venv" / "bin" / "marker").read_text() == "original\n"
+
+
+def test_successful_rebuild_leaves_no_aside(tmp_path):
+    target = _mk_tree(tmp_path / "target", "1.0.0", "OLD")
+    lib = target / "library"
+    _venv_with_marker(lib / "venv", "original")
+    project = _mk_tree(tmp_path / "project", "2.0.0", "NEW")
+    proc = _prepare_harness(tmp_path, target, project, major=True)
+    assert "RC=0" in proc.stdout, proc.stdout + proc.stderr
+    assert (lib / "venv" / "bin" / "marker").read_text() == "rebuilt\n"
+    assert not (lib / "venv.pre-upgrade").exists()
+
+
+def _bash_array(text: str, start_pat: str) -> list[str]:
+    m = re.search(start_pat + r"=\(\n(.*?)\n\s*\)", text, re.S)
+    assert m, start_pat
+    return [ln.strip().strip('"') for ln in m.group(1).splitlines() if ln.strip()]
+
+
+def test_cli_and_helper_stop_the_same_services_including_scheduler():
+    cli = _bash_array(UPGRADE_SH.read_text(), "AUDIOBOOK_STOP_ORDER")
+    helper = _bash_array(HELPER.read_text(), "local services_stop_order")
+    assert cli == helper, (cli, helper)
+    assert "audiobook-scheduler" in cli
+
+
+def test_cli_start_order_is_reverse_of_stop_order_and_no_inline_lists_remain():
+    text = UPGRADE_SH.read_text()
+    out = subprocess.run(
+        [
+            "bash",
+            "-c",
+            f'UPGRADE_SH_SOURCE_ONLY=1 source "{UPGRADE_SH}"; '
+            'printf "%s " "${AUDIOBOOK_START_ORDER[@]}"; echo; '
+            'printf "%s " "${AUDIOBOOK_STOP_ORDER[@]}"',
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=30,
+    ).stdout.splitlines()
+    assert out[0].split() == list(reversed(out[1].split()))
+    assert (
+        "for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter"
+        not in text
+    )
+
+
+def test_resolve_caddy_dir_reads_installed_config(tmp_path):
+    conf = tmp_path / "audiobooks.conf"
+    conf.write_text('AUDIOBOOKS_DATA=/x\nAUDIOBOOKS_CADDY_DIR="/srv/caddy-x"\n')
+
+    def resolve(conf_path, env_val=""):
+        env = os.environ.copy()
+        env.pop("AUDIOBOOKS_CADDY_DIR", None)
+        if env_val:
+            env["AUDIOBOOKS_CADDY_DIR"] = env_val
+        return subprocess.run(
+            [
+                "bash",
+                "-c",
+                f'UPGRADE_SH_SOURCE_ONLY=1 source "{UPGRADE_SH}"; YELLOW="" NC=""; '
+                f'_resolve_caddy_dir "{conf_path}"',
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+            check=True,
+            timeout=30,
+        ).stdout.strip()
+
+    assert resolve(conf) == "/srv/caddy-x"  # non-default honoured from the config
+    assert resolve(conf, "/env/caddy") == "/env/caddy"  # env wins, like the helper
+    assert resolve(tmp_path / "missing.conf") == "/etc/caddy"  # default
+    conf.write_text("AUDIOBOOKS_CADDY_DIR='/a|b'\n")
+    assert resolve(conf) == "/etc/caddy"  # unsafe value ignored
+    conf.write_text('AUDIOBOOKS_CADDY_DIR="relative/dir"\n')
+    assert resolve(conf) == "/etc/caddy"
+
+
+def test_caddy_block_uses_resolved_dir_in_both_installers():
+    up = UPGRADE_SH.read_text()
+    block = up[up.index("Upgrading Caddy maintenance page") : up.index('caddy_changed" == "true')]
+    assert "AUDIOBOOKS_CADDY_DIR" not in block and block.count("${caddy_dir}") >= 3
+    assert "s|__CADDY_DIR__|${caddy_dir}|g" in block
+    inst = INSTALL_SH.read_text()
+    assert "AUDIOBOOKS_CADDY_DIR" in inst and "s|__CADDY_DIR__|${caddy_dir}|g" in inst

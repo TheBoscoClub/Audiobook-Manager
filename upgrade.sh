@@ -939,10 +939,14 @@ sync_python_dependencies() {
     before=$(mktemp) || return 1
     "${runner[@]}" "$pip" freeze >"$before" 2>/dev/null || : >"$before"
 
-    if ! "${runner[@]}" "$pip" install --upgrade --quiet -r "$req"; then
+    # Requirements go in on STDIN, not as a path: the redirect is opened by THIS
+    # (invoking) user, so the venv owner (`sudo -u audiobooks`) never needs to enter
+    # a 0700 mktemp -d release dir (--from-github) or read a 0600 temp file.
+    # requirements.txt has no -r/-c includes (a test pins that), so stdin is complete.
+    if ! "${runner[@]}" "$pip" install --upgrade --quiet -r /dev/stdin <"$req"; then
         echo -e "${RED}  pip install --upgrade FAILED — dependencies are not in a known-good state${NC}"
         if [[ -s "$before" ]]; then
-            if "${runner[@]}" "$pip" install --quiet --no-deps -r "$before"; then
+            if "${runner[@]}" "$pip" install --quiet --no-deps -r /dev/stdin <"$before"; then
                 echo -e "${YELLOW}  Previous package set restored${NC}"
             else
                 echo -e "${RED}  Could not restore the previous package set — venv may be mixed${NC}"
@@ -985,6 +989,24 @@ prepare_python_environment() {
 
     [[ -d "$target/library" ]] || return 0
 
+    local venv="$target/library/venv"
+    local aside="$target/library/venv.pre-upgrade"
+
+    # An aside left behind means a previous rebuild was INTERRUPTED (killed during
+    # pip): the good venv is the aside, whatever now sits at $venv is half-built.
+    # Restore it, never delete it.
+    if [[ -e "$aside" ]]; then
+        if [[ "$DRY_RUN" == "true" ]]; then
+            echo "  [DRY-RUN] Would restore interrupted-rebuild venv from $aside"
+        else
+            echo -e "${YELLOW}Found $aside from an interrupted rebuild — restoring it as the venv${NC}"
+            if ! { $use_sudo rm -rf "$venv" && $use_sudo mv "$aside" "$venv"; }; then
+                echo -e "${RED}  Could not restore $aside — aborting; nothing was deleted beyond the half-built venv${NC}"
+                return 1
+            fi
+        fi
+    fi
+
     local rebuild=false
     if [[ "$MAJOR_VERSION" == "true" ]]; then
         rebuild=true
@@ -1013,10 +1035,12 @@ prepare_python_environment() {
     [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
     [[ -x /usr/bin/python3.13 ]] && [[ ! -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.13"
 
-    local venv="$target/library/venv"
-    local aside="$target/library/venv.pre-upgrade"
-    $use_sudo rm -rf "$aside"
-    [[ -d "$venv" ]] && $use_sudo mv "$venv" "$aside"
+    # $aside cannot exist here (restored above). Move the good venv aside; if that
+    # fails abort at once — nothing has been deleted.
+    if [[ -d "$venv" ]] && ! $use_sudo mv "$venv" "$aside"; then
+        echo -e "${RED}  Could not move $venv aside — aborting, original venv untouched${NC}"
+        return 1
+    fi
     local ok=true
     $use_sudo "$sys_python" -m venv "$venv" || ok=false
     if [[ "$ok" == "true" && -n "$use_sudo" ]]; then
@@ -1033,7 +1057,9 @@ prepare_python_environment() {
         fi
         return 1
     fi
-    $use_sudo rm -rf "$aside"
+    if ! $use_sudo rm -rf "$aside"; then
+        echo -e "${YELLOW}  Could not remove $aside — it will be treated as an interrupted rebuild next run${NC}"
+    fi
     echo -e "${GREEN}  Venv rebuilt with fresh dependencies${NC}"
 }
 
@@ -2384,13 +2410,15 @@ do_upgrade() {
         if command -v caddy &>/dev/null && [[ -d "${project}/caddy" ]]; then
             echo -e "${BLUE}Upgrading Caddy maintenance page...${NC}"
             local caddy_changed=false
+            local caddy_dir
+            caddy_dir=$(_resolve_caddy_dir)
             for caddy_file in audiobooks.conf maintenance.html unavailable.html; do
                 local src="${project}/caddy/${caddy_file}"
                 local dst
                 if [[ "$caddy_file" == "audiobooks.conf" ]]; then
-                    dst="${AUDIOBOOKS_CADDY_DIR:-/etc/caddy}/conf.d/audiobooks.conf"
+                    dst="${caddy_dir}/conf.d/audiobooks.conf"
                 else
-                    dst="${AUDIOBOOKS_CADDY_DIR:-/etc/caddy}/${caddy_file}"
+                    dst="${caddy_dir}/${caddy_file}"
                 fi
                 if [[ -f "$src" ]]; then
                     # For audiobooks.conf, substitute native + docker upstream ports
@@ -2416,7 +2444,7 @@ do_upgrade() {
                         docker_port="${docker_port:-${AUDIOBOOKS_DOCKER_PORT:-8443}}"
                         src_content=$(sed -e "s|__NATIVE_PORT__|${native_port}|g" \
                             -e "s|__DOCKER_PORT__|${docker_port}|g" \
-                            -e "s|__CADDY_DIR__|${AUDIOBOOKS_CADDY_DIR:-/etc/caddy}|g" "$src")
+                            -e "s|__CADDY_DIR__|${caddy_dir}|g" "$src")
                     else
                         src_content=$(cat "$src")
                     fi
@@ -2881,6 +2909,45 @@ validate_auth_post_upgrade() {
 # Post-Upgrade Verification
 # -----------------------------------------------------------------------------
 
+_resolve_caddy_dir() {
+    # Caddy's static dir, resolved the same way the helper sees it (systemd
+    # EnvironmentFile = the installed config): env first, then the installed
+    # config, then /etc/caddy. upgrade.sh never sources the config (arbitrary
+    # shell), so the key is read with grep like the web ports. Only a plain
+    # absolute path is accepted: the value goes into a sed expression and a
+    # Caddy `root`.
+    local conf="${1:-/etc/audiobooks/audiobooks.conf}"
+    local dir="${AUDIOBOOKS_CADDY_DIR:-}"
+    if [[ -z "$dir" && -f "$conf" ]]; then
+        dir=$(grep -oP '^AUDIOBOOKS_CADDY_DIR="?\K[^"]*' "$conf" 2>/dev/null | head -1)
+    fi
+    if [[ -n "$dir" && ! "$dir" =~ ^/[A-Za-z0-9._/-]+$ ]]; then
+        echo -e "${YELLOW}  Ignoring unsafe AUDIOBOOKS_CADDY_DIR='${dir}' — using /etc/caddy${NC}" >&2
+        dir=""
+    fi
+    echo "${dir:-/etc/caddy}"
+}
+
+# Services the CLI stops before an upgrade and starts after, in dependency order.
+# MUST list the same members as services_stop_order in scripts/upgrade-helper-process
+# (a test compares them): audiobook-scheduler is a long-running Python process on
+# the venv that pip rewrites, so leaving it out lets pip run under a live process.
+AUDIOBOOK_STOP_ORDER=(
+    audiobook-downloader.timer
+    audiobook-shutdown-saver
+    audiobook-scheduler
+    audiobook-mover
+    audiobook-converter
+    audiobook-redirect
+    audiobook-proxy
+    audiobook-api
+)
+AUDIOBOOK_START_ORDER=()
+for ((_i = ${#AUDIOBOOK_STOP_ORDER[@]} - 1; _i >= 0; _i--)); do
+    AUDIOBOOK_START_ORDER+=("${AUDIOBOOK_STOP_ORDER[_i]}")
+done
+unset _i
+
 stop_services() {
     # Stop audiobook services before upgrade
     local use_sudo="$1"
@@ -2897,13 +2964,13 @@ stop_services() {
         # System-level services
         if [[ -n "$use_sudo" ]]; then
             sudo systemctl stop audiobook.target 2>/dev/null || true
-            for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
+            for svc in "${AUDIOBOOK_STOP_ORDER[@]}"; do
                 sudo systemctl stop "$svc" 2>/dev/null || true
             done
         elif [[ $(id -u) -eq 0 ]]; then
             # Already running as root (e.g., via sudo upgrade.sh) — no sudo prefix needed
             systemctl stop audiobook.target 2>/dev/null || true
-            for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
+            for svc in "${AUDIOBOOK_STOP_ORDER[@]}"; do
                 systemctl stop "$svc" 2>/dev/null || true
             done
         fi
@@ -2946,14 +3013,14 @@ start_services() {
         if [[ -n "$use_sudo" ]]; then
             sudo systemctl start audiobook.target 2>/dev/null || {
                 # Fallback: start individual services
-                for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
+                for svc in "${AUDIOBOOK_START_ORDER[@]}"; do
                     sudo systemctl start "$svc" 2>/dev/null || true
                 done
             }
         elif [[ $(id -u) -eq 0 ]]; then
             # Already running as root — no sudo prefix needed
             systemctl start audiobook.target 2>/dev/null || {
-                for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-shutdown-saver; do
+                for svc in "${AUDIOBOOK_START_ORDER[@]}"; do
                     systemctl start "$svc" 2>/dev/null || true
                 done
             }

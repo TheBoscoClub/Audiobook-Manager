@@ -1919,7 +1919,12 @@ EOF
         # Install Caddy maintenance page (if Caddy is installed)
         if command -v caddy &>/dev/null; then
             echo -e "${BLUE}Installing Caddy maintenance page configuration...${NC}"
-            local caddy_dir="${AUDIOBOOKS_CADDY_DIR:-/etc/caddy}"
+            local caddy_dir="${AUDIOBOOKS_CADDY_DIR:-}"
+            # Same resolution as upgrade.sh and the helper: env, then an existing config, then /etc/caddy
+            if [[ -z "$caddy_dir" && -f "${CONFIG_DIR}/audiobooks.conf" ]]; then
+                caddy_dir=$(grep -oP '^AUDIOBOOKS_CADDY_DIR="?\K[^"]*' "${CONFIG_DIR}/audiobooks.conf" 2>/dev/null | head -1)
+            fi
+            [[ "$caddy_dir" =~ ^/[A-Za-z0-9._/-]+$ ]] || caddy_dir="/etc/caddy"
             sudo mkdir -p "${caddy_dir}/conf.d"
             # Two sites: :8084 -> native app, :8085 -> Docker app.
             # Defaults match the canonical lib/audiobook-config.sh value (8443).
