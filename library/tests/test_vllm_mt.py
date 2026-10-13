@@ -489,3 +489,115 @@ class TestPersistenceBudget:
         assert out[99] == srcs[99]
         with pytest.raises(TranslationUnavailableError, match="persistence budget"):
             run(7)  # one past it
+
+
+# ── translate() orchestration — characterization (bd Audiobook-Manager-ccr) ──
+
+
+class TestTranslateOrchestration:
+    """Pins translate()'s chunking, TM merge, tier fallback and failure
+    reporting so the method can be decomposed without behaviour drift."""
+
+    @staticmethod
+    def _many(n: int) -> list[str]:
+        return [f"{SRC_EN[1]} {i}" for i in range(n)]
+
+    def test_chunks_at_max_sentences_per_request(self):
+        t = _mk()
+        texts = self._many(20)  # 16 + 4
+        sizes: list[int] = []
+
+        def post(url, **kw):
+            parsed = json.loads(kw["json"]["messages"][1]["content"])
+            sizes.append(len(parsed))
+            return _FakeResp(_chat_response([GOOD_ZH[1]] * len(parsed)))
+
+        with patch.object(t._session, "post", side_effect=post):
+            out = t.translate(texts, "zh-Hans", strict=True)
+        assert sizes == [16, 4]
+        assert out == [GOOD_ZH[1]] * 20
+        assert t.degraded is False and t.degraded_texts == 0
+
+    def test_tm_hits_and_misses_keep_input_order(self, tm_db: Path):
+        t = _mk(db_path=tm_db)
+        with patch.object(t._session, "post", return_value=_FakeResp(_chat_response(GOOD_ZH))):
+            t.translate(SRC_EN, "zh-Hans")
+        new = f"{SRC_EN[1]} fresh"
+        requested: list[list[str]] = []
+
+        def post(url, **kw):
+            parsed = json.loads(kw["json"]["messages"][1]["content"])
+            requested.append(parsed)
+            return _FakeResp(_chat_response(["新的一句话。"] * len(parsed)))
+
+        t2 = _mk(db_path=tm_db)
+        with patch.object(t2._session, "post", side_effect=post):
+            out = t2.translate([SRC_EN[0], new, SRC_EN[1]], "zh-Hans")
+        assert requested == [[new]]  # only the miss goes to the network
+        assert out == [GOOD_ZH[0], "新的一句话。", GOOD_ZH[1]]
+
+    def test_per_sentence_recovery_caches_translations_not_identity(self, tm_db: Path):
+        """Batch contract failure -> per-sentence tier. Gate-passing items are
+        cached; a plain-tier-confirmed identity is accepted but NOT cached."""
+        t = _mk(db_path=tm_db)
+
+        def answer(s):
+            return SRC_EN[0] if s == SRC_EN[0] else GOOD_ZH[1]
+
+        inner = _endpoint(answer)
+
+        def post(url, **kw):
+            parsed = None
+            try:
+                parsed = json.loads(kw["json"]["messages"][1]["content"])
+            except ValueError:
+                pass
+            if isinstance(parsed, list) and len(parsed) > 1:
+                return _FakeResp(_chat_response(["only one"]))  # length mismatch
+            return inner(url, **kw)
+
+        with patch.object(t._session, "post", side_effect=post):
+            out = t.translate(SRC_EN, "zh-Hans", strict=True)
+        assert out == [SRC_EN[0], GOOD_ZH[1]]
+        assert t.degraded is False
+        conn = sqlite3.connect(str(tm_db))
+        rows = conn.execute("SELECT source FROM string_translations").fetchall()
+        conn.close()
+        assert rows == [(SRC_EN[1],)]
+
+    def test_failure_reporting_caps_logged_rejections_and_counts_all(self, caplog):
+        t = _mk()
+        texts = self._many(7)
+        bad = {"choices": [{"message": {"content": "Sorry, I cannot translate that."}}]}
+        with patch.object(t._session, "post", return_value=_FakeResp(bad)):
+            with caplog.at_level("ERROR", logger="localization.translation.vllm_mt"):
+                out = t.translate(texts, "zh-Hans")
+        assert out == texts  # source text returned in place
+        assert t.degraded is True and t.degraded_texts == 7
+        errors = [r.getMessage() for r in caplog.records if r.levelname == "ERROR"]
+        assert sum(m.startswith("Rejected translation (") for m in errors) == 5
+        assert any("7 of 7 text(s) failed translation to zh-Hans" in m for m in errors)
+
+    def test_strict_error_names_count_locale_and_first_reason(self):
+        t = _mk()
+        texts = self._many(3)
+        bad = {"choices": [{"message": {"content": "Sorry, I cannot translate that."}}]}
+        with patch.object(t._session, "post", return_value=_FakeResp(bad)):
+            with pytest.raises(TranslationUnavailableError) as ei:
+                t.translate(texts, "zh-Hans", strict=True)
+        msg = str(ei.value)
+        assert msg.startswith("3 of 3 text(s) failed translation to zh-Hans (")
+        assert msg.endswith("refusing to hand untranslated text to a caller that persists results")
+        assert t.degraded is True and t.degraded_texts == 3
+
+    def test_transport_failure_reason_is_last_error_in_degraded_path(self, caplog):
+        t = _mk()
+        with patch.object(t._session, "post", side_effect=OSError("boom")):
+            with caplog.at_level("WARNING", logger="localization.translation.vllm_mt"):
+                out = t.translate(SRC_EN, "zh-Hans")
+        assert out == SRC_EN
+        msgs = [r.getMessage() for r in caplog.records]
+        assert any(
+            m.startswith("Batch of 2 failed (") and "retrying sentence-by-sentence" in m
+            for m in msgs
+        )

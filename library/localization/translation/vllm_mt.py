@@ -345,82 +345,142 @@ class VLLMTranslator(TranslationProvider):
         if not texts:
             return []
 
-        if self._db_path is not None:
-            hits, misses = tm_lookup(self._db_path, texts, target_locale)
-        else:
-            hits, misses = {}, list(enumerate(texts))
-
-        output: list[str | None] = [None] * len(texts)
-        for idx, cached in hits.items():
-            output[idx] = cached
-
+        output, misses = self._lookup_memory(texts, target_locale)
         failed: list[tuple[int, str, str]] = []  # (index, source, reason)
         accepted_pairs: list[tuple[str, str]] = []
 
         for start in range(0, len(misses), _MAX_SENTENCES_PER_REQUEST):
-            chunk = misses[start : start + _MAX_SENTENCES_PER_REQUEST]
-            chunk_texts = [t for _, t in chunk]
-            translations = self._request_chunk(chunk_texts, target_locale, source_lang)
-            if translations is None:
-                # Batch contract failed (usually the model dropping one array
-                # element from a long batch). A length-1 array cannot
-                # misalign, so recover the chunk sentence-by-sentence instead
-                # of failing 24 texts for one dropped element.
-                logger.warning(
-                    "Batch of %d failed (%s) — retrying sentence-by-sentence",
-                    len(chunk),
-                    self._last_error,
-                )
-                for idx, src in chunk:
-                    single = self._request_chunk([src], target_locale, source_lang)
-                    if single is None:
-                        # Last tier: some inputs push the model into prose
-                        # even for a single-element array. With exactly one
-                        # sentence there is nothing to misalign, so ask for
-                        # the bare translation and let the gates judge it.
-                        plain = self._request_single_plain(src, target_locale, source_lang)
-                        if plain is None:
-                            failed.append((idx, src, self._last_error))
-                            continue
-                        single = [plain]
-                    text, verdict = self._resolve_item(src, single[0], target_locale, source_lang)
-                    if text is None:
-                        failed.append((idx, src, verdict))
-                    else:
-                        output[idx] = text
-                        if verdict == "cache":
-                            accepted_pairs.append((src, text))
-                continue
-            for (idx, src), tgt in zip(chunk, translations):
-                text, verdict = self._resolve_item(src, tgt, target_locale, source_lang)
-                if text is None:
-                    failed.append((idx, src, verdict))
-                else:
-                    output[idx] = text
-                    if verdict == "cache":
-                        accepted_pairs.append((src, text))
+            self._translate_chunk(
+                misses[start : start + _MAX_SENTENCES_PER_REQUEST],
+                target_locale,
+                source_lang,
+                output,
+                failed,
+                accepted_pairs,
+            )
 
         if accepted_pairs and self._db_path is not None:
             tm_store(self._db_path, accepted_pairs, target_locale, self.name)
 
         if failed:
-            self.degraded = True
-            self.degraded_texts += len(failed)
-            for _idx, src, reason in failed[:5]:
-                logger.error("Rejected translation (%s): %.60s…", reason, src)
-            logger.error(
-                "%d of %d text(s) failed translation to %s — returning SOURCE text for those",
-                len(failed),
-                len(texts),
-                _safe_log(target_locale),
-            )
-            if strict:
-                raise TranslationUnavailableError(
-                    f"{len(failed)} of {len(texts)} text(s) failed translation to "
-                    f"{target_locale} ({failed[0][2]}); refusing to hand untranslated "
-                    "text to a caller that persists results"
-                )
-            for idx, src, _reason in failed:
-                output[idx] = src
+            self._report_failures(failed, output, len(texts), target_locale, strict)
 
         return [o if o is not None else "" for o in output]
+
+    # ── translate() helpers ──
+
+    def _lookup_memory(
+        self, texts: list[str], target_locale: str
+    ) -> tuple[list[str | None], list[tuple[int, str]]]:
+        """Translation-memory pass: ``(output prefilled with hits, misses)``."""
+        if self._db_path is not None:
+            hits, misses = tm_lookup(self._db_path, texts, target_locale)
+        else:
+            hits, misses = {}, list(enumerate(texts))
+        output: list[str | None] = [None] * len(texts)
+        for idx, cached in hits.items():
+            output[idx] = cached
+        return output, misses
+
+    def _translate_chunk(
+        self,
+        chunk: list[tuple[int, str]],
+        target_locale: str,
+        source_lang: str,
+        output: list[str | None],
+        failed: list[tuple[int, str, str]],
+        accepted_pairs: list[tuple[str, str]],
+    ) -> None:
+        """Translate one request-sized chunk, recovering per sentence when the
+        batch contract fails."""
+        translations = self._request_chunk([t for _, t in chunk], target_locale, source_lang)
+        if translations is None:
+            self._recover_chunk(chunk, target_locale, source_lang, output, failed, accepted_pairs)
+            return
+        for (idx, src), tgt in zip(chunk, translations):
+            self._settle_item(
+                idx, src, tgt, target_locale, source_lang, output, failed, accepted_pairs
+            )
+
+    def _settle_item(
+        self,
+        idx: int,
+        src: str,
+        candidate: str,
+        target_locale: str,
+        source_lang: str,
+        output: list[str | None],
+        failed: list[tuple[int, str, str]],
+        accepted_pairs: list[tuple[str, str]],
+    ) -> None:
+        """Gate one candidate; record it as output/cacheable or as a failure."""
+        text, verdict = self._resolve_item(src, candidate, target_locale, source_lang)
+        if text is None:
+            failed.append((idx, src, verdict))
+            return
+        output[idx] = text
+        if verdict == "cache":
+            accepted_pairs.append((src, text))
+
+    def _recover_chunk(
+        self,
+        chunk: list[tuple[int, str]],
+        target_locale: str,
+        source_lang: str,
+        output: list[str | None],
+        failed: list[tuple[int, str, str]],
+        accepted_pairs: list[tuple[str, str]],
+    ) -> None:
+        """Batch contract failed (usually the model dropping one array
+        element from a long batch). A length-1 array cannot misalign, so
+        recover the chunk sentence-by-sentence instead of failing 24 texts
+        for one dropped element."""
+        logger.warning(
+            "Batch of %d failed (%s) — retrying sentence-by-sentence",
+            len(chunk),
+            self._last_error,
+        )
+        for idx, src in chunk:
+            single = self._request_chunk([src], target_locale, source_lang)
+            if single is None:
+                # Last tier: some inputs push the model into prose even for
+                # a single-element array. With exactly one sentence there is
+                # nothing to misalign, so ask for the bare translation and
+                # let the gates judge it.
+                plain = self._request_single_plain(src, target_locale, source_lang)
+                if plain is None:
+                    failed.append((idx, src, self._last_error))
+                    continue
+                single = [plain]
+            self._settle_item(
+                idx, src, single[0], target_locale, source_lang, output, failed, accepted_pairs
+            )
+
+    def _report_failures(
+        self,
+        failed: list[tuple[int, str, str]],
+        output: list[str | None],
+        total: int,
+        target_locale: str,
+        strict: bool,
+    ) -> None:
+        """Mark the translator degraded, log, then raise (strict) or fill the
+        failed slots with their SOURCE text."""
+        self.degraded = True
+        self.degraded_texts += len(failed)
+        for _idx, src, reason in failed[:5]:
+            logger.error("Rejected translation (%s): %.60s…", reason, src)
+        logger.error(
+            "%d of %d text(s) failed translation to %s — returning SOURCE text for those",
+            len(failed),
+            total,
+            _safe_log(target_locale),
+        )
+        if strict:
+            raise TranslationUnavailableError(
+                f"{len(failed)} of {total} text(s) failed translation to "
+                f"{target_locale} ({failed[0][2]}); refusing to hand untranslated "
+                "text to a caller that persists results"
+            )
+        for idx, src, _reason in failed:
+            output[idx] = src
