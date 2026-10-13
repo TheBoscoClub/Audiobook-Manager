@@ -223,6 +223,7 @@ show_usage() {
 _SERVICES_STOPPED=false
 _SERVICES_USE_SUDO=""
 _cleanup_on_exit() {
+    [[ ${#_STAGED_TMPDIRS[@]} -gt 0 ]] && rm -rf "${_STAGED_TMPDIRS[@]}"
     if [[ "$_SERVICES_STOPPED" == "true" ]]; then
         if [[ "$SKIP_SERVICE_LIFECYCLE" == "true" ]]; then
             echo ""
@@ -838,6 +839,9 @@ apply_schema_migrations() {
 # Relative path (under the install dir) of the sorted `pip freeze` recorded after
 # every dependency sync. The next deploy diffs against it, so drift between
 # environments (and CVE-floor bumps actually landing) is visible per deploy.
+# Written inside a venv when a rebuild finishes; its absence next to a
+# venv.pre-upgrade means the rebuild was interrupted.
+VENV_COMPLETE_MARKER=".rebuild-complete"
 INSTALLED_REQUIREMENTS_REL="library/.installed-requirements.txt"
 
 _requirements_diff() {
@@ -867,8 +871,9 @@ _record_installed_requirements() {
     local use_sudo="${2:-}"
     local pip="$target/library/venv/bin/pip"
     local record="$target/$INSTALLED_REQUIREMENTS_REL"
+    local owner="${UPGRADE_VENV_OWNER:-audiobooks}"
     local runner=()
-    [[ -n "$use_sudo" ]] && runner=(sudo -u audiobooks)
+    [[ -n "$use_sudo" ]] && runner=(sudo -u "$owner")
 
     local new_file frozen
     new_file=$(mktemp) || return 1
@@ -903,9 +908,25 @@ _record_installed_requirements() {
         rm -f "$new_file"
         return 1
     fi
-    [[ -n "$use_sudo" ]] && sudo chown audiobooks:audiobooks "$record"
+    [[ -n "$use_sudo" ]] && sudo chown "$owner:$owner" "$record"
     rm -f "$new_file"
     return 0
+}
+
+# Scratch dirs holding files pip must read as the venv owner; removed by the
+# EXIT trap (_cleanup_on_exit) if a signal or abort skipped the normal cleanup.
+_STAGED_TMPDIRS=()
+
+_make_stage_dir() {
+    # A 0755 scratch dir (mktemp -d is 0700, which the venv owner cannot enter).
+    local d
+    d=$(mktemp -d) || return 1
+    chmod 755 "$d" || {
+        rm -rf "$d"
+        return 1
+    }
+    _STAGED_TMPDIRS+=("$d")
+    echo "$d"
 }
 
 sync_python_dependencies() {
@@ -927,35 +948,44 @@ sync_python_dependencies() {
     local use_sudo="${2:-}"
     local req="${3:-$target/library/requirements.txt}"
     local pip="$target/library/venv/bin/pip"
+    local owner="${UPGRADE_VENV_OWNER:-audiobooks}" # test seam; production is always audiobooks
     local runner=()
-    [[ -n "$use_sudo" ]] && runner=(sudo -u audiobooks)
+    [[ -n "$use_sudo" ]] && runner=(sudo -u "$owner")
 
     if [[ ! -f "$req" ]]; then
         echo -e "${RED}  requirements.txt missing at $req — cannot sync dependencies${NC}"
         return 1
     fi
 
-    local before
-    before=$(mktemp) || return 1
+    # Stage everything pip must READ in a directory the venv owner can enter.
+    # `sudo -u <owner> pip -r /dev/stdin < file` does NOT work: pip open()s the
+    # path, which resolves to /proc/self/fd/0, and the permission check is repeated
+    # as the new uid against the underlying file (EACCES, verified with real pip).
+    # A 0600 mktemp file or a --from-github release dir (mktemp -d, 0700) is
+    # equally unreadable to the owner, so copy into a 0755 dir with 0644 files.
+    local stage
+    stage=$(_make_stage_dir) || return 1
+    local req_staged="$stage/requirements.txt" before="$stage/before.txt"
+    if ! install -m 644 "$req" "$req_staged"; then
+        echo -e "${RED}  Could not stage requirements.txt for pip${NC}"
+        return 1
+    fi
     "${runner[@]}" "$pip" freeze >"$before" 2>/dev/null || : >"$before"
+    chmod 644 "$before"
 
-    # Requirements go in on STDIN, not as a path: the redirect is opened by THIS
-    # (invoking) user, so the venv owner (`sudo -u audiobooks`) never needs to enter
-    # a 0700 mktemp -d release dir (--from-github) or read a 0600 temp file.
-    # requirements.txt has no -r/-c includes (a test pins that), so stdin is complete.
-    if ! "${runner[@]}" "$pip" install --upgrade --quiet -r /dev/stdin <"$req"; then
+    if ! "${runner[@]}" "$pip" install --upgrade --quiet -r "$req_staged"; then
         echo -e "${RED}  pip install --upgrade FAILED — dependencies are not in a known-good state${NC}"
         if [[ -s "$before" ]]; then
-            if "${runner[@]}" "$pip" install --quiet --no-deps -r /dev/stdin <"$before"; then
+            if "${runner[@]}" "$pip" install --quiet --no-deps -r "$before"; then
                 echo -e "${YELLOW}  Previous package set restored${NC}"
             else
                 echo -e "${RED}  Could not restore the previous package set — venv may be mixed${NC}"
             fi
         fi
-        rm -f "$before"
+        rm -rf "$stage"
         return 1
     fi
-    rm -f "$before"
+    rm -rf "$stage"
     echo -e "${GREEN}  Dependencies synced${NC}"
     _record_installed_requirements "$target" "$use_sudo"
 }
@@ -992,14 +1022,21 @@ prepare_python_environment() {
     local venv="$target/library/venv"
     local aside="$target/library/venv.pre-upgrade"
 
-    # An aside left behind means a previous rebuild was INTERRUPTED (killed during
-    # pip): the good venv is the aside, whatever now sits at $venv is half-built.
-    # Restore it, never delete it.
+    # A leftover aside is either (a) an INTERRUPTED rebuild: the aside is the good
+    # venv and $venv is half-built, or (b) a completed rebuild whose aside could not
+    # be removed. The completion marker, written inside the new venv as the last
+    # step of a rebuild, tells them apart: no marker = interrupted.
     if [[ -e "$aside" ]]; then
         if [[ "$DRY_RUN" == "true" ]]; then
-            echo "  [DRY-RUN] Would restore interrupted-rebuild venv from $aside"
+            echo "  [DRY-RUN] Would reconcile leftover $aside"
+        elif [[ -e "$venv/$VENV_COMPLETE_MARKER" ]]; then
+            local aside_ver aside_mtime
+            aside_ver=$(grep -m1 '^version' "$aside/pyvenv.cfg" 2>/dev/null | tr -s ' ' || true)
+            aside_mtime=$(stat -c %y "$aside" 2>/dev/null || echo unknown)
+            echo -e "${YELLOW}Removing stale $aside (rebuild had completed; aside python: ${aside_ver:-unknown}; modified ${aside_mtime})${NC}"
+            $use_sudo rm -rf "$aside" || echo -e "${YELLOW}  Could not remove $aside${NC}"
         else
-            echo -e "${YELLOW}Found $aside from an interrupted rebuild — restoring it as the venv${NC}"
+            echo -e "${YELLOW}Found $aside from an interrupted rebuild (no completion marker in $venv) — restoring it as the venv${NC}"
             if ! { $use_sudo rm -rf "$venv" && $use_sudo mv "$aside" "$venv"; }; then
                 echo -e "${RED}  Could not restore $aside — aborting; nothing was deleted beyond the half-built venv${NC}"
                 return 1
@@ -1048,6 +1085,9 @@ prepare_python_environment() {
     fi
     if [[ "$ok" == "true" ]]; then
         sync_python_dependencies "$target" "$use_sudo" "$req" || ok=false
+    fi
+    if [[ "$ok" == "true" ]]; then
+        $use_sudo touch "$venv/$VENV_COMPLETE_MARKER" || ok=false
     fi
     if [[ "$ok" == "false" ]]; then
         $use_sudo rm -rf "$venv"
@@ -2931,11 +2971,16 @@ _resolve_caddy_dir() {
 # Services the CLI stops before an upgrade and starts after, in dependency order.
 # MUST list the same members as services_stop_order in scripts/upgrade-helper-process
 # (a test compares them): audiobook-scheduler is a long-running Python process on
-# the venv that pip rewrites, so leaving it out lets pip run under a live process.
+# the venv that pip rewrites, so leaving it out lets pip run under a live process;
+# audiobook-stream-translate (stream-translate-daemon.sh execs the venv python) and the
+# translation-monitor timers (their services run the venv python) likewise.
 AUDIOBOOK_STOP_ORDER=(
     audiobook-downloader.timer
+    audiobook-translation-monitor-live.timer
+    audiobook-translation-monitor-sampler.timer
     audiobook-shutdown-saver
     audiobook-scheduler
+    audiobook-stream-translate
     audiobook-mover
     audiobook-converter
     audiobook-redirect

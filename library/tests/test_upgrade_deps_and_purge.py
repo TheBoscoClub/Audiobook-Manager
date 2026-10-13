@@ -10,8 +10,11 @@ from __future__ import annotations
 
 import os
 import re
+import shutil
 import signal
 import subprocess
+import sys
+import tempfile
 import time
 from pathlib import Path
 
@@ -42,9 +45,13 @@ FAKE_PIP = """#!/bin/bash
 echo "$*" >> "$PIP_LOG"
 case "$1" in
     install)
-        if [[ " $* " == *" -r /dev/stdin "* ]]; then
-            echo "STDIN<$(cat)>" >> "$PIP_LOG"
-        fi
+        prev=""
+        for a in "$@"; do
+            if [[ "$prev" == "-r" ]]; then
+                echo "REQ<$(cat "$a")>" >> "$PIP_LOG"
+            fi
+            prev="$a"
+        done
         # only the --upgrade sync can fail; a rollback (--no-deps) succeeds
         [[ " $* " == *" --upgrade "* ]] && exit "${PIP_INSTALL_RC:-0}"
         exit 0 ;;
@@ -92,7 +99,8 @@ def test_pip_command_uses_upgrade_and_requirements(tmp_path):
     assert proc.returncode == 0, proc.stdout + proc.stderr
     first = next(ln for ln in log.splitlines() if ln.startswith("install"))
     assert first.startswith("install --upgrade"), first
-    assert "-r /dev/stdin" in first, first  # requirements go via stdin, not a path
+    assert "/dev/stdin" not in first, first  # pip re-checks /dev/stdin as the new uid: EACCES
+    assert re.search(r"-r \S+/requirements\.txt", first), first
     assert "flask>=3" in log
 
 
@@ -535,8 +543,9 @@ def test_pip_failure_aborts_with_old_code_untouched(tmp_path):
     assert "aborted before any application file was changed" in proc.stdout
     # the previous package set is put back (freeze re-applied with --no-deps)
     log = (tmp_path / "pip.log").read_text()
-    assert "install --quiet --no-deps -r /dev/stdin" in log
-    assert "STDIN<flask==1.0.0" in log, "rollback must feed the pre-sync freeze"
+    assert "/dev/stdin" not in log
+    assert re.search(r"install --quiet --no-deps -r \S+/before\.txt", log)
+    assert "REQ<flask==1.0.0" in log, "rollback must feed the pre-sync freeze"
     assert "Previous package set restored" in proc.stdout
 
 
@@ -851,7 +860,7 @@ def test_sudo_path_rollback_actually_restores(tmp_path):
     assert proc.returncode != 0
     assert "Previous package set restored" in proc.stdout, proc.stdout + proc.stderr
     assert "Could not restore" not in proc.stdout
-    assert "STDIN<flask==1.0.0" in log
+    assert "REQ<flask==1.0.0" in log
 
 
 def test_from_github_requirements_in_private_dir_reach_venv_owner(tmp_path):
@@ -866,7 +875,7 @@ def test_from_github_requirements_in_private_dir_reach_venv_owner(tmp_path):
     release.chmod(0o700)
     proc, log = _run_sync_sudo(tmp_path, target, req)
     assert proc.returncode == 0, proc.stdout + proc.stderr
-    assert "STDIN<flask>=9" in log
+    assert "REQ<flask>=9" in log
 
 
 def test_sudo_shim_is_a_real_discriminator(tmp_path):
@@ -881,7 +890,8 @@ def test_sudo_shim_is_a_real_discriminator(tmp_path):
     assert ok.returncode == 1
 
 
-def test_requirements_txt_has_no_includes_so_stdin_is_complete():
+def test_requirements_txt_has_no_includes_so_a_single_staged_file_is_complete():
+    """pip is handed ONE staged copy; a relative `-r other.txt` inside it would not resolve."""
     lines = (ROOT / "library" / "requirements.txt").read_text().splitlines()
     assert not [ln for ln in lines if re.match(r"\s*(-r|-c|--requirement|--constraint)\b", ln)]
 
@@ -1063,3 +1073,213 @@ def test_caddy_block_uses_resolved_dir_in_both_installers():
     assert "s|__CADDY_DIR__|${caddy_dir}|g" in block
     inst = INSTALL_SH.read_text()
     assert "AUDIOBOOKS_CADDY_DIR" in inst and "s|__CADDY_DIR__|${caddy_dir}|g" in inst
+
+
+# --------------------------------------------------------------------------
+# review round 3: REAL pip as a different uid; completion marker; services
+# --------------------------------------------------------------------------
+REAL_PIP = Path(sys.prefix) / "bin" / "pip"
+
+
+def _can_sudo_claude() -> bool:
+    try:
+        return (
+            subprocess.run(
+                ["sudo", "-n", "-u", "claude", "true"], capture_output=True, timeout=20
+            ).returncode
+            == 0
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
+needs_real_uid = pytest.mark.skipif(
+    not (REAL_PIP.exists() and _can_sudo_claude()),
+    reason="needs `sudo -n -u claude` (passwordless) and the project venv's real pip",
+)
+
+WRAP_PIP = """#!/bin/bash
+# real pip, but never touching the network or the venv: install is forced to
+# --dry-run --no-index --no-deps. A FAIL file next to the wrapper makes the
+# --upgrade sync fail (the rollback install, without --upgrade, still runs).
+if [[ "$1" == "install" ]]; then
+    if [[ -e "$(dirname "$0")/FAIL" && " $* " == *" --upgrade "* ]]; then
+        echo "forced failure" >&2
+        exit 1
+    fi
+    exec "{real}" "$@" --dry-run --no-index --no-deps
+fi
+exec "{real}" "$@"
+"""
+
+
+@pytest.fixture
+def uid_tree():
+    """A tree another uid can enter (pytest's tmp_path is 0700, so use a plain mkdtemp)."""
+    root = Path(tempfile.mkdtemp(prefix="am-uid-"))
+    root.chmod(0o755)
+    target = root / "target"
+    (target / "library" / "venv" / "bin").mkdir(parents=True)
+    for d in (
+        target,
+        target / "library",
+        target / "library" / "venv",
+        target / "library" / "venv" / "bin",
+    ):
+        d.chmod(0o755)
+    wrapper = target / "library" / "venv" / "bin" / "pip"
+    wrapper.write_text(WRAP_PIP.format(real=REAL_PIP))
+    wrapper.chmod(0o755)
+    yield root, target
+    shutil.rmtree(root, ignore_errors=True)
+
+
+def _real_sync(root: Path, target: Path, req: Path):
+    script = (
+        'RED="" GREEN="" BLUE="" YELLOW="" NC=""\n'
+        + _deps_functions()
+        + f'\nUPGRADE_VENV_OWNER=claude\nsync_python_dependencies "{target}" sudo "{req}"\n'
+    )
+    env = os.environ.copy()
+    env["TMPDIR"] = str(root)
+    return subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, env=env, check=False, timeout=120
+    )
+
+
+@needs_real_uid
+@pytest.mark.parametrize("mode_and_feed", [(0o600, "redirect"), (0o644, "pipe")])
+def test_real_pip_as_other_uid_cannot_read_dev_stdin(mode_and_feed):
+    """Control: documents the defect that sank the stdin approach. pip open()s
+    /dev/stdin, which resolves to the underlying inode, and the permission check is
+    repeated as the new uid: a 0600 file (or a pipe) fed on stdin is EACCES."""
+    mode, feed = mode_and_feed
+    with tempfile.TemporaryDirectory() as d:
+        os.chmod(d, 0o755)
+        req = Path(d) / "r.txt"
+        req.write_text("pip\n")
+        req.chmod(mode)
+        src = f'< "{req}"' if feed == "redirect" else ""
+        pre = f'cat "{req}" | ' if feed == "pipe" else ""
+        proc = subprocess.run(
+            f'{pre}sudo -n -u claude "{REAL_PIP}" install --dry-run --no-index --no-deps '
+            f"-r /dev/stdin {src}",
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+    assert proc.returncode != 0, proc.stdout
+    assert "Permission denied" in proc.stderr and "/dev/stdin" in proc.stderr
+
+
+@needs_real_uid
+def test_real_pip_as_other_uid_reads_the_file_the_sync_hands_it(uid_tree):
+    root, target = uid_tree
+    req = root / "requirements.txt"
+    req.write_text("pip\n")
+    proc = _real_sync(root, target, req)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "Dependencies synced" in proc.stdout
+    assert "Permission denied" not in proc.stdout + proc.stderr
+    assert (target / RECORD_REL).exists()
+
+
+@needs_real_uid
+def test_real_pip_other_uid_from_github_style_private_release_dir(uid_tree):
+    root, target = uid_tree
+    release = root / "release" / "library"
+    release.mkdir(parents=True)
+    req = release / "requirements.txt"
+    req.write_text("pip\n")
+    req.chmod(0o600)
+    release.chmod(0o700)
+    release.parent.chmod(0o700)
+    proc = _real_sync(root, target, req)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+
+
+@needs_real_uid
+def test_real_pip_other_uid_rollback_works_after_failed_sync(uid_tree):
+    root, target = uid_tree
+    (target / "library" / "venv" / "bin" / "FAIL").write_text("")
+    req = root / "requirements.txt"
+    req.write_text("pip\n")
+    proc = _real_sync(root, target, req)
+    assert proc.returncode != 0
+    assert "Previous package set restored" in proc.stdout, proc.stdout + proc.stderr
+    assert "Could not restore" not in proc.stdout
+
+
+@needs_real_uid
+def test_staged_scratch_dirs_are_removed(uid_tree):
+    root, target = uid_tree
+    req = root / "requirements.txt"
+    req.write_text("pip\n")
+    _real_sync(root, target, req)
+    leftovers = [p.name for p in root.iterdir() if p.name.startswith("tmp.")]
+    assert leftovers == [], leftovers
+
+
+def test_stage_dir_is_traversable_by_other_users(tmp_path):
+    out = subprocess.run(
+        [
+            "bash",
+            "-c",
+            _deps_functions() + '\nd=$(_make_stage_dir); stat -c %a "$d"; rm -rf "$d"',
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+        env={**os.environ, "TMPDIR": str(tmp_path)},
+        timeout=30,
+    )
+    assert out.stdout.strip() == "755"
+
+
+def test_completed_rebuild_with_stale_aside_removes_it_loudly(tmp_path):
+    target = _mk_tree(tmp_path / "target", "1.0.0", "OLD")
+    lib = target / "library"
+    _venv_with_marker(lib / "venv", "finished-rebuild")
+    (lib / "venv" / ".rebuild-complete").write_text("")
+    _venv_with_marker(lib / "venv.pre-upgrade", "stale")
+    (lib / "venv.pre-upgrade" / "pyvenv.cfg").write_text("home = /usr/bin\nversion = 3.13.5\n")
+    project = _mk_tree(tmp_path / "project", "2.0.0", "NEW")
+    proc = _prepare_harness(tmp_path, target, project, major=False)
+    assert "RC=0" in proc.stdout, proc.stdout + proc.stderr
+    assert not (lib / "venv.pre-upgrade").exists()
+    assert (lib / "venv" / "bin" / "marker").read_text() == "finished-rebuild\n"
+    assert "Removing stale" in proc.stdout and "version = 3.13.5" in proc.stdout
+    assert re.search(r"modified \d{4}-\d{2}-\d{2}", proc.stdout)
+
+
+def test_marker_written_only_when_rebuild_completes(tmp_path):
+    target = _mk_tree(tmp_path / "target", "1.0.0", "OLD")
+    lib = target / "library"
+    _venv_with_marker(lib / "venv", "original")
+    project = _mk_tree(tmp_path / "project", "2.0.0", "NEW")
+    proc = _prepare_harness(tmp_path, target, project, major=True)
+    assert "RC=0" in proc.stdout
+    assert (lib / "venv" / ".rebuild-complete").exists()
+    # an interrupted rebuild never has the marker: restored, not removed (tested above);
+    # and a failed pip leaves no marker on the venv that is put back
+    target2 = _mk_tree(tmp_path / "t2" / "target", "1.0.0", "OLD")
+    _venv_with_marker(target2 / "library" / "venv", "original")
+    (tmp_path / "t2" / "project").mkdir(parents=True, exist_ok=True)
+    project2 = _mk_tree(tmp_path / "t2" / "project", "2.0.0", "NEW")
+    proc2 = _prepare_harness(
+        tmp_path / "t2", target2, project2, major=True, prelude="export FAKE_VENV_FAIL=1"
+    )
+    assert "RC=1" in proc2.stdout
+    assert not (target2 / "library" / "venv" / ".rebuild-complete").exists()
+
+
+def test_stream_translate_uses_the_venv_and_is_in_both_stop_lists():
+    daemon = (ROOT / "scripts" / "stream-translate-daemon.sh").read_text()
+    assert 'VENV_PYTHON="${AUDIOBOOKS_VENV}/bin/python"' in daemon
+    cli = _bash_array(UPGRADE_SH.read_text(), "AUDIOBOOK_STOP_ORDER")
+    helper = _bash_array(HELPER.read_text(), "local services_stop_order")
+    for lst in (cli, helper):
+        assert "audiobook-stream-translate" in lst
+        assert lst.index("audiobook-stream-translate") < lst.index("audiobook-api")
+    assert cli == helper

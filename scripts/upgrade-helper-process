@@ -421,8 +421,11 @@ do_upgrade() {
     # Full stop order: all 8 services in dependency order (will be reversed on start)
     local services_stop_order=(
         "audiobook-downloader.timer"
+        "audiobook-translation-monitor-live.timer"
+        "audiobook-translation-monitor-sampler.timer"
         "audiobook-shutdown-saver"
         "audiobook-scheduler"
+        "audiobook-stream-translate"
         "audiobook-mover"
         "audiobook-converter"
         "audiobook-redirect"
