@@ -82,6 +82,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   then `/etc/caddy`) feeds `__CADDY_DIR__` in `caddy/audiobooks.conf`, and `unavailable.html` is installed beside
   `maintenance.html`
 - **TLS key mode in the Docker entrypoint**: `docker-entrypoint.sh` now creates `server.key` as `600`
+- **`${VAR}` references in path settings expand or fail loudly**: `AUDIOBOOKS_LIBRARY="${AUDIOBOOKS_DATA}/Library"`
+  reached services literally because systemd's `EnvironmentFile=` never expands `${…}`, so units whose
+  `WorkingDirectory` is the install root created `/opt/audiobooks/${AUDIOBOOKS_DATA}/Library` — `library/config.py`
+  and `lib/audiobook-config.sh` now expand references in dependency order for path settings only (built-in defaults
+  included, identical on both sides), write expanded values back for direct `os.environ` readers, and refuse a cycle,
+  an undefined variable or any surviving `$`; the shell loader no longer `eval`s config values (a `$(command)` in
+  `audiobooks.conf` used to execute, including in every login shell via `/etc/profile.d`); the reconciler reports, and
+  in enforce mode atomically rewrites after a private sibling backup, such lines in the installed config, resolving only
+  from the file's own keys and the service layout, never the operator's environment. Proven on the dev VM: 3 such
+  lines → 0, services running (Audiobook-Manager-1sk)
+- **Shell defaults follow `AUDIOBOOKS_VAR_DIR`**: `AUDIOBOOKS_DATABASE`, `AUDIOBOOKS_COVERS` and `AUDIOBOOKS_RUN_DIR`
+  derive from it exactly as `library/config.py` already did; on an install that moved `AUDIOBOOKS_VAR_DIR` while the data
+  stayed under the default, the reconciler prints a report-only `DATA LOCATION MISMATCH` warning and never moves or
+  creates anything
 - **Pre-commit hardcoded-path guard**: `scripts/hooks/pre-commit` iterates `FORBIDDEN_PATTERNS` over every staged file
   and refuses newly added `/srv/audiobooks`, `/var/lib/audiobooks` and `/run/audiobooks` literals, naming the
   `lib/audiobook-config.sh` variable to use — only added lines are judged (renames, type changes and `++` lines
@@ -129,6 +143,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   refuse a malformed locale themselves — a bad `translation_queue` or `streaming_segments` row is marked `failed` with a
   fixed reason instead of being claimed, and `VLLMTranslator.translate()` raises `TranslationUnavailableError` before
   any request or cache lookup
+- **`audiobooks.conf` is no longer created world-readable**: `install.sh` wrote it with `sudo tee` under the default
+  umask (644 `root:root`) although operators may keep credentials inline in it — it is now created empty as 0640
+  `root:audiobooks` (0600 for user installs) before anything is written; the reconciler reports and, in enforce mode,
+  corrects the config's owner, group and mode on every install and upgrade, and does the same for every sibling backup
+  (`.bak*`, `.orig`, `.backup*`, never `.example`), which it now also creates private. Proven on the dev VM: 644
+  `root:root` → 640 `root:audiobooks`, all services running (Audiobook-Manager-1sk)
 - **Guests can no longer start translation work**: every route that enqueues or triggers translation, STT or TTS work
   needs a signed-in user — `/api/i18n/activate`, `/api/translation/bump`, `/api/translate/sampler/activate`, `/warmup`
   and `/stop` return 401 to guests, `/api/translate/stream` and `/seek` serve cached chapters and answer 401
