@@ -10,6 +10,10 @@ from typing import Any
 
 from flask import Blueprint, Response, jsonify, request
 
+from config import AUDIOBOOKS_DATA as _CFG_DATA
+from config import AUDIOBOOKS_LIBRARY as _CFG_LIBRARY
+from config import AUDIOBOOKS_SOURCES as _CFG_SOURCES
+
 from .auth import admin_if_enabled, auth_if_enabled
 from .core import FlaskResponse, get_db
 
@@ -70,7 +74,7 @@ def remove_from_indexes(filepath: Path) -> dict:
     Returns dict with counts of entries removed from each index.
     """
     # Read env at call-time so tests can monkey-patch AUDIOBOOKS_* paths
-    index_dir = Path(os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks")) / ".index"
+    index_dir = Path(os.environ.get("AUDIOBOOKS_DATA", str(_CFG_DATA))) / ".index"
     filepath_str = str(filepath)
 
     removed = {}
@@ -769,7 +773,7 @@ def get_duplicates_by_checksum() -> Response:
         type: "sources" | "library" | "both" (default: "both")
     """
     check_type = request.args.get("type", "both")
-    index_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks") + "/.index"
+    index_dir = os.environ.get("AUDIOBOOKS_DATA", str(_CFG_DATA)) + "/.index"
 
     result: dict[str, Any] = {"sources": None, "library": None}
 
@@ -801,9 +805,9 @@ def regenerate_checksums() -> Response:
     data = request.get_json() or {}
     check_type = data.get("type", "both")
 
-    index_dir = os.environ.get("AUDIOBOOKS_DATA", "/srv/audiobooks") + "/.index"
-    sources_dir = os.environ.get("AUDIOBOOKS_SOURCES", "/srv/audiobooks/Sources")
-    library_dir = os.environ.get("AUDIOBOOKS_LIBRARY", "/srv/audiobooks/Library")
+    index_dir = os.environ.get("AUDIOBOOKS_DATA", str(_CFG_DATA)) + "/.index"
+    sources_dir = os.environ.get("AUDIOBOOKS_SOURCES", str(_CFG_SOURCES))
+    library_dir = os.environ.get("AUDIOBOOKS_LIBRARY", str(_CFG_LIBRARY))
 
     results = {}
 
@@ -848,8 +852,8 @@ def delete_duplicates_by_path() -> FlaskResponse:
         return jsonify({"error": "No paths provided"}), 400
 
     # Get allowed directories from environment for path safety validation
-    library_dir = Path(os.environ.get("AUDIOBOOKS_LIBRARY", "/srv/audiobooks/Library"))
-    sources_dir = Path(os.environ.get("AUDIOBOOKS_SOURCES", "/srv/audiobooks/Sources"))
+    library_dir = Path(os.environ.get("AUDIOBOOKS_LIBRARY", str(_CFG_LIBRARY)))
+    sources_dir = Path(os.environ.get("AUDIOBOOKS_SOURCES", str(_CFG_SOURCES)))
 
     # Determine which directories are allowed based on file type
     if file_type == "library":
