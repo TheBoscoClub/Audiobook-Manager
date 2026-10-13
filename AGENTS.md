@@ -5,7 +5,7 @@ This file tells AI coding agents (Claude Code, Codex, etc.) how to operate in th
 ## Tool Boundaries (Read This First)
 
 | Job | Tool |
-|---|---|
+| --- | --- |
 | In-conversation todos for this session | `TaskCreate` / `TaskUpdate` / `TaskList` |
 | Cross-session ephemeral state and recovery | `.claude-checkpoint-notes.md` (written by `/checkpoint`) |
 | Cross-conversation knowledge spanning all projects | `MEMORY.md` and the auto-memory system |
@@ -29,6 +29,7 @@ cp -rf source dest          # NOT: cp -r source dest
 ```
 
 Other prompting commands:
+
 - `scp` / `ssh` — use `-o BatchMode=yes`
 - `apt-get` — use `-y`
 - `brew` — use `HOMEBREW_NO_AUTO_UPDATE=1`
