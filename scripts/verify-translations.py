@@ -94,6 +94,10 @@ def verify_book(conn: sqlite3.Connection, book_id: int, locale: str) -> dict:
         "zh_chapters": 0,
         "en_vtt_valid": 0,
         "zh_vtt_valid": 0,
+        # Chapters that must be regenerated: an invalid VTT in either language,
+        # or an English chapter with no translation. --fix redoes ONLY these;
+        # chapters fully present in both languages are kept.
+        "bad_chapters": set(),
     }
 
     if not book:
@@ -125,6 +129,11 @@ def verify_book(conn: sqlite3.Connection, book_id: int, locale: str) -> dict:
         result["status"] = "FAIL"
         result["issues"].append(f"No {locale} subtitles in DB")
 
+    zh_indexes = {row["chapter_index"] for row in zh_rows}
+    result["bad_chapters"].update(
+        row["chapter_index"] for row in en_rows if row["chapter_index"] not in zh_indexes
+    )
+
     if en_rows and zh_rows and len(en_rows) != len(zh_rows):
         result["status"] = "WARN"
         result["issues"].append(
@@ -140,6 +149,7 @@ def verify_book(conn: sqlite3.Connection, book_id: int, locale: str) -> dict:
         else:
             result["status"] = "FAIL"
             result["issues"].append(f"EN ch{row['chapter_index']}: {msg}")
+            result["bad_chapters"].add(row["chapter_index"])
 
     for row in zh_rows:
         vtt = Path(row["vtt_path"])
@@ -149,8 +159,47 @@ def verify_book(conn: sqlite3.Connection, book_id: int, locale: str) -> dict:
         else:
             result["status"] = "FAIL"
             result["issues"].append(f"ZH ch{row['chapter_index']}: {msg}")
+            result["bad_chapters"].add(row["chapter_index"])
 
     return result
+
+
+def requeue_book(conn: sqlite3.Connection, book_id: int, locale: str, bad: set[int]) -> None:
+    """Send a failed book back for ONLY its broken chapters.
+
+    Chapters valid in both languages keep their chapter_subtitles rows, so the
+    batch (which skips chapters present in both languages) does not
+    re-transcribe them on a rented GPU. The broken chapters' rows — and their
+    narration, which was made from the broken text — are removed so they are
+    regenerated. The book's subtitles stage reopens because it is genuinely
+    incomplete; narration reopens only if narration was removed.
+    """
+    for ch in sorted(bad):
+        conn.execute(
+            "DELETE FROM chapter_subtitles WHERE audiobook_id = ? AND chapter_index = ? "
+            "AND locale IN ('en', ?)",
+            (book_id, ch, locale),
+        )
+    narration_removed = 0
+    if bad:
+        try:
+            narration_removed = sum(
+                conn.execute(
+                    "DELETE FROM chapter_translations_audio "
+                    "WHERE audiobook_id = ? AND chapter_index = ? AND locale = ?",
+                    (book_id, ch, locale),
+                ).rowcount
+                for ch in sorted(bad)
+            )
+        except sqlite3.OperationalError:
+            narration_removed = 0  # no narration table on this install
+    conn.execute(
+        "UPDATE translation_queue SET state = 'pending', started_at = NULL, finished_at = NULL, "
+        "error = NULL, drain_attempts = 0, suspect_runs = 0, subtitles_done_at = NULL, "
+        "narration_done_at = CASE WHEN ? THEN NULL ELSE narration_done_at END "
+        "WHERE audiobook_id = ? AND locale = ? AND state IN ('completed', 'failed', 'quarantined', 'pending')",
+        (1 if narration_removed else 0, book_id, locale),
+    )
 
 
 def main():
@@ -231,7 +280,7 @@ def main():
                 result["title"][:50],
                 "; ".join(result["issues"][:3]),
             )
-            requeue_ids.append(book_id)
+            requeue_ids.append((book_id, result["bad_chapters"]))
 
     # Aggregate subtitle stats
     total_en = conn.execute(
@@ -277,14 +326,11 @@ def main():
     if args.fix and requeue_ids:
         logger.info("")
         logger.info("Re-queuing %d failed books...", len(requeue_ids))
-        for bid in requeue_ids:
-            conn.execute(
-                "UPDATE translation_queue SET state = 'pending', started_at = NULL, "
-                "finished_at = NULL, error = NULL, subtitles_done_at = NULL, "
-                "narration_done_at = NULL, drain_attempts = 0 "
-                "WHERE audiobook_id = ? AND state IN ('completed', 'failed', 'quarantined')",
-                (bid,),
-            )
+        from localization.queue_schema import ensure_queue_schema
+
+        ensure_queue_schema(conn)
+        for bid, bad in requeue_ids:
+            requeue_book(conn, bid, args.locale, bad)
         conn.commit()
         logger.info("Done — %d books re-queued", len(requeue_ids))
 
@@ -302,7 +348,7 @@ def main():
             "en_books": total_en_books,
             "zh_books": total_zh_books,
             "coverage_pct": round(100 * total_en_books / total_books, 1) if total_books else 0,
-            "details": results,
+            "details": [{**r, "bad_chapters": sorted(r["bad_chapters"])} for r in results],
         }
         report_path = Path(args.db).parent / "translation-verification.json"
         report_path.write_text(json.dumps(report, indent=2, ensure_ascii=False))

@@ -69,6 +69,8 @@
 #   GPU_NODE_SSH_KEY    ssh -i identity file             (default: ssh default keys)
 #   GPU_NODE_WHISPER_SRC whisper_gpu_service.py to ship  (default: ../library/localization/stt/)
 #   GPU_NODE_PIP_TIMEOUT max seconds to wait for on-node pip (default: 1200)
+#   GPU_NODE_MAX_LIFETIME on-node dead-man switch, seconds (default: 0 = off;
+#                        the drain always sets it — see dead_man_script)
 #   VAST_API_BASE       API base URL                     (default: console.vast.ai; tests only)
 #   VAST_API_KEY_FILE   file holding the API key         (see CREDENTIALS)
 # ---------------------------------------------------------------------------
@@ -182,13 +184,70 @@ build_search_query() {
     fi
 }
 
+# On-node dead-man switch (empty when GPU_NODE_MAX_LIFETIME is 0/unset).
+#
+# The host-side guard and reaper cannot act while the HOST is down (power
+# loss, kernel panic, network outage), and Vast keeps billing. This runs ON
+# THE NODE, needs nothing from the host, and after GPU_NODE_MAX_LIFETIME
+# seconds of container uptime ends the instance itself, in order:
+#   1. DESTROY via the Vast API with the instance's own CONTAINER_API_KEY
+#      (Vast injects CONTAINER_ID/CONTAINER_API_KEY into every container and
+#      documents `vastai destroy instance $CONTAINER_ID` from inside it). Our
+#      account key never goes to the node. Destroy ends ALL billing.
+#   2. if that fails: STOP the instance via the same key — GPU billing ends,
+#      the instance's DISK STORAGE KEEPS BILLING until it is destroyed (the
+#      host-side reaper does that once the host is back).
+#   3. if that fails too: kill the container's PID 1 — the container exits,
+#      which Vast reports as "exited" (GPU billing ends; storage still bills).
+# Live behaviour of 1-3 against Vast is UNVERIFIED by these unit tests; the
+# dev-VM test plan checks it with a short lifetime.
+dead_man_script() {
+    local lifetime="${GPU_NODE_MAX_LIFETIME:-0}"
+    [[ "$lifetime" =~ ^[0-9]+$ && "$lifetime" -gt 0 ]] || return 0
+    cat <<EOF
+# --- dead-man switch: end this instance after ${lifetime}s, host or no host ---
+cat > /workspace/dead-man.sh <<'DEADMAN'
+#!/bin/bash
+LIFETIME=${lifetime}
+API="https://console.vast.ai/api/v0"
+log() { echo "\$(date -u '+%F %T') dead-man: \$*" >> /workspace/dead-man.log; }
+sleep "\$LIFETIME"
+log "lifetime \${LIFETIME}s reached — ending this instance"
+# Vast's variables are in PID 1's environment even if onstart's was trimmed.
+for v in CONTAINER_ID CONTAINER_API_KEY; do
+  if [ -z "\${!v:-}" ]; then
+    export "\$v=\$(tr '\\0' '\\n' < /proc/1/environ 2>/dev/null | sed -n "s/^\$v=//p" | head -n1)"
+  fi
+done
+if [ -n "\${CONTAINER_ID:-}" ] && [ -n "\${CONTAINER_API_KEY:-}" ]; then
+  hdr="Authorization: Bearer \$CONTAINER_API_KEY"
+  if curl -fsS --max-time 30 -X DELETE -H "\$hdr" "\$API/instances/\$CONTAINER_ID/" >> /workspace/dead-man.log 2>&1; then
+    log "destroy requested"; sleep 120
+  fi
+  if curl -fsS --max-time 30 -X PUT -H "\$hdr" -H 'Content-Type: application/json' \\
+      -d '{"state":"stopped"}' "\$API/instances/\$CONTAINER_ID/" >> /workspace/dead-man.log 2>&1; then
+    log "stop requested (storage still bills until destroyed)"; sleep 120
+  fi
+else
+  log "CONTAINER_ID/CONTAINER_API_KEY not available — cannot call the Vast API"
+fi
+log "stopping the container (kill PID 1)"
+kill -TERM 1; sleep 30; kill -KILL 1
+DEADMAN
+chmod 700 /workspace/dead-man.sh
+setsid nohup /workspace/dead-man.sh > /dev/null 2>&1 < /dev/null &
+EOF
+}
+
 onstart_script() {
     # Runs inside the container at boot. vLLM ships in the image; whisper deps
     # do not. whisper_gpu_service.py imports the `whisper` module
     # faster-whisper only: whisper_gpu_service.py was swapped to
     # faster-whisper's BatchedInferencePipeline in the same change set.
+    # The dead-man switch goes first: it must be armed even if pip fails.
     cat <<EOF
 #!/bin/bash
+$(dead_man_script)
 set -e
 # vllm is a no-op on the vllm/vllm-openai image and a real install on
 # generic CUDA images (vastai/pytorch fallback when proxy-SSH misbehaves)
@@ -513,6 +572,7 @@ cmd_down() {
 # Machine-readable spend facts for the drain's ledger; never prints the key.
 #   credit=<account credit, dollars>
 #   instances=<n> accrued=<sum over labelled instances of uptime x dph_total>
+#     dph=<sum of dph_total over labelled instances>
 cmd_billing() {
     local credit rows
     credit="$(vast_curl GET "/users/current/" | jq -r '.credit // empty')" \
@@ -521,7 +581,7 @@ cmd_billing() {
     rows="$(our_instances)" || die "could not list instances"
     printf 'credit=%s\n' "$credit"
     jq -r --argjson now "$(date +%s)" '
-        "instances=\(length) accrued=\([.[] | ((($now - (.start_date // $now)) / 3600) * (.dph_total // 0))] | add // 0)"' <<<"$rows"
+        "instances=\(length) accrued=\([.[] | ((($now - (.start_date // $now)) / 3600) * (.dph_total // 0))] | add // 0) dph=\([.[] | (.dph_total // 0)] | add // 0)"' <<<"$rows"
 }
 
 # Number of instances under our label, in any state (exited still bills).
@@ -563,6 +623,7 @@ Usage: $0 <subcommand> [options]
   bootstrap-status    ssh in: vLLM /v1/models, whisper /health, GPU name
   billing             credit=<dollars> / instances=<n> accrued=<dollars> (for the drain ledger)
   count               number of '${LABEL}' instances in any state
+  onstart             print the onstart script 'up' would send (incl. dead-man switch)
 
 Label override: GPU_NODE_LABEL (current: ${LABEL})
 EOF
@@ -592,6 +653,10 @@ case "${1:-}" in
     bootstrap-status)
         shift
         cmd_bootstrap_status "$@"
+        ;;
+    onstart)
+        # Print the onstart script `up` would send (no API call).
+        onstart_script
         ;;
     billing)
         shift

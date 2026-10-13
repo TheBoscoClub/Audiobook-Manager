@@ -4,8 +4,8 @@ Covers:
 
 * ``localization.queue_schema`` — the column additions and the one-time mapping
   of existing rows (and data migration 015, which calls it);
-* the API worker — restricted to the bumped book, atomic claims, never marks a
-  row failed for "no GPU provider", restart recovers only its own claims;
+* the API — enqueues and reports only; a bump runs nothing in-process and an
+  API restart never resets rows the drain holds;
 * ``scripts/batch-translate.py`` — stage filters, stage completion,
   narration failures left visibly pending, drain-mode endpoint loss releases
   (never fails) the job, drain-mode provider lockdown, chapter-skip rule;
@@ -176,7 +176,7 @@ def test_data_migration_015_applies_mapping(tmp_path: Path):
     assert 'MIN_VERSION="' in head
 
 
-# ── API worker ───────────────────────────────────────────────────────────────
+# ── API: enqueue and status only, no in-process work ────────────────────────
 
 
 @pytest.fixture
@@ -193,10 +193,8 @@ def api_db(tmp_path: Path):
     conn.commit()
     conn.close()
     lq._db_path = None
-    lq._requested.clear()
     lq.init_queue(db, tmp_path)
     yield db
-    lq._requested.clear()
     lq._db_path = None
 
 
@@ -204,62 +202,53 @@ def _state(db, book):
     return (
         sqlite3.connect(db)
         .execute(
-            "SELECT state, claimed_by, subtitles_done_at, narration_done_at FROM translation_queue "
-            "WHERE audiobook_id = ?",
+            "SELECT state, claimed_by, subtitles_done_at, narration_done_at, priority "
+            "FROM translation_queue WHERE audiobook_id = ?",
             (book,),
         )
         .fetchone()
     )
 
 
-def test_api_worker_processes_only_the_bumped_book(api_db, monkeypatch):
-    for book in (1, 2, 3):
-        lq.enqueue(book, "zh-Hans", priority=50 if book != 2 else 1)
-    seen = []
-    monkeypatch.setattr(lq, "_process_job", lambda job: seen.append(job["audiobook_id"]))
-    monkeypatch.setattr(lq, "_ensure_worker", lambda: None)
-    lq.enqueue(2, "zh-Hans", priority=100, start_worker=True)
-    lq._worker_loop()
-    assert seen == [2], "the worker must not drain the rest of the queue"
-    assert _state(api_db, 1)[0] == "pending" and _state(api_db, 3)[0] == "pending"
-    assert lq._requested == set()
+def test_bump_on_narration_only_row_runs_nothing_in_process(api_db, monkeypatch):
+    """MED-7: a zh-Hans play on a book whose narration is pending must not
+    start TTS (or anything else) inside the API — it only raises priority."""
+    import threading
 
+    import localization.tts.factory as tts_factory
 
-def test_api_claim_skips_rows_the_drain_holds(api_db):
     lq.enqueue(1, "zh-Hans")
     conn = sqlite3.connect(api_db)
-    conn.execute("UPDATE translation_queue SET state='processing', claimed_by='drain'")
+    conn.execute("UPDATE translation_queue SET subtitles_done_at = CURRENT_TIMESTAMP")
     conn.commit()
-    assert lq._next_job({(1, "zh-Hans")}) is None
+    monkeypatch.setattr(
+        tts_factory, "get_tts_provider", lambda *a, **k: pytest.fail("TTS ran in the API process")
+    )
+    threads_before = threading.active_count()
+    lq.enqueue(1, "zh-Hans", priority=100, start_worker=True)  # what /translation/bump does
+    time.sleep(0.2)
+    assert threading.active_count() == threads_before, "a worker thread was started"
+    state, owner, subs, narr, prio = _state(api_db, 1)
+    assert (state, owner, narr) == ("pending", None, None) and subs
+    assert prio == 100, "the bump must still put the book first for the drain"
 
 
-def test_api_claim_is_atomic_against_a_concurrent_claimer(api_db, monkeypatch):
-    """Between the SELECT and the UPDATE another claimer takes the row; the
-    state='pending' guard in the UPDATE makes the API's claim a no-op."""
-    lq.enqueue(1, "zh-Hans")
-    real_get_db = lq._get_db
+def test_bump_route_runs_nothing_in_process(api_db, monkeypatch):
+    import threading
 
-    class Racing:
-        def __init__(self, conn):
-            self.conn = conn
-
-        def execute(self, sql, params=()):
-            if sql.lstrip().startswith("UPDATE translation_queue") and "RETURNING" in sql:
-                other = sqlite3.connect(api_db)
-                other.execute("UPDATE translation_queue SET state='processing', claimed_by='drain'")
-                other.commit()
-                other.close()
-            return self.conn.execute(sql, params)
-
-        def __getattr__(self, name):
-            return getattr(self.conn, name)
-
-    monkeypatch.setattr(lq, "_get_db", lambda db_path=None: Racing(real_get_db(db_path)))
-    assert lq._next_job({(1, "zh-Hans")}) is None
-    assert _state(api_db, 1)[:2] == ("processing", "drain")
+    lq.enqueue(2, "zh-Hans")
+    before = threading.active_count()
+    lq.enqueue(2, "zh-Hans", priority=100, start_worker=True)
+    assert threading.active_count() == before
+    assert _state(api_db, 2)[0] == "pending"
 
 
-def test_api_restart_recovers_only_its_own_claims(api_db, tmp_path):
+def test_queue_module_has_no_executor():
+    for name in ("_ensure_worker", "_worker_loop", "_process_job", "_run_tts", "start_processing"):
+        assert not hasattr(lq, name), f"{name} would let the API process run queue work"
+
+
+def test_api_restart_recovers_only_legacy_api_claims(api_db, tmp_path):
     for book in (1, 2, 3):
         lq.enqueue(book, "zh-Hans")
     conn = sqlite3.connect(api_db)
@@ -277,35 +266,6 @@ def test_api_restart_recovers_only_its_own_claims(api_db, tmp_path):
     assert _state(api_db, 1)[:2] == ("processing", "drain")
     assert _state(api_db, 2)[:2] == ("pending", None)
     assert _state(api_db, 3)[:2] == ("pending", None)
-
-
-def test_no_gpu_provider_leaves_row_pending_not_failed(api_db, monkeypatch):
-    for var in ("AUDIOBOOKS_MT_ENDPOINT",):
-        monkeypatch.delenv(var, raising=False)
-    import localization.pipeline as pipeline
-
-    monkeypatch.setattr(pipeline, "_remote_stt_candidates", lambda workload=None: [])
-    monkeypatch.setattr(pipeline, "STT_PROVIDER", "")
-    lq.enqueue(1, "zh-Hans")
-    job = lq._next_job({(1, "zh-Hans")})
-    lq._process_job(job)
-    state, owner, subs, narr = _state(api_db, 1)
-    assert (state, owner, subs, narr) == ("pending", None, None, None)
-
-
-def test_api_worker_narrates_only_when_subtitles_done(api_db, monkeypatch):
-    lq.enqueue(1, "zh-Hans")
-    conn = sqlite3.connect(api_db)
-    conn.execute("UPDATE translation_queue SET subtitles_done_at = CURRENT_TIMESTAMP")
-    conn.commit()
-    called = []
-    monkeypatch.setattr(lq, "_require_gpu_providers", lambda: called.append("gpu"))
-    monkeypatch.setattr(lq, "_run_stt_phase", lambda *a: called.append("stt"))
-    monkeypatch.setattr(lq, "_run_tts_phase", lambda *a: called.append("tts"))
-    lq._process_job(lq._next_job({(1, "zh-Hans")}))
-    assert called == ["tts"], "subtitles done: no GPU check, no STT"
-    state, _o, subs, narr = _state(api_db, 1)
-    assert state == "completed" and subs and narr
 
 
 # ── batch-translate stages ───────────────────────────────────────────────────
@@ -440,18 +400,157 @@ def test_book_specific_failures_quarantine_after_three_runs(batch_db, monkeypatc
     assert count_drainable(Path(batch_db), "subtitles") == 1
 
 
-def test_run_level_failure_does_not_count_against_the_book(batch_db, monkeypatch):
+def _counters(db):
+    return (
+        sqlite3.connect(db)
+        .execute("SELECT state, drain_attempts, suspect_runs, error FROM translation_queue")
+        .fetchone()
+    )
+
+
+def test_loss_before_the_job_counts_against_nothing(batch_db, monkeypatch):
+    """Endpoints already down when the batch reaches the book: a run-level
+    failure — neither counter moves, however often it happens."""
+    _one_book(batch_db)
+    monkeypatch.setattr(bt, "process_book_stt", lambda *a: pytest.fail("must not start"))
+    monkeypatch.setattr(bt, "endpoints_healthy", lambda: False)
+    for _run in range(5):
+        assert bt._run_batch(batch_db, _args("subtitles", drain=True)) == bt.EXIT_ENDPOINTS_LOST
+    assert _counters(batch_db)[:3] == ("pending", 0, 0)
+
+
+def test_in_flight_loss_quarantines_as_suspect_after_three_runs(batch_db, monkeypatch):
+    """bd 2c9: the same book in flight every time the node vanishes (audio
+    that crashes whisper) is quarantined as suspect — via its own counter,
+    never drain_attempts."""
     _one_book(batch_db)
 
-    def lost(*a):
-        raise ConnectionError("tunnel gone")
+    def crash(*a):
+        raise ConnectionError("whisper died")
 
-    monkeypatch.setattr(bt, "process_book_stt", lost)
-    for _run in range(4):
-        health = iter([True, False])
+    monkeypatch.setattr(bt, "process_book_stt", crash)
+    seen = []
+    for _run in range(3):
+        health = iter([True, False])  # healthy before the job, gone after
         monkeypatch.setattr(bt, "endpoints_healthy", lambda: next(health))
         assert bt._run_batch(batch_db, _args("subtitles", drain=True)) == bt.EXIT_ENDPOINTS_LOST
-    assert _attempts(batch_db)[0][1:3] == ("pending", 0)
+        seen.append(_counters(batch_db)[:3])
+    assert seen == [("pending", 0, 1), ("pending", 0, 2), ("quarantined", 0, 3)], seen
+    assert _counters(batch_db)[3].startswith("suspect:")
+    from localization.drain_queue import count_drainable, requeue_quarantined
+
+    assert count_drainable(Path(batch_db), "subtitles") == 0
+    assert requeue_quarantined(Path(batch_db)) == 1
+    assert _counters(batch_db)[:3] == ("pending", 0, 0)
+
+
+def test_success_resets_the_suspect_counter(batch_db, monkeypatch):
+    _one_book(batch_db)
+    conn = sqlite3.connect(batch_db)
+    conn.execute("UPDATE translation_queue SET suspect_runs = 2")
+    conn.commit()
+    monkeypatch.setattr(bt, "endpoints_healthy", lambda: True)
+    monkeypatch.setattr(bt, "process_book_stt", lambda *a: True)
+    assert bt._run_batch(batch_db, _args("subtitles", drain=True)) == 0
+    assert _counters(batch_db)[2] == 0
+
+
+def test_release_stale_claims(batch_db):
+    from localization.drain_queue import release_stale
+
+    conn = sqlite3.connect(batch_db)
+    for book, owner, age in (
+        (1, "batch:999999", "-1 minutes"),  # dead pid -> released
+        (2, f"batch:{os.getpid()}", "-30 hours"),  # live pid -> kept, however old
+    ):
+        conn.execute(
+            "UPDATE translation_queue SET state='processing', claimed_by=?, "
+            "last_progress_at=datetime('now', ?) WHERE audiobook_id=?",
+            (owner, age, book),
+        )
+    conn.execute(
+        "INSERT INTO audiobooks (id, title, file_path) VALUES (3, 't', '/x'), (4, 't', '/x')"
+    )
+    conn.execute(
+        "INSERT INTO translation_queue (audiobook_id, locale, state, claimed_by, last_progress_at) "
+        "VALUES (3, 'zh-Hans', 'processing', 'api:1', datetime('now', '-7 hours')), "
+        "(4, 'zh-Hans', 'processing', 'drain', datetime('now', '-30 hours'))"
+    )
+    conn.commit()
+    assert release_stale(Path(batch_db), 6) == 2
+    states = dict(conn.execute("SELECT audiobook_id, state FROM translation_queue"))
+    assert states == {1: "pending", 2: "processing", 3: "pending", 4: "processing"}
+
+
+def test_verify_fix_redoes_only_broken_chapters(batch_db, tmp_path):
+    spec = importlib.util.spec_from_file_location("vt", REPO / "scripts" / "verify-translations.py")
+    vt = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vt)
+    good = tmp_path / "good.vtt"
+    good.write_text("WEBVTT\n\n1\n00:00:00.000 --> 00:00:02.000\nHello there\n")
+    conn = sqlite3.connect(batch_db)
+    conn.row_factory = sqlite3.Row
+    for ch in (0, 1):
+        for loc in ("en", "zh-Hans"):
+            path = good if not (ch == 1 and loc == "zh-Hans") else tmp_path / "missing.vtt"
+            conn.execute(
+                "INSERT INTO chapter_subtitles (audiobook_id, chapter_index, locale, vtt_path) "
+                "VALUES (1, ?, ?, ?)",
+                (ch, loc, str(path)),
+            )
+        conn.execute(
+            "INSERT INTO chapter_translations_audio (audiobook_id, chapter_index, locale, audio_path) "
+            "VALUES (1, ?, 'zh-Hans', 'x.opus')",
+            (ch,),
+        )
+    conn.execute(
+        "UPDATE translation_queue SET state='completed', subtitles_done_at=CURRENT_TIMESTAMP, "
+        "narration_done_at=CURRENT_TIMESTAMP WHERE audiobook_id=1"
+    )
+    conn.commit()
+    result = vt.verify_book(conn, 1, "zh-Hans")
+    assert result["status"] == "FAIL" and result["bad_chapters"] == {1}
+    vt.requeue_book(conn, 1, "zh-Hans", result["bad_chapters"])
+    conn.commit()
+    kept = sorted(
+        tuple(r)
+        for r in conn.execute(
+            "SELECT chapter_index, locale FROM chapter_subtitles WHERE audiobook_id=1"
+        )
+    )
+    assert kept == [(0, "en"), (0, "zh-Hans")], "the intact chapter must be kept"
+    narrated = [
+        r[0]
+        for r in conn.execute(
+            "SELECT chapter_index FROM chapter_translations_audio WHERE audiobook_id=1"
+        )
+    ]
+    assert narrated == [0]
+    row = conn.execute(
+        "SELECT state, subtitles_done_at, narration_done_at FROM translation_queue WHERE audiobook_id=1"
+    ).fetchone()
+    assert tuple(row) == ("pending", None, None)
+
+
+def test_verify_fix_on_a_passing_book_changes_nothing(batch_db, tmp_path):
+    spec = importlib.util.spec_from_file_location(
+        "vt2", REPO / "scripts" / "verify-translations.py"
+    )
+    vt = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(vt)
+    good = tmp_path / "good.vtt"
+    good.write_text("WEBVTT\n\n1\n00:00:00.000 --> 00:00:02.000\nHello there\n")
+    conn = sqlite3.connect(batch_db)
+    conn.row_factory = sqlite3.Row
+    for loc in ("en", "zh-Hans"):
+        conn.execute(
+            "INSERT INTO chapter_subtitles (audiobook_id, chapter_index, locale, vtt_path) "
+            "VALUES (2, 0, ?, ?)",
+            (loc, str(good)),
+        )
+    conn.commit()
+    result = vt.verify_book(conn, 2, "zh-Hans")
+    assert result["status"] == "PASS" and result["bad_chapters"] == set()
 
 
 def test_success_resets_the_attempt_counter(batch_db, monkeypatch):

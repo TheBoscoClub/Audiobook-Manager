@@ -29,6 +29,11 @@ moves to ``'quarantined'``: visible, with the last error, and excluded from the
 pending count that decides whether to rent a node. ``drain_queue
 requeue-quarantined`` puts it back.
 
+``suspect_runs`` counts consecutive drain runs that lost the GPU endpoints
+while this book was in flight — a book whose audio crashes the whisper service
+looks like a flaky node every time. At ``AUDIOBOOKS_DRAIN_MAX_SUSPECT`` it is
+quarantined as suspect (Audiobook-Manager-2c9).
+
 ``claimed_by`` names the owner of a ``'processing'`` row (``api:<pid>``,
 ``drain``, ``batch:<pid>``). It is what lets each owner recover only its own
 stale claims: an API restart must not hand back rows a running drain holds.
@@ -95,6 +100,7 @@ def ensure_queue_schema(conn: sqlite3.Connection) -> int:
             narration_done_at TIMESTAMP,
             claimed_by TEXT,
             drain_attempts INTEGER NOT NULL DEFAULT 0,
+            suspect_runs INTEGER NOT NULL DEFAULT 0,
             UNIQUE(audiobook_id, locale),
             FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
         )
@@ -120,6 +126,13 @@ def ensure_queue_schema(conn: sqlite3.Connection) -> int:
                 kind = "TEXT" if col == "claimed_by" else "TIMESTAMP"
                 conn.execute(f"ALTER TABLE translation_queue ADD COLUMN {col} {kind}")  # nosec B608 — fixed column names from TWO_STAGE_COLUMNS
         remapped = _map_existing_rows(conn)
+    if "suspect_runs" not in _columns(conn):
+        # Consecutive drain runs that lost the GPU endpoints while THIS book
+        # was in flight (Audiobook-Manager-2c9). Separate from drain_attempts:
+        # an ordinary node loss is not the book's fault.
+        conn.execute(
+            "ALTER TABLE translation_queue ADD COLUMN suspect_runs INTEGER NOT NULL DEFAULT 0"
+        )
     if "drain_attempts" not in _columns(conn):
         # Consecutive scheduled-drain runs in which THIS book failed for a
         # book-specific reason. Reset by any successful stage; at

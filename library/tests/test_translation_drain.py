@@ -38,7 +38,7 @@ S="$STUB_DIR"
 log() { echo "$*" >> "$S/calls"; }
 case "$1" in
   up)
-    log "up label=${GPU_NODE_LABEL} keyfile=${VAST_API_KEY_FILE:-unset} guard_armed=$([[ -f $S/guard-started ]] && echo yes || echo no)"
+    log "up label=${GPU_NODE_LABEL} keyfile=${VAST_API_KEY_FILE:-unset} lifetime=${GPU_NODE_MAX_LIFETIME:-unset} guard_armed=$([[ -f $S/guard-started ]] && echo yes || echo no)"
     if [[ -n "${STUB_UP_SLEEP:-}" ]]; then
       trap 'log up-got-TERM; kill "$sp" 2>/dev/null; exit 143' TERM
       echo 1 > "$S/instances"   # the create landed; up is still "polling"
@@ -74,8 +74,13 @@ case "$1" in
   count)
     cat "$S/instances" 2>/dev/null || echo 0; exit 0 ;;
   billing)
-    if [[ -f "$S/destroyed" ]]; then echo "credit=${STUB_CREDIT_AFTER-47.00}"; else echo "credit=${STUB_CREDIT_BEFORE-50.00}"; fi
-    echo "instances=$(cat "$S/instances" 2>/dev/null || echo 0) accrued=${STUB_ACCRUED-2.5}"
+    if [[ -f "$S/destroyed" ]]; then
+      echo "credit=${STUB_CREDIT_AFTER-47.00}"
+      echo "instances=0 accrued=${STUB_ACCRUED_AFTER-0} dph=0"
+    else
+      echo "credit=${STUB_CREDIT_BEFORE-50.00}"
+      echo "instances=$(cat "$S/instances" 2>/dev/null || echo 0) accrued=${STUB_ACCRUED-2.5} dph=${STUB_DPH-1.0}"
+    fi
     exit 0 ;;
 esac
 log "gpu-node-unexpected $*"; exit 2
@@ -126,6 +131,14 @@ CURL_STUB = r"""#!/bin/bash
 [[ "${STUB_FAIL:-}" == "bootstrap" ]] && exit 7
 [[ "${STUB_FAIL:-}" == "health-dies" && -f "$STUB_DIR/batch-running" ]] && exit 7
 exit 0
+"""
+
+SYSTEMCTL_STUB = r"""#!/bin/bash
+echo "systemctl $*" >> "$STUB_DIR/systemctl.log"
+case "$1" in
+  is-active) echo "${STUB_REAPER_TIMER:-active}"; [[ "${STUB_REAPER_TIMER:-active}" == active ]] ;;
+  *) exit 1 ;;
+esac
 """
 
 SS_STUB = r"""#!/bin/bash
@@ -192,6 +205,10 @@ class Rig:
         self.batch = _write_exec(tmp / "batch-stub.sh", BATCH_STUB)
         _write_exec(self.bin / "curl", CURL_STUB)
         _write_exec(self.bin / "ss", SS_STUB)
+        _write_exec(self.bin / "systemctl", SYSTEMCTL_STUB)
+        self.label = "abm-drain-testhost"
+        self.heartbeat = tmp / "var" / "reaper-heartbeat"
+        self.beat()
         self.keyfile = tmp / "vast-api-key"
         self.keyfile.write_text("not-a-real-key\n")
         self.keyfile.chmod(0o600)
@@ -203,6 +220,10 @@ class Rig:
             f'AUDIOBOOKS_VAR_DIR="{tmp / "var"}"\n'
             f'AUDIOBOOKS_VENV="{tmp / "venv"}"\n'
         )
+
+    def beat(self, age: float = 0, label: str | None = None) -> None:
+        self.heartbeat.parent.mkdir(parents=True, exist_ok=True)
+        self.heartbeat.write_text(f"{int(time.time() - age)} {label or self.label}\n")
 
     def env(self, **extra: str) -> dict[str, str]:
         env = {
@@ -226,6 +247,8 @@ class Rig:
             "AUDIOBOOKS_DRAIN_LEDGER": str(self.ledger),
             "AUDIOBOOKS_TRANSLATION_EXCLUDE": str(self.tmp / "no-exclusions.txt"),
             "VAST_API_KEY_FILE": str(self.keyfile),
+            "AUDIOBOOKS_DRAIN_LABEL": self.label,
+            "AUDIOBOOKS_DRAIN_REAPER_HEARTBEAT": str(self.heartbeat),
         }
         env.update(extra)
         return env
@@ -365,9 +388,12 @@ def test_happy_path_two_stages_in_order(rig: Rig):
     calls = rig.calls()
     # The guard is armed before the node can exist and covers the create window.
     up_line = next(c for c in calls if c.startswith("up "))
-    assert "guard_armed=yes" in up_line and "label=abm-drain" in up_line, up_line
+    assert "guard_armed=yes" in up_line and "label=abm-drain-testhost " in up_line, up_line
+    # On-node dead-man switch armed with the shared lifetime:
+    # up 1500 + bootstrap 1800 + 240 min + grace 300 + margin 30 min = 19800 s.
+    assert "lifetime=19800" in up_line, up_line
     guard_line = next(c for c in calls if c.startswith("guard "))
-    assert "--cap 7.50" in guard_line and "--label abm-drain" in guard_line
+    assert "--cap 7.50" in guard_line and "--label abm-drain-testhost" in guard_line
     assert "--await" in guard_line, guard_line
     sub_line = next(c for c in calls if c.startswith("batch-subtitles"))
     assert "--drain-mode" in sub_line and "--owner drain" in sub_line
@@ -560,7 +586,7 @@ def test_ledger_survives_between_runs(tmp_path: Path):
 
 
 def test_reservation_stands_when_spend_unmeasurable(rig: Rig):
-    proc = rig.run(STUB_CREDIT_BEFORE="", STUB_CREDIT_AFTER="", STUB_ACCRUED="")
+    proc = rig.run(STUB_CREDIT_BEFORE="", STUB_CREDIT_AFTER="", STUB_ACCRUED="", STUB_DPH="")
     assert proc.returncode == 0, _out(proc)
     kinds = [ln[3] for ln in rig.ledger_lines()]
     assert kinds == ["reserve"], "an unmeasured run keeps its full reservation"
@@ -681,3 +707,123 @@ def test_gpu_node_pip_wait_is_bounded():
     src = (REPO / "scripts" / "gpu-node.sh").read_text()
     line = next(ln for ln in src.splitlines() if "[p]ip install' >/dev/null" in ln)
     assert "-ge ${PIP_WAIT}" in line and "exit 3" in line, line
+
+
+# ── reaper precondition (MED-5), label (HIGH-3), lifetime (HIGH-1) ──────────
+
+
+@pytest.mark.parametrize(
+    "setup,expect",
+    [
+        ({"env": {"STUB_REAPER_TIMER": "inactive"}}, "is 'inactive', not active"),
+        ({"missing": True}, "heartbeat"),
+        ({"age": 4000}, "old"),
+        ({"label": "abm-drain-otherhost"}, "polices label"),
+    ],
+)
+def test_refuses_to_rent_without_an_armed_reaper(rig: Rig, setup, expect):
+    if setup.get("missing"):
+        rig.heartbeat.unlink()
+    if "age" in setup:
+        rig.beat(age=setup["age"])
+    if "label" in setup:
+        rig.beat(label=setup["label"])
+    proc = rig.run(**setup.get("env", {}))
+    assert proc.returncode == 1, _out(proc)
+    assert expect in proc.stdout and "not renting" in proc.stdout, _out(proc)
+    _assert_nothing_rented(rig, proc)
+    assert rig.ledger_lines() == []
+
+
+@pytest.mark.parametrize("label", ["abm-drain", "abm-translate", "abm-drain-UPPER", "other-label"])
+def test_refuses_labels_without_host_identity(rig: Rig, label):
+    proc = rig.run(AUDIOBOOKS_DRAIN_LABEL=label)
+    assert proc.returncode == 1, _out(proc)
+    assert "refusing label" in proc.stdout
+    assert rig.calls() == []
+
+
+def test_default_label_includes_the_host(rig: Rig):
+    import socket
+
+    from localization.drain_limits import default_label
+
+    expected = default_label(socket.gethostname())
+    rig.beat(label=expected)
+    env = rig.env()
+    env.pop("AUDIOBOOKS_DRAIN_LABEL")
+    proc = subprocess.run(["bash", str(DRAIN)], env=env, capture_output=True, text=True, timeout=90)
+    assert proc.returncode == 0, _out(proc)
+    up_line = next(c for c in rig.calls() if c.startswith("up "))
+    assert f"label={expected} " in up_line and expected.startswith("abm-drain-"), up_line
+
+
+def test_lifetime_follows_the_config(rig: Rig):
+    proc = rig.run(
+        AUDIOBOOKS_DRAIN_MAX_MINUTES="60",
+        AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT="600",
+        AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES="10",
+    )
+    assert proc.returncode == 0, _out(proc)
+    up_line = next(c for c in rig.calls() if c.startswith("up "))
+    assert f"lifetime={1500 + 600 + 3600 + 300 + 600} " in up_line, up_line
+
+
+def test_blanked_key_pointer_falls_back_to_runtime_directory(rig: Rig):
+    rundir = rig.tmp / "runtime"
+    rundir.mkdir()
+    (rundir / "vast-api-key").write_text("not-a-real-key\n")
+    proc = rig.run(VAST_API_KEY_FILE="", RUNTIME_DIRECTORY=str(rundir))
+    assert proc.returncode == 0, _out(proc)
+    up_line = next(c for c in rig.calls() if c.startswith("up "))
+    assert f"keyfile={rundir}/vast-api-key" in up_line, up_line
+
+
+# ── ledger keeps the highest sample (MED-4) ─────────────────────────────────
+
+
+def test_ledger_keeps_highest_sample_and_ignores_top_up(rig: Rig):
+    # Accrued reads 4.20 while the node lives and 0 after it is destroyed; the
+    # operator topped up mid-run (credit rose 50 -> 80, a NEGATIVE drop).
+    proc = rig.run(STUB_ACCRUED="4.2", STUB_ACCRUED_AFTER="0", STUB_CREDIT_AFTER="80.00")
+    assert proc.returncode == 0, _out(proc)
+    finals = [float(ln[4]) for ln in rig.ledger_lines() if ln[3] == "final"]
+    assert finals == [4.2], finals
+
+
+def test_ledger_keeps_sample_taken_before_the_guard_destroyed_the_node(rig: Rig):
+    """The guard destroys the node mid-batch at its cap; the teardown-time
+    sample then reads 0. The run's cost must be the highest earlier sample."""
+    proc = rig.run(
+        STUB_FAIL="guard-cap", STUB_ACCRUED="6.5", STUB_ACCRUED_AFTER="0", STUB_CREDIT_AFTER="80.00"
+    )
+    assert proc.returncode == 1, _out(proc)
+    finals = [float(ln[4]) for ln in rig.ledger_lines() if ln[3] == "final"]
+    assert finals and finals[0] >= 6.5, finals
+
+
+def test_ledger_uses_uptime_times_rate_when_higher(rig: Rig):
+    # A $3600/h rate for the >= 2 s the stub "node" lives beats every sample.
+    proc = rig.run(
+        STUB_ACCRUED="0.01", STUB_DPH="3600", STUB_CREDIT_AFTER="50.00", STUB_UP_SLEEP="2"
+    )
+    assert proc.returncode == 0, _out(proc)
+    finals = [float(ln[4]) for ln in rig.ledger_lines() if ln[3] == "final"]
+    assert finals and finals[0] >= 1.0, finals
+
+
+# ── stale claims of owners that are gone (LOW) ──────────────────────────────
+
+
+def test_dead_operator_batch_claim_released_at_start(tmp_path: Path):
+    r = Rig(tmp_path, pending=0)
+    with sqlite3.connect(r.db) as conn:
+        conn.execute("INSERT INTO audiobooks (id, title) VALUES (7, 't')")
+        conn.execute(
+            "INSERT INTO translation_queue (audiobook_id, locale, state, claimed_by, "
+            "last_progress_at) VALUES (7, 'zh-Hans', 'processing', 'batch:999999', CURRENT_TIMESTAMP)"
+        )
+    proc = r.run(STUB_FAIL="up")
+    assert "released 1 stale claim" in proc.stdout, _out(proc)
+    state = sqlite3.connect(r.db).execute("SELECT state FROM translation_queue").fetchone()[0]
+    assert state != "processing"

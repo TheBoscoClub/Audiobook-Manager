@@ -266,9 +266,13 @@ _load_config_file "${HOME:-}/.config/audiobooks/audiobooks.conf"
 : "${AUDIOBOOKS_DRAIN_MAX_MINUTES:=240}"           # wall-clock limit, GPU subtitle batch
 : "${AUDIOBOOKS_DRAIN_NARRATION_MAX_MINUTES:=120}" # wall-clock limit, host narration pass
 : "${AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT:=1800}"    # seconds to wait for vLLM + whisper to answer
-: "${AUDIOBOOKS_DRAIN_LABEL:=abm-drain}"           # Vast instance label the drain owns and destroys
-: "${AUDIOBOOKS_DRAIN_MAX_ATTEMPTS:=3}"            # consecutive failed runs before a book is quarantined
-: "${AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES:=30}"  # reaper: slack past the drain's longest legitimate run
+# AUDIOBOOKS_DRAIN_LABEL: no default here — the drain and reaper derive
+# abm-drain-<short hostname> (localization.drain_limits) and refuse any label
+# not of that form, so two hosts sharing one Vast account never police each
+# other's nodes.
+: "${AUDIOBOOKS_DRAIN_MAX_ATTEMPTS:=3}"           # consecutive failed runs before a book is quarantined
+: "${AUDIOBOOKS_DRAIN_MAX_SUSPECT:=3}"            # runs losing the node with the same book in flight before quarantine
+: "${AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES:=30}" # reaper: slack past the drain's longest legitimate run
 : "${AUDIOBOOKS_DRAIN_LOCK:=${AUDIOBOOKS_RUN_DIR}/translation-drain.lock}"
 : "${AUDIOBOOKS_DRAIN_LEDGER:=${AUDIOBOOKS_VAR_DIR}/translation-drain/spend-ledger.tsv}"
 
@@ -296,7 +300,7 @@ export AUDIOBOOKS_WEBM_CACHE DATA_DIR
 export AUDIOBOOKS_RUN_DIR AUDIOBOOKS_VAR_DIR AUDIOBOOKS_TRIGGERS AUDIOBOOKS_DOWNLOADER_LOCK
 export AUDIOBOOKS_DRAIN_BUDGET_USD AUDIOBOOKS_DRAIN_MONTHLY_BUDGET_USD AUDIOBOOKS_DRAIN_MIN_RUN_USD
 export AUDIOBOOKS_DRAIN_MAX_MINUTES AUDIOBOOKS_DRAIN_NARRATION_MAX_MINUTES AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT
-export AUDIOBOOKS_DRAIN_LABEL AUDIOBOOKS_DRAIN_MAX_ATTEMPTS AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES AUDIOBOOKS_DRAIN_LOCK AUDIOBOOKS_DRAIN_LEDGER
+export AUDIOBOOKS_DRAIN_MAX_ATTEMPTS AUDIOBOOKS_DRAIN_MAX_SUSPECT AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES AUDIOBOOKS_DRAIN_LOCK AUDIOBOOKS_DRAIN_LEDGER
 export AUDIOBOOKS_STREAMING_AUDIO_DIR AUDIOBOOKS_STREAMING_SUBTITLES_DIR
 export AUDIOBOOKS_AUDIBLE_VENV AUDIOBOOKS_AUDIBLE_CMD
 export CF_ZONE_ID AUDIOBOOKS_PROJECT_DIR

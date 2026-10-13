@@ -35,7 +35,9 @@
 #   AUDIOBOOKS_DRAIN_MAX_MINUTES          wall-clock limit, subtitle batch (240)
 #   AUDIOBOOKS_DRAIN_NARRATION_MAX_MINUTES  wall-clock limit, narration pass (120)
 #   AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT    seconds to wait for vLLM + whisper (1800)
-#   AUDIOBOOKS_DRAIN_LABEL                Vast label the drain owns (abm-drain)
+#   AUDIOBOOKS_DRAIN_LABEL                Vast label the drain owns (abm-drain-<host>)
+#   AUDIOBOOKS_DRAIN_MAX_SUSPECT          runs losing the node with the same book
+#                                         in flight before it is quarantined (3)
 #   AUDIOBOOKS_DRAIN_MAX_ATTEMPTS         failed runs before a book is quarantined (3)
 #   AUDIOBOOKS_DRAIN_LOCK                 flock file shared with the reaper
 #   AUDIOBOOKS_DRAIN_LEDGER               append-only spend ledger (TSV)
@@ -50,7 +52,7 @@
 #   DRAIN_CONFIG_LIB, DRAIN_GPU_NODE_CMD, DRAIN_GUARD_CMD, DRAIN_BATCH_CMD,
 #   DRAIN_PYTHON, DRAIN_POLL_SECONDS, DRAIN_MAX_SECONDS,
 #   DRAIN_NARRATION_MAX_SECONDS, DRAIN_TERM_GRACE, DRAIN_LOCK_WAIT,
-#   DRAIN_HEALTH_EVERY, DRAIN_VERIFY_DELAY
+#   DRAIN_HEALTH_EVERY, DRAIN_VERIFY_DELAY, DRAIN_REAPER_MAX_AGE
 #
 # Exit codes: 0 done (or nothing pending), 1 failure or refusal, 75 another
 # drain (or the reaper) held the lock for DRAIN_LOCK_WAIT seconds, 130/143
@@ -98,21 +100,25 @@ MIN_RUN="${AUDIOBOOKS_DRAIN_MIN_RUN_USD:-1}"
 MAX_MINUTES="${AUDIOBOOKS_DRAIN_MAX_MINUTES:-240}"
 NARRATION_MAX_MINUTES="${AUDIOBOOKS_DRAIN_NARRATION_MAX_MINUTES:-120}"
 BOOTSTRAP_TIMEOUT="${AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT:-1800}"
-LABEL="${AUDIOBOOKS_DRAIN_LABEL:-abm-drain}"
+LABEL="${AUDIOBOOKS_DRAIN_LABEL:-}" # default abm-drain-<host>, resolved in main
 MAX_ATTEMPTS="${AUDIOBOOKS_DRAIN_MAX_ATTEMPTS:-3}"
+MAX_SUSPECT="${AUDIOBOOKS_DRAIN_MAX_SUSPECT:-3}"
+MARGIN_MINUTES="${AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES:-30}"
 LOCK_FILE="${AUDIOBOOKS_DRAIN_LOCK:-${AUDIOBOOKS_RUN_DIR}/translation-drain.lock}"
 LEDGER="${AUDIOBOOKS_DRAIN_LEDGER:-${AUDIOBOOKS_VAR_DIR}/translation-drain/spend-ledger.tsv}"
 MT_PORT="${GPU_NODE_MT_PORT:-8000}"
 WHISPER_PORT="${GPU_NODE_WHISPER_PORT:-8765}"
-TUNNEL_PIDFILE="${TMPDIR:-/tmp}/gpu-node-tunnel-${LABEL}.pid"
 LIVE_FILE="${LEDGER}.live"
+HEARTBEAT="${AUDIOBOOKS_DRAIN_REAPER_HEARTBEAT:-$(dirname "$LEDGER")/reaper-heartbeat}"
+REAPER_TIMER=audiobook-translation-reaper.timer
 
 POLL="${DRAIN_POLL_SECONDS:-30}"
 HEALTH_EVERY="${DRAIN_HEALTH_EVERY:-60}"
 TERM_GRACE="${DRAIN_TERM_GRACE:-300}"
 LOCK_WAIT="${DRAIN_LOCK_WAIT:-120}"
 VERIFY_DELAY="${DRAIN_VERIFY_DELAY:-5}"
-UP_WAIT=1500 # gpu-node.sh up: <=1200 s to running + scp/launch; the guard's --await
+REAPER_MAX_AGE="${DRAIN_REAPER_MAX_AGE:-1800}" # 3 reaper intervals
+UP_WAIT=1500                                   # = drain_limits.UP_WAIT_SECONDS; the guard's --await
 PY="${DRAIN_PYTHON:-${AUDIOBOOKS_VENV}/bin/python}"
 
 read -r -a GPU_NODE <<<"${DRAIN_GPU_NODE_CMD:-${SCRIPT_DIR}/gpu-node.sh}"
@@ -123,9 +129,6 @@ else
     BATCH=("$PY" "${SCRIPT_DIR}/batch-translate.py")
 fi
 
-# Both gpu-node.sh and gpu-budget-guard.sh scope everything to this label.
-export GPU_NODE_LABEL="$LABEL"
-
 # --- run state (read by the EXIT trap) --------------------------------------
 NODE_REQUESTED=0
 GUARD_PID=""
@@ -134,7 +137,10 @@ BATCH_PID=""
 RUN_ID=""
 CAP=""
 CREDIT_BEFORE=""
-LAST_ACCRUED=""
+MAX_ACCRUED="" # highest accrued-cost sample seen this run (never lowered)
+MAX_DPH=""     # highest summed $/hr seen this run
+RENT_START=""  # epoch just before `up` — uptime x rate is measured from here
+TUNNEL_PIDFILE=""
 
 # Every child gets fd 9 (the lock) closed: a disowned tunnel ssh that
 # inherited it would hold the lock long after this script exited.
@@ -181,12 +187,18 @@ tunnel_alive() {
     alive "$pid"
 }
 
+max_of() { awk -v a="${1:-0}" -v b="${2:-0}" 'BEGIN { printf "%.4f", (a > b ? a : b) }'; }
+
+# Keep the HIGHEST sample, never the latest: once the guard or the reaper has
+# destroyed the node, a teardown-time sample reads 0 and would erase the run's
+# real cost from the ledger.
 sample_accrued() {
-    local out
+    local out acc dph
     out="$(gpu_node billing 2>/dev/null)" || return 0
-    local acc
-    acc="$(sed -n 's/.*accrued=\([0-9.eE+-]*\).*/\1/p' <<<"$out")"
-    is_money "$acc" && LAST_ACCRUED="$acc"
+    acc="$(sed -n 's/.*accrued=\([0-9.]*\).*/\1/p' <<<"$out")"
+    dph="$(sed -n 's/.*dph=\([0-9.]*\).*/\1/p' <<<"$out")"
+    is_money "$acc" && MAX_ACCRUED="$(max_of "$MAX_ACCRUED" "$acc")"
+    is_money "$dph" && MAX_DPH="$(max_of "$MAX_DPH" "$dph")"
     return 0
 }
 
@@ -226,18 +238,25 @@ release_claims() {
 
 instance_count() { gpu_node count 2>/dev/null; }
 
+# Spend = max(highest accrued sample, uptime since RENT_START x highest rate,
+# credit drop). A NEGATIVE credit drop (an operator top-up mid-run) is
+# ignored rather than read as $0, and the credit drop alone is never trusted
+# (Vast posts charges with a lag). With no accrued/rate evidence at all, no
+# final is written and the full reservation stands.
 record_spend() {
     [[ -n "$RUN_ID" ]] || return 0
-    local after spend=""
+    local after delta="" uptime_cost="" spend=""
     after="$(credit_now)"
     if is_money "$CREDIT_BEFORE" && is_money "$after"; then
-        spend="$(awk -v b="$CREDIT_BEFORE" -v a="$after" 'BEGIN { d = b - a; if (d >= 0) printf "%.4f", d }')"
+        delta="$(awk -v b="$CREDIT_BEFORE" -v a="$after" 'BEGIN { d = b - a; if (d > 0) printf "%.4f", d }')"
     fi
-    if is_money "$LAST_ACCRUED"; then
-        spend="$(awk -v s="${spend:-0}" -v e="$LAST_ACCRUED" 'BEGIN { printf "%.4f", (s > e ? s : e) }')"
+    if is_money "$MAX_DPH" && [[ -n "$RENT_START" ]]; then
+        uptime_cost="$(awk -v s="$RENT_START" -v n="$(date +%s)" -v d="$MAX_DPH" 'BEGIN { printf "%.4f", (n - s) / 3600 * d }')"
     fi
-    if [[ -n "$spend" ]]; then
-        ledger final --run "$RUN_ID" --amount "$spend" --note "credit-delta/uptime-estimate" \
+    if is_money "$MAX_ACCRUED" || is_money "$uptime_cost"; then
+        spend="$(max_of "$(max_of "$MAX_ACCRUED" "$uptime_cost")" "$delta")"
+        ledger final --run "$RUN_ID" --amount "$spend" \
+            --note "max(accrued ${MAX_ACCRUED:-?}, uptime ${uptime_cost:-?}, credit-drop ${delta:-n/a})" \
             && log "spend recorded: \$${spend} (run ${RUN_ID})"
     else
         log "WARNING: spend not measurable — the \$${CAP} reservation stands in the ledger"
@@ -324,6 +343,7 @@ wait_healthy() {
     while ((SECONDS < deadline)); do
         alive "$GUARD_PID" || gfail "budget guard exited during bootstrap (cap reached or guard failure)" || return 1
         tunnel_alive || gfail "tunnel died during bootstrap" || return 1
+        sample_accrued
         if healthy; then
             log "node healthy: vLLM and whisper answer through the tunnel"
             return 0
@@ -337,7 +357,8 @@ wait_healthy() {
 run_batch() {
     local stage="$1" max_seconds="$2"
     local -a args=(--db "$AUDIOBOOKS_DATABASE" --library "$AUDIOBOOKS_LIBRARY"
-        --stage "$stage" --owner drain --drain-mode --max-attempts "$MAX_ATTEMPTS")
+        --stage "$stage" --owner drain --drain-mode --max-attempts "$MAX_ATTEMPTS"
+        --max-suspect "$MAX_SUSPECT")
     log "starting ${stage} batch (limit ${max_seconds}s)"
     if [[ "$stage" == "subtitles" ]]; then
         AUDIOBOOKS_MT_ENDPOINT="http://127.0.0.1:${MT_PORT}" \
@@ -378,7 +399,40 @@ run_batch() {
     esac
 }
 
+# The independent reaper is the only cap that survives SIGKILL/OOM of this
+# script; never rent without proof it is armed: its timer is active AND it
+# completed a run WITH the Vast key, for THIS label, recently.
+reaper_armed() {
+    local active
+    active="$(systemctl is-active "$REAPER_TIMER" 2>/dev/null)"
+    [[ "$active" == "active" ]] || {
+        log "reaper timer ${REAPER_TIMER} is '${active:-unknown}', not active"
+        return 1
+    }
+    [[ -f "$HEARTBEAT" ]] || {
+        log "reaper heartbeat ${HEARTBEAT} missing — the reaper has never run with a key"
+        return 1
+    }
+    local beat_at beat_label age
+    read -r beat_at beat_label <"$HEARTBEAT" || true
+    is_uint "${beat_at:-}" || {
+        log "reaper heartbeat unreadable"
+        return 1
+    }
+    age=$(($(date +%s) - beat_at))
+    if ((age > REAPER_MAX_AGE)); then
+        log "reaper heartbeat is ${age}s old (limit ${REAPER_MAX_AGE}s)"
+        return 1
+    fi
+    [[ "$beat_label" == "$LABEL" ]] || {
+        log "reaper polices label '${beat_label}', not this drain's '${LABEL}'"
+        return 1
+    }
+    return 0
+}
+
 gpu_stage() {
+    reaper_armed || gfail "the independent reaper is not armed — not renting (enable ${REAPER_TIMER} with a Vast key)" || return 1
     if [[ -z "${VAST_API_KEY:-}" ]]; then
         [[ -n "${VAST_API_KEY_FILE:-}" ]] \
             || gfail "no Vast.ai credential: set VAST_API_KEY_FILE (derive-service-secret drop-in) — not renting" || return 1
@@ -404,6 +458,13 @@ gpu_stage() {
     RUN_ID="$run_id"
     NODE_REQUESTED=1
     CREDIT_BEFORE="$(credit_now)"
+    # Arms the on-node dead-man switch: the node ends itself after this long
+    # even if this host never speaks to it again.
+    GPU_NODE_MAX_LIFETIME="$(pyrun -m localization.drain_limits lifetime \
+        --max-minutes "$MAX_MINUTES" --bootstrap-seconds "$BOOTSTRAP_TIMEOUT" \
+        --margin-minutes "$MARGIN_MINUTES")" || gfail "could not compute the node lifetime" || return 1
+    export GPU_NODE_MAX_LIFETIME
+    log "node lifetime (on-node dead-man switch): ${GPU_NODE_MAX_LIFETIME}s"
 
     # Armed before the node exists, so the cap covers create + boot too.
     "${GUARD[@]}" --cap "$CAP" --label "$LABEL" --await "$UP_WAIT" 9>&- &
@@ -415,11 +476,13 @@ gpu_stage() {
     # subshell in between that defers the TERM sent by the teardown) and
     # waited on, so a signal to this script runs its trap immediately rather
     # than when `up` returns (up to ~25 minutes later).
+    RENT_START="$(date +%s)"
     "${GPU_NODE[@]}" up 9>&- &
     UP_PID=$!
     wait "$UP_PID"
     local up_rc=$?
     UP_PID=""
+    sample_accrued
     ((up_rc == 0)) || gfail "gpu-node.sh up failed (exit ${up_rc})" || return 1
 
     ! ports_busy || gfail "local port ${MT_PORT} or ${WHISPER_PORT} became busy — refusing to tunnel" || return 1
@@ -440,9 +503,26 @@ main() {
             fail "AUDIOBOOKS_DRAIN_${k%%:*} must be a positive number (got '${v}')"
         fi
     done
-    for k in MAX_MINUTES NARRATION_MAX_MINUTES BOOTSTRAP_TIMEOUT MAX_ATTEMPTS; do
+    for k in MAX_MINUTES NARRATION_MAX_MINUTES BOOTSTRAP_TIMEOUT MAX_ATTEMPTS MAX_SUSPECT MARGIN_MINUTES; do
         is_uint "${!k}" || fail "${k} must be a whole number (got '${!k}')"
     done
+
+    [[ -n "$LABEL" ]] || LABEL="$(pyrun -m localization.drain_limits default-label)" \
+        || fail "could not derive the default drain label"
+    pyrun -m localization.drain_limits check-label "$LABEL" || fail "refusing label '${LABEL}'"
+    # gpu-node.sh and gpu-budget-guard.sh scope everything to this label.
+    export GPU_NODE_LABEL="$LABEL"
+    TUNNEL_PIDFILE="${TMPDIR:-/tmp}/gpu-node-tunnel-${LABEL}.pid"
+
+    # The derive-service-secret drop-in writes the key into this unit's
+    # RuntimeDirectory and points VAST_API_KEY_FILE at it — but an
+    # EnvironmentFile line VAST_API_KEY_FILE="" in audiobooks.conf overrides
+    # that pointer. Fall back to the derived file so the pointer cannot be
+    # blanked by accident.
+    if [[ -z "${VAST_API_KEY:-}" && -z "${VAST_API_KEY_FILE:-}" &&
+        -n "${RUNTIME_DIRECTORY:-}" && -s "${RUNTIME_DIRECTORY%%:*}/vast-api-key" ]]; then
+        export VAST_API_KEY_FILE="${RUNTIME_DIRECTORY%%:*}/vast-api-key"
+    fi
 
     mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null
     exec 9>>"$LOCK_FILE" || fail "cannot open lock file ${LOCK_FILE}"
@@ -451,8 +531,12 @@ main() {
         exit 75
     fi
 
-    # We hold the lock, so any 'drain' claim is left over from a dead run.
+    # We hold the lock, so any 'drain' claim is left over from a dead run;
+    # an operator batch whose process is gone left its claims too.
     release_claims
+    local stale
+    stale="$(queue_query release-stale)" && [[ "$stale" == "0" ]] \
+        || log "released ${stale:-?} stale claim(s) of owners that are gone"
 
     local subs narr rc=0
     subs="$(queue_query count --stage subtitles)" || fail "could not count pending subtitle work"

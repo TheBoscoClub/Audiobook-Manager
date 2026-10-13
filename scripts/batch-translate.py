@@ -187,6 +187,37 @@ def release_job(db_path: str, job_id: int, note: str | None = None) -> None:
         conn.close()
 
 
+def record_suspect(db_path: str, job_id: int, error: str, max_suspect: int) -> str:
+    """The GPU endpoints were lost while THIS book was in flight.
+
+    Usually the node's fault, so it never counts toward ``drain_attempts``. But
+    a book whose audio crashes the whisper service loses the endpoints on every
+    attempt, which looks exactly like a flaky node and would make the drain
+    rent daily just to fail on it (Audiobook-Manager-2c9). ``suspect_runs``
+    counts consecutive runs that lost the endpoints with this book in flight;
+    any successful stage resets it; at ``max_suspect`` the row is quarantined
+    as suspect. Losses before a job starts are not counted against any book.
+    """
+    conn = get_db(db_path)
+    try:
+        now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+        row = conn.execute(
+            "UPDATE translation_queue SET suspect_runs = suspect_runs + 1, "
+            "state = CASE WHEN suspect_runs + 1 >= ? THEN 'quarantined' ELSE 'pending' END, "
+            "error = CASE WHEN suspect_runs + 1 >= ? "
+            "  THEN 'suspect: GPU endpoints lost with this book in flight on ' "
+            "       || (suspect_runs + 1) || ' consecutive runs; last: ' || ? "
+            "  ELSE error END, "
+            "started_at = NULL, claimed_by = NULL, last_progress_at = ? "
+            "WHERE id = ? RETURNING state",
+            (max_suspect, max_suspect, error[:1500], now, job_id),
+        ).fetchone()
+        conn.commit()
+        return row[0] if row else "missing"
+    finally:
+        conn.close()
+
+
 def record_drain_failure(db_path: str, job_id: int, error: str, max_attempts: int) -> str:
     """A book-specific failure during a scheduled drain run.
 
@@ -238,6 +269,7 @@ def mark_stage_done(db_path: str, job_id: int, stage: str) -> str:
             "finished_at = CASE WHEN subtitles_done_at IS NOT NULL AND narration_done_at IS NOT NULL "
             "             THEN ? ELSE NULL END, "
             "started_at = NULL, claimed_by = NULL, error = NULL, drain_attempts = 0, "
+            "suspect_runs = 0, "
             "last_progress_at = ? WHERE id = ? RETURNING state",
             (now, now, job_id),
         ).fetchone()
@@ -528,9 +560,16 @@ def _parse_args(argv=None):
         default=3,
         help="drain mode: consecutive failed runs before a book is quarantined (default 3)",
     )
+    parser.add_argument(
+        "--max-suspect",
+        type=int,
+        default=3,
+        help="drain mode: consecutive runs that lost the GPU endpoints with the same "
+        "book in flight before it is quarantined as suspect (default 3)",
+    )
     args = parser.parse_args(argv)
-    if args.max_attempts < 1:
-        parser.error("--max-attempts must be >= 1")
+    if args.max_attempts < 1 or args.max_suspect < 1:
+        parser.error("--max-attempts and --max-suspect must be >= 1")
     chosen = [
         x
         for x in (
@@ -724,8 +763,12 @@ def _process_job(db_path, job, args, pending, start_time, processed):
         if args.drain_mode and gpu_stage and not endpoints_healthy():
             # The node or the tunnel went away: not the book's fault. Never
             # mark it failed — hand it back for the next drain and stop.
-            logger.error("  Endpoints lost during %s — releasing it to pending", book["title"])
-            release_job(db_path, job["id"])
+            state = record_suspect(db_path, job["id"], str(e), args.max_suspect)
+            logger.error(
+                "  Endpoints lost during %s — not counted as its failure (row now %s)",
+                book["title"],
+                state,
+            )
             raise EndpointsLost(str(e)) from e
         if args.drain_mode:
             # Book-specific failure inside a scheduled drain: retried on later

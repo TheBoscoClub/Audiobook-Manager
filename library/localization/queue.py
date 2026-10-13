@@ -1,43 +1,30 @@
-"""Background translation queue.
+"""Translation queue — persistence and enqueueing only.
 
-Processes books through the full localization pipeline:
-STT transcription → subtitle translation → TTS narration.
+Rows are added by:
+- book scan/import (every configured non-English locale, post-insert hook)
+- user locale activation (books missing that locale's assets)
+- a player bump (raises one book's priority)
 
-Triggered automatically by:
-- Book scan/import (for all configured non-English locales)
-- User locale change (for books missing that locale's assets)
-- Manual admin API call
+Nothing in the API process EXECUTES queue work (Audiobook-Manager-4j4). Both
+stages are done out of process by the scheduled drain
+(``scripts/translation-drain.sh`` → ``scripts/batch-translate.py``):
+subtitles (STT + MT) on a rented GPU node under a spend cap, narration (TTS)
+on the host afterwards. The in-process worker this module used to run was
+removed: a player bump started it, it ran whole-book TTS inside the API
+(blocking the gevent worker) or GPU work through whatever provider auto
+selection found — paid ones included — outside every spend control.
 
-The queue is persistent (SQLite-backed), resumable (skips completed
-steps), and processes one book at a time to manage GPU costs.
+The schema has one definition, :mod:`localization.queue_schema`.
 """
 
 import logging
-import os
 import sqlite3
-import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
-import threading
-import time
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-_queue_lock = threading.Lock()
-_worker_thread: threading.Thread | None = None
-_shutdown_event = threading.Event()
 _db_path: Path | None = None
 _library_path: Path | None = None
-
-# Current job status — visible to the frontend via the status API
-_current_status: dict = {}
-
-# Book+locale pairs a user explicitly asked this API to process. The worker
-# claims nothing outside this set (Audiobook-Manager-4j4).
-_requested: set[tuple[int, str]] = set()
-
-
-def _owner() -> str:
-    return f"api:{os.getpid()}"
 
 
 def init_queue(database_path: Path, library_path: Path) -> None:
@@ -91,17 +78,17 @@ def _ensure_queue_table(db_path: Path | None = None) -> None:
 
 
 def _recover_stale_jobs() -> None:
-    """Reset jobs THIS API left in 'processing' state from a prior crash/restart.
+    """Reset 'processing' rows left by an API worker of an earlier release.
 
-    Does NOT auto-start the worker — recovered jobs wait in 'pending'
-    until explicitly triggered (user action or admin API).  Auto-starting
-    under gevent's single worker blocks the entire API.
+    The API no longer claims rows; this only returns rows a pre-4j4 API worker
+    (``claimed_by`` NULL or ``api:<pid>``) left behind. Rows the drain holds
+    are never touched.
     """
     conn = _get_db()
     try:
-        # Only rows this API owns (or legacy rows with no owner). Rows the
-        # scheduled drain holds (claimed_by='drain') belong to a process that
-        # may still be running; the drain releases its own.
+        # Only legacy API rows. Rows the scheduled drain holds
+        # (claimed_by='drain') belong to a process that may still be running;
+        # the drain releases its own.
         updated = conn.execute(
             "UPDATE translation_queue SET state = 'pending', started_at = NULL, claimed_by = NULL "
             "WHERE state = 'processing' AND (claimed_by IS NULL OR claimed_by LIKE 'api:%')"
@@ -118,12 +105,9 @@ def enqueue(
 ) -> None:
     """Add a book+locale to the translation queue. Idempotent.
 
-    Does NOT auto-start the worker by default — under gevent's single
-    worker, starting the translation thread blocks the entire API.
-    Pass ``start_worker=True`` only from explicit user-triggered endpoints:
-    the worker then processes THIS book+locale only (never the rest of the
-    queue — whole-queue work belongs to the scheduled drain, which runs it
-    under a spend cap).
+    ``start_worker`` is accepted for API compatibility and means only "a user
+    is waiting for this book": the row's priority is raised so the next drain
+    does it first. Nothing is processed in this process.
     """
     conn = _get_db()
     try:
@@ -136,7 +120,7 @@ def enqueue(
     finally:
         conn.close()
     if start_worker:
-        _request(audiobook_id, locale)
+        bump_priority(audiobook_id, locale, priority=max(priority, 100))
 
 
 def target_locales() -> list[str]:
@@ -226,24 +210,6 @@ def enqueue_all_books_for_locale(locale: str, priority: int = 0) -> int:
         conn.close()
 
 
-def start_processing() -> None:
-    """Start the worker for the books already requested in this process.
-
-    The worker only ever processes explicitly requested book+locale pairs
-    (see :func:`enqueue` ``start_worker=True``); with none requested this
-    starts nothing.
-    """
-    if _requested:
-        _ensure_worker()
-
-
-def _request(audiobook_id: int, locale: str) -> None:
-    """Ask the API worker to process exactly this book+locale."""
-    with _queue_lock:
-        _requested.add((int(audiobook_id), str(locale)))
-    _ensure_worker()
-
-
 def bump_priority(audiobook_id: int, locale: str, priority: int = 100) -> None:
     """Move a book to the front of the queue (e.g., user just opened it)."""
     conn = _get_db()
@@ -273,7 +239,8 @@ def get_queue_status() -> dict:
             "completed": counts.get("completed", 0),
             "failed": counts.get("failed", 0),
             "quarantined": counts.get("quarantined", 0),
-            "current": dict(_current_status) if _current_status else None,
+            # Kept for response-shape compatibility: nothing runs in-process.
+            "current": None,
         }
     finally:
         conn.close()
@@ -333,607 +300,6 @@ def get_book_translation_status(audiobook_id: int, locale: str) -> dict | None:
                 "audiobook_id": audiobook_id,
                 "locale": locale,
             }
-        if (
-            result["state"] == "processing"
-            and _current_status.get("audiobook_id") == audiobook_id
-            and _current_status.get("locale") == locale
-        ):
-            result.update(_current_status)
         return result
     finally:
         conn.close()
-
-
-def _ensure_worker() -> None:
-    global _worker_thread
-    with _queue_lock:
-        if _worker_thread and _worker_thread.is_alive():
-            return
-        _shutdown_event.clear()
-        _worker_thread = threading.Thread(
-            target=_worker_loop, daemon=True, name="translation-queue"
-        )
-        _worker_thread.start()
-        logger.info("Translation queue worker started")
-
-
-def _worker_loop() -> None:
-    while not _shutdown_event.is_set():
-        with _queue_lock:
-            keys = set(_requested)
-        if not keys:
-            return
-        job = _next_job(keys)
-        if not job:
-            # Nothing claimable for the requested pairs (already done, held by
-            # the drain, or not queued) — forget them and stop.
-            with _queue_lock:
-                _requested.difference_update(keys)
-            continue
-        with _queue_lock:
-            _requested.discard((job["audiobook_id"], job["locale"]))
-        _process_job(job)
-
-
-def _next_job(requested) -> dict | None:
-    """Atomically claim the highest-priority pending row among ``requested``.
-
-    ``requested`` is an iterable of (audiobook_id, locale). The claim is one
-    ``UPDATE ... WHERE state = 'pending' ... RETURNING`` statement, so the
-    drain's batch and this worker can never both claim a row.
-    """
-    from common_utils.locale_safety import is_safe_locale
-
-    keys = [(int(b), str(loc)) for b, loc in requested]
-    if not keys:
-        return None
-    conn = _get_db()
-    try:
-        while True:
-            pairs = " OR ".join("(audiobook_id = ? AND locale = ?)" for _ in keys)
-            params = [v for k in keys for v in k]
-            row = conn.execute(
-                "SELECT id, locale FROM translation_queue "  # nosec B608 — placeholders only
-                f"WHERE state = 'pending' AND ({pairs}) "
-                "ORDER BY priority DESC, created_at ASC LIMIT 1",
-                params,
-            ).fetchone()
-            if not row:
-                return None
-            now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-            if not is_safe_locale(row["locale"]):
-                # Defense in depth: a malformed locale is never processed (it
-                # would reach the vLLM prompt and the translation-memory key).
-                # Fixed reason; the value itself is not echoed anywhere.
-                logger.warning(
-                    "Refusing queue job %s: malformed locale (len=%d)",
-                    row["id"],
-                    len(str(row["locale"])),
-                )
-                conn.execute(
-                    "UPDATE translation_queue "
-                    "SET state = 'failed', error = ?, finished_at = ?, last_progress_at = ? "
-                    "WHERE id = ? AND state = 'pending'",
-                    ("invalid locale", now, now, row["id"]),
-                )
-                conn.commit()
-                continue
-            claimed = conn.execute(
-                "UPDATE translation_queue "
-                "SET state = 'processing', started_at = ?, last_progress_at = ?, claimed_by = ? "
-                "WHERE id = ? AND state = 'pending' RETURNING *",
-                (now, now, _owner(), row["id"]),
-            ).fetchone()
-            conn.commit()
-            if claimed is None:
-                continue  # lost the race to another claimer — look again
-            return dict(claimed)
-    finally:
-        conn.close()
-
-
-def _set_current(audiobook_id: int, locale: str, **fields) -> None:
-    global _current_status
-    _current_status = {
-        "audiobook_id": audiobook_id,
-        "locale": locale,
-        "updated_at": time.time(),
-        **fields,
-    }
-    step = fields.get("step")
-    if step:
-        try:
-            conn = _get_db()
-            conn.execute(
-                "UPDATE translation_queue "
-                "SET step = ?, last_progress_at = CURRENT_TIMESTAMP "
-                "WHERE audiobook_id = ? AND locale = ? AND state = 'processing'",
-                (step, audiobook_id, locale),
-            )
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            logger.debug("step heartbeat update failed (non-fatal): %s", e)
-
-
-def _load_book_state(book_id: int, locale: str):
-    """Fetch the book row + existing chapter-coverage sets. Returns
-    (book, audio_path, existing_en, existing_tr, has_tts, err_message_or_None).
-    """
-    conn = _get_db()
-    try:
-        book = conn.execute(
-            "SELECT id, title, file_path FROM audiobooks WHERE id = ?", (book_id,)
-        ).fetchone()
-        if not book:
-            return None, None, set(), set(), None, "Book not found in DB"
-        audio_path = Path(book["file_path"])
-        if not audio_path.exists():
-            return None, None, set(), set(), None, "Audio file not found on disk"
-
-        existing_en = {
-            r[0]
-            for r in conn.execute(
-                "SELECT DISTINCT chapter_index FROM chapter_subtitles "
-                "WHERE audiobook_id = ? AND locale = 'en'",
-                (book_id,),
-            ).fetchall()
-        }
-        existing_tr = {
-            r[0]
-            for r in conn.execute(
-                "SELECT DISTINCT chapter_index FROM chapter_subtitles "
-                "WHERE audiobook_id = ? AND locale = ?",
-                (book_id, locale),
-            ).fetchall()
-        }
-        has_tts = conn.execute(
-            "SELECT id FROM chapter_translations_audio WHERE audiobook_id = ? AND locale = ?",
-            (book_id, locale),
-        ).fetchone()
-        return book, audio_path, existing_en, existing_tr, has_tts, None
-    finally:
-        conn.close()
-
-
-def _run_stt_phase(book, locale, audio_path, existing_en, existing_tr, resume_step):
-    """Run (or skip) the STT/subtitle phase based on prior coverage."""
-    if resume_step != "stt":
-        logger.info("Book %d: resuming from step '%s', skipping STT", book["id"], resume_step)
-        return
-
-    if not existing_en:
-        _set_current(
-            book["id"],
-            locale,
-            step="stt",
-            phase="starting",
-            message=f"Transcribing: {book['title']}",
-        )
-        _run_stt_and_translate(book["id"], locale, audio_path, set())
-    elif len(existing_tr) < len(existing_en):
-        _set_current(
-            book["id"],
-            locale,
-            step="stt",
-            phase="resuming",
-            message=f"Resuming transcription: {book['title']}",
-        )
-        _run_stt_and_translate(book["id"], locale, audio_path, existing_en)
-    else:
-        logger.info("Book %d: subtitles already complete for %s", book["id"], locale)
-
-
-def _run_tts_phase(book, locale, audio_path, has_tts):
-    """Run (or skip) the TTS narration phase."""
-    if has_tts:
-        logger.info("Book %d: TTS audio already exists for %s", book["id"], locale)
-        return
-    _set_current(
-        book["id"],
-        locale,
-        step="tts",
-        phase="starting",
-        message=f"Generating narration: {book['title']}",
-    )
-    _run_tts(book["id"], locale, audio_path)
-
-
-class GPUWorkUnavailable(RuntimeError):
-    """The subtitle stage needs a GPU STT provider or an MT endpoint and none is up.
-
-    Not a failure of the book: the row goes back to ``pending`` for the
-    scheduled drain instead of being marked ``failed``.
-    """
-
-
-def _require_gpu_providers() -> None:
-    """Raise :class:`GPUWorkUnavailable` unless STT and MT are both reachable."""
-    from .pipeline import get_stt_provider
-    from .selection import WorkloadHint
-    from .translation.factory import get_translation_provider
-
-    try:
-        stt = get_stt_provider("", workload=WorkloadHint.LONG_FORM)
-    except (RuntimeError, ValueError) as exc:
-        raise GPUWorkUnavailable(f"no STT provider: {exc}") from exc
-    is_available = getattr(stt, "is_available", None)
-    if callable(is_available) and not is_available():
-        raise GPUWorkUnavailable(f"STT provider {stt.name} is not reachable")
-    if get_translation_provider() is None:
-        raise GPUWorkUnavailable("no machine-translation endpoint (AUDIOBOOKS_MT_ENDPOINT unset)")
-
-
-def _process_job(job: dict) -> None:
-    book_id = job["audiobook_id"]
-    locale = job["locale"]
-    book, audio_path, existing_en, existing_tr, has_tts, err = _load_book_state(book_id, locale)
-    if err:
-        _finish_job(job["id"], "failed", error=err)
-        return
-
-    resume_step = job.get("step", "stt")
-    subtitles_done = bool(job.get("subtitles_done_at"))
-    try:
-        if not subtitles_done:
-            _require_gpu_providers()
-            _run_stt_phase(book, locale, audio_path, existing_en, existing_tr, resume_step)
-            _mark_stage(job["id"], "subtitles_done_at")
-        _run_tts_phase(book, locale, audio_path, has_tts)
-        _mark_stage(job["id"], "narration_done_at")
-        _finish_job(job["id"], "completed")
-        logger.info("Book %d translation complete for %s", book_id, locale)
-    except GPUWorkUnavailable as e:
-        logger.info("Book %d %s: %s — left pending for the scheduled drain", book_id, locale, e)
-        _release_job(job["id"])
-    except Exception as e:
-        logger.exception("Translation failed for book %d locale %s", book_id, locale)
-        _finish_job(job["id"], "failed", error=str(e))
-
-
-def _mark_stage(job_id: int, column: str) -> None:
-    if column not in ("subtitles_done_at", "narration_done_at"):
-        raise ValueError(column)
-    conn = _get_db()
-    try:
-        conn.execute(
-            f"UPDATE translation_queue SET {column} = COALESCE({column}, CURRENT_TIMESTAMP) "  # nosec B608 — column validated above
-            "WHERE id = ?",
-            (job_id,),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-
-
-def _release_job(job_id: int) -> None:
-    """Return a claimed row to ``pending`` untouched — not a failure."""
-    global _current_status
-    conn = _get_db()
-    try:
-        conn.execute(
-            "UPDATE translation_queue SET state = 'pending', started_at = NULL, claimed_by = NULL "
-            "WHERE id = ? AND state = 'processing'",
-            (job_id,),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-    _current_status = {}
-
-
-def _run_stt_and_translate(
-    book_id: int, locale: str, audio_path: Path, skip_chapters: set[int]
-) -> None:
-    """Run STT transcription and subtitle generation."""
-    from .pipeline import generate_book_subtitles, get_stt_provider
-    from .selection import WorkloadHint
-
-    subtitle_dir = audio_path.parent / "subtitles"
-    subtitle_dir.mkdir(parents=True, exist_ok=True)
-
-    _set_current(book_id, locale, phase="loading_stt", message="Loading speech-to-text pipeline…")
-
-    stt = get_stt_provider("", workload=WorkloadHint.LONG_FORM)
-
-    _set_current(
-        book_id,
-        locale,
-        phase="transcribing",
-        message=f"Transcribing with {stt.name}…",
-        stt_provider=stt.name,
-    )
-
-    db_path = str(_db_path)
-
-    def _on_progress(ch_idx: int, total: int, title: str):
-        _set_current(
-            book_id,
-            locale,
-            phase="transcribing",
-            message=f"Chapter {ch_idx + 1}/{total}: {title}",
-            chapter_index=ch_idx,
-            chapter_total=total,
-        )
-        try:
-            hb_conn = _get_db()
-            hb_conn.execute(
-                "UPDATE translation_queue "
-                "SET last_progress_at = CURRENT_TIMESTAMP, total_chapters = ? "
-                "WHERE audiobook_id = ? AND locale = ? AND state = 'processing'",
-                (total, book_id, locale),
-            )
-            hb_conn.commit()
-            hb_conn.close()
-        except Exception as e:
-            logger.debug("chapter-count heartbeat update failed (non-fatal): %s", e)
-
-    gen_conn = sqlite3.connect(db_path)
-    gen_conn.execute("PRAGMA journal_mode=WAL")
-    gen_conn.execute("PRAGMA foreign_keys=ON")
-    try:
-
-        def _on_chapter_complete(ch_idx: int, source_vtt: Path, translated_vtt: Path | None):
-            gen_conn.execute(
-                "INSERT OR REPLACE INTO chapter_subtitles "
-                "(audiobook_id, chapter_index, locale, vtt_path, "
-                " stt_provider, translation_provider) "
-                "VALUES (?, ?, 'en', ?, ?, NULL)",
-                (book_id, ch_idx, str(source_vtt), stt.name),
-            )
-            if translated_vtt:
-                from .translation.factory import translation_provider_name
-
-                gen_conn.execute(
-                    "INSERT OR REPLACE INTO chapter_subtitles "
-                    "(audiobook_id, chapter_index, locale, vtt_path, "
-                    " stt_provider, translation_provider) "
-                    "VALUES (?, ?, ?, ?, ?, ?)",
-                    (
-                        book_id,
-                        ch_idx,
-                        locale,
-                        str(translated_vtt),
-                        stt.name,
-                        translation_provider_name(),
-                    ),
-                )
-            gen_conn.commit()
-
-        generate_book_subtitles(
-            audio_path=audio_path,
-            output_dir=subtitle_dir,
-            target_locale=locale,
-            stt_provider=stt,
-            on_progress=_on_progress,
-            on_chapter_complete=_on_chapter_complete,
-            skip_chapters=skip_chapters,
-        )
-    finally:
-        gen_conn.close()
-
-
-def _load_vtt_rows(book_id: int, locale: str):
-    """Fetch ordered (chapter_index, vtt_path) rows for a locale."""
-    conn = _get_db()
-    try:
-        return conn.execute(
-            "SELECT chapter_index, vtt_path FROM chapter_subtitles "
-            "WHERE audiobook_id = ? AND locale = ? "
-            "ORDER BY chapter_index",
-            (book_id, locale),
-        ).fetchall()
-    finally:
-        conn.close()
-
-
-def _read_vtt_lines(vtt_path: Path) -> list[str]:
-    """Read a VTT and return all caption lines (no WEBVTT header, no
-    timestamps, no cue numbers, no blank lines).
-    """
-    vtt_text = vtt_path.read_text(encoding="utf-8", errors="replace")
-    lines: list[str] = []
-    for block in vtt_text.split("\n\n"):
-        for line in block.strip().split("\n"):
-            stripped = line.strip()
-            if (
-                stripped
-                and not stripped.startswith("WEBVTT")
-                and "-->" not in stripped
-                and not stripped.isdigit()
-            ):
-                lines.append(stripped)
-    return lines
-
-
-def _join_caption_text(lines: list[str], locale: str) -> str:
-    """Join caption lines with locale-appropriate whitespace."""
-    lang_prefix = locale.split("-")[0].lower()
-    joiner = "" if lang_prefix in ("zh", "ja", "ko") else " "
-    return joiner.join(lines)
-
-
-def _transcode_to_opus(intermediate_path: Path, output_path: Path) -> Path:
-    """Transcode a TTS intermediate file to Opus. On failure, return the
-    original intermediate path (so we still have playable audio).
-    """
-    transcode = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-        [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(intermediate_path),
-            "-c:a",
-            "libopus",
-            "-b:a",
-            "64k",
-            "-vbr",
-            "on",
-            str(output_path),
-        ],
-        capture_output=True,
-        text=True,
-        timeout=300,
-        check=False,
-    )
-    if transcode.returncode == 0:
-        intermediate_path.unlink(missing_ok=True)
-        return output_path
-    logger.warning("Opus transcode failed: %s", transcode.stderr[:200])
-    return intermediate_path
-
-
-def _probe_duration(audio_path: Path) -> float | None:
-    """Return the duration of an audio file in seconds, or None on error."""
-    try:
-        result = subprocess.run(  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input  # nosec B607,B603 — partial path — system tools (ffmpeg, systemctl, etc.) must be on PATH for cross-distro compatibility
-            [  # noqa: S603,S607 — system-installed tool; args are config-controlled or hardcoded constants, not user input
-                "ffprobe",
-                "-v",
-                "quiet",
-                "-show_entries",
-                "format=duration",
-                "-of",
-                "csv=p=0",
-                str(audio_path),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=30,
-            check=False,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return float(result.stdout.strip())
-    except Exception:
-        return None
-    return None
-
-
-def _persist_tts_chapter(
-    db_path: str,
-    book_id: int,
-    ch_idx: int,
-    locale: str,
-    output_path: Path,
-    tts_name: str,
-    voice: str,
-    duration: float | None,
-) -> None:
-    """Insert/replace a chapter_translations_audio row."""
-    gen_conn = sqlite3.connect(db_path)
-    gen_conn.execute("PRAGMA journal_mode=WAL")
-    gen_conn.execute("PRAGMA foreign_keys=ON")
-    try:
-        gen_conn.execute(
-            "INSERT OR REPLACE INTO chapter_translations_audio "
-            "(audiobook_id, chapter_index, locale, audio_path, "
-            " tts_provider, tts_voice, duration_seconds) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (book_id, ch_idx, locale, str(output_path), tts_name, voice, duration),
-        )
-        gen_conn.commit()
-    finally:
-        gen_conn.close()
-
-
-def _tts_one_chapter(
-    row,
-    book_id: int,
-    locale: str,
-    audio_path: Path,
-    output_dir: Path,
-    total_rows: int,
-    tts,
-    voice: str,
-    db_path: str,
-) -> None:
-    """Synthesize + persist a single chapter's TTS output."""
-    ch_idx = row["chapter_index"]
-    vtt_path = Path(row["vtt_path"])
-
-    _set_current(
-        book_id,
-        locale,
-        step="tts",
-        phase="synthesizing",
-        message=f"Narrating chapter {ch_idx + 1}/{total_rows}",
-        chapter_index=ch_idx,
-        chapter_total=total_rows,
-    )
-
-    if not vtt_path.exists():
-        logger.warning("VTT missing for chapter %d: %s", ch_idx, vtt_path)
-        return
-
-    lines = _read_vtt_lines(vtt_path)
-    if not lines:
-        return
-    full_text = _join_caption_text(lines, locale)
-
-    from .tts.factory import synthesize_with_fallback
-
-    intermediate_ext = "mp3" if tts.name == "edge-tts" else "wav"
-    stem = f"{audio_path.stem}.ch{ch_idx:03d}.{locale}"
-    intermediate_path = output_dir / f"{stem}.tts.{intermediate_ext}"
-    output_path = output_dir / f"{stem}.opus"
-
-    synthesize_with_fallback(tts, full_text, locale, voice, intermediate_path)
-    output_path = _transcode_to_opus(intermediate_path, output_path)
-    duration = _probe_duration(output_path)
-    _persist_tts_chapter(db_path, book_id, ch_idx, locale, output_path, tts.name, voice, duration)
-
-
-def _run_tts(book_id: int, locale: str, audio_path: Path) -> None:
-    """Run TTS narration from translated subtitle text."""
-    from .config import TTS_VOICE_ZH
-    from .selection import WorkloadHint
-    from .tts.factory import get_tts_provider
-
-    vtt_rows = _load_vtt_rows(book_id, locale)
-    if not vtt_rows:
-        logger.warning(
-            "No translated subtitles for book %d locale %s — skipping TTS", book_id, locale
-        )
-        return
-
-    _set_current(
-        book_id, locale, step="tts", phase="loading_tts", message="Loading text-to-speech pipeline…"
-    )
-
-    tts = get_tts_provider(None, workload=WorkloadHint.LONG_FORM)
-    voice = TTS_VOICE_ZH
-    output_dir = audio_path.parent / "translated"
-    output_dir.mkdir(parents=True, exist_ok=True)
-    db_path = str(_db_path)
-
-    for row in vtt_rows:
-        _tts_one_chapter(
-            row, book_id, locale, audio_path, output_dir, len(vtt_rows), tts, voice, db_path
-        )
-
-    logger.info(
-        "TTS narration complete for book %d locale %s: %d chapters", book_id, locale, len(vtt_rows)
-    )
-
-
-def _finish_job(job_id: int, state: str, error: str | None = None) -> None:
-    global _current_status
-    conn = _get_db()
-    try:
-        now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-        conn.execute(
-            "UPDATE translation_queue "
-            "SET state = ?, error = ?, finished_at = ?, last_progress_at = ?, claimed_by = NULL "
-            "WHERE id = ?",
-            (state, error, now, now, job_id),
-        )
-        conn.commit()
-    finally:
-        conn.close()
-    _current_status = {}
-
-
-def shutdown() -> None:
-    _shutdown_event.set()
-    if _worker_thread:
-        _worker_thread.join(timeout=5)

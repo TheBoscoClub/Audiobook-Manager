@@ -7,30 +7,41 @@
 #
 # Why it exists: the drain's spend guard lives in the drain's own cgroup, so
 # anything that kills the drain without running its trap — SIGKILL, the OOM
-# killer, power loss, a systemd stop timeout — kills the guard too and leaves
-# a node billing with no cap. This runs as a separate unit on its own timer
-# and destroys every instance labelled AUDIOBOOKS_DRAIN_LABEL (abm-drain) that
+# killer, a systemd stop timeout — kills the guard too and leaves a node
+# billing with no cap. (Host DOWN is covered on the node itself: gpu-node.sh's
+# dead-man switch.) This runs as a separate unit on its own timer and destroys
+# every instance labelled exactly AUDIOBOOKS_DRAIN_LABEL (abm-drain-<host>)
+# that
 #   (a) has no live drain run (the drain lock is free), or
 #   (b) has lived longer than the drain could legitimately need
-#       (AUDIOBOOKS_DRAIN_MAX_MINUTES + bootstrap timeout + up wait + stop grace
-#        + AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES), or
+#       (localization.drain_limits — the same value the node's dead-man
+#        switch uses), or
 #   (c) has accrued the per-run cap (AUDIOBOOKS_DRAIN_BUDGET_USD), or
 #   (d) would take the month past AUDIOBOOKS_DRAIN_MONTHLY_BUDGET_USD: the
 #       ledger's month-to-date (excluding the live run's reservation) plus the
 #       live instances' accrued cost reaches the ceiling.
-# It never touches any other label — abm-translate is the operator's hand-run
-# session — and refuses to run if configured with that label.
+# (a)-(c) need only the Vast listing and are decided and EXECUTED first; the
+# ledger is read only for (d), so a damaged ledger can never stop an orphan
+# from being destroyed (it is reported, and the run exits non-zero, after).
 #
-# While it inspects and destroys it holds the drain lock, so a drain cannot
-# start in the middle of a reap (the drain waits for the lock).
+# It never touches any other label, and refuses labels that are not
+# abm-drain-<name>: the Vast account is shared between hosts and every host's
+# reaper must police only its own drain's nodes.
+#
+# While it inspects and destroys it holds the drain lock if free, so a drain
+# cannot start in the middle of a reap (the drain waits for the lock).
+#
+# Each run that completes with the key writes a heartbeat
+# (AUDIOBOOKS_DRAIN_REAPER_HEARTBEAT: "<epoch> <label>"); the drain refuses to
+# rent without a recent one.
 #
 # Exit codes: 0 nothing to do; 2 it destroyed something (a firing is always an
 # incident — the unit shows failed so cachyos-sentinel alerts); 1 error,
-# including any teardown it could not verify.
+# including any teardown it could not verify, a ledger it could not read, and
+# a missing key on a host where the drain is configured.
 #
-# Credential: VAST_API_KEY or VAST_API_KEY_FILE (derive-service-secret drop-in).
-# With neither configured it exits 0: a host with no Vast credential cannot
-# have rented anything through the drain.
+# Credential: VAST_API_KEY, VAST_API_KEY_FILE, or the key derive-service-secret
+# wrote into this unit's RuntimeDirectory.
 #
 # Test seams: DRAIN_CONFIG_LIB, DRAIN_PYTHON, VAST_API_BASE, DRAIN_VERIFY_DELAY.
 
@@ -58,7 +69,7 @@ fi
 source "$CONFIG_LIB"
 
 API_BASE="${VAST_API_BASE:-https://console.vast.ai/api/v0}"
-LABEL="${AUDIOBOOKS_DRAIN_LABEL:-abm-drain}"
+LABEL="${AUDIOBOOKS_DRAIN_LABEL:-}"
 BUDGET="${AUDIOBOOKS_DRAIN_BUDGET_USD:-10}"
 MONTHLY="${AUDIOBOOKS_DRAIN_MONTHLY_BUDGET_USD:-100}"
 MAX_MINUTES="${AUDIOBOOKS_DRAIN_MAX_MINUTES:-240}"
@@ -67,25 +78,43 @@ MARGIN_MINUTES="${AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES:-30}"
 LOCK_FILE="${AUDIOBOOKS_DRAIN_LOCK:-${AUDIOBOOKS_RUN_DIR}/translation-drain.lock}"
 LEDGER="${AUDIOBOOKS_DRAIN_LEDGER:-${AUDIOBOOKS_VAR_DIR}/translation-drain/spend-ledger.tsv}"
 LIVE_FILE="${LEDGER}.live"
+HEARTBEAT="${AUDIOBOOKS_DRAIN_REAPER_HEARTBEAT:-$(dirname "$LEDGER")/reaper-heartbeat}"
 PY="${DRAIN_PYTHON:-${AUDIOBOOKS_VENV}/bin/python}"
 VERIFY_DELAY="${DRAIN_VERIFY_DELAY:-5}"
-# Drain worst case: up (<=1500 s) + bootstrap + batch + stop grace (300 s).
-UP_WAIT=1500
-STOP_GRACE=300
 
-[[ "$LABEL" != "abm-translate" ]] || die "AUDIOBOOKS_DRAIN_LABEL is the operator's abm-translate label — refusing"
+pyrun() { PYTHONPATH="${LIB_PY_DIR}${PYTHONPATH:+:${PYTHONPATH}}" "$PY" "$@" 9>&-; }
+ledger() { pyrun -m localization.drain_ledger --ledger "$LEDGER" "$@"; }
+
+[[ -n "$LABEL" ]] || LABEL="$(pyrun -m localization.drain_limits default-label)" \
+    || die "could not derive the default drain label"
+pyrun -m localization.drain_limits check-label "$LABEL" || die "refusing label '${LABEL}'"
 for v in MAX_MINUTES BOOTSTRAP_TIMEOUT MARGIN_MINUTES; do
     [[ "${!v}" =~ ^[0-9]+$ ]] || die "${v} must be a whole number (got '${!v}')"
 done
 for v in BUDGET MONTHLY; do
     [[ "${!v}" =~ ^[0-9]+(\.[0-9]+)?$ ]] || die "${v} must be a number (got '${!v}')"
 done
-MAX_LIFE=$((MAX_MINUTES * 60 + BOOTSTRAP_TIMEOUT + UP_WAIT + STOP_GRACE + MARGIN_MINUTES * 60))
+MAX_LIFE="$(pyrun -m localization.drain_limits lifetime --max-minutes "$MAX_MINUTES" \
+    --bootstrap-seconds "$BOOTSTRAP_TIMEOUT" --margin-minutes "$MARGIN_MINUTES")" \
+    || die "could not compute the drain node lifetime"
 
 # --- credential ---------------------------------------------------------------
+# The derive-service-secret drop-in's pointer can be blanked by an
+# EnvironmentFile line; the derived file itself is authoritative.
+if [[ -z "${VAST_API_KEY:-}" && -z "${VAST_API_KEY_FILE:-}" &&
+    -n "${RUNTIME_DIRECTORY:-}" && -s "${RUNTIME_DIRECTORY%%:*}/vast-api-key" ]]; then
+    VAST_API_KEY_FILE="${RUNTIME_DIRECTORY%%:*}/vast-api-key"
+fi
+drain_configured() {
+    systemctl is-enabled --quiet audiobook-translation-drain.timer 2>/dev/null && return 0
+    [[ -e "$LEDGER" || -e "$LIVE_FILE" ]]
+}
 if [[ -z "${VAST_API_KEY:-}" ]]; then
     if [[ -z "${VAST_API_KEY_FILE:-}" ]]; then
-        log "no Vast.ai credential configured — the drain cannot have rented anything; nothing to reap"
+        if drain_configured; then
+            die "no Vast.ai credential, but the drain is configured on this host — the reaper is NOT protecting it"
+        fi
+        log "no Vast.ai credential and no drain configured — nothing can have been rented; nothing to reap"
         exit 0
     fi
     [[ -r "$VAST_API_KEY_FILE" ]] || die "VAST_API_KEY_FILE (${VAST_API_KEY_FILE}) is not readable"
@@ -110,15 +139,42 @@ labeled() {
     api GET "/instances/" | jq -e --arg l "$LABEL" '[.instances[]? | select(.label == $l)]'
 }
 
-ledger() {
-    PYTHONPATH="${LIB_PY_DIR}${PYTHONPATH:+:${PYTHONPATH}}" \
-        "$PY" -m localization.drain_ledger --ledger "$LEDGER" "$@" 9>&-
+heartbeat() {
+    mkdir -p "$(dirname "$HEARTBEAT")" 2>/dev/null
+    if ! { printf '%s %s\n' "$(date +%s)" "$LABEL" >"${HEARTBEAT}.tmp" \
+        && mv -f "${HEARTBEAT}.tmp" "$HEARTBEAT"; }; then
+        log "WARNING: could not write heartbeat ${HEARTBEAT} — the drain will refuse to rent"
+    fi
+}
+
+# destroy_verified ID... — DELETE each, re-list until all gone (5 tries).
+destroy_verified() {
+    local id try remaining="" rows_after ids_json
+    ids_json="$(printf '%s\n' "$@" | jq -R 'tonumber? // .' | jq -s .)"
+    for id in "$@"; do
+        api DELETE "/instances/${id}/" >/dev/null || log "delete call for ${id} errored (verifying anyway)"
+    done
+    for try in 1 2 3 4 5; do
+        sleep "$VERIFY_DELAY"
+        rows_after="$(labeled)" || {
+            log "verify attempt ${try}: listing failed"
+            continue
+        }
+        remaining="$(jq -r --argjson ids "$ids_json" \
+            '[.[] | select(.id as $i | $ids | index($i))] | length' <<<"$rows_after")"
+        [[ "$remaining" == "0" ]] && return 0
+        log "verify attempt ${try}: ${remaining} still present — retrying delete"
+        for id in "$@"; do api DELETE "/instances/${id}/" >/dev/null 2>&1 || true; done
+    done
+    log "!!! REAP UNVERIFIED — ${remaining:-unknown} '${LABEL}' instance(s) may still bill; check console.vast.ai NOW !!!"
+    return 1
 }
 
 # --- look ---------------------------------------------------------------------
 rows="$(labeled)" || die "could not list Vast instances — cannot tell whether a node is billing"
 count="$(jq 'length' <<<"$rows")"
 if [[ "$count" == "0" ]]; then
+    heartbeat
     exit 0
 fi
 
@@ -130,20 +186,16 @@ if flock -n 9; then
 fi
 live_run=""
 [[ -f "$LIVE_FILE" ]] && live_run="$(head -c 200 "$LIVE_FILE" | tr -d '[:space:]')"
-
 now="$(date +%s)"
 accrued_total="$(jq -r --argjson now "$now" \
     '[.[] | ((($now - (.start_date // $now)) / 3600) * (.dph_total // 0))] | add // 0' <<<"$rows")"
-exclude=""
-[[ $drain_live -eq 1 ]] && exclude="$live_run"
-mtd="$(ledger mtd --exclude-run "$exclude")" || die "could not read the spend ledger ${LEDGER}"
-month_total="$(awk -v m="$mtd" -v a="$accrued_total" 'BEGIN { printf "%.4f", m + a }')"
-over_ceiling="$(awk -v t="$month_total" -v c="$MONTHLY" 'BEGIN { print (t >= c) ? 1 : 0 }')"
+log "${count} '${LABEL}' instance(s); drain live=${drain_live}; accrued \$${accrued_total}"
 
-log "${count} '${LABEL}' instance(s); drain live=${drain_live}; month-to-date incl. live accrued \$${month_total} of \$${MONTHLY}"
+rc=0
+destroyed=0
 
-# --- decide -------------------------------------------------------------------
-declare -a doomed=()
+# --- (a) (b) (c): listing only, decided and executed BEFORE the ledger --------
+declare -a doomed=() survivors=()
 while IFS=$'\t' read -r id age spend; do
     reason=""
     if [[ $drain_live -eq 0 ]]; then
@@ -152,48 +204,69 @@ while IFS=$'\t' read -r id age spend; do
         reason="age ${age}s exceeds the drain's maximum lifetime ${MAX_LIFE}s"
     elif awk -v s="$spend" -v c="$BUDGET" 'BEGIN { exit !(s >= c) }'; then
         reason="accrued \$${spend} reached the per-run cap \$${BUDGET}"
-    elif [[ "$over_ceiling" == "1" ]]; then
-        reason="month-to-date \$${month_total} reached the monthly ceiling \$${MONTHLY}"
     fi
     if [[ -n "$reason" ]]; then
         log "REAPING instance ${id}: ${reason}"
         doomed+=("$id")
+    else
+        survivors+=("$id")
     fi
 done < <(jq -r --argjson now "$now" '.[] |
     (($now - (.start_date // $now)) | floor) as $age |
     [.id, $age, (($age / 3600) * (.dph_total // 0) * 10000 | round / 10000)] | @tsv' <<<"$rows")
 
-[[ ${#doomed[@]} -gt 0 ]] || exit 0
+if [[ ${#doomed[@]} -gt 0 ]]; then
+    if destroy_verified "${doomed[@]}"; then
+        destroyed=$((destroyed + ${#doomed[@]}))
+    else
+        rc=1
+    fi
+fi
 
-# --- destroy and verify -------------------------------------------------------
-for id in "${doomed[@]}"; do
-    api DELETE "/instances/${id}/" >/dev/null || log "delete call for ${id} errored (verifying anyway)"
-done
-remaining=""
-for try in 1 2 3 4 5; do
-    sleep "$VERIFY_DELAY"
-    rows_after="$(labeled)" || {
-        log "verify attempt ${try}: listing failed"
-        continue
-    }
-    remaining="$(jq -r --argjson ids "$(printf '%s\n' "${doomed[@]}" | jq -R 'tonumber? // .' | jq -s .)" \
-        '[.[] | select(.id as $i | $ids | index($i))] | length' <<<"$rows_after")"
-    [[ "$remaining" == "0" ]] && break
-    log "verify attempt ${try}: ${remaining} still present — retrying delete"
-    for id in "${doomed[@]}"; do api DELETE "/instances/${id}/" >/dev/null 2>&1 || true; done
-done
+# --- (d): the monthly ceiling needs the ledger --------------------------------
+if [[ ${#survivors[@]} -gt 0 ]]; then
+    exclude=""
+    [[ $drain_live -eq 1 ]] && exclude="$live_run"
+    if mtd="$(ledger mtd --exclude-run "$exclude")"; then
+        month_total="$(awk -v m="$mtd" -v a="$accrued_total" 'BEGIN { printf "%.4f", m + a }')"
+        if awk -v t="$month_total" -v c="$MONTHLY" 'BEGIN { exit !(t >= c) }'; then
+            log "REAPING ${#survivors[@]} instance(s): month-to-date \$${month_total} reached the monthly ceiling \$${MONTHLY}"
+            if destroy_verified "${survivors[@]}"; then
+                destroyed=$((destroyed + ${#survivors[@]}))
+            else
+                rc=1
+            fi
+        fi
+    else
+        log "!!! could not read the spend ledger ${LEDGER} — the monthly ceiling is NOT being enforced on live instance(s) ${survivors[*]}; repair the ledger !!!"
+        rc=1
+    fi
+fi
+
+# Every run that reached here also proves the ledger is readable (the drain's
+# budget decisions and (d) depend on it) — after acting, never before.
+if [[ ${#survivors[@]} -eq 0 ]] && ! ledger mtd >/dev/null; then
+    log "!!! the spend ledger ${LEDGER} is unreadable — repair it; the drain will refuse to rent !!!"
+    rc=1
+fi
 
 # A dead run's spend is what its node accrued; record it (largest final wins).
-if [[ $drain_live -eq 0 ]]; then
+if [[ $drain_live -eq 0 && $destroyed -gt 0 ]]; then
     run="${live_run:-orphan-$(date +%Y%m%d%H%M%S)}"
     ledger final --run "$run" --amount "$accrued_total" --note "reaper estimate" \
-        || log "WARNING: could not record \$${accrued_total} in the ledger"
+        || {
+            log "!!! could not record \$${accrued_total} in the ledger — the month will under-count !!!"
+            rc=1
+        }
     rm -f "$LIVE_FILE"
 fi
 
-if [[ "$remaining" != "0" ]]; then
-    log "!!! REAP UNVERIFIED — ${remaining:-unknown} '${LABEL}' instance(s) may still bill; check console.vast.ai NOW !!!"
+if [[ $rc -ne 0 ]]; then
     exit 1
 fi
-log "verified: ${#doomed[@]} instance(s) destroyed"
-exit 2
+heartbeat
+if [[ $destroyed -gt 0 ]]; then
+    log "verified: ${destroyed} instance(s) destroyed"
+    exit 2
+fi
+exit 0

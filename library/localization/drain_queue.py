@@ -19,6 +19,11 @@ unit-tested:
     when it stopped early). Rows other owners hold — the API worker, an
     operator's hand-run batch — are never touched. Prints the number released.
 
+``release-stale [--max-age-hours 6]``
+    Releases claims whose owner is gone: an operator's ``batch:<pid>`` whose
+    process no longer runs, or any other non-drain owner with no progress for
+    the given hours. The drain calls it at start. Prints the number released.
+
 ``requeue-quarantined [--book-id N] [--locale L]``
     Puts ``quarantined`` rows (a book that failed on
     ``AUDIOBOOKS_DRAIN_MAX_ATTEMPTS`` consecutive drain runs) back to
@@ -33,6 +38,7 @@ Usage: python -m localization.drain_queue --db PATH count --stage subtitles
 from __future__ import annotations
 
 import argparse
+import os
 import sqlite3
 import sys
 from pathlib import Path
@@ -98,6 +104,57 @@ def release_claims(db_path: Path, owner: str) -> int:
         conn.close()
 
 
+def _pid_alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True  # exists, owned by someone else
+    return True
+
+
+def release_stale(db_path: Path, max_age_hours: float = 6.0) -> int:
+    """Release claims whose owner is gone, never the drain's or a live owner's.
+
+    * ``batch:<pid>`` (an operator's hand-run batch): released when that pid
+      is no longer running on this host.
+    * any other non-drain owner (e.g. ``api:<pid>`` from an older release):
+      released once ``last_progress_at`` is older than ``max_age_hours``.
+    Rows claimed by ``drain`` are handled by :func:`release_claims`.
+    """
+    conn = _connect(db_path)
+    try:
+        if not _has_audiobooks(conn):
+            return 0
+        ensure_queue_schema(conn)
+        rows = conn.execute(
+            "SELECT id, claimed_by, last_progress_at, "
+            "  last_progress_at < datetime('now', ?) AS old "
+            "FROM translation_queue WHERE state = 'processing' "
+            "AND (claimed_by IS NULL OR claimed_by != 'drain')",
+            (f"-{float(max_age_hours)} hours",),
+        ).fetchall()
+        stale = []
+        for row_id, owner, _progress, old in rows:
+            owner = owner or ""
+            if owner.startswith("batch:") and owner[6:].isdigit():
+                if not _pid_alive(int(owner[6:])):
+                    stale.append(row_id)
+            elif old:
+                stale.append(row_id)
+        for row_id in stale:
+            conn.execute(
+                "UPDATE translation_queue SET state = 'pending', started_at = NULL, "
+                "claimed_by = NULL WHERE id = ? AND state = 'processing'",
+                (row_id,),
+            )
+        conn.commit()
+        return len(stale)
+    finally:
+        conn.close()
+
+
 def requeue_quarantined(
     db_path: Path, book_id: int | None = None, locale: str | None = None
 ) -> int:
@@ -108,7 +165,7 @@ def requeue_quarantined(
             return 0
         ensure_queue_schema(conn)
         sql = (
-            "UPDATE translation_queue SET state = 'pending', drain_attempts = 0, "
+            "UPDATE translation_queue SET state = 'pending', drain_attempts = 0, suspect_runs = 0, "
             "error = NULL, finished_at = NULL WHERE state = 'quarantined'"
         )
         params: list = []
@@ -133,6 +190,8 @@ def main(argv: list[str] | None = None) -> int:
     cnt.add_argument("--stage", choices=sorted(STAGE_FILTERS), default="subtitles")
     rel = sub.add_parser("release")
     rel.add_argument("--owner", required=True)
+    stale = sub.add_parser("release-stale")
+    stale.add_argument("--max-age-hours", type=float, default=6.0)
     req = sub.add_parser("requeue-quarantined")
     req.add_argument("--book-id", type=int)
     req.add_argument("--locale")
@@ -145,6 +204,8 @@ def main(argv: list[str] | None = None) -> int:
         print(count_drainable(args.db, args.stage))
     elif args.cmd == "release":
         print(release_claims(args.db, args.owner))
+    elif args.cmd == "release-stale":
+        print(release_stale(args.db, args.max_age_hours))
     else:
         print(requeue_quarantined(args.db, args.book_id, args.locale))
     return 0
