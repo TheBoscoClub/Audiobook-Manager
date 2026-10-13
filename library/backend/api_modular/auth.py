@@ -80,6 +80,7 @@ from .auth_email import (  # noqa: F401  (re-export)
     _send_reply_email,
 )
 from .auth_shared import (  # noqa: F401  (re-export)
+    GUEST_WORK_HEADER,
     INVITATION_EXPIRY_HOURS,
     SESSION_DURATION_DEFAULT,
     SESSION_DURATION_REMEMBER,
@@ -114,6 +115,7 @@ from .auth_shared import (  # noqa: F401  (re-export)
     get_current_session,
     get_current_user,
     guest_allowed,
+    guest_cache_only,
     init_auth_routes,
     localhost_only,
     login_required,
@@ -121,6 +123,7 @@ from .auth_shared import (  # noqa: F401  (re-export)
     require_current_user,
     require_current_user_id,
     set_session_cookie,
+    work_allowed,
 )
 
 # All of the shared auth contract — Blueprint, decorators, session helpers,

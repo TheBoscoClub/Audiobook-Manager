@@ -38,6 +38,28 @@
     return val;
   }
 
+  // t() with an English fallback: the raw key comes back when the catalog
+  // lacks it (catalog failed to load / key not yet translated).
+  function tOr(key, fallback, params) {
+    var val = t(key, params);
+    return val === key ? fallback : val;
+  }
+
+  // Guests get cached translations only (bd gau). The server tags such a
+  // response with X-Translation-Guest; say so once per page load.
+  var guestNoticeShown = false;
+  function noticeGuestCacheOnly(response) {
+    if (guestNoticeShown || !response || !response.headers) return;
+    if (response.headers.get("X-Translation-Guest") !== "cache-only") return;
+    guestNoticeShown = true;
+    var msg = tOr("translation.guestSignIn", "Translation is available to signed-in users");
+    if (typeof showToast === "function") {
+      showToast(msg, "info");
+    } else if (window.library && typeof window.library.showToast === "function") {
+      window.library.showToast(msg, "info");
+    }
+  }
+
   // ── Locale management ──
 
   function getLocale() {
@@ -217,7 +239,10 @@
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ locale: locale, strings: strings }),
     })
-      .then(function (r) { return r.ok ? r.json() : {}; })
+      .then(function (r) {
+        noticeGuestCacheOnly(r);
+        return r.ok ? r.json() : {};
+      })
       .catch(function () { return {}; });
   }
 
@@ -301,6 +326,8 @@
   window.t = t;
   window.i18n = {
     t: t,
+    tOr: tOr,
+    noticeGuestCacheOnly: noticeGuestCacheOnly,
     getLocale: getLocale,
     setLocale: function (locale) {
       return setLocale(locale).then(function () {

@@ -21,7 +21,13 @@ from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 
-from .auth import admin_if_enabled, admin_required, guest_allowed
+from .auth import (
+    admin_if_enabled,
+    admin_required,
+    guest_allowed,
+    guest_cache_only,
+    work_allowed,
+)
 from .legacy_teardown import migrate_drop_legacy_quota as _migrate_drop_legacy_quota
 from .locale_validation import enqueue_locale_error, locale_error_response
 from .search_cjk import pinyin_sort_key
@@ -378,7 +384,11 @@ def get_translations_by_locale(locale):
         if requested_ids:
             missing_ids = _compute_missing_ids(requested_ids, result)
             if missing_ids:
-                _translate_missing(conn, missing_ids, locale, result)
+                if work_allowed():
+                    _translate_missing(conn, missing_ids, locale, result)
+                else:
+                    # bd gau: guests get the cache only, never a provider call
+                    return guest_cache_only(jsonify(result))
         return jsonify(result)
     finally:
         conn.close()
@@ -577,6 +587,9 @@ def get_collection_translations(locale):
 
         missing = [cid for cid in id_to_name if cid not in result]
         if missing:
+            if not work_allowed():
+                # bd gau: guests get the cache only, never a provider call
+                return guest_cache_only(jsonify(result))
             _translate_missing_collections(conn, missing, id_to_name, locale, result)
 
         return jsonify(result)
@@ -756,6 +769,11 @@ def translate_strings():
 
     conn = _get_db()
     try:
+        if not work_allowed():
+            # bd gau: guests get the cache only, never a provider call
+            cached = _fetch_cached_string_translations(conn, locale, seen)
+            resp = jsonify(cached)
+            return guest_cache_only(resp) if len(cached) < len(seen) else resp
         return jsonify(_run_translate_strings(conn, locale, seen))
     finally:
         conn.close()
@@ -905,6 +923,9 @@ def _run_on_demand(locale, requested_ids):
         cached_ids = {int(k) for k in cached}
         missing_ids = [bid for bid in requested_ids if bid not in cached_ids]
         if missing_ids:
+            if not work_allowed():
+                # bd gau: guests get the cache only, never a provider call
+                return guest_cache_only(jsonify(cached))
             _do_on_demand_translation(conn, locale, missing_ids, cached)
         return jsonify(cached)
     except Exception:

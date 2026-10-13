@@ -38,7 +38,13 @@ from pathlib import Path
 from flask import Blueprint, abort, g, jsonify, request, send_file
 from i18n import SUPPORTED_LOCALES
 
-from .auth import admin_or_localhost, guest_allowed, localhost_only
+from .auth import (
+    admin_or_localhost,
+    auth_if_enabled,
+    guest_allowed,
+    localhost_only,
+    work_allowed,
+)
 from .locale_validation import SAFE_LOCALE_RE, sanitize_locale
 from .websocket import connection_manager
 
@@ -1019,6 +1025,24 @@ def _get_or_create_streaming_session(db, audiobook_id, locale, chapter_index):
     return session_id
 
 
+def _login_required_for_translation():
+    """401 for a guest asking for translation work that is not cached (bd gau).
+
+    ``state`` lets the player show "translation is available to signed-in
+    users" instead of a spinner that never resolves.
+    """
+    return (
+        jsonify(
+            {
+                "error": "Authentication required",
+                "state": "login_required",
+                "message": "Translation is available to signed-in users",
+            }
+        ),
+        401,
+    )
+
+
 @streaming_bp.route("/api/translate/stream", methods=["POST"])
 @guest_allowed
 def request_streaming_translation():
@@ -1059,6 +1083,10 @@ def request_streaming_translation():
             db, audiobook_id, chapter_index, locale
         ):
             return _fully_cached_response(db, audiobook_id, chapter_index, locale)
+
+        # bd gau: guests play what is cached but never queue translation work.
+        if not work_allowed():
+            return _login_required_for_translation()
 
         session_id = _get_or_create_streaming_session(db, audiobook_id, locale, chapter_index)
 
@@ -1321,7 +1349,7 @@ def gpu_warmth():
 
 
 @streaming_bp.route("/api/translate/sampler/activate", methods=["POST"])
-@guest_allowed
+@auth_if_enabled
 def sampler_activate():
     """Frontend fires this once the user has played past the buffer-fill
     threshold during sample playback. The server kicks off the live
@@ -1383,7 +1411,7 @@ def sampler_activate():
 
 
 @streaming_bp.route("/api/translate/warmup", methods=["POST"])
-@guest_allowed
+@auth_if_enabled
 def warmup_gpu():
     """Pre-warm a GPU instance on app open.
 
@@ -1443,6 +1471,18 @@ def handle_seek():
 
     db = _get_db()
 
+    if not work_allowed():
+        # bd gau: a guest seeking inside cached territory is a pure read;
+        # anything uncached would queue work, so it needs a login.
+        row = db.execute(
+            "SELECT state FROM streaming_segments "
+            "WHERE audiobook_id = ? AND chapter_index = ? AND segment_index = ? AND locale = ?",
+            (audiobook_id, chapter_index, segment_index, locale),
+        ).fetchone()
+        if row and row["state"] == "completed":
+            return jsonify({"state": "cached", "segment_index": segment_index})
+        return _login_required_for_translation()
+
     try:
         # Ensure segments exist for this chapter (may raise ValueError if
         # chapter_count cannot be resolved from DB or ffprobe).
@@ -1493,7 +1533,7 @@ def handle_seek():
 
 
 @streaming_bp.route("/api/translate/stop", methods=["POST"])
-@guest_allowed
+@auth_if_enabled
 def stop_streaming():
     """Stop streaming translation for a book+locale.
 

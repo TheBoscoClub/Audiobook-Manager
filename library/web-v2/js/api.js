@@ -121,6 +121,11 @@ const api = {
 
     const response = await fetch(url, fetchOpts);
 
+    // Guest got a cache-only translation answer (bd gau): say so once.
+    if (typeof window !== "undefined" && window.i18n && window.i18n.noticeGuestCacheOnly) {
+      window.i18n.noticeGuestCacheOnly(response);
+    }
+
     // Return raw Response if requested (for blob downloads, etc.)
     if (opts.raw) {
       if (!response.ok) {

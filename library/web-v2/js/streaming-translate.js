@@ -692,7 +692,9 @@
         // the INSERT…ON CONFLICT DO UPDATE on streaming_sessions
         // sets active_chapter from the request). The response returns
         // the fresh bitmap for the new chapter.
-        if (data.state === "cached" || data.state === "buffering") {
+        if (data.state === "login_required") {
+          handleLoginRequired(bookId);
+        } else if (data.state === "cached" || data.state === "buffering") {
           enterBuffering(bookId, locale, data.chapter_index, data.segment_bitmap);
         }
       })
@@ -751,13 +753,26 @@
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (data.state === "cached" || data.state === "buffering") {
+        if (data.state === "login_required") {
+          handleLoginRequired(bookId);
+        } else if (data.state === "cached" || data.state === "buffering") {
           enterBuffering(bookId, locale, data.chapter_index, data.segment_bitmap);
         }
       })
       .catch(function () {
         enterIdle();
       });
+  }
+
+  // Guest (bd gau): the server answers 401/state "login_required" when the
+  // chapter is not cached and starting translation needs a signed-in user.
+  // Drop to IDLE (hides the "Preparing…" overlay so it cannot spin forever)
+  // and let the shell fall back to the original audio plus a short message.
+  function handleLoginRequired(bookId) {
+    enterIdle();
+    document.dispatchEvent(
+      new CustomEvent("translation-login-required", { detail: { bookId: bookId } }),
+    );
   }
 
   function enterIdle() {
@@ -997,6 +1012,10 @@
       .then(function (r) { return r.json(); })
       .then(function (data) {
         if (data.state === "cached") return; // Already cached
+        if (data.state === "login_required") {
+          handleLoginRequired(currentBookId);
+          return;
+        }
         enterBuffering(currentBookId, currentLocale, ch, data.segment_bitmap);
       })
       .catch(function () {});
@@ -1050,7 +1069,9 @@
         if (typeof data.total_chapters === "number") {
           totalChapters = data.total_chapters;
         }
-        if (data.state === "cached") {
+        if (data.state === "login_required") {
+          handleLoginRequired(bookId);
+        } else if (data.state === "cached") {
           // All cached — no streaming needed
           enterIdle();
         } else if (data.state === "buffering") {

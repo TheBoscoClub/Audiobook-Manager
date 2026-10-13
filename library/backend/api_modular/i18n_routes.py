@@ -13,6 +13,7 @@ import logging
 from flask import Blueprint, jsonify, request
 from i18n import DEFAULT_LOCALE, SUPPORTED_LOCALES, get_catalog, reload_catalogs
 
+from .auth import auth_if_enabled
 from .locale_validation import enqueue_locale_error, locale_error_response
 
 i18n_bp = Blueprint("i18n", __name__)
@@ -45,6 +46,7 @@ def reload_locale_catalogs():
 
 
 @i18n_bp.route("/api/i18n/activate", methods=["POST"])
+@auth_if_enabled
 def activate_locale():
     """Notify backend that a user switched locale.
 
@@ -83,6 +85,7 @@ def translation_queue_status():
 
 
 @i18n_bp.route("/api/translation/bump", methods=["POST"])
+@auth_if_enabled
 def translation_bump_priority():
     """Bump a book's translation priority (e.g., user just opened it).
 

@@ -1096,5 +1096,6 @@
   "book.excludeReasonPrompt": "Why is this title untranslatable? (recorded with the exclusion)",
   "book.untranslatable": "This title cannot be translated",
   "book.untranslatableTip": "An administrator marked this title untranslatable; the audio still plays normally",
-  "library.hideUntranslatable": "Hide titles that cannot be translated"
+  "library.hideUntranslatable": "Hide titles that cannot be translated",
+  "translation.guestSignIn": "Translation is available to signed-in users"
 }

@@ -74,6 +74,9 @@ __all__ = [
     "get_auth_db",
     "init_auth_routes",
     "login_required",
+    "work_allowed",
+    "guest_cache_only",
+    "GUEST_WORK_HEADER",
     "admin_required",
     "admin_or_localhost",
     "admin_if_enabled",
@@ -769,6 +772,31 @@ def admin_if_enabled(f: Callable) -> Callable:
         return f(*args, **kwargs)
 
     return decorated
+
+
+def work_allowed() -> bool:
+    """True when the caller may trigger translation/STT/TTS work (bd gau).
+
+    Guests may read cached translations but must never queue, enqueue or
+    bump work. AUTH_ENABLED=false (single-user mode) always allows, like
+    every other protected route. Use inside ``@guest_allowed`` routes that
+    serve a cache and would otherwise translate on a miss; routes that only
+    trigger work use ``@auth_if_enabled`` instead.
+    """
+    if not current_app.config.get("AUTH_ENABLED", False):
+        return True
+    return get_current_user() is not None
+
+
+# Response header marking a cache-only answer to a guest, so the UI can say
+# translation is available to signed-in users.
+GUEST_WORK_HEADER = "X-Translation-Guest"
+
+
+def guest_cache_only(response: Response) -> Response:
+    """Tag a response served from cache only because the caller is a guest."""
+    response.headers[GUEST_WORK_HEADER] = "cache-only"
+    return response
 
 
 def guest_allowed(f: Callable) -> Callable:

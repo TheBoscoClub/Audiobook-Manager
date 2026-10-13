@@ -1096,5 +1096,6 @@
   "book.excludeReasonPrompt": "为什么此书不可翻译？（原因将与排除记录一起保存）",
   "book.untranslatable": "此书无法翻译",
   "book.untranslatableTip": "管理员已将此书标记为无法翻译；音频仍可正常播放",
-  "library.hideUntranslatable": "隐藏无法翻译的书籍"
+  "library.hideUntranslatable": "隐藏无法翻译的书籍",
+  "translation.guestSignIn": "仅限已登录用户使用翻译功能"
 }

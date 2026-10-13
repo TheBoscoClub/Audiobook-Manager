@@ -304,6 +304,12 @@
     banner.style.display = "";
   }
 
+  function guestMsg() {
+    return typeof i18n !== "undefined" && i18n.tOr
+      ? i18n.tOr("translation.guestSignIn", "Translation is available to signed-in users")
+      : "Translation is available to signed-in users";
+  }
+
   function hideGenBanner() {
     stopGenPoll();
     var banner = genBanner();
@@ -330,7 +336,15 @@
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ audiobook_id: bookId, locale: locale }),
-          }).then(function () {
+          }).then(function (r) {
+            if (r.status === 401 || r.status === 403) {
+              // Guest (bd gau): translation work needs a signed-in user.
+              renderGenStatus({
+                phase: "error",
+                message: guestMsg(),
+              });
+              return;
+            }
             startGenPoll(bookId, locale);
           }).catch(function () {});
         } else if (s.state === "completed") {
@@ -366,7 +380,7 @@
           // 401: sign-in required. 429: cooldown. Show the server message.
           renderGenStatus({
             phase: "error",
-            message: (res.body && res.body.error) || (res.body && res.body.message) || (typeof t === "function" ? t("subtitleGen.startFailed") : "Could not start subtitle generation."),
+            message: (res.status === 401 ? guestMsg() : null) || (res.body && res.body.error) || (res.body && res.body.message) || (typeof t === "function" ? t("subtitleGen.startFailed") : "Could not start subtitle generation."),
           });
           return;
         }
@@ -647,7 +661,7 @@
         if (!res.ok) {
           renderTtsStatus({
             phase: "error",
-            message: (res.body && res.body.error) || (res.body && res.body.message) || (typeof t === "function" ? t("ttsGen.startFailed") : "Could not start audio generation."),
+            message: (res.status === 401 ? guestMsg() : null) || (res.body && res.body.error) || (res.body && res.body.message) || (typeof t === "function" ? t("ttsGen.startFailed") : "Could not start audio generation."),
           });
           return;
         }

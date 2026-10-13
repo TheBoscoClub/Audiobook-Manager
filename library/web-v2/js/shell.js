@@ -1091,6 +1091,23 @@ class ShellPlayer {
     this._showShellToast(message, "error");
   }
 
+  // Guest (bd gau): translation of uncached content needs a signed-in user.
+  // streaming-translate.js has already dropped its overlay; tell the user why
+  // and fall back to the original audio so there is no dead player.
+  onTranslationLoginRequired() {
+    const message =
+      typeof i18n !== "undefined" && i18n.tOr
+        ? i18n.tOr("translation.guestSignIn", "Translation is available to signed-in users")
+        : "Translation is available to signed-in users";
+    this._showShellToast(message, "info");
+    if (this.currentBook && this.audio && !this.audio.src) {
+      const bookId = this.currentBook.bookId || this.currentBook.id;
+      const needsWebm = !this.audio.canPlayType("audio/ogg; codecs=opus");
+      this.audio.src = `${API_BASE}/stream/${bookId}${needsWebm ? "?format=webm" : ""}`;
+      this.audio.play().catch(() => {});
+    }
+  }
+
   // Shell-level toast. Uses the #toast-container in shell.html and the
   // .toast/.toast.error styles from notifications.css. Mirrors the
   // pattern in library.js::showToast() so the visual is identical.
@@ -1483,6 +1500,9 @@ document.addEventListener("DOMContentLoaded", () => {
   setupViewportFix();
   setupViewportDebugOverlay();
   shellPlayer = new ShellPlayer();
+  document.addEventListener("translation-login-required", () => {
+    shellPlayer.onTranslationLoginRequired();
+  });
 
   // Check for autoplay intent (from non-iframe redirect)
   const params = new URLSearchParams(window.location.search);
