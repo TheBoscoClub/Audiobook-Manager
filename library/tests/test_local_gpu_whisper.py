@@ -206,3 +206,79 @@ class TestTranscribe:
         with patch("localization.stt.local_gpu_whisper.requests.post", return_value=resp):
             result = provider.transcribe(audio, language="en")
         assert result.language == "es"
+
+
+# ── HTTPS base URL and bearer auth (Audiobook-Manager-h2v) ────────────
+
+
+class TestBaseUrlAndAuth:
+    @staticmethod
+    def _ok_health():
+        resp = MagicMock()
+        resp.ok = True
+        resp.json.return_value = {"status": "ok"}
+        return resp
+
+    def test_default_is_http_host_port_without_auth(self, monkeypatch):
+        monkeypatch.delenv("AUDIOBOOKS_WHISPER_GPU_TOKEN", raising=False)
+        monkeypatch.delenv("AUDIOBOOKS_WHISPER_GPU_TOKEN_FILE", raising=False)
+        p = LocalGPUWhisperSTT(host="127.0.0.1", port=8765)
+        assert p._base_url == "http://127.0.0.1:8765"
+        with patch("requests.get", return_value=self._ok_health()) as get:
+            assert p.is_available() is True
+        assert get.call_args.args[0] == "http://127.0.0.1:8765/health"
+        assert "headers" not in get.call_args.kwargs
+
+    def test_https_url_overrides_host_port(self):
+        p = LocalGPUWhisperSTT(host="10.0.0.1", port=9, base_url="https://gpu.example.com/")
+        with patch("requests.get", return_value=self._ok_health()) as get:
+            p.is_available()
+        assert get.call_args.args[0] == "https://gpu.example.com/health"
+
+    def test_url_only_no_host_is_accepted(self):
+        p = LocalGPUWhisperSTT(base_url="https://gpu.example.com")
+        assert p._base_url == "https://gpu.example.com"
+
+    def test_token_sent_as_bearer_on_health_and_transcribe(self, tmp_path):
+        audio = tmp_path / "a.opus"
+        audio.write_bytes(b"x")
+        p = LocalGPUWhisperSTT(base_url="https://gpu.example.com", token="tok-123")
+        with patch("requests.get", return_value=self._ok_health()) as get:
+            p.is_available()
+        assert get.call_args.kwargs["headers"]["Authorization"] == "Bearer tok-123"
+        post_resp = MagicMock()
+        post_resp.json.return_value = {"words": [], "duration": 1.0}
+        with patch("requests.post", return_value=post_resp) as post:
+            p.transcribe(audio)
+        assert post.call_args.args[0] == "https://gpu.example.com/transcribe"
+        assert post.call_args.kwargs["headers"]["Authorization"] == "Bearer tok-123"
+
+    def test_token_from_file_pointer(self, tmp_path, monkeypatch):
+        tf = tmp_path / "tok"
+        tf.write_text("file-tok-456\n")
+        monkeypatch.delenv("AUDIOBOOKS_WHISPER_GPU_TOKEN", raising=False)
+        monkeypatch.setenv("AUDIOBOOKS_WHISPER_GPU_TOKEN_FILE", str(tf))
+        p = LocalGPUWhisperSTT(base_url="https://gpu.example.com")
+        with patch("requests.get", return_value=self._ok_health()) as get:
+            p.is_available()
+        assert get.call_args.kwargs["headers"]["Authorization"] == "Bearer file-tok-456"
+
+    @pytest.mark.parametrize(
+        "bad", ["ftp://gpu.example.com", "javascript:alert(1)", "gpu.example.com"]
+    )
+    def test_bad_scheme_rejected(self, bad):
+        with pytest.raises(ValueError, match="http:// or https://"):
+            LocalGPUWhisperSTT(base_url=bad)
+
+    def test_token_never_logged(self, tmp_path, caplog):
+        import logging
+
+        audio = tmp_path / "a.opus"
+        audio.write_bytes(b"x")
+        p = LocalGPUWhisperSTT(base_url="https://gpu.example.com", token="SECRET-xyz-789")
+        post_resp = MagicMock()
+        post_resp.json.return_value = {"words": [], "duration": 1.0}
+        with caplog.at_level(logging.DEBUG), patch("requests.post", return_value=post_resp):
+            p.transcribe(audio)
+        assert "SECRET-xyz-789" not in caplog.text
+        assert "SECRET-xyz-789" not in repr(p._base_url)

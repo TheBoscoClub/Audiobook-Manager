@@ -28,6 +28,7 @@ from .config import (
     STT_PROVIDER,
     WHISPER_GPU_HOST,
     WHISPER_GPU_PORT,
+    WHISPER_GPU_URL,
 )
 from .fallback import with_local_fallback
 from .selection import WorkloadHint
@@ -135,15 +136,16 @@ def _remote_stt_candidates(workload: WorkloadHint = WorkloadHint.ANY) -> list[ST
     # where only RUNPOD_WHISPER_ENDPOINT is configured.
     if RUNPOD_API_KEY and RUNPOD_WHISPER_ENDPOINT:
         providers.append(WhisperSTT(RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT))
-    if WHISPER_GPU_HOST:
-        gpu_provider = LocalGPUWhisperSTT(WHISPER_GPU_HOST, WHISPER_GPU_PORT)
+    if WHISPER_GPU_HOST or WHISPER_GPU_URL:
+        gpu_provider = LocalGPUWhisperSTT(
+            WHISPER_GPU_HOST, WHISPER_GPU_PORT, base_url=WHISPER_GPU_URL
+        )
         if gpu_provider.is_available():
             providers.append(gpu_provider)
         else:
             logger.debug(
-                "Local GPU Whisper service not reachable at %s:%d",
-                WHISPER_GPU_HOST,
-                WHISPER_GPU_PORT,
+                "Local GPU Whisper service not reachable at %s",
+                gpu_provider._base_url,
             )
     return providers
 
@@ -253,7 +255,7 @@ def _stt_by_explicit_name(name: str) -> STTProvider | None:
             "(whisper/runpod, local-gpu) or auto mode."
         )
     if name == "local-gpu":
-        return LocalGPUWhisperSTT(WHISPER_GPU_HOST, WHISPER_GPU_PORT)
+        return LocalGPUWhisperSTT(WHISPER_GPU_HOST, WHISPER_GPU_PORT, base_url=WHISPER_GPU_URL)
     if name == "whisper":
         if RUNPOD_API_KEY and RUNPOD_WHISPER_ENDPOINT:
             return WhisperSTT(RUNPOD_API_KEY, RUNPOD_WHISPER_ENDPOINT)

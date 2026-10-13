@@ -281,6 +281,16 @@ AUDIOBOOKS_PARALLEL_JOBS = "8"
 # AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT=""
 # AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT=""
 
+# Self-hosted / rented GPU Whisper service (STT "local-gpu"). Default is
+# plain http://HOST:PORT with no auth (e.g. via an SSH tunnel). For a
+# TLS-fronted endpoint set the full base URL (overrides HOST/PORT) and,
+# if the endpoint requires it, a bearer credential (or a *_FILE pointer).
+# AUDIOBOOKS_WHISPER_GPU_HOST=""
+# AUDIOBOOKS_WHISPER_GPU_PORT="8765"
+# AUDIOBOOKS_WHISPER_GPU_URL="https://whisper.example.com"
+# AUDIOBOOKS_WHISPER_GPU_TOKEN="<your-token>"
+# AUDIOBOOKS_WHISPER_GPU_TOKEN_FILE="/etc/audiobooks/whisper-gpu-token"
+
 # =============================================================================
 # Credential file alternatives (optional pointer-pattern variants)
 # =============================================================================

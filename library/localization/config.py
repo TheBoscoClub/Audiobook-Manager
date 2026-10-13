@@ -35,6 +35,10 @@ RUNPOD_BACKLOG_WHISPER_ENDPOINT = os.environ.get("AUDIOBOOKS_RUNPOD_BACKLOG_WHIS
 # who set up the service configure the reachable host/port themselves.
 WHISPER_GPU_HOST = os.environ.get("AUDIOBOOKS_WHISPER_GPU_HOST", "")
 WHISPER_GPU_PORT = int(os.environ.get("AUDIOBOOKS_WHISPER_GPU_PORT", "8765"))
+# Optional full base URL (http or https) overriding host/port, for TLS-fronted
+# endpoints; the optional bearer credential is resolved by the provider itself
+# (AUDIOBOOKS_WHISPER_GPU_TOKEN or its _FILE pointer).
+WHISPER_GPU_URL = os.environ.get("AUDIOBOOKS_WHISPER_GPU_URL", "")
 
 
 def validate_locale(locale: str) -> bool:

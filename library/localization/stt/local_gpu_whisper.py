@@ -12,8 +12,10 @@ and no billing — the GPU is local.
 
 import logging
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import requests
+from common_utils.secret_resolver import resolve_secret
 
 from .base import STTProvider, Transcript, WordTimestamp
 
@@ -76,14 +78,43 @@ WHISPER_LANGUAGES = {
 class LocalGPUWhisperSTT(STTProvider):
     """Local GPU Whisper via the host's whisper-gpu service."""
 
-    def __init__(self, host: str, port: int = 8765):
-        if not host:
+    def __init__(
+        self,
+        host: str = "",
+        port: int = 8765,
+        base_url: str = "",
+        token: str | None = None,
+    ):
+        """Build the client.
+
+        ``base_url`` (full URL incl. scheme, http or https) overrides
+        host/port. ``token`` is sent as ``Authorization: Bearer``; when
+        ``None`` it is resolved from ``AUDIOBOOKS_WHISPER_GPU_TOKEN`` or
+        ``AUDIOBOOKS_WHISPER_GPU_TOKEN_FILE``. With neither set the
+        behaviour is plain ``http://host:port`` with no auth header.
+        """
+        base_url = (base_url or "").strip()
+        if base_url:
+            parts = urlsplit(base_url)
+            if parts.scheme not in ("http", "https") or not parts.netloc:
+                raise ValueError(
+                    "AUDIOBOOKS_WHISPER_GPU_URL must be an http:// or https:// "
+                    "URL with a host (got scheme "
+                    f"{parts.scheme!r})"
+                )
+            self._base_url = base_url.rstrip("/")
+        elif host:
+            self._base_url = f"http://{host}:{port}"
+        else:
             raise ValueError(
                 "LocalGPUWhisperSTT requires a host — set "
                 "AUDIOBOOKS_WHISPER_GPU_HOST to the reachable address of "
-                "the whisper-gpu service."
+                "the whisper-gpu service (or AUDIOBOOKS_WHISPER_GPU_URL)."
             )
-        self._base_url = f"http://{host}:{port}"
+        if token is None:
+            token = resolve_secret("AUDIOBOOKS_WHISPER_GPU_TOKEN")
+        # Never log or repr this value.
+        self._auth_kwargs: dict = {"headers": {"Authorization": f"Bearer {token}"}} if token else {}
 
     @property
     def name(self) -> str:
@@ -98,7 +129,7 @@ class LocalGPUWhisperSTT(STTProvider):
     def is_available(self) -> bool:
         """Check if the whisper-gpu service is running and reachable."""
         try:
-            resp = requests.get(f"{self._base_url}/health", timeout=3)
+            resp = requests.get(f"{self._base_url}/health", timeout=3, **self._auth_kwargs)
             return resp.ok and resp.json().get("status") == "ok"
         except (requests.ConnectionError, requests.Timeout):  # fmt: skip
             return False
@@ -115,6 +146,7 @@ class LocalGPUWhisperSTT(STTProvider):
                 files={"file": (audio_path.name, f)},
                 data={"language": language},
                 timeout=1800,
+                **self._auth_kwargs,
             )
 
         resp.raise_for_status()
