@@ -39,7 +39,19 @@ def init_queue(database_path: Path, library_path: Path) -> None:
     _recover_stale_jobs()
 
 
-def _get_db() -> sqlite3.Connection:
+def _get_db(db_path: Path | None = None) -> sqlite3.Connection:
+    """Open the queue database.
+
+    ``db_path`` lets a caller outside the API process (the importer's
+    post-insert hook) name the database explicitly; without it the module
+    global set by :func:`init_queue` is used.
+    """
+    if db_path is not None:
+        conn = sqlite3.connect(str(db_path))
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        return conn
     if _db_path is None:
         raise RuntimeError(
             "Localization queue is not initialized — call init_queue(database_path, "
@@ -52,8 +64,8 @@ def _get_db() -> sqlite3.Connection:
     return conn
 
 
-def _ensure_queue_table() -> None:
-    conn = _get_db()
+def _ensure_queue_table(db_path: Path | None = None) -> None:
+    conn = _get_db(db_path)
     try:
         conn.execute("""
             CREATE TABLE IF NOT EXISTS translation_queue (
@@ -143,21 +155,63 @@ def enqueue(
         _ensure_worker()
 
 
-def enqueue_book_all_locales(audiobook_id: int, priority: int = 0) -> None:
-    """Queue a book for translation in all configured non-English locales."""
+def target_locales() -> list[str]:
+    """Return the non-English locales a new book should be translated into.
+
+    Reads ``SUPPORTED_LOCALES`` at call time, strips whitespace, drops empty
+    elements and English (``en`` or any ``en-*`` tag — the source language),
+    de-duplicates, and refuses anything that fails
+    ``common_utils.locale_safety.is_safe_locale`` (logged, never queued) — a
+    queued locale flows into file names, SQL keys and provider prompts.
+    """
+    from common_utils.locale_safety import is_safe_locale
+
     from .config import SUPPORTED_LOCALES
 
-    locales = [loc for loc in SUPPORTED_LOCALES if loc != "en"]
+    out: list[str] = []
+    for raw in SUPPORTED_LOCALES:
+        loc = raw.strip()
+        if not loc:
+            continue
+        if not is_safe_locale(loc):
+            logger.warning("Ignoring malformed locale %r in SUPPORTED_LOCALES", raw)
+            continue
+        if loc.lower() == "en" or loc.lower().startswith("en-"):
+            continue
+        if loc not in out:
+            out.append(loc)
+    return out
+
+
+def enqueue_book_all_locales(
+    audiobook_id: int, priority: int = 0, *, db_path: Path | None = None
+) -> int:
+    """Queue a book for translation in all configured non-English locales.
+
+    Idempotent: ``INSERT OR IGNORE`` against ``UNIQUE(audiobook_id, locale)``.
+    Returns the number of rows actually inserted.
+
+    ``db_path`` is for callers outside the API process — the importer's
+    post-insert hook runs in the mover/scanner process, where
+    :func:`init_queue` is never called. With ``db_path`` the table is
+    created if absent (a fresh install whose API has not started yet), so
+    the first book ever imported is queued too.
+    """
+    locales = target_locales()
     if not locales:
-        return
-    conn = _get_db()
+        return 0
+    if db_path is not None:
+        _ensure_queue_table(db_path)
+    conn = _get_db(db_path)
     try:
+        before = conn.total_changes
         conn.executemany(
             "INSERT OR IGNORE INTO translation_queue "
             "(audiobook_id, locale, priority) VALUES (?, ?, ?)",
             [(audiobook_id, loc, priority) for loc in locales],
         )
         conn.commit()
+        return conn.total_changes - before
     finally:
         conn.close()
 

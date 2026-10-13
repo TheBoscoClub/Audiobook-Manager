@@ -312,6 +312,20 @@ AUDIOBOOKS_PARALLEL_JOBS = "8"
 # AUDIOBOOKS_WHISPER_GPU_TOKEN="<your-token>"
 # AUDIOBOOKS_WHISPER_GPU_TOKEN_FILE="/etc/audiobooks/whisper-gpu-token"
 
+# Scheduled translation drain (audiobook-translation-drain.timer — installed
+# DISABLED; enabling it is an operator decision, see
+# docs/MULTI-LANGUAGE-SETUP.md "Scheduled drain"). Each run that finds
+# pending translation_queue rows rents a Vast.ai GPU node, runs
+# batch-translate.py over the queue and destroys the node.
+# AUDIOBOOKS_DRAIN_BUDGET_USD="10"           # hard spend cap per run (dollars)
+# AUDIOBOOKS_DRAIN_MAX_MINUTES="240"         # wall-clock limit for the batch
+# AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT="1800"  # seconds to wait for vLLM + whisper
+# AUDIOBOOKS_DRAIN_LABEL="abm-drain"         # Vast label the drain owns (never abm-translate)
+# AUDIOBOOKS_DRAIN_STT_ONLY="true"           # false = also TTS narration while the node bills
+# GPU_NODE_SSH_KEY=""                        # ssh identity registered at console.vast.ai -> Keys
+# GPU_NODE_MAX_PRICE="2.50"                  # max dollars/hr for the offer
+# VAST_API_KEY_FILE=""                       # only without derive-service-secret (0600, audiobooks-owned)
+
 # =============================================================================
 # Credential file alternatives (optional pointer-pattern variants)
 # =============================================================================

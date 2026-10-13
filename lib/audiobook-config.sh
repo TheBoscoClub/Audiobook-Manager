@@ -257,6 +257,16 @@ _load_config_file "${HOME:-}/.config/audiobooks/audiobooks.conf"
 : "${AUDIOBOOKS_DEFAULT_LOCALE:=en}"
 : "${AUDIOBOOKS_SUPPORTED_LOCALES:=en,zh-Hans}"
 
+# Scheduled translation drain (scripts/translation-drain.sh, run by
+# audiobook-translation-drain.timer — ships disabled). Each run that finds
+# pending translation_queue rows rents a Vast.ai GPU node and destroys it.
+: "${AUDIOBOOKS_DRAIN_BUDGET_USD:=10}"          # spend cap per run (gpu-budget-guard.sh --cap)
+: "${AUDIOBOOKS_DRAIN_MAX_MINUTES:=240}"        # wall-clock limit for the batch itself
+: "${AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT:=1800}" # seconds to wait for vLLM + whisper to answer
+: "${AUDIOBOOKS_DRAIN_LABEL:=abm-drain}"        # Vast instance label the drain owns and destroys
+: "${AUDIOBOOKS_DRAIN_STT_ONLY:=true}"          # true: subtitles (STT+MT) only; false: also TTS on the node's clock
+: "${AUDIOBOOKS_DRAIN_LOCK:=${AUDIOBOOKS_RUN_DIR}/translation-drain.lock}"
+
 # Server settings
 : "${AUDIOBOOKS_API_PORT:=5001}"
 : "${AUDIOBOOKS_WEB_PORT:=8443}"           # HTTPS port (changed from 8090)
@@ -279,6 +289,8 @@ export AUDIOBOOKS_STAGING AUDIOBOOKS_PARALLEL_JOBS AUDIOBOOKS_SCAN_INTERVAL
 export AUDIOBOOKS_TMPFS_THRESHOLD AUDIOBOOKS_OPUS_LEVEL AUDIOBOOKS_DOWNLOAD_DELAY
 export AUDIOBOOKS_WEBM_CACHE DATA_DIR
 export AUDIOBOOKS_RUN_DIR AUDIOBOOKS_VAR_DIR AUDIOBOOKS_TRIGGERS AUDIOBOOKS_DOWNLOADER_LOCK
+export AUDIOBOOKS_DRAIN_BUDGET_USD AUDIOBOOKS_DRAIN_MAX_MINUTES AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT
+export AUDIOBOOKS_DRAIN_LABEL AUDIOBOOKS_DRAIN_STT_ONLY AUDIOBOOKS_DRAIN_LOCK
 export AUDIOBOOKS_STREAMING_AUDIO_DIR AUDIOBOOKS_STREAMING_SUBTITLES_DIR
 export AUDIOBOOKS_AUDIBLE_VENV AUDIOBOOKS_AUDIBLE_CMD
 export CF_ZONE_ID AUDIOBOOKS_PROJECT_DIR

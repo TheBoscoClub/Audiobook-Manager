@@ -1,10 +1,17 @@
 #!/bin/bash
 # gpu-budget-guard.sh — hard spend cap and verified teardown for rented GPU nodes.
 #
-# EXCEPTION (per .claude/rules/upgrade-consistency.md "New-Script Wiring
-# Enforcement", clause 6): stand-alone operator tool managing ephemeral remote
-# infrastructure. No systemd unit, no install/upgrade entry, no dispatch hook —
-# it is started alongside a gpu-node.sh session and dies with it.
+# TWO USES (per .claude/rules/upgrade-consistency.md "New-Script Wiring
+# Enforcement"): (1) operator CLI, started by hand alongside a gpu-node.sh
+# session from the project tree; (2) installed worker — install.sh / upgrade.sh
+# copy it to ${AUDIOBOOKS_HOME}/scripts/ (install-manifest.sh
+# CANONICAL_WORKERS) and scripts/translation-drain.sh starts it with --cap
+# right after `gpu-node.sh up` and waits for it to confirm teardown. It has no
+# unit of its own: it lives exactly as long as the node it guards.
+#
+# CREDENTIALS: VAST_API_KEY, else VAST_API_KEY_FILE (pointer to a file holding
+# the key; set-but-unreadable is an error), else — operator CLI only — re-exec
+# under ~/.claude/bin/with-secret. The key is never printed or put in argv.
 #
 # WHY THIS EXISTS
 #   A translation campaign on 2026-09-11/12 was estimated at $12-20 and spent
@@ -61,28 +68,52 @@ POLL_SECONDS="${GUARD_POLL_SECONDS:-120}"
 VERIFY_TRIES=5
 LOG="${GUARD_LOG:-/tmp/gpu-budget-guard.log}"
 
-die() { printf 'guard: ERROR: %s\n' "$*" >&2; exit 1; }
+die() {
+    printf 'guard: ERROR: %s\n' "$*" >&2
+    exit 1
+}
 say() { printf '%s guard: %s\n' "$(date '+%F %T')" "$*" | tee -a "$LOG"; }
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --cap) CAP="${2:-}"; shift 2 ;;
-        --floor) FLOOR="${2:-}"; shift 2 ;;
-        --max-idle) MAX_IDLE="${2:-}"; shift 2 ;;
-        --check) CHECK_ONLY=1; shift ;;
-        --label) LABEL="${2:-}"; shift 2 ;;
+        --cap)
+            CAP="${2:-}"
+            shift 2
+            ;;
+        --floor)
+            FLOOR="${2:-}"
+            shift 2
+            ;;
+        --max-idle)
+            MAX_IDLE="${2:-}"
+            shift 2
+            ;;
+        --check)
+            CHECK_ONLY=1
+            shift
+            ;;
+        --label)
+            LABEL="${2:-}"
+            shift 2
+            ;;
         *) die "unknown argument: $1" ;;
     esac
 done
 [[ -n "$CAP" ]] || die "--cap DOLLARS is required"
 
+if [[ -z "${VAST_API_KEY:-}" && -n "${VAST_API_KEY_FILE:-}" ]]; then
+    [[ -r "$VAST_API_KEY_FILE" ]] || die "VAST_API_KEY_FILE (${VAST_API_KEY_FILE}) is not readable"
+    VAST_API_KEY="$(tr -d '[:space:]' <"$VAST_API_KEY_FILE")"
+    [[ -n "$VAST_API_KEY" ]] || die "VAST_API_KEY_FILE (${VAST_API_KEY_FILE}) is empty"
+fi
 if [[ -z "${VAST_API_KEY:-}" ]]; then
     WITH_SECRET="${HOME}/.claude/bin/with-secret"
     [[ -x "$WITH_SECRET" ]] || die "VAST_API_KEY unset and with-secret not found"
-    exec "$WITH_SECRET" VAST_API_KEY -- "$0" --cap "$CAP" --label "$LABEL" \
-        $([[ -n "$FLOOR" ]] && echo --floor "$FLOOR") \
-        $([[ -n "$MAX_IDLE" ]] && echo --max-idle "$MAX_IDLE") \
-        $([[ $CHECK_ONLY -eq 1 ]] && echo --check)
+    reexec_args=(--cap "$CAP" --label "$LABEL")
+    [[ -n "$FLOOR" ]] && reexec_args+=(--floor "$FLOOR")
+    [[ -n "$MAX_IDLE" ]] && reexec_args+=(--max-idle "$MAX_IDLE")
+    [[ $CHECK_ONLY -eq 1 ]] && reexec_args+=(--check)
+    exec "$WITH_SECRET" VAST_API_KEY -- "$0" "${reexec_args[@]}"
 fi
 
 command -v jq >/dev/null || die "jq required"
@@ -92,7 +123,7 @@ trap 'rm -rf "$WORKDIR"' EXIT
 CURL_CONF="${WORKDIR}/hdr"
 umask 077
 printf 'header = "Authorization: Bearer %s"\nheader = "Content-Type: application/json"\n' \
-    "$VAST_API_KEY" > "$CURL_CONF"
+    "$VAST_API_KEY" >"$CURL_CONF"
 
 api() {
     local method="$1" path="$2"
@@ -126,7 +157,10 @@ spend_now() {
 destroy_all_verified() {
     local ids id try remaining
     ids="$(labeled | jq -r '.[].id')"
-    [[ -n "$ids" ]] || { say "nothing to destroy"; return 0; }
+    [[ -n "$ids" ]] || {
+        say "nothing to destroy"
+        return 0
+    }
     for id in $ids; do
         say "DESTROYING instance $id"
         api DELETE "/instances/${id}/" >/dev/null 2>&1 || say "delete call errored for $id (will verify anyway)"
@@ -181,8 +215,8 @@ while true; do
             idle_since=""
         else
             [[ -n "$idle_since" ]] || idle_since="$(date +%s)"
-            idle_min=$(( ( $(date +%s) - idle_since ) / 60 ))
-            if (( idle_min >= MAX_IDLE )); then
+            idle_min=$((($(date +%s) - idle_since) / 60))
+            if ((idle_min >= MAX_IDLE)); then
                 say "IDLE ${idle_min}m >= ${MAX_IDLE}m with no translation work — tearing down"
                 destroy_all_verified
                 exit $?

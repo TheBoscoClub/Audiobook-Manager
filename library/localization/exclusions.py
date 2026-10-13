@@ -28,6 +28,8 @@ Consumers (keep this list current — a consumer that forgets to ask is how
 an exclusion quietly stops meaning anything):
 
 * ``scripts/batch-translate.py`` — skips excluded books when claiming jobs
+* ``localization/drain_queue.py`` — the scheduled drain does not count them
+  as pending work (so it never rents a GPU node for them alone)
 * ``scripts/verify-zh-corpus.py`` — neither reports nor purges their files
 * ``scripts/sampler-reconcile.py`` — does not enqueue sampler jobs for them
 """

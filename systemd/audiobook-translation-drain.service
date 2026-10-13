@@ -1,0 +1,63 @@
+[Unit]
+Description=Audiobook translation drain — rent a GPU node, translate queued books, destroy the node
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
+# Shipped DISABLED: nothing pulls this unit in (it is not in audiobook.target
+# Wants= and install.sh/upgrade.sh never enable its timer). Enabling the timer
+# is an operator decision because every run that finds pending work rents a
+# billed Vast.ai node. See docs/MULTI-LANGUAGE-SETUP.md "Scheduled drain".
+After=network-online.target audiobook-api.service
+Wants=network-online.target
+# PartOf: stopping audiobook.target (every upgrade does) stops a running drain,
+# whose EXIT trap destroys the node before the scripts under it are replaced.
+PartOf=audiobook.target
+RequiresMountsFor=/opt/audiobooks /var/lib/audiobooks
+
+[Service]
+Type=oneshot
+User=audiobooks
+Group=audiobooks
+WorkingDirectory=/opt/audiobooks
+
+Environment=AUDIOBOOKS_DATABASE=/var/lib/audiobooks/db/audiobooks.db
+EnvironmentFile=-/etc/audiobooks/audiobooks.conf
+Environment=HOME=/var/lib/audiobooks
+
+# Private runtime dir for the derived Vast.ai credential (see
+# audiobook-translation-drain-derive-secrets.conf.example). A unit-specific
+# name: RuntimeDirectory is removed when the unit stops, so sharing
+# /run/audiobooks with audiobook-api would delete the API's runtime files.
+RuntimeDirectory=audiobook-translation-drain
+RuntimeDirectoryMode=0700
+
+ExecStart=/opt/audiobooks/scripts/translation-drain.sh
+
+# The script bounds itself (up <= 20 min, bootstrap AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT,
+# batch AUDIOBOOKS_DRAIN_MAX_MINUTES, teardown). This is the outer backstop:
+# on timeout systemd sends SIGTERM, which the script's trap turns into a teardown.
+TimeoutStartSec=12h
+# mixed: SIGTERM to the script only, so its trap — not systemd — stops the
+# batch, closes the tunnel and destroys the node; SIGKILL to the rest of the
+# cgroup only after TimeoutStopSec.
+KillMode=mixed
+TimeoutStopSec=15min
+Restart=no
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audiobook-translation-drain
+
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+
+# No [Install] section on purpose: this is a static, timer-activated unit.
+# Without one, `systemctl enable` on the service is a no-op and nothing can
+# make audiobook.target (or boot) start a billed drain by accident.

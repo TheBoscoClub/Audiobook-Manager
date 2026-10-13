@@ -1,17 +1,17 @@
 #!/bin/bash
 # gpu-node.sh — Vast.ai GPU-node lifecycle for the translation pipeline.
 #
-# EXCEPTION (per .claude/rules/upgrade-consistency.md "New-Script Wiring
-# Enforcement", clause 6): this is a stand-alone OPERATOR tool. It manages
-# ephemeral rented cloud infrastructure (a Vast.ai GPU instance) that exists
-# only for the duration of a translation batch. It is invoked by a human
-# operator from the project tree, never by the installed application, and by
-# design has:
-#   - No systemd unit (the resource it manages is remote and ephemeral;
-#     a unit on this host would outlive the thing it points at)
-#   - No install.sh / upgrade.sh / install-manifest.sh entry (not part of
-#     the installed application; runs from the project working tree)
-#   - No dispatch hook (operator-invoked only)
+# TWO USES, ONE SCRIPT (per .claude/rules/upgrade-consistency.md "New-Script
+# Wiring Enforcement"):
+#   1. Operator CLI, run by hand from the project tree (runbook below).
+#   2. Installed worker: install.sh / upgrade.sh copy it to
+#      ${AUDIOBOOKS_HOME}/scripts/ (it is in install-manifest.sh
+#      CANONICAL_WORKERS) and scripts/translation-drain.sh — run by
+#      audiobook-translation-drain.service/.timer — calls up / tunnel /
+#      tunnel --stop / down --yes under its own label (abm-drain).
+# Either way it resolves its files relative to its own location
+# (../library/localization/stt/whisper_gpu_service.py), which is the project
+# tree in use 1 and the installed tree in use 2 — never the other one.
 #
 # ---------------------------------------------------------------------------
 # RUNBOOK (search -> up -> tunnel -> verify -> work -> down)
@@ -31,11 +31,14 @@
 # a stopped instance still bills for storage. "down" is the only off switch.
 #
 # CREDENTIALS: the Vast.ai API key is NEVER printed and NEVER passed on a
-# command line. The script expects VAST_API_KEY in its environment; when it
-# is absent the script re-execs itself under the sanctioned injector:
-#     ~/.claude/bin/with-secret VAST_API_KEY -- scripts/gpu-node.sh <cmd>
-# (with-secret refuses env-dumping children and fails closed on a missing
-# value.) The Authorization header is handed to curl via a 0600 temp config
+# command line. Resolution order:
+#   1. VAST_API_KEY in the environment;
+#   2. VAST_API_KEY_FILE — a pointer to a file holding the key (the installed
+#      drain gets this from derive-service-secret at service start); a pointer
+#      that is set but unreadable or empty is an error, never a fallthrough;
+#   3. operator-CLI fallback only: re-exec under the sanctioned injector
+#      ~/.claude/bin/with-secret VAST_API_KEY -- scripts/gpu-node.sh <cmd>
+#      (refuses env-dumping children, fails closed on a missing value). The Authorization header is handed to curl via a 0600 temp config
 # file so the key never appears in /proc/<pid>/cmdline.
 #
 # SSH: Vast instances accept the SSH public keys registered in your account
@@ -64,6 +67,8 @@
 #   GPU_NODE_DISK_GB    instance disk, GB                (default: 80)
 #   GPU_NODE_MODEL      vLLM model to serve              (default: Qwen/Qwen3-8B)
 #   GPU_NODE_SSH_KEY    ssh -i identity file             (default: ssh default keys)
+#   GPU_NODE_WHISPER_SRC whisper_gpu_service.py to ship  (default: ../library/localization/stt/)
+#   VAST_API_KEY_FILE   file holding the API key         (see CREDENTIALS)
 # ---------------------------------------------------------------------------
 
 set -uo pipefail
@@ -72,7 +77,7 @@ API_BASE="https://console.vast.ai/api/v0"
 LABEL="${GPU_NODE_LABEL:-abm-translate}"
 GPU_NAME="${GPU_NODE_GPU:-H100 SXM}"
 MAX_PRICE="${GPU_NODE_MAX_PRICE:-}"
-IMAGE="${GPU_NODE_IMAGE:-vastai/pytorch}"  # vllm/vllm-openai breaks Vast proxy-SSH (hard entrypoint)
+IMAGE="${GPU_NODE_IMAGE:-vastai/pytorch}" # vllm/vllm-openai breaks Vast proxy-SSH (hard entrypoint)
 DISK_GB="${GPU_NODE_DISK_GB:-80}"
 VLLM_MODEL="${GPU_NODE_MODEL:-Qwen/Qwen3-8B}"
 # Forwarded ports, defined once: the tunnel opens them and `tunnel --stop`
@@ -83,12 +88,20 @@ WHISPER_LOCAL_PORT="${GPU_NODE_WHISPER_PORT:-8765}"
 TUNNEL_PIDFILE="${TMPDIR:-/tmp}/gpu-node-tunnel-${LABEL}.pid"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-WHISPER_SERVICE_SRC="${SCRIPT_DIR}/../library/localization/stt/whisper_gpu_service.py"
+WHISPER_SERVICE_SRC="${GPU_NODE_WHISPER_SRC:-${SCRIPT_DIR}/../library/localization/stt/whisper_gpu_service.py}"
 
-die() { printf 'gpu-node: ERROR: %s\n' "$*" >&2; exit 1; }
+die() {
+    printf 'gpu-node: ERROR: %s\n' "$*" >&2
+    exit 1
+}
 info() { printf 'gpu-node: %s\n' "$*"; }
 
 # --- credential acquisition (never printed, never on a command line) --------
+if [[ -z "${VAST_API_KEY:-}" && -n "${VAST_API_KEY_FILE:-}" ]]; then
+    [[ -r "$VAST_API_KEY_FILE" ]] || die "VAST_API_KEY_FILE (${VAST_API_KEY_FILE}) is not readable"
+    VAST_API_KEY="$(tr -d '[:space:]' <"$VAST_API_KEY_FILE")"
+    [[ -n "$VAST_API_KEY" ]] || die "VAST_API_KEY_FILE (${VAST_API_KEY_FILE}) is empty"
+fi
 if [[ -z "${VAST_API_KEY:-}" ]]; then
     WITH_SECRET="${HOME}/.claude/bin/with-secret"
     [[ -x "$WITH_SECRET" ]] || WITH_SECRET="$(command -v with-secret || true)"
@@ -107,7 +120,7 @@ trap 'rm -rf "$WORKDIR"' EXIT
 CURL_CONF="${WORKDIR}/hdr"
 umask 077
 printf 'header = "Authorization: Bearer %s"\nheader = "Content-Type: application/json"\n' \
-    "$VAST_API_KEY" > "$CURL_CONF"
+    "$VAST_API_KEY" >"$CURL_CONF"
 
 # vast_curl METHOD PATH [json-body]
 # The key rides in the 0600 config file, not argv.
@@ -157,10 +170,10 @@ build_search_query() {
             order: [["dph_total", "asc"]],
             limit: $limit
         }' | if [[ -n "$max_price" ]]; then
-            jq --argjson p "$max_price" '. + {dph_total: {lte: $p}}'
-        else
-            cat
-        fi
+        jq --argjson p "$max_price" '. + {dph_total: {lte: $p}}'
+    else
+        cat
+    fi
 }
 
 onstart_script() {
@@ -210,9 +223,18 @@ cmd_search() {
     local gpu="$GPU_NAME" max_price="$MAX_PRICE" limit=10
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --gpu) gpu="$2"; shift 2 ;;
-            --max-price) max_price="$2"; shift 2 ;;
-            --limit) limit="$2"; shift 2 ;;
+            --gpu)
+                gpu="$2"
+                shift 2
+                ;;
+            --max-price)
+                max_price="$2"
+                shift 2
+                ;;
+            --limit)
+                limit="$2"
+                shift 2
+                ;;
             *) die "search: unknown option '$1'" ;;
         esac
     done
@@ -233,8 +255,14 @@ cmd_up() {
     local offer_id="" dry_run=0
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --offer) offer_id="$2"; shift 2 ;;
-            --dry-run) dry_run=1; shift ;;
+            --offer)
+                offer_id="$2"
+                shift 2
+                ;;
+            --dry-run)
+                dry_run=1
+                shift
+                ;;
             *) die "up: unknown option '$1'" ;;
         esac
     done
@@ -292,12 +320,13 @@ cmd_up() {
     info "instance ${new_id} created — polling until running (this can take several minutes)..."
 
     local waited=0 state=""
-    while (( waited < 1200 )); do
+    while ((waited < 1200)); do
         state="$(our_instances | jq -r --argjson id "$new_id" \
             '.[] | select(.id == $id) | .actual_status // "provisioning"')"
         [[ "$state" == "running" ]] && break
         printf 'gpu-node:   %ss elapsed, state=%s\n' "$waited" "${state:-unknown}"
-        sleep 15; waited=$(( waited + 15 ))
+        sleep 15
+        waited=$((waited + 15))
     done
     [[ "$state" == "running" ]] || die "instance ${new_id} not running after ${waited}s (state: ${state:-unknown}); check status / consider '$0 down'"
 
@@ -408,7 +437,7 @@ cmd_tunnel() {
     disown "$pid"
     sleep 2
     kill -0 "$pid" 2>/dev/null || die "tunnel exited immediately — check SSH key registration at console.vast.ai -> Keys"
-    printf '%s\n' "$pid" > "$TUNNEL_PIDFILE"
+    printf '%s\n' "$pid" >"$TUNNEL_PIDFILE"
     info "tunnel up (pid ${pid}): 127.0.0.1:8000 -> vLLM, 127.0.0.1:8765 -> whisper"
     info "stop with: $0 tunnel --stop"
 }
@@ -418,7 +447,10 @@ cmd_down() {
     [[ "${1:-}" == "--yes" ]] && yes=1
     local inst
     inst="$(our_any_instance)"
-    [[ "$inst" != "null" && -n "$inst" ]] || { info "no '${LABEL}' instance — nothing to destroy."; return 0; }
+    [[ "$inst" != "null" && -n "$inst" ]] || {
+        info "no '${LABEL}' instance — nothing to destroy."
+        return 0
+    }
     local state
     state="$(jq -r '.actual_status // "unknown"' <<<"$inst")"
     [[ "$state" == "exited" ]] && info "instance has exited (container stopped) but its DISK STILL BILLS — destroying."
@@ -495,12 +527,33 @@ EOF
 }
 
 case "${1:-}" in
-    search)            shift; cmd_search "$@" ;;
-    up)                shift; cmd_up "$@" ;;
-    status)            shift; cmd_status "$@" ;;
-    tunnel)            shift; cmd_tunnel "$@" ;;
-    down)              shift; cmd_down "$@" ;;
-    bootstrap-status)  shift; cmd_bootstrap_status "$@" ;;
-    ""|-h|--help|help) usage ;;
-    *)                 usage >&2; die "unknown subcommand '${1}'" ;;
+    search)
+        shift
+        cmd_search "$@"
+        ;;
+    up)
+        shift
+        cmd_up "$@"
+        ;;
+    status)
+        shift
+        cmd_status "$@"
+        ;;
+    tunnel)
+        shift
+        cmd_tunnel "$@"
+        ;;
+    down)
+        shift
+        cmd_down "$@"
+        ;;
+    bootstrap-status)
+        shift
+        cmd_bootstrap_status "$@"
+        ;;
+    "" | -h | --help | help) usage ;;
+    *)
+        usage >&2
+        die "unknown subcommand '${1}'"
+        ;;
 esac

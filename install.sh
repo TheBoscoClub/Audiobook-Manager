@@ -1911,6 +1911,20 @@ EOF
             else
                 echo "  Skipped derive-secrets drop-in: /usr/bin/derive-service-secret not present (stock *_FILE pointer files under ${CONFIG_DIR} remain in use)"
             fi
+
+            # Same host-conditional pattern for the translation drain's Vast.ai
+            # credential (audiobook-translation-drain.service). The drain's
+            # timer ships disabled either way; this only decides where its
+            # VAST_API_KEY_FILE pointer comes from once an operator enables it.
+            local drain_dropin_src="${SCRIPT_DIR}/systemd/audiobook-translation-drain-derive-secrets.conf.example"
+            local drain_dropin_dir="${SYSTEMD_DIR}/audiobook-translation-drain.service.d"
+            if [[ -x /usr/bin/derive-service-secret ]] && [[ -f "$drain_dropin_src" ]]; then
+                sudo mkdir -p "$drain_dropin_dir"
+                sudo install -m 0644 "$drain_dropin_src" "${drain_dropin_dir}/derive-secrets.conf"
+                echo "  Installed: ${drain_dropin_dir}/derive-secrets.conf (derive-service-secret detected)"
+            else
+                echo "  Skipped translation-drain derive-secrets drop-in: /usr/bin/derive-service-secret not present (set VAST_API_KEY_FILE in audiobooks.conf before enabling the drain timer)"
+            fi
         fi
 
         # Install tmpfiles.d configuration for runtime directories

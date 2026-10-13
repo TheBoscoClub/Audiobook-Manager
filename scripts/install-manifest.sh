@@ -106,6 +106,8 @@ REQUIRED_DIRS=(
 # /usr/bin/derive-service-secret exists (operator tooling). Listing it here
 # would make the reconciler flag hosts without the tool as drifted.
 # Template: systemd/audiobook-api-derive-secrets.conf.example
+# The same holds for audiobook-translation-drain.service.d/derive-secrets.conf
+# (template: systemd/audiobook-translation-drain-derive-secrets.conf.example).
 # ---------------------------------------------------------------------------
 CANONICAL_UNITS=(
     "audiobook.target"
@@ -127,6 +129,11 @@ CANONICAL_UNITS=(
     "audiobook-translation-monitor-live.timer"
     "audiobook-translation-monitor-sampler.service"
     "audiobook-translation-monitor-sampler.timer"
+    # Installed but NOT enabled by install.sh/upgrade.sh — operator opt-in
+    # (each run that finds work rents a billed GPU node). Presence is
+    # reconciled here; enablement deliberately is not.
+    "audiobook-translation-drain.service"
+    "audiobook-translation-drain.timer"
 )
 
 # ---------------------------------------------------------------------------
@@ -143,6 +150,10 @@ CANONICAL_WORKERS=(
     "stream-translate-daemon.sh|audiobook-stream-translate.service"
     "translation-monitor-live.py|audiobook-translation-monitor-live.service (timer-driven, every 30s)"
     "translation-monitor-sampler.py|audiobook-translation-monitor-sampler.service (timer-driven, every 5min)"
+    "translation-drain.sh|audiobook-translation-drain.service (timer-driven, daily; timer ships disabled)"
+    "gpu-node.sh|audiobook-translation-drain.service (via translation-drain.sh); also an operator CLI"
+    "gpu-budget-guard.sh|audiobook-translation-drain.service (via translation-drain.sh); also an operator CLI"
+    "batch-translate.py|audiobook-translation-drain.service (via translation-drain.sh); also an operator CLI"
 )
 
 # ---------------------------------------------------------------------------
@@ -154,7 +165,6 @@ CANONICAL_WORKERS=(
 # (or successor) greps this list to confirm presence and copy coverage.
 # ---------------------------------------------------------------------------
 CANONICAL_OPERATOR_TOOLS=(
-    "batch-translate.py|operator-run: standalone STT->translate->TTS pipeline runner"
     "email-report.py|operator-run: emails translation verification report"
     "verify-translations.py|operator-run: audits completed translations for proof"
     "embed-cover-art.py|operator-run: embeds cover art into Opus files (also exposed via audiobook-embed-covers wrapper)"

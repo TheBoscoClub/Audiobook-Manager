@@ -140,10 +140,22 @@ def _verification_hook(audiobook_id: int, db_path: Path) -> None:
 
 @register_post_insert("Translation queue")
 def _translation_queue_hook(audiobook_id: int, db_path: Path) -> None:
-    """Enqueue the new book for translation into all configured locales."""
+    """Enqueue the new book for translation into all configured locales.
+
+    The queue rows are what the scheduled translation drain
+    (``scripts/translation-drain.sh``) consumes. ``db_path`` is passed
+    explicitly: this hook runs in the mover/scanner process, where the
+    API-side ``init_queue()`` never runs. Without it every call raised
+    "Localization queue is not initialized", the registry reported that as a
+    non-fatal warning, and no newly imported book was ever queued
+    (Audiobook-Manager-4j4). Failure stays non-fatal — the registry isolates
+    every hook — so a queue problem can never fail an import.
+    """
     from localization.queue import enqueue_book_all_locales
 
-    enqueue_book_all_locales(audiobook_id)
+    added = enqueue_book_all_locales(audiobook_id, db_path=db_path)
+    if added and not _quiet_var.get():
+        print(f"  → queued for translation in {added} locale(s)")
 
 
 @register_post_insert("Hash generation")

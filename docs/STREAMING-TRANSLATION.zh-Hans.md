@@ -350,6 +350,9 @@ GPU 生命周期需要手动管理：批量处理前用 `scripts/gpu-node.sh up`
 `scripts/gpu-budget-guard.sh --cap <美元>`：若尚不存在 `abm-translate` 实例，
 它会直接退出，因此不能先于 `up` 启动。计费从创建持续到销毁，
 因此只有在节点销毁之后，空闲成本才是 0 美元。
+这些工具也可以无人值守运行：`audiobook-translation-drain.timer`（安装后默认未启用）
+每天一次在租用的节点上处理新导入书籍的翻译队列，完成后销毁节点。
+见 `docs/MULTI-LANGUAGE-SETUP.md` 的 "Scheduled drain" 一节。
 
 **卡死检测**：`streaming_segments` 表中 `processing` 状态超过 10 分钟的
 分段，会在流式工作节点的下一次轮询中被回收重试。批量侧的卡死行由 API

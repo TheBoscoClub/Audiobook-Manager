@@ -387,6 +387,9 @@ confirmation; `down --yes` skips the prompt). **Billing starts at `up`.** Start
 `scripts/gpu-budget-guard.sh --cap <dollars>` immediately after `up`: it exits if
 no `abm-translate` instance exists yet, so it cannot be started first. Billing
 runs from create to destroy, so idle cost is $0 only once the node is destroyed.
+The same tools also run unattended: `audiobook-translation-drain.timer` (installed
+disabled) drains the queue of newly imported books once a day on a rented node and
+destroys it afterwards. See `docs/MULTI-LANGUAGE-SETUP.md`, "Scheduled drain".
 
 **Wedge detection**: `streaming_segments` rows stuck in `processing` for more
 than 10 minutes are reclaimed by the streaming worker on its next poll.

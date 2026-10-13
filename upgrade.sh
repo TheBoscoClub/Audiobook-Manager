@@ -2424,6 +2424,23 @@ do_upgrade() {
             echo "  Skipped derive-secrets drop-in: /usr/bin/derive-service-secret not present (stock *_FILE pointer files remain in use)"
         fi
 
+        # Same host-conditional pattern for the translation drain's Vast.ai
+        # credential (audiobook-translation-drain.service). Its timer ships
+        # disabled and is never enabled here; see the template's header.
+        local drain_dropin_src="${project}/systemd/audiobook-translation-drain-derive-secrets.conf.example"
+        local drain_dropin_dir="/etc/systemd/system/audiobook-translation-drain.service.d"
+        if [[ -x /usr/bin/derive-service-secret ]] && [[ -f "$drain_dropin_src" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                echo "  [DRY-RUN] Would install: ${drain_dropin_dir}/derive-secrets.conf"
+            else
+                $use_sudo mkdir -p "$drain_dropin_dir"
+                $use_sudo install -m 0644 "$drain_dropin_src" "${drain_dropin_dir}/derive-secrets.conf"
+                echo "  Installed: ${drain_dropin_dir}/derive-secrets.conf (derive-service-secret detected)"
+            fi
+        else
+            echo "  Skipped translation-drain derive-secrets drop-in: /usr/bin/derive-service-secret not present (VAST_API_KEY_FILE must come from audiobooks.conf)"
+        fi
+
         # Patch ReadWritePaths if data dir differs from default /srv/audiobooks.
         # ProtectSystem=strict makes the filesystem read-only except for listed paths.
         # Without this, cover art extraction and other data writes silently fail.

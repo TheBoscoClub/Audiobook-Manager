@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-# /test:wiring-exception: standalone CLI tool, not service-graph wired. Operator runs manually as needed.
+# Wiring: run by scripts/translation-drain.sh (audiobook-translation-drain.service,
+# timer ships disabled) and listed in install-manifest.sh CANONICAL_WORKERS;
+# also runnable by hand by the operator (usage below).
 """Standalone batch translation processor.
 
 Runs the STT -> subtitle translation -> TTS pipeline independently of

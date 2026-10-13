@@ -11,6 +11,7 @@ A comprehensive guide for adding multi-language support to your Audiobook Manage
 - [Provider Setup Instructions](#provider-setup-instructions)
   - [Machine translation provider](#machine-translation-provider)
   - [GPU node: vLLM translation + faster-whisper STT (Vast.ai)](#gpu-node-vllm-translation--faster-whisper-stt-vastai)
+  - [Scheduled drain (translate every new book automatically)](#scheduled-drain-translate-every-new-book-automatically)
   - [Serverless Whisper STT (RunPod, historical)](#serverless-whisper-stt-runpod-historical)
   - [Optional RunPod XTTS endpoint](#optional-runpod-xtts-endpoint)
   - [Local GPU (Optional)](#local-gpu-optional)
@@ -172,7 +173,7 @@ Existing translations continue to serve from the translation cache: the `string_
 
 ### GPU node: vLLM translation + faster-whisper STT (Vast.ai)
 
-One rented node serves both jobs: vLLM (Qwen3-8B by default) for translation and the `faster-whisper` service for STT. `scripts/gpu-node.sh` is a stand-alone operator tool run from the project tree; it has no systemd unit and `install.sh` does not install it. The workflow below is the one documented in the script headers.
+One rented node serves both jobs: vLLM (Qwen3-8B by default) for translation and the `faster-whisper` service for STT. `scripts/gpu-node.sh` has two uses: an operator CLI run by hand from the project tree (the workflow below, as documented in the script headers), and an installed worker that `install.sh` / `upgrade.sh` copy to `/opt/audiobooks/scripts/` for the [scheduled drain](#scheduled-drain-translate-every-new-book-automatically). It has no systemd unit of its own.
 
 1. **Prerequisites**: `jq` and `curl`; a Vast.ai account with credit; your SSH public key registered at console.vast.ai under Keys. The script reads the Vast.ai API key from the `VAST_API_KEY` environment variable and never prints it or puts it on a command line. Export it for your shell session (`export VAST_API_KEY=<your-key>`); operators may instead inject it with their own secret tooling. When the variable is absent, the script tries to re-exec itself under a `with-secret` helper and exits with an error if it cannot find one.
 
@@ -222,6 +223,43 @@ One rented node serves both jobs: vLLM (Qwen3-8B by default) for translation and
    ```
 
    Unset `AUDIOBOOKS_MT_ENDPOINT` afterwards so the factory returns to its no-provider state. `AUDIOBOOKS_WHISPER_GPU_HOST` can stay set: with the tunnel down, `LocalGPUWhisperSTT.is_available()` fails and the provider drops out of the candidate list.
+
+### Scheduled drain (translate every new book automatically)
+
+Every newly imported book is queued in `translation_queue` for each locale in `AUDIOBOOKS_SUPPORTED_LOCALES` except English, by the importer's post-insert hook. The queue is drained by `audiobook-translation-drain.timer`, which runs `scripts/translation-drain.sh` once a day. The timer is **installed but not enabled**: `install.sh` and `upgrade.sh` copy the units and never switch them on, because every run that finds work rents a billed node.
+
+Each run:
+
+1. Takes a lock (`AUDIOBOOKS_DRAIN_LOCK`), so two drains never overlap.
+2. Counts pending rows (books permanently excluded from translation do not count). With **zero pending it exits 0 without renting anything.**
+3. `gpu-node.sh up` under its own label `abm-drain` (`AUDIOBOOKS_DRAIN_LABEL`), so it never touches a node you rented by hand under `abm-translate`. `gpu-budget-guard.sh --cap "$AUDIOBOOKS_DRAIN_BUDGET_USD"` starts immediately afterwards in the background.
+4. Opens the tunnel and waits up to `AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT` seconds for vLLM and whisper to answer.
+5. Runs `batch-translate.py` over the queue (subtitles only while `AUDIOBOOKS_DRAIN_STT_ONLY=true`), bounded by `AUDIOBOOKS_DRAIN_MAX_MINUTES`.
+6. Closes the tunnel, destroys the node and waits for the guard to confirm that no `abm-drain` instance remains.
+
+Step 6 runs from an exit trap, so it also runs after any failure and after SIGINT/SIGTERM. Any failure (a step failing, a timeout, the wall-clock limit, the guard's cap firing, a teardown it cannot confirm) exits non-zero and leaves the unit `failed`. A book interrupted mid-batch goes back to `pending` for the next run.
+
+**Settings** (`/etc/audiobooks/audiobooks.conf`; defaults in `lib/audiobook-config.sh`):
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `AUDIOBOOKS_DRAIN_BUDGET_USD` | `10` | Hard spend cap per run, in dollars, enforced by the guard |
+| `AUDIOBOOKS_DRAIN_MAX_MINUTES` | `240` | Wall-clock limit for the batch, in minutes |
+| `AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT` | `1800` | Seconds to wait for vLLM and whisper after `up` |
+| `AUDIOBOOKS_DRAIN_LABEL` | `abm-drain` | Vast.ai instance label the drain owns and destroys |
+| `AUDIOBOOKS_DRAIN_STT_ONLY` | `true` | `true`: subtitles (STT + MT) only; `false`: also TTS narration while the node bills |
+| `GPU_NODE_SSH_KEY`, `GPU_NODE_MAX_PRICE`, `GPU_NODE_GPU` | (see `gpu-node.sh`) | Offer selection and the SSH identity the `audiobooks` user connects with |
+
+At about 1.74 dollars per hour for a verified H100 SXM (measured 2026-09), the 10-dollar default covers roughly 5 hours 45 minutes of node time, which is more than the 4-hour batch limit plus bootstrap. The guard caps actual billed spend, which is what matters when an instance bills above its listed price.
+
+**Enabling it** (an operator decision):
+
+1. **Credential.** On hosts with `/usr/bin/derive-service-secret`, install/upgrade put a drop-in at `/etc/systemd/system/audiobook-translation-drain.service.d/derive-secrets.conf` that derives `VAST_API_KEY` into the unit's private runtime directory at each start and points `VAST_API_KEY_FILE` at it. Elsewhere, put the key in a 0600 file owned by `audiobooks` and set `VAST_API_KEY_FILE` to its path in `audiobooks.conf`. The key is never logged.
+2. **SSH key.** The drain runs as `audiobooks`, so that user needs an SSH key registered at console.vast.ai under Keys (`sudo -u audiobooks ssh-keygen -t ed25519 -f /var/lib/audiobooks/.ssh/id_ed25519 -N ''`, register the `.pub`, and set `GPU_NODE_SSH_KEY` to the private key path).
+3. **Supervised first run.** Start one run by hand and watch it: `sudo systemctl start audiobook-translation-drain.service` and `journalctl -u audiobook-translation-drain -f`.
+4. **Enable the timer**: `sudo systemctl enable --now audiobook-translation-drain.timer`. To stop scheduled drains again: `sudo systemctl disable --now audiobook-translation-drain.timer`. No [`disabled-units`](#the-disabled-units-file) entry is needed: install and upgrade never enable this timer, so a disable survives every upgrade, and so does an enable.
+
+The tunnel uses local ports 8000 and 8765 (the same ports on the node). A hand-run tunnel on the same ports makes the drain's tunnel fail; the run then tears down and exits non-zero.
 
 ### Serverless Whisper STT (RunPod, historical)
 
