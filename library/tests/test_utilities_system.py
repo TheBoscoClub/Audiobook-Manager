@@ -294,6 +294,7 @@ class TestGetServicesStatus:
             "audiobook-translation-monitor-sampler.timer",
             "audiobook-downloader.timer",
             "audiobook-enrichment.timer",
+            "audiobook-translation-reaper.timer",
             "audiobook-upgrade-helper.path",
             "audiobook-upgrade-helper.service",
         ):

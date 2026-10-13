@@ -106,8 +106,8 @@ REQUIRED_DIRS=(
 # /usr/bin/derive-service-secret exists (operator tooling). Listing it here
 # would make the reconciler flag hosts without the tool as drifted.
 # Template: systemd/audiobook-api-derive-secrets.conf.example
-# The same holds for audiobook-translation-drain.service.d/derive-secrets.conf
-# (template: systemd/audiobook-translation-drain-derive-secrets.conf.example).
+# The same holds for audiobook-translation-{drain,reaper}.service.d/derive-secrets.conf
+# (templates: systemd/audiobook-translation-{drain,reaper}-derive-secrets.conf.example).
 # ---------------------------------------------------------------------------
 CANONICAL_UNITS=(
     "audiobook.target"
@@ -134,6 +134,9 @@ CANONICAL_UNITS=(
     # reconciled here; enablement deliberately is not.
     "audiobook-translation-drain.service"
     "audiobook-translation-drain.timer"
+    # Destroy-only guard for drain nodes — installed AND enabled by default.
+    "audiobook-translation-reaper.service"
+    "audiobook-translation-reaper.timer"
 )
 
 # ---------------------------------------------------------------------------
@@ -154,6 +157,7 @@ CANONICAL_WORKERS=(
     "gpu-node.sh|audiobook-translation-drain.service (via translation-drain.sh); also an operator CLI"
     "gpu-budget-guard.sh|audiobook-translation-drain.service (via translation-drain.sh); also an operator CLI"
     "batch-translate.py|audiobook-translation-drain.service (via translation-drain.sh); also an operator CLI"
+    "translation-drain-reaper.sh|audiobook-translation-reaper.service (timer-driven, every 10min; enabled)"
 )
 
 # ---------------------------------------------------------------------------

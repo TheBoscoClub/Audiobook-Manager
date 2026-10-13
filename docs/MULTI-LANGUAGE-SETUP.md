@@ -226,40 +226,94 @@ One rented node serves both jobs: vLLM (Qwen3-8B by default) for translation and
 
 ### Scheduled drain (translate every new book automatically)
 
-Every newly imported book is queued in `translation_queue` for each locale in `AUDIOBOOKS_SUPPORTED_LOCALES` except English, by the importer's post-insert hook. The queue is drained by `audiobook-translation-drain.timer`, which runs `scripts/translation-drain.sh` once a day. The timer is **installed but not enabled**: `install.sh` and `upgrade.sh` copy the units and never switch them on, because every run that finds work rents a billed node.
+Every newly imported book is queued in `translation_queue` for each locale in `AUDIOBOOKS_SUPPORTED_LOCALES` except English, by the importer's post-insert hook. Each queue row has two stages, tracked separately:
+
+- **Subtitles**: speech-to-text plus machine translation. This needs a GPU and runs on a rented node.
+- **Narration**: text-to-speech of the translated subtitles with edge-tts. This needs no GPU and runs on this host.
+
+A row reaches `completed` only when both stages are done. Until then it stays `pending`, so unfinished work stays visible.
+
+`audiobook-translation-drain.timer` runs `scripts/translation-drain.sh` once a day. The timer is **installed but not enabled**: `install.sh` and `upgrade.sh` copy the units and never switch them on, because every run that finds subtitle work rents a billed node.
 
 Each run:
 
-1. Takes a lock (`AUDIOBOOKS_DRAIN_LOCK`), so two drains never overlap.
-2. Counts pending rows (books permanently excluded from translation do not count). With **zero pending it exits 0 without renting anything.**
-3. `gpu-node.sh up` under its own label `abm-drain` (`AUDIOBOOKS_DRAIN_LABEL`), so it never touches a node you rented by hand under `abm-translate`. `gpu-budget-guard.sh --cap "$AUDIOBOOKS_DRAIN_BUDGET_USD"` starts immediately afterwards in the background.
-4. Opens the tunnel and waits up to `AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT` seconds for vLLM and whisper to answer.
-5. Runs `batch-translate.py` over the queue (subtitles only while `AUDIOBOOKS_DRAIN_STT_ONLY=true`), bounded by `AUDIOBOOKS_DRAIN_MAX_MINUTES`.
-6. Closes the tunnel, destroys the node and waits for the guard to confirm that no `abm-drain` instance remains.
+1. Takes a lock (`AUDIOBOOKS_DRAIN_LOCK`, shared with the reaper below), so two drains never overlap. Rows a dead earlier run left in `processing` go back to `pending`.
+2. Counts pending work for each stage. Books permanently excluded from translation and `quarantined` books do not count. With **no pending work in either stage it exits 0 without renting anything**. With narration work only, it skips straight to step 8 and rents nothing.
+3. Refuses to rent if no Vast.ai credential is configured, or if anything already listens on local port 8000 or 8765 (a tunnel you opened by hand would otherwise answer for a different node).
+4. Checks the monthly ceiling (below). This run's cap is the smaller of `AUDIOBOOKS_DRAIN_BUDGET_USD` and what is left this month. That amount is written to the spend ledger as a reservation **before** renting.
+5. Starts `gpu-budget-guard.sh --cap <that amount>` first, so the cap also covers the minutes while the node is being created. Then it runs `gpu-node.sh up` under its own label, `abm-drain`, so it never touches a node you rented by hand under `abm-translate`.
+6. Opens the tunnel and waits up to `AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT` seconds for vLLM and whisper to answer.
+7. Runs `batch-translate.py --stage subtitles --drain-mode`, bounded by `AUDIOBOOKS_DRAIN_MAX_MINUTES`:
+   - Drain mode allows only the tunnelled node's whisper and vLLM. RunPod and any other paid provider are removed from the batch's environment, and it refuses to start if the endpoints are not the tunnel's.
+   - The drain watches the tunnel process, the guard and a health probe. If the node or tunnel stops answering, the batch stops and the book it was working on goes back to `pending`, never `failed`.
+8. Closes the tunnel and destroys **every** `abm-drain` instance, confirms through the API that none remain, and records the measured spend in the ledger. Only after that does it run the narration pass, `batch-translate.py --stage narration` (edge-tts), bounded by `AUDIOBOOKS_DRAIN_NARRATION_MAX_MINUTES`.
 
-Step 6 runs from an exit trap, so it also runs after any failure and after SIGINT/SIGTERM. Any failure (a step failing, a timeout, the wall-clock limit, the guard's cap firing, a teardown it cannot confirm) exits non-zero and leaves the unit `failed`. A book interrupted mid-batch goes back to `pending` for the next run.
+The teardown in step 8 also runs from an exit trap, so it runs after any failure and after SIGINT/SIGTERM, including a signal that arrives while `up` is still creating the node. A node whose ID was never learned is found by its label.
+
+Any early end exits non-zero and leaves the unit `failed`: a step failing, a timeout, the wall-clock limit, the guard's cap firing, endpoints lost, a budget refusal, or a teardown it cannot confirm.
+
+**Failing books.** A book that fails for a reason of its own (unreadable audio, a translation the quality guard refuses, a narration rejection) goes back to `pending` with the error recorded. It is tried again on the next run. After `AUDIOBOOKS_DRAIN_MAX_ATTEMPTS` consecutive failed runs (default 3) it moves to `quarantined` with the last error kept, and stops counting as work. One broken book therefore cannot make the drain rent a node every day just to fail again.
+
+Failures that belong to the run rather than the book do not count toward that limit: losing the tunnel or node, a bootstrap timeout, a budget stop. After fixing the cause, put a book back in the queue:
+
+```bash
+sudo -u audiobooks env PYTHONPATH=/opt/audiobooks/library \
+    /opt/audiobooks/library/venv/bin/python -m localization.drain_queue \
+    --db /var/lib/audiobooks/db/audiobooks.db requeue-quarantined --book-id <id>
+```
+
+Leave out `--book-id` to requeue every quarantined book.
+
+**Monthly ceiling.** `AUDIOBOOKS_DRAIN_MONTHLY_BUDGET_USD` (default 100 dollars) caps total drain spend per **calendar month in this host's local time**. Spend is recorded in an append-only ledger, `AUDIOBOOKS_DRAIN_LEDGER` (default `${AUDIOBOOKS_VAR_DIR}/translation-drain/spend-ledger.tsv`).
+
+The ledger is a plain file rather than a database table on purpose. A database restore or a migration replay must never erase a month's spending and so re-authorise it.
+
+How the ledger records a run:
+
+- **Before renting**, it writes a reservation for the run's cap.
+- **At the end**, it writes the measured spend: the larger of the account-credit drop and the instance's uptime multiplied by its hourly price.
+- **If the run is killed** before it can write that, the full reservation counts. A crash can over-count the month, never under-count it.
+
+A run is charged to the month in which it started. A run is refused when the month's spend has reached the ceiling, or when less than `AUDIOBOOKS_DRAIN_MIN_RUN_USD` (default 1 dollar) is left. A refusal leaves the queue pending and exits non-zero. When less than the per-run cap is left, the run goes ahead with the smaller cap. Read the ledger with `column -t -s $'\t' <ledger>`.
+
+**The independent reaper.** The drain's guard runs inside the drain's own service, so anything that kills the drain without running its trap also kills the guard: SIGKILL, the OOM killer, power loss, a stop timeout. `audiobook-translation-reaper.timer` closes that gap. It runs every 10 minutes and is **enabled by default**, because it can only destroy instances, never rent one.
+
+It destroys any `abm-drain` instance that meets one of these conditions:
+
+- **(a)** no drain run currently holds the lock;
+- **(b)** it is older than the drain's longest legitimate run, plus `AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES`;
+- **(c)** it has accrued the per-run cap;
+- **(d)** the month's ledger spend plus the live node's accrued cost has reached the monthly ceiling.
+
+It never touches any other label. A reaper that had to destroy something exits 2, so its unit shows failed: a firing is always worth knowing about. Without a Vast.ai credential configured it exits 0 and does nothing.
 
 **Settings** (`/etc/audiobooks/audiobooks.conf`; defaults in `lib/audiobook-config.sh`):
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `AUDIOBOOKS_DRAIN_BUDGET_USD` | `10` | Hard spend cap per run, in dollars, enforced by the guard |
-| `AUDIOBOOKS_DRAIN_MAX_MINUTES` | `240` | Wall-clock limit for the batch, in minutes |
+| `AUDIOBOOKS_DRAIN_BUDGET_USD` | `10` | Spend cap per run, in dollars, enforced by the guard |
+| `AUDIOBOOKS_DRAIN_MONTHLY_BUDGET_USD` | `100` | Spend ceiling per calendar month (local time), in dollars |
+| `AUDIOBOOKS_DRAIN_MIN_RUN_USD` | `1` | Do not rent when less than this many dollars is left this month |
+| `AUDIOBOOKS_DRAIN_MAX_MINUTES` | `240` | Wall-clock limit for the GPU subtitle batch, in minutes |
+| `AUDIOBOOKS_DRAIN_NARRATION_MAX_MINUTES` | `120` | Wall-clock limit for the host narration pass, in minutes |
 | `AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT` | `1800` | Seconds to wait for vLLM and whisper after `up` |
-| `AUDIOBOOKS_DRAIN_LABEL` | `abm-drain` | Vast.ai instance label the drain owns and destroys |
-| `AUDIOBOOKS_DRAIN_STT_ONLY` | `true` | `true`: subtitles (STT + MT) only; `false`: also TTS narration while the node bills |
-| `GPU_NODE_SSH_KEY`, `GPU_NODE_MAX_PRICE`, `GPU_NODE_GPU` | (see `gpu-node.sh`) | Offer selection and the SSH identity the `audiobooks` user connects with |
+| `AUDIOBOOKS_DRAIN_MAX_ATTEMPTS` | `3` | Consecutive failed runs before a book is quarantined |
+| `AUDIOBOOKS_DRAIN_LABEL` | `abm-drain` | Vast.ai instance label the drain owns and the reaper polices |
+| `AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES` | `30` | Reaper's slack past the drain's longest legitimate run, in minutes |
+| `AUDIOBOOKS_DRAIN_LEDGER` | under `AUDIOBOOKS_VAR_DIR` | The append-only spend ledger |
+| `GPU_NODE_SSH_KEY`, `GPU_NODE_MAX_PRICE`, `GPU_NODE_GPU`, `GPU_NODE_PIP_TIMEOUT` | (see `gpu-node.sh`) | Offer selection, the SSH identity the `audiobooks` user connects with, and the limit on how long `up` waits for the node's `pip install` |
 
-At about 1.74 dollars per hour for a verified H100 SXM (measured 2026-09), the 10-dollar default covers roughly 5 hours 45 minutes of node time, which is more than the 4-hour batch limit plus bootstrap. The guard caps actual billed spend, which is what matters when an instance bills above its listed price.
+At about 1.74 dollars per hour for a verified H100 SXM (measured 2026-09), the 10-dollar per-run default covers roughly 5 hours 45 minutes of node time. That is more than the 4-hour batch limit plus bootstrap. The 100-dollar month is about ten full-length runs.
 
 **Enabling it** (an operator decision):
 
-1. **Credential.** On hosts with `/usr/bin/derive-service-secret`, install/upgrade put a drop-in at `/etc/systemd/system/audiobook-translation-drain.service.d/derive-secrets.conf` that derives `VAST_API_KEY` into the unit's private runtime directory at each start and points `VAST_API_KEY_FILE` at it. Elsewhere, put the key in a 0600 file owned by `audiobooks` and set `VAST_API_KEY_FILE` to its path in `audiobooks.conf`. The key is never logged.
-2. **SSH key.** The drain runs as `audiobooks`, so that user needs an SSH key registered at console.vast.ai under Keys (`sudo -u audiobooks ssh-keygen -t ed25519 -f /var/lib/audiobooks/.ssh/id_ed25519 -N ''`, register the `.pub`, and set `GPU_NODE_SSH_KEY` to the private key path).
+1. **Credential.** On hosts with `/usr/bin/derive-service-secret`, install and upgrade put drop-ins at `/etc/systemd/system/audiobook-translation-{drain,reaper}.service.d/derive-secrets.conf`. At each start, these derive `VAST_API_KEY` into the unit's private runtime directory and point `VAST_API_KEY_FILE` at it. Elsewhere, put the key in a 0600 file owned by `audiobooks` and set `VAST_API_KEY_FILE` to its path in `audiobooks.conf`. The key is never logged.
+2. **SSH key.** The drain runs as `audiobooks`, so that user needs an SSH key registered at console.vast.ai under Keys:
+   - generate it: `sudo -u audiobooks ssh-keygen -t ed25519 -f /var/lib/audiobooks/.ssh/id_ed25519 -N ''`;
+   - register the `.pub` file at console.vast.ai under Keys;
+   - set `GPU_NODE_SSH_KEY` to the private key path.
 3. **Supervised first run.** Start one run by hand and watch it: `sudo systemctl start audiobook-translation-drain.service` and `journalctl -u audiobook-translation-drain -f`.
-4. **Enable the timer**: `sudo systemctl enable --now audiobook-translation-drain.timer`. To stop scheduled drains again: `sudo systemctl disable --now audiobook-translation-drain.timer`. No [`disabled-units`](#the-disabled-units-file) entry is needed: install and upgrade never enable this timer, so a disable survives every upgrade, and so does an enable.
-
-The tunnel uses local ports 8000 and 8765 (the same ports on the node). A hand-run tunnel on the same ports makes the drain's tunnel fail; the run then tears down and exits non-zero.
+4. **Enable the timer**: `sudo systemctl enable --now audiobook-translation-drain.timer`. To stop scheduled drains again: `sudo systemctl disable --now audiobook-translation-drain.timer`. No [`disabled-units`](#the-disabled-units-file) entry is needed: install and upgrade never enable this timer, so both a disable and an enable survive every upgrade.
 
 ### Serverless Whisper STT (RunPod, historical)
 

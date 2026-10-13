@@ -1,0 +1,49 @@
+[Unit]
+Description=Audiobook translation reaper — destroy runaway or orphaned drain GPU nodes
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
+# Independent of audiobook-translation-drain.service on purpose: a separate
+# cgroup and its own timer, so SIGKILL/OOM/power loss of the drain (which takes
+# the drain's spend guard with it) cannot also take this out. It only ever
+# DESTROYS instances labelled AUDIOBOOKS_DRAIN_LABEL (abm-drain); it never
+# rents. See scripts/translation-drain-reaper.sh for the four conditions.
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/opt/audiobooks /var/lib/audiobooks
+
+[Service]
+Type=oneshot
+User=audiobooks
+Group=audiobooks
+WorkingDirectory=/opt/audiobooks
+
+Environment=AUDIOBOOKS_DATABASE=/var/lib/audiobooks/db/audiobooks.db
+EnvironmentFile=-/etc/audiobooks/audiobooks.conf
+Environment=HOME=/var/lib/audiobooks
+
+# Private runtime dir for the derived Vast.ai credential (see
+# audiobook-translation-reaper-derive-secrets.conf.example).
+RuntimeDirectory=audiobook-translation-reaper
+RuntimeDirectoryMode=0700
+
+ExecStart=/opt/audiobooks/scripts/translation-drain-reaper.sh
+# Exit 2 = it destroyed something: always an incident, so the unit shows
+# failed (cachyos-sentinel alerts). Exit 1 = error. Neither is "success".
+TimeoutStartSec=10min
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audiobook-translation-reaper
+
+NoNewPrivileges=yes
+ProtectSystem=full
+ProtectHome=read-only
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+
+# No [Install]: static, activated only by audiobook-translation-reaper.timer.

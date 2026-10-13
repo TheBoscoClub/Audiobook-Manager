@@ -54,6 +54,8 @@ def _make_db(tmp_path):
             state TEXT DEFAULT 'pending',
             priority INTEGER DEFAULT 0,
             created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            started_at TEXT,
+            finished_at TEXT,
             error TEXT
         );
     """)
@@ -93,14 +95,29 @@ class TestParseArgs:
                 "42",
                 "--dry-run",
                 "--stt-only",
-                "--tts-only",
+                "--owner",
+                "drain",
+                "--drain-mode",
             ],
         ):
             args = bt._parse_args()
         assert args.book_id == 42
         assert args.dry_run
-        assert args.stt_only
-        assert args.tts_only
+        assert args.stage == "subtitles" and args.stt_only and not args.tts_only
+        assert args.owner == "drain" and args.drain_mode
+
+    def test_stage_flags_are_mutually_exclusive(self):
+        # --stt-only together with --tts-only used to select NOTHING (both
+        # steps skipped) and still mark rows completed; it is now refused.
+        with patch(
+            "sys.argv", ["bt", "--db", "/x.db", "--library", "/lib", "--stt-only", "--tts-only"]
+        ):
+            with pytest.raises(SystemExit):
+                bt._parse_args()
+
+    def test_tts_only_selects_narration_stage(self):
+        with patch("sys.argv", ["bt", "--db", "/x.db", "--library", "/lib", "--tts-only"]):
+            assert bt._parse_args().stage == "narration"
 
 
 # ---------------------------------------------------------------------------
@@ -215,6 +232,6 @@ class TestMain:
             with patch.object(bt, "_configure_env"):
                 with patch.object(bt, "ensure_tables"):
                     with patch.object(bt, "_get_queue_stats", return_value=(0, 0, 0)):
-                        with patch.object(bt, "_run_batch") as mock_run:
+                        with patch.object(bt, "_run_batch", return_value=0) as mock_run:
                             bt.main()
         mock_run.assert_called_once()

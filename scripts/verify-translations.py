@@ -280,7 +280,9 @@ def main():
         for bid in requeue_ids:
             conn.execute(
                 "UPDATE translation_queue SET state = 'pending', started_at = NULL, "
-                "finished_at = NULL, error = NULL WHERE audiobook_id = ? AND state IN ('completed', 'failed')",
+                "finished_at = NULL, error = NULL, subtitles_done_at = NULL, "
+                "narration_done_at = NULL, drain_attempts = 0 "
+                "WHERE audiobook_id = ? AND state IN ('completed', 'failed', 'quarantined')",
                 (bid,),
             )
         conn.commit()

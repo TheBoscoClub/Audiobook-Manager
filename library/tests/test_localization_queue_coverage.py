@@ -493,7 +493,7 @@ class TestPriorityAndStatus:
 
 class TestJobLifecycle:
     def test_next_job_returns_none_when_empty(self, audiobooks_db: Path):
-        assert lq._next_job() is None
+        assert lq._next_job({(1, "zh-Hans")}) is None
 
     def test_next_job_claims_highest_priority_first(self, audiobooks_db: Path):
         lq.enqueue(1, "zh-Hans", priority=1)
@@ -502,7 +502,7 @@ class TestJobLifecycle:
         # plain enqueue which ignores the dependency.
         lq.enqueue(2, "zh-Hans", priority=99)
 
-        job = lq._next_job()
+        job = lq._next_job({(1, "zh-Hans"), (2, "zh-Hans")})
         assert job is not None
         assert job["audiobook_id"] == 2
         # And it was flipped to 'processing' by the claim.
@@ -515,13 +515,13 @@ class TestJobLifecycle:
         time.sleep(1.1)
         lq.enqueue(2, "zh-Hans", priority=5)
 
-        job = lq._next_job()
+        job = lq._next_job({(1, "zh-Hans"), (2, "zh-Hans")})
         assert job is not None
         assert job["audiobook_id"] == 1
 
     def test_finish_job_marks_completed(self, audiobooks_db: Path):
         lq.enqueue(1, "zh-Hans")
-        job = lq._next_job()
+        job = lq._next_job({(1, "zh-Hans"), (2, "zh-Hans")})
         assert job is not None
         lq._finish_job(job["id"], "completed")
 
@@ -541,7 +541,7 @@ class TestJobLifecycle:
 
     def test_finish_job_records_error(self, audiobooks_db: Path):
         lq.enqueue(1, "zh-Hans")
-        job = lq._next_job()
+        job = lq._next_job({(1, "zh-Hans"), (2, "zh-Hans")})
         assert job is not None
         lq._finish_job(job["id"], "failed", error="GPU unavailable")
 
@@ -569,7 +569,7 @@ class TestJobLifecycle:
         processing row so a polling client sees progress between
         heartbeats."""
         lq.enqueue(1, "zh-Hans")
-        job = lq._next_job()
+        job = lq._next_job({(1, "zh-Hans"), (2, "zh-Hans")})
         assert job is not None
         lq._set_current(1, "zh-Hans", step="tts", phase="synthesizing")
 
@@ -734,7 +734,7 @@ class TestRunSttAndTranslate:
 
         # Create a processing-state queue row so heartbeat UPDATE matches.
         lq.enqueue(1, "zh-Hans")
-        job = lq._next_job()
+        job = lq._next_job({(1, "zh-Hans"), (2, "zh-Hans")})
         assert job is not None
 
         lq._run_stt_and_translate(
@@ -927,7 +927,7 @@ class TestMalformedLocaleBarrier:
         lq.enqueue(2, "zh-Hans", priority=1)
         self._plant(audiobooks_db, hostile, priority=99)  # would be claimed first
 
-        job = lq._next_job()
+        job = lq._next_job({(1, hostile), (2, "zh-Hans")})
 
         assert job is not None and job["locale"] == "zh-Hans"  # skipped to the good one
         conn = sqlite3.connect(str(audiobooks_db))
@@ -940,5 +940,5 @@ class TestMalformedLocaleBarrier:
 
     def test_only_hostile_rows_returns_none(self, audiobooks_db: Path):
         self._plant(audiobooks_db, "../../etc", priority=5)
-        assert lq._next_job() is None
+        assert lq._next_job({(1, "../../etc")}) is None
         assert lq.get_queue_status()["processing"] == 0

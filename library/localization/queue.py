@@ -13,6 +13,7 @@ steps), and processes one book at a time to manage GPU costs.
 """
 
 import logging
+import os
 import sqlite3
 import subprocess  # nosec B404 — import subprocess — subprocess usage is intentional; all calls use hardcoded system tool names
 import threading
@@ -29,6 +30,14 @@ _library_path: Path | None = None
 
 # Current job status — visible to the frontend via the status API
 _current_status: dict = {}
+
+# Book+locale pairs a user explicitly asked this API to process. The worker
+# claims nothing outside this set (Audiobook-Manager-4j4).
+_requested: set[tuple[int, str]] = set()
+
+
+def _owner() -> str:
+    return f"api:{os.getpid()}"
 
 
 def init_queue(database_path: Path, library_path: Path) -> None:
@@ -65,55 +74,24 @@ def _get_db(db_path: Path | None = None) -> sqlite3.Connection:
 
 
 def _ensure_queue_table(db_path: Path | None = None) -> None:
+    """Create/upgrade the queue table (single definition: ``queue_schema``)."""
+    from .queue_schema import ensure_queue_schema
+
     conn = _get_db(db_path)
     try:
-        conn.execute("""
-            CREATE TABLE IF NOT EXISTS translation_queue (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                audiobook_id INTEGER NOT NULL,
-                locale TEXT NOT NULL,
-                priority INTEGER DEFAULT 0,
-                state TEXT DEFAULT 'pending',
-                step TEXT DEFAULT 'stt',
-                error TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                started_at TIMESTAMP,
-                finished_at TIMESTAMP,
-                last_progress_at TIMESTAMP,
-                total_chapters INTEGER,
-                UNIQUE(audiobook_id, locale),
-                FOREIGN KEY (audiobook_id) REFERENCES audiobooks(id) ON DELETE CASCADE
+        remapped = ensure_queue_schema(conn)
+        if remapped:
+            logger.info(
+                "translation_queue: %d completed row(s) without narration reopened "
+                "for the narration stage (two-stage accounting)",
+                remapped,
             )
-        """)
-        # In-place ALTER for upgraded DBs that pre-date these columns. This
-        # MUST run before the CREATE INDEX on last_progress_at — otherwise a
-        # legacy DB whose translation_queue pre-dates the column errors out
-        # on the index creation before the ALTER can fix the schema.
-        existing_cols = {
-            row[1] for row in conn.execute("PRAGMA table_info(translation_queue)").fetchall()
-        }
-        if "last_progress_at" not in existing_cols:
-            conn.execute("ALTER TABLE translation_queue ADD COLUMN last_progress_at TIMESTAMP")
-            conn.execute(
-                "UPDATE translation_queue SET last_progress_at = COALESCE(started_at, created_at)"
-            )
-        if "total_chapters" not in existing_cols:
-            conn.execute("ALTER TABLE translation_queue ADD COLUMN total_chapters INTEGER")
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_tq_state
-            ON translation_queue(state, priority DESC)
-        """)
-        conn.execute("""
-            CREATE INDEX IF NOT EXISTS idx_tq_last_progress
-            ON translation_queue(last_progress_at)
-        """)
-        conn.commit()
     finally:
         conn.close()
 
 
 def _recover_stale_jobs() -> None:
-    """Reset jobs left in 'processing' state from a prior crash/restart.
+    """Reset jobs THIS API left in 'processing' state from a prior crash/restart.
 
     Does NOT auto-start the worker — recovered jobs wait in 'pending'
     until explicitly triggered (user action or admin API).  Auto-starting
@@ -121,9 +99,12 @@ def _recover_stale_jobs() -> None:
     """
     conn = _get_db()
     try:
+        # Only rows this API owns (or legacy rows with no owner). Rows the
+        # scheduled drain holds (claimed_by='drain') belong to a process that
+        # may still be running; the drain releases its own.
         updated = conn.execute(
-            "UPDATE translation_queue SET state = 'pending', started_at = NULL "
-            "WHERE state = 'processing'"
+            "UPDATE translation_queue SET state = 'pending', started_at = NULL, claimed_by = NULL "
+            "WHERE state = 'processing' AND (claimed_by IS NULL OR claimed_by LIKE 'api:%')"
         ).rowcount
         conn.commit()
         if updated:
@@ -139,7 +120,10 @@ def enqueue(
 
     Does NOT auto-start the worker by default — under gevent's single
     worker, starting the translation thread blocks the entire API.
-    Pass ``start_worker=True`` only from explicit user-triggered endpoints.
+    Pass ``start_worker=True`` only from explicit user-triggered endpoints:
+    the worker then processes THIS book+locale only (never the rest of the
+    queue — whole-queue work belongs to the scheduled drain, which runs it
+    under a spend cap).
     """
     conn = _get_db()
     try:
@@ -152,7 +136,7 @@ def enqueue(
     finally:
         conn.close()
     if start_worker:
-        _ensure_worker()
+        _request(audiobook_id, locale)
 
 
 def target_locales() -> list[str]:
@@ -243,11 +227,20 @@ def enqueue_all_books_for_locale(locale: str, priority: int = 0) -> int:
 
 
 def start_processing() -> None:
-    """Explicitly start the queue worker.
+    """Start the worker for the books already requested in this process.
 
-    Call this ONLY from user-triggered endpoints (e.g., "Generate narration"
-    button).  Never from background import/scan paths — those just enqueue.
+    The worker only ever processes explicitly requested book+locale pairs
+    (see :func:`enqueue` ``start_worker=True``); with none requested this
+    starts nothing.
     """
+    if _requested:
+        _ensure_worker()
+
+
+def _request(audiobook_id: int, locale: str) -> None:
+    """Ask the API worker to process exactly this book+locale."""
+    with _queue_lock:
+        _requested.add((int(audiobook_id), str(locale)))
     _ensure_worker()
 
 
@@ -279,6 +272,7 @@ def get_queue_status() -> dict:
             "processing": counts.get("processing", 0),
             "completed": counts.get("completed", 0),
             "failed": counts.get("failed", 0),
+            "quarantined": counts.get("quarantined", 0),
             "current": dict(_current_status) if _current_status else None,
         }
     finally:
@@ -332,7 +326,7 @@ def get_book_translation_status(audiobook_id: int, locale: str) -> dict | None:
         # frontend hides the legacy banner and defers to the streaming
         # overlay. Completed rows still pass through — they mean VTT files
         # exist on disk from a successful legacy run and are legitimate.
-        if locale != "en" and result["state"] in ("failed", "pending", "processing"):
+        if locale != "en" and result["state"] in ("failed", "pending", "processing", "quarantined"):
             return {
                 "state": "deferred",
                 "reason": "streaming_pipeline",
@@ -365,54 +359,75 @@ def _ensure_worker() -> None:
 
 def _worker_loop() -> None:
     while not _shutdown_event.is_set():
-        job = _next_job()
+        with _queue_lock:
+            keys = set(_requested)
+        if not keys:
+            return
+        job = _next_job(keys)
         if not job:
-            time.sleep(10)
+            # Nothing claimable for the requested pairs (already done, held by
+            # the drain, or not queued) — forget them and stop.
+            with _queue_lock:
+                _requested.difference_update(keys)
             continue
+        with _queue_lock:
+            _requested.discard((job["audiobook_id"], job["locale"]))
         _process_job(job)
 
 
-def _next_job() -> dict | None:
+def _next_job(requested) -> dict | None:
+    """Atomically claim the highest-priority pending row among ``requested``.
+
+    ``requested`` is an iterable of (audiobook_id, locale). The claim is one
+    ``UPDATE ... WHERE state = 'pending' ... RETURNING`` statement, so the
+    drain's batch and this worker can never both claim a row.
+    """
     from common_utils.locale_safety import is_safe_locale
 
+    keys = [(int(b), str(loc)) for b, loc in requested]
+    if not keys:
+        return None
     conn = _get_db()
     try:
         while True:
+            pairs = " OR ".join("(audiobook_id = ? AND locale = ?)" for _ in keys)
+            params = [v for k in keys for v in k]
             row = conn.execute(
-                "SELECT * FROM translation_queue "
-                "WHERE state = 'pending' "
-                "ORDER BY priority DESC, created_at ASC "
-                "LIMIT 1"
+                "SELECT id, locale FROM translation_queue "  # nosec B608 — placeholders only
+                f"WHERE state = 'pending' AND ({pairs}) "
+                "ORDER BY priority DESC, created_at ASC LIMIT 1",
+                params,
             ).fetchone()
             if not row:
                 return None
-            job = dict(row)
             now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-            if not is_safe_locale(job["locale"]):
+            if not is_safe_locale(row["locale"]):
                 # Defense in depth: a malformed locale is never processed (it
                 # would reach the vLLM prompt and the translation-memory key).
                 # Fixed reason; the value itself is not echoed anywhere.
                 logger.warning(
                     "Refusing queue job %s: malformed locale (len=%d)",
-                    job["id"],
-                    len(str(job["locale"])),
+                    row["id"],
+                    len(str(row["locale"])),
                 )
                 conn.execute(
                     "UPDATE translation_queue "
                     "SET state = 'failed', error = ?, finished_at = ?, last_progress_at = ? "
-                    "WHERE id = ?",
-                    ("invalid locale", now, now, job["id"]),
+                    "WHERE id = ? AND state = 'pending'",
+                    ("invalid locale", now, now, row["id"]),
                 )
                 conn.commit()
                 continue
-            conn.execute(
+            claimed = conn.execute(
                 "UPDATE translation_queue "
-                "SET state = 'processing', started_at = ?, last_progress_at = ? "
-                "WHERE id = ?",
-                (now, now, job["id"]),
-            )
+                "SET state = 'processing', started_at = ?, last_progress_at = ?, claimed_by = ? "
+                "WHERE id = ? AND state = 'pending' RETURNING *",
+                (now, now, _owner(), row["id"]),
+            ).fetchone()
             conn.commit()
-            return job
+            if claimed is None:
+                continue  # lost the race to another claimer — look again
+            return dict(claimed)
     finally:
         conn.close()
 
@@ -524,6 +539,31 @@ def _run_tts_phase(book, locale, audio_path, has_tts):
     _run_tts(book["id"], locale, audio_path)
 
 
+class GPUWorkUnavailable(RuntimeError):
+    """The subtitle stage needs a GPU STT provider or an MT endpoint and none is up.
+
+    Not a failure of the book: the row goes back to ``pending`` for the
+    scheduled drain instead of being marked ``failed``.
+    """
+
+
+def _require_gpu_providers() -> None:
+    """Raise :class:`GPUWorkUnavailable` unless STT and MT are both reachable."""
+    from .pipeline import get_stt_provider
+    from .selection import WorkloadHint
+    from .translation.factory import get_translation_provider
+
+    try:
+        stt = get_stt_provider("", workload=WorkloadHint.LONG_FORM)
+    except (RuntimeError, ValueError) as exc:
+        raise GPUWorkUnavailable(f"no STT provider: {exc}") from exc
+    is_available = getattr(stt, "is_available", None)
+    if callable(is_available) and not is_available():
+        raise GPUWorkUnavailable(f"STT provider {stt.name} is not reachable")
+    if get_translation_provider() is None:
+        raise GPUWorkUnavailable("no machine-translation endpoint (AUDIOBOOKS_MT_ENDPOINT unset)")
+
+
 def _process_job(job: dict) -> None:
     book_id = job["audiobook_id"]
     locale = job["locale"]
@@ -533,14 +573,53 @@ def _process_job(job: dict) -> None:
         return
 
     resume_step = job.get("step", "stt")
+    subtitles_done = bool(job.get("subtitles_done_at"))
     try:
-        _run_stt_phase(book, locale, audio_path, existing_en, existing_tr, resume_step)
+        if not subtitles_done:
+            _require_gpu_providers()
+            _run_stt_phase(book, locale, audio_path, existing_en, existing_tr, resume_step)
+            _mark_stage(job["id"], "subtitles_done_at")
         _run_tts_phase(book, locale, audio_path, has_tts)
+        _mark_stage(job["id"], "narration_done_at")
         _finish_job(job["id"], "completed")
         logger.info("Book %d translation complete for %s", book_id, locale)
+    except GPUWorkUnavailable as e:
+        logger.info("Book %d %s: %s — left pending for the scheduled drain", book_id, locale, e)
+        _release_job(job["id"])
     except Exception as e:
         logger.exception("Translation failed for book %d locale %s", book_id, locale)
         _finish_job(job["id"], "failed", error=str(e))
+
+
+def _mark_stage(job_id: int, column: str) -> None:
+    if column not in ("subtitles_done_at", "narration_done_at"):
+        raise ValueError(column)
+    conn = _get_db()
+    try:
+        conn.execute(
+            f"UPDATE translation_queue SET {column} = COALESCE({column}, CURRENT_TIMESTAMP) "  # nosec B608 — column validated above
+            "WHERE id = ?",
+            (job_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _release_job(job_id: int) -> None:
+    """Return a claimed row to ``pending`` untouched — not a failure."""
+    global _current_status
+    conn = _get_db()
+    try:
+        conn.execute(
+            "UPDATE translation_queue SET state = 'pending', started_at = NULL, claimed_by = NULL "
+            "WHERE id = ? AND state = 'processing'",
+            (job_id,),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+    _current_status = {}
 
 
 def _run_stt_and_translate(
@@ -844,7 +923,7 @@ def _finish_job(job_id: int, state: str, error: str | None = None) -> None:
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         conn.execute(
             "UPDATE translation_queue "
-            "SET state = ?, error = ?, finished_at = ?, last_progress_at = ? "
+            "SET state = ?, error = ?, finished_at = ?, last_progress_at = ?, claimed_by = NULL "
             "WHERE id = ?",
             (state, error, now, now, job_id),
         )

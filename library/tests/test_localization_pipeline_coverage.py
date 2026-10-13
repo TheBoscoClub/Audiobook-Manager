@@ -1075,6 +1075,7 @@ class TestProcessJob:
         conn.close()
         job = {"id": 42, "audiobook_id": 1, "locale": "zh-Hans"}
         with (
+            patch.object(lq, "_require_gpu_providers"),
             patch.object(lq, "_run_stt_phase", side_effect=RuntimeError("boom")),
             patch.object(lq, "_finish_job") as finisher,
         ):
@@ -1097,6 +1098,7 @@ class TestProcessJob:
         conn.close()
         job = {"id": 7, "audiobook_id": 1, "locale": "zh-Hans"}
         with (
+            patch.object(lq, "_require_gpu_providers"),
             patch.object(lq, "_run_stt_phase"),
             patch.object(lq, "_run_tts_phase"),
             patch.object(lq, "_finish_job") as finisher,

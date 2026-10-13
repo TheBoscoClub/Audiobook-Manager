@@ -45,6 +45,19 @@ logger = logging.getLogger("batch-translate")
 # Graceful shutdown
 _shutdown = False
 
+# "" = auto selection. --drain-mode forces "local-gpu" (the tunnelled node):
+# the scheduled drain must never fall through to a provider outside its spend
+# cap (RunPod or anything else auto mode might pick).
+FORCED_STT_PROVIDER = ""
+
+# Exit status when the GPU endpoints disappeared mid-run (drain mode): the
+# interrupted job was released to pending, not failed.
+EXIT_ENDPOINTS_LOST = 4
+
+
+class EndpointsLost(RuntimeError):
+    """The drain's tunnelled STT/MT endpoints stopped answering."""
+
 
 def _signal_handler(_sig, _frame):
     global _shutdown
@@ -65,7 +78,10 @@ def get_db(db_path: str) -> sqlite3.Connection:
 
 
 def ensure_tables(db_path: str) -> None:
+    from localization.queue_schema import ensure_queue_schema
+
     conn = get_db(db_path)
+    ensure_queue_schema(conn)
     conn.execute("""
         CREATE TABLE IF NOT EXISTS chapter_translations_audio (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,13 +101,39 @@ def ensure_tables(db_path: str) -> None:
     conn.close()
 
 
-def next_pending_job(db_path: str, book_id: int | None = None) -> dict | None:
-    """Atomically claim the next pending job.
+# Which rows each stage may claim (two-stage accounting, Audiobook-Manager-4j4).
+# A row is 'completed' only when both subtitles_done_at and narration_done_at
+# are set; until then it stays 'pending' and the stage filter decides who works
+# on it. The GPU stage never touches a row whose subtitles are done, and the
+# host-side narration stage never touches a row whose subtitles are not.
+STAGE_FILTERS = {
+    "subtitles": "subtitles_done_at IS NULL",
+    "narration": "subtitles_done_at IS NOT NULL AND narration_done_at IS NULL",
+    "both": "1 = 1",
+}
 
-    Uses UPDATE ... RETURNING so concurrent workers never grab the same row.
-    Requires SQLite >= 3.35 (2021-03). Claim is serialised by SQLite's
-    writer lock under WAL, so only one worker wins per row.
+
+def next_pending_job(
+    db_path: str,
+    book_id: int | None = None,
+    *,
+    stage: str = "both",
+    owner: str = "",
+    skip_ids: set[int] | None = None,
+) -> dict | None:
+    """Atomically claim the next pending job for ``stage``.
+
+    Uses UPDATE ... RETURNING with ``state = 'pending'`` in the claiming
+    statement itself, so concurrent claimers (this batch, the API worker)
+    never grab the same row. Requires SQLite >= 3.35 (2021-03).
+    ``skip_ids`` are rows this run already attempted (a narration failure
+    goes back to pending and must not be retried in a tight loop).
     """
+    import json
+
+    stage_sql = STAGE_FILTERS[stage]
+    owner = owner or f"batch:{os.getpid()}"
+    skip_json = json.dumps(sorted(skip_ids or ()))
     conn = get_db(db_path)
     try:
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
@@ -102,35 +144,105 @@ def next_pending_job(db_path: str, book_id: int | None = None) -> dict | None:
 
         for ex_id in excluded_ids(conn):
             changed = conn.execute(
-                "UPDATE translation_queue SET state = 'excluded' "
+                "UPDATE translation_queue SET state = 'excluded', claimed_by = NULL "
                 "WHERE audiobook_id = ? AND state IN ('pending', 'failed', 'processing')",
                 (ex_id,),
             ).rowcount
             if changed:
                 logger.info("Book %d is permanently excluded from translation — retiring", ex_id)
         conn.commit()
+        book_clause = "AND audiobook_id = ? " if book_id else ""
+        params: list = [now, now, owner, skip_json]
         if book_id:
-            row = conn.execute(
-                "UPDATE translation_queue "
-                "SET state = 'processing', started_at = ?, last_progress_at = ? "
-                "WHERE id = (SELECT id FROM translation_queue "
-                "            WHERE audiobook_id = ? AND state = 'pending' "
-                "            LIMIT 1) "
-                "RETURNING *",
-                (now, now, book_id),
-            ).fetchone()
-        else:
-            row = conn.execute(
-                "UPDATE translation_queue "
-                "SET state = 'processing', started_at = ?, last_progress_at = ? "
-                "WHERE id = (SELECT id FROM translation_queue "
-                "            WHERE state = 'pending' "
-                "            ORDER BY priority DESC, created_at ASC LIMIT 1) "
-                "RETURNING *",
-                (now, now),
-            ).fetchone()
+            params.append(book_id)
+        row = conn.execute(
+            "UPDATE translation_queue "  # nosec B608 — stage_sql from STAGE_FILTERS constants
+            "SET state = 'processing', started_at = ?, last_progress_at = ?, claimed_by = ? "
+            "WHERE state = 'pending' AND id = (SELECT id FROM translation_queue "
+            f"    WHERE state = 'pending' AND ({stage_sql}) "
+            "    AND id NOT IN (SELECT value FROM json_each(?)) "
+            f"    {book_clause}"
+            "    ORDER BY priority DESC, created_at ASC LIMIT 1) "
+            "RETURNING *",
+            params,
+        ).fetchone()
         conn.commit()
         return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def release_job(db_path: str, job_id: int, note: str | None = None) -> None:
+    """Return a claimed row to pending — the work was not attempted to completion
+    for a reason that is not the book's fault (endpoint lost, shutdown)."""
+    conn = get_db(db_path)
+    try:
+        conn.execute(
+            "UPDATE translation_queue SET state = 'pending', started_at = NULL, "
+            "claimed_by = NULL, error = COALESCE(?, error) WHERE id = ? AND state = 'processing'",
+            (note, job_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def record_drain_failure(db_path: str, job_id: int, error: str, max_attempts: int) -> str:
+    """A book-specific failure during a scheduled drain run.
+
+    The row goes back to 'pending' with the error recorded and its
+    ``drain_attempts`` counter raised; on the ``max_attempts``-th consecutive
+    failed run it moves to 'quarantined' instead, so a book that fails every
+    time cannot keep the queue non-empty and make the drain rent a node daily
+    just to fail again. Run-level failures (endpoints lost) never come here.
+    Returns the resulting state.
+    """
+    conn = get_db(db_path)
+    try:
+        now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+        row = conn.execute(
+            "UPDATE translation_queue SET drain_attempts = drain_attempts + 1, "
+            "state = CASE WHEN drain_attempts + 1 >= ? THEN 'quarantined' ELSE 'pending' END, "
+            "error = ?, started_at = NULL, claimed_by = NULL, last_progress_at = ?, "
+            "finished_at = CASE WHEN drain_attempts + 1 >= ? THEN ? ELSE NULL END "
+            "WHERE id = ? RETURNING state, drain_attempts",
+            (max_attempts, error[:2000], now, max_attempts, now, job_id),
+        ).fetchone()
+        conn.commit()
+        return row[0] if row else "missing"
+    finally:
+        conn.close()
+
+
+def mark_stage_done(db_path: str, job_id: int, stage: str) -> str:
+    """Record a finished stage; returns the row's resulting state.
+
+    The row becomes 'completed' only when both stages are done; otherwise it
+    goes back to 'pending' (visibly unfinished) for the other stage.
+    """
+    cols = {"subtitles": ("subtitles_done_at",), "narration": ("narration_done_at",)}.get(
+        stage, ("subtitles_done_at", "narration_done_at")
+    )
+    conn = get_db(db_path)
+    try:
+        now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+        for col in cols:
+            conn.execute(
+                f"UPDATE translation_queue SET {col} = COALESCE({col}, ?) WHERE id = ?",  # nosec B608 — fixed column names
+                (now, job_id),
+            )
+        row = conn.execute(
+            "UPDATE translation_queue SET "
+            "state = CASE WHEN subtitles_done_at IS NOT NULL AND narration_done_at IS NOT NULL "
+            "             THEN 'completed' ELSE 'pending' END, "
+            "finished_at = CASE WHEN subtitles_done_at IS NOT NULL AND narration_done_at IS NOT NULL "
+            "             THEN ? ELSE NULL END, "
+            "started_at = NULL, claimed_by = NULL, error = NULL, drain_attempts = 0, "
+            "last_progress_at = ? WHERE id = ? RETURNING state",
+            (now, now, job_id),
+        ).fetchone()
+        conn.commit()
+        return row[0] if row else "missing"
     finally:
         conn.close()
 
@@ -141,7 +253,7 @@ def finish_job(db_path: str, job_id: int, state: str, error: str | None = None) 
         now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
         conn.execute(
             "UPDATE translation_queue "
-            "SET state = ?, error = ?, finished_at = ?, last_progress_at = ? "
+            "SET state = ?, error = ?, finished_at = ?, last_progress_at = ?, claimed_by = NULL "
             "WHERE id = ?",
             (state, error, now, now, job_id),
         )
@@ -158,22 +270,19 @@ def process_book_stt(db_path: str, book_id: int, locale: str, audio_path: Path) 
     subtitle_dir = audio_path.parent / "subtitles"
     subtitle_dir.mkdir(parents=True, exist_ok=True)
 
-    # Check existing subtitles
-    conn = get_db(db_path)
-    existing_en = {
-        r[0]
-        for r in conn.execute(
-            "SELECT DISTINCT chapter_index FROM chapter_subtitles "
-            "WHERE audiobook_id = ? AND locale = 'en'",
-            (book_id,),
-        ).fetchall()
-    }
-    conn.close()
+    # Chapters already done in BOTH languages are skipped. A chapter with only
+    # its English row (a past run without an MT endpoint) is redone, or its
+    # translation would never be produced.
+    existing_en = _chapter_set(db_path, book_id, "en")
+    existing_tr = _chapter_set(db_path, book_id, locale)
+    done_both = existing_en & existing_tr
 
-    if existing_en:
-        logger.info("  Book %d: %d English chapters already transcribed", book_id, len(existing_en))
+    if done_both:
+        logger.info(
+            "  Book %d: %d chapters already transcribed and translated", book_id, len(done_both)
+        )
 
-    stt = get_stt_provider("", workload=WorkloadHint.LONG_FORM)
+    stt = get_stt_provider(FORCED_STT_PROVIDER, workload=WorkloadHint.LONG_FORM)
     logger.info("  STT provider: %s", stt.name)
 
     gen_conn = sqlite3.connect(db_path)
@@ -230,11 +339,35 @@ def process_book_stt(db_path: str, book_id: int, locale: str, audio_path: Path) 
             stt_provider=stt,
             on_progress=on_progress,
             on_chapter_complete=on_chapter_complete,
-            skip_chapters=existing_en,
+            skip_chapters=done_both,
         )
-        return True
     finally:
         gen_conn.close()
+    # "Subtitles done" is a claim the narration stage and the UI rely on:
+    # every transcribed chapter must have its translation.
+    en_now = _chapter_set(db_path, book_id, "en")
+    tr_now = _chapter_set(db_path, book_id, locale)
+    if not tr_now or not en_now <= tr_now:
+        raise RuntimeError(
+            f"translated subtitles incomplete for {locale}: "
+            f"{len(tr_now)} of {len(en_now)} chapter(s)"
+        )
+    return True
+
+
+def _chapter_set(db_path: str, book_id: int, locale: str) -> set[int]:
+    conn = get_db(db_path)
+    try:
+        return {
+            r[0]
+            for r in conn.execute(
+                "SELECT DISTINCT chapter_index FROM chapter_subtitles "
+                "WHERE audiobook_id = ? AND locale = ?",
+                (book_id, locale),
+            ).fetchall()
+        }
+    finally:
+        conn.close()
 
 
 def process_book_tts(db_path: str, book_id: int, locale: str, audio_path: Path) -> bool:
@@ -361,16 +494,59 @@ def process_book_tts(db_path: str, book_id: int, locale: str, audio_path: Path) 
     return True
 
 
-def _parse_args():
+def _parse_args(argv=None):
     """Parse command-line arguments."""
     parser = argparse.ArgumentParser(description="Batch translation processor")
     parser.add_argument("--db", required=True, help="Path to audiobooks.db")
     parser.add_argument("--library", required=True, help="Path to audiobook library")
     parser.add_argument("--book-id", type=int, help="Process a single book ID")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be processed")
-    parser.add_argument("--stt-only", action="store_true", help="Only run STT, skip TTS")
-    parser.add_argument("--tts-only", action="store_true", help="Only run TTS, skip STT")
-    return parser.parse_args()
+    parser.add_argument(
+        "--stage",
+        choices=("subtitles", "narration", "both"),
+        default=None,
+        help="subtitles: STT + MT only (GPU); narration: TTS for rows whose "
+        "subtitles are done (no GPU); both (default): the whole book",
+    )
+    parser.add_argument("--stt-only", action="store_true", help="Alias for --stage subtitles")
+    parser.add_argument("--tts-only", action="store_true", help="Alias for --stage narration")
+    parser.add_argument(
+        "--owner",
+        default="",
+        help="claimed_by value for rows this run claims (default batch:<pid>)",
+    )
+    parser.add_argument(
+        "--drain-mode",
+        action="store_true",
+        help="Scheduled-drain mode: force the local-gpu STT provider and the vLLM "
+        "endpoint, refuse anything else, and release (not fail) jobs when the "
+        "endpoints stop answering",
+    )
+    parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=3,
+        help="drain mode: consecutive failed runs before a book is quarantined (default 3)",
+    )
+    args = parser.parse_args(argv)
+    if args.max_attempts < 1:
+        parser.error("--max-attempts must be >= 1")
+    chosen = [
+        x
+        for x in (
+            args.stage,
+            "subtitles" if args.stt_only else None,
+            "narration" if args.tts_only else None,
+        )
+        if x
+    ]
+    if len(set(chosen)) > 1:
+        parser.error("--stage, --stt-only and --tts-only are mutually exclusive")
+    args.stage = chosen[0] if chosen else "both"
+    # Back-compat for callers that still read the old booleans.
+    args.stt_only = args.stage == "subtitles"
+    args.tts_only = args.stage == "narration"
+    return args
 
 
 def _configure_env(args):
@@ -390,6 +566,65 @@ def _configure_env(args):
                 # Without this, int(os.environ["AUDIOBOOKS_API_PORT"]) raises ValueError.
                 cleaned = val.strip().strip('"').strip("'")
                 os.environ.setdefault(key.strip(), cleaned)
+
+    if getattr(args, "drain_mode", False):
+        _lock_down_providers(args.stage)
+
+
+# Every variable that could route drain work to a paid provider outside the
+# drain's per-run cap. Removed AFTER audiobooks.conf is read (which would
+# otherwise re-add them) and BEFORE localization.config is imported (it reads
+# them once, at import).
+_OUTSIDE_CAP_VARS = (
+    "AUDIOBOOKS_RUNPOD_API_KEY",
+    "AUDIOBOOKS_RUNPOD_API_KEY_FILE",
+    "AUDIOBOOKS_RUNPOD_WHISPER_ENDPOINT",
+    "AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT",
+    "AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT",
+    "AUDIOBOOKS_RUNPOD_XTTS_ENDPOINT",
+    "AUDIOBOOKS_WHISPER_GPU_URL",
+)
+
+
+def _lock_down_providers(stage: str) -> None:
+    """Drain mode: only the tunnelled node (subtitles) or edge-tts (narration)."""
+    global FORCED_STT_PROVIDER
+    if "localization.config" in sys.modules:
+        raise RuntimeError("drain mode must lock providers before localization.config loads")
+    for var in _OUTSIDE_CAP_VARS:
+        os.environ.pop(var, None)
+    os.environ["AUDIOBOOKS_TTS_PROVIDER"] = "edge-tts"
+    if stage == "narration":
+        os.environ.pop("AUDIOBOOKS_MT_ENDPOINT", None)
+        return
+    host = os.environ.get("AUDIOBOOKS_WHISPER_GPU_HOST", "")
+    mt = os.environ.get("AUDIOBOOKS_MT_ENDPOINT", "")
+    if host not in ("127.0.0.1", "localhost") or not mt.startswith(
+        ("http://127.0.0.1:", "http://localhost:")
+    ):
+        raise RuntimeError(
+            "drain mode needs the tunnelled endpoints: AUDIOBOOKS_WHISPER_GPU_HOST=127.0.0.1 "
+            "and AUDIOBOOKS_MT_ENDPOINT=http://127.0.0.1:<port> — refusing to route elsewhere"
+        )
+    os.environ["AUDIOBOOKS_STT_PROVIDER"] = "local-gpu"
+    FORCED_STT_PROVIDER = "local-gpu"
+
+
+def endpoints_healthy() -> bool:
+    """Both tunnelled services answer (drain mode, subtitles stage)."""
+    import urllib.request
+
+    host = os.environ.get("AUDIOBOOKS_WHISPER_GPU_HOST", "127.0.0.1")
+    port = os.environ.get("AUDIOBOOKS_WHISPER_GPU_PORT", "8765")
+    mt = os.environ.get("AUDIOBOOKS_MT_ENDPOINT", "").rstrip("/")
+    for url in (f"http://{host}:{port}/health", f"{mt}/v1/models"):
+        try:
+            with urllib.request.urlopen(url, timeout=10) as resp:  # nosec B310 — loopback URLs validated in _lock_down_providers
+                if resp.status != 200:
+                    return False
+        except Exception:  # noqa: BLE001 — any failure means "not healthy"
+            return False
+    return True
 
 
 def _get_queue_stats(db_path):
@@ -430,9 +665,12 @@ def _process_job(db_path, job, args, pending, start_time, processed):
 
     Returns the updated pending count, or None if the job was skipped
     (book/file not found — caller should continue to next job).
+    Raises :class:`EndpointsLost` (drain mode) after releasing the job when the
+    tunnelled endpoints stopped answering — the caller stops the batch.
     """
     book_id = job["audiobook_id"]
     locale = job["locale"]
+    stage = args.stage
 
     conn = get_db(db_path)
     book = conn.execute(
@@ -453,30 +691,55 @@ def _process_job(db_path, job, args, pending, start_time, processed):
     rate = processed / (elapsed / 3600) if elapsed > 0 else 0
 
     logger.info(
-        "=== [%d/%d] Book %d: %s (locale=%s) === [%.1f books/hr]",
+        "=== [%d/%d] Book %d: %s (locale=%s, stage=%s) === [%.1f books/hr]",
         processed,
         processed + pending - 1,
         book_id,
         book["title"],
         locale,
+        stage,
         rate,
     )
 
+    gpu_stage = stage in ("subtitles", "both") and not job.get("subtitles_done_at")
+    if args.drain_mode and gpu_stage and not endpoints_healthy():
+        release_job(db_path, job["id"])
+        raise EndpointsLost("tunnelled endpoints not answering before the job started")
+
     try:
-        if not args.tts_only:
+        if gpu_stage:
             logger.info("  Step 1: STT + subtitle translation")
             process_book_stt(db_path, book_id, locale, audio_path)
+            if stage == "subtitles":
+                state = mark_stage_done(db_path, job["id"], "subtitles")
+                logger.info("  SUBTITLES DONE: %s (row now %s)", book["title"], state)
 
-        if not args.stt_only:
+        if stage in ("narration", "both"):
             logger.info("  Step 2: TTS narration")
             process_book_tts(db_path, book_id, locale, audio_path)
-
-        finish_job(db_path, job["id"], "completed")
-        logger.info("  DONE: %s", book["title"])
+            state = mark_stage_done(db_path, job["id"], stage)
+            logger.info("  DONE: %s (row now %s)", book["title"], state)
 
     except Exception as e:
-        logger.exception("  FAILED: %s — %s", book["title"], e)
-        finish_job(db_path, job["id"], "failed", error=str(e))
+        if args.drain_mode and gpu_stage and not endpoints_healthy():
+            # The node or the tunnel went away: not the book's fault. Never
+            # mark it failed — hand it back for the next drain and stop.
+            logger.error("  Endpoints lost during %s — releasing it to pending", book["title"])
+            release_job(db_path, job["id"])
+            raise EndpointsLost(str(e)) from e
+        if args.drain_mode:
+            # Book-specific failure inside a scheduled drain: retried on later
+            # runs (visibly pending, error recorded) until quarantined.
+            state = record_drain_failure(db_path, job["id"], f"{stage}: {e}", args.max_attempts)
+            logger.exception("  FAILED (%s, row now %s): %s — %s", stage, state, book["title"], e)
+        elif stage == "narration":
+            # Narration failures stay visibly pending (error recorded) for the
+            # next run; this run does not retry the row.
+            logger.exception("  NARRATION FAILED (left pending): %s — %s", book["title"], e)
+            release_job(db_path, job["id"], note=f"narration: {e}")
+        else:
+            logger.exception("  FAILED: %s — %s", book["title"], e)
+            finish_job(db_path, job["id"], "failed", error=str(e))
 
     # Update pending count after processing
     conn = get_db(db_path)
@@ -487,23 +750,38 @@ def _process_job(db_path, job, args, pending, start_time, processed):
     return new_pending
 
 
-def _run_batch(db_path, args):
-    """Drain the translation queue, processing one job at a time."""
+def _run_batch(db_path, args) -> int:
+    """Drain the translation queue, processing one job at a time.
+
+    Returns the process exit status: 0, or EXIT_ENDPOINTS_LOST.
+    """
     processed = 0
     pending = 0
     start_time = time.monotonic()
+    attempted: set[int] = set()
 
     while not _shutdown:
-        job = next_pending_job(db_path, book_id=args.book_id)
+        job = next_pending_job(
+            db_path,
+            book_id=args.book_id,
+            stage=args.stage,
+            owner=args.owner,
+            skip_ids=attempted,
+        )
         if not job:
             if args.book_id:
                 logger.info("Book %d: no pending jobs", args.book_id)
             else:
-                logger.info("Queue empty — all jobs processed")
+                logger.info("Queue empty for stage '%s' — all jobs processed", args.stage)
             break
+        attempted.add(job["id"])
 
         processed += 1
-        new_pending = _process_job(db_path, job, args, pending, start_time, processed)
+        try:
+            new_pending = _process_job(db_path, job, args, pending, start_time, processed)
+        except EndpointsLost as e:
+            logger.error("Stopping batch: GPU endpoints lost (%s)", e)
+            return EXIT_ENDPOINTS_LOST
         if new_pending is None:
             # Job was skipped (book/file not found); don't count it
             processed -= 1
@@ -517,6 +795,7 @@ def _run_batch(db_path, args):
         total_elapsed / 60,
         processed / (total_elapsed / 3600) if total_elapsed > 0 else 0,
     )
+    return 0
 
 
 def main():
@@ -533,7 +812,11 @@ def main():
         logger.error("Database not found: %s", db_path)
         sys.exit(1)
 
-    _configure_env(args)
+    try:
+        _configure_env(args)
+    except RuntimeError as e:
+        logger.error("%s", e)
+        sys.exit(2)
     ensure_tables(db_path)
 
     pending, completed, failed = _get_queue_stats(db_path)
@@ -543,7 +826,9 @@ def main():
         _dry_run_preview(db_path)
         return
 
-    _run_batch(db_path, args)
+    rc = _run_batch(db_path, args)
+    if rc:
+        sys.exit(rc)
 
 
 if __name__ == "__main__":

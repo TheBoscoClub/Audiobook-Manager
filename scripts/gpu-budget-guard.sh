@@ -33,6 +33,8 @@
 #   scripts/gpu-budget-guard.sh --cap 35             # per-session spend ceiling
 #   scripts/gpu-budget-guard.sh --cap 35 --floor 64  # ...and a credit floor
 #   scripts/gpu-budget-guard.sh --cap 35 --check     # one-shot report, no action
+#   scripts/gpu-budget-guard.sh --cap 10 --await 1500 # arm before `up`: wait up to
+#                                                     # 1500s for the instance to appear
 #
 #   --cap   is arithmetic I compute (uptime x rate, summed over labeled
 #           instances). It resets when an instance is replaced, so it bounds
@@ -58,12 +60,13 @@
 
 set -uo pipefail
 
-API_BASE="https://console.vast.ai/api/v0"
+API_BASE="${VAST_API_BASE:-https://console.vast.ai/api/v0}"
 LABEL="${GPU_NODE_LABEL:-abm-translate}"
 CAP=""
 FLOOR=""
 MAX_IDLE=""
 CHECK_ONLY=0
+AWAIT=0
 POLL_SECONDS="${GUARD_POLL_SECONDS:-120}"
 VERIFY_TRIES=5
 LOG="${GUARD_LOG:-/tmp/gpu-budget-guard.log}"
@@ -96,10 +99,15 @@ while [[ $# -gt 0 ]]; do
             LABEL="${2:-}"
             shift 2
             ;;
+        --await)
+            AWAIT="${2:-}"
+            shift 2
+            ;;
         *) die "unknown argument: $1" ;;
     esac
 done
 [[ -n "$CAP" ]] || die "--cap DOLLARS is required"
+[[ "$AWAIT" =~ ^[0-9]+$ ]] || die "--await takes whole seconds"
 
 if [[ -z "${VAST_API_KEY:-}" && -n "${VAST_API_KEY_FILE:-}" ]]; then
     [[ -r "$VAST_API_KEY_FILE" ]] || die "VAST_API_KEY_FILE (${VAST_API_KEY_FILE}) is not readable"
@@ -113,6 +121,7 @@ if [[ -z "${VAST_API_KEY:-}" ]]; then
     [[ -n "$FLOOR" ]] && reexec_args+=(--floor "$FLOOR")
     [[ -n "$MAX_IDLE" ]] && reexec_args+=(--max-idle "$MAX_IDLE")
     [[ $CHECK_ONLY -eq 1 ]] && reexec_args+=(--check)
+    [[ "$AWAIT" != "0" ]] && reexec_args+=(--await "$AWAIT")
     exec "$WITH_SECRET" VAST_API_KEY -- "$0" "${reexec_args[@]}"
 fi
 
@@ -197,12 +206,23 @@ fi
 
 say "guard armed: cap \$${CAP}${FLOOR:+, credit floor \$${FLOOR}}${MAX_IDLE:+, max idle ${MAX_IDLE}m}, label '${LABEL}', polling every ${POLL_SECONDS}s"
 idle_since=""
+# --await N: armed BEFORE the instance exists (the drain starts the guard
+# before `up`, so the cap covers the whole create/boot window). Until the
+# first labelled instance appears, an empty listing means "not yet", for at
+# most N seconds; after that it means "torn down" and the guard exits.
+seen=0
+armed_at="$(date +%s)"
 while true; do
     count="$(labeled | jq 'length')"
     if [[ "$count" == "0" ]]; then
+        if [[ $seen -eq 0 ]] && (($(date +%s) - armed_at < AWAIT)); then
+            sleep "$POLL_SECONDS"
+            continue
+        fi
         say "no '${LABEL}' instances — guard exiting"
         exit 0
     fi
+    [[ -n "$count" ]] && seen=1
     spend="$(spend_now)"
     over="$(awk -v s="$spend" -v c="$CAP" 'BEGIN { print (s >= c) ? 1 : 0 }')"
     if [[ "$over" == "1" ]]; then

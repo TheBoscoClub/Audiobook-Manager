@@ -1532,6 +1532,7 @@ enable_new_services() {
         audiobook-shutdown-saver.service            # saves tmpfs staging before reboot/halt (shutdown-only)
         audiobook-translation-monitor-live.timer    # v8.3.9: 30s live-tier monitor
         audiobook-translation-monitor-sampler.timer # v8.3.9: 5min sampler-tier monitor
+        audiobook-translation-reaper.timer          # 4j4: destroy-only guard for drain nodes
     )
     for unit in "${standalone_units[@]}"; do
         if [[ -f "/etc/systemd/system/${unit}" ]]; then
@@ -2424,22 +2425,25 @@ do_upgrade() {
             echo "  Skipped derive-secrets drop-in: /usr/bin/derive-service-secret not present (stock *_FILE pointer files remain in use)"
         fi
 
-        # Same host-conditional pattern for the translation drain's Vast.ai
-        # credential (audiobook-translation-drain.service). Its timer ships
-        # disabled and is never enabled here; see the template's header.
-        local drain_dropin_src="${project}/systemd/audiobook-translation-drain-derive-secrets.conf.example"
-        local drain_dropin_dir="/etc/systemd/system/audiobook-translation-drain.service.d"
-        if [[ -x /usr/bin/derive-service-secret ]] && [[ -f "$drain_dropin_src" ]]; then
-            if [[ "$DRY_RUN" == "true" ]]; then
-                echo "  [DRY-RUN] Would install: ${drain_dropin_dir}/derive-secrets.conf"
+        # Same host-conditional pattern for the Vast.ai credential of the
+        # translation drain and its independent reaper. The drain's timer ships
+        # disabled and is never enabled here; see the templates' headers.
+        local vast_unit vast_src vast_dir
+        for vast_unit in audiobook-translation-drain audiobook-translation-reaper; do
+            vast_src="${project}/systemd/${vast_unit}-derive-secrets.conf.example"
+            vast_dir="/etc/systemd/system/${vast_unit}.service.d"
+            if [[ -x /usr/bin/derive-service-secret ]] && [[ -f "$vast_src" ]]; then
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    echo "  [DRY-RUN] Would install: ${vast_dir}/derive-secrets.conf"
+                else
+                    $use_sudo mkdir -p "$vast_dir"
+                    $use_sudo install -m 0644 "$vast_src" "${vast_dir}/derive-secrets.conf"
+                    echo "  Installed: ${vast_dir}/derive-secrets.conf (derive-service-secret detected)"
+                fi
             else
-                $use_sudo mkdir -p "$drain_dropin_dir"
-                $use_sudo install -m 0644 "$drain_dropin_src" "${drain_dropin_dir}/derive-secrets.conf"
-                echo "  Installed: ${drain_dropin_dir}/derive-secrets.conf (derive-service-secret detected)"
+                echo "  Skipped ${vast_unit} derive-secrets drop-in: /usr/bin/derive-service-secret not present (VAST_API_KEY_FILE must come from audiobooks.conf)"
             fi
-        else
-            echo "  Skipped translation-drain derive-secrets drop-in: /usr/bin/derive-service-secret not present (VAST_API_KEY_FILE must come from audiobooks.conf)"
-        fi
+        done
 
         # Patch ReadWritePaths if data dir differs from default /srv/audiobooks.
         # ProtectSystem=strict makes the filesystem read-only except for listed paths.

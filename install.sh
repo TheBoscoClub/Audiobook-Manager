@@ -1912,19 +1912,22 @@ EOF
                 echo "  Skipped derive-secrets drop-in: /usr/bin/derive-service-secret not present (stock *_FILE pointer files under ${CONFIG_DIR} remain in use)"
             fi
 
-            # Same host-conditional pattern for the translation drain's Vast.ai
-            # credential (audiobook-translation-drain.service). The drain's
-            # timer ships disabled either way; this only decides where its
-            # VAST_API_KEY_FILE pointer comes from once an operator enables it.
-            local drain_dropin_src="${SCRIPT_DIR}/systemd/audiobook-translation-drain-derive-secrets.conf.example"
-            local drain_dropin_dir="${SYSTEMD_DIR}/audiobook-translation-drain.service.d"
-            if [[ -x /usr/bin/derive-service-secret ]] && [[ -f "$drain_dropin_src" ]]; then
-                sudo mkdir -p "$drain_dropin_dir"
-                sudo install -m 0644 "$drain_dropin_src" "${drain_dropin_dir}/derive-secrets.conf"
-                echo "  Installed: ${drain_dropin_dir}/derive-secrets.conf (derive-service-secret detected)"
-            else
-                echo "  Skipped translation-drain derive-secrets drop-in: /usr/bin/derive-service-secret not present (set VAST_API_KEY_FILE in audiobooks.conf before enabling the drain timer)"
-            fi
+            # Same host-conditional pattern for the Vast.ai credential of the
+            # translation drain and its independent reaper. The drain's timer
+            # ships disabled either way; this only decides where their
+            # VAST_API_KEY_FILE pointer comes from.
+            local vast_unit vast_src vast_dir
+            for vast_unit in audiobook-translation-drain audiobook-translation-reaper; do
+                vast_src="${SCRIPT_DIR}/systemd/${vast_unit}-derive-secrets.conf.example"
+                vast_dir="${SYSTEMD_DIR}/${vast_unit}.service.d"
+                if [[ -x /usr/bin/derive-service-secret ]] && [[ -f "$vast_src" ]]; then
+                    sudo mkdir -p "$vast_dir"
+                    sudo install -m 0644 "$vast_src" "${vast_dir}/derive-secrets.conf"
+                    echo "  Installed: ${vast_dir}/derive-secrets.conf (derive-service-secret detected)"
+                else
+                    echo "  Skipped ${vast_unit} derive-secrets drop-in: /usr/bin/derive-service-secret not present (set VAST_API_KEY_FILE in audiobooks.conf)"
+                fi
+            done
         fi
 
         # Install tmpfiles.d configuration for runtime directories
@@ -2089,7 +2092,7 @@ EOF
         # and must be enabled so tmpfs staging is flushed on clean shutdown
         # (the helper above detects shutdown-only WantedBy and skips --now).
         sudo systemctl enable audiobook.target 2>/dev/null || true
-        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer audiobook-stream-translate audiobook-shutdown-saver.service audiobook-translation-monitor-live.timer audiobook-translation-monitor-sampler.timer; do
+        for svc in audiobook-api audiobook-proxy audiobook-redirect audiobook-converter audiobook-mover audiobook-downloader.timer audiobook-scheduler audiobook-enrichment.timer audiobook-stream-translate audiobook-shutdown-saver.service audiobook-translation-monitor-live.timer audiobook-translation-monitor-sampler.timer audiobook-translation-reaper.timer; do
             _enable_unit_smart "$svc"
         done
         # Explicit enable for streaming translation worker (belt-and-suspenders

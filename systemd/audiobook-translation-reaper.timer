@@ -1,0 +1,14 @@
+[Unit]
+Description=Audiobook translation reaper — every 10 minutes (enabled by default; destroy-only)
+Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
+# Deliberately NOT PartOf=audiobook.target: stopping the app (every upgrade
+# does) must not stop the one thing that kills a node a dying drain left behind.
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=10min
+AccuracySec=30s
+Unit=audiobook-translation-reaper.service
+
+[Install]
+WantedBy=timers.target

@@ -6,46 +6,55 @@
 # operator decision; see docs/MULTI-LANGUAGE-SETUP.md "Scheduled drain").
 #
 # Every newly imported book is queued into translation_queue for each
-# non-English locale by the importer's post-insert hook
-# (library/scanner/post_insert.py). This script drains that queue on a rented
-# Vast.ai GPU node, then destroys the node:
+# non-English locale by the importer's post-insert hook. A row has two stages
+# (localization/queue_schema.py): SUBTITLES (STT + MT, needs a GPU) and
+# NARRATION (edge-tts, no GPU). This script:
 #
-#   lock -> count pending (0 => exit 0, nothing rented)
-#        -> gpu-node.sh up -> gpu-budget-guard.sh --cap (background, at once)
-#        -> gpu-node.sh tunnel -> wait for vLLM + whisper to answer (bounded)
-#        -> batch-translate.py over the queue (bounded wall-clock)
-#        -> [EXIT trap] stop batch, release its claims, tunnel --stop,
-#           down --yes, wait for the guard to confirm 0 instances
+#   lock -> release claims a dead run left -> count both stages
+#   GPU stage (only if subtitle work is pending):
+#     credential + free-port checks -> monthly budget (ledger) -> reserve
+#     -> guard armed (--await, before the node exists) -> `up` (background
+#     child, so a signal is handled at once) -> tunnel -> bounded health wait
+#     -> batch --stage subtitles --drain-mode, watched for tunnel death,
+#        endpoint death, guard exit and wall-clock
+#     -> teardown: stop batch, release its claims, tunnel --stop,
+#        down --yes (every abm-drain instance), verify 0 remain, record spend
+#   NARRATION stage (host only, after the node is confirmed gone):
+#     batch --stage narration --drain-mode (edge-tts), bounded wall-clock
 #
-# The teardown lives ONLY in the EXIT trap, so every path out of this script —
-# success, any failure, SIGINT/SIGTERM — runs the same code and destroys the
-# node. Any failure (including the wall-clock limit, the guard's spend cap
-# firing, or an unverified teardown) exits non-zero so the unit shows failed.
+# The same teardown runs from the EXIT trap, so every path out — success, any
+# failure, SIGINT/SIGTERM — destroys the node. Anything that ends a stage early
+# exits non-zero so the unit shows failed. An independent reaper
+# (translation-drain-reaper.sh, its own timer) destroys abm-drain nodes this
+# script cannot (SIGKILL, OOM, power loss).
 #
 # Configuration (lib/audiobook-config.sh defaults, override in audiobooks.conf):
-#   AUDIOBOOKS_DRAIN_BUDGET_USD        per-run spend cap passed to the guard (10)
-#   AUDIOBOOKS_DRAIN_MAX_MINUTES       wall-clock limit for the batch (240)
-#   AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT seconds to wait for vLLM + whisper (1800)
-#   AUDIOBOOKS_DRAIN_LABEL             Vast instance label owned by the drain
-#                                      (abm-drain — distinct from the operator
-#                                      CLI's abm-translate, so the drain never
-#                                      destroys a hand-run session's node)
-#   AUDIOBOOKS_DRAIN_STT_ONLY          true: subtitles (STT + MT) only, no TTS
-#   AUDIOBOOKS_DRAIN_LOCK              flock file preventing overlapping runs
-#   GPU_NODE_* (see gpu-node.sh)       offer selection, SSH key, ports
+#   AUDIOBOOKS_DRAIN_BUDGET_USD           per-run spend cap (10)
+#   AUDIOBOOKS_DRAIN_MONTHLY_BUDGET_USD   calendar-month ceiling, local time (100)
+#   AUDIOBOOKS_DRAIN_MIN_RUN_USD          smallest cap worth renting for (1)
+#   AUDIOBOOKS_DRAIN_MAX_MINUTES          wall-clock limit, subtitle batch (240)
+#   AUDIOBOOKS_DRAIN_NARRATION_MAX_MINUTES  wall-clock limit, narration pass (120)
+#   AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT    seconds to wait for vLLM + whisper (1800)
+#   AUDIOBOOKS_DRAIN_LABEL                Vast label the drain owns (abm-drain)
+#   AUDIOBOOKS_DRAIN_MAX_ATTEMPTS         failed runs before a book is quarantined (3)
+#   AUDIOBOOKS_DRAIN_LOCK                 flock file shared with the reaper
+#   AUDIOBOOKS_DRAIN_LEDGER               append-only spend ledger (TSV)
+#   GPU_NODE_* (see gpu-node.sh)          offer selection, SSH key, ports
 #
 # Credential: VAST_API_KEY, or VAST_API_KEY_FILE pointing at a file holding it
-# (the derive-service-secret drop-in sets the pointer at service start). The
-# key is never read, logged or passed on a command line by this script; the
-# check below only tests that the file is readable and non-empty.
+# (the derive-service-secret drop-in sets the pointer at service start). This
+# script never reads, logs or passes the key; it only checks the file is
+# readable and non-empty.
 #
 # Test seams (unit tests only; never set them in production):
 #   DRAIN_CONFIG_LIB, DRAIN_GPU_NODE_CMD, DRAIN_GUARD_CMD, DRAIN_BATCH_CMD,
-#   DRAIN_PYTHON, DRAIN_POLL_SECONDS, DRAIN_MAX_SECONDS, DRAIN_TERM_GRACE,
-#   DRAIN_GUARD_WAIT
+#   DRAIN_PYTHON, DRAIN_POLL_SECONDS, DRAIN_MAX_SECONDS,
+#   DRAIN_NARRATION_MAX_SECONDS, DRAIN_TERM_GRACE, DRAIN_LOCK_WAIT,
+#   DRAIN_HEALTH_EVERY, DRAIN_VERIFY_DELAY
 #
-# Exit codes: 0 done (or nothing pending), 1 failure, 75 another drain holds
-# the lock, 130/143 interrupted (node still torn down).
+# Exit codes: 0 done (or nothing pending), 1 failure or refusal, 75 another
+# drain (or the reaper) held the lock for DRAIN_LOCK_WAIT seconds, 130/143
+# interrupted (node still torn down).
 
 # Teardown functions are reached only through the EXIT/INT/TERM traps.
 # shellcheck disable=SC2329
@@ -59,6 +68,12 @@ log() { printf '%s translation-drain: %s\n' "$(date '+%F %T')" "$*"; }
 fail() {
     log "ERROR: $*"
     exit 1
+}
+# GPU-stage failure: return to main, which tears down and still runs the
+# (free) narration pass before exiting non-zero.
+gfail() {
+    log "ERROR: $*"
+    return 1
 }
 
 # --- configuration ----------------------------------------------------------
@@ -78,17 +93,26 @@ fi
 source "$CONFIG_LIB"
 
 BUDGET="${AUDIOBOOKS_DRAIN_BUDGET_USD:-10}"
+MONTHLY="${AUDIOBOOKS_DRAIN_MONTHLY_BUDGET_USD:-100}"
+MIN_RUN="${AUDIOBOOKS_DRAIN_MIN_RUN_USD:-1}"
 MAX_MINUTES="${AUDIOBOOKS_DRAIN_MAX_MINUTES:-240}"
+NARRATION_MAX_MINUTES="${AUDIOBOOKS_DRAIN_NARRATION_MAX_MINUTES:-120}"
 BOOTSTRAP_TIMEOUT="${AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT:-1800}"
 LABEL="${AUDIOBOOKS_DRAIN_LABEL:-abm-drain}"
-STT_ONLY="${AUDIOBOOKS_DRAIN_STT_ONLY:-true}"
+MAX_ATTEMPTS="${AUDIOBOOKS_DRAIN_MAX_ATTEMPTS:-3}"
 LOCK_FILE="${AUDIOBOOKS_DRAIN_LOCK:-${AUDIOBOOKS_RUN_DIR}/translation-drain.lock}"
+LEDGER="${AUDIOBOOKS_DRAIN_LEDGER:-${AUDIOBOOKS_VAR_DIR}/translation-drain/spend-ledger.tsv}"
 MT_PORT="${GPU_NODE_MT_PORT:-8000}"
 WHISPER_PORT="${GPU_NODE_WHISPER_PORT:-8765}"
+TUNNEL_PIDFILE="${TMPDIR:-/tmp}/gpu-node-tunnel-${LABEL}.pid"
+LIVE_FILE="${LEDGER}.live"
 
 POLL="${DRAIN_POLL_SECONDS:-30}"
+HEALTH_EVERY="${DRAIN_HEALTH_EVERY:-60}"
 TERM_GRACE="${DRAIN_TERM_GRACE:-300}"
-GUARD_WAIT="${DRAIN_GUARD_WAIT:-300}"
+LOCK_WAIT="${DRAIN_LOCK_WAIT:-120}"
+VERIFY_DELAY="${DRAIN_VERIFY_DELAY:-5}"
+UP_WAIT=1500 # gpu-node.sh up: <=1200 s to running + scp/launch; the guard's --await
 PY="${DRAIN_PYTHON:-${AUDIOBOOKS_VENV}/bin/python}"
 
 read -r -a GPU_NODE <<<"${DRAIN_GPU_NODE_CMD:-${SCRIPT_DIR}/gpu-node.sh}"
@@ -105,19 +129,24 @@ export GPU_NODE_LABEL="$LABEL"
 # --- run state (read by the EXIT trap) --------------------------------------
 NODE_REQUESTED=0
 GUARD_PID=""
+UP_PID=""
 BATCH_PID=""
-DRAIN_START_UTC=""
+RUN_ID=""
+CAP=""
+CREDIT_BEFORE=""
+LAST_ACCRUED=""
 
 # Every child gets fd 9 (the lock) closed: a disowned tunnel ssh that
 # inherited it would hold the lock long after this script exited.
 gpu_node() { "${GPU_NODE[@]}" "$@" 9>&-; }
 
-queue_query() {
-    PYTHONPATH="${LIB_PY_DIR}${PYTHONPATH:+:${PYTHONPATH}}" \
-        "$PY" -m localization.drain_queue --db "$AUDIOBOOKS_DATABASE" "$@" 9>&-
+pyrun() {
+    PYTHONPATH="${LIB_PY_DIR}${PYTHONPATH:+:${PYTHONPATH}}" "$PY" "$@" 9>&-
 }
+queue_query() { pyrun -m localization.drain_queue --db "$AUDIOBOOKS_DATABASE" "$@"; }
+ledger() { pyrun -m localization.drain_ledger --ledger "$LEDGER" "$@"; }
 
-guard_alive() { [[ -n "$GUARD_PID" ]] && kill -0 "$GUARD_PID" 2>/dev/null; }
+alive() { [[ -n "$1" ]] && kill -0 "$1" 2>/dev/null; }
 
 # Interruptible sleep: a trapped signal ends `wait` at once, where a
 # foreground `sleep` would delay the trap until it finished.
@@ -127,102 +156,152 @@ nap() {
 }
 
 is_uint() { [[ "$1" =~ ^[0-9]+$ ]]; }
+is_money() { [[ "$1" =~ ^[0-9]+(\.[0-9]+)?$ ]]; }
 
-# --- teardown (EXIT trap only) ----------------------------------------------
-stop_batch() {
-    [[ -n "$BATCH_PID" ]] || return 0
-    if kill -0 "$BATCH_PID" 2>/dev/null; then
-        log "stopping batch (pid ${BATCH_PID}): SIGTERM, ${TERM_GRACE}s grace to finish the current book"
-        kill -TERM "$BATCH_PID" 2>/dev/null
+# Anything listening on the tunnel's local ports (an operator's own tunnel to
+# a different node, a local vLLM, anything) would answer for the drain's node.
+ports_busy() {
+    command -v ss >/dev/null 2>&1 || {
+        log "ss not found — cannot prove ports ${MT_PORT}/${WHISPER_PORT} are free"
+        return 0
+    }
+    local out
+    out="$(ss -Htln "( sport = :${MT_PORT} or sport = :${WHISPER_PORT} )" 2>&1)" || return 0
+    [[ -n "$out" ]]
+}
+
+healthy() {
+    curl -fsS -o /dev/null --max-time 10 "http://127.0.0.1:${MT_PORT}/v1/models" 2>/dev/null \
+        && curl -fsS -o /dev/null --max-time 10 "http://127.0.0.1:${WHISPER_PORT}/health" 2>/dev/null
+}
+
+tunnel_alive() {
+    local pid
+    pid="$(cat "$TUNNEL_PIDFILE" 2>/dev/null)" || return 1
+    alive "$pid"
+}
+
+sample_accrued() {
+    local out
+    out="$(gpu_node billing 2>/dev/null)" || return 0
+    local acc
+    acc="$(sed -n 's/.*accrued=\([0-9.eE+-]*\).*/\1/p' <<<"$out")"
+    is_money "$acc" && LAST_ACCRUED="$acc"
+    return 0
+}
+
+credit_now() {
+    gpu_node billing 2>/dev/null | sed -n 's/^credit=\([0-9.]*\)$/\1/p'
+}
+
+# --- teardown (explicit at the end of the GPU stage, and from the EXIT trap) --
+stop_child() { # pid label
+    local pid="$1" what="$2"
+    [[ -n "$pid" ]] || return 0
+    if alive "$pid"; then
+        log "stopping ${what} (pid ${pid}): SIGTERM, ${TERM_GRACE}s grace"
+        kill -TERM "$pid" 2>/dev/null
         local waited=0
-        while kill -0 "$BATCH_PID" 2>/dev/null && ((waited < TERM_GRACE)); do
+        while alive "$pid" && ((waited < TERM_GRACE)); do
             sleep 1
             waited=$((waited + 1))
         done
-        if kill -0 "$BATCH_PID" 2>/dev/null; then
-            log "batch still running after ${TERM_GRACE}s — SIGKILL"
-            kill -KILL "$BATCH_PID" 2>/dev/null
+        if alive "$pid"; then
+            log "${what} still running after ${TERM_GRACE}s — SIGKILL"
+            kill -KILL "$pid" 2>/dev/null
         fi
     fi
-    wait "$BATCH_PID" 2>/dev/null
-    BATCH_PID=""
+    wait "$pid" 2>/dev/null
+    return 0
 }
 
 release_claims() {
-    [[ -n "$DRAIN_START_UTC" ]] || return 0
     local released
-    if released="$(queue_query release --since "$DRAIN_START_UTC")"; then
+    if released="$(queue_query release --owner drain)"; then
         [[ "$released" == "0" ]] || log "returned ${released} interrupted queue row(s) to pending"
     else
         log "WARNING: could not release interrupted queue rows (they stay 'processing')"
     fi
 }
 
-# Wait (bounded) for the guard: after `down`, it sees 0 labeled instances and
-# exits 0 — that exit IS the confirmation. Anything else falls back to an
-# explicit one-shot check.
-confirm_teardown() {
-    local guard_rc=""
-    if [[ -n "$GUARD_PID" ]]; then
-        local waited=0
-        while guard_alive && ((waited < GUARD_WAIT)); do
-            sleep 1
-            waited=$((waited + 1))
-        done
-        if guard_alive; then
-            log "guard did not exit within ${GUARD_WAIT}s — stopping it"
-            kill -TERM "$GUARD_PID" 2>/dev/null
-        fi
-        wait "$GUARD_PID" 2>/dev/null
-        guard_rc=$?
-        GUARD_PID=""
+instance_count() { gpu_node count 2>/dev/null; }
+
+record_spend() {
+    [[ -n "$RUN_ID" ]] || return 0
+    local after spend=""
+    after="$(credit_now)"
+    if is_money "$CREDIT_BEFORE" && is_money "$after"; then
+        spend="$(awk -v b="$CREDIT_BEFORE" -v a="$after" 'BEGIN { d = b - a; if (d >= 0) printf "%.4f", d }')"
     fi
-    if [[ "$guard_rc" == "0" ]]; then
-        log "guard confirmed: no '${LABEL}' instances remain"
-        return 0
+    if is_money "$LAST_ACCRUED"; then
+        spend="$(awk -v s="${spend:-0}" -v e="$LAST_ACCRUED" 'BEGIN { printf "%.4f", (s > e ? s : e) }')"
     fi
-    local report
-    report="$("${GUARD[@]}" --cap "$BUDGET" --label "$LABEL" --check 9>&- 2>&1)"
-    if [[ "$report" =~ (^|[[:space:]])instances=0([[:space:]]|$) ]]; then
-        log "verified by check: no '${LABEL}' instances remain"
-        return 0
+    if [[ -n "$spend" ]]; then
+        ledger final --run "$RUN_ID" --amount "$spend" --note "credit-delta/uptime-estimate" \
+            && log "spend recorded: \$${spend} (run ${RUN_ID})"
+    else
+        log "WARNING: spend not measurable — the \$${CAP} reservation stands in the ledger"
     fi
-    log "!!! TEARDOWN UNVERIFIED — check console.vast.ai for label '${LABEL}' NOW (check said: ${report:-nothing}) !!!"
-    return 1
+    rm -f "$LIVE_FILE"
 }
 
-teardown() {
-    local rc=0
-    stop_batch
+teardown_node() {
+    stop_child "$BATCH_PID" "batch"
+    BATCH_PID=""
     release_claims
-    if [[ "$NODE_REQUESTED" -eq 1 ]]; then
-        log "teardown: closing tunnel"
-        gpu_node tunnel --stop || log "WARNING: tunnel --stop failed"
-        local attempt destroyed=0
-        for attempt in 1 2 3; do
-            log "teardown: destroying node (attempt ${attempt})"
-            if gpu_node down --yes; then
-                destroyed=1
-                break
-            fi
-            sleep 5
+    [[ "$NODE_REQUESTED" -eq 1 ]] || {
+        alive "$GUARD_PID" && kill -TERM "$GUARD_PID" 2>/dev/null
+        return 0
+    }
+    if alive "$UP_PID"; then
+        log "teardown: interrupting gpu-node.sh up (pid ${UP_PID})"
+        kill -TERM "$UP_PID" 2>/dev/null
+        local w=0
+        while alive "$UP_PID" && ((w < 30)); do
+            sleep 1
+            w=$((w + 1))
         done
-        [[ $destroyed -eq 1 ]] || {
-            log "ERROR: gpu-node.sh down failed 3 times"
-            rc=1
-        }
-        confirm_teardown || rc=1
-    elif [[ -n "$GUARD_PID" ]]; then
-        kill -TERM "$GUARD_PID" 2>/dev/null
+        alive "$UP_PID" && kill -KILL "$UP_PID" 2>/dev/null
+        wait "$UP_PID" 2>/dev/null
     fi
-    return "$rc"
+    UP_PID=""
+    sample_accrued
+    log "teardown: closing tunnel"
+    gpu_node tunnel --stop || log "WARNING: tunnel --stop failed"
+    # down destroys EVERY instance under the label, so a node whose id was
+    # never learned (up interrupted mid-create) is found by label.
+    local attempt count="" verified=0
+    for attempt in 1 2 3; do
+        log "teardown: destroying '${LABEL}' instances (attempt ${attempt})"
+        gpu_node down --yes || log "WARNING: gpu-node.sh down reported failure"
+        sleep "$VERIFY_DELAY"
+        count="$(instance_count)"
+        if [[ "$count" == "0" ]]; then
+            verified=1
+            break
+        fi
+        log "teardown: ${count:-unknown} '${LABEL}' instance(s) still listed"
+    done
+    if alive "$GUARD_PID"; then
+        kill -TERM "$GUARD_PID" 2>/dev/null
+        wait "$GUARD_PID" 2>/dev/null
+    fi
+    GUARD_PID=""
+    if [[ $verified -ne 1 ]]; then
+        log "!!! TEARDOWN UNVERIFIED — check console.vast.ai for label '${LABEL}' NOW (the reaper will retry) !!!"
+        return 1
+    fi
+    log "verified: no '${LABEL}' instances remain"
+    NODE_REQUESTED=0
+    record_spend
+    return 0
 }
 
 on_exit() {
     local rc=$?
     trap '' INT TERM # teardown must not be interrupted
     trap - EXIT
-    if ! teardown; then
+    if ! teardown_node; then
         ((rc == 0)) && rc=1
     fi
     log "exit ${rc}"
@@ -238,95 +317,178 @@ trap on_exit EXIT
 trap 'on_signal INT' INT
 trap 'on_signal TERM' TERM
 
-# --- steps ------------------------------------------------------------------
+# --- GPU stage ----------------------------------------------------------------
 wait_healthy() {
     local deadline=$((SECONDS + BOOTSTRAP_TIMEOUT))
     log "waiting up to ${BOOTSTRAP_TIMEOUT}s for vLLM (:${MT_PORT}) and whisper (:${WHISPER_PORT})"
     while ((SECONDS < deadline)); do
-        guard_alive || fail "budget guard exited during bootstrap (cap reached or guard failure)"
-        if curl -fsS -o /dev/null --max-time 10 "http://127.0.0.1:${MT_PORT}/v1/models" 2>/dev/null \
-            && curl -fsS -o /dev/null --max-time 10 "http://127.0.0.1:${WHISPER_PORT}/health" 2>/dev/null; then
+        alive "$GUARD_PID" || gfail "budget guard exited during bootstrap (cap reached or guard failure)" || return 1
+        tunnel_alive || gfail "tunnel died during bootstrap" || return 1
+        if healthy; then
             log "node healthy: vLLM and whisper answer through the tunnel"
             return 0
         fi
         nap "$POLL"
     done
-    fail "bootstrap timeout: services did not answer within ${BOOTSTRAP_TIMEOUT}s"
+    gfail "bootstrap timeout: services did not answer within ${BOOTSTRAP_TIMEOUT}s"
 }
 
+# run_batch STAGE MAX_SECONDS — watched for the GPU stage, bounded for both.
 run_batch() {
-    local max_seconds="${DRAIN_MAX_SECONDS:-$((MAX_MINUTES * 60))}"
-    local -a args=(--db "$AUDIOBOOKS_DATABASE" --library "$AUDIOBOOKS_LIBRARY")
-    [[ "$STT_ONLY" == "true" ]] && args+=(--stt-only)
-    log "starting batch (limit ${max_seconds}s): ${BATCH[*]##*/} ${args[*]}"
-    AUDIOBOOKS_MT_ENDPOINT="http://127.0.0.1:${MT_PORT}" \
-        AUDIOBOOKS_WHISPER_GPU_HOST=127.0.0.1 \
-        AUDIOBOOKS_WHISPER_GPU_PORT="$WHISPER_PORT" \
-        "${BATCH[@]}" "${args[@]}" 9>&- &
+    local stage="$1" max_seconds="$2"
+    local -a args=(--db "$AUDIOBOOKS_DATABASE" --library "$AUDIOBOOKS_LIBRARY"
+        --stage "$stage" --owner drain --drain-mode --max-attempts "$MAX_ATTEMPTS")
+    log "starting ${stage} batch (limit ${max_seconds}s)"
+    if [[ "$stage" == "subtitles" ]]; then
+        AUDIOBOOKS_MT_ENDPOINT="http://127.0.0.1:${MT_PORT}" \
+            AUDIOBOOKS_WHISPER_GPU_HOST=127.0.0.1 \
+            AUDIOBOOKS_WHISPER_GPU_PORT="$WHISPER_PORT" \
+            "${BATCH[@]}" "${args[@]}" 9>&- &
+    else
+        env -u AUDIOBOOKS_MT_ENDPOINT "${BATCH[@]}" "${args[@]}" 9>&- &
+    fi
     BATCH_PID=$!
-    local deadline=$((SECONDS + max_seconds))
-    while kill -0 "$BATCH_PID" 2>/dev/null; do
-        guard_alive || fail "budget guard exited mid-batch (cap reached or guard failure) — stopping"
-        ((SECONDS < deadline)) || fail "wall-clock limit ${max_seconds}s reached — stopping batch"
+    local deadline=$((SECONDS + max_seconds)) next_health=$((SECONDS + HEALTH_EVERY)) misses=0
+    while alive "$BATCH_PID"; do
+        ((SECONDS < deadline)) || gfail "wall-clock limit ${max_seconds}s reached — stopping ${stage} batch" || return 1
+        if [[ "$stage" == "subtitles" ]]; then
+            alive "$GUARD_PID" || gfail "budget guard exited mid-batch (cap reached or guard failure)" || return 1
+            tunnel_alive || gfail "tunnel died mid-batch — stopping batch" || return 1
+            if ((SECONDS >= next_health)); then
+                next_health=$((SECONDS + HEALTH_EVERY))
+                sample_accrued
+                if healthy; then
+                    misses=0
+                else
+                    misses=$((misses + 1))
+                    log "health probe failed (${misses}/3)"
+                    ((misses < 3)) || gfail "node endpoints stopped answering — stopping batch" || return 1
+                fi
+            fi
+        fi
         nap "$POLL"
     done
     wait "$BATCH_PID"
     local rc=$?
     BATCH_PID=""
-    ((rc == 0)) || fail "batch exited ${rc}"
-    log "batch finished"
+    case "$rc" in
+        0) log "${stage} batch finished" ;;
+        4) gfail "batch lost the GPU endpoints (job released to pending)" || return 1 ;;
+        *) gfail "${stage} batch exited ${rc}" || return 1 ;;
+    esac
 }
 
+gpu_stage() {
+    if [[ -z "${VAST_API_KEY:-}" ]]; then
+        [[ -n "${VAST_API_KEY_FILE:-}" ]] \
+            || gfail "no Vast.ai credential: set VAST_API_KEY_FILE (derive-service-secret drop-in) — not renting" || return 1
+        [[ -r "$VAST_API_KEY_FILE" && -s "$VAST_API_KEY_FILE" ]] \
+            || gfail "VAST_API_KEY_FILE (${VAST_API_KEY_FILE}) is missing, unreadable or empty — not renting" || return 1
+    fi
+    ! ports_busy || gfail "local port ${MT_PORT} or ${WHISPER_PORT} is already in use — refusing to rent (it could answer for another node)" || return 1
+
+    local verdict
+    verdict="$(ledger budget --per-run "$BUDGET" --monthly "$MONTHLY" --min-run "$MIN_RUN" 2>&1)" \
+        || gfail "monthly budget: ${verdict} — not renting; the queue stays pending" || return 1
+    CAP="$(sed -n 's/^cap=\([0-9.]*\) .*/\1/p' <<<"$verdict")"
+    is_money "$CAP" || gfail "could not parse budget verdict '${verdict}'" || return 1
+    log "budget: ${verdict} (per-run \$${BUDGET}, monthly \$${MONTHLY})"
+
+    local run_id="drain-$(date +%s)-$$"
+    # The live-run marker tells the reaper which reservation belongs to the
+    # run holding the lock; written first so a reservation never exists
+    # without it.
+    mkdir -p "$(dirname "$LEDGER")" 2>/dev/null && chmod 0750 "$(dirname "$LEDGER")" 2>/dev/null
+    printf '%s\n' "$run_id" >"$LIVE_FILE" || gfail "could not write ${LIVE_FILE} — not renting" || return 1
+    ledger reserve --run "$run_id" --amount "$CAP" || gfail "could not write the spend ledger ${LEDGER} — not renting" || return 1
+    RUN_ID="$run_id"
+    NODE_REQUESTED=1
+    CREDIT_BEFORE="$(credit_now)"
+
+    # Armed before the node exists, so the cap covers create + boot too.
+    "${GUARD[@]}" --cap "$CAP" --label "$LABEL" --await "$UP_WAIT" 9>&- &
+    GUARD_PID=$!
+    log "budget guard armed (pid ${GUARD_PID}, cap \$${CAP})"
+
+    log "renting node (label '${LABEL}')"
+    # Backgrounded DIRECTLY (not via the gpu_node function, which would put a
+    # subshell in between that defers the TERM sent by the teardown) and
+    # waited on, so a signal to this script runs its trap immediately rather
+    # than when `up` returns (up to ~25 minutes later).
+    "${GPU_NODE[@]}" up 9>&- &
+    UP_PID=$!
+    wait "$UP_PID"
+    local up_rc=$?
+    UP_PID=""
+    ((up_rc == 0)) || gfail "gpu-node.sh up failed (exit ${up_rc})" || return 1
+
+    ! ports_busy || gfail "local port ${MT_PORT} or ${WHISPER_PORT} became busy — refusing to tunnel" || return 1
+    gpu_node tunnel || gfail "gpu-node.sh tunnel failed" || return 1
+    wait_healthy || return 1
+    run_batch subtitles "${DRAIN_MAX_SECONDS:-$((MAX_MINUTES * 60))}" || return 1
+    log "subtitle stage complete"
+}
+
+# --- main ---------------------------------------------------------------------
 main() {
     declare -F require_audiobooks_user >/dev/null && require_audiobooks_user "$@"
 
-    if ! [[ "$BUDGET" =~ ^[0-9]+(\.[0-9]+)?$ ]] || ! awk -v b="$BUDGET" 'BEGIN { exit !(b > 0) }'; then
-        fail "AUDIOBOOKS_DRAIN_BUDGET_USD must be a positive number (got '${BUDGET}')"
-    fi
-    is_uint "$MAX_MINUTES" || fail "AUDIOBOOKS_DRAIN_MAX_MINUTES must be an integer (got '${MAX_MINUTES}')"
-    is_uint "$BOOTSTRAP_TIMEOUT" || fail "AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT must be an integer (got '${BOOTSTRAP_TIMEOUT}')"
+    local k v
+    for k in BUDGET_USD:"$BUDGET" MONTHLY_BUDGET_USD:"$MONTHLY" MIN_RUN_USD:"$MIN_RUN"; do
+        v="${k#*:}"
+        if ! is_money "$v" || ! awk -v b="$v" 'BEGIN { exit !(b > 0) }'; then
+            fail "AUDIOBOOKS_DRAIN_${k%%:*} must be a positive number (got '${v}')"
+        fi
+    done
+    for k in MAX_MINUTES NARRATION_MAX_MINUTES BOOTSTRAP_TIMEOUT MAX_ATTEMPTS; do
+        is_uint "${!k}" || fail "${k} must be a whole number (got '${!k}')"
+    done
 
     mkdir -p "$(dirname "$LOCK_FILE")" 2>/dev/null
     exec 9>>"$LOCK_FILE" || fail "cannot open lock file ${LOCK_FILE}"
-    if ! flock -n 9; then
-        log "another drain holds ${LOCK_FILE} — not starting"
+    if ! flock -w "$LOCK_WAIT" 9; then
+        log "another drain or the reaper held ${LOCK_FILE} for ${LOCK_WAIT}s — not starting"
         exit 75
     fi
 
-    local pending
-    pending="$(queue_query count)" || fail "could not count pending translation_queue rows"
-    is_uint "$pending" || fail "unexpected pending count '${pending}'"
-    if [[ "$pending" -eq 0 ]]; then
+    # We hold the lock, so any 'drain' claim is left over from a dead run.
+    release_claims
+
+    local subs narr rc=0
+    subs="$(queue_query count --stage subtitles)" || fail "could not count pending subtitle work"
+    narr="$(queue_query count --stage narration)" || fail "could not count pending narration work"
+    if ! is_uint "$subs" || ! is_uint "$narr"; then
+        fail "unexpected pending counts '${subs}'/'${narr}'"
+    fi
+    if [[ "$subs" -eq 0 && "$narr" -eq 0 ]]; then
         log "0 pending translation_queue rows — nothing to do, no node rented"
         exit 0
     fi
-    log "${pending} pending translation_queue row(s)"
+    log "pending: ${subs} subtitle row(s) (GPU), ${narr} narration row(s) (host)"
 
-    if [[ -z "${VAST_API_KEY:-}" ]]; then
-        [[ -n "${VAST_API_KEY_FILE:-}" ]] \
-            || fail "no Vast.ai credential: set VAST_API_KEY_FILE (derive-service-secret drop-in) — not renting"
-        [[ -r "$VAST_API_KEY_FILE" && -s "$VAST_API_KEY_FILE" ]] \
-            || fail "VAST_API_KEY_FILE (${VAST_API_KEY_FILE}) is missing, unreadable or empty — not renting"
+    if [[ "$subs" -gt 0 ]]; then
+        gpu_stage || rc=1
+        # Always tear down here, before any host-side work: the node must be
+        # gone (and verified gone) before the run does anything else.
+        if ! teardown_node; then
+            exit 1 # unverified teardown: skip narration, alert now
+        fi
     fi
 
-    DRAIN_START_UTC="$(date -u '+%Y-%m-%d %H:%M:%S')"
-    NODE_REQUESTED=1
-    log "renting node (label '${LABEL}', spend cap \$${BUDGET})"
-    gpu_node up || fail "gpu-node.sh up failed"
-
-    "${GUARD[@]}" --cap "$BUDGET" --label "$LABEL" 9>&- &
-    GUARD_PID=$!
-    log "budget guard started (pid ${GUARD_PID}, cap \$${BUDGET})"
-
-    gpu_node tunnel || fail "gpu-node.sh tunnel failed"
-    wait_healthy
-    run_batch
-    log "drain complete"
+    narr="$(queue_query count --stage narration)" || fail "could not count pending narration work"
+    if [[ "$narr" -gt 0 ]]; then
+        log "narration pass (host, edge-tts): ${narr} row(s)"
+        run_batch narration "${DRAIN_NARRATION_MAX_SECONDS:-$((NARRATION_MAX_MINUTES * 60))}" || rc=1
+        stop_child "$BATCH_PID" "narration batch"
+        BATCH_PID=""
+        release_claims
+    fi
+    if ((rc == 0)); then log "drain complete"; else log "drain finished with errors"; fi
+    exit "$rc"
 }
 
 # One compound command: bash parses the whole { ... } block before running
 # it, so an upgrade that rewrites this file mid-run cannot feed it new lines.
 {
     main "$@"
-    exit $?
 }

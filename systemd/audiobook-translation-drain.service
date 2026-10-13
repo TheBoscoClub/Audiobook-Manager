@@ -31,15 +31,23 @@ RuntimeDirectoryMode=0700
 
 ExecStart=/opt/audiobooks/scripts/translation-drain.sh
 
-# The script bounds itself (up <= 20 min, bootstrap AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT,
-# batch AUDIOBOOKS_DRAIN_MAX_MINUTES, teardown). This is the outer backstop:
-# on timeout systemd sends SIGTERM, which the script's trap turns into a teardown.
+# The script bounds itself: up <= 25 min, bootstrap AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT
+# (30 min), subtitle batch AUDIOBOOKS_DRAIN_MAX_MINUTES (4 h), teardown (< 25 min),
+# narration pass AUDIOBOOKS_DRAIN_NARRATION_MAX_MINUTES (2 h) — about 7.7 h at the
+# defaults. This is the outer backstop: on timeout systemd sends SIGTERM, which
+# the script's trap turns into a teardown. Raise it if you raise those keys.
 TimeoutStartSec=12h
 # mixed: SIGTERM to the script only, so its trap — not systemd — stops the
 # batch, closes the tunnel and destroys the node; SIGKILL to the rest of the
 # cgroup only after TimeoutStopSec.
 KillMode=mixed
-TimeoutStopSec=15min
+# Must exceed the worst-case teardown, or systemd SIGKILLs it half-way:
+#   batch stop grace 300 s + interrupting `up` 30 s + spend sample 120 s
+#   + 3 x (down: list 60 s + delete 60 s + tunnel stop, verify 5 s + count 60 s) ~ 555 s
+#   + spend record (credit read 120 s) ~= 1125 s (~19 min).
+# 40 min leaves room for slow API calls. The independent reaper
+# (audiobook-translation-reaper.timer) covers the case where even this is cut short.
+TimeoutStopSec=40min
 Restart=no
 
 StandardOutput=journal

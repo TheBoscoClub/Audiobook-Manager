@@ -68,18 +68,24 @@
 #   GPU_NODE_MODEL      vLLM model to serve              (default: Qwen/Qwen3-8B)
 #   GPU_NODE_SSH_KEY    ssh -i identity file             (default: ssh default keys)
 #   GPU_NODE_WHISPER_SRC whisper_gpu_service.py to ship  (default: ../library/localization/stt/)
+#   GPU_NODE_PIP_TIMEOUT max seconds to wait for on-node pip (default: 1200)
+#   VAST_API_BASE       API base URL                     (default: console.vast.ai; tests only)
 #   VAST_API_KEY_FILE   file holding the API key         (see CREDENTIALS)
 # ---------------------------------------------------------------------------
 
 set -uo pipefail
 
-API_BASE="https://console.vast.ai/api/v0"
+API_BASE="${VAST_API_BASE:-https://console.vast.ai/api/v0}"
 LABEL="${GPU_NODE_LABEL:-abm-translate}"
 GPU_NAME="${GPU_NODE_GPU:-H100 SXM}"
 MAX_PRICE="${GPU_NODE_MAX_PRICE:-}"
 IMAGE="${GPU_NODE_IMAGE:-vastai/pytorch}" # vllm/vllm-openai breaks Vast proxy-SSH (hard entrypoint)
 DISK_GB="${GPU_NODE_DISK_GB:-80}"
 VLLM_MODEL="${GPU_NODE_MODEL:-Qwen/Qwen3-8B}"
+# Bound on the post-ssh wait for the onstart `pip install` to finish (seconds).
+# Unbounded, a wedged pip kept `up` — and the billing node — waiting forever.
+PIP_WAIT="${GPU_NODE_PIP_TIMEOUT:-1200}"
+[[ "$PIP_WAIT" =~ ^[0-9]+$ ]] || PIP_WAIT=1200
 # Forwarded ports, defined once: the tunnel opens them and `tunnel --stop`
 # sweeps for them by signature. Two literals would let the sweep silently stop
 # matching the tunnel it is meant to find.
@@ -341,8 +347,8 @@ cmd_up() {
         "root@${SSH_HOST}:/workspace/whisper_gpu_service.py" \
         || die "scp failed — is your SSH public key registered at console.vast.ai -> Keys?"
     ssh "${opts[@]}" -p "$SSH_PORT" "root@${SSH_HOST}" \
-        "while pgrep -f '[p]ip install' >/dev/null; do sleep 10; done; WHISPER_MODEL=large-v3 nohup python3 /workspace/whisper_gpu_service.py --model large-v3 --port 8765 > /workspace/whisper.log 2>&1 & sleep 1; echo whisper launched" \
-        || die "whisper service launch failed"
+        "t=0; while pgrep -f '[p]ip install' >/dev/null; do [ \$t -ge ${PIP_WAIT} ] && { echo 'pip install still running after ${PIP_WAIT}s' >&2; exit 3; }; sleep 10; t=\$((t + 10)); done; WHISPER_MODEL=large-v3 nohup python3 /workspace/whisper_gpu_service.py --model large-v3 --port 8765 > /workspace/whisper.log 2>&1 & sleep 1; echo whisper launched" \
+        || die "whisper service launch failed (or on-node pip install exceeded ${PIP_WAIT}s)"
 
     info "up complete. Next: '$0 tunnel' then '$0 bootstrap-status'."
     info "REMINDER: billing (~1.74 \$/hr for verified H100 SXM) runs until '$0 down'."
@@ -445,38 +451,50 @@ cmd_tunnel() {
 cmd_down() {
     local yes=0
     [[ "${1:-}" == "--yes" ]] && yes=1
-    local inst
-    inst="$(our_any_instance)"
-    [[ "$inst" != "null" && -n "$inst" ]] || {
+    # EVERY instance under our label, not just the newest: a second instance
+    # (an `up` killed mid-create whose PUT still landed, a race, a retry) bills
+    # exactly like the first, and `down` is the only off switch.
+    local all count
+    all="$(our_instances)" || die "could not list instances"
+    count="$(jq 'length' <<<"$all")"
+    if [[ "$count" -eq 0 ]]; then
         info "no '${LABEL}' instance — nothing to destroy."
+        info "closing tunnel (no node to point at)"
+        cmd_tunnel --stop
         return 0
-    }
-    local state
-    state="$(jq -r '.actual_status // "unknown"' <<<"$inst")"
-    [[ "$state" == "exited" ]] && info "instance has exited (container stopped) but its DISK STILL BILLS — destroying."
-    local id dph start now
-    id="$(jq -r '.id' <<<"$inst")"
-    dph="$(jq -r '.dph_total // 0' <<<"$inst")"
-    start="$(jq -r '.start_date // 0' <<<"$inst")"
-    now="$(date +%s)"
+    fi
 
     if [[ "$yes" -ne 1 ]]; then
-        printf 'gpu-node: destroy instance %s (label %s, %s $/hr)? [y/N] ' "$id" "$LABEL" "$dph"
+        printf 'gpu-node: destroy %s instance(s) labelled %s (%s)? [y/N] ' "$count" "$LABEL" \
+            "$(jq -r '[.[] | "\(.id) at \(.dph_total // 0) $/hr"] | join(", ")' <<<"$all")"
         local reply
         read -r reply
         [[ "$reply" == "y" || "$reply" == "Y" ]] || die "aborted"
     fi
 
-    vast_curl DELETE "/instances/${id}/" >/dev/null || die "destroy failed for instance ${id}"
-    info "instance ${id} destroyed."
-    if [[ "$start" != "0" && "$start" != "null" ]]; then
-        # Estimate only: elapsed runtime x hourly price. Vast bills storage
-        # and bandwidth separately; the console has the authoritative number.
-        awk -v s="$start" -v n="$now" -v d="$dph" 'BEGIN {
-            h = (n - s) / 3600;
-            printf "gpu-node: ran %.2f hours at %.3f $/hr -> estimated compute cost %.2f dollars (excludes storage/bandwidth)\n", h, d, h * d
-        }'
-    fi
+    local now failed=0 row id state dph start
+    now="$(date +%s)"
+    while IFS= read -r row; do
+        id="$(jq -r '.id' <<<"$row")"
+        state="$(jq -r '.actual_status // "unknown"' <<<"$row")"
+        dph="$(jq -r '.dph_total // 0' <<<"$row")"
+        start="$(jq -r '.start_date // 0' <<<"$row")"
+        [[ "$state" == "exited" ]] && info "instance ${id} has exited (container stopped) but its DISK STILL BILLS — destroying."
+        if ! vast_curl DELETE "/instances/${id}/" >/dev/null; then
+            printf 'gpu-node: ERROR: destroy failed for instance %s\n' "$id" >&2
+            failed=1
+            continue
+        fi
+        info "instance ${id} destroyed."
+        if [[ "$start" != "0" && "$start" != "null" ]]; then
+            # Estimate only: elapsed runtime x hourly price. Vast bills storage
+            # and bandwidth separately; the console has the authoritative number.
+            awk -v s="$start" -v n="$now" -v d="$dph" 'BEGIN {
+                h = (n - s) / 3600;
+                printf "gpu-node: ran %.2f hours at %.3f $/hr -> estimated compute cost %.2f dollars (excludes storage/bandwidth)\n", h, d, h * d
+            }'
+        fi
+    done < <(jq -c '.[]' <<<"$all")
     # Close the tunnel rather than advising someone to. The node it points at
     # no longer exists, so every surviving forwarder is now an infinite
     # reconnect loop against a destroyed host — and it is silent, costs no
@@ -488,7 +506,29 @@ cmd_down() {
     # so the teardown owns both ends.
     info "closing tunnel (the node it pointed at is gone)"
     cmd_tunnel --stop
+    [[ $failed -eq 0 ]] || die "one or more '${LABEL}' instances could not be destroyed"
     return 0
+}
+
+# Machine-readable spend facts for the drain's ledger; never prints the key.
+#   credit=<account credit, dollars>
+#   instances=<n> accrued=<sum over labelled instances of uptime x dph_total>
+cmd_billing() {
+    local credit rows
+    credit="$(vast_curl GET "/users/current/" | jq -r '.credit // empty')" \
+        || die "could not read account credit"
+    [[ -n "$credit" ]] || die "account response had no credit field"
+    rows="$(our_instances)" || die "could not list instances"
+    printf 'credit=%s\n' "$credit"
+    jq -r --argjson now "$(date +%s)" '
+        "instances=\(length) accrued=\([.[] | ((($now - (.start_date // $now)) / 3600) * (.dph_total // 0))] | add // 0)"' <<<"$rows"
+}
+
+# Number of instances under our label, in any state (exited still bills).
+cmd_count() {
+    local rows
+    rows="$(our_instances)" || die "could not list instances"
+    jq 'length' <<<"$rows"
 }
 
 cmd_bootstrap_status() {
@@ -521,6 +561,8 @@ Usage: $0 <subcommand> [options]
   tunnel [--stop]     SSH tunnel 127.0.0.1:8000 -> vLLM, 127.0.0.1:8765 -> whisper
   down [--yes]        DESTROY our labeled instance (stops billing)
   bootstrap-status    ssh in: vLLM /v1/models, whisper /health, GPU name
+  billing             credit=<dollars> / instances=<n> accrued=<dollars> (for the drain ledger)
+  count               number of '${LABEL}' instances in any state
 
 Label override: GPU_NODE_LABEL (current: ${LABEL})
 EOF
@@ -550,6 +592,14 @@ case "${1:-}" in
     bootstrap-status)
         shift
         cmd_bootstrap_status "$@"
+        ;;
+    billing)
+        shift
+        cmd_billing "$@"
+        ;;
+    count)
+        shift
+        cmd_count "$@"
         ;;
     "" | -h | --help | help) usage ;;
     *)

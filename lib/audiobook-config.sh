@@ -260,12 +260,17 @@ _load_config_file "${HOME:-}/.config/audiobooks/audiobooks.conf"
 # Scheduled translation drain (scripts/translation-drain.sh, run by
 # audiobook-translation-drain.timer — ships disabled). Each run that finds
 # pending translation_queue rows rents a Vast.ai GPU node and destroys it.
-: "${AUDIOBOOKS_DRAIN_BUDGET_USD:=10}"          # spend cap per run (gpu-budget-guard.sh --cap)
-: "${AUDIOBOOKS_DRAIN_MAX_MINUTES:=240}"        # wall-clock limit for the batch itself
-: "${AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT:=1800}" # seconds to wait for vLLM + whisper to answer
-: "${AUDIOBOOKS_DRAIN_LABEL:=abm-drain}"        # Vast instance label the drain owns and destroys
-: "${AUDIOBOOKS_DRAIN_STT_ONLY:=true}"          # true: subtitles (STT+MT) only; false: also TTS on the node's clock
+: "${AUDIOBOOKS_DRAIN_BUDGET_USD:=10}"             # spend cap per run (gpu-budget-guard.sh --cap)
+: "${AUDIOBOOKS_DRAIN_MONTHLY_BUDGET_USD:=100}"    # ceiling per calendar month, local time
+: "${AUDIOBOOKS_DRAIN_MIN_RUN_USD:=1}"             # do not rent when less than this is left
+: "${AUDIOBOOKS_DRAIN_MAX_MINUTES:=240}"           # wall-clock limit, GPU subtitle batch
+: "${AUDIOBOOKS_DRAIN_NARRATION_MAX_MINUTES:=120}" # wall-clock limit, host narration pass
+: "${AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT:=1800}"    # seconds to wait for vLLM + whisper to answer
+: "${AUDIOBOOKS_DRAIN_LABEL:=abm-drain}"           # Vast instance label the drain owns and destroys
+: "${AUDIOBOOKS_DRAIN_MAX_ATTEMPTS:=3}"            # consecutive failed runs before a book is quarantined
+: "${AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES:=30}"  # reaper: slack past the drain's longest legitimate run
 : "${AUDIOBOOKS_DRAIN_LOCK:=${AUDIOBOOKS_RUN_DIR}/translation-drain.lock}"
+: "${AUDIOBOOKS_DRAIN_LEDGER:=${AUDIOBOOKS_VAR_DIR}/translation-drain/spend-ledger.tsv}"
 
 # Server settings
 : "${AUDIOBOOKS_API_PORT:=5001}"
@@ -289,8 +294,9 @@ export AUDIOBOOKS_STAGING AUDIOBOOKS_PARALLEL_JOBS AUDIOBOOKS_SCAN_INTERVAL
 export AUDIOBOOKS_TMPFS_THRESHOLD AUDIOBOOKS_OPUS_LEVEL AUDIOBOOKS_DOWNLOAD_DELAY
 export AUDIOBOOKS_WEBM_CACHE DATA_DIR
 export AUDIOBOOKS_RUN_DIR AUDIOBOOKS_VAR_DIR AUDIOBOOKS_TRIGGERS AUDIOBOOKS_DOWNLOADER_LOCK
-export AUDIOBOOKS_DRAIN_BUDGET_USD AUDIOBOOKS_DRAIN_MAX_MINUTES AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT
-export AUDIOBOOKS_DRAIN_LABEL AUDIOBOOKS_DRAIN_STT_ONLY AUDIOBOOKS_DRAIN_LOCK
+export AUDIOBOOKS_DRAIN_BUDGET_USD AUDIOBOOKS_DRAIN_MONTHLY_BUDGET_USD AUDIOBOOKS_DRAIN_MIN_RUN_USD
+export AUDIOBOOKS_DRAIN_MAX_MINUTES AUDIOBOOKS_DRAIN_NARRATION_MAX_MINUTES AUDIOBOOKS_DRAIN_BOOTSTRAP_TIMEOUT
+export AUDIOBOOKS_DRAIN_LABEL AUDIOBOOKS_DRAIN_MAX_ATTEMPTS AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES AUDIOBOOKS_DRAIN_LOCK AUDIOBOOKS_DRAIN_LEDGER
 export AUDIOBOOKS_STREAMING_AUDIO_DIR AUDIOBOOKS_STREAMING_SUBTITLES_DIR
 export AUDIOBOOKS_AUDIBLE_VENV AUDIOBOOKS_AUDIBLE_CMD
 export CF_ZONE_ID AUDIOBOOKS_PROJECT_DIR

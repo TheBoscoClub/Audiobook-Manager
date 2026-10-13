@@ -281,8 +281,9 @@ _INSERT_STRING = (
 )
 _INSERT_QUEUE = (
     "INSERT OR IGNORE INTO translation_queue "
-    "(audiobook_id, locale, priority, state, step, finished_at) "
-    "VALUES (?, ?, 0, 'completed', 'tts', CURRENT_TIMESTAMP)"
+    "(audiobook_id, locale, priority, state, step, finished_at, "
+    " subtitles_done_at, narration_done_at) "
+    "VALUES (?, ?, 0, 'completed', 'tts', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
 )
 _INSERT_STREAMING_SEGMENT = (
     "INSERT OR REPLACE INTO streaming_segments "
@@ -552,6 +553,12 @@ def _import_strings(conn: sqlite3.Connection, manifest: dict) -> int:
 
 
 def _mark_queue_completed(conn: sqlite3.Connection, manifest: dict, id_map: dict[int, int]) -> None:
+    from .queue_schema import ensure_queue_schema
+
+    # Imported rows record both stages done; the target DB must have the
+    # two-stage columns first (an install whose API has not started since the
+    # upgrade may not).
+    ensure_queue_schema(conn)
     for qe in manifest.get("queue_completed", []):
         new_id = id_map.get(qe["audiobook_id"])
         if not new_id:

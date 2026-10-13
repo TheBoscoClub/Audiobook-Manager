@@ -92,6 +92,10 @@ STATUS_SERVICES = [
     "audiobook-translation-monitor-sampler.timer",
     "audiobook-downloader.timer",
     "audiobook-enrichment.timer",
+    # Destroy-only guard for scheduled-drain GPU nodes (enabled by default).
+    # The drain's own timer is NOT listed: it ships disabled by design, and a
+    # roster entry would report a deliberate opt-out as "not running".
+    "audiobook-translation-reaper.timer",
     "audiobook-upgrade-helper.path",
     "audiobook-upgrade-helper.service",
 ]
