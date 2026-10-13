@@ -9,10 +9,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`LocalGPUWhisperSTT` accepts an https base URL and bearer token**: new `AUDIOBOOKS_WHISPER_GPU_URL` (http/https
+  only, overrides `HOST`/`PORT`; userinfo, query and fragment are rejected without echoing the value) and
+  `AUDIOBOOKS_WHISPER_GPU_TOKEN` / `AUDIOBOOKS_WHISPER_GPU_TOKEN_FILE` (sent as `Authorization: Bearer`, with a
+  once-per-process warning per endpoint when it would travel over plain http) make TLS-fronted rented-GPU endpoints
+  reachable — logs show `scheme://host[:port]` only, `scripts/smoke_probe.sh` honours the URL, and with neither key set
+  the provider still uses plain `http://host:port` with no auth header (Audiobook-Manager-h2v)
+
 ### Changed
+
+- **`VLLMTranslator.translate` complexity**: split into `_lookup_memory`, `_translate_chunk`, `_settle_item`,
+  `_recover_chunk` and `_report_failures` (radon D 23 → B 8) — behaviour, log lines and exception types unchanged;
+  eight characterization tests pin chunking, TM merge, tier fallback, the recovery-warning reason, a recovered chunk
+  followed by a normal one, and failure reporting (Audiobook-Manager-ccr)
+- **Mutation gate covers the cover-sweep guard**: `backend/import_to_db.py` (`_cleanup_orphaned_covers`, the
+  implausible-sweep refusal) joins the `mutmut` scope, the allowlist drops from 21 to 10 entries that are all genuine
+  equivalent mutants, and new tests pin the sender-refusal messages and the freed-space report (Audiobook-Manager-6y9;
+  the rest of the file is tracked as Audiobook-Manager-71j)
+- **Translation docs describe the live architecture**: `ARCHITECTURE.md`, `MULTI-LANGUAGE-SETUP.md`,
+  `STREAMING-TRANSLATION.md` (and `.zh-Hans.md`), `SERVERLESS-OPS.md`, `SAMPLER.md` and `README.md` now document
+  `VLLMTranslator` (Qwen3-8B on vLLM), faster-whisper over the `127.0.0.1:8765` tunnel and the `scripts/gpu-node.sh` +
+  `scripts/gpu-budget-guard.sh` workflow — billing starts at `up`, so the guard is started immediately after it with a
+  `--cap`; replaces the "no backend works" and "Vast.ai was never enabled" claims, marks RunPod serverless historical,
+  states the real `SAMPLER STALE` threshold (3 days), notes the warmth probe covers RunPod only (zombie tracked as
+  Audiobook-Manager-hu8), and drops an unsupported Apple Silicon claim (Audiobook-Manager-am2)
+- **`library/launch-v2.sh` is dev-safe**: reads the project `config.env` (template: `config.env.example`, every path
+  pinned under `${PROJECT_DIR}` with state in the gitignored `.dev-state/`) with environment variables taking
+  precedence, sets `AUDIOBOOKS_SKIP_SYSTEM_CONFIG` so `library/config.py` never reads the installed or user
+  `audiobooks.conf` (and raises if that flag is set without a project `config.env`), and sweeps every exported
+  path-like variable — colon lists element by element — with `realpath -m`, refusing `/var/lib/audiobooks`,
+  `/srv/audiobooks`, `/opt/audiobooks` and `/etc/audiobooks`; it refuses to start without a dev config instead of
+  defaulting to production ports and paths, stops the servers it started on exit or Ctrl+C, skips the browser when
+  `NO_BROWSER` is set or there is no display, and docs, setup messages and the UI hint (new `library.js.runHint` key in
+  `en` and `zh-Hans`) point at it (Audiobook-Manager-njt)
+
+### Removed
+
+- **Dead launchers**: root `launch.sh` (ran the nonexistent `api.py`) and `library/launch.sh` (served the removed
+  `library/web/`) — nothing executed either (Audiobook-Manager-njt)
 
 ### Fixed
 
+- **Pre-commit hardcoded-path guard**: `scripts/hooks/pre-commit` iterates `FORBIDDEN_PATTERNS` over every staged file
+  and refuses newly added `/srv/audiobooks`, `/var/lib/audiobooks` and `/run/audiobooks` literals, naming the
+  `lib/audiobook-config.sh` variable to use — only added lines are judged (renames, type changes and `++` lines
+  included), user git config (`color.ui`, `-diff` attributes) cannot blind it, a failing `git diff` refuses the commit,
+  and an appended beads block still runs; `scripts/install-hooks.sh` preserves an existing `BEGIN/END BEADS
+  INTEGRATION` block and refuses unbalanced markers (Audiobook-Manager-pri)
+- **Duplicates API path fallbacks**: `duplicates.py` falls back to `AUDIOBOOKS_DATA`, `AUDIOBOOKS_LIBRARY` and
+  `AUDIOBOOKS_SOURCES` from `library/config.py` instead of `/srv/audiobooks` literals — a relocated library no longer
+  gets a silently wrong `allowed_bases`, and env vars are still read per request (Audiobook-Manager-hi0)
+- **Maintenance page's upgrade-progress panel never rendered**: inside Caddy's `handle_errors` the
+  `upgrade-status.json` response kept the upstream's 502, and `maintenance.html` reads it with `r.ok`, so the panel
+  discarded it on every Caddy — it is now answered 200 (the pages keep the 502/503); one `audiobook_error_pages`
+  snippet serves `maintenance.html` while an upgrade runs and `unavailable.html` ("Be Right Back") for any other
+  outage, falling back to `maintenance.html` on installs without it (Audiobook-Manager-cxm, -a49)
+- **Markdown lint ran without the project rules everywhere but here**: `.gitignore`'s `.markdownlint.*` hid
+  `.markdownlint.json`, which the tracked `.markdownlint-cli2.jsonc` loads — a fresh checkout reported 4,719 `MD013`
+  findings against 0 locally; the rule file is now tracked
 - **CI lint failure**: ruff `I001`/`F401` in `library/tests/test_cachebust_automation.py` (unused `os` import, unsorted
   block) had failed Python Security & Quality since 2026-10-07
 - **Stale Cloudflare credential guidance in `etc/audiobooks.conf.example`**: the comment claimed the legacy
@@ -25,6 +79,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `_norm_mode` numeric comparison in `scripts/reconcile-filesystem.sh` — `0600` vs `stat`'s `600` is not drift, a real
   `0644` is reported (and repaired in enforce mode), and setgid survives the comparison. Falsified by restoring the
   old string compare: 2 tests went red (Audiobook-Manager-nsz)
+
+### Security
+
+- **Guest locale prompt injection**: `/api/translations/by-locale/<locale>` and `/api/translations/collections/<locale>`
+  accepted any string as a locale (only `en` was special-cased), so an unauthenticated guest could inject text into
+  the vLLM translation prompt and the translation-memory key — the validator is now shared as
+  `common_utils.locale_safety.sanitize_locale` and every translation, subtitle, translated-audio, streaming and i18n
+  route that takes a locale rejects malformed values with HTTP 400 before any DB or translation work
+  (Audiobook-Manager-yyf)
+- **Translation queue abuse**: `/api/i18n/activate`, `/api/translation/bump`, `/api/translate/stream`,
+  `/api/translate/seek` and every other route that can queue translation work accepted any well-formed locale,
+  letting anonymous callers enqueue work for junk locales — these routes now require membership in
+  `SUPPORTED_LOCALES` (`en` unchanged) and answer 400 otherwise (whether they should require login at all is
+  Audiobook-Manager-gau)
+- **Locale barrier at the sinks**: the translation queue worker, the stream segment worker and the vLLM prompt builder
+  refuse a malformed locale themselves — a bad `translation_queue` or `streaming_segments` row is marked `failed` with a
+  fixed reason instead of being claimed, and `VLLMTranslator.translate()` raises `TranslationUnavailableError` before
+  any request or cache lookup
+- **Translation failure log hygiene**: `VLLMTranslator` logged rejected source text and the rejection reason verbatim,
+  allowing CR/LF log-line forging — both now pass through `_safe_log`
 
 ## [8.7.1] - 2026-10-02
 
