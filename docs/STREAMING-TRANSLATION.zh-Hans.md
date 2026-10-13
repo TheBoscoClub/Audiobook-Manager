@@ -4,16 +4,9 @@
 **30 秒分段**分发给 GPU 工作节点，缓冲三分钟的翻译音频，然后开始播放。已预翻译
 的书籍从缓存中即时加载。（整章处理属于**批量**管道；流式管道以分段为粒度。）
 
-> ## 参考部署中未启用
+> ## 需要一次 GPU 节点会话
 >
-> 本管道需要一个本项目并不提供的 STT 后端。维护者的 RunPod 账户已**停用**，
-> Vast.ai 从未启用过，因此没有配置任何 STT 端点。
-> `library/localization/pipeline.py` 在被要求转录时会抛出
-> `RuntimeError("No STT provider configured")`。
->
-> 下文描述的是代码的实际写法，代码本身未变。但**在当前部署下，不会分发任何
-> 任务，也不会完成任何工作**。三个 systemd 单元处于启用并运行状态；
-> 试听层每 5 分钟如实记录一次：
+> STT 与机器翻译后端是一台**手动租用的 Vast.ai GPU 节点**，由 `scripts/gpu-node.sh` 启动，并由 `scripts/gpu-budget-guard.sh` 守护费用。节点上运行 `faster-whisper`（`LocalGPUWhisperSTT` 通过 SSH 隧道访问 `127.0.0.1:8765`）以及 vLLM 上的 Qwen3-8B（`VLLMTranslator`，设置 `AUDIOBOOKS_MT_ENDPOINT` 后被选用）。会话之间没有任何端点常驻，维护者的 RunPod 账户已**停用**（历史方案）。节点与隧道未启动时，`library/localization/pipeline.py` 在被要求转录时会抛出 `RuntimeError("No STT provider configured")`，因此不会分发任何任务，也不会完成任何工作。三个 systemd 单元仍处于启用并运行状态；试听层每 5 分钟如实记录一次：
 >
 > ```text
 > SAMPLER STALE: no sampler_job has completed in N days (threshold 3).
@@ -23,7 +16,7 @@
 > 已缓存的章节仍可正常播放 —— 缓存不受影响。如需关闭该子系统，请参见
 > `docs/MULTI-LANGUAGE-SETUP.md` 中的"Turning audio translation off"
 > （注意 `upgrade.sh` 每次运行都会重新启用这些单元，因此仅执行
-> `systemctl disable` 并不持久）。
+> `systemctl disable` 并不持久）。如需运行新任务，请按 `docs/MULTI-LANGUAGE-SETUP.md` 中 "GPU node: vLLM translation + faster-whisper STT" 一节启动节点会话。
 
 ## 为什么需要流式翻译
 
@@ -240,8 +233,8 @@ v8.3.2 之前这里是把待处理行降级，但工作节点排空 p0/p1 后就
 │  │  → POST /api/translate/segment-complete                 │      │
 │  └─────────────────────────────────────────────────────────┘      │
 │                                                                    │
-│  调度目标：RunPod serverless STREAMING 端点 ——                      │
-│  或自托管的 whisper-gpu 服务                                        │
+│  调度目标：whisper-gpu 服务（租用的 Vast.ai 节点，                │
+│  经隧道映射到 127.0.0.1:8765，或自托管主机）                      │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -341,8 +334,8 @@ ELSE 1 END, s.chapter_index ASC, s.segment_index ASC`
 
 ## 控制批量翻译
 
-批量管道独立运行，调度目标是 BACKLOG serverless 端点池（冷池，
-`min_workers=0`）。调度由 API 内部触发，也可通过 `scripts/batch-translate.py`
+批量管道独立运行，调度目标是当前可达的 STT 候选（参考部署中即经隧道
+连接的 GPU 节点）。调度由 API 内部触发，也可通过 `scripts/batch-translate.py`
 手动触发 —— 该脚本读取 `translation_queue` 并按章节逐一处理待处理行。
 
 ```bash
@@ -351,8 +344,10 @@ sudo -u audiobooks /opt/audiobooks/library/venv/bin/python \
     /opt/audiobooks/scripts/batch-translate.py
 ```
 
-无需管理 GPU 生命周期 —— serverless 端点会自动缩容至零，因此只需为实际
-翻译的章节付费。BACKLOG 端点池在空闲时的成本为 0 美元。
+GPU 生命周期需要手动管理：批量处理前用 `scripts/gpu-node.sh up` 租用节点，
+处理完成后用 `scripts/gpu-node.sh down` 销毁，并用
+`scripts/gpu-budget-guard.sh --cap <美元>` 限制花费。计费从创建持续到销毁，
+因此只有在节点销毁之后，空闲成本才是 0 美元。
 
 **卡死检测**：`streaming_segments` 表中 `processing` 状态超过 10 分钟的
 分段，会在流式工作节点的下一次轮询中被回收重试。批量侧的卡死行由 API

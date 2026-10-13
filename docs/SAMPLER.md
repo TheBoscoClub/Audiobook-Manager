@@ -65,7 +65,7 @@ A matching UPDATE trigger catches attempts to demote a sampler row after the fac
 
 When a user plays a cached sample in `zh-Hans`, we need to fire the live-translation pipeline early enough that the buffer catches up before the sample ends. Too early and we waste GPU money on casual browsers; too late and the GPU cold-start extends past the end of the sample and the listener sees a spinner.
 
-We resolve this adaptively based on **current STT provider warmth** — aggregated across every STT backend the operator has configured (RunPod serverless, self-hosted whisper-gpu, etc.):
+We resolve this adaptively based on **current STT provider warmth** — aggregated across every STT backend the operator has configured (the tunnelled Vast.ai whisper node, self-hosted whisper-gpu, historically RunPod serverless):
 
 | State | Threshold | Runway |
 |---|---|---|
@@ -82,13 +82,14 @@ Warmth probe is cached server-side for 60s to bound provider /health traffic. De
 
 The project treats STT backend choice as an **operator deployment decision**, not a project contract. Any of the following work:
 
-- **RunPod serverless** — pay-per-second, no minimum spend, `AUDIOBOOKS_RUNPOD_*` keys. *Client code is present but this path is no longer exercised by the maintainer — the reference deployment's account is decommissioned.*
-- **Self-hosted GPU Whisper service** — CUDA/ROCm/Apple Silicon machine on the LAN, `AUDIOBOOKS_WHISPER_GPU_HOST` + `AUDIOBOOKS_WHISPER_GPU_PORT`
+- **Rented Vast.ai GPU node (the maintainer's path)** — `faster-whisper` on a node started with `scripts/gpu-node.sh`, reached over its SSH tunnel with `AUDIOBOOKS_WHISPER_GPU_HOST=127.0.0.1` + `AUDIOBOOKS_WHISPER_GPU_PORT=8765`; billed from create to destroy, guarded by `scripts/gpu-budget-guard.sh`. Setup: `docs/MULTI-LANGUAGE-SETUP.md`.
+- **Self-hosted GPU Whisper service** — CUDA/ROCm/Apple Silicon machine on the LAN, same `AUDIOBOOKS_WHISPER_GPU_HOST` + `AUDIOBOOKS_WHISPER_GPU_PORT`
+- **RunPod serverless (historical)** — pay-per-second, `AUDIOBOOKS_RUNPOD_*` keys. *Client code is present but the maintainer's account is decommissioned.*
 - **CPU-only `faster-whisper`** — no GPU, slower but zero operating cost; advanced deployment (requires wiring in the provider, see `library/localization/stt/`)
 
 Multiple backends can be configured at once. The pipeline **round-robins** across configured candidates by default (`AUDIOBOOKS_STT_DISTRIBUTION=round_robin`), so parallel workers spread the load across farms. Modes: `round_robin` (default), `random`, `primary` (pre-8.3.8 legacy — always picks the first candidate).
 
-See `docs/SERVERLESS-OPS.md` for endpoint provisioning and `docs/MULTI-LANGUAGE-SETUP.md` for the full configuration reference.
+See `docs/MULTI-LANGUAGE-SETUP.md` for the GPU-node setup and full configuration reference, and `docs/SERVERLESS-OPS.md` for the historical RunPod endpoint provisioning.
 
 ### Backfill acceleration — sampler-burst.sh
 
@@ -226,5 +227,5 @@ WHERE sampler_job_id = ? ORDER BY created_at DESC;
 ## Related docs
 
 - `docs/STREAMING-TRANSLATION.md` — how the live streaming pipeline works end-to-end
-- `docs/SERVERLESS-OPS.md` — STT backend endpoint provisioning (RunPod, self-hosted GPU recipes)
+- `docs/SERVERLESS-OPS.md` — historical RunPod serverless endpoint provisioning and the self-hosted fallback
 - `docs/MULTI-LANGUAGE-SETUP.md` — enabling new locales

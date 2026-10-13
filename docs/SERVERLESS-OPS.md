@@ -1,19 +1,22 @@
 # Serverless STT Operations — Setup & Health
 
-Operator reference for the translation pipeline's serverless Whisper STT path.
+Operator reference for the translation pipeline's serverless Whisper STT path (RunPod, historical). The live GPU path is a hand-rented Vast.ai node driven by `scripts/gpu-node.sh`; see `docs/MULTI-LANGUAGE-SETUP.md` ("GPU node: vLLM translation + faster-whisper STT").
 
-> ## Not provisioned in the reference deployment
+> ## RunPod serverless is historical
 >
 > The maintainer's RunPod account is **decommissioned** and no endpoints exist.
-> Vast.ai was never enabled and its client code was removed in v8.3.10.6. The
-> client code, config variables, and tests described below all remain in the
-> tree and are unchanged, but **this pipeline cannot complete any work as
-> deployed**.
+> The old Vast.ai *serverless* client was removed in v8.3.10.6, which is not the
+> same as Vast.ai being unused: since v8.6.0 the GPU is a Vast.ai node rented by
+> hand with `scripts/gpu-node.sh` (guarded by `scripts/gpu-budget-guard.sh`),
+> running `faster-whisper` behind an SSH tunnel at `127.0.0.1:8765` and Qwen3-8B
+> on vLLM. The RunPod client code, config variables, and tests described below
+> remain in the tree and are unchanged, but **no serverless endpoint is
+> provisioned**, so nothing completes unless a node session is up.
 >
 > The three systemd units - `audiobook-stream-translate.service`,
 > `audiobook-translation-monitor-live.timer`,
 > `audiobook-translation-monitor-sampler.timer` - are **enabled and running**,
-> and produce nothing. The sampler tier reports this honestly every 5 minutes:
+> and produce nothing while no node session is up. The sampler tier reports this honestly every 5 minutes:
 >
 > ```text
 > SAMPLER STALE: no sampler_job has completed in N days (threshold 3).
@@ -44,10 +47,12 @@ Operator reference for the translation pipeline's serverless Whisper STT path.
 
 ## Overview
 
-STT is **designed** to flow through serverless GPU endpoints on RunPod. There is
-no fleet daemon, no SSH tunnel, no dedicated-instance rental, and no teardown
-script. The provider manages worker lifecycle internally; scale-to-zero on cold
-endpoints means idle cost is zero.
+STT was **designed** to flow through serverless GPU endpoints on RunPod. In that
+design there is no fleet daemon, no SSH tunnel, no dedicated-instance rental, and
+no teardown script: the provider manages worker lifecycle internally, and
+scale-to-zero on cold endpoints means idle cost is zero. The current deployment
+is the opposite shape (a rented node, an SSH tunnel, an explicit teardown), covered
+in `docs/MULTI-LANGUAGE-SETUP.md`.
 
 In the reference deployment none of this is provisioned, so actual STT traffic
 is zero and actual spend is $0. The rest of this document describes how to stand
@@ -205,10 +210,14 @@ Serverless endpoints scale to zero automatically. The cold (BACKLOG) endpoint
 charges only while a request is in-flight. The warm (STREAMING) endpoint holds
 one or more workers resident — small ongoing cost proportional to `min_workers`.
 
-There is no teardown script because there is nothing to tear down. In the
-reference deployment nothing is provisioned, so current spend is **$0**. If you
-provision your own and want to stop spending entirely, set `min_workers=0` on
-the STREAMING endpoint in the RunPod dashboard, or delete the endpoints.
+There is no teardown script for the serverless path because there is nothing to
+tear down, and nothing is provisioned on RunPod, so spend there is **$0**. The
+Vast.ai node is the opposite: billing runs from create to destroy, and
+`scripts/gpu-node.sh down` is the only off switch. Run
+`scripts/gpu-budget-guard.sh --cap <dollars>` beside every session. If you
+provision RunPod endpoints yourself and want to stop spending entirely, set
+`min_workers=0` on the STREAMING endpoint in the RunPod dashboard, or delete the
+endpoints.
 
 ---
 
@@ -227,9 +236,11 @@ See `docs/MULTI-LANGUAGE-SETUP.md#local-gpu-optional` for hardware compatibility
 (NVIDIA + CUDA and enterprise AMD Instinct + ROCm are the supported classes).
 `LocalGPUWhisperSTT` is appended **last** for every workload - not specifically
 long-form - and only when `is_available()` succeeds, so a configured serverless
-provider is tried first. This path is equally unexercised in the reference
-deployment (`AUDIOBOOKS_WHISPER_GPU_HOST` is unset); treat `extras/whisper-gpu/`
-as untested.
+provider is tried first. The rented Vast.ai node uses this same client: with
+`gpu-node.sh tunnel` up, set `AUDIOBOOKS_WHISPER_GPU_HOST=127.0.0.1` and the
+service on the node answers on port 8765. The standalone `extras/whisper-gpu/`
+systemd unit is a separate, untested-by-the-maintainer way to host the same
+service on your own hardware.
 
 ---
 

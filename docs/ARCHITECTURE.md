@@ -133,17 +133,24 @@ Audiobook-Manager is designed to run well on modest hardware. The only hard requ
 
 ### Optional: local GPU transcription
 
-Chinese translation (and any future language localization) transcribes source audio with Whisper. The historical default path uses a remote GPU provider (RunPod serverless). **As of v8.4.3 no STT provider is configured or exercised in the reference deployment** — the maintainer's RunPod account is decommissioned and Vast.ai was never enabled — so neither the remote nor the local path is currently tested end-to-end. The client code, config, tests and systemd units all remain in the tree unchanged. An optional local `whisper-gpu` systemd service ships under `extras/whisper-gpu/` (not `systemd/`) for installers who prefer on-prem transcription.
+Chinese translation (and any future language localization) needs a GPU for two jobs, and both run on one rented node:
+
+- **Speech-to-text**: `faster-whisper` (default model `large-v3`, `BatchedInferencePipeline`) served by `library/localization/stt/whisper_gpu_service.py` on port 8765. The application reaches it through `LocalGPUWhisperSTT` (`library/localization/stt/local_gpu_whisper.py`), configured with `AUDIOBOOKS_WHISPER_GPU_HOST` / `AUDIOBOOKS_WHISPER_GPU_PORT`.
+- **Machine translation**: Qwen3-8B on vLLM, reached through `VLLMTranslator` (`library/localization/translation/vllm_mt.py`). `factory.py` selects it when `AUDIOBOOKS_MT_ENDPOINT` is set.
+
+**GPU lifecycle (hand-rented, burst-shaped).** The reference deployment keeps no standing GPU. The operator rents a Vast.ai node with `scripts/gpu-node.sh` (`search`, `up`, `status`, `tunnel`, `bootstrap-status`, `down`), which bootstraps vLLM and the whisper service on the node. `gpu-node.sh tunnel` forwards `127.0.0.1:8000` to vLLM and `127.0.0.1:8765` to the whisper service over SSH, so the application sees both as loopback services. `scripts/gpu-budget-guard.sh` runs beside the session and destroys the node at a spend cap (`--cap`, required), a credit floor (`--floor`) or after idle minutes (`--max-idle`). `gpu-node.sh down` is the only off switch: a stopped instance still bills. Both scripts are stand-alone operator tools from the project tree, with no systemd unit and no installer entry. The setup walk-through is in `docs/MULTI-LANGUAGE-SETUP.md`. RunPod serverless was the earlier path and is **historical**: the account is decommissioned.
+
+An optional local `whisper-gpu` systemd service also ships under `extras/whisper-gpu/` (not `systemd/`) for installers who prefer on-prem transcription.
 
 | Local-GPU hardware | Support status |
 |-------------------|----------------|
 | **NVIDIA** (Turing / Ampere / Ada / Hopper) | First-class. CUDA is what PyTorch and Whisper are primarily developed against. |
-| **Consumer AMD Radeon** (RDNA 2: RX 6000 series, RDNA 3: RX 7000 series) | **Not recommended.** Consumer RDNA 2/3 with ROCm has produced catastrophic host-level failures during long transcription runs on the maintainer's own rig (see `docs/reference-system.yml`). Use remote GPU instead. |
+| **Consumer AMD Radeon** (RDNA 2: RX 6000 series, RDNA 3: RX 7000 series) | **Not recommended.** Consumer RDNA 2/3 with ROCm has produced catastrophic host-level failures during long transcription runs on the maintainer's own rig (see `docs/reference-system.yml`). Use a rented remote GPU instead. |
 | **AMD data-center / CDNA** (MI100, MI200, MI300) | Untested by the maintainer. Expected to be stable — this is what AMD actually validates ROCm against. |
 | **Apple Silicon** (M1/M2/M3/M4) | Works via MPS / `whisper.cpp`. No systemd service shipped. |
 | **CPU-only** | Works but slow. Not recommended for libraries over a few dozen hours. |
 
-The remote provider path is **not** zero-configuration: it needs `AUDIOBOOKS_RUNPOD_API_KEY` plus at least one of `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT` / `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT`. With no STT provider configured at all, `_remote_stt_candidates` yields nothing and transcription simply does not run — subtitles and translated narration are never produced, and the sampler tier logs `SAMPLER STALE` every 5 minutes. Nothing else in the default install assumes a GPU, and the rest of the application is unaffected. To turn the subsystem off explicitly, see "Turning audio translation off" in `docs/MULTI-LANGUAGE-SETUP.md`.
+The GPU path is **not** zero-configuration, and it is off by default. With `AUDIOBOOKS_MT_ENDPOINT` unset, the factory returns no translation provider and callers degrade (skip and log for pipelines, 503 for endpoints). With no reachable STT provider, `get_stt_provider` raises `RuntimeError("No STT provider configured")`, so no new subtitles or translated narration are produced, and the sampler tier logs `SAMPLER STALE` every 5 minutes. Nothing else in the default install assumes a GPU, and the rest of the application is unaffected. To turn the subsystem off explicitly, see "Turning audio translation off" in `docs/MULTI-LANGUAGE-SETUP.md`.
 
 ### The maintainer's rig
 
@@ -885,7 +892,7 @@ Supported locales: `en` (default), `zh-Hans` (Simplified Chinese). Adding a new 
 
 User-facing dynamic content (book titles, author names, collection names, announcements) is served from the on-demand translation cache.
 
-**No machine-translation provider is currently configured.** The package retains a provider abstraction so a backend can be added later: `base.py` defines the `TranslationProvider` protocol, and the factory returns no provider today. Existing zh-Hans translations continue to serve from the translation cache/DB.
+**The machine-translation backend is `VLLMTranslator`** (`library/localization/translation/vllm_mt.py`): Qwen3-8B (`AUDIOBOOKS_MT_MODEL`, default `Qwen/Qwen3-8B`) served by vLLM on a rented GPU node. It is burst-shaped: `AUDIOBOOKS_MT_ENDPOINT` is set only while a `scripts/gpu-node.sh` session is up and tunnelled (typically `http://localhost:8000`). Unset, the normal state, `factory.py` returns no provider and existing zh-Hans translations keep serving from the translation cache/DB. The earlier hosted-API (DeepL) integration was removed in v8.5.0.
 
 **Failure is not silent (v8.4.2.4+).** A provider outage or dead key used to fill every miss with the English source and return a `list[str]` structurally identical to success. `translate()` now takes `strict=`:
 
@@ -896,8 +903,9 @@ The split exists because an English string silently stored as though it were a t
 
 | Component | Path | Purpose |
 |-----------|------|---------|
-| Provider protocol | `library/localization/translation/base.py` | `TranslationProvider` protocol — the interface any future MT backend implements, with `strict=` failure signalling (`TranslationUnavailableError`, `.degraded`) |
-| Provider factory | `library/localization/translation/factory.py` | Returns the configured provider — currently none (no MT backend configured) |
+| Provider protocol | `library/localization/translation/base.py` | `TranslationProvider` protocol — the interface every MT backend implements, with `strict=` failure signalling (`TranslationUnavailableError`, `.degraded`) |
+| Provider factory | `library/localization/translation/factory.py` | Returns `VLLMTranslator` when `AUDIOBOOKS_MT_ENDPOINT` is set, otherwise `None` |
+| vLLM translator | `library/localization/translation/vllm_mt.py` | `VLLMTranslator` — Qwen3-8B via the vLLM OpenAI-compatible `/v1/chat/completions` endpoint |
 | Translation memory | `library/localization/translation/memory.py` | Provider-neutral SQLite translation memory (SHA-256 hash keys) |
 | String translations API | `library/backend/api_modular/translations.py` | `POST /api/translations/strings` (hash-based batch lookup), `GET /api/translations/by-locale/{locale}` |
 
@@ -918,10 +926,11 @@ Audio Chapter ──► STT (Whisper) ──► Machine Translation ──► TT
 
 | Provider | Class | Config Key | Use Case |
 |----------|-------|------------|----------|
-| RunPod serverless Whisper | `WhisperSTT` | `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT` / `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT` | Serverless GPU — warm pool for streaming, cold pool for backlog. *Client code present; not exercised in the reference deployment (account decommissioned).* |
-| Local GPU | `LocalGPUWhisperSTT` | `AUDIOBOOKS_WHISPER_GPU_HOST` | Self-hosted on known-good AI hardware (NVIDIA CUDA or enterprise AMD Instinct/ROCm); consumer Radeon RDNA 2/3 is unsupported — see docs/MULTI-LANGUAGE-SETUP.md#local-gpu-optional |
+| Local GPU (rented Vast.ai node via SSH tunnel) | `LocalGPUWhisperSTT` | `AUDIOBOOKS_WHISPER_GPU_HOST=127.0.0.1`, `AUDIOBOOKS_WHISPER_GPU_PORT=8765` | **Live path.** `faster-whisper` on a node rented with `scripts/gpu-node.sh`, reached through `gpu-node.sh tunnel`. |
+| RunPod serverless Whisper (historical) | `WhisperSTT` | `AUDIOBOOKS_RUNPOD_STREAMING_WHISPER_ENDPOINT` / `AUDIOBOOKS_RUNPOD_BACKLOG_WHISPER_ENDPOINT` | Serverless GPU — warm pool for streaming, cold pool for backlog. *Historical: client code present, account decommissioned, not exercised.* |
+| Local GPU (self-hosted) | `LocalGPUWhisperSTT` | `AUDIOBOOKS_WHISPER_GPU_HOST` | Same client, pointed at a machine you own: known-good AI hardware (NVIDIA CUDA or enterprise AMD Instinct/ROCm); consumer Radeon RDNA 2/3 is unsupported — see docs/MULTI-LANGUAGE-SETUP.md#local-gpu-optional |
 
-Auto mode (`AUDIOBOOKS_STT_PROVIDER=auto`) dispatches via `_remote_stt_candidates(workload)` in `library/localization/pipeline.py`: `WorkloadHint.STREAMING` → STREAMING endpoint (warm, `min_workers>=1`); `WorkloadHint.LONG_FORM` / `ANY` → BACKLOG endpoint (cold, `min_workers=0`). RunPod is the only serverless STT client remaining in the tree (Vast.ai was removed in v8.3.10.6). It is **not provisioned** in the reference deployment; see `docs/SERVERLESS-OPS.md`.
+Auto mode (`AUDIOBOOKS_STT_PROVIDER=auto`) builds its candidate list in `_remote_stt_candidates(workload)` in `library/localization/pipeline.py`. RunPod `WhisperSTT` candidates are added only when `AUDIOBOOKS_RUNPOD_API_KEY` plus an endpoint are set (`WorkloadHint.STREAMING` → streaming endpoint; other hints → backlog endpoint). `LocalGPUWhisperSTT` is appended last when `AUDIOBOOKS_WHISPER_GPU_HOST` is set and `is_available()` succeeds, so with the tunnel down it drops out of the list. With the RunPod variables unset, as in the reference deployment, the Vast.ai node behind the tunnel is the only candidate. The old Vast.ai serverless client was removed in v8.3.10.6; today's Vast.ai use is the hand-driven `gpu-node.sh` workflow above. See `docs/SERVERLESS-OPS.md` for the RunPod-era reference.
 
 #### TTS Provider Factory (`library/localization/tts/factory.py`)
 

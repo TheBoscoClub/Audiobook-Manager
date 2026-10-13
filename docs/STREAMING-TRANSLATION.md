@@ -6,23 +6,16 @@ workers, buffers three minutes of translated audio, then begins playback.
 Pre-translated books serve instantly from cache. (Chapter-at-a-time work is the
 *batch* pipeline; streaming is segment-granular.)
 
-> ## Not operational in the reference deployment
+> ## Needs a GPU node session
 >
-> This pipeline requires an STT backend that the project does not provide. The
-> maintainer's RunPod account is **decommissioned** and Vast.ai was never
-> enabled, so no STT endpoint is configured. `library/localization/pipeline.py`
-> raises `RuntimeError("No STT provider configured")` when asked to transcribe.
->
-> Everything below describes the code as written, and the code is unchanged. But
-> **as deployed, nothing is dispatched and nothing completes**. The three systemd
-> units are enabled and running; the sampler tier logs the truth every 5 minutes:
+> The STT and machine-translation backends are a **hand-rented Vast.ai GPU node**, started with `scripts/gpu-node.sh` and guarded by `scripts/gpu-budget-guard.sh`. It runs `faster-whisper` (reached by `LocalGPUWhisperSTT` over an SSH tunnel at `127.0.0.1:8765`) and Qwen3-8B on vLLM (`VLLMTranslator`, selected when `AUDIOBOOKS_MT_ENDPOINT` is set). No endpoint stays up between sessions, and the maintainer's RunPod account is **decommissioned** (historical). With no node and tunnel up, `library/localization/pipeline.py` raises `RuntimeError("No STT provider configured")` when asked to transcribe, so nothing is dispatched and nothing completes. The three systemd units stay enabled and running; the sampler tier logs the truth every 5 minutes:
 >
 > ```text
 > SAMPLER STALE: no sampler_job has completed in N days (threshold 3).
 > The timer is running; the work is not.
 > ```
 >
-> Already-cached chapters continue to serve normally — the cache is unaffected.
+> Already-cached chapters continue to serve normally — the cache is unaffected. To run new work, start a node session as described in `docs/MULTI-LANGUAGE-SETUP.md` ("GPU node: vLLM translation + faster-whisper STT").
 > To turn the subsystem off, see "Turning audio translation off" in
 > `docs/MULTI-LANGUAGE-SETUP.md` (note that `upgrade.sh` re-enables the units on
 > every run, so `systemctl disable` alone is not durable).
@@ -38,7 +31,7 @@ chapters / 1,534 remaining" as of v8.3.0. Those are one deployment's figures at
 one point in time and have since drifted; they are omitted rather than
 maintained. Note also that a large share of existing `chapter_subtitles` rows are
 stamped `stt_provider='vastai-whisper'` — historical output from a provider whose
-client code was removed in v8.3.10.6.)*
+client code was removed in v8.3.10.6; today's Vast.ai use is the hand-driven `gpu-node.sh` workflow.)*
 
 Streaming solves this by paying only for what a listener actually plays.
 
@@ -77,9 +70,9 @@ placeholder.
 See `docs/SERVERLESS-OPS.md` for the streaming/backlog endpoint split and
 `docs/TRANSLATION-MONITOR.md` for the stuck-claim reset contract (live 60 s,
 sampler 2 h). Earlier revisions of this section referenced a "dual-provider D+C
-topology", a 15-minute warmup expiry, and a 10-minute worker reclaim — Vast.ai
-was removed in v8.3.10.6, and neither of those two timers exists anywhere in the
-code.
+topology", a 15-minute warmup expiry, and a 10-minute worker reclaim — the old
+Vast.ai serverless client was removed in v8.3.10.6, and neither of those two
+timers exists anywhere in the code.
 
 ### Phase 2 — Press Play
 
@@ -261,8 +254,8 @@ one.
 │  │  → POST /api/translate/segment-complete                 │      │
 │  └─────────────────────────────────────────────────────────┘      │
 │                                                                    │
-│  Dispatches to: RunPod serverless STREAMING endpoint —             │
-│  or self-hosted whisper-gpu service                                │
+│  Dispatches to: the whisper-gpu service (rented Vast.ai node,     │
+│  tunnelled to 127.0.0.1:8765, or a self-hosted host)              │
 └───────────────────────────────────────────────────────────────────┘
 ```
 
@@ -377,8 +370,8 @@ live buffer is already filling ahead. Seamless transition, no spinner.
 
 ## Controlling Batch Translation
 
-The batch pipeline is independent and runs against the BACKLOG serverless
-endpoint pool (cold, `min_workers=0`). Dispatch happens inline from the API
+The batch pipeline is independent and runs against whichever STT candidate is
+reachable (the tunnelled GPU node in the reference deployment). Dispatch happens inline from the API
 and via `scripts/batch-translate.py`, which reads `translation_queue` and
 processes pending rows chapter-at-a-time.
 
@@ -388,9 +381,10 @@ sudo -u audiobooks /opt/audiobooks/library/venv/bin/python \
     /opt/audiobooks/scripts/batch-translate.py
 ```
 
-No GPU lifecycle to manage — serverless endpoints scale to zero on their own,
-so you are billed only for chapters actually translated. Idle cost is $0 on
-BACKLOG pools.
+The GPU lifecycle is manual: rent the node with `scripts/gpu-node.sh up` before a
+batch and destroy it with `scripts/gpu-node.sh down` afterwards, with
+`scripts/gpu-budget-guard.sh --cap <dollars>` bounding spend. Billing runs from
+create to destroy, so idle cost is $0 only once the node is destroyed.
 
 **Wedge detection**: `streaming_segments` rows stuck in `processing` for more
 than 10 minutes are reclaimed by the streaming worker on its next poll.
