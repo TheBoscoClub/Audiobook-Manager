@@ -129,24 +129,40 @@ _PATH_KEYS = frozenset(
         "AUDIOBOOKS_CONVERTER",
         "AUDIOBOOKS_CADDY_DIR",
         "DATA_DIR",
+        "AUDIOBOOKS_TRIGGERS",
+        "AUDIOBOOKS_DOWNLOADER_LOCK",
+        "AUDIOBOOKS_AUDIBLE_VENV",
+        "AUDIOBOOKS_AUDIBLE_CMD",
+        "AUDIOBOOKS_INDEX",
+        "AUDIOBOOKS_PROJECT_DIR",
+        "AUTH_DATABASE",
+        "AUTH_DB_PATH",
+        "AUTH_KEY_FILE",
+        "SMTP_PASS_FILE",
+        "CLOUDFLARE_PURGE_TOKEN_FILE",
+        "AUDIOBOOKS_RUNPOD_API_KEY_FILE",
+        "AUDIOBOOKS_WHISPER_GPU_TOKEN_FILE",
     }
 )
 
-# Values this module computes itself (auto-detected home, built-in defaults),
-# registered as they resolve so ${AUDIOBOOKS_HOME} works when that setting is
-# in neither the environment nor any conf file.
-_resolved_defaults: dict[str, str] = {}
+# Built-in default of each path setting, written as a template over other
+# settings. Populated in "Core Paths" below (AUDIOBOOKS_HOME's default is
+# detected at runtime). A reference to a setting that is in neither the
+# environment nor a conf file resolves through here, in dependency order, so
+# '${AUDIOBOOKS_VAR_DIR}/media' works whether or not VAR_DIR is configured --
+# exactly as lib/audiobook-config.sh behaves. Must match that file's defaults.
+_builtin_defaults: dict[str, str] = {}
 
-_REF_RE = re.compile(r"\$\{(\w+)\}|\$(\w+)")
+_REF_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)")
 
 
 def _raw_lookup(name: str) -> Optional[str]:
-    """Unexpanded value of ``name``: environment, then conf files, then defaults."""
+    """Unexpanded value of ``name``: environment, conf files, then built-in default."""
     if name in os.environ:
         return os.environ[name]
     if name in _config:
         return _config[name]
-    return _resolved_defaults.get(name)
+    return _builtin_defaults.get(name)
 
 
 def _expand_references(
@@ -182,19 +198,14 @@ def _expand_references(
     return _REF_RE.sub(sub, value)
 
 
-def _expand_vars(value: Optional[str], key: str = "<value>") -> Optional[str]:
-    """Expand references in ``value``; None passes through."""
-    if value is None:
-        return value
-    return _expand_references(value, key)
-
-
 def _guard_path_value(key: str, value: str) -> str:
     """Refuse a path setting that still contains '$' after expansion."""
     if "$" in value:
         raise ConfigError(
-            f"{key}={value!r} still contains an unexpanded '$' after reference "
-            "expansion; refusing to use it as a path"
+            f"{key}={value!r} still contains '$' after reference expansion; refusing "
+            "to use it as a path. Either a ${NAME} reference could not be expanded, or "
+            "the path contains a literal '$' (there is no escape syntax: rename the "
+            "directory or point the setting at a path without '$')"
         )
     return value
 
@@ -210,9 +221,10 @@ def get_config(key: str, default: str) -> str: ...
 def get_config(key: str, default: Optional[str] = None) -> Optional[str]:
     """Get configuration value with environment override."""
     value = os.environ.get(key, _config.get(key, default))
-    value = _expand_vars(value, key)
-    if value is not None and key in _PATH_KEYS:
-        _guard_path_value(key, value)
+    if value is None or key not in _PATH_KEYS:
+        return value  # non-path settings (names, tokens, ...) may legitimately contain '$'
+    value = _expand_references(value, key)
+    _guard_path_value(key, value)
     return value
 
 
@@ -222,12 +234,48 @@ def get_config(key: str, default: Optional[str] = None) -> Optional[str]:
 
 # Auto-detect AUDIOBOOKS_HOME if not set
 _detected_home = str(_project_root) if _project_root else None
+_builtin_defaults.update(
+    {
+        "AUDIOBOOKS_HOME": _detected_home or "/opt/audiobooks",
+        "AUDIOBOOKS_DATA": "/srv/audiobooks",
+        "AUDIOBOOKS_VAR_DIR": "/var/lib/audiobooks",
+        "AUDIOBOOKS_LIBRARY": "${AUDIOBOOKS_DATA}/Library",
+        "AUDIOBOOKS_SOURCES": "${AUDIOBOOKS_DATA}/Sources",
+        "AUDIOBOOKS_SUPPLEMENTS": "${AUDIOBOOKS_DATA}/Supplements",
+        "AUDIOBOOKS_LOGS": "${AUDIOBOOKS_DATA}/logs",
+        "AUDIOBOOKS_WEBM_CACHE": "${AUDIOBOOKS_DATA}/.webm-cache",
+        "AUDIOBOOKS_DATABASE": "${AUDIOBOOKS_VAR_DIR}/db/audiobooks.db",
+        "AUDIOBOOKS_COVERS": "${AUDIOBOOKS_VAR_DIR}/covers",
+        "AUDIOBOOKS_RUN_DIR": "${AUDIOBOOKS_VAR_DIR}/.run",
+        "AUDIOBOOKS_STREAMING_AUDIO_DIR": "${AUDIOBOOKS_VAR_DIR}/streaming-audio",
+        "AUDIOBOOKS_STREAMING_SUBTITLES_DIR": "${AUDIOBOOKS_VAR_DIR}/streaming-subtitles",
+        "AUDIOBOOKS_CERTS": "${AUDIOBOOKS_HOME}/library/certs",
+        "AUDIOBOOKS_VENV": "${AUDIOBOOKS_HOME}/library/venv",
+        "AUDIOBOOKS_CONVERTER": "${AUDIOBOOKS_HOME}/converter/AAXtoMP3",
+        "AUDIOBOOKS_CADDY_DIR": "/etc/caddy",
+        "AUDIOBOOKS_STAGING": "/tmp/audiobook-staging",  # noqa: S108  # nosec B108
+        "AUDIOBOOKS_TRIGGERS": "/tmp/audiobook-triggers",  # noqa: S108  # nosec B108
+        "AUDIOBOOKS_DOWNLOADER_LOCK": "/tmp/audiobook-downloader.lock",  # noqa: S108  # nosec B108
+        "AUDIOBOOKS_AUDIBLE_VENV": "${AUDIOBOOKS_VAR_DIR}/audible-venv",
+        "AUDIOBOOKS_AUDIBLE_CMD": "${AUDIOBOOKS_AUDIBLE_VENV}/bin/audible",
+    }
+)
+
+# systemd's EnvironmentFile= hands a service the LITERAL text of a template such
+# as '${AUDIOBOOKS_DATA}/Library'. Dozens of call sites read path settings
+# straight from os.environ rather than through get_config(), so write the
+# expanded value back: every reader, in this process and in children, then sees
+# a real path. Only values that were literal-with-reference are touched.
+for _k in sorted(_PATH_KEYS):
+    _raw = os.environ.get(_k)
+    if _raw is not None and _REF_RE.search(_raw):
+        os.environ[_k] = _expand_references(_raw, _k)
+del _k, _raw
+
 AUDIOBOOKS_HOME = Path(get_config("AUDIOBOOKS_HOME", _detected_home or "/opt/audiobooks"))
-_resolved_defaults["AUDIOBOOKS_HOME"] = str(AUDIOBOOKS_HOME)
 
 # Core data directory
 AUDIOBOOKS_DATA = Path(get_config("AUDIOBOOKS_DATA", "/srv/audiobooks"))
-_resolved_defaults["AUDIOBOOKS_DATA"] = str(AUDIOBOOKS_DATA)
 
 # Data subdirectories
 AUDIOBOOKS_LIBRARY = Path(get_config("AUDIOBOOKS_LIBRARY", str(AUDIOBOOKS_DATA / "Library")))
@@ -240,7 +288,6 @@ AUDIOBOOKS_SUPPLEMENTS = Path(
 # Database should be in a data directory, NOT in the code directory
 # AUDIOBOOKS_VAR_DIR is the persistent state directory (default: /var/lib/audiobooks)
 _var_dir = get_config("AUDIOBOOKS_VAR_DIR", "/var/lib/audiobooks")
-_resolved_defaults["AUDIOBOOKS_VAR_DIR"] = _var_dir
 AUDIOBOOKS_DATABASE = Path(get_config("AUDIOBOOKS_DATABASE", f"{_var_dir}/db/audiobooks.db"))
 AUDIOBOOKS_COVERS = Path(get_config("AUDIOBOOKS_COVERS", f"{_var_dir}/covers"))
 # Streaming translation audio buffer — short-lived per-segment opus files

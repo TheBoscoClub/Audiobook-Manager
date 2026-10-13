@@ -245,82 +245,132 @@ _reconcile_config() {
 # Step 6b — ${VAR} references in path-valued config keys
 # systemd EnvironmentFile= does not expand them, so a service gets the literal
 # text and resolves it as a relative path. The app expands references itself
-# now; this step makes the installed file say what it means. Report mode lists
-# every affected line; enforce mode rewrites each to its expanded concrete
-# value after saving a timestamped backup beside the file (a sibling path, not
-# inside any scanned drop-in directory). A line that cannot be resolved
-# (undefined variable, cycle) is reported and left untouched.
+# now; this step makes the installed file say what it means.
+#
+# A reference is resolved ONLY from (1) the file's own settings, then (2) a
+# fixed map of what the service units themselves provide: AUDIOBOOKS_HOME and
+# AUDIOBOOKS_VAR_DIR from the install layout this run was given (LIB_DIR,
+# STATE_DIR), and HOME, which every unit sets to AUDIOBOOKS_VAR_DIR. The
+# operator's own environment (HOME, PROJECT_DIR, ...) is NEVER consulted: it is
+# not the service's, and a project-tree path must never land in an installed
+# config. Anything else is reported and left untouched -- never guessed.
+#
+# Report mode lists every line. Enforce mode saves a timestamped backup beside
+# the file (a sibling, not inside a scanned drop-in directory), then replaces
+# the file atomically with an owner/mode-preserving copy. Only simply-quoted
+# lines are rewritten; an unrecognised form is reported, not mangled.
 # ---------------------------------------------------------------------------
 declare -A _CFG_RAW=()
 _CFG_STACK=()
+_CFG_TMP=""
+_CFG_TMP2=""
+trap 'rm -f -- "${_CFG_TMP:-}"; [[ -n "${_CFG_TMP2:-}" ]] && ${USE_SUDO:-} rm -f -- "$_CFG_TMP2"' EXIT
+
+# Parse one config line into _P_LEAD _P_EXPORT _P_KEY _P_EQ _P_VAL _P_Q _P_TAIL.
+# Returns 1 when the line is not a simple, recognisable KEY=VALUE assignment.
+_cfg_parse_line() {
+    local line="$1"
+    local sq="'"
+    local dq_re='^([[:space:]]*)(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)([[:space:]]*=[[:space:]]*)"([^"]*)"([[:space:]]+#.*)?$'
+    local sq_re="^([[:space:]]*)(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)([[:space:]]*=[[:space:]]*)${sq}([^${sq}]*)${sq}([[:space:]]+#.*)?\$"
+    local uq_re="^([[:space:]]*)(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)([[:space:]]*=[[:space:]]*)([^[:space:]#\"${sq}]*)([[:space:]]+#.*)?\$"
+    if [[ "$line" =~ $dq_re ]]; then
+        _P_Q='"'
+    elif [[ "$line" =~ $sq_re ]]; then
+        _P_Q="$sq"
+    elif [[ "$line" =~ $uq_re ]]; then
+        _P_Q=""
+    else
+        return 1
+    fi
+    _P_LEAD="${BASH_REMATCH[1]}"
+    _P_EXPORT="${BASH_REMATCH[2]}"
+    _P_KEY="${BASH_REMATCH[3]}"
+    _P_EQ="${BASH_REMATCH[4]}"
+    _P_VAL="${BASH_REMATCH[5]}"
+    _P_TAIL="${BASH_REMATCH[6]}"
+}
 
 # Expand references in $2 (the value of key $1) into the global _CFG_OUT.
-# Lookup order: the file's own settings (recursively), the environment, then
-# the install layout the reconciler was given. Returns 1 and sets _CFG_ERR.
+# Lookup is by NAME ONLY (no ${!ref}), so no shell variable of this script or of
+# the operator's environment can leak in. Sets _CFG_ERR and returns 1 when a
+# reference cannot be resolved from the allowed sources.
 _cfg_expand() {
-    local key="$1" value="$2" s ref out="" rest raw
+    local _x_key="$1" _x_value="$2" _x_s _x_ref _x_out="" _x_rest _x_raw
     # shellcheck disable=SC2016  # the regex is deliberately single-quoted
-    local re='^([^$]*)\$(\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))(.*)$'
-    for s in "${_CFG_STACK[@]}"; do
-        if [[ "$s" == "$key" ]]; then
-            _CFG_ERR="circular reference (${_CFG_STACK[*]} -> ${key})"
+    local _x_re='^([^$]*)\$(\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))(.*)$'
+    for _x_s in "${_CFG_STACK[@]}"; do
+        if [[ "$_x_s" == "$_x_key" ]]; then
+            _CFG_ERR="circular reference (${_CFG_STACK[*]} -> ${_x_key})"
             return 1
         fi
     done
-    _CFG_STACK+=("$key")
-    rest="$value"
-    while [[ "$rest" =~ $re ]]; do
-        ref="${BASH_REMATCH[3]:-${BASH_REMATCH[4]}}"
-        out+="${BASH_REMATCH[1]}"
-        rest="${BASH_REMATCH[5]}"
-        if [[ -n "${_CFG_RAW[$ref]+x}" ]]; then
-            raw="${_CFG_RAW[$ref]}"
-        elif [[ -n "${!ref+x}" ]]; then
-            raw="${!ref}"
-        elif [[ "$ref" == "AUDIOBOOKS_HOME" && -n "${LIB_DIR:-}" ]]; then
-            raw="$LIB_DIR"
-        elif [[ "$ref" == "AUDIOBOOKS_VAR_DIR" && -n "${STATE_DIR:-}" ]]; then
-            raw="$STATE_DIR"
+    _CFG_STACK+=("$_x_key")
+    _x_rest="$_x_value"
+    while [[ "$_x_rest" =~ $_x_re ]]; do
+        _x_ref="${BASH_REMATCH[3]:-${BASH_REMATCH[4]}}"
+        _x_out+="${BASH_REMATCH[1]}"
+        _x_rest="${BASH_REMATCH[5]}"
+        if [[ -n "${_CFG_RAW[$_x_ref]+x}" ]]; then
+            _x_raw="${_CFG_RAW[$_x_ref]}"
+        elif [[ "$_x_ref" == "AUDIOBOOKS_HOME" && -n "${LIB_DIR:-}" ]]; then
+            _x_raw="$LIB_DIR"
+        elif [[ ("$_x_ref" == "AUDIOBOOKS_VAR_DIR" || "$_x_ref" == "HOME") && -n "${STATE_DIR:-}" ]]; then
+            _x_raw="$STATE_DIR" # units set HOME=${AUDIOBOOKS_VAR_DIR}
         else
-            _CFG_ERR="undefined variable ${ref}"
+            _CFG_ERR="undefined variable ${_x_ref} (not set in this file or provided by the service units)"
             return 1
         fi
-        _cfg_expand "$ref" "$raw" || return 1
-        out+="$_CFG_OUT"
+        _cfg_expand "$_x_ref" "$_x_raw" || return 1
+        _x_out+="$_CFG_OUT"
     done
     unset "_CFG_STACK[$((${#_CFG_STACK[@]} - 1))]"
     _CFG_STACK=("${_CFG_STACK[@]}")
-    _CFG_OUT="${out}${rest}"
+    _CFG_OUT="${_x_out}${_x_rest}"
 }
 
 _reconcile_config_references() {
-    [[ -f "$CONF_FILE" ]] || return 0
+    $USE_SUDO test -f "$CONF_FILE" || return 0
     [[ "${#CONFIG_PATH_KEYS[@]}" -gt 0 ]] || return 0
 
-    local line key value k is_path
+    local line key k is_path
     local -a hits=()
+    local -A hit_form=()
     _CFG_RAW=()
+    # Read through the same privilege path as every other /etc access here.
     while IFS= read -r line || [[ -n "$line" ]]; do
-        [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]] || continue
-        key="${BASH_REMATCH[1]}"
-        value="${BASH_REMATCH[2]}"
-        value="${value%\"}"
-        value="${value#\"}"
-        value="${value%\'}"
-        value="${value#\'}"
-        _CFG_RAW["$key"]="$value"
+        line="${line%$'\r'}"
+        if _cfg_parse_line "$line"; then
+            _CFG_RAW["$_P_KEY"]="$_P_VAL"
+            key="$_P_KEY"
+            hit_form["$key"]=ok
+        elif [[ "$line" =~ ^[[:space:]]*(export[[:space:]]+)?([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*= ]]; then
+            key="${BASH_REMATCH[2]}"
+            hit_form["$key"]=odd
+        else
+            continue
+        fi
         is_path=""
         for k in "${CONFIG_PATH_KEYS[@]}"; do [[ "$k" == "$key" ]] && is_path=1; done
-        [[ -n "$is_path" && "$value" == *'$'* ]] && hits+=("$key")
-    done <"$CONF_FILE"
+        [[ -n "$is_path" && "$line" == *'$'* ]] && hits+=("$key")
+    done < <($USE_SUDO cat -- "$CONF_FILE")
     [[ "${#hits[@]}" -gt 0 ]] || return 0
 
     local -A new_values=()
     for key in "${hits[@]}"; do
+        if [[ "${hit_form[$key]}" == odd ]]; then
+            _issue "unexpanded reference in ${CONF_FILE}: ${key} uses a quoting form the reconciler will not rewrite; edit it by hand (the app still expands it at runtime)"
+            continue
+        fi
         _CFG_STACK=()
         if _cfg_expand "$key" "${_CFG_RAW[$key]}"; then
-            new_values["$key"]="$_CFG_OUT"
-            _issue "unexpanded reference in ${CONF_FILE}: ${key}=${_CFG_RAW[$key]} (systemd will not expand it) -> ${_CFG_OUT}"
+            # shellcheck disable=SC1003  # matching a literal backslash, not escaping a quote
+            if [[ "$_CFG_OUT" == *'"'* || "$_CFG_OUT" == *'\'* || "$_CFG_OUT" == *'$'* || "$_CFG_OUT" == *'`'* ]]; then
+                _issue "unexpanded reference in ${CONF_FILE}: ${key}=${_CFG_RAW[$key]} would expand to a value with quote/backslash/\$ characters (${_CFG_OUT}); left as is"
+            else
+                new_values["$key"]="$_CFG_OUT"
+                _issue "unexpanded reference in ${CONF_FILE}: ${key}=${_CFG_RAW[$key]} (systemd will not expand it) -> ${_CFG_OUT}"
+            fi
         else
             _issue "unexpanded reference in ${CONF_FILE}: ${key}=${_CFG_RAW[$key]} cannot be expanded (${_CFG_ERR}); left as is"
         fi
@@ -328,30 +378,48 @@ _reconcile_config_references() {
     _should_act || return 0
     [[ "${#new_values[@]}" -gt 0 ]] || return 0
 
-    local backup tmp
+    local backup cr
     backup="${CONF_FILE}.bak-expand-$(date +%Y%m%d-%H%M%S)"
     if ! $USE_SUDO cp -p -- "$CONF_FILE" "$backup"; then
         _issue "could not back up ${CONF_FILE}; references not rewritten"
         return 0
     fi
-    tmp="$(mktemp)"
+    # Private scratch copy (0600, removed by the EXIT trap), then an atomic swap:
+    # the replacement is created beside the target, given the target's owner and
+    # mode, and moved over it, so a reader never sees a half-written config.
+    local old_umask
+    old_umask="$(umask)"
+    umask 077
+    _CFG_TMP="$(mktemp)"
+    umask "$old_umask"
     while IFS= read -r line || [[ -n "$line" ]]; do
-        if [[ "$line" =~ ^[[:space:]]*([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*(.*)$ ]] &&
-            [[ -n "${new_values[${BASH_REMATCH[1]}]+x}" ]]; then
-            printf '%s="%s"\n' "${BASH_REMATCH[1]}" "${new_values[${BASH_REMATCH[1]}]}" >>"$tmp"
-        else
-            printf '%s\n' "$line" >>"$tmp"
+        cr=""
+        if [[ "$line" == *$'\r' ]]; then
+            cr=$'\r'
+            line="${line%$'\r'}"
         fi
-    done <"$CONF_FILE"
-    # tee rewrites in place, so owner, mode and inode of the installed file are kept
-    if $USE_SUDO tee "$CONF_FILE" <"$tmp" >/dev/null; then
+        if _cfg_parse_line "$line" && [[ -n "${new_values[$_P_KEY]+x}" ]]; then
+            printf '%s%s%s%s"%s"%s%s\n' "$_P_LEAD" "$_P_EXPORT" "$_P_KEY" "$_P_EQ" \
+                "${new_values[$_P_KEY]}" "$_P_TAIL" "$cr" >>"$_CFG_TMP"
+        else
+            printf '%s%s\n' "$line" "$cr" >>"$_CFG_TMP"
+        fi
+    done < <($USE_SUDO cat -- "$CONF_FILE")
+    _CFG_TMP2="$($USE_SUDO mktemp "${CONF_FILE}.XXXXXX")" || {
+        _issue "could not create a replacement beside ${CONF_FILE}; backup left at ${backup}"
+        return 0
+    }
+    if $USE_SUDO tee "$_CFG_TMP2" <"$_CFG_TMP" >/dev/null &&
+        $USE_SUDO chown --reference="$CONF_FILE" "$_CFG_TMP2" &&
+        $USE_SUDO chmod --reference="$CONF_FILE" "$_CFG_TMP2" &&
+        $USE_SUDO mv -f -- "$_CFG_TMP2" "$CONF_FILE"; then
+        _CFG_TMP2=""
         for key in "${!new_values[@]}"; do
             _fix "expanded ${key} in ${CONF_FILE} (backup: ${backup})"
         done
     else
-        _issue "could not rewrite ${CONF_FILE}; backup left at ${backup}"
+        _issue "could not replace ${CONF_FILE}; original untouched, backup at ${backup}"
     fi
-    rm -f "$tmp"
 }
 
 # ---------------------------------------------------------------------------

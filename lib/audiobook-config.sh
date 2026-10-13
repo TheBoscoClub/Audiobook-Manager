@@ -70,9 +70,12 @@ _AB_PATH_VARS=(
     AUDIOBOOKS_STAGING AUDIOBOOKS_WEBM_CACHE AUDIOBOOKS_RUN_DIR AUDIOBOOKS_VAR_DIR
     AUDIOBOOKS_STREAMING_AUDIO_DIR AUDIOBOOKS_STREAMING_SUBTITLES_DIR DATA_DIR
     AUDIOBOOKS_TRIGGERS AUDIOBOOKS_DOWNLOADER_LOCK AUDIOBOOKS_AUDIBLE_VENV
-    AUDIOBOOKS_AUDIBLE_CMD
+    AUDIOBOOKS_AUDIBLE_CMD AUDIOBOOKS_INDEX AUDIOBOOKS_PROJECT_DIR AUTH_DATABASE
+    AUTH_DB_PATH AUTH_KEY_FILE SMTP_PASS_FILE CLOUDFLARE_PURGE_TOKEN_FILE
+    AUDIOBOOKS_RUNPOD_API_KEY_FILE AUDIOBOOKS_WHISPER_GPU_TOKEN_FILE
 )
 _AB_EXPAND_STACK=()
+_AB_ERRORS=()
 
 # Expand references in variable $1 in place (recursively, dependency order).
 # Returns 1 with a message naming the setting on a cycle or undefined reference.
@@ -80,7 +83,7 @@ _ab_resolve_var() {
     local _ab_name="$1" _ab_s _ab_val _ab_out="" _ab_rest _ab_ref
     for _ab_s in "${_AB_EXPAND_STACK[@]}"; do
         if [[ "$_ab_s" == "$_ab_name" ]]; then
-            echo "audiobook-config: ${_AB_EXPAND_STACK[0]}: circular variable reference (${_AB_EXPAND_STACK[*]} -> ${_ab_name})" >&2
+            _AB_ERRORS+=("${_AB_EXPAND_STACK[0]}: circular variable reference (${_AB_EXPAND_STACK[*]} -> ${_ab_name})")
             return 1
         fi
     done
@@ -95,8 +98,7 @@ _ab_resolve_var() {
         _ab_out+="${BASH_REMATCH[1]}"
         _ab_rest="${BASH_REMATCH[5]}"
         if [[ -z "${!_ab_ref+x}" ]]; then
-            echo "audiobook-config: ${_ab_name} references undefined variable ${_ab_ref} (value: ${_ab_val})" >&2
-            unset "_AB_EXPAND_STACK[$((${#_AB_EXPAND_STACK[@]} - 1))]"
+            _AB_ERRORS+=("${_ab_name} references undefined variable ${_ab_ref} (value: ${_ab_val})")
             return 1
         fi
         _ab_resolve_var "$_ab_ref" || return 1
@@ -108,17 +110,31 @@ _ab_resolve_var() {
     export "${_ab_name?}"
 }
 
-# Expand every path setting, then refuse any that still holds a '$'.
+# Expand every path setting. A setting that cannot be expanded (undefined
+# variable, cycle, or a '$' left over) is UNSET, never left holding the literal
+# text -- callers source this file without `set -e` and must not be able to
+# carry on with '${...}' as a path. The other settings are still expanded. All
+# refusals are reported once, to stderr and to the journal, and the sourcing
+# status is 1.
 _ab_expand_config_paths() {
-    local _ab_v
-    _AB_EXPAND_STACK=()
+    local _ab_v _ab_msg
+    _AB_ERRORS=()
     for _ab_v in "${_AB_PATH_VARS[@]}"; do
-        _ab_resolve_var "$_ab_v" || return 1
-        if [[ "${!_ab_v-}" == *'$'* ]]; then
-            echo "audiobook-config: ${_ab_v}='${!_ab_v}' still contains an unexpanded '\$' after reference expansion; refusing to use it as a path" >&2
-            return 1
+        _AB_EXPAND_STACK=()
+        if ! _ab_resolve_var "$_ab_v"; then
+            unset "$_ab_v"
+        elif [[ "${!_ab_v-}" == *'$'* ]]; then
+            _AB_ERRORS+=("${_ab_v}='${!_ab_v}' still contains '\$' after reference expansion; either a reference could not be expanded or the path holds a literal '\$' (no escape syntax: rename the directory)")
+            unset "$_ab_v"
         fi
     done
+    [[ "${#_AB_ERRORS[@]}" -eq 0 ]] && return 0
+    for _ab_msg in "${_AB_ERRORS[@]}"; do
+        echo "audiobook-config: refusing path setting: ${_ab_msg}" >&2
+        command -v logger >/dev/null 2>&1 &&
+            logger -t audiobook-config -p daemon.err -- "refusing path setting: ${_ab_msg}" 2>/dev/null
+    done
+    return 1
 }
 
 # -----------------------------------------------------------------------------
@@ -189,8 +205,9 @@ _load_config_file "${HOME:-}/.config/audiobooks/audiobooks.conf"
 # AUDIOBOOKS_HOME defaults to /opt/audiobooks for system installs; user
 # installs override it to ~/.local/share/audiobooks before sourcing this file.
 : "${AUDIOBOOKS_HOME:=/opt/audiobooks}"
-: "${AUDIOBOOKS_DATABASE:=/var/lib/audiobooks/db/audiobooks.db}"
-: "${AUDIOBOOKS_COVERS:=/var/lib/audiobooks/covers}"
+: "${AUDIOBOOKS_VAR_DIR:=/var/lib/audiobooks}" # Persistent state data; the database and covers live under it
+: "${AUDIOBOOKS_DATABASE:=${AUDIOBOOKS_VAR_DIR}/db/audiobooks.db}"
+: "${AUDIOBOOKS_COVERS:=${AUDIOBOOKS_VAR_DIR}/covers}"
 : "${AUDIOBOOKS_CERTS:=${AUDIOBOOKS_HOME}/library/certs}"
 : "${AUDIOBOOKS_VENV:=${AUDIOBOOKS_HOME}/library/venv}"
 : "${AUDIOBOOKS_CADDY_DIR:=/etc/caddy}" # Caddy static dir (maintenance.html, upgrade-status.json)
@@ -208,8 +225,7 @@ _load_config_file "${HOME:-}/.config/audiobooks/audiobooks.conf"
 : "${AUDIOBOOKS_WEBM_CACHE:=${AUDIOBOOKS_DATA}/.webm-cache}"
 
 # Runtime directories
-: "${AUDIOBOOKS_RUN_DIR:=/var/lib/audiobooks/.run}" # Runtime data (locks, temp) - NOT /run due to ProtectSystem=strict
-: "${AUDIOBOOKS_VAR_DIR:=/var/lib/audiobooks}"      # Persistent state data
+: "${AUDIOBOOKS_RUN_DIR:=${AUDIOBOOKS_VAR_DIR}/.run}" # Runtime data (locks, temp) - NOT /run due to ProtectSystem=strict
 
 # Streaming translation audio buffer — per-segment opus files staged for the
 # streaming pipeline. Short-lived (tens of seconds to a few minutes per book),
@@ -252,10 +268,8 @@ _load_config_file "${HOME:-}/.config/audiobooks/audiobooks.conf"
 
 # Expand ${VAR} references in path settings (systemd delivers them literally);
 # refuse to continue if any path would still hold an unexpanded reference.
-if ! _ab_expand_config_paths; then
-    unset _AUDIOBOOKS_CONFIG_LOADED
-    return 1
-fi
+_ab_config_rc=0
+_ab_expand_config_paths || _ab_config_rc=1
 
 # Export all variables
 export AUDIOBOOKS_DATA AUDIOBOOKS_LIBRARY AUDIOBOOKS_SOURCES AUDIOBOOKS_SUPPLEMENTS
@@ -468,3 +482,8 @@ if [[ "$_sourced" == false ]]; then
     audiobooks_print_config
 fi
 unset _sourced
+# A refused path setting was unset above; make the sourcing status say so.
+_ab_rc=$_ab_config_rc
+unset _ab_config_rc
+# shellcheck disable=SC2317  # exit is the fallback when executed rather than sourced
+return "$_ab_rc" 2>/dev/null || exit "$_ab_rc"
