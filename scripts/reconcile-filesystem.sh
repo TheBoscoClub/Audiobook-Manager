@@ -215,6 +215,58 @@ _reconcile_wrappers() {
 }
 
 # ---------------------------------------------------------------------------
+# Step 5b — audiobooks.conf owner/group/mode, and private backups of it
+# The file can hold inline credentials. System install: SYSTEM_CONFIG_OWNER /
+# SYSTEM_CONFIG_MODE (root:audiobooks 0640). User install (config dir under
+# $HOME): the invoking user, USER_CONFIG_MODE (0600). CONF_FILE_OWNER and
+# CONF_FILE_MODE override both -- used by the regression suite only.
+# Report mode reports; enforce mode fixes. Numeric mode compare (_norm_mode).
+# ---------------------------------------------------------------------------
+_conf_want() {
+    if [[ -n "${CONF_FILE_OWNER:-}" || -n "${CONF_FILE_MODE:-}" ]]; then
+        _WANT_OWNER="${CONF_FILE_OWNER:-$SYSTEM_CONFIG_OWNER}"
+        _WANT_MODE="${CONF_FILE_MODE:-$SYSTEM_CONFIG_MODE}"
+    elif [[ -n "${HOME:-}" && "${CONFIG_DIR:-}" == "${HOME}"/* ]]; then
+        _WANT_OWNER="$(id -un):$(id -gn)"
+        _WANT_MODE="$USER_CONFIG_MODE"
+    else
+        _WANT_OWNER="$SYSTEM_CONFIG_OWNER"
+        _WANT_MODE="$SYSTEM_CONFIG_MODE"
+    fi
+}
+
+# Copy CONF_FILE to "${CONF_FILE}$1" without ever exposing it: created 0600
+# under umask 077, then given the wanted owner/mode (never wider than the
+# config itself). Sets _BAK. Returns 1 if the copy fails.
+_conf_backup() {
+    _conf_want
+    _BAK="${CONF_FILE}$1"
+    (umask 077 && $USE_SUDO cp -- "$CONF_FILE" "$_BAK") || return 1
+    $USE_SUDO chown "$_WANT_OWNER" "$_BAK" 2>/dev/null || true
+    $USE_SUDO chmod "$_WANT_MODE" "$_BAK"
+}
+
+_reconcile_config_perms() {
+    $USE_SUDO test -f "$CONF_FILE" || return 0
+    _conf_want
+    local cur_owner cur_mode
+    cur_owner="$($USE_SUDO stat -c '%U:%G' -- "$CONF_FILE" 2>/dev/null || true)"
+    cur_mode="$($USE_SUDO stat -c '%a' -- "$CONF_FILE" 2>/dev/null || true)"
+    if [[ "$cur_owner" != "$_WANT_OWNER" ]]; then
+        _issue "config file owner drift: ${CONF_FILE} (want ${_WANT_OWNER}, got ${cur_owner})"
+        if _should_act; then
+            $USE_SUDO chown "$_WANT_OWNER" "$CONF_FILE" && _fix "chown ${_WANT_OWNER} ${CONF_FILE}"
+        fi
+    fi
+    if [[ -z "$cur_mode" || "$(_norm_mode "$cur_mode")" != "$(_norm_mode "$_WANT_MODE")" ]]; then
+        _issue "config file mode drift: ${CONF_FILE} (want ${_WANT_MODE}, got ${cur_mode}) -- it may hold inline credentials"
+        if _should_act; then
+            $USE_SUDO chmod "$_WANT_MODE" "$CONF_FILE" && _fix "chmod ${_WANT_MODE} ${CONF_FILE}"
+        fi
+    fi
+}
+
+# ---------------------------------------------------------------------------
 # Step 6 — strip legacy config overrides
 # Only removes keys whose value matches a documented legacy glob. User
 # customizations (non-legacy paths) are preserved untouched.
@@ -233,8 +285,12 @@ _reconcile_config() {
             $legacy_glob)
                 _issue "legacy ${key}=${current} in ${CONF_FILE}"
                 if _should_act; then
-                    $USE_SUDO sed -i.bak-reconcile "/^${key}=/d" "$CONF_FILE"
-                    _fix "stripped ${key} from ${CONF_FILE}"
+                    # backup first, private (sed -i.SUFFIX would inherit the file's mode)
+                    if _conf_backup ".bak-reconcile" && $USE_SUDO sed -i "/^${key}=/d" "$CONF_FILE"; then
+                        _fix "stripped ${key} from ${CONF_FILE} (backup: ${_BAK})"
+                    else
+                        _issue "could not back up and strip ${key} from ${CONF_FILE}"
+                    fi
                 fi
                 ;;
         esac
@@ -379,11 +435,11 @@ _reconcile_config_references() {
     [[ "${#new_values[@]}" -gt 0 ]] || return 0
 
     local backup cr
-    backup="${CONF_FILE}.bak-expand-$(date +%Y%m%d-%H%M%S)"
-    if ! $USE_SUDO cp -p -- "$CONF_FILE" "$backup"; then
+    if ! _conf_backup ".bak-expand-$(date +%Y%m%d-%H%M%S)"; then
         _issue "could not back up ${CONF_FILE}; references not rewritten"
         return 0
     fi
+    backup="$_BAK"
     # Private scratch copy (0600, removed by the EXIT trap), then an atomic swap:
     # the replacement is created beside the target, given the target's owner and
     # mode, and moved over it, so a reader never sees a half-written config.
@@ -565,6 +621,7 @@ reconcile_filesystem() {
     _reconcile_venvs
     _reconcile_units
     _reconcile_wrappers
+    _reconcile_config_perms
     _reconcile_config
     _reconcile_config_references
     _reconcile_state_dir_mismatch

@@ -204,6 +204,19 @@ CONFIG_CANONICAL_DEFAULTS=(
 )
 
 # ---------------------------------------------------------------------------
+# audiobooks.conf ownership and mode. The file may carry inline credentials
+# (SMTP_PASS and friends), so it is never world-readable. System install:
+# root:audiobooks 0640 -- systemd reads EnvironmentFile= as root before the
+# unit drops to User=audiobooks, and the audiobooks group lets the services'
+# own config readers (library/config.py, lib/audiobook-config.sh) open it.
+# User install: the installing user, 0600. The reconciler enforces these and
+# the backups it makes of the file are never wider.
+# ---------------------------------------------------------------------------
+SYSTEM_CONFIG_OWNER="root:audiobooks"
+SYSTEM_CONFIG_MODE="0640"
+USER_CONFIG_MODE="0600"
+
+# ---------------------------------------------------------------------------
 # Path-valued config keys. systemd's EnvironmentFile= does not expand ${VAR},
 # so a line like AUDIOBOOKS_LIBRARY="${AUDIOBOOKS_DATA}/Library" reaches a
 # service as literal text, which WorkingDirectory-relative code resolves as a

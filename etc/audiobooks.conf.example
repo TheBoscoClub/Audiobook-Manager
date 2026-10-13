@@ -4,6 +4,10 @@
 #   System-wide: /etc/audiobooks/audiobooks.conf
 #   User-only:   ~/.config/audiobooks/audiobooks.conf
 #
+# Permissions: if you put credentials (SMTP_PASS, tokens) in this file it must not
+# be world-readable. System install: root:audiobooks mode 0640; user install:
+# mode 0600. install.sh creates it that way and upgrade.sh enforces it.
+#
 # Environment variables override these settings.
 # Values are read in this order (later overrides earlier):
 #   1. Built-in defaults

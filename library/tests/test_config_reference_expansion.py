@@ -12,8 +12,10 @@ installed config is modified.
 
 from __future__ import annotations
 
+import grp
 import json
 import os
+import pwd
 import shutil
 import subprocess
 import sys
@@ -507,6 +509,8 @@ def _reconcile_conf(
         "BIN_DIR": str(tmp_path / "bin"),
         "USE_SUDO": use_sudo,
         "RECONCILE_MODE": mode,
+        "CONF_FILE_OWNER": f"{pwd.getpwuid(os.getuid()).pw_name}:"
+        f"{grp.getgrgid(os.getgid()).gr_name}",
         **(extra_env or {}),
     }
     result = subprocess.run(
@@ -653,6 +657,171 @@ class TestStateDirMismatchWarning:
         )
         assert result.stdout.count("DATA LOCATION MISMATCH") == 2
         assert not (state / "db").exists()
+
+
+INSTALL_SH = PROJECT_ROOT / "install.sh"
+
+
+class TestConfigFilePermissions:
+    """audiobooks.conf may hold inline credentials: never world-readable."""
+
+    def test_world_readable_config_is_reported_in_report_mode(self, tmp_path):
+        (tmp_path / "config").mkdir()
+        conf = tmp_path / "config" / "audiobooks.conf"
+        conf.write_text("A=1\n")
+        conf.chmod(0o644)
+        # run the reconciler on the 0644 file without rewriting it
+        proc_env = {
+            **os.environ,
+            "PROJECT_DIR": str(PROJECT_ROOT),
+            "LIB_DIR": str(tmp_path / "lib"),
+            "STATE_DIR": str(tmp_path / "state"),
+            "LOG_DIR": str(tmp_path / "log"),
+            "CONFIG_DIR": str(conf.parent),
+            "CONF_FILE": str(conf),
+            "USE_SUDO": "",
+            "RECONCILE_MODE": "report",
+            "CONF_FILE_OWNER": f"{pwd.getpwuid(os.getuid()).pw_name}:{grp.getgrgid(os.getgid()).gr_name}",
+        }
+        out = subprocess.run(
+            ["bash", str(RECONCILER)], capture_output=True, text=True, env=proc_env, check=False
+        )
+        assert "config file mode drift" in out.stdout
+        assert "want 0640, got 644" in out.stdout
+        assert oct(conf.stat().st_mode & 0o777) == "0o644"  # report mode changes nothing
+
+    def test_enforce_fixes_644_to_640(self, tmp_path):
+        text = "A=1\n"
+        (tmp_path / "config").mkdir()
+        (tmp_path / "config" / "audiobooks.conf").write_text(text)
+        (tmp_path / "config" / "audiobooks.conf").chmod(0o644)
+        result = _run_perm_reconciler(tmp_path, "enforce")
+        conf = tmp_path / "config" / "audiobooks.conf"
+        assert oct(conf.stat().st_mode & 0o777) == "0o640"
+        assert "[fix]   chmod 0640" in result.stdout
+
+    def test_already_correct_config_is_silent(self, tmp_path):
+        (tmp_path / "config").mkdir()
+        conf = tmp_path / "config" / "audiobooks.conf"
+        conf.write_text("A=1\n")
+        conf.chmod(0o640)
+        for mode in ("report", "enforce"):
+            result = _run_perm_reconciler(tmp_path, mode)
+            assert "config file mode drift" not in result.stdout
+            assert "config file owner drift" not in result.stdout
+
+    def test_owner_drift_is_reported(self, tmp_path):
+        (tmp_path / "config").mkdir()
+        conf = tmp_path / "config" / "audiobooks.conf"
+        conf.write_text("A=1\n")
+        conf.chmod(0o640)
+        result = _run_perm_reconciler(tmp_path, "report", owner="nobody:nogroup")
+        assert "config file owner drift" in result.stdout
+        assert "want nobody:nogroup" in result.stdout
+
+    def test_user_install_wants_0600_owned_by_the_user(self, tmp_path):
+        home = tmp_path / "home"
+        cfg = home / ".config" / "audiobooks"
+        cfg.mkdir(parents=True)
+        conf = cfg / "audiobooks.conf"
+        conf.write_text("A=1\n")
+        conf.chmod(0o640)
+        result = _run_perm_reconciler(
+            tmp_path, "report", conf=conf, owner="", extra={"HOME": str(home)}
+        )
+        assert "config file mode drift" in result.stdout
+        assert "want 0600, got 640" in result.stdout
+        assert "owner drift" not in result.stdout  # owned by the invoking user
+
+    def test_system_default_target_is_root_audiobooks_0640(self, tmp_path):
+        (tmp_path / "config").mkdir()
+        conf = tmp_path / "config" / "audiobooks.conf"
+        conf.write_text("A=1\n")
+        conf.chmod(0o640)
+        result = _run_perm_reconciler(tmp_path, "report", owner="", extra={"HOME": "/nonexistent"})
+        assert "want root:audiobooks" in result.stdout
+
+    def test_backups_are_private_whatever_the_original_mode(self, tmp_path):
+        conf = tmp_path / "audiobooks.conf"
+        conf.write_text("SMTP_PASS=hunter2\n")
+        conf.chmod(0o644)
+        script = f"""
+            set -u
+            source {RECONCILER}
+            source {MANIFEST}
+            CONF_FILE={conf}; USE_SUDO=""
+            CONF_FILE_OWNER={pwd.getpwuid(os.getuid()).pw_name}:{grp.getgrgid(os.getgid()).gr_name}
+            _conf_backup .bak-x && echo "$_BAK"
+        """
+        env = {
+            **os.environ,
+            "CONFIG_DIR": str(tmp_path),
+            "STATE_DIR": "/x",
+            "LIB_DIR": "/x",
+            "LOG_DIR": "/x",
+        }
+        out = subprocess.run(
+            ["bash", "-c", script], capture_output=True, text=True, env=env, check=False
+        )
+        assert out.returncode == 0, out.stderr
+        bak = Path(out.stdout.strip())
+        assert bak.name == "audiobooks.conf.bak-x"
+        assert oct(bak.stat().st_mode & 0o777) == "0o640"
+        assert bak.read_text() == conf.read_text()
+
+    def test_legacy_key_backup_and_expand_backup_are_private(self, tmp_path):
+        (tmp_path / "config").mkdir()
+        conf = tmp_path / "config" / "audiobooks.conf"
+        conf.write_text(
+            'AUDIOBOOKS_VENV="/old/library/venv"\nAUDIOBOOKS_DATA="/x"\n'
+            'AUDIOBOOKS_LIBRARY="${AUDIOBOOKS_DATA}/Library"\n'
+        )
+        conf.chmod(0o644)
+        _run_perm_reconciler(tmp_path, "enforce")
+        baks = list(conf.parent.glob("audiobooks.conf.bak-*"))
+        assert {b.name.split(".bak-")[1].split("-")[0] for b in baks} == {"reconcile", "expand"}
+        for b in baks:
+            assert (b.stat().st_mode & 0o777) == 0o640, b
+
+    def test_install_sh_creates_the_config_private_before_writing(self):
+        text = INSTALL_SH.read_text()
+        sys_i = text.index(
+            'sudo install -m 0640 -o root -g audiobooks /dev/null "${CONFIG_DIR}/audiobooks.conf"'
+        )
+        assert sys_i < text.index('sudo tee "${CONFIG_DIR}/audiobooks.conf" >/dev/null <<EOF')
+        usr_i = text.index('install -m 0600 /dev/null "${CONFIG_DIR}/audiobooks.conf"')
+        assert usr_i < text.index('cat >"${CONFIG_DIR}/audiobooks.conf" <<EOF')
+
+
+def _run_perm_reconciler(
+    tmp_path: Path,
+    mode: str,
+    owner: str | None = None,
+    conf: Path | None = None,
+    extra: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess:
+    conf = conf or tmp_path / "config" / "audiobooks.conf"
+    for d in ("lib", "state", "log"):
+        (tmp_path / d).mkdir(exist_ok=True)
+    me = f"{pwd.getpwuid(os.getuid()).pw_name}:{grp.getgrgid(os.getgid()).gr_name}"
+    proc_env = {
+        **os.environ,
+        "PROJECT_DIR": str(PROJECT_ROOT),
+        "LIB_DIR": str(tmp_path / "lib"),
+        "STATE_DIR": str(tmp_path / "state"),
+        "LOG_DIR": str(tmp_path / "log"),
+        "CONFIG_DIR": str(conf.parent),
+        "CONF_FILE": str(conf),
+        "USE_SUDO": "",
+        "RECONCILE_MODE": mode,
+        "CONF_FILE_OWNER": me if owner is None else owner,
+        **(extra or {}),
+    }
+    if not proc_env["CONF_FILE_OWNER"]:
+        del proc_env["CONF_FILE_OWNER"]
+    return subprocess.run(
+        ["bash", str(RECONCILER)], capture_output=True, text=True, env=proc_env, check=False
+    )
 
 
 def test_example_conf_documents_that_systemd_does_not_expand():
