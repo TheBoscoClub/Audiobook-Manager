@@ -310,3 +310,40 @@ class TestGenerationRequestRoutes:
             resp = app_client.post(url, json={"audiobook_id": 1, "locale": "zh-Hans"})
         assert resp.status_code == 401
         spy.assert_not_called()
+
+
+class TestI18nReloadAdminOnly:
+    """POST /api/i18n/reload is not listening: admin, or localhost in standalone."""
+
+    SINK = "backend.api_modular.i18n_routes.reload_catalogs"
+
+    def test_guest_401_no_reload(self, app_client, as_guest):
+        with patch(self.SINK) as spy:
+            resp = app_client.post("/api/i18n/reload")
+        assert resp.status_code == 401
+        spy.assert_not_called()
+
+    def test_non_admin_403_no_reload(self, app_client, as_user):
+        with patch(self.SINK) as spy:
+            resp = app_client.post("/api/i18n/reload")
+        assert resp.status_code == 403
+        spy.assert_not_called()
+
+    def test_admin_ok(self, app_client, auth_on):
+        admin = MagicMock(id=1, is_admin=True)
+        with patch(f"{AUTH_SHARED}.get_current_user", return_value=admin), patch(self.SINK) as spy:
+            resp = app_client.post("/api/i18n/reload")
+        assert resp.status_code == 200
+        spy.assert_called_once()
+
+    def test_standalone_localhost_ok(self, app_client):
+        with patch(self.SINK) as spy:
+            resp = app_client.post("/api/i18n/reload", environ_base={"REMOTE_ADDR": "127.0.0.1"})
+        assert resp.status_code == 200
+        spy.assert_called_once()
+
+    def test_standalone_remote_404_no_reload(self, app_client):
+        with patch(self.SINK) as spy:
+            resp = app_client.post("/api/i18n/reload", environ_base={"REMOTE_ADDR": "203.0.113.1"})
+        assert resp.status_code == 404
+        spy.assert_not_called()

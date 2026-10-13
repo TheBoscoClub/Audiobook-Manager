@@ -13,7 +13,7 @@ import logging
 from flask import Blueprint, jsonify, request
 from i18n import DEFAULT_LOCALE, SUPPORTED_LOCALES, get_catalog, reload_catalogs
 
-from .auth import auth_if_enabled
+from .auth import admin_or_localhost, auth_if_enabled
 from .locale_validation import enqueue_locale_error, locale_error_response
 
 i18n_bp = Blueprint("i18n", __name__)
@@ -39,6 +39,7 @@ def get_locale_catalog(locale: str):
 
 
 @i18n_bp.route("/api/i18n/reload", methods=["POST"])
+@admin_or_localhost
 def reload_locale_catalogs():
     """Admin endpoint to reload catalogs without restart."""
     reload_catalogs()
