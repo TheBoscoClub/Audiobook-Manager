@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **`AGENTS.md` regenerated from the house template**: bd command list now `bd orphans`/`bd lint`/`bd stale` in place of `bd preflight`; `bd doctor` marked unsupported in embedded mode (bd 1.0.3 prints troubleshooting only)
 - **`VLLMTranslator.translate` complexity**: split into `_lookup_memory`, `_translate_chunk`, `_settle_item`,
   `_recover_chunk` and `_report_failures` (radon D 23 → B 8) — behaviour, log lines and exception types unchanged;
   eight characterization tests pin chunking, TM merge, tier fallback, the recovery-warning reason, a recovered chunk
