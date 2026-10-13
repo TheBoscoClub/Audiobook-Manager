@@ -59,7 +59,6 @@ config.env
 
 # Install scripts
 install.sh
-launch.sh
 
 # Shell config loader (not used in Docker)
 lib/

@@ -380,7 +380,7 @@ sudo systemctl start audiobook.target
 #### Using Launch Script
 
 ```bash
-./launch.sh
+./library/launch-v2.sh
 ```
 
 #### Manual Start

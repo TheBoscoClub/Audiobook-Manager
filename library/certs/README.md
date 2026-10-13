@@ -18,7 +18,7 @@ dev-only TLS certificates** used by the local development API server
 ## Regenerating
 
 If the dev cert is missing or expired, the `scripts/` toolchain regenerates
-it automatically on the next `launch.sh` or equivalent dev-server start.
+it automatically on the next `library/launch-v2.sh` or equivalent dev-server start.
 You can also regenerate manually:
 
 ```bash

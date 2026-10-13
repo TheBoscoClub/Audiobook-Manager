@@ -2060,7 +2060,7 @@ class AudiobookLibraryV2 {
       const code = document.createElement("code");
       code.style.cssText =
         "background: var(--wood-dark); padding: 0.5rem; border-radius: 4px;";
-      code.textContent = "./launch.sh";
+      code.textContent = "./library/launch-v2.sh";
       p.appendChild(code);
       grid.appendChild(p);
     } finally {

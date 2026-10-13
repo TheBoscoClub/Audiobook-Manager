@@ -818,8 +818,13 @@ Configuration is loaded from multiple sources in priority order:
 
 ### Override via Environment
 
+Set the value in the project-root `config.env` (the dev launcher reads it), then start the dev servers:
+
 ```bash
-AUDIOBOOKS_LIBRARY=/mnt/nas/audiobooks ./launch.sh
+# config.env
+AUDIOBOOKS_LIBRARY=/mnt/nas/audiobooks
+
+./library/launch-v2.sh
 ```
 
 ### View Current Configuration
@@ -843,7 +848,6 @@ Audiobooks/
 ├── uninstall.sh                 # Comprehensive uninstaller (dynamic discovery)
 ├── upgrade.sh                   # Upgrade from GitHub/local/remote VM (--remote, --yes)
 ├── migrate-api.sh               # Switch API architecture
-├── launch.sh                    # Quick launcher
 ├── converter/                   # AAXtoMP3 conversion tools
 │   ├── AAXtoMP3                 # Main conversion script
 │   └── interactiveAAXtoMP3

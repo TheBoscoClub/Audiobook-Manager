@@ -94,7 +94,7 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo "Scan completed successfully!"
         echo ""
         echo "To launch the library:"
-        echo "  $PROJECT_DIR/launch.sh"
+        echo "  $PROJECT_DIR/library/launch-v2.sh"
         echo ""
         echo "========================================="
     else

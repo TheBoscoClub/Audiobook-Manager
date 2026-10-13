@@ -125,7 +125,7 @@ if [ -f "$LOG_FILE" ]; then
         echo "Output file: $AUDIOBOOKS_HOME/library/data/audiobooks.json"
         echo ""
         echo "Next steps:"
-        echo "  1. Launch the library: cd $AUDIOBOOKS_HOME && ./launch.sh"
+        echo "  1. Launch the library: cd $AUDIOBOOKS_HOME && ./library/launch-v2.sh"
         echo "  2. Or click 'Refresh' in the web interface if already open"
     fi
 

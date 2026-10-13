@@ -19,12 +19,43 @@ echo -e "${BLUE}   Audiobook Library V2 (Database)${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
-# Check if database exists (use config path, default to /var/lib/audiobooks/db)
-DB_PATH="${AUDIOBOOKS_DATABASE:-/var/lib/audiobooks/db/audiobooks.db}"
+# Development config: this launcher is for the project working tree only.
+# It refuses to start without a dev config rather than fall back to the
+# production defaults (ports 5001/8443, /var/lib/audiobooks).
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+if [ -f "$PROJECT_ROOT/config.env" ]; then
+    set -a
+    # shellcheck source=/dev/null
+    source "$PROJECT_ROOT/config.env"
+    set +a
+fi
+
+if [ -z "${AUDIOBOOKS_DATABASE:-}" ] || [ -z "${AUDIOBOOKS_API_PORT:-}" ] || [ -z "${AUDIOBOOKS_WEB_PORT:-}" ]; then
+    echo -e "${RED}Error: no development configuration found.${NC}"
+    echo "  Expected $PROJECT_ROOT/config.env (dev paths and ports), or set"
+    echo "  AUDIOBOOKS_DATABASE, AUDIOBOOKS_API_PORT and AUDIOBOOKS_WEB_PORT in the environment."
+    echo "  Refusing to start with production defaults."
+    exit 1
+fi
+
+case "$AUDIOBOOKS_DATABASE" in
+    /var/lib/audiobooks/* | /srv/audiobooks/* | /opt/audiobooks/*)
+        echo -e "${RED}Error: AUDIOBOOKS_DATABASE ($AUDIOBOOKS_DATABASE) is an installed-application path.${NC}"
+        echo "  This launcher is for the project working tree; use a dev database."
+        exit 1
+        ;;
+esac
+
+API_PORT="$AUDIOBOOKS_API_PORT"
+PORT="$AUDIOBOOKS_WEB_PORT"
+DB_PATH="$AUDIOBOOKS_DATABASE"
+JSON_PATH="${DATA_DIR:-data}/audiobooks.json"
+
+# Check if database exists
 if [ ! -f "$DB_PATH" ]; then
     echo -e "${YELLOW}Database not found at $DB_PATH. Creating database...${NC}"
-    if [ ! -f "data/audiobooks.json" ]; then
-        echo -e "${RED}Error: audiobooks.json not found. Please run the scanner first:${NC}"
+    if [ ! -f "$JSON_PATH" ]; then
+        echo -e "${RED}Error: $JSON_PATH not found. Please run the scanner first:${NC}"
         echo -e "  cd scanner && python3 scan_audiobooks.py"
         exit 1
     fi
@@ -44,8 +75,8 @@ else
 fi
 
 # Check if API server is already running
-if ss -tln | grep -q ":5001 "; then
-    echo -e "${YELLOW}API server already running on port 5001${NC}"
+if ss -tln | grep -q ":$API_PORT "; then
+    echo -e "${YELLOW}API server already running on port $API_PORT${NC}"
 else
     echo -e "${GREEN}Starting Flask API server...${NC}"
     python backend/api_server.py &
@@ -55,7 +86,7 @@ else
     # Wait for API to be ready
     echo -n "Waiting for API to be ready"
     for i in {1..10}; do
-        if curl -s http://localhost:5001/health >/dev/null 2>&1; then
+        if curl -s http://localhost:"$API_PORT"/health >/dev/null 2>&1; then
             echo -e " ${GREEN}✓${NC}"
             break
         fi
@@ -64,19 +95,9 @@ else
     done
 fi
 
-# Find available port for frontend (8090-8099)
-PORT=8090
-MAX_PORT=8099
-
-while [ $PORT -le $MAX_PORT ]; do
-    if ! ss -tln | grep -q ":$PORT "; then
-        break
-    fi
-    PORT=$((PORT + 1))
-done
-
-if [ $PORT -gt $MAX_PORT ]; then
-    echo -e "${RED}Error: No available ports in range 8090-8099${NC}"
+# Web port comes from the dev config; refuse if it is already taken
+if ss -tln | grep -q ":$PORT "; then
+    echo -e "${RED}Error: web port $PORT is already in use${NC}"
     exit 1
 fi
 
@@ -84,7 +105,7 @@ echo -e "${GREEN}Starting web server on port $PORT...${NC}"
 cd web-v2
 
 # Start HTTP server in background
-python -m http.server $PORT >/dev/null 2>&1 &
+python -m http.server "$PORT" >/dev/null 2>&1 &
 SERVER_PID=$!
 
 echo -e "${GREEN}✓ Web server started (PID: $SERVER_PID)${NC}"
@@ -92,7 +113,7 @@ echo ""
 echo -e "${BLUE}========================================${NC}"
 echo -e "${GREEN}Library is now running!${NC}"
 echo ""
-echo -e "API Server:  ${BLUE}http://localhost:5001${NC}"
+echo -e "API Server:  ${BLUE}http://localhost:$API_PORT${NC}"
 echo -e "Web Interface: ${BLUE}http://localhost:$PORT${NC}"
 echo ""
 echo -e "API Documentation:"
