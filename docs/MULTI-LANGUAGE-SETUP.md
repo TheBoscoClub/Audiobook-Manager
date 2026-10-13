@@ -40,7 +40,7 @@ Audiobook Manager (v8.4.3) includes a full localization system that translates b
 >
 > The reference deployment keeps no standing GPU. The operator rents a Vast.ai node with `scripts/gpu-node.sh`, runs a batch, and destroys the node (`gpu-node.sh down`); `scripts/gpu-budget-guard.sh` enforces a spend cap while it runs. Follow [GPU node: vLLM translation + faster-whisper STT (Vast.ai)](#gpu-node-vllm-translation--faster-whisper-stt-vastai). The earlier RunPod serverless account is **decommissioned** (historical), and DeepL was removed in v8.5.0.
 >
-> **What you will observe with no node up**: `audiobook-stream-translate.service` starts and idles; the sampler and live translation-monitor timers keep firing; and from v8.4.3 the sampler logs an explicit staleness alert rather than looking healthy:
+> **What you will observe with no node up**: `audiobook-stream-translate.service` starts and idles; the sampler and live translation-monitor timers keep firing; and from v8.4.3 the sampler timer, which fires every 5 minutes, reports staleness rather than looking healthy. `scripts/translation-monitor-sampler.py` logs the line below only once the last completed `sampler_job` is 3 or more days old (`STALE_COMPLETION_ALERT_DAYS`); on a fresh install with no completed job it logs `no sampler_job has EVER reached 'complete'` instead:
 >
 > ```text
 > SAMPLER STALE: no sampler_job has completed in N days (threshold 3).
@@ -174,19 +174,19 @@ Existing translations continue to serve from the translation cache: the `string_
 
 One rented node serves both jobs: vLLM (Qwen3-8B by default) for translation and the `faster-whisper` service for STT. `scripts/gpu-node.sh` is a stand-alone operator tool run from the project tree; it has no systemd unit and `install.sh` does not install it. The workflow below is the one documented in the script headers.
 
-1. **Prerequisites**: `jq` and `curl`; a Vast.ai account with credit; your SSH public key registered at console.vast.ai under Keys. The script reads the Vast.ai API key from the `VAST_API_KEY` environment variable and never prints it or puts it on a command line. When the variable is absent it re-execs itself under the `with-secret` injector (`~/.claude/bin/with-secret`), so either provide that injector or export the variable for the one command.
+1. **Prerequisites**: `jq` and `curl`; a Vast.ai account with credit; your SSH public key registered at console.vast.ai under Keys. The script reads the Vast.ai API key from the `VAST_API_KEY` environment variable and never prints it or puts it on a command line. Export it for your shell session (`export VAST_API_KEY=<your-key>`); operators may instead inject it with their own secret tooling. When the variable is absent, the script tries to re-exec itself under a `with-secret` helper and exits with an error if it cannot find one.
 
 2. **Rent and bootstrap the node**:
 
    ```bash
    scripts/gpu-node.sh search          # list the cheapest verified 1-GPU offers
-   scripts/gpu-node.sh up              # rent the best offer, start vLLM, ship and start the whisper service
+   scripts/gpu-node.sh up              # BILLING STARTS HERE: rent the best offer, start vLLM, ship and start the whisper service
    scripts/gpu-node.sh status          # state, $/hr, uptime, ports
    ```
 
    Optional overrides: `GPU_NODE_GPU` (default `H100 SXM`), `GPU_NODE_MAX_PRICE`, `GPU_NODE_MODEL` (default `Qwen/Qwen3-8B`), `GPU_NODE_DISK_GB` (default `80`), `GPU_NODE_LABEL` (default `abm-translate`). Billing runs from create to destroy; a stopped instance still bills for storage.
 
-3. **Start the spend guard** in a second terminal. `--cap` is required; `--floor` and `--max-idle` are optional:
+3. **Start the spend guard immediately after `up`**, in a second terminal. It cannot be started first: it exits as soon as no `abm-translate` instance exists (`no '<label>' instances — guard exiting`). `--cap` is required; `--floor` and `--max-idle` are optional:
 
    ```bash
    scripts/gpu-budget-guard.sh --cap 35 --floor 64 --max-idle 15
@@ -212,13 +212,13 @@ One rented node serves both jobs: vLLM (Qwen3-8B by default) for translation and
    AUDIOBOOKS_WHISPER_GPU_PORT=8765
    ```
 
-   `factory.py` reads `AUDIOBOOKS_MT_ENDPOINT` from the process environment at call time, so a long-running service sees a config-file change only after a restart (my reading of the code, not exercised here).
+   `factory.py` (`_endpoint()`) reads only the process environment, at call time; it does not read `audiobooks.conf` itself. A service's environment is fixed when it starts (the API unit through `EnvironmentFile=/etc/audiobooks/audiobooks.conf`, the stream-translate daemon through `lib/audiobook-config.sh`), so restart the services that translate after editing the file.
 
 6. **Run the work, then tear down**:
 
    ```bash
    scripts/gpu-node.sh tunnel --stop
-   scripts/gpu-node.sh down              # DESTROYS the instance; billing stops
+   scripts/gpu-node.sh down              # asks for confirmation, then DESTROYS the instance; billing stops (`down --yes` skips the prompt)
    ```
 
    Unset `AUDIOBOOKS_MT_ENDPOINT` afterwards so the factory returns to its no-provider state. `AUDIOBOOKS_WHISPER_GPU_HOST` can stay set: with the tunnel down, `LocalGPUWhisperSTT.is_available()` fails and the provider drops out of the candidate list.

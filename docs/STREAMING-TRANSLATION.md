@@ -8,7 +8,7 @@ Pre-translated books serve instantly from cache. (Chapter-at-a-time work is the
 
 > ## Needs a GPU node session
 >
-> The STT and machine-translation backends are a **hand-rented Vast.ai GPU node**, started with `scripts/gpu-node.sh` and guarded by `scripts/gpu-budget-guard.sh`. It runs `faster-whisper` (reached by `LocalGPUWhisperSTT` over an SSH tunnel at `127.0.0.1:8765`) and Qwen3-8B on vLLM (`VLLMTranslator`, selected when `AUDIOBOOKS_MT_ENDPOINT` is set). No endpoint stays up between sessions, and the maintainer's RunPod account is **decommissioned** (historical). With no node and tunnel up, `library/localization/pipeline.py` raises `RuntimeError("No STT provider configured")` when asked to transcribe, so nothing is dispatched and nothing completes. The three systemd units stay enabled and running; the sampler tier logs the truth every 5 minutes:
+> The STT and machine-translation backends are a **hand-rented Vast.ai GPU node**, started with `scripts/gpu-node.sh` and guarded by `scripts/gpu-budget-guard.sh`. It runs `faster-whisper` (reached by `LocalGPUWhisperSTT` over an SSH tunnel at `127.0.0.1:8765`) and Qwen3-8B on vLLM (`VLLMTranslator`, selected when `AUDIOBOOKS_MT_ENDPOINT` is set). No endpoint stays up between sessions, and the maintainer's RunPod account is **decommissioned** (historical). With no node and tunnel up, `library/localization/pipeline.py` raises `RuntimeError("No STT provider configured")` when asked to transcribe, so nothing is dispatched and nothing completes. The three systemd units stay enabled and running. The sampler timer fires every 5 minutes, and `scripts/translation-monitor-sampler.py` logs the line below once the last completed `sampler_job` is 3 or more days old (`STALE_COMPLETION_ALERT_DAYS`); on a fresh install with no completed job it logs `no sampler_job has EVER reached 'complete'` instead:
 >
 > ```text
 > SAMPLER STALE: no sampler_job has completed in N days (threshold 3).
@@ -382,9 +382,11 @@ sudo -u audiobooks /opt/audiobooks/library/venv/bin/python \
 ```
 
 The GPU lifecycle is manual: rent the node with `scripts/gpu-node.sh up` before a
-batch and destroy it with `scripts/gpu-node.sh down` afterwards, with
-`scripts/gpu-budget-guard.sh --cap <dollars>` bounding spend. Billing runs from
-create to destroy, so idle cost is $0 only once the node is destroyed.
+batch and destroy it with `scripts/gpu-node.sh down` afterwards (`down` asks for
+confirmation; `down --yes` skips the prompt). **Billing starts at `up`.** Start
+`scripts/gpu-budget-guard.sh --cap <dollars>` immediately after `up`: it exits if
+no `abm-translate` instance exists yet, so it cannot be started first. Billing
+runs from create to destroy, so idle cost is $0 only once the node is destroyed.
 
 **Wedge detection**: `streaming_segments` rows stuck in `processing` for more
 than 10 minutes are reclaimed by the streaming worker on its next poll.

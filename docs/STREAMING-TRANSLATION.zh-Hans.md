@@ -6,7 +6,7 @@
 
 > ## 需要一次 GPU 节点会话
 >
-> STT 与机器翻译后端是一台**手动租用的 Vast.ai GPU 节点**，由 `scripts/gpu-node.sh` 启动，并由 `scripts/gpu-budget-guard.sh` 守护费用。节点上运行 `faster-whisper`（`LocalGPUWhisperSTT` 通过 SSH 隧道访问 `127.0.0.1:8765`）以及 vLLM 上的 Qwen3-8B（`VLLMTranslator`，设置 `AUDIOBOOKS_MT_ENDPOINT` 后被选用）。会话之间没有任何端点常驻，维护者的 RunPod 账户已**停用**（历史方案）。节点与隧道未启动时，`library/localization/pipeline.py` 在被要求转录时会抛出 `RuntimeError("No STT provider configured")`，因此不会分发任何任务，也不会完成任何工作。三个 systemd 单元仍处于启用并运行状态；试听层每 5 分钟如实记录一次：
+> STT 与机器翻译后端是一台**手动租用的 Vast.ai GPU 节点**，由 `scripts/gpu-node.sh` 启动，并由 `scripts/gpu-budget-guard.sh` 守护费用。节点上运行 `faster-whisper`（`LocalGPUWhisperSTT` 通过 SSH 隧道访问 `127.0.0.1:8765`）以及 vLLM 上的 Qwen3-8B（`VLLMTranslator`，设置 `AUDIOBOOKS_MT_ENDPOINT` 后被选用）。会话之间没有任何端点常驻，维护者的 RunPod 账户已**停用**（历史方案）。节点与隧道未启动时，`library/localization/pipeline.py` 在被要求转录时会抛出 `RuntimeError("No STT provider configured")`，因此不会分发任何任务，也不会完成任何工作。三个 systemd 单元仍处于启用并运行状态。试听定时器每 5 分钟触发一次，但 `scripts/translation-monitor-sampler.py` 只有在最近一次完成的 `sampler_job` 已过去 3 天或更久（`STALE_COMPLETION_ALERT_DAYS`）时才记录下面这一行；全新安装且没有任何已完成任务时，则记录 `no sampler_job has EVER reached 'complete'`：
 >
 > ```text
 > SAMPLER STALE: no sampler_job has completed in N days (threshold 3).
@@ -27,7 +27,7 @@
 5,245 个章节 / 剩余 1,534 本"。那是单一部署在某一时间点的数据，此后已经漂移，
 因此不再维护而予以删除。另请注意，现存 `chapter_subtitles` 记录中有相当一部分
 标记为 `stt_provider='vastai-whisper'` —— 这是某个已在 v8.3.10.6 中移除其客户端
-代码的服务商留下的历史输出。）*
+代码的服务商留下的历史输出；如今使用 Vast.ai 的方式是手动执行的 `gpu-node.sh` 工作流。）*
 
 流式翻译的解决方案是：只为用户实际收听的内容付费。
 
@@ -61,8 +61,8 @@ grep `warmup` 没有任何匹配，处理函数本身也这么写着 —— *"�
 
 端点的 streaming/backlog 划分请参见 `docs/SERVERLESS-OPS.md`；卡住领取的重置
 约定（实时 60 秒、试听 2 小时）请参见 `docs/TRANSLATION-MONITOR.md`。本节的早期
-版本提到过"预热过期（15 分钟）"与"卡住分段回收（10 分钟）"—— 代码中并不存在
-这两个计时器。
+版本提到过"预热过期（15 分钟）"与"卡住分段回收（10 分钟）"—— 旧的 Vast.ai
+serverless 客户端已在 v8.3.10.6 中移除，且代码中并不存在这两个计时器。
 
 ### 第二阶段 — 按下播放
 
@@ -345,8 +345,10 @@ sudo -u audiobooks /opt/audiobooks/library/venv/bin/python \
 ```
 
 GPU 生命周期需要手动管理：批量处理前用 `scripts/gpu-node.sh up` 租用节点，
-处理完成后用 `scripts/gpu-node.sh down` 销毁，并用
-`scripts/gpu-budget-guard.sh --cap <美元>` 限制花费。计费从创建持续到销毁，
+处理完成后用 `scripts/gpu-node.sh down` 销毁（`down` 会先请求确认；`down --yes`
+跳过确认）。**计费从 `up` 开始。** `up` 之后须立即启动
+`scripts/gpu-budget-guard.sh --cap <美元>`：若尚不存在 `abm-translate` 实例，
+它会直接退出，因此不能先于 `up` 启动。计费从创建持续到销毁，
 因此只有在节点销毁之后，空闲成本才是 0 美元。
 
 **卡死检测**：`streaming_segments` 表中 `processing` 状态超过 10 分钟的

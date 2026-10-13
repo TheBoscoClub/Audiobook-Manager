@@ -83,7 +83,7 @@ Warmth probe is cached server-side for 60s to bound provider /health traffic. De
 The project treats STT backend choice as an **operator deployment decision**, not a project contract. Any of the following work:
 
 - **Rented Vast.ai GPU node (the maintainer's path)** — `faster-whisper` on a node started with `scripts/gpu-node.sh`, reached over its SSH tunnel with `AUDIOBOOKS_WHISPER_GPU_HOST=127.0.0.1` + `AUDIOBOOKS_WHISPER_GPU_PORT=8765`; billed from create to destroy, guarded by `scripts/gpu-budget-guard.sh`. Setup: `docs/MULTI-LANGUAGE-SETUP.md`.
-- **Self-hosted GPU Whisper service** — CUDA/ROCm/Apple Silicon machine on the LAN, same `AUDIOBOOKS_WHISPER_GPU_HOST` + `AUDIOBOOKS_WHISPER_GPU_PORT`
+- **Self-hosted GPU Whisper service** — CUDA/ROCm machine on the LAN, same `AUDIOBOOKS_WHISPER_GPU_HOST` + `AUDIOBOOKS_WHISPER_GPU_PORT`
 - **RunPod serverless (historical)** — pay-per-second, `AUDIOBOOKS_RUNPOD_*` keys. *Client code is present but the maintainer's account is decommissioned.*
 - **CPU-only `faster-whisper`** — no GPU, slower but zero operating cost; advanced deployment (requires wiring in the provider, see `library/localization/stt/`)
 

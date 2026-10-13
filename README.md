@@ -245,7 +245,7 @@ This is enough to scan a library, convert AAX/AAXC files, and serve the web UI o
 
 ### Optional — local GPU transcription (advanced)
 
-The translation/subtitles pipeline needs a GPU for Whisper inference, but **you do not need a local one**. The maintainer's path is a rented remote GPU: a Vast.ai node started by hand with `scripts/gpu-node.sh` (faster-whisper for speech-to-text plus Qwen3-8B on vLLM for translation), run for the job, then destroyed with `gpu-node.sh down`. That keeps the upfront cost to near zero. (RunPod serverless was the earlier path and is decommissioned.)
+The translation/subtitles pipeline needs a GPU for Whisper inference, but **you do not need a local one**. The maintainer's path is a rented remote GPU: a Vast.ai node started by hand with `scripts/gpu-node.sh` (faster-whisper for speech-to-text plus Qwen3-8B on vLLM for translation), run for the job, then destroyed with `gpu-node.sh down`. Billing starts at `up`, so start `scripts/gpu-budget-guard.sh --cap <dollars>` immediately afterwards (it exits if no instance exists yet); `down` destroys the instance. That keeps the upfront cost to near zero. (RunPod serverless was the earlier path and is decommissioned.)
 
 If you want to run Whisper locally instead, only proceed with **known-good** hardware:
 
