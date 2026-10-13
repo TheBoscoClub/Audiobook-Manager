@@ -263,3 +263,36 @@ def test_appended_block_runs_after_clean_pass_and_not_after_refusal(installed_re
     bad = subprocess.run(git, cwd=installed_repo, env=env, capture_output=True, text=True)
     assert bad.returncode != 0
     assert "COMMIT BLOCKED" in bad.stderr
+
+
+def test_type_change_to_symlink_is_scanned(repo: Path):
+    _stage(repo, "t", "plain\n")
+    _commit(repo)
+    (repo / "t").unlink()
+    (repo / "t").symlink_to("/srv/audiobooks/x")
+    subprocess.run(["git", "add", "t"], cwd=repo, check=True)
+    assert _run_hook(repo).returncode == 1
+
+
+def test_installer_preserves_every_beads_block(installed_repo: Path):
+    hook = installed_repo / ".git/hooks/pre-commit"
+    second = BEADS_BLOCK.replace("v1.0.3", "v9.9.9")
+    hook.write_text(hook.read_text() + "\n" + second)
+    _install(installed_repo)
+    text = hook.read_text()
+    assert text.count("BEGIN BEADS INTEGRATION") == 2
+    assert text.count("END BEADS INTEGRATION") == 2
+    assert "v1.0.3" in text
+    assert "v9.9.9" in text
+
+
+def test_installer_refuses_unbalanced_beads_markers(installed_repo: Path):
+    hook = installed_repo / ".git/hooks/pre-commit"
+    original = hook.read_text() + "# --- BEGIN BEADS INTEGRATION v2 ---\n"
+    hook.write_text(original)
+    result = subprocess.run(
+        ["bash", "scripts/install-hooks.sh"], cwd=installed_repo, capture_output=True, text=True
+    )
+    assert result.returncode != 0
+    assert "BEADS INTEGRATION markers" in result.stderr
+    assert hook.read_text() == original

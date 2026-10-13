@@ -45,6 +45,13 @@ for hook in "$HOOKS_SOURCE"/*; do
         # Carry it over so replacing the hook does not silently drop it.
         preserved=""
         if [[ -f "$dest" ]]; then
+            begins=$(grep -c '^# --- BEGIN BEADS INTEGRATION' "$dest" || true)
+            ends=$(grep -c '^# --- END BEADS INTEGRATION' "$dest" || true)
+            if [[ "$begins" != "$ends" ]]; then
+                echo "Error: $dest has $begins BEGIN but $ends END BEADS INTEGRATION markers;" >&2
+                echo "       refusing to guess which block to preserve. Fix the hook by hand and rerun." >&2
+                exit 1
+            fi
             preserved=$(awk '
                 /^# --- BEGIN BEADS INTEGRATION/ { keep = 1 }
                 keep { print }
