@@ -865,10 +865,15 @@ _requirements_diff() {
 
 _record_installed_requirements() {
     # Write the exact installed package set (sorted pip freeze) into the install
-    # and print a concise diff against the previous deploy's record.
-    # Returns non-zero if the freeze cannot be taken or recorded.
+    # and print a concise diff. The baseline is the venv as it stood BEFORE this
+    # sync ($3, the pre-sync freeze), so drift between deploys (a package
+    # downgraded or removed by hand) shows up; if that is unavailable it falls back
+    # to the previous deploy's record and says so. The record is still rewritten
+    # as the persisted artifact. Returns non-zero if the freeze cannot be taken
+    # or recorded.
     local target="$1"
     local use_sudo="${2:-}"
+    local pre_sync="${3:-}"
     local pip="$target/library/venv/bin/pip"
     local record="$target/$INSTALLED_REQUIREMENTS_REL"
     local owner="${UPGRADE_VENV_OWNER:-audiobooks}"
@@ -885,20 +890,29 @@ _record_installed_requirements() {
         return 1
     fi
 
-    local count
+    local count baseline="" label=""
     count=$(wc -l <"$new_file")
     if [[ ! -f "$record" ]]; then
+        : # first recorded deploy: count only (operator-approved), no baseline
+    elif [[ -n "$pre_sync" && -s "$pre_sync" ]]; then
+        baseline="$pre_sync"
+        label="vs the venv before this sync"
+    else
+        baseline="$record"
+        label="vs last deploy's record — pre-sync freeze unavailable, drift between deploys not visible"
+    fi
+    if [[ -z "$baseline" ]]; then
         echo -e "${GREEN}  Installed packages: ${count} (first recorded deploy — no previous record to diff)${NC}"
     else
         local diff_out added removed changed
-        diff_out=$(_requirements_diff "$record" "$new_file")
+        diff_out=$(_requirements_diff "$baseline" "$new_file")
         if [[ -z "$diff_out" ]]; then
-            echo -e "${GREEN}  Installed packages: ${count} (no changes since last deploy)${NC}"
+            echo -e "${GREEN}  Installed packages: ${count} (no changes ${label})${NC}"
         else
             added=$(grep -c '^  + ' <<<"$diff_out" || true)
             removed=$(grep -c '^  - ' <<<"$diff_out" || true)
             changed=$(grep -c '^  ~ ' <<<"$diff_out" || true)
-            echo -e "${GREEN}  Installed packages: ${count} (+${added} added, -${removed} removed, ~${changed} changed)${NC}"
+            echo -e "${GREEN}  Installed packages: ${count} (+${added} added, -${removed} removed, ~${changed} changed ${label})${NC}"
             echo "$diff_out"
         fi
     fi
@@ -985,9 +999,11 @@ sync_python_dependencies() {
         rm -rf "$stage"
         return 1
     fi
-    rm -rf "$stage"
     echo -e "${GREEN}  Dependencies synced${NC}"
-    _record_installed_requirements "$target" "$use_sudo"
+    local rc=0
+    _record_installed_requirements "$target" "$use_sudo" "$before" || rc=$?
+    rm -rf "$stage"
+    return $rc
 }
 
 _venv_needs_recreate() {

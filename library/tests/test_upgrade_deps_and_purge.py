@@ -53,7 +53,11 @@ case "$1" in
             prev="$a"
         done
         # only the --upgrade sync can fail; a rollback (--no-deps) succeeds
-        [[ " $* " == *" --upgrade "* ]] && exit "${PIP_INSTALL_RC:-0}"
+        if [[ " $* " == *" --upgrade "* ]]; then
+            [[ "${PIP_INSTALL_RC:-0}" != 0 ]] && exit "$PIP_INSTALL_RC"
+            # a successful sync changes what `pip freeze` reports
+            [[ -n "${PIP_FREEZE_AFTER:-}" ]] && cp "$PIP_FREEZE_AFTER" "$PIP_FREEZE_OUT"
+        fi
         exit 0 ;;
     freeze)
         [[ "${PIP_FREEZE_RC:-0}" != 0 ]] && exit "$PIP_FREEZE_RC"
@@ -72,9 +76,17 @@ def _make_install(tmp_path: Path) -> Path:
     return target
 
 
-def _run_sync(tmp_path: Path, target: Path, freeze: str, **env_extra: str):
+def _run_sync(tmp_path: Path, target: Path, freeze: str, pre: str | None = None, **env_extra: str):
+    """`freeze` is what pip reports AFTER the sync; `pre` is what the venv held BEFORE it
+    (default: exactly what the last deploy recorded, i.e. no drift between deploys)."""
     freeze_file = tmp_path / "freeze.out"
-    freeze_file.write_text(freeze)
+    after_file = tmp_path / "freeze.after"
+    record = target / RECORD_REL
+    if pre is None:
+        pre = record.read_text() if record.exists() else freeze
+    freeze_file.write_text(pre)
+    after_file.write_text(freeze)
+    env_extra.setdefault("PIP_FREEZE_AFTER", str(after_file))
     log = tmp_path / "pip.log"
     script = (
         'RED="" GREEN="" BLUE="" YELLOW="" NC=""\n'
@@ -124,7 +136,7 @@ def test_diff_shows_added_removed_changed_with_versions(tmp_path):
     assert "  - anyio 4.12.1" in out
     assert "  ~ urllib3 2.7.0 -> 2.8.0" in out
     assert "flask" not in re.sub(r"Installed packages.*", "", out), "unchanged package listed"
-    assert "(+1 added, -1 removed, ~1 changed)" in out
+    assert "(+1 added, -1 removed, ~1 changed vs the venv before this sync)" in out
     assert "→" not in out, "unicode arrow would corrupt upgrade-helper-process version parsing"
     assert (target / RECORD_REL).read_text().splitlines() == [
         "flask==3.0.0",
@@ -138,7 +150,7 @@ def test_no_change_says_so(tmp_path):
     (target / RECORD_REL).write_text("flask==3.0.0\n")
     proc, _ = _run_sync(tmp_path, target, "flask==3.0.0\n")
     assert proc.returncode == 0
-    assert "no changes since last deploy" in proc.stdout
+    assert "no changes vs the venv before this sync" in proc.stdout
 
 
 def test_pip_install_failure_fails_loudly_and_keeps_old_record(tmp_path):
@@ -1283,3 +1295,30 @@ def test_stream_translate_uses_the_venv_and_is_in_both_stop_lists():
         assert "audiobook-stream-translate" in lst
         assert lst.index("audiobook-stream-translate") < lst.index("audiobook-api")
     assert cli == helper
+
+
+def test_drift_between_deploys_is_shown(tmp_path):
+    """Venv hand-downgraded below a floor after the last deploy: the diff must say so,
+    even though the record file (last deploy) equals the post-sync set."""
+    target = _make_install(tmp_path)
+    (target / RECORD_REL).write_text("flask==3.0.0\nurllib3==2.8.0\n")
+    proc, _ = _run_sync(
+        tmp_path,
+        target,
+        "flask==3.0.0\nurllib3==2.8.0\n",
+        pre="flask==3.0.0\nurllib3==2.7.0\n",
+    )
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "  ~ urllib3 2.7.0 -> 2.8.0" in proc.stdout
+    assert "(+0 added, -0 removed, ~1 changed vs the venv before this sync)" in proc.stdout
+    assert "no changes" not in proc.stdout
+    assert (target / RECORD_REL).read_text() == "flask==3.0.0\nurllib3==2.8.0\n"
+
+
+def test_missing_pre_sync_freeze_falls_back_to_record_and_says_so(tmp_path):
+    target = _make_install(tmp_path)
+    (target / RECORD_REL).write_text("flask==3.0.0\n")
+    proc, _ = _run_sync(tmp_path, target, "flask==3.1.0\n", pre="")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "  ~ flask 3.0.0 -> 3.1.0" in proc.stdout
+    assert "pre-sync freeze unavailable" in proc.stdout
