@@ -108,7 +108,7 @@ class TestActivateLocale:
         with patch(
             "localization.queue.enqueue_all_books_for_locale", side_effect=RuntimeError("boom")
         ):
-            resp = i18n_client.post("/api/i18n/activate", json={"locale": "es"})
+            resp = i18n_client.post("/api/i18n/activate", json={"locale": "zh-Hans"})
             assert resp.status_code == 500
             body = resp.get_json()
             assert body["status"] == "error"
@@ -176,7 +176,7 @@ class TestBumpPriority:
     def test_bump_handles_exception(self, i18n_client):
         with patch("localization.queue.bump_priority", side_effect=RuntimeError("oops")):
             resp = i18n_client.post(
-                "/api/translation/bump", json={"audiobook_id": 5, "locale": "ja"}
+                "/api/translation/bump", json={"audiobook_id": 5, "locale": "zh-Hans"}
             )
             assert resp.status_code == 500
             assert resp.get_json()["status"] == "error"

@@ -56,28 +56,38 @@ class TestTranslateFailureLogIsNotForgeable:
         assert len(records) == 1, [r.getMessage() for r in caplog.records]
         return records[0]
 
-    def test_forged_locale_cannot_inject_a_log_line(self, caplog):
-        t = _mk()
-        caplog.set_level(logging.ERROR, logger=LOGGER_NAME)
-        with patch.object(t._session, "post", side_effect=OSError("boom")):
-            out = t.translate(["Hello, world."], FORGED_LOCALE)
-        assert out == ["Hello, world."] and t.degraded
-
-        msg = self._failure_record(caplog).getMessage()
-        # The attack: a second, fake "ERROR auth: ..." line. It must stay
-        # glued to the real line, with every control character neutralised.
-        assert msg.count("\n") == 0 and "\r" not in msg and "\x1b" not in msg
-        assert "zh-Hans_2026-10-02 ERROR auth: admin login FAILED" in msg
-        assert msg.startswith("1 of 1 text(s) failed translation to ")
-
-    def test_strict_mode_still_raises_and_still_logs_safely(self, caplog):
+    def test_forged_locale_is_refused_before_any_request_or_log(self, caplog):
+        # Defense in depth (bd yyf): a locale failing the allowlist is refused
+        # at the sink, so no request is made and no log line can carry it.
         from localization.translation.base import TranslationUnavailableError
 
         t = _mk()
-        caplog.set_level(logging.ERROR, logger=LOGGER_NAME)
+        caplog.set_level(logging.DEBUG, logger=LOGGER_NAME)
         with (
-            patch.object(t._session, "post", side_effect=OSError("boom")),
+            patch.object(t._session, "post") as post,
+            pytest.raises(TranslationUnavailableError) as exc,
+        ):
+            t.translate(["Hello, world."], FORGED_LOCALE)
+        post.assert_not_called()
+        assert "auth" not in str(exc.value) and "\n" not in str(exc.value)
+        assert all("admin login FAILED" not in r.getMessage() for r in caplog.records)
+
+    def test_strict_mode_also_refuses_forged_locale(self):
+        from localization.translation.base import TranslationUnavailableError
+
+        t = _mk()
+        with (
+            patch.object(t._session, "post") as post,
             pytest.raises(TranslationUnavailableError),
         ):
             t.translate(["Hello, world."], FORGED_LOCALE, strict=True)
-        assert "\n" not in self._failure_record(caplog).getMessage()
+        post.assert_not_called()
+
+    def test_valid_locale_failure_log_is_single_line(self, caplog):
+        t = _mk()
+        caplog.set_level(logging.ERROR, logger=LOGGER_NAME)
+        with patch.object(t._session, "post", side_effect=OSError("boom")):
+            out = t.translate(["Hello, world."], "zh-Hans")
+        assert out == ["Hello, world."] and t.degraded
+        msg = self._failure_record(caplog).getMessage()
+        assert "\n" not in msg and msg.startswith("1 of 1 text(s) failed translation to ")

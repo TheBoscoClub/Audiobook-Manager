@@ -319,26 +319,46 @@ def _worker_loop() -> None:
 
 
 def _next_job() -> dict | None:
+    from common_utils.locale_safety import is_safe_locale
+
     conn = _get_db()
     try:
-        row = conn.execute(
-            "SELECT * FROM translation_queue "
-            "WHERE state = 'pending' "
-            "ORDER BY priority DESC, created_at ASC "
-            "LIMIT 1"
-        ).fetchone()
-        if not row:
-            return None
-        job = dict(row)
-        now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-        conn.execute(
-            "UPDATE translation_queue "
-            "SET state = 'processing', started_at = ?, last_progress_at = ? "
-            "WHERE id = ?",
-            (now, now, job["id"]),
-        )
-        conn.commit()
-        return job
+        while True:
+            row = conn.execute(
+                "SELECT * FROM translation_queue "
+                "WHERE state = 'pending' "
+                "ORDER BY priority DESC, created_at ASC "
+                "LIMIT 1"
+            ).fetchone()
+            if not row:
+                return None
+            job = dict(row)
+            now = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
+            if not is_safe_locale(job["locale"]):
+                # Defense in depth: a malformed locale is never processed (it
+                # would reach the vLLM prompt and the translation-memory key).
+                # Fixed reason; the value itself is not echoed anywhere.
+                logger.warning(
+                    "Refusing queue job %s: malformed locale (len=%d)",
+                    job["id"],
+                    len(str(job["locale"])),
+                )
+                conn.execute(
+                    "UPDATE translation_queue "
+                    "SET state = 'failed', error = ?, finished_at = ?, last_progress_at = ? "
+                    "WHERE id = ?",
+                    ("invalid locale", now, now, job["id"]),
+                )
+                conn.commit()
+                continue
+            conn.execute(
+                "UPDATE translation_queue "
+                "SET state = 'processing', started_at = ?, last_progress_at = ? "
+                "WHERE id = ?",
+                (now, now, job["id"]),
+            )
+            conn.commit()
+            return job
     finally:
         conn.close()
 

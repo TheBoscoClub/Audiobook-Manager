@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any
 
 import requests
+from common_utils.locale_safety import is_safe_locale
 
 from .base import TranslationProvider, TranslationUnavailableError
 from .memory import tm_lookup, tm_store
@@ -85,6 +86,20 @@ _LOCALE_NAMES = {
     "pt": "European Portuguese",
     "pt-BR": "Brazilian Portuguese",
 }
+
+
+def _target_name(locale: str) -> str:
+    """Human-readable target-language name for the system prompt.
+
+    A locale outside the known table is inserted verbatim into the prompt, so
+    it must pass the locale allowlist first — never echo a rejected value.
+    """
+    name = _LOCALE_NAMES.get(locale)
+    if name is not None:
+        return name
+    if not is_safe_locale(locale):
+        raise TranslationUnavailableError("invalid target locale")
+    return locale
 
 
 def _load_glossary(path: Path = _GLOSSARY_PATH) -> dict[str, str]:
@@ -147,7 +162,7 @@ class VLLMTranslator(TranslationProvider):
     # ── prompt construction ──
 
     def _system_prompt(self, target_locale: str, source_lang: str, batch_text: str) -> str:
-        target = _LOCALE_NAMES.get(target_locale, target_locale)
+        target = _target_name(target_locale)
         lines = [
             f"You are a professional literary translator. Translate each string in the "
             f"JSON array from {source_lang} to {target}.",
@@ -223,7 +238,7 @@ class VLLMTranslator(TranslationProvider):
         Only ever called with a single sentence, where alignment is trivial
         and the output gates carry the correctness burden.
         """
-        target = _LOCALE_NAMES.get(target_locale, target_locale)
+        target = _target_name(target_locale)
         payload: dict[str, Any] = {
             "model": self._model,
             "temperature": 0,
@@ -344,6 +359,9 @@ class VLLMTranslator(TranslationProvider):
     ) -> list[str]:
         if not texts:
             return []
+
+        if target_locale not in _LOCALE_NAMES and not is_safe_locale(target_locale):
+            raise TranslationUnavailableError("invalid target locale")
 
         output, misses = self._lookup_memory(texts, target_locale)
         failed: list[tuple[int, str, str]] = []  # (index, source, reason)

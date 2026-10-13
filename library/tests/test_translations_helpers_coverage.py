@@ -623,7 +623,10 @@ class TestValidateTranslateStringsRequest:
             # err is a jsonify response with {}.
             assert err is not None
 
-    def test_valid_returns_locale_and_strings(self, flask_app):
+    def test_valid_returns_locale_and_strings(self, flask_app, monkeypatch):
+        import i18n
+
+        monkeypatch.setattr(i18n, "SUPPORTED_LOCALES", {"en", "fr"})
         with flask_app.app_context():
             locale, raw, err = tr._validate_translate_strings_request(
                 {"locale": "fr", "strings": ["hello"]}

@@ -20,7 +20,7 @@ from pathlib import Path
 from flask import Blueprint, g, jsonify, request, send_file
 
 from .auth import admin_or_localhost, guest_allowed
-from .locale_validation import locale_error_response
+from .locale_validation import enqueue_locale_error, locale_error_response
 
 translated_audio_bp = Blueprint("translated_audio", __name__)
 logger = logging.getLogger(__name__)
@@ -251,7 +251,7 @@ def generate_translated_audio():
 
     book_id = data.get("audiobook_id")
     locale = data.get("locale", "zh-Hans")
-    if (bad := locale_error_response(locale)) is not None:
+    if (bad := enqueue_locale_error(locale)) is not None:
         return bad
     voice = data.get("voice", "zh-CN-XiaoxiaoNeural")
     provider_override = data.get("provider")
@@ -630,7 +630,7 @@ def user_request_translated_audio():
     data = request.get_json(silent=True) or {}
     book_id = data.get("audiobook_id")
     locale = data.get("locale", "zh-Hans")
-    if (bad := locale_error_response(locale)) is not None:
+    if (bad := enqueue_locale_error(locale)) is not None:
         return bad
     if not book_id:
         return jsonify({"error": "audiobook_id is required"}), 400

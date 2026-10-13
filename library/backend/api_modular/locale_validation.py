@@ -1,35 +1,44 @@
-"""Shared locale-tag validation for request-facing code.
+"""Locale validation for request-facing code.
 
-A locale reaches filesystem paths, SQL keys, log lines, the translation
-memory and the vLLM system prompt. Every route taking a locale from a
-client MUST pass it through :func:`sanitize_locale` (or
-:func:`locale_error_response`) before any DB or translation work.
+Every route taking a locale from a client MUST pass it through
+:func:`locale_error_response` before any DB or translation work. Routes that
+can ENQUEUE or TRIGGER translation work use :func:`enqueue_locale_error`,
+which additionally requires membership in ``i18n.SUPPORTED_LOCALES`` so an
+anonymous caller cannot queue work for arbitrary well-formed junk locales.
+The pattern itself lives in ``common_utils.locale_safety`` (shared with the
+queue worker and the vLLM prompt builder).
 """
 
-import re
-
+import i18n
+from common_utils.locale_safety import SAFE_LOCALE_RE, sanitize_locale
 from flask import jsonify
 
-# Two-letter primary language plus an optional single subtag (zh-Hans, pt-BR)
-SAFE_LOCALE_RE = re.compile(r"^[a-zA-Z]{2}(?:-[a-zA-Z0-9]{1,8})?$")
-
-
-def sanitize_locale(locale: str) -> str:
-    """Return ``locale`` unchanged or raise ``ValueError``.
-
-    Uses ``fullmatch`` rather than ``match``: a ``$``-anchored ``match``
-    accepts a single trailing newline (``"en\\n"``), which would let a
-    CR/LF-bearing value past validation.
-    """
-    if not isinstance(locale, str) or not SAFE_LOCALE_RE.fullmatch(locale):
-        raise ValueError(f"invalid locale: {locale!r}")
-    return locale
+__all__ = [
+    "SAFE_LOCALE_RE",
+    "enqueue_locale_error",
+    "locale_error_response",
+    "sanitize_locale",
+]
 
 
 def locale_error_response(locale):
-    """Return a ``(response, 400)`` tuple for an invalid locale, else ``None``."""
+    """Return a ``(response, 400)`` tuple for a malformed locale, else ``None``."""
     try:
         sanitize_locale(locale)
     except ValueError:
         return jsonify({"error": "Invalid locale"}), 400
+    return None
+
+
+def enqueue_locale_error(locale):
+    """Like :func:`locale_error_response`, plus an ``i18n.SUPPORTED_LOCALES`` check.
+
+    ``"en"`` is always accepted (callers short-circuit it). Use on every route
+    that can enqueue or trigger translation work.
+    """
+    bad = locale_error_response(locale)
+    if bad is not None:
+        return bad
+    if locale != "en" and locale not in i18n.SUPPORTED_LOCALES:
+        return jsonify({"error": "Unsupported locale"}), 400
     return None

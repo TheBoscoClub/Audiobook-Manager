@@ -24,7 +24,7 @@ from flask import Blueprint, g, jsonify, request, send_file
 
 from ._audio_paths import resolve_local_audio_path
 from .auth import admin_or_localhost, guest_allowed
-from .locale_validation import locale_error_response
+from .locale_validation import enqueue_locale_error, locale_error_response
 
 subtitles_bp = Blueprint("subtitles", __name__)
 logger = logging.getLogger(__name__)
@@ -425,7 +425,7 @@ def generate_subtitles_endpoint():
 
     book_id = data.get("audiobook_id")
     locale = data.get("locale", "zh-Hans")
-    if (bad := locale_error_response(locale)) is not None:
+    if (bad := enqueue_locale_error(locale)) is not None:
         return bad
     provider_name = data.get("provider", "")
 
@@ -556,7 +556,7 @@ def user_request_subtitles():
     data = request.get_json(silent=True) or {}
     book_id = data.get("audiobook_id")
     locale = data.get("locale", "zh-Hans")
-    if (bad := locale_error_response(locale)) is not None:
+    if (bad := enqueue_locale_error(locale)) is not None:
         return bad
     if not book_id:
         return jsonify({"error": "audiobook_id is required"}), 400

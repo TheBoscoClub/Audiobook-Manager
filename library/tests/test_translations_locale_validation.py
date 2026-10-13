@@ -38,6 +38,9 @@ HOSTILE_UNROUTABLE = ["../../etc", ""]
 @pytest.fixture
 def spies(monkeypatch):
     """Replace every DB/translation entry point with a spy."""
+    import i18n
+
+    monkeypatch.setattr(i18n, "SUPPORTED_LOCALES", {"en", "zh-Hans", "fr", "pt-BR"})
     spy = {
         "get_db": MagicMock(side_effect=AssertionError("DB touched")),
         "load": MagicMock(return_value={}),
