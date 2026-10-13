@@ -1785,8 +1785,16 @@ EOF
         echo -e "${BLUE}Installing Python dependencies from requirements.txt...${NC}"
         # --upgrade: same strategy as upgrade.sh so a fresh install and an upgraded
         # install resolve identical versions. Failure is fatal (no partial venv).
+        # requirements.lock (exact release-tested versions) constrains the install when present
+        local lock_args=()
+        if [[ -f "${APP_DIR}/library/requirements.lock" ]]; then
+            lock_args=(-c "${APP_DIR}/library/requirements.lock")
+            echo -e "${GREEN}  Applying requirements.lock (release-tested package versions)${NC}"
+        else
+            echo -e "${YELLOW}  WARNING: no requirements.lock — installing the newest versions the >= floors allow${NC}"
+        fi
         if ! sudo -u audiobooks "${APP_DIR}/library/venv/bin/pip" install --upgrade --quiet \
-            -r "${APP_DIR}/library/requirements.txt"; then
+            -r "${APP_DIR}/library/requirements.txt" "${lock_args[@]}"; then
             echo -e "${RED}ERROR: pip install --upgrade -r requirements.txt failed — aborting install${NC}"
             exit 1
         fi
@@ -2602,8 +2610,15 @@ EOF
     # Install all dependencies from requirements.txt
     if [[ -f "${LIB_DIR}/library/requirements.txt" ]]; then
         echo -e "${BLUE}Installing Python dependencies from requirements.txt...${NC}"
+        local lock_args=()
+        if [[ -f "${LIB_DIR}/library/requirements.lock" ]]; then
+            lock_args=(-c "${LIB_DIR}/library/requirements.lock")
+            echo -e "${GREEN}  Applying requirements.lock (release-tested package versions)${NC}"
+        else
+            echo -e "${YELLOW}  WARNING: no requirements.lock — installing the newest versions the >= floors allow${NC}"
+        fi
         if ! "${LIB_DIR}/library/venv/bin/pip" install --upgrade --quiet \
-            -r "${LIB_DIR}/library/requirements.txt"; then
+            -r "${LIB_DIR}/library/requirements.txt" "${lock_args[@]}"; then
             echo -e "${RED}ERROR: pip install --upgrade -r requirements.txt failed — aborting install${NC}"
             exit 1
         fi

@@ -50,6 +50,9 @@ case "$1" in
             if [[ "$prev" == "-r" ]]; then
                 echo "REQ<$(cat "$a")>" >> "$PIP_LOG"
             fi
+            if [[ "$prev" == "-c" ]]; then
+                echo "CON<$(cat "$a")> mode=$(stat -c %a "$a")" >> "$PIP_LOG"
+            fi
             prev="$a"
         done
         # only the --upgrade sync can fail; a rollback (--no-deps) succeeds
@@ -114,6 +117,32 @@ def test_pip_command_uses_upgrade_and_requirements(tmp_path):
     assert "/dev/stdin" not in first, first  # pip re-checks /dev/stdin as the new uid: EACCES
     assert re.search(r"-r \S+/requirements\.txt", first), first
     assert "flask>=3" in log
+
+
+def test_lock_present_is_passed_to_pip_as_staged_readable_constraint(tmp_path):
+    target = _make_install(tmp_path)
+    (target / "library" / "requirements.lock").write_text("flask==3.1.5\n")
+    proc, log = _run_sync(tmp_path, target, "flask==3.1.5\n")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    first = next(ln for ln in log.splitlines() if ln.startswith("install --upgrade"))
+    m = re.search(r"-c (\S+)", first)
+    assert m, first
+    staged = m.group(1)
+    assert staged != str(target / "library" / "requirements.lock"), "must be a staged copy"
+    assert "CON<flask==3.1.5> mode=644" in log, log
+    assert "requirements.lock applied" in proc.stdout
+    assert "WARNING" not in proc.stdout
+
+
+def test_lock_absent_warns_and_installs_without_constraint(tmp_path):
+    target = _make_install(tmp_path)
+    proc, log = _run_sync(tmp_path, target, "flask==3.1.0\n")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    first = next(ln for ln in log.splitlines() if ln.startswith("install --upgrade"))
+    assert " -c " not in first, first
+    assert re.search(r"-r \S+/requirements\.txt", first), first
+    assert "WARNING: no requirements.lock" in proc.stdout
+    assert "NO lock applied" in proc.stdout
 
 
 def test_first_deploy_records_sorted_freeze_and_prints_count_only(tmp_path):

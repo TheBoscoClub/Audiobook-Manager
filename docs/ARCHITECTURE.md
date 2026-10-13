@@ -2045,6 +2045,21 @@ Retention: Keep 5 most recent, delete oldest when exceeding limit
 Scope: Full /opt/audiobooks/ directory (excludes venv, .git)
 ```
 
+### Dependency lock
+
+`library/requirements.txt` carries only `>=` floors (CVE minimums), so on its own every deploy would pull the newest versions those floors allow, and production could run versions the test VM never ran. `library/requirements.lock` fixes that: the exact `name==version` set the **test VM** ran at release time, applied by pip as a constraint (`pip install --upgrade -r requirements.txt -c requirements.lock`) in `upgrade.sh`, both `install.sh` paths and the Dockerfile. Floors still move whenever the lock is regenerated.
+
+Release step, after `/test` passes on the test VM and before tagging:
+
+```bash
+scripts/generate-requirements-lock.sh <test-vm-ip>      # freezes the VM's venv over ssh, rewrites library/requirements.lock
+git add library/requirements.lock && git commit
+```
+
+- The generator refuses to write a lock that fails any specifier in `requirements.txt` or `requirements-docker.txt`, or lacks an entry for a requirement.
+- `library/tests/test_requirements_lock.py` enforces the same on every commit and in CI: raising a floor without regenerating the lock fails the build.
+- No lock present (a checkout that never had one): the installers print a warning and fall back to floors only; the `upgrade.sh` summary line says whether the lock was applied.
+
 ---
 
 ## Migration Workflow

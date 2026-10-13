@@ -317,6 +317,7 @@ junit*.xml
 *.bak
 *.swp
 *.lock
+!library/requirements.lock
 .cache/
 .temp/
 tmp/

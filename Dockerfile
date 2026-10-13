@@ -98,8 +98,11 @@ WORKDIR /app
 RUN pip install --no-cache-dir --upgrade pip
 
 # Copy Docker-specific requirements (excludes audible CLI — not needed in standalone container)
+# requirements.lock is the release-tested exact set (scripts/generate-requirements-lock.sh);
+# used as a constraint, so packages absent from the Docker requirements are simply ignored
 COPY library/requirements-docker.txt /app/requirements.txt
-RUN pip install --no-cache-dir --upgrade -r requirements.txt
+COPY library/requirements.lock /app/requirements.lock
+RUN pip install --no-cache-dir --upgrade -r requirements.txt -c requirements.lock
 
 # Copy configuration and utility modules (shared by all Python scripts)
 COPY library/config.py /app/config.py

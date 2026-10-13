@@ -956,6 +956,12 @@ sync_python_dependencies() {
     # can hold a mix of old and new packages; the pre-sync freeze is therefore
     # re-applied best-effort (--no-deps, exact pins) to put the OLD set back.
     #
+    # Dependency lock: when requirements.lock sits next to the requirements file it is
+    # passed to pip as a CONSTRAINT (-c), so production installs exactly the set the
+    # test VM ran at release time (scripts/generate-requirements-lock.sh) instead of
+    # whatever is newest within the >= floors. No lock (dev checkout) = floors only,
+    # with a warning.
+    #
     # Arguments: $1 target install dir, $2 sudo prefix, $3 requirements file
     # (default: $target/library/requirements.txt)
     local target="$1"
@@ -984,10 +990,22 @@ sync_python_dependencies() {
         echo -e "${RED}  Could not stage requirements.txt for pip${NC}"
         return 1
     fi
+    local lock="${req%/*}/requirements.lock" lock_staged="" lock_applied="no" constraint=()
+    if [[ -f "$lock" ]]; then
+        lock_staged="$stage/requirements.lock"
+        if ! install -m 644 "$lock" "$lock_staged"; then
+            echo -e "${RED}  Could not stage requirements.lock for pip${NC}"
+            return 1
+        fi
+        constraint=(-c "$lock_staged")
+        lock_applied="yes"
+    else
+        echo -e "${YELLOW}  WARNING: no requirements.lock next to $req — installing the newest versions the >= floors allow (not the release-tested set)${NC}"
+    fi
     "${runner[@]}" "$pip" freeze >"$before" 2>/dev/null || : >"$before"
     chmod 644 "$before"
 
-    if ! "${runner[@]}" "$pip" install --upgrade --quiet -r "$req_staged"; then
+    if ! "${runner[@]}" "$pip" install --upgrade --quiet -r "$req_staged" "${constraint[@]}"; then
         echo -e "${RED}  pip install --upgrade FAILED — dependencies are not in a known-good state${NC}"
         if [[ -s "$before" ]]; then
             if "${runner[@]}" "$pip" install --quiet --no-deps -r "$before"; then
@@ -999,7 +1017,11 @@ sync_python_dependencies() {
         rm -rf "$stage"
         return 1
     fi
-    echo -e "${GREEN}  Dependencies synced${NC}"
+    if [[ "$lock_applied" == "yes" ]]; then
+        echo -e "${GREEN}  Dependencies synced (requirements.lock applied)${NC}"
+    else
+        echo -e "${GREEN}  Dependencies synced (NO lock applied — floors only)${NC}"
+    fi
     local rc=0
     _record_installed_requirements "$target" "$use_sudo" "$before" || rc=$?
     rm -rf "$stage"
@@ -1073,7 +1095,7 @@ prepare_python_environment() {
         if [[ "$rebuild" == "true" ]]; then
             echo "  [DRY-RUN] Would delete and recreate venv at $target/library/venv"
         else
-            echo "  [DRY-RUN] Would run pip install --upgrade -r $req"
+            echo "  [DRY-RUN] Would run pip install --upgrade -r $req (with -c requirements.lock when present)"
         fi
         return 0
     fi
