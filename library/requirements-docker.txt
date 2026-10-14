@@ -47,5 +47,5 @@ pypinyin>=0.55.0    # search_cjk uses pypinyin for Chinese character romanizatio
 #     Unpacker is reused after a caught error).
 # Both are within their parents' declared ranges (edge-tts: aiohttp<4.0.0;
 # CacheControl: msgpack<2.0.0), so this constrains without conflicting.
-aiohttp>=3.14.3
+aiohttp>=3.14.4
 msgpack>=1.2.3
