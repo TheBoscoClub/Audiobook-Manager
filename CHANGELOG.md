@@ -73,6 +73,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Docker build red on 2026-10-14 — `curl` pin bumped to `8.14.1-2+deb13u7`**: a Debian security update moved
+  `libcurl4t64` to `deb13u7`, and the pinned `curl=8.14.1-2+deb13u5` depends on exactly `deb13u5`, so apt
+  refused to resolve (`curl : Depends: libcurl4t64 (= 8.14.1-2+deb13u5) but 8.14.1-2+deb13u7 is to be installed`)
+  — all other `Dockerfile` pins re-captured against the `FROM` digest and unchanged
 - **`Python Security & Quality` CI red since 2026-10-12**: newer tool releases, not new code — `b493061` passed 2026-10-08 and failed 2026-10-12 unchanged
   - `ruff format` 0.17.0 wraps the over-long `_dup_sql` f-string in `library/backend/api_modular/duplicates.py` (formatting only; `nosec`/`nosemgrep` markers kept)
   - mypy: `importlib` spec narrowing in `test_translation_two_stage.py`, a named recorder replacing `append(a) or 1` in `test_streaming_translate.py`, an asserted regex match in `test_gpu_node_deadman.py`, `driver: webdriver.Remote` in `test_player_navigation_persistence.py` — 12 errors to 0

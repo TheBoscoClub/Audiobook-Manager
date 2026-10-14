@@ -76,6 +76,9 @@ LABEL org.opencontainers.image.licenses="MIT"
 # are unaffected by the jq and openssl bumps, which move onto security updates).
 # 2026-10-02: the same libjq1 conflict again — jq deb13u3→deb13u4 and openssl
 # deb13u2→deb13u3 (CVE notes re-checked, same reasoning, still unaffected).
+# 2026-10-14: the same conflict for curl — a libcurl4t64 security update to deb13u7
+# against the pinned curl=deb13u5; curl bumped to deb13u7 (CVE notes unaffected: none
+# covers curl). All other pins re-captured unchanged.
 #
 # To re-capture every pin at once, run against the digest in `FROM`:
 #   docker run --rm python:3.14-slim@sha256:<digest> bash -c 'apt-get update -qq; \
@@ -85,7 +88,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y --no-install-reco
     ffmpeg=7:7.1.5-0+deb13u1 \
     mediainfo=25.04-1 \
     jq=1.7.1-6+deb13u4 \
-    curl=8.14.1-2+deb13u5 \
+    curl=8.14.1-2+deb13u7 \
     libsqlcipher-dev=4.6.1-2 \
     openssl=3.5.7-1~deb13u3 \
     && rm -rf /var/lib/apt/lists/*
