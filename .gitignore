@@ -475,3 +475,7 @@ library/mutants/
 
 # Claude workflow files — never commit (enforced by ~/.claude/scripts/lib-local-only.sh)
 SESSION_RECORD*.md.zst
+
+# bd issue export: local only. The tracker stays on this machine (BTRFS + backups);
+# publishing it exposed issue text in public repos (2026-10-14).
+.beads/issues.jsonl

@@ -133,6 +133,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Keep bd issues local**: `.beads/issues.jsonl` is now gitignored and
+  untracked, and bd's `export.git-add` is off — the issue tracker stays on
+  the maintainer's machine instead of being published with every commit
 - **Guest locale prompt injection**: `/api/translations/by-locale/<locale>` and `/api/translations/collections/<locale>`
   accepted any string as a locale (only `en` was special-cased), so an unauthenticated guest could inject text into
   the vLLM translation prompt and the translation-memory key — the validator is now shared as
