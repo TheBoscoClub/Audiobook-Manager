@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **live-sync baseline**: an empty `live-sync.conf` and the live-sync pre-commit gate, so a file this project
+  later keeps on NVMe has a managed home; `live-sync audit` reports any unmanaged dependency
 - **`LocalGPUWhisperSTT` accepts an https base URL and bearer token**: new `AUDIOBOOKS_WHISPER_GPU_URL` (http/https
   only, overrides `HOST`/`PORT`; userinfo, query and fragment are rejected without echoing the value) and
   `AUDIOBOOKS_WHISPER_GPU_TOKEN` / `AUDIOBOOKS_WHISPER_GPU_TOKEN_FILE` (sent as `Authorization: Bearer`, with a
