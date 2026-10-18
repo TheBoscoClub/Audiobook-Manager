@@ -440,7 +440,7 @@ run_batch() {
 judge_lost_job() {
     local job=""
     [[ -n "$LOST_JOB_FILE" && -s "$LOST_JOB_FILE" ]] && job="$(head -c 32 "$LOST_JOB_FILE" | tr -dc '0-9')"
-    rm -f "${LOST_JOB_FILE:?}"
+    [[ -z "${LOST_JOB_FILE:-}" ]] || rm -f "${LOST_JOB_FILE:?}" # empty until a subtitles batch ran
     [[ -n "$job" ]] || return 0
     local count
     count="$(instance_count)"

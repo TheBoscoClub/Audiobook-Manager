@@ -22,8 +22,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Every shell deletion target is guarded**: each `rm` and `find -delete` in 36 scripts (`install.sh`, `upgrade.sh`,
   `uninstall.sh`, `scripts/*`, `converter/*`, `dev/*`, `library/scripts/*` and others) now names a `"${VAR:?}"`
-  expansion, so an empty or unset variable aborts instead of deleting from `/` or the working directory; EXIT and
-  RETURN traps test emptiness first, and `upgrade.sh` purges leaked dev artifacts with a `find -print0` loop in place
+  expansion, so an empty or unset variable aborts instead of deleting from `/` or the working directory; traps and
+  paths where the variable can legitimately be empty (`AAXtoMP3`, `reconcile-filesystem.sh`,
+  `translation-drain.sh` `judge_lost_job`) test emptiness first, and `upgrade.sh` purges leaked dev artifacts with a `find -print0` loop in place
   of `-exec rm` — behaviour with the variable set is unchanged
 - **`AGENTS.md` regenerated from the house template**: bd command list now `bd orphans`/`bd lint`/`bd stale` in place of `bd preflight`; `bd doctor` marked unsupported in embedded mode (bd 1.0.3 prints troubleshooting only); blank line added before the prompting-commands list and a spaced table separator (markdownlint MD032, MD060)
 - **`VLLMTranslator.translate` complexity**: split into `_lookup_memory`, `_translate_chunk`, `_settle_item`,
