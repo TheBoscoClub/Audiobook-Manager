@@ -76,7 +76,7 @@ build_release() {
     log_info "Building release ${version}..."
 
     # Clean and create staging directory
-    rm -rf "${staging_dir}"
+    rm -rf "${staging_dir:?}"
     mkdir -p "${staging_dir}"
 
     # ---------------------------------------------------------------------
@@ -279,7 +279,7 @@ dry_run() {
 
 clean() {
     log_info "Cleaning build artifacts..."
-    rm -rf "${BUILD_DIR}"
+    rm -rf "${BUILD_DIR:?}"
     log_success "Build directory removed"
 }
 

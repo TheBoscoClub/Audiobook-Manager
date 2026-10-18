@@ -124,7 +124,7 @@ command -v curl >/dev/null 2>&1 || die "curl is required"
 
 # Private scratch dir for the curl header config; removed on any exit.
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/gpu-node.XXXXXX")" || die "mktemp failed"
-trap 'rm -rf "$WORKDIR"' EXIT
+trap 'rm -rf "${WORKDIR:?}"' EXIT
 CURL_CONF="${WORKDIR}/hdr"
 umask 077
 printf 'header = "Authorization: Bearer %s"\nheader = "Content-Type: application/json"\n' \
@@ -474,7 +474,7 @@ cmd_tunnel() {
             else
                 info "tunnel pid ${pid} from pidfile was not running."
             fi
-            rm -f "$TUNNEL_PIDFILE"
+            rm -f "${TUNNEL_PIDFILE:?}"
         else
             info "no tunnel pidfile (${TUNNEL_PIDFILE})"
         fi

@@ -157,7 +157,7 @@ convert_file() {
             # Check if file is larger than 100KB (minimum valid audiobook size)
             if [ "$FILE_SIZE" -lt 102400 ]; then
                 echo -e "${RED}✗ CORRUPT${NC}: $BASENAME (output only ${FILE_SIZE} bytes - removing)"
-                rm -f "$OUTPUT_FILE"
+                rm -f "${OUTPUT_FILE:?}"
 
                 # Also check if source AAXC is corrupted
                 local SOURCE_SIZE=$(stat -c%s "$SOURCE_FILE" 2>/dev/null || echo "0")

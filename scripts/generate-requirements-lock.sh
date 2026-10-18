@@ -51,7 +51,7 @@ done
 [[ -n "$HOST" ]] || { usage >&2; die "HOST required"; }
 
 work=$(mktemp -d) || die "mktemp failed"
-trap 'rm -rf "$work"' EXIT
+trap 'rm -rf "${work:?}"' EXIT
 
 if [[ -n "$FREEZE_FILE" ]]; then
     [[ -r "$FREEZE_FILE" ]] || die "cannot read $FREEZE_FILE"

@@ -124,7 +124,7 @@ fi
 command -v jq >/dev/null || die "jq is required"
 
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/drain-reaper.XXXXXX")" || die "mktemp failed"
-trap 'rm -rf "$WORKDIR"' EXIT
+trap 'rm -rf "${WORKDIR:?}"' EXIT
 umask 077
 printf 'header = "Authorization: Bearer %s"\nheader = "Content-Type: application/json"\n' \
     "$VAST_API_KEY" >"${WORKDIR}/hdr"
@@ -193,7 +193,7 @@ if [[ "$count" == "0" ]]; then
     if [[ $drain_live -eq 0 && -n "$live_run" ]]; then
         if amount="$(ledger settle --run "$live_run" --note "reaper: run died, node already gone")"; then
             log "settled dead run ${live_run} at \$${amount} (its reservation floor)"
-            rm -f "$LIVE_FILE"
+            rm -f "${LIVE_FILE:?}"
         else
             die "could not settle dead run ${live_run} in the ledger ${LEDGER}"
         fi
@@ -274,7 +274,7 @@ if [[ $drain_live -eq 0 && $destroyed -gt 0 ]]; then
             log "!!! could not record \$${accrued_total} in the ledger — the month will under-count !!!"
             rc=1
         }
-    rm -f "$LIVE_FILE"
+    rm -f "${LIVE_FILE:?}"
 fi
 
 if [[ $rc -ne 0 ]]; then

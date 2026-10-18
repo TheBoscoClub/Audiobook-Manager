@@ -86,13 +86,13 @@ cleanup_pipe_delimited_index() {
 
     if $DRY_RUN; then
         echo "$index_name: $valid valid, $stale stale (dry-run, no changes)"
-        rm -f "$temp_file"
+        rm -f "${temp_file:?}"
     else
         if [[ $stale -gt 0 ]]; then
             mv "$temp_file" "$index_file"
             echo "$index_name: $valid valid, $stale removed"
         else
-            rm -f "$temp_file"
+            rm -f "${temp_file:?}"
             echo "$index_name: $valid valid, 0 stale"
         fi
     fi
@@ -135,17 +135,17 @@ cleanup_converted_asins_index() {
         fi
     done <"$index_file" >"$temp_file"
 
-    rm -f "$valid_asins_file"
+    rm -f "${valid_asins_file:?}"
 
     if $DRY_RUN; then
         echo "$index_name: $valid valid, $stale stale (dry-run, no changes)"
-        rm -f "$temp_file"
+        rm -f "${temp_file:?}"
     else
         if [[ $stale -gt 0 ]]; then
             mv "$temp_file" "$index_file"
             echo "$index_name: $valid valid, $stale removed"
         else
-            rm -f "$temp_file"
+            rm -f "${temp_file:?}"
             echo "$index_name: $valid valid, 0 stale"
         fi
     fi
@@ -187,17 +187,17 @@ cleanup_converted_titles_index() {
         fi
     done <"$index_file" >"$temp_file"
 
-    rm -f "$valid_titles_file"
+    rm -f "${valid_titles_file:?}"
 
     if $DRY_RUN; then
         echo "$index_name: $valid valid, $stale stale (dry-run, no changes)"
-        rm -f "$temp_file"
+        rm -f "${temp_file:?}"
     else
         if [[ $stale -gt 0 ]]; then
             mv "$temp_file" "$index_file"
             echo "$index_name: $valid valid, $stale removed"
         else
-            rm -f "$temp_file"
+            rm -f "${temp_file:?}"
             echo "$index_name: $valid valid, 0 stale"
         fi
     fi

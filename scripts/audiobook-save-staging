@@ -75,7 +75,7 @@ while IFS= read -r DIR; do
 
     mkdir -p "$DEST"
     if rsync -a --remove-source-files "$DIR/" "$DEST/" 2>/dev/null; then
-        find "$DIR" -type d -empty -delete 2>/dev/null
+        find "${DIR:?}" -type d -empty -delete 2>/dev/null
         echo -e "${GREEN}✓${NC}"
         ((MOVED++))
     else

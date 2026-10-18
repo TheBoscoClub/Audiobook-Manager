@@ -116,8 +116,8 @@ REMOVED_COUNT=0
 
 while IFS= read -r ASIN; do
     # Find and remove all files with this ASIN (including converted files)
-    find "$DOWNLOAD_DIR" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -size 0 -delete 2>/dev/null && ((REMOVED_COUNT++))
-    find "$AUDIOBOOKS_LIBRARY" -name "${ASIN}*" -type f -name "*.opus" -size 0 -delete 2>/dev/null
+    find "${DOWNLOAD_DIR:?}" -name "${ASIN}*" -type f \( -name "*.aaxc" -o -name "*.aax" \) -size 0 -delete 2>/dev/null && ((REMOVED_COUNT++))
+    find "${AUDIOBOOKS_LIBRARY:?}" -name "${ASIN}*" -type f -name "*.opus" -size 0 -delete 2>/dev/null
 done <"$TEMP_DIR/asins_to_redownload.txt"
 
 log "Removed $REMOVED_COUNT corrupted files"

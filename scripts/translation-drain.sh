@@ -266,7 +266,7 @@ record_spend() {
     else
         log "WARNING: spend not measurable — the \$${CAP} reservation stands in the ledger"
     fi
-    rm -f "$LIVE_FILE"
+    rm -f "${LIVE_FILE:?}"
 }
 
 teardown_node() {
@@ -365,7 +365,7 @@ run_batch() {
         --stage "$stage" --owner drain --drain-mode --max-attempts "$MAX_ATTEMPTS")
     if [[ "$stage" == "subtitles" ]]; then
         LOST_JOB_FILE="${TMPDIR:-/tmp}/translation-drain-lost.$$"
-        rm -f "$LOST_JOB_FILE"
+        rm -f "${LOST_JOB_FILE:?}"
         args+=(--lost-job-file "$LOST_JOB_FILE")
     fi
     log "starting ${stage} batch (limit ${max_seconds}s)"
@@ -440,7 +440,7 @@ run_batch() {
 judge_lost_job() {
     local job=""
     [[ -n "$LOST_JOB_FILE" && -s "$LOST_JOB_FILE" ]] && job="$(head -c 32 "$LOST_JOB_FILE" | tr -dc '0-9')"
-    rm -f "$LOST_JOB_FILE"
+    rm -f "${LOST_JOB_FILE:?}"
     [[ -n "$job" ]] || return 0
     local count
     count="$(instance_count)"
@@ -500,7 +500,7 @@ settle_dead_run() {
         amount="$(ledger settle --run "$dead_run" --note "drain: run died, node already gone")" \
             || gfail "could not settle dead run ${dead_run} in ${LEDGER} — not renting" || return 1
         log "settled dead run ${dead_run} at \$${amount} (its reservation floor)"
-        rm -f "$LIVE_FILE"
+        rm -f "${LIVE_FILE:?}"
         return 0
     fi
     gfail "dead run ${dead_run} left ${count:-an unknown number of} '${LABEL}' instance(s) — not renting; the reaper destroys them" || return 1

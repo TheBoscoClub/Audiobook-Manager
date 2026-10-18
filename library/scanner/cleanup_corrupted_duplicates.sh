@@ -44,7 +44,7 @@ while IFS= read -r FILE; do
 
     if [ "$SIZE" -lt 102400 ]; then
         echo "Removing: $BASENAME ($SIZE bytes)" | tee -a "$LOG_FILE"
-        rm -f "$FILE"
+        rm -f "${FILE:?}"
         ((REMOVED++))
     fi
 done < <(find "$CORRUPTED_DIR" -name "*.m4b" -type f 2>/dev/null)

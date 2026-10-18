@@ -81,7 +81,7 @@ for hook in "$HOOKS_SOURCE"/*; do
             chmod +x "$dest"
             echo -e "  ${GREEN}✓${NC} $hook_name installed"
         fi
-        rm -f "$candidate"
+        rm -f "${candidate:?}"
         installed=$((installed + 1))
     fi
 done

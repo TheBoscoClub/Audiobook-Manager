@@ -39,7 +39,7 @@ fi
 if [[ "${1:-}" == "--uninstall" ]]; then
     echo "Removing whisper-gpu service…"
     systemctl disable --now "${SERVICE_NAME}.service" 2>/dev/null || true
-    rm -f "${SERVICE_FILE}"
+    rm -f "${SERVICE_FILE:?}"
     systemctl daemon-reload
     rm -rf /opt/whisper-gpu
     echo -e "${GREEN}whisper-gpu service removed.${NC}"

@@ -138,7 +138,7 @@ while IFS= read -r FILE; do
     SIZE=$(stat -c%s "$FILE" 2>/dev/null || echo "0")
     if [ "$SIZE" -lt 102400 ]; then
         log "REMOVING CORRUPTED: $(basename "$FILE") (size: $SIZE bytes)"
-        rm -f "$FILE"
+        rm -f "${FILE:?}"
         ((CORRUPTED_COUNT++))
     fi
 done < <(find "$DOWNLOAD_DIR" \( -name "*.aaxc" -o -name "*.aax" \) -type f 2>/dev/null)
@@ -147,7 +147,7 @@ while IFS= read -r FILE; do
     SIZE=$(stat -c%s "$FILE" 2>/dev/null || echo "0")
     if [ "$SIZE" -lt 102400 ]; then
         log "REMOVING CORRUPTED: $(basename "$FILE") (size: $SIZE bytes)"
-        rm -f "$FILE"
+        rm -f "${FILE:?}"
         ((CORRUPTED_COUNT++))
     fi
 done < <(find "$LIBRARY_DIR" -name "*.opus" -type f ! -name "*.cover.opus" 2>/dev/null)
@@ -156,7 +156,7 @@ while IFS= read -r FILE; do
     SIZE=$(stat -c%s "$FILE" 2>/dev/null || echo "0")
     if [ "$SIZE" -lt 102400 ]; then
         log "REMOVING CORRUPTED: $(basename "$FILE") (size: $SIZE bytes)"
-        rm -f "$FILE"
+        rm -f "${FILE:?}"
         ((CORRUPTED_COUNT++))
     fi
 done < <(find "$LIBRARY_DIR" -name "*.m4b" -type f 2>/dev/null)
@@ -297,6 +297,6 @@ else
 fi
 
 # Cleanup
-rm -f "$TEMP_DIR/library.tsv" "$TEMP_DIR/library_asins.txt" \
-    "$TEMP_DIR/downloaded_asins.txt" "$TEMP_DIR/new_asins.txt" \
-    "$TEMP_DIR/temp_new.txt"
+rm -f "${TEMP_DIR:?}/library.tsv" "${TEMP_DIR:?}/library_asins.txt" \
+    "${TEMP_DIR:?}/downloaded_asins.txt" "${TEMP_DIR:?}/new_asins.txt" \
+    "${TEMP_DIR:?}/temp_new.txt"

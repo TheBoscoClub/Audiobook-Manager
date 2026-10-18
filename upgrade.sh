@@ -223,7 +223,10 @@ show_usage() {
 _SERVICES_STOPPED=false
 _SERVICES_USE_SUDO=""
 _cleanup_on_exit() {
-    [[ ${#_STAGED_TMPDIRS[@]} -gt 0 ]] && rm -rf "${_STAGED_TMPDIRS[@]}"
+    local _staged_dir
+    for _staged_dir in "${_STAGED_TMPDIRS[@]}"; do
+        rm -rf "${_staged_dir:?}"
+    done
     if [[ "$_SERVICES_STOPPED" == "true" ]]; then
         if [[ "$SKIP_SERVICE_LIFECYCLE" == "true" ]]; then
             echo ""
@@ -308,7 +311,7 @@ refresh_bin_symlinks() {
         if [[ "$DRY_RUN" == "true" ]]; then
             echo "  [DRY-RUN] Would link: ${bin_dir}/${name} -> ${script}"
         else
-            ${use_sudo} rm -f "${bin_dir}/${name}"
+            ${use_sudo} rm -f "${bin_dir:?}/${name:?}"
             ${use_sudo} ln -s "$script" "${bin_dir}/${name}"
             echo "  Linked: ${name}"
         fi
@@ -323,7 +326,7 @@ refresh_bin_symlinks() {
             if [[ "$DRY_RUN" == "true" ]]; then
                 echo "  [DRY-RUN] Would link: ${link_path} -> ${source_path}"
             else
-                ${use_sudo} rm -f "$link_path"
+                ${use_sudo} rm -f "${link_path:?}"
                 ${use_sudo} ln -s "$source_path" "$link_path"
                 echo "  Linked: ${target_name} -> ${script_name}"
             fi
@@ -650,7 +653,7 @@ _abort_backup_failure() {
     # of retention) and abort the upgrade. Both create_backup call sites run
     # BEFORE stop_services, so exiting here leaves services untouched.
     local backup_dir="$1"
-    rm -rf "$backup_dir" 2>/dev/null || sudo rm -rf "$backup_dir" 2>/dev/null || true
+    rm -rf "${backup_dir:?}" 2>/dev/null || sudo rm -rf "${backup_dir:?}" 2>/dev/null || true
     echo -e "${RED}Error: Backup FAILED — backup at $backup_dir did not complete${NC}" >&2
     echo -e "${RED}Aborting upgrade: refusing to continue without a verified backup.${NC}" >&2
     echo -e "${YELLOW}Check free disk space, permissions, and sudo access, then retry.${NC}" >&2
@@ -723,7 +726,7 @@ create_backup() {
     if ((${#backups[@]} > 5)); then
         for old_backup in "${backups[@]:5}"; do
             echo -e "${BLUE}  Removing old backup: $old_backup${NC}"
-            rm -rf "$old_backup" 2>/dev/null || sudo rm -rf "$old_backup" 2>/dev/null \
+            rm -rf "${old_backup:?}" 2>/dev/null || sudo rm -rf "${old_backup:?}" 2>/dev/null \
                 || echo -e "${YELLOW}  Warning: failed to remove old backup: $old_backup${NC}"
         done
     fi
@@ -886,7 +889,7 @@ _record_installed_requirements() {
     if ! frozen=$("${runner[@]}" "$pip" freeze) || [[ -z "$frozen" ]] \
         || ! printf '%s\n' "$frozen" | LC_ALL=C sort >"$new_file"; then
         echo -e "${RED}  Could not record installed packages (pip freeze failed or was empty)${NC}"
-        rm -f "$new_file"
+        rm -f "${new_file:?}"
         return 1
     fi
 
@@ -919,11 +922,11 @@ _record_installed_requirements() {
 
     if ! $use_sudo install -m 644 "$new_file" "$record"; then
         echo -e "${RED}  Could not write $record${NC}"
-        rm -f "$new_file"
+        rm -f "${new_file:?}"
         return 1
     fi
     [[ -n "$use_sudo" ]] && sudo chown "$owner:$owner" "$record"
-    rm -f "$new_file"
+    rm -f "${new_file:?}"
     return 0
 }
 
@@ -936,7 +939,7 @@ _make_stage_dir() {
     local d
     d=$(mktemp -d) || return 1
     chmod 755 "$d" || {
-        rm -rf "$d"
+        rm -rf "${d:?}"
         return 1
     }
     _STAGED_TMPDIRS+=("$d")
@@ -1014,7 +1017,7 @@ sync_python_dependencies() {
                 echo -e "${RED}  Could not restore the previous package set — venv may be mixed${NC}"
             fi
         fi
-        rm -rf "$stage"
+        rm -rf "${stage:?}"
         return 1
     fi
     if [[ "$lock_applied" == "yes" ]]; then
@@ -1024,7 +1027,7 @@ sync_python_dependencies() {
     fi
     local rc=0
     _record_installed_requirements "$target" "$use_sudo" "$before" || rc=$?
-    rm -rf "$stage"
+    rm -rf "${stage:?}"
     return $rc
 }
 
@@ -1072,10 +1075,10 @@ prepare_python_environment() {
             aside_ver=$(grep -m1 '^version' "$aside/pyvenv.cfg" 2>/dev/null | tr -s ' ' || true)
             aside_mtime=$(stat -c %y "$aside" 2>/dev/null || echo unknown)
             echo -e "${YELLOW}Removing stale $aside (rebuild had completed; aside python: ${aside_ver:-unknown}; modified ${aside_mtime})${NC}"
-            $use_sudo rm -rf "$aside" || echo -e "${YELLOW}  Could not remove $aside${NC}"
+            $use_sudo rm -rf "${aside:?}" || echo -e "${YELLOW}  Could not remove $aside${NC}"
         else
             echo -e "${YELLOW}Found $aside from an interrupted rebuild (no completion marker in $venv) — restoring it as the venv${NC}"
-            if ! { $use_sudo rm -rf "$venv" && $use_sudo mv "$aside" "$venv"; }; then
+            if ! { $use_sudo rm -rf "${venv:?}" && $use_sudo mv "$aside" "$venv"; }; then
                 echo -e "${RED}  Could not restore $aside — aborting; nothing was deleted beyond the half-built venv${NC}"
                 return 1
             fi
@@ -1128,14 +1131,14 @@ prepare_python_environment() {
         $use_sudo touch "$venv/$VENV_COMPLETE_MARKER" || ok=false
     fi
     if [[ "$ok" == "false" ]]; then
-        $use_sudo rm -rf "$venv"
+        $use_sudo rm -rf "${venv:?}"
         if [[ -d "$aside" ]]; then
             $use_sudo mv "$aside" "$venv"
             echo -e "${YELLOW}  Previous venv restored${NC}"
         fi
         return 1
     fi
-    if ! $use_sudo rm -rf "$aside"; then
+    if ! $use_sudo rm -rf "${aside:?}"; then
         echo -e "${YELLOW}  Could not remove $aside — it will be treated as an interrupted rebuild next run${NC}"
     fi
     echo -e "${GREEN}  Venv rebuilt with fresh dependencies${NC}"
@@ -1416,7 +1419,7 @@ _enable_unit_smart() {
     # permanently condition-blocked.
     local stale_dropin="${SYSTEMD_DIR:-/etc/systemd/system}/${unit}.d/zz-operator-disabled.conf"
     if [[ -f "$stale_dropin" ]]; then
-        $use_sudo rm -f "$stale_dropin" 2>/dev/null || true
+        $use_sudo rm -f "${stale_dropin:?}" 2>/dev/null || true
         $use_sudo rmdir "$(dirname "$stale_dropin")" 2>/dev/null || true
         $use_sudo systemctl daemon-reload 2>/dev/null || true
         echo "  Re-enabled (no longer in ${disabled_list}): $unit"
@@ -1582,9 +1585,9 @@ audit_and_cleanup() {
                 echo -e "  ${YELLOW}[DRY-RUN] Would remove broken symlink: $link -> $link_target${NC}"
             else
                 if [[ -n "$use_sudo" ]]; then
-                    sudo rm -f "$link"
+                    sudo rm -f "${link:?}"
                 else
-                    rm -f "$link"
+                    rm -f "${link:?}"
                 fi
                 echo -e "  ${GREEN}Removed broken symlink: $link -> $link_target${NC}"
             fi
@@ -1633,10 +1636,10 @@ audit_and_cleanup() {
                     echo -e "  ${YELLOW}[DRY-RUN] Would relink: $link -> $correct_target (was $link_target)${NC}"
                 else
                     if [[ -n "$use_sudo" ]]; then
-                        sudo rm -f "$link"
+                        sudo rm -f "${link:?}"
                         sudo ln -s "$correct_target" "$link"
                     else
-                        rm -f "$link"
+                        rm -f "${link:?}"
                         ln -s "$correct_target" "$link"
                     fi
                     echo -e "  ${GREEN}Relinked: $link -> $correct_target (was $link_target)${NC}"
@@ -1702,7 +1705,7 @@ audit_and_cleanup() {
                     # Either way, we have (or need and have) the privilege to rm.
                     $use_sudo systemctl disable "$unit_name" 2>/dev/null || true
                     $use_sudo systemctl stop "$unit_name" 2>/dev/null || true
-                    $use_sudo rm -f "$unit_path"
+                    $use_sudo rm -f "${unit_path:?}"
                     echo -e "  ${GREEN}Removed orphaned unit: $unit_name${NC}"
                 fi
                 orphan_found=$((orphan_found + 1))
@@ -1732,7 +1735,7 @@ audit_and_cleanup() {
                 if [[ "$DRY_RUN" == "true" ]]; then
                     echo -e "  ${YELLOW}[DRY-RUN] Would remove orphan drop-in: $_conf (ref to $_ref)${NC}"
                 else
-                    $use_sudo rm -f "$_conf"
+                    $use_sudo rm -f "${_conf:?}"
                     echo -e "  ${GREEN}Removed orphan drop-in: $(basename "$_conf") (referenced missing $_ref)${NC}"
                     # Best-effort: if the drop-in dir is now empty, drop it.
                     $use_sudo rmdir "$(dirname "$_conf")" 2>/dev/null || true
@@ -1765,9 +1768,9 @@ audit_and_cleanup() {
                 echo -e "  ${YELLOW}[DRY-RUN] Would remove legacy file: $legacy_file${NC}"
             else
                 if [[ -n "$use_sudo" ]]; then
-                    sudo rm -f "$legacy_file"
+                    sudo rm -f "${legacy_file:?}"
                 else
-                    rm -f "$legacy_file"
+                    rm -f "${legacy_file:?}"
                 fi
                 echo -e "  ${GREEN}Removed legacy file: $legacy_file${NC}"
             fi
@@ -1862,7 +1865,7 @@ audit_and_cleanup() {
                 if [[ "$DRY_RUN" == "true" ]]; then
                     echo -e "  ${YELLOW}[DRY-RUN] Would remove orphan script: $script_name${NC}"
                 else
-                    $use_sudo rm -f "$installed_script"
+                    $use_sudo rm -f "${installed_script:?}"
                     echo -e "  ${GREEN}Removed orphan script: $script_name${NC}"
                 fi
                 orphan_scripts=$((orphan_scripts + 1))
@@ -2174,14 +2177,13 @@ purge_deployed_dev_artifacts() {
     # matching a dev-artifact name (file or directory). Reused for both the
     # dry-run listing and the real delete so they can never diverge.
     local find_expr=(
-        "$target_tree"
         -type d '(' -name 'venv' -o -name 'certs' -o -name 'db' \
             -o -name 'testdata' -o -name 'data' -o -name 'node_modules' ')' -prune
         -o '(' "${name_expr[@]}" ')'
     )
 
     local artifacts
-    artifacts=$($sudo_prefix find "${find_expr[@]}" -print 2>/dev/null)
+    artifacts=$($sudo_prefix find "${target_tree:?}" "${find_expr[@]}" -print 2>/dev/null)
     [[ -z "$artifacts" ]] && return 0
 
     if [[ "$DRY_RUN" == "true" ]]; then
@@ -2193,7 +2195,10 @@ purge_deployed_dev_artifacts() {
     echo -e "${BLUE}Purging leaked dev artifacts from deployed tree...${NC}"
     # rm -rf handles both files and matched dirs (__pycache__ etc.); stderr is
     # suppressed because pruning a parent dir can race child entries.
-    $sudo_prefix find "${find_expr[@]}" -exec rm -rf {} + 2>/dev/null || true
+    local purge_path
+    while IFS= read -r -d '' purge_path; do
+        $sudo_prefix rm -rf -- "${purge_path:?}" 2>/dev/null || true
+    done < <($sudo_prefix find "${target_tree:?}" "${find_expr[@]}" -print0 2>/dev/null)
     local count
     count=$(printf '%s\n' "$artifacts" | grep -c . || true)
     echo "  Purged ${count} leaked dev artifact(s) under $(basename "$target_tree")/"
@@ -2947,9 +2952,9 @@ backup_auth_db() {
         echo "  Cleaning up ${#old_backups[@]} old backup(s)..."
         for old in "${old_backups[@]}"; do
             if [[ -n "$use_sudo" ]]; then
-                sudo rm -f "$old"
+                sudo rm -f "${old:?}"
             else
-                rm -f "$old"
+                rm -f "${old:?}"
             fi
         done
     fi
@@ -3382,7 +3387,7 @@ get_latest_release() {
     http_code=$(curl -sL --connect-timeout 10 -o "$temp_body" -w '%{http_code}' "$url") || {
         echo -e "${RED}Failed to connect to GitHub API${NC}" >&2
         echo -e "${RED}  URL: $url${NC}" >&2
-        rm -f "$temp_body"
+        rm -f "${temp_body:?}"
         return 1
     }
 
@@ -3395,7 +3400,7 @@ get_latest_release() {
             api_msg=$(jq -r '.message // empty' "$temp_body" 2>/dev/null)
             [[ -n "$api_msg" ]] && echo -e "${RED}  API message: $api_msg${NC}" >&2
         fi
-        rm -f "$temp_body"
+        rm -f "${temp_body:?}"
         return 1
     fi
 
@@ -3406,7 +3411,7 @@ get_latest_release() {
         version=$(grep '"tag_name"' "$temp_body" | head -1 | sed 's/.*: *"\([^"]*\)".*/\1/')
     fi
 
-    rm -f "$temp_body"
+    rm -f "${temp_body:?}"
 
     # Remove 'v' prefix if present
     version="${version#v}"
@@ -3440,13 +3445,13 @@ get_release_tarball_url() {
         fi
 
         if [[ -n "$tarball_url" ]]; then
-            rm -f "$temp_body"
+            rm -f "${temp_body:?}"
             echo "$tarball_url"
             return 0
         fi
     done
 
-    rm -f "$temp_body"
+    rm -f "${temp_body:?}"
     echo -e "${RED}Could not find release tarball for version ${version}${NC}" >&2
     return 1
 }
@@ -3645,7 +3650,7 @@ do_github_upgrade() {
     # Create temp directory
     local temp_dir
     temp_dir=$(mktemp -d)
-    trap 'rm -rf '"'$temp_dir'"'; _cleanup_on_exit' EXIT
+    trap 'rm -rf '"'${temp_dir:?}'"'; _cleanup_on_exit' EXIT
 
     # Download and extract
     local release_dir

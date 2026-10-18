@@ -87,7 +87,7 @@ for wrong_file in "${WRONG_FILES[@]}"; do
             $VERBOSE && echo "WOULD FIX: $BOOK_NAME"
             $VERBOSE && echo "        -> $(basename "$CORRECT_FILE")"
         else
-            rm -f "$wrong_file"
+            rm -f "${wrong_file:?}"
             cp "$CORRECT_FILE" "$BOOK_DIR/$(basename "$CORRECT_FILE")"
             $VERBOSE && echo "FIXED: $BOOK_NAME"
         fi

@@ -122,7 +122,7 @@ else
     echo "=== Removing duplicates ==="
     removed=0
     for dup in "${duplicates_to_remove[@]}"; do
-        if rm -f "$dup"; then
+        if rm -f "${dup:?}"; then
             echo "  Removed: $(basename "$dup")"
             ((removed++))
         fi

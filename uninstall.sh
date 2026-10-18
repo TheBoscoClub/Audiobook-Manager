@@ -105,7 +105,7 @@ remove_file() {
             if [[ "$use_sudo" == "sudo" ]]; then
                 _sudo rm -f "$target"
             else
-                rm -f "$target"
+                rm -f "${target:?}"
             fi
             log_remove "$target"
         fi
@@ -126,7 +126,7 @@ remove_dir() {
             if [[ "$use_sudo" == "sudo" ]]; then
                 _sudo rm -rf "$target"
             else
-                rm -rf "$target"
+                rm -rf "${target:?}"
             fi
             log_remove "$target/"
         fi
@@ -476,7 +476,7 @@ remove_app_directory() {
 
 _cleanup_stage_dir() {
     if [[ -n "$_UNINSTALL_STAGE_DIR" && -d "$_UNINSTALL_STAGE_DIR" ]]; then
-        rm -rf "$_UNINSTALL_STAGE_DIR" 2>/dev/null || true
+        rm -rf "${_UNINSTALL_STAGE_DIR:?}" 2>/dev/null || true
     fi
 }
 
@@ -598,7 +598,7 @@ stage_preserved_state() {
 
     if [[ $staged -eq 0 ]]; then
         log_info "No user state to preserve"
-        rm -rf "$_UNINSTALL_STAGE_DIR" 2>/dev/null || true
+        rm -rf "${_UNINSTALL_STAGE_DIR:?}" 2>/dev/null || true
         _UNINSTALL_STAGE_DIR=""
     else
         log_info "Staged $staged item(s) to $_UNINSTALL_STAGE_DIR"

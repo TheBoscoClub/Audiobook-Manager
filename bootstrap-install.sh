@@ -81,7 +81,7 @@ get_tarball_url() {
 cleanup() {
     if [[ -n "${TEMP_DIR:-}" ]] && [[ -d "$TEMP_DIR" ]]; then
         log_info "Cleaning up..."
-        rm -rf "$TEMP_DIR"
+        rm -rf "${TEMP_DIR:?}"
     fi
 }
 

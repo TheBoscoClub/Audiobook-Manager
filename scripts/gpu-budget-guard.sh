@@ -128,7 +128,7 @@ fi
 command -v jq >/dev/null || die "jq required"
 
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/guard.XXXXXX")" || die "mktemp failed"
-trap 'rm -rf "$WORKDIR"' EXIT
+trap 'rm -rf "${WORKDIR:?}"' EXIT
 CURL_CONF="${WORKDIR}/hdr"
 umask 077
 printf 'header = "Authorization: Bearer %s"\nheader = "Content-Type: application/json"\n' \

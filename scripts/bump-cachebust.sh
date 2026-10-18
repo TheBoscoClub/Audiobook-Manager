@@ -108,7 +108,7 @@ for file in "$TARGET_DIR"/*.html; do
     tmp=$(mktemp "${file}.XXXXXX")
     # Write new content to tmp, then atomic rename.
     if ! sed "s/?v=[A-Za-z0-9._-]\+/?v=${STAMP}/g" "$file" >"$tmp"; then
-        rm -f "$tmp"
+        rm -f "${tmp:?}"
         echo "ERROR: sed failed on $file" >&2
         exit 1
     fi

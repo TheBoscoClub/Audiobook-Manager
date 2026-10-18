@@ -561,7 +561,7 @@ fi
 
 # -----
 # Clean up if someone hits ^c or the script exits for any reason.
-trap 'rm -r -f "${working_directory}"' EXIT
+trap '[ -n "${working_directory:-}" ] && rm -r -f "${working_directory:?}"; true' EXIT
 
 # -----
 # Set up some basic working files ASAP.  Note the trap will clean this up no matter what.
@@ -884,7 +884,7 @@ for aax_file; do
 
     if [[ "${noclobber}" = "1" ]] && [[ -d "${output_directory}" ]]; then
         log "Noclobber enabled but directory '${output_directory}' exists. Skipping to avoid overwriting"
-        rm -f "${metadata_file}" "${tmp_chapter_file}"
+        rm -f "${metadata_file:?}" "${tmp_chapter_file:?}"
         continue
     fi
     mkdir -p "${output_directory}"
@@ -1106,7 +1106,7 @@ for aax_file; do
         done 9<"$metadata_file"
 
         # Clean up of working directory stuff.
-        rm "${output_file}"
+        rm "${output_file:?}"
         if [ "$((${loglevel} > 1))" == "1" ]; then
             log "Done creating chapters for ${output_directory}."
         else
@@ -1174,7 +1174,7 @@ for aax_file; do
         log "Complete ${title}"
     fi
     # Lastly get rid of any extra stuff.
-    rm "${metadata_file}"
+    rm "${metadata_file:?}"
 
     # Move the aax file if the decode is completed and the --complete_dir is set to a valid location.
     # Check the target dir for if set if it is writable

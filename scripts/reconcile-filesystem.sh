@@ -58,7 +58,7 @@ _reconcile_phantoms() {
         [[ -e "$path" || -L "$path" ]] || continue
         _issue "phantom path present: $path"
         if _should_act; then
-            $USE_SUDO rm -rf "$path"
+            $USE_SUDO rm -rf "${path:?}"
             _fix "removed phantom: $path"
         fi
     done
@@ -145,7 +145,7 @@ _reconcile_obsolete_root_paths() {
                 _issue "obsolete path skipped, parent no longer inside install dir: ${full}"
                 continue
             fi
-            if $USE_SUDO rm -rf --one-file-system -- "$full"; then
+            if $USE_SUDO rm -rf --one-file-system -- "${full:?}"; then
                 _fix "removed obsolete: ${full}"
             else
                 _issue "could not remove obsolete path: ${full}"
@@ -337,7 +337,7 @@ declare -A _CFG_RAW=()
 _CFG_STACK=()
 _CFG_TMP=""
 _CFG_TMP2=""
-trap 'rm -f -- "${_CFG_TMP:-}"; [[ -n "${_CFG_TMP2:-}" ]] && ${USE_SUDO:-} rm -f -- "$_CFG_TMP2"' EXIT
+trap '[[ -n "${_CFG_TMP:-}" ]] && rm -f -- "${_CFG_TMP:?}"; [[ -n "${_CFG_TMP2:-}" ]] && $USE_SUDO rm -f -- "${_CFG_TMP2:?}"' EXIT
 
 # Parse one config line into _P_LEAD _P_EXPORT _P_KEY _P_EQ _P_VAL _P_Q _P_TAIL.
 # Returns 1 when the line is not a simple, recognisable KEY=VALUE assignment.

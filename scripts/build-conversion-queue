@@ -230,7 +230,7 @@ build_converted_asin_index() {
     local backfill_count=$(wc -l <"$backfill_file")
     log "  Backfilled: $backfill_count ASINs from title matching"
 
-    rm -f "$lib_titles_file" "$backfill_file"
+    rm -f "${lib_titles_file:?}" "${backfill_file:?}"
 
     # Method 3: Sync from database (authoritative source of truth)
     # The database contains all imported audiobooks with their ASINs
@@ -250,7 +250,7 @@ build_converted_asin_index() {
 
     # Sort and deduplicate
     sort -u "$temp_file" >"$index_file"
-    rm -f "$temp_file"
+    rm -f "${temp_file:?}"
 
     local unique_count=$(wc -l <"$index_file")
     log "Converted ASIN index: $unique_count unique ASINs (merged from all sources)"
@@ -281,7 +281,7 @@ build_source_asin_index() {
     done < <(find "$SOURCES_DIR" \( -name "*.aaxc" -o -name "*.aax" \) -type f 2>/dev/null | sort)
 
     sort "$temp_file" >"$index_file"
-    rm -f "$temp_file"
+    rm -f "${temp_file:?}"
 
     log "Source ASIN index: $count files"
 }
@@ -312,7 +312,7 @@ build_converted_index() {
 
     # Sort and deduplicate
     sort -u "$temp_file" >"$index_file"
-    rm -f "$temp_file"
+    rm -f "${temp_file:?}"
 
     local count=$(wc -l <"$index_file")
     log "Converted index: $count unique titles"

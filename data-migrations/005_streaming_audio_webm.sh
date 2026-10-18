@@ -51,12 +51,12 @@ _dm005_remux_one() {
     # Idempotency: skip if the .webm sibling already exists and is non-empty.
     if [[ -n "$USE_SUDO" ]]; then
         if sudo test -s "$dst"; then
-            sudo rm -f "$src"
+            sudo rm -f "${src:?}"
             return 0
         fi
     else
         if [[ -s "$dst" ]]; then
-            rm -f "$src"
+            rm -f "${src:?}"
             return 0
         fi
     fi
@@ -66,13 +66,13 @@ _dm005_remux_one() {
             -i "$src" -c copy -f webm "$dst" 2>/dev/null; then
             return 1
         fi
-        sudo rm -f "$src"
+        sudo rm -f "${src:?}"
     else
         if ! ffmpeg -hide_banner -loglevel error -y \
             -i "$src" -c copy -f webm "$dst" 2>/dev/null; then
             return 1
         fi
-        rm -f "$src"
+        rm -f "${src:?}"
     fi
     return 0
 }

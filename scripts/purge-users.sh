@@ -80,7 +80,7 @@ fi
 
 BASE_URL="${PROTOCOL}://${HOST}:${PORT}"
 COOKIE_JAR=$(mktemp)
-trap 'rm -f "$COOKIE_JAR"' EXIT
+trap 'rm -f "${COOKIE_JAR:?}"' EXIT
 
 # Convert keep list to array
 IFS=',' read -ra KEEP_USERS <<<"$KEEP_LIST"

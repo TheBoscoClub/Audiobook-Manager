@@ -76,7 +76,7 @@ if [ -f ".interactivesave" ]; then
             authcode) lastauthcode="$(echo $line | cut -d " " -f 2)" ;;
             loglevel) lastloglevel="$(echo $line | cut -d " " -f 2)" ;;
             *)
-                rm .interactivesave
+                rm -f "${PWD:?}/.interactivesave"
                 exit 1
                 ;;
         esac

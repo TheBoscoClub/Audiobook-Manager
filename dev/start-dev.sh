@@ -65,7 +65,7 @@ check_running() {
             echo -e "  kill $pid"
             return 1
         else
-            rm -f "$pid_file"
+            rm -f "${pid_file:?}"
         fi
     fi
     return 0
@@ -158,7 +158,7 @@ cleanup() {
             kill -TERM "$pid" 2>/dev/null || true
             sleep 1
         fi
-        rm -f "$CADDY_PID_FILE"
+        rm -f "${CADDY_PID_FILE:?}"
     fi
 
     if [ -f "$API_PID_FILE" ]; then
@@ -168,7 +168,7 @@ cleanup() {
             kill -TERM "$pid" 2>/dev/null || true
             sleep 1
         fi
-        rm -f "$API_PID_FILE"
+        rm -f "${API_PID_FILE:?}"
     fi
 
     echo -e "${GREEN}Dev servers stopped${NC}"

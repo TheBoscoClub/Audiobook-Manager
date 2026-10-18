@@ -93,7 +93,7 @@ while true; do
                         FILE_SIZE=$(stat -c%s "$FILE" 2>/dev/null || echo "0")
                         if [ "$FILE_SIZE" -lt 102400 ]; then
                             log "${YELLOW}⚠ Removing corrupted:${NC} $(basename "$FILE") (${FILE_SIZE} bytes)"
-                            rm -f "$FILE"
+                            rm -f "${FILE:?}"
                             ((CORRUPTED_COUNT++))
                         fi
                     done <<<"$OPUS_FILES"
@@ -123,7 +123,7 @@ while true; do
                     # Copy files (ignore remove errors - files may still be in use)
                     if rsync -a --ignore-errors --remove-source-files "$DIR/" "$DEST/" 2>/dev/null; then
                         # Remove empty subdirectories and source directory
-                        find "$DIR" -type d -empty -delete 2>/dev/null
+                        find "${DIR:?}" -type d -empty -delete 2>/dev/null
 
                         # Count remaining audiobook files
                         REMAINING=$(find "$DIR" -name "*.opus" -type f 2>/dev/null | wc -l)

@@ -111,7 +111,7 @@ wait_for_green() {
     # firing was an "unbound variable" error that turned a GREEN verdict into
     # exit 1 (run 37066878118, 2026-10-02).
     WORK_DIR=$(mktemp -d)
-    trap 'rm -rf "${WORK_DIR:-}"' EXIT
+    trap 'rm -rf "${WORK_DIR:?}"' EXIT
     local tmp="$WORK_DIR"
 
     local rc=2

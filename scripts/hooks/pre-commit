@@ -75,13 +75,13 @@ check_hardcoded_paths() {
     # --no-renames: a renamed/copied file is reported as an added file, so its
     # new path's added lines are judged (R/C would otherwise be missed).
     if ! git_diff --name-only -z --diff-filter=ACMRT >"$names_file"; then
-        rm -f "$names_file"
+        rm -f "${names_file:?}"
         fail_closed "git diff --name-only failed"
         return 1
     fi
     local STAGED_FILES=()
     mapfile -d '' STAGED_FILES <"$names_file"
-    rm -f "$names_file"
+    rm -f "${names_file:?}"
 
     local VIOLATIONS=""
     for file in "${STAGED_FILES[@]}"; do

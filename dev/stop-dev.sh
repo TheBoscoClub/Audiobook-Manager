@@ -46,7 +46,7 @@ stop_process() {
         else
             echo -e "  $name not running (stale PID file)"
         fi
-        rm -f "$pid_file"
+        rm -f "${pid_file:?}"
     else
         echo -e "  $name not running (no PID file)"
     fi

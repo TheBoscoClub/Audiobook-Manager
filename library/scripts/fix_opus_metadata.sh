@@ -155,7 +155,7 @@ while IFS= read -r OPUS_FILE; do
     if [ ! -f "$TEMP_FILE" ] || [ ! -s "$TEMP_FILE" ]; then
         grep -v "Guessed Channel" "$FFMPEG_LOG" >>"$LOG_FILE"
     fi
-    rm -f "$FFMPEG_LOG"
+    rm -f "${FFMPEG_LOG:?}"
 
     if [ -f "$TEMP_FILE" ] && [ -s "$TEMP_FILE" ]; then
         mv "$TEMP_FILE" "$OPUS_FILE"
@@ -168,7 +168,7 @@ while IFS= read -r OPUS_FILE; do
         ((FIXED++))
     else
         echo "✗ FAIL: $BASENAME (ffmpeg error)" >>"$LOG_FILE"
-        rm -f "$TEMP_FILE"
+        rm -f "${TEMP_FILE:?}"
         ((FAILED++))
     fi
 

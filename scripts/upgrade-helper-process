@@ -63,7 +63,7 @@ _CADDY_CLEANUP_SLEEP=0 # do_upgrade's success path raises this to CADDY_STATUS_C
 _cleanup_caddy_status() {
     [[ -e "$CADDY_STATUS_FILE" ]] || return 0
     [[ "$_CADDY_CLEANUP_SLEEP" -gt 0 ]] && sleep "$_CADDY_CLEANUP_SLEEP"
-    rm -f "$CADDY_STATUS_FILE" 2>/dev/null || true
+    rm -f "${CADDY_STATUS_FILE:?}" 2>/dev/null || true
 }
 trap _cleanup_caddy_status EXIT
 # bash runs the EXIT trap when a fatal SIGHUP/SIGINT/SIGTERM ends the shell, so

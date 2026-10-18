@@ -140,7 +140,7 @@ refresh_bin_symlinks() {
     for script in "$scripts_dir"/audiobook-*; do
         [[ -f "$script" ]] || continue
         local name=$(basename "$script")
-        ${use_sudo} rm -f "${bin_dir}/${name}"
+        ${use_sudo} rm -f "${bin_dir:?}/${name:?}"
         ${use_sudo} ln -s "$script" "${bin_dir}/${name}"
         echo "  Linked: ${name}"
     done
@@ -151,7 +151,7 @@ refresh_bin_symlinks() {
         local source_path="${scripts_dir}/${script_name}"
         local link_path="${bin_dir}/${target_name}"
         if [[ -f "$source_path" ]]; then
-            ${use_sudo} rm -f "$link_path"
+            ${use_sudo} rm -f "${link_path:?}"
             ${use_sudo} ln -s "$source_path" "$link_path"
             echo "  Linked: ${target_name} -> ${script_name}"
         fi
@@ -814,27 +814,27 @@ prompt_delete_data() {
                     if [[ "$DELETE_LIBRARY" == "true" ]] && [[ -d "$library_dir" ]]; then
                         echo "Deleting converted audiobooks..."
                         if [[ "$use_sudo" == "sudo" ]]; then
-                            sudo rm -rf "$library_dir"
+                            sudo rm -rf "${library_dir:?}"
                         else
-                            rm -rf "$library_dir"
+                            rm -rf "${library_dir:?}"
                         fi
                     fi
 
                     if [[ "$DELETE_SOURCES" == "true" ]] && [[ -d "$sources_dir" ]]; then
                         echo "Deleting source files..."
                         if [[ "$use_sudo" == "sudo" ]]; then
-                            sudo rm -rf "$sources_dir"
+                            sudo rm -rf "${sources_dir:?}"
                         else
-                            rm -rf "$sources_dir"
+                            rm -rf "${sources_dir:?}"
                         fi
                     fi
 
                     if [[ "$DELETE_SUPPLEMENTS" == "true" ]] && [[ -d "$supplements_dir" ]]; then
                         echo "Deleting supplemental PDFs..."
                         if [[ "$use_sudo" == "sudo" ]]; then
-                            sudo rm -rf "$supplements_dir"
+                            sudo rm -rf "${supplements_dir:?}"
                         else
-                            rm -rf "$supplements_dir"
+                            rm -rf "${supplements_dir:?}"
                         fi
                     fi
 
@@ -842,9 +842,9 @@ prompt_delete_data() {
                         local config_dir=$(dirname "$config_file")
                         echo "Deleting configuration..."
                         if [[ "$use_sudo" == "sudo" ]]; then
-                            sudo rm -rf "$config_dir"
+                            sudo rm -rf "${config_dir:?}"
                         else
-                            rm -rf "$config_dir"
+                            rm -rf "${config_dir:?}"
                         fi
                     fi
 
@@ -1465,7 +1465,7 @@ do_system_install() {
 
     # Remove copied project venv — it contains dev-machine symlinks
     # The venv will be recreated below with system Python
-    [[ -d "${APP_DIR}/library/venv" ]] && sudo rm -rf "${APP_DIR}/library/venv"
+    [[ -d "${APP_DIR}/library/venv" ]] && sudo rm -rf "${APP_DIR:?}/library/venv"
 
     # Fix ownership — sudo cp creates files as root:root, but the audiobooks
     # service user needs to read them (ProtectSystem=strict prevents world-read fallback)
@@ -1780,7 +1780,7 @@ EOF
     # Always recreate: project venv was removed above, and fresh venv ensures
     # correct symlinks for this machine's Python installation
     echo -e "${BLUE}Setting up Python virtual environment (system Python)...${NC}"
-    [[ -d "${APP_DIR}/library/venv" ]] && sudo rm -rf "${APP_DIR}/library/venv"
+    [[ -d "${APP_DIR}/library/venv" ]] && sudo rm -rf "${APP_DIR:?}/library/venv"
     local sys_python="/usr/bin/python3"
     [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
     sudo "$sys_python" -m venv "${APP_DIR}/library/venv"
@@ -1819,7 +1819,7 @@ EOF
     # Isolated venv for audible-cli (avoids httpx version conflict with main app)
     local audible_venv="/var/lib/audiobooks/audible-venv"
     echo -e "${BLUE}Setting up audible-cli virtual environment...${NC}"
-    [[ -d "$audible_venv" ]] && sudo rm -rf "$audible_venv"
+    [[ -d "$audible_venv" ]] && sudo rm -rf "${audible_venv:?}"
     sudo "$sys_python" -m venv "$audible_venv"
     sudo chown -R audiobooks:audiobooks "$audible_venv"
     sudo -u audiobooks "$audible_venv/bin/pip" install --quiet 'audible-cli>=0.3.2'
@@ -2046,7 +2046,7 @@ EOF
             fi
             local stale_dropin="${SYSTEMD_DIR}/${unit}.d/zz-operator-disabled.conf"
             if [[ -f "$stale_dropin" ]]; then
-                sudo rm -f "$stale_dropin" 2>/dev/null || true
+                sudo rm -f "${stale_dropin:?}" 2>/dev/null || true
                 sudo rmdir "${SYSTEMD_DIR}/${unit}.d" 2>/dev/null || true
                 sudo systemctl daemon-reload 2>/dev/null || true
             fi
@@ -2339,7 +2339,7 @@ do_user_install() {
     fi
 
     # Remove copied project venv — it contains dev-machine symlinks
-    [[ -d "${LIB_DIR}/library/venv" ]] && rm -rf "${LIB_DIR}/library/venv"
+    [[ -d "${LIB_DIR}/library/venv" ]] && rm -rf "${LIB_DIR:?}/library/venv"
 
     # Update version in utilities.html
     local new_version=$(cat "${SCRIPT_DIR}/VERSION" 2>/dev/null)
@@ -2627,7 +2627,7 @@ EOF
     # Always recreate: project venv was removed above, and fresh venv ensures
     # correct symlinks for this machine's Python installation
     echo -e "${BLUE}Setting up Python virtual environment (system Python)...${NC}"
-    [[ -d "${LIB_DIR}/library/venv" ]] && rm -rf "${LIB_DIR}/library/venv"
+    [[ -d "${LIB_DIR}/library/venv" ]] && rm -rf "${LIB_DIR:?}/library/venv"
     local sys_python="/usr/bin/python3"
     [[ -x /usr/bin/python3.14 ]] && sys_python="/usr/bin/python3.14"
     "$sys_python" -m venv "${LIB_DIR}/library/venv"
@@ -2661,7 +2661,7 @@ EOF
     # Isolated venv for audible-cli (avoids httpx version conflict with main app)
     local audible_venv="${HOME}/.local/share/audiobooks/audible-venv"
     echo -e "${BLUE}Setting up audible-cli virtual environment...${NC}"
-    [[ -d "$audible_venv" ]] && rm -rf "$audible_venv"
+    [[ -d "$audible_venv" ]] && rm -rf "${audible_venv:?}"
     "$sys_python" -m venv "$audible_venv"
     "$audible_venv/bin/pip" install --quiet 'audible-cli>=0.3.2'
     echo -e "${GREEN}  audible-cli installed in isolated venv${NC}"
@@ -2975,7 +2975,7 @@ do_fresh_install() {
     # reinstall failure, etc.). Removed explicitly at the end of Step 5 on the
     # happy path; the trap is idempotent.
     # shellcheck disable=SC2064  # intentional early expansion of $fresh_backup_dir
-    trap "rm -rf '$fresh_backup_dir' 2>/dev/null || true" RETURN
+    trap "rm -rf \"${fresh_backup_dir:?}\" 2>/dev/null || true" RETURN
     echo -e "${BLUE}Staging state files to ${fresh_backup_dir}...${NC}"
 
     local state_src conf_src_dir use_sudo_fresh=""
@@ -3052,7 +3052,7 @@ do_fresh_install() {
     # why that staging remains in Step 2b.
     if [[ -f "$config_file" ]]; then
         echo -e "${BLUE}Clearing restored config so install.sh writes fresh defaults...${NC}"
-        $use_sudo_fresh rm -f "$config_file"
+        $use_sudo_fresh rm -f "${config_file:?}"
     fi
 
     # --- Step 4: Run fresh install ---
@@ -3088,7 +3088,7 @@ do_fresh_install() {
         local staged="${fresh_backup_dir}/${label}"
         [[ -e "$staged" ]] || return 1
         $use_sudo_fresh mkdir -p "$(dirname "$dest")"
-        $use_sudo_fresh rm -rf "$dest"
+        $use_sudo_fresh rm -rf "${dest:?}"
         $use_sudo_fresh cp -a "$staged" "$dest"
         [[ -n "$owner" ]] && $use_sudo_fresh chown -R "$owner" "$dest" 2>/dev/null || true
         echo -e "  restored: ${CYAN}${dest}${NC}"
@@ -3112,9 +3112,10 @@ do_fresh_install() {
     # behavior of only preserving 13 hardcoded keys, which silently dropped
     # everything else.
     if [[ "$staged_full_conf" == "true" && -f "${fresh_backup_dir}/audiobooks.conf" ]]; then
-        local merged_conf
+        local merged_conf merged_conf_new
         merged_conf=$(mktemp)
-        cp "$config_file" "$merged_conf.new" 2>/dev/null || $use_sudo_fresh cat "$config_file" >"$merged_conf.new"
+        merged_conf_new="${merged_conf:?}.new"
+        cp "$config_file" "$merged_conf_new" 2>/dev/null || $use_sudo_fresh cat "$config_file" >"$merged_conf_new"
 
         # For every KEY=... line in the old config, replace or append in the new one.
         while IFS= read -r line; do
@@ -3126,17 +3127,17 @@ do_fresh_install() {
             case "$k" in
                 AUDIOBOOKS_COVERS | AUDIOBOOKS_DATABASE | AUDIOBOOKS_VENV) continue ;;
             esac
-            if grep -q "^${k}=" "$merged_conf.new" 2>/dev/null; then
-                sed -i "s|^${k}=.*|${line}|" "$merged_conf.new"
+            if grep -q "^${k}=" "$merged_conf_new" 2>/dev/null; then
+                sed -i "s|^${k}=.*|${line}|" "$merged_conf_new"
             else
-                echo "$line" >>"$merged_conf.new"
+                echo "$line" >>"$merged_conf_new"
             fi
         done <"${fresh_backup_dir}/audiobooks.conf"
 
-        $use_sudo_fresh cp "$merged_conf.new" "$config_file"
+        $use_sudo_fresh cp "$merged_conf_new" "$config_file"
         [[ -n "$state_owner" ]] && $use_sudo_fresh chown root:audiobooks "$config_file" 2>/dev/null || true
         $use_sudo_fresh chmod 640 "$config_file" 2>/dev/null || true
-        rm -f "$merged_conf" "$merged_conf.new"
+        rm -f "${merged_conf:?}" "${merged_conf_new:?}"
         restored_full_conf="true"
         echo -e "  merged: ${CYAN}${config_file}${NC} (old keys carried over, drift keys dropped)"
     fi

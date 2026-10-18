@@ -235,12 +235,12 @@ process_single_mp3() {
         mkdir -p "$archive_dir"
         mv "$mp3_file" "$archive_dir/"
 
-        rm -rf "$temp_dir"
+        rm -rf "${temp_dir:?}"
         touch "$TRIGGER_DIR/conversion-complete"
         return 0
     else
         log "FAILED: $basename conversion failed"
-        rm -rf "$temp_dir"
+        rm -rf "${temp_dir:?}"
         return 1
     fi
 }
@@ -351,7 +351,7 @@ main() {
 
     # Create lock file
     echo $$ >"$PROCESSING_LOCK"
-    trap 'rm -f "$PROCESSING_LOCK"' EXIT
+    trap 'rm -f "${PROCESSING_LOCK:?}"' EXIT
 
     while true; do
         local found_any=false
