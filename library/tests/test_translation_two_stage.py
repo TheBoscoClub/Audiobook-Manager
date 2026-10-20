@@ -150,6 +150,7 @@ def test_schema_mapping_runs_once(tmp_path: Path):
     assert _mapped(conn)[3][0] == "completed", "a second open must not remap again"
 
 
+@pytest.mark.requires_repo_source  # data-migrations/ is not installed
 def test_data_migration_015_applies_mapping(tmp_path: Path):
     db = tmp_path / "audiobooks.db"
     conn = _legacy_db(db)

@@ -131,6 +131,7 @@ def _columns(db_path):
     return cols
 
 
+@pytest.mark.requires_repo_source  # data-migrations/ is not installed
 @pytest.mark.skipif(not DEV_DB.exists(), reason="dev database not present")
 class TestMigration014:
     @pytest.fixture

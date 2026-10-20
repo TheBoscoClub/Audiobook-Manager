@@ -16,6 +16,7 @@ Tests the gunicorn-served reverse proxy WSGI application including:
 
 import io
 import json
+import os
 import socket
 import subprocess
 import sys
@@ -743,6 +744,10 @@ class TestGunicornConfig:
             PATH="/usr/bin:/bin",
             HOME=str(tmp_path),
         )
+        # A deployed run supplies the venv through PYTHONPATH; without it the
+        # child interpreter cannot import gunicorn
+        if os.environ.get("PYTHONPATH"):
+            env["PYTHONPATH"] = os.environ["PYTHONPATH"]
         return subprocess.run(  # nosec B603 — fixed interpreter + generated script, no user input
             [sys.executable, str(script)],
             capture_output=True,

@@ -478,6 +478,7 @@ def _enable_helper_bodies() -> dict[str, str]:
     return bodies
 
 
+@pytest.mark.requires_repo_source
 def test_both_enable_helpers_honour_operator_intent():
     for rel, body in _enable_helper_bodies().items():
         assert "disabled-units" in body, (
@@ -486,6 +487,7 @@ def test_both_enable_helpers_honour_operator_intent():
         )
 
 
+@pytest.mark.requires_repo_source
 def test_operator_intent_uses_a_drop_in_condition_not_disable_or_mask():
     """`disable` and `mask` were both tried against the real system and BOTH failed.
 
@@ -518,6 +520,7 @@ def test_operator_intent_uses_a_drop_in_condition_not_disable_or_mask():
         )
 
 
+@pytest.mark.requires_repo_source
 def test_enable_helpers_do_not_use_process_substitution_for_the_check():
     for rel, body in _enable_helper_bodies().items():
         window = body[: body.find("disabled-units") + 600]

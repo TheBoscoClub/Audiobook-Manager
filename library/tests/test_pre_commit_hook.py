@@ -12,6 +12,9 @@ from pathlib import Path
 
 import pytest
 
+# The hook and its installer live only in the project checkout
+pytestmark = pytest.mark.requires_repo_source
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 HOOK = Path(os.environ.get("PRE_COMMIT_HOOK_UNDER_TEST", REPO_ROOT / "scripts/hooks/pre-commit"))
 

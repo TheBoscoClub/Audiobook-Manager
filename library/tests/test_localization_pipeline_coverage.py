@@ -22,6 +22,7 @@ before invoking the module under test.
 
 from __future__ import annotations
 
+import importlib.util
 import json
 import subprocess
 from unittest.mock import MagicMock, patch
@@ -890,6 +891,10 @@ class TestWhisperSTT:
 # ── xtts.py ──
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("requests_mock") is None,
+    reason="requests_mock (dev dependency) not installed — e.g. a deployed venv",
+)
 class TestXTTSProvider:
     """XTTS voice-cloning TTS over RunPod serverless."""
 
