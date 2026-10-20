@@ -334,6 +334,39 @@ refresh_bin_symlinks() {
     done
 }
 
+remove_pre_rename_bin_copies() {
+    # Early installs copied scripts into bin_dir under their repo names
+    # (build-conversion-queue, ...). They now live under SCRIPT_ALIASES names,
+    # but the old regular-file copies survived and shadowed the current
+    # scripts on PATH. Remove one only when this install provably owns the
+    # command: old name is a regular file AND the alias is our symlink.
+    local target="$1"
+    local use_sudo="${2:-}"
+    local bin_dir="${3:-/usr/local/bin}"
+    local removed=0
+
+    for script_name in "${!SCRIPT_ALIASES[@]}"; do
+        local target_name="${SCRIPT_ALIASES[$script_name]}"
+        local old_path="${bin_dir}/${script_name}"
+        local alias_path="${bin_dir}/${target_name}"
+        [[ "$script_name" != "$target_name" ]] || continue
+        [[ -f "$old_path" && ! -L "$old_path" ]] || continue
+        # readlink prints nothing for a missing path or a regular file
+        [[ "$(readlink "$alias_path")" == "${target}/scripts/${script_name}" ]] || continue
+        if [[ "$DRY_RUN" == "true" ]]; then
+            echo -e "  ${YELLOW}[DRY-RUN] Would remove pre-rename copy: ${old_path} (now ${target_name})${NC}"
+        else
+            ${use_sudo} rm -f "${bin_dir:?}/${script_name:?}"
+            echo -e "  ${GREEN}Removed pre-rename copy: ${old_path} (now ${target_name})${NC}"
+        fi
+        removed=$((removed + 1))
+    done
+    if [[ $removed -eq 0 ]]; then
+        echo -e "  ${GREEN}No pre-rename copies found${NC}"
+    fi
+    return 0
+}
+
 do_remote_upgrade() {
     # Deploy to a remote host via SSH, running the full upgrade lifecycle remotely.
     # Requires --from-project to specify the local project directory.
@@ -1652,6 +1685,10 @@ audit_and_cleanup() {
     if [[ $legacy_found -eq 0 ]]; then
         echo -e "  ${GREEN}No stale legacy symlinks found${NC}"
     fi
+
+    # --- (b2) Pre-rename regular-file copies shadowing alias links ---
+    echo -e "${BLUE}Checking for pre-rename copies in /usr/local/bin...${NC}"
+    remove_pre_rename_bin_copies "$target" "$use_sudo"
 
     # --- (c) Orphaned systemd units ---
     echo -e "${BLUE}Checking for orphaned systemd units...${NC}"

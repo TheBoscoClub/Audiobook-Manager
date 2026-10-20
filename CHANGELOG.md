@@ -81,6 +81,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Pre-rename CLI copies no longer shadow the current scripts**: early installs copied `build-conversion-queue`,
+  `find-duplicate-sources` and `monitor-audiobook-conversion` into `/usr/local/bin` as regular files; later releases
+  link them as `audiobook-build-queue`/`audiobook-find-duplicates`/`audiobook-monitor` but never removed the old
+  copies, so a manual `build-conversion-queue --rebuild` ran the January 2026 title-matching version — the
+  `upgrade.sh` audit gains `remove_pre_rename_bin_copies`, which removes an old copy only when it is a regular file
+  and its `SCRIPT_ALIASES` link points into this install's `scripts/` (`test_upgrade_pre_rename_bin_copies.py`)
 - **Docker build red on 2026-10-14 — `curl` pin bumped to `8.14.1-2+deb13u7`**: a Debian security update moved
   `libcurl4t64` to `deb13u7`, and the pinned `curl=8.14.1-2+deb13u5` depends on exactly `deb13u5`, so apt
   refused to resolve (`curl : Depends: libcurl4t64 (= 8.14.1-2+deb13u5) but 8.14.1-2+deb13u7 is to be installed`)
