@@ -87,6 +87,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   copies, so a manual `build-conversion-queue --rebuild` ran the January 2026 title-matching version — the
   `upgrade.sh` audit gains `remove_pre_rename_bin_copies`, which removes an old copy only when it is a regular file
   and its `SCRIPT_ALIASES` link points into this install's `scripts/` (`test_upgrade_pre_rename_bin_copies.py`)
+- **`--vm` suite green on a deployed install**: run against `/opt/audiobooks` it gave 33 failed and 9 errors, none
+  from product code — tests needing repo-only files (`scripts/hooks/pre-commit`, `scripts/install-hooks.sh`,
+  `data-migrations/*.sh`, root `upgrade.sh`) now carry `requires_repo_source`, the five XTTS tests that take the
+  `requests_mock` fixture skip when that dev dependency is absent, and `TestGunicornConfig` passes `PYTHONPATH`
+  through to its child interpreter (5417 passed, 0 failed on the test VM)
 - **Docker build red on 2026-10-14 — `curl` pin bumped to `8.14.1-2+deb13u7`**: a Debian security update moved
   `libcurl4t64` to `deb13u7`, and the pinned `curl=8.14.1-2+deb13u5` depends on exactly `deb13u5`, so apt
   refused to resolve (`curl : Depends: libcurl4t64 (= 8.14.1-2+deb13u5) but 8.14.1-2+deb13u7 is to be installed`)
