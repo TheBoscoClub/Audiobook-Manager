@@ -37,10 +37,16 @@ def _snippet() -> str:
     return "\n".join(['BLUE="" GREEN="" YELLOW="" NC=""', aliases.group(0), func.group(0)])
 
 
-def _run(target: Path, bin_dir: Path, dry_run: bool = False) -> subprocess.CompletedProcess:
-    script = f'{_snippet()}\nDRY_RUN={"true" if dry_run else "false"}\nremove_pre_rename_bin_copies "$1" "" "$2"\n'
+def _run(
+    target: Path | str, bin_dir: Path, dry_run: bool = False, use_sudo: str = ""
+) -> subprocess.CompletedProcess:
+    # use_sudo="false" makes the rm a refused no-op, the shape of a denied sudo
+    script = (
+        f"{_snippet()}\nDRY_RUN={'true' if dry_run else 'false'}\n"
+        'remove_pre_rename_bin_copies "$1" "$3" "$2"\necho "FOUND=$PRE_RENAME_FOUND"\n'
+    )
     return subprocess.run(
-        ["bash", "-c", script, "bash", str(target), str(bin_dir)],
+        ["bash", "-c", script, "bash", str(target), str(bin_dir), use_sudo],
         capture_output=True,
         text=True,
         timeout=30,
@@ -70,7 +76,33 @@ def test_removes_regular_file_copy_when_alias_link_is_ours(layout):
     assert result.returncode == 0, result.stderr
     assert not stale.exists(), "stale pre-rename copy survived the audit"
     assert (bin_dir / "audiobook-build-queue").is_symlink(), "canonical alias link was touched"
-    assert "build-conversion-queue" in result.stdout
+    assert "Removed pre-rename copy" in result.stdout
+    assert "FOUND=1" in result.stdout, "removal not counted toward the audit's issues"
+
+
+def test_refused_removal_warns_instead_of_claiming_success(layout):
+    target, scripts, bin_dir = layout
+    stale = bin_dir / "build-conversion-queue"
+    stale.write_text("x")
+    (bin_dir / "audiobook-build-queue").symlink_to(scripts / "build-conversion-queue")
+
+    result = _run(target, bin_dir, use_sudo="false")
+
+    assert stale.exists()
+    assert "Removed pre-rename copy" not in result.stdout, "reported a removal that did not happen"
+    assert "could not remove" in result.stdout
+
+
+def test_trailing_slash_target_fails_closed(layout):
+    target, scripts, bin_dir = layout
+    stale = bin_dir / "build-conversion-queue"
+    stale.write_text("x")
+    (bin_dir / "audiobook-build-queue").symlink_to(scripts / "build-conversion-queue")
+
+    result = _run(f"{target}/", bin_dir)
+
+    assert stale.exists(), "a target spelled differently from the link must not match"
+    assert "FOUND=0" in result.stdout
 
 
 def test_keeps_copy_when_alias_link_missing(layout):

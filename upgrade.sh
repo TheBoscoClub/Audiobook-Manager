@@ -340,10 +340,11 @@ remove_pre_rename_bin_copies() {
     # but the old regular-file copies survived and shadowed the current
     # scripts on PATH. Remove one only when this install provably owns the
     # command: old name is a regular file AND the alias is our symlink.
+    # Sets PRE_RENAME_FOUND to the number of copies found (the audit's issue count).
     local target="$1"
     local use_sudo="${2:-}"
     local bin_dir="${3:-/usr/local/bin}"
-    local removed=0
+    PRE_RENAME_FOUND=0
 
     for script_name in "${!SCRIPT_ALIASES[@]}"; do
         local target_name="${SCRIPT_ALIASES[$script_name]}"
@@ -357,11 +358,15 @@ remove_pre_rename_bin_copies() {
             echo -e "  ${YELLOW}[DRY-RUN] Would remove pre-rename copy: ${old_path} (now ${target_name})${NC}"
         else
             ${use_sudo} rm -f "${bin_dir:?}/${script_name:?}"
-            echo -e "  ${GREEN}Removed pre-rename copy: ${old_path} (now ${target_name})${NC}"
+            if [[ -e "$old_path" ]]; then
+                echo -e "  ${YELLOW}Warning: could not remove pre-rename copy: ${old_path}${NC}"
+            else
+                echo -e "  ${GREEN}Removed pre-rename copy: ${old_path} (now ${target_name})${NC}"
+            fi
         fi
-        removed=$((removed + 1))
+        PRE_RENAME_FOUND=$((PRE_RENAME_FOUND + 1))
     done
-    if [[ $removed -eq 0 ]]; then
+    if [[ $PRE_RENAME_FOUND -eq 0 ]]; then
         echo -e "  ${GREEN}No pre-rename copies found${NC}"
     fi
     return 0
@@ -1689,6 +1694,7 @@ audit_and_cleanup() {
     # --- (b2) Pre-rename regular-file copies shadowing alias links ---
     echo -e "${BLUE}Checking for pre-rename copies in /usr/local/bin...${NC}"
     remove_pre_rename_bin_copies "$target" "$use_sudo"
+    issues=$((issues + PRE_RENAME_FOUND))
 
     # --- (c) Orphaned systemd units ---
     echo -e "${BLUE}Checking for orphaned systemd units...${NC}"
