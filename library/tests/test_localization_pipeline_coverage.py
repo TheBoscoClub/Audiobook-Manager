@@ -891,10 +891,13 @@ class TestWhisperSTT:
 # ── xtts.py ──
 
 
-@pytest.mark.skipif(
+# requests_mock is a dev dependency; a deployed venv does not carry it
+needs_requests_mock = pytest.mark.skipif(
     importlib.util.find_spec("requests_mock") is None,
     reason="requests_mock (dev dependency) not installed — e.g. a deployed venv",
 )
+
+
 class TestXTTSProvider:
     """XTTS voice-cloning TTS over RunPod serverless."""
 
@@ -928,6 +931,7 @@ class TestXTTSProvider:
         assert voices[0].id == "clone"
         assert voices[0].language == "zh"
 
+    @needs_requests_mock
     def test_synthesize_happy_path(self, tmp_path, requests_mock):
         import base64
 
@@ -946,6 +950,7 @@ class TestXTTSProvider:
         assert result == out
         assert out.read_bytes() == b"fake-audio-bytes"
 
+    @needs_requests_mock
     def test_synthesize_includes_reference_audio(self, tmp_path, requests_mock):
         """When voice is a readable file path, its content is sent as reference."""
         import base64
@@ -970,6 +975,7 @@ class TestXTTSProvider:
         req = requests_mock.request_history[0]
         assert "speaker_wav_b64" in req.json()["input"]
 
+    @needs_requests_mock
     def test_synthesize_raises_on_empty_response(self, tmp_path, requests_mock):
         from localization.tts.xtts import XTTSProvider
 
@@ -980,6 +986,7 @@ class TestXTTSProvider:
         with pytest.raises(RuntimeError, match="no audio data"):
             XTTSProvider("key", "ep").synthesize("hi", "zh", "default", tmp_path / "o.wav")
 
+    @needs_requests_mock
     def test_poll_job_raises_on_failure(self, tmp_path, requests_mock, monkeypatch):
         from localization.tts.xtts import XTTSProvider
 
@@ -992,6 +999,7 @@ class TestXTTSProvider:
         with pytest.raises(RuntimeError, match="FAILED"):
             XTTSProvider("key", "ep").synthesize("hi", "zh", "default", tmp_path / "o.wav")
 
+    @needs_requests_mock
     def test_poll_job_times_out(self, tmp_path, requests_mock, monkeypatch):
         import time as _time
 
