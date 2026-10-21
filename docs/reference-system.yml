@@ -3,8 +3,8 @@
 # See README.md (Hardware Requirements) and docs/ARCHITECTURE.md for the
 # supported minimum and recommended specs.
 ---
-generated_at: "2026-10-03T00:19:05Z"
-app_version: "8.7.1"
+generated_at: "2026-10-21T01:46:14Z"
+app_version: "8.7.2"
 
 hardware:
   cpu:
@@ -27,15 +27,15 @@ hardware:
 operating_system:
   name: "CachyOS"
   id: "cachyos"
-  kernel: "7.2.8-1-cachyos"
+  kernel: "7.2.11-1-cachyos"
 
 software:
-  python: "3.14.7"
+  python: "3.14.8"
   ffmpeg: "n9.0.2"
-  sqlite: "3.53.4"
+  sqlite: "3.54.0"
   openssl: "3.6.5"
   docker: "27.4.0"
-  caddy: "v2.11.4"
+  caddy: "v2.11.7"
 
 notes:
   - "This is the single machine the project is developed and smoke-tested on."
