@@ -957,3 +957,28 @@ def test_unreadable_balance_refuses(rig: Rig):
     assert proc.returncode == 1, _out(proc)
     assert "could not read the Vast account balance" in proc.stdout
     _assert_nothing_rented(rig, proc)
+
+
+def test_ledger_file_is_owner_only(tmp_path: Path):
+    """The spend ledger is read and written only by the drain and reaper, which
+    both run as the service user — no group needs it (CodeQL py/overly-permissive-file)."""
+    from localization import drain_ledger
+
+    ledger = tmp_path / "translation-drain" / "spend-ledger.tsv"
+    old = os.umask(0)
+    try:
+        drain_ledger.settle(ledger, "run-1", accrued=1.0)
+    finally:
+        os.umask(old)
+    assert (ledger.stat().st_mode & 0o777) == 0o600
+
+
+def test_existing_group_readable_ledger_is_tightened(tmp_path: Path):
+    """A ledger left 0640 by an older release is made owner-only on the next write."""
+    from localization import drain_ledger
+
+    ledger = tmp_path / "spend-ledger.tsv"
+    ledger.touch()
+    ledger.chmod(0o640)
+    drain_ledger.settle(ledger, "run-1", accrued=1.0)
+    assert (ledger.stat().st_mode & 0o777) == 0o600

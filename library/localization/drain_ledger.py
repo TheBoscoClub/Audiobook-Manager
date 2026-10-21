@@ -127,7 +127,9 @@ def _append(path: Path, run_id: str, kind: str, amount: float, note: str = "") -
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
     now = _now()
     line = f"{int(now)}\t{month_of(now)}\t{run_id}\t{kind}\t{amount:.4f}\t{note}\n"
-    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o640)
+    # Owner-only: the drain and the reaper both run as the service user
+    fd = os.open(path, os.O_WRONLY | os.O_APPEND | os.O_CREAT, 0o600)
+    os.fchmod(fd, 0o600)  # also tightens a ledger created group-readable by an older release
     with os.fdopen(fd, "a", encoding="utf-8") as fh:
         fcntl.flock(fh, fcntl.LOCK_EX)
         fh.write(line)
