@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+### Changed
+
+### Fixed
+
+## [8.7.1] - 2026-10-20
+
+### Added
+
 - **live-sync baseline**: an empty `live-sync.conf` and the live-sync pre-commit gate, so a file this project
   later keeps on NVMe has a managed home; `live-sync audit` reports any unmanaged dependency
 - **`LocalGPUWhisperSTT` accepts an https base URL and bearer token**: new `AUDIOBOOKS_WHISPER_GPU_URL` (http/https
@@ -153,6 +161,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `_norm_mode` numeric comparison in `scripts/reconcile-filesystem.sh` — `0600` vs `stat`'s `600` is not drift, a real
   `0644` is reported (and repaired in enforce mode), and setgid survives the comparison. Falsified by restoring the
   old string compare: 2 tests went red (Audiobook-Manager-nsz)
+- **Release tarball ships `uninstall.sh`**: `create-release.sh` copied `install.sh`, `upgrade.sh` and `migrate-api.sh`
+  to the tarball root but never `uninstall.sh`, although README documents it as part of the layout — the published
+  v8.7.0 tarball has no uninstaller. Added to both the copy loop and the manifest listing; verified by building the
+  tarball and listing it
 
 ### Security
 
@@ -207,15 +219,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   toast; `AUTH_ENABLED=false` is unchanged (Audiobook-Manager-gau)
 - **Translation failure log hygiene**: `VLLMTranslator` logged rejected source text and the rejection reason verbatim,
   allowing CR/LF log-line forging — both now pass through `_safe_log`
-
-## [8.7.1] - 2026-10-02
-
-### Fixed
-
-- **Release tarball ships `uninstall.sh`**: `create-release.sh` copied `install.sh`, `upgrade.sh` and `migrate-api.sh`
-  to the tarball root but never `uninstall.sh`, although README documents it as part of the layout — the published
-  v8.7.0 tarball has no uninstaller. Added to both the copy loop and the manifest listing; verified by building the
-  tarball and listing it
 
 ## [8.7.0] - 2026-10-02
 
