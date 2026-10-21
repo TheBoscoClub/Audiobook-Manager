@@ -165,6 +165,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dependency floors from Dependabot #186–#190**: `aiohttp>=3.14.4` (3 high advisories, e.g. GHSA-5wr8-gcqf-gqf3
   missing request/header timeout), `cbor2>=6.1.5`, `webauthn>=3.0.1`; dev-only `librt>=0.16.0`,
   `platformdirs>=4.12.3`
+- **`requirements.lock` regenerated from the test VM**: the 2026-10-13 lock came from the dev VM (126 extra pins
+  for packages nothing here requires, e.g. `mcp`, `starlette`, `pyjwt`, which a `-c` constraint never installs) and
+  pinned 10 transitive packages older than production already ran — a deploy would have downgraded `multidict` 6.9.1
+  to 6.7.1 (GHSA-54p9-h82j-f925); the new lock (56 packages) was taken after an eager in-floor upgrade on the test VM
+  and a green `--vm` suite, downgrades nothing in production, and `pip-audit` finds no known vulnerabilities
 - **Spend ledger is owner-only**: `localization/drain_ledger.py` created the ledger `0640`; the drain and the reaper
   both run as the service user, so it is now `0600`, and an existing group-readable ledger is tightened on the next
   write (CodeQL `py/overly-permissive-file`)
