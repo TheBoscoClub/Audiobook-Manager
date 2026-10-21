@@ -12,8 +12,9 @@ packaging>=26.0
 flask-sock>=0.7.0
 croniter>=6.2.4
 requests>=2.34.2
+certifi>=2026.10.19 # GHSA-6q48-6c7w-9gw2 (critical: bundled emSign roots with compromised intermediate keys); via requests
 cryptography>=50.0.1     # CVE-2026-39892 (47.0.0 was floor); 50.0.0 latest stable 2026-08
-webauthn>=3.0.0,<3.1.0   # 3.0 requires cbor2>=6.1.2 — compatible with cbor2>=6.1.4 (CVE-2026-26209); the pre-3.0 cbor2<6.0.0 cap is gone
+webauthn>=3.0.1,<3.1.0   # 3.0 requires cbor2>=6.1.2 — compatible with cbor2>=6.1.5 (CVE-2026-26209); the pre-3.0 cbor2<6.0.0 cap is gone
 pyotp>=2.10.0
 qrcode[pil]>=8.2
 sqlcipher3>=0.6.2
@@ -25,9 +26,9 @@ filelock>=4.0.6    # CVE-2025-68146
 marshmallow>=4.3.1  # CVE-2025-68480 (actual installed: 4.x)
 pynacl>=1.6.2       # CVE-2025-69277
 werkzeug>=3.1.9     # CVE-2025-66221, CVE-2026-21860, GHSA-29vq-49wr-vm6x
-pillow>=12.3.0      # GHSA-cfh3-3jmp-rvhc (OOB write on PSD)
+pillow>=13.0.0      # 13.0.0 fixes 6 high + 2 medium advisories (TIFF/GIF/PDF/EPS decoders, e.g. GHSA-c6hw-5grf-ff96); GHSA-cfh3-3jmp-rvhc fixed since 12.3.0
 defusedxml>=0.7.1   # S314: safe XML parsing for external/untrusted content
-cbor2>=6.1.4        # CVE-2026-26209 (DoS via CBOR recursion, used by webauthn)
+cbor2>=6.1.5        # CVE-2026-26209 (DoS via CBOR recursion, used by webauthn)
 idna>=3.20          # CVE floor; transitive via requests/cryptography
 # Localization: TTS and translation
 edge-tts>=7.2.8     # Microsoft Neural TTS (free, no API key)
@@ -46,5 +47,5 @@ pypinyin>=0.55.0    # Mandarin pinyin conversion for zh-Hans sort/search (pure P
 #     Unpacker is reused after a caught error).
 # Both are within their parents' declared ranges (edge-tts: aiohttp<4.0.0;
 # CacheControl: msgpack<2.0.0), so this constrains without conflicting.
-aiohttp>=3.14.3
+aiohttp>=3.14.4
 msgpack>=1.2.3

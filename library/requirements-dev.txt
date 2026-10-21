@@ -32,7 +32,7 @@ pip-audit>=2.10.1
 # current-major line and avoids CVE-tracked older releases.
 rich>=15.0.0
 greenlet>=3.5.6
-librt>=0.15.0
+librt>=0.16.0
 # radon is the cyclomatic-complexity scanner used by the /test audit's code
 # quality phase. It was previously an undeclared transitive assumption — only
 # its own dependency (mando) was pinned here, so a fresh dev environment had
@@ -59,7 +59,7 @@ mando>=0.7.1,<0.8
 # `[tool.pylint.typecheck]` in pyproject.toml is retained for ad-hoc runs; if
 # pylint is ever made a gate, declare pylint here and let it resolve astroid.
 packaging>=26.3
-platformdirs>=4.12.1
+platformdirs>=4.12.3
 types-croniter>=6.2.4.20260711
 types-requests>=2.33.0.20260906
 zope.interface>=8.6

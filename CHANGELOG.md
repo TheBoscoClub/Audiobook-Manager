@@ -156,6 +156,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **`certifi>=2026.10.19`**: GHSA-6q48-6c7w-9gw2 (critical) — the bundled CA set carried emSign roots whose
+  intermediate CA keys were compromised; `certifi` comes in via `requests`, now floored directly in `requirements.txt`
+  and `requirements-docker.txt`
+- **`pillow>=13.0.0`**: 13.0.0 fixes 6 high and 2 medium advisories in the TIFF, GIF, PDF and EPS decoders (e.g.
+  GHSA-c6hw-5grf-ff96 heap read in `TiffDecode.c`); a major version, proven drop-in by the full suite and by TOTP QR
+  generation (`auth/totp.py`), the only call site besides an optional cover-size read
+- **Dependency floors from Dependabot #186–#190**: `aiohttp>=3.14.4` (3 high advisories, e.g. GHSA-5wr8-gcqf-gqf3
+  missing request/header timeout), `cbor2>=6.1.5`, `webauthn>=3.0.1`; dev-only `librt>=0.16.0`,
+  `platformdirs>=4.12.3`
+- **Spend ledger is owner-only**: `localization/drain_ledger.py` created the ledger `0640`; the drain and the reaper
+  both run as the service user, so it is now `0600`, and an existing group-readable ledger is tightened on the next
+  write (CodeQL `py/overly-permissive-file`)
 - **Keep bd issues local**: `.beads/issues.jsonl` is now gitignored and
   untracked, and bd's `export.git-add` is off — the issue tracker stays on
   the maintainer's machine instead of being published with every commit
