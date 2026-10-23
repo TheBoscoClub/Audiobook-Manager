@@ -273,12 +273,12 @@ Add to `.gitignore`:
 test-audiobook-manager-qa-*.md
 ```
 
-Wait — actually these SHOULD be tracked in git since they're part of the project's test infrastructure. They contain no secrets (SSH config comes from vm-test-manifest.json which is already tracked). Keep them in version control.
+*Superseded 2026-10-23: `vm-test-manifest.json` is now local and gitignored; the tracked template is `vm-test-manifest.example.json`; see bd `Audiobook-Manager-d6n`.* Wait — actually these SHOULD be tracked in git since they're part of the project's test infrastructure. They contain no secrets (SSH config comes from vm-test-manifest.json which is already tracked). Keep them in version control.
 
 ## Security Considerations
 
 - SSH key path from `~/.ssh/id_ed25519` (not embedded in modules)
-- VM password from `~/.claude/rules/infrastructure.md` (not in module files)
+- *Superseded 2026-10-23: the VM password is read at run time with `with-secret VM_PASSWORD -- <command>`, never stored in a module or manifest; see bd `Audiobook-Manager-d6n`.* VM password from `~/.claude/rules/infrastructure.md` (not in module files)
 - No production data paths in modules — QA VM has its own isolated library copy
 - Docker operations use `sudo` on QA VM (claude user has NOPASSWD sudo)
 

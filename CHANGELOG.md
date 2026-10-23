@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+### Security
+
+- **VM test manifest is local-only**: `vm-test-manifest.json` is gitignored and untracked; the tracked template is
+  `vm-test-manifest.example.json` (placeholders only) — older revisions of the tracked file once carried the test-VM
+  password, since rotated. Neither file may hold a password; `ssh_config.password_source` points to
+  `with-secret VM_PASSWORD -- <command>` for non-SSH access, and the QA modules say to copy the template locally;
+  `scripts/hooks/pre-commit` exempts that one template by exact path (it documents a default VM install's paths)
+
 ## [8.7.1] - 2026-10-20
 
 ### Added

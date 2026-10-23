@@ -125,7 +125,13 @@
   "ssh_config": {
     "user": "{configured via --user flag or $USER}",
     "key": "{standard SSH key discovery or --ssh-key flag}",
-    "note": "No hardcoded credentials — uses standard SSH agent and key discovery"
+    "note": "No hardcoded credentials — uses standard SSH agent and key discovery",
+    "password_source": {
+      "store": "~/.config/api-keys.env",
+      "variable": "VM_PASSWORD",
+      "use": "with-secret VM_PASSWORD -- <command>",
+      "note": "Non-SSH access only; the SSH key is the preferred path. Never store the password in this file."
+    }
   },
 
   "qa_vm": {

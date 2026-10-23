@@ -49,6 +49,8 @@ is_skipped() {
         systemd/*) return 0 ;;
         # Installers run before any configuration exists (bootstrap)
         install.sh | uninstall.sh) return 0 ;;
+        # Test-VM manifest template: describes what a default VM install creates
+        vm-test-manifest.example.json) return 0 ;;
     esac
     return 1
 }

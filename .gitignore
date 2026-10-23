@@ -479,3 +479,7 @@ SESSION_RECORD*.md.zst
 # bd issue export: local only. The tracker stays on this machine (BTRFS + backups);
 # publishing it exposed issue text in public repos (2026-10-14).
 .beads/issues.jsonl
+
+# Local VM test manifest: holds this host's VM names/IPs. Template: vm-test-manifest.example.json.
+# Never put a password in either file; use with-secret VM_PASSWORD (bd Audiobook-Manager-d6n).
+vm-test-manifest.json

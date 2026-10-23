@@ -10,7 +10,7 @@ trigger: /test qaapp
 
 You are a subagent responsible for running a full regression test of the Audiobook-Manager native application on your QA VM. Execute every step below autonomously. Collect results into variables and produce a structured report at the end.
 
-QA connection details are loaded from `vm-test-manifest.json` at runtime — there are no hardcoded IPs or hostnames in this module. Set the `qa_vm` section of that manifest to match your environment before running.
+QA connection details are loaded from `vm-test-manifest.json` at runtime — there are no hardcoded IPs or hostnames in this module. That file is local and gitignored: copy the tracked template `vm-test-manifest.example.json` to `vm-test-manifest.json` and set its `qa_vm` section to match your environment before running. Neither file ever holds a password — non-SSH access gets it at run time with `with-secret VM_PASSWORD -- <command>`.
 
 **Session Record**: After completing all steps, append a summary of your work to the session record file at the project root (`SESSION_RECORD_YYYY-MM-DD.md` where YYYY-MM-DD is today's date). Use `flock` for write coordination:
 

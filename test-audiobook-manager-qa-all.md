@@ -83,7 +83,7 @@ the consistency check using native API/DB data directly.
 After both modules complete, perform additional cross-validation:
 
 ```bash
-MANIFEST="vm-test-manifest.json"
+MANIFEST="vm-test-manifest.json"  # local, gitignored; copy from vm-test-manifest.example.json
 QA_IP=$(jq -r '.qa_vm.static_ip' "$MANIFEST")
 SSH_KEY="${QA_SSH_KEY:-$HOME/.ssh/id_ed25519}"
 SSH_USER="${QA_SSH_USER:-$USER}"

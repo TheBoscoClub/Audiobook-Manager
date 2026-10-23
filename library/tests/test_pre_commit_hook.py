@@ -83,12 +83,21 @@ def test_clean_file_passes(repo: Path):
         "lib/audiobook-config.sh",
         "library/config.py",
         "docs/NOTES.md",
+        "vm-test-manifest.example.json",
     ],
 )
 def test_skipped_paths_pass(repo: Path, relpath: str):
     _stage(repo, relpath, 'X = "/srv/audiobooks/Library"\nY=/var/lib/audiobooks/db\n')
     result = _run_hook(repo)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+@pytest.mark.parametrize(
+    "relpath", ["vm-test-manifest.json", "config/vm-test-manifest.example.json"]
+)
+def test_manifest_exemption_is_exact_path(repo: Path, relpath: str):
+    _stage(repo, relpath, '{"db_path": "/var/lib/audiobooks/db/audiobooks.db"}\n')
+    assert _run_hook(repo).returncode != 0
 
 
 def test_comment_only_mention_passes(repo: Path):
