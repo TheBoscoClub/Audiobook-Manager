@@ -60,7 +60,7 @@ mando>=0.7.1,<0.8
 # pylint is ever made a gate, declare pylint here and let it resolve astroid.
 packaging>=26.3
 platformdirs>=4.12.3
-types-croniter>=6.2.4.20260711
+types-croniter>=6.2.4.20261006
 types-requests>=2.33.0.20261006
 zope.interface>=8.6
 mutmut>=3.8.0,<4  # mutation testing — scripts/mutation-gate.py
