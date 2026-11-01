@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Installation-value guard covers commit messages and pushes**: the map loading and matching move to
+  `scripts/hooks/lib/installation-values.sh`, shared by `pre-commit` (messages and behaviour unchanged) and two new
+  tracked hooks
+  - `scripts/hooks/commit-msg` judges the message after the promotional-trailer scrubber (the one copy stays
+    `.beads/hooks/commit-msg`, called when present); git's comment lines and the `-v` diff below the cut line are not
+    judged, following `core.commentChar`/`core.commentString` and `commit.cleanup`
+  - `scripts/hooks/pre-push` judges every pushed commit's message, the paths it adds or renames to and its added
+    lines, so cherry-picks, rebases, `am`, merges and `--no-verify` commits are caught; only the destination's own
+    tracking refs count as already published; deletions are skipped; names the commit and file, never the value
+  - `scripts/install-hooks.sh` installs all three, keeps every `LIVE-SYNC` and `BEADS INTEGRATION` block, and stays
+    idempotent; same fail-closed rules as `pre-commit` (bd `Audiobook-Manager-emu`)
 - **Installation-value guard in `scripts/hooks/pre-commit`**: `check_installation_values` refuses any staged added line
   or staged path — every file, comments included, empty new files and renames too — containing a key of the gitignored
   `.claude/local-scrub-map.txt` (`key==>replacement`, literal, `literal:` or `regex:`, the format
@@ -23,6 +34,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Cloudflare purge after an upgrade reads the installation's own configuration**: `upgrade.sh`
+  `purge_cloudflare_cache` takes `CF_ZONE_ID` and `CLOUDFLARE_PURGE_TOKEN` or `CLOUDFLARE_PURGE_TOKEN_FILE` from the
+  environment or `/etc/audiobooks/audiobooks.conf` — the keys `/api/system/purge-cache` already reads — instead of a
+  credential store in the invoking user's home directory; unset means skipped, and an unreadable config is reported
+  as unreadable rather than as unset; `KEY = value` spacing is read as the API reads it; documented in
+  `etc/audiobooks.conf.example`, `docs/ARCHITECTURE.md`, `docs/MULTI-LANGUAGE-SETUP.md` and `docs/SERVERLESS-OPS.md`
+  (bd `Audiobook-Manager-6lv`; a CLI upgrade by a user who cannot read the config never purges — bd
+  `Audiobook-Manager-obtt`)
+- **`scripts/gpu-node.sh` and `scripts/gpu-budget-guard.sh` take the Vast.ai key only as given**: `VAST_API_KEY` or
+  `VAST_API_KEY_FILE`; neither set is an error — the fallback to a personal secret-injection tool is gone (the
+  services already get `VAST_API_KEY_FILE` from their `derive-secrets` drop-ins) (bd `Audiobook-Manager-6lv`)
+- **iOS repro diagnostics need their account names from the environment**: `.claude/diagnostics/playwright_ios_repro.py`
+  and `browserstack_ios_repro.py` read the QA login from `AUDIOBOOKS_QA_USER` and the BrowserStack credentials file
+  from `BROWSERSTACK_CREDENTIALS_FILE`, with no defaults (checked after `--help`); the secrets-file header is matched
+  by whole words; the QA app module builds its login body with `jq` (bd `Audiobook-Manager-7o9`)
 - **VM roles, not VM names, in tracked files**: rules, reference docs, plans, `CHANGELOG.md` and a test docstring name
   the test, QA and dev VMs by role (`<test-vm-name>`, `<qa-vm-name>`, `<dev-vm-name>`) and the `/test` VM map by
   description; this host's names live in gitignored `.claude/rules/local-vms.md` (bd `Audiobook-Manager-bl9`)
@@ -61,6 +87,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Source-link check in `install.sh` and `upgrade.sh` could fire on one host only**: it looked for one
+  maintainer's projects-directory name in each `/usr/local/bin/audiobook-*` link target; it now flags any link that
+  resolves outside the install prefix, for the managed targets only (`/opt/audiobooks`,
+  `/usr/local/lib/audiobooks`) (bd `Audiobook-Manager-2l3`)
 - **`scripts/install-hooks.sh` dropped the live-sync commit gate**: it preserved only the `BEADS INTEGRATION` block, so
   every rerun silently removed the `LIVE-SYNC` block live-sync puts after the shebang; both blocks are now carried
   over in place, unbalanced markers of either refuse the install, and a rerun over a current hook reports "already
@@ -68,6 +98,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Host login, QA login and a vendor account name no longer in the tracked tree**: owner, rename and reporter
+  examples use `<deploy-user>`, `user1`/`user2` or "the operator", and the BrowserStack service-account name and a
+  personal credentials path are gone from the diagnostics; the guard map refuses all three on new lines; author
+  credit is unchanged pending bd `Audiobook-Manager-0fh2`; history not rewritten (bd `Audiobook-Manager-7o9`)
 - **minimatch 11.0.1 forced in `library/web-v2`** (Dependabot alert #13, `GHSA-g3hv-75wg-m249`, medium — globparts
   amplification DoS): `package.json` `overrides` pins `minimatch` to `11.0.1` under eslint, whose 10.x line still
   declares `^10`; dev-only lint tooling, nothing shipped — eslint lints the same 22 files with identical findings before
@@ -1246,7 +1280,7 @@ published; everything in them ships here.
 ### Fixed
 
 - **Chapter-skip buttons now work on every playback path**: `library/web-v2/js/shell.js::ShellPlayer.playBook` fetches `/api/audiobooks/<id>/chapters` and reveals the `#sp-skip-back-chapter` / `#sp-skip-forward-chapter` controls whenever the response contains boundaries — covering the English single-stream `/stream/<id>` pathway that v8.3.10.1 had silently hidden the buttons on. The original v8.3.10.1 design only revealed the buttons for `streamingTranslate.isStreaming()` OR a populated `translatedEntries` array, leaving English audiobooks (the ~90% case) without any chapter-skip affordance — broken by-design rather than by-accident. New `_applyChapterButtonVisibility()` helper recomputes visibility after the async fetch resolves; `_skipBackChapter` and `_skipForwardChapter` consult `this.chapters` first (with the same 3-second double-tap-back UX from `Audiobook-Manager-9by`, now in milliseconds against `start_ms` / `end_ms`), falling through to the streaming MSE and `translatedEntries` paths so behaviour for those is unchanged. Reset of `this.chapters = []` at `playBook` entry prevents a previous book's boundaries from leaking into a new book before its fetch resolves. Stale-fetch guard re-checks `this.currentBook?.bookId === bookId` in both `.then` and `.catch` so a user switching books mid-fetch doesn't get the prior book's chapters applied. Source: Bosco's reaction post-v8.3.10.1 deploy ("It's insane to think that I did not intend for the FF/FB buttons and functionality to work regardless of locale") (Audiobook-Manager-6ub)
-- **`upgrade.sh` Cloudflare cache purge no longer silently fails on every upgrade**: `purge_cloudflare_cache` was calling `audiobook-purge-cache` directly, but the script enforces `require_audiobooks_user` (added in `4bd9917d` for the audiobooks-owned config/DB security model) — every local and remote upgrade was emitting `error: audiobook-purge-cache must run as the audiobooks user. current: root (uid 0)` (remote) and `current: bosco (uid 1000)` (local) and the CDN was never purged. Fix: (a) `command -v audiobook-purge-cache` discovery now precedes the project-tree fallback so the operator-mode invocation finds `/opt/audiobooks/scripts/audiobook-purge-cache` (audiobooks-readable adjacent libs/configs) instead of the project copy (operator-owned 0600 `config.env` unreadable after privilege drop); (b) the invocation is wrapped in `sudo -u audiobooks env CF_GLOBAL_API_KEY=… CF_AUTH_EMAIL=… CF_ZONE_ID=… "$purge_script"` so the dropped-privilege child has the credentials it needs (audiobooks user has no `~/.config/api-keys.env` of its own); (c) early-exit when sudo to audiobooks isn't available, with `current_user == "audiobooks"` short-circuit so install.sh's edge case doesn't double-sudo. Verified end-to-end: actual Cloudflare API returned `Cache purged successfully` after the patch. Regression-guarded by 7 new tests in `library/tests/test_upgrade_purge_cache_user_gate.py`
+- **`upgrade.sh` Cloudflare cache purge no longer silently fails on every upgrade**: `purge_cloudflare_cache` was calling `audiobook-purge-cache` directly, but the script enforces `require_audiobooks_user` (added in `4bd9917d` for the audiobooks-owned config/DB security model) — every local and remote upgrade was emitting `error: audiobook-purge-cache must run as the audiobooks user. current: root (uid 0)` (remote) and `current: <deploy-user> (uid <uid>)` (local) and the CDN was never purged. Fix: (a) `command -v audiobook-purge-cache` discovery now precedes the project-tree fallback so the operator-mode invocation finds `/opt/audiobooks/scripts/audiobook-purge-cache` (audiobooks-readable adjacent libs/configs) instead of the project copy (operator-owned 0600 `config.env` unreadable after privilege drop); (b) the invocation is wrapped in `sudo -u audiobooks env CF_GLOBAL_API_KEY=… CF_AUTH_EMAIL=… CF_ZONE_ID=… "$purge_script"` so the dropped-privilege child has the credentials it needs (audiobooks user has no `~/.config/api-keys.env` of its own); (c) early-exit when sudo to audiobooks isn't available, with `current_user == "audiobooks"` short-circuit so install.sh's edge case doesn't double-sudo. Verified end-to-end: actual Cloudflare API returned `Cache purged successfully` after the patch. Regression-guarded by 7 new tests in `library/tests/test_upgrade_purge_cache_user_gate.py`
 - **`upgrade.sh` audit/cleanup no longer false-flags the `/usr/local/lib/audiobooks` compat symlink as a "legacy install directory"**: `install.sh` deliberately creates `/usr/local/lib/audiobooks → ${APP_DIR}/lib` as a backward-compat symlink for any scripts that still reference the old path, but the post-upgrade `audit_and_cleanup` step used `[[ -d "/usr/local/lib/audiobooks" ]]` (which follows symlinks) and warned `WARNING: Legacy install directory /usr/local/lib/audiobooks still exists` on every successful upgrade. Fixed by adding a `[[ -L ... ]]` test that precedes the `-d` test: a symlink resolving via `readlink -f` to either `${target}/lib` or `/opt/audiobooks/lib` is the expected compat shim and reports `Legacy compat symlink OK (→ …)`; only a real directory or a symlink pointing somewhere unexpected raises a warning
 
 ## [8.3.10.1] - 2026-05-02
@@ -1902,7 +1936,7 @@ identical to the intended 8.2.3.1 release.
   `audiobooks:audiobooks` ownership and canonical mode bits across the entire
   install tree, venv `bin/` entries, TLS key (`0640`), `auth.key` (`0600`), and
   `auth.db` (`0640`). Prevents recurrences of the 2026-04-14 outage where
-  `/opt/audiobooks` was left `bosco:bosco` `0700` after an interactive rebuild
+  `/opt/audiobooks` was left `<deploy-user>:<deploy-user>` `0700` after an interactive rebuild
   and blocked the service account from reading its own install. Paths are
   resolved via `${AUDIOBOOKS_CERTS}` / `${AUDIOBOOKS_VAR_DIR}` from
   `lib/audiobook-config.sh` (no hardcoded paths)
