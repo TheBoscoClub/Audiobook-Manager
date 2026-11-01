@@ -295,12 +295,16 @@ jobs:
         with:
           node-version: '22'
 
-      # --dot: without it the glob skips dot-directories, and .claude/rules/ (the loaded rules) is never linted.
+      # Lint the tracked file list, not a glob: '**/*.md' skips dot-directories (.claude/rules/ was never
+      # linted), and markdownlint exits 0 when given nothing to lint, so an empty list must fail.
       - name: Markdown lint (markdownlint-cli pinned to the local version)
         run: |
           npm install -g --ignore-scripts markdownlint-cli@0.48.0
           markdownlint --version
-          markdownlint --dot '**/*.md'
+          mapfile -d '' files < <(git ls-files -z -- '*.md')
+          [ "${#files[@]}" -gt 0 ] || { echo "no tracked *.md found — refusing a vacuous pass" >&2; exit 1; }
+          echo "linting ${#files[@]} tracked *.md files"
+          markdownlint "${files[@]}"
 
   eslint:
     name: ESLint (web-v2)
@@ -326,7 +330,7 @@ jobs:
       - name: Install dependencies
         run: |
           cd library/web-v2
-          npm ci --no-audit --no-fund
+          npm ci --ignore-scripts --no-audit --no-fund
 
       - name: Run ESLint
         run: |

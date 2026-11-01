@@ -11,18 +11,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Markdown lint is a CI gate**: `.github/workflows/ci.yml` runs markdownlint-cli 0.48.0 (pinned, same as local) as
-  `markdownlint --dot '**/*.md'` over every tracked `*.md`, dot-directories included (`.beads/` excluded); the config is
-  now tracked (`.gitignore` no longer ignores `.markdownlint.*` or `.markdownlintignore`) — `.markdownlint.json` is the
-  one config, `.markdownlint-cli2.jsonc` (unread by markdownlint-cli) removed with its extra ignores folded into
-  `.markdownlintignore`; checkout sets `persist-credentials: false` (bd `Audiobook-Manager-4no`)
-- **Always-loaded rules trimmed**: narrative, incidents and mechanism moved verbatim from `CLAUDE.md` and `.claude/rules/*.md` into `.claude/docs/rules-reference/` (not auto-loaded) — loaded size 18,631 → 15,897 chars, every binding rule kept (lossless check: each removed line found whole in a reference doc; independent review)
+- **Markdown lint is a CI gate**: `.github/workflows/ci.yml` runs markdownlint-cli 0.48.0 (pinned, same as local) over
+  the file list from `git ls-files -- '*.md'`, dot-directories included (`.beads/` excluded via `.markdownlintignore`),
+  and fails on an empty list — a `'**/*.md'` glob skipped `.claude/` and markdownlint exits 0 when given nothing to lint;
+  the config is now tracked (`.gitignore` no longer ignores `.markdownlint.*` or `.markdownlintignore`) —
+  `.markdownlint.json` is the one config, `.markdownlint-cli2.jsonc` (unread by markdownlint-cli) removed with its extra
+  ignores folded into `.markdownlintignore`; checkout sets `persist-credentials: false` (bd `Audiobook-Manager-4no`)
+- **Always-loaded rules trimmed**: narrative, incidents and mechanism moved verbatim from `CLAUDE.md` and
+  `.claude/rules/*.md` into `.claude/docs/rules-reference/` (not auto-loaded) — loaded size 18,631 → 15,897 chars, every
+  binding rule kept (lossless check: each removed line found whole in a reference doc; independent binding-semantics
+  review, 0 clauses unloaded)
 
 ### Fixed
 
 ### Security
 
-- **Host-specific notes can no longer be tracked by accident**: `.gitignore` covers `.claude/rules/local-*.md` and `.claude/docs/local/`
+- **minimatch 11.0.1 forced in `library/web-v2`** (Dependabot alert #13, `GHSA-g3hv-75wg-m249`, medium — globparts
+  amplification DoS): `package.json` `overrides` pins `minimatch` to `11.0.1` under eslint, whose 10.x line still
+  declares `^10`; dev-only lint tooling, nothing shipped — eslint lints the same 22 files with identical findings before
+  and after, and still fails on a planted `no-undef`; adds `@isaacs/nonrecursive-glob-match` 1.0.3 (minimatch's own
+  dependency, same publisher, no install scripts); drop the override once eslint accepts minimatch 11
+  (bd `Audiobook-Manager-ke5`)
+- **CI installs web-v2 dependencies with `--ignore-scripts`**: the ESLint job's `npm ci` ran lifecycle scripts, which
+  the runner's npm allows by default; eslint needs none
+- **Host-specific notes can no longer be tracked by accident**: `.gitignore` covers `.claude/rules/local-*.md` and
+  `.claude/docs/local/`
 - **VM test manifest is local-only**: `vm-test-manifest.json` is gitignored and untracked; the tracked template is
   `vm-test-manifest.example.json` (placeholders only) — older revisions of the tracked file once carried the test-VM
   password, since rotated. Neither file may hold a password; `ssh_config.password_source` points to
