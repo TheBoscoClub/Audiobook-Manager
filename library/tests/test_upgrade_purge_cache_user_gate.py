@@ -36,7 +36,7 @@ pytestmark = pytest.mark.requires_repo_source
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 UPGRADE_SH = PROJECT_ROOT / "upgrade.sh"
 
-DECOY_TOKEN = "decoyTokenFromHome123"
+DECOY_TOKEN = "decoy-token-from-home-123"
 DECOY_ZONE = "decoyzone0123"
 
 

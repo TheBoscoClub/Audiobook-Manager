@@ -92,7 +92,7 @@ def _remote_has(remote: Path, ref: str) -> bool:
 @pytest.fixture
 def remote(tmp_path: Path) -> Path:
     path = tmp_path / "remote.git"
-    subprocess.run(["git", "init", "-q", "--bare", str(path)], check=True, env=_env())
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(path)], check=True, env=_env())
     return path
 
 
@@ -605,7 +605,7 @@ def test_push_with_unknown_remote_sha_judges_unpublished_commits(
 
 def _bare(tmp_path: Path, name: str) -> Path:
     path = tmp_path / name
-    subprocess.run(["git", "init", "-q", "--bare", str(path)], check=True, env=_env())
+    subprocess.run(["git", "init", "-q", "--bare", "-b", "main", str(path)], check=True, env=_env())
     return path
 
 
