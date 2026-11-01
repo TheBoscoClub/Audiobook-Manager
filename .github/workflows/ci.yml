@@ -285,6 +285,8 @@ jobs:
         uses: >-
           actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Node
         uses: >-
@@ -293,11 +295,12 @@ jobs:
         with:
           node-version: '22'
 
+      # --dot: without it the glob skips dot-directories, and .claude/rules/ (the loaded rules) is never linted.
       - name: Markdown lint (markdownlint-cli pinned to the local version)
         run: |
           npm install -g --ignore-scripts markdownlint-cli@0.48.0
           markdownlint --version
-          markdownlint '**/*.md'
+          markdownlint --dot '**/*.md'
 
   eslint:
     name: ESLint (web-v2)

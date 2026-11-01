@@ -15,5 +15,8 @@ library/.pytest_cache/
 .codeql-db/
 .btrbk-snapshots/
 .playwright-mcp/
+# Gitignored local files: CI never sees them, so a local --dot run must not either
+.claude-si-gate-log.md
+.claude/hookify.*.local.md
 # bd generates .beads/README.md and may regenerate it at any time; a gate on it would go red on its own
 .beads
