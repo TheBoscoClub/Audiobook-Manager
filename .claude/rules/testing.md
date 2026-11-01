@@ -1,19 +1,21 @@
 # Testing — Isolation & Verification
 
+Detail, incidents and reasoning per section: `.claude/docs/rules-reference/testing.md` (same headings).
+
 ## Dev Machine vs VM
 
 **Dev machine: unit tests, linting, static analysis, code editing ONLY. Integration, API, UI/Playwright, auth and E2E tests MUST run on the test VM.** `/test` Phase 10b (VM Lifecycle) detects pristine state and auto-installs before tests.
 
 ### What Runs Where
 
-| Test Type | Where | Example |
-|-----------|-------|---------|
-| Unit tests | Dev machine | `pytest library/tests/test_metadata.py` |
-| Config/lint tests | Dev machine | `pytest library/tests/test_config.py` |
-| API integration | VM | `pytest library/tests/test_backoffice_integration.py` |
-| UI/Playwright | VM | `pytest library/tests/test_player_navigation_persistence.py` |
-| Auth/WebAuthn | Dev (unit) / VM (integration) | Unit mocks OK; real auth flow needs VM |
-| Auth lifecycle | VM | `pytest library/tests/test_auth_lifecycle_integration.py` |
+| Test Type | Where |
+|-----------|-------|
+| Unit tests | Dev machine |
+| Config/lint tests | Dev machine |
+| API integration | VM |
+| UI/Playwright | VM |
+| Auth/WebAuthn | Dev (unit) / VM (integration) |
+| Auth lifecycle | VM |
 
 ## After Syncing Project to Production
 
@@ -33,18 +35,16 @@ sudo -E -u audiobooks env PYTHONPATH=/opt/audiobooks/library/venv/lib/python3.14
     pytest --vm -k "test_api_behavioral or sort" --tb=short -q
 ```
 
-Without `-E` + explicit `PYTHONPATH`, `test_admin_activity_api.py` fails collection with `ModuleNotFoundError: No module named 'webauthn'`.
-
 ## Test VM Lifecycle — Always Shut Down at End of /test
 
 **`test-audiobook-cachyos` is EXCLUSIVELY for `/test` audits** (no other workload or user), so it MUST be shut down at the end of every `/test` audit, even if `/test` did not start it. This overrides the generic "preserve VMs /test didn't start" logic in `~/.claude/skills/test-phases/phase-11-cleanup.md`, which is right for shared VMs only.
 
-**Authoritative source (the contract)**: `~/.claude/config/project-vm-map.json` sets `"post_test_restore": true` on both `vms.test-audiobook-cachyos` and `projects.Audiobook-Manager`. phase-11-cleanup.md reads it for the current project and, if any matching VM has `post_test_restore: true`, runs `virsh shutdown` unconditionally.
+**Authoritative source (the contract)**: `~/.claude/config/project-vm-map.json` sets `"post_test_restore": true` on both `vms.test-audiobook-cachyos` and `projects.Audiobook-Manager`.
 
 | VM | post_test_restore | Phase 11 cleanup action |
 |----|--------------------|----------------|
-| `test-audiobook-cachyos` | true | **ALWAYS shut down** (revert to pristine BTRFS snapshot on next /test start) |
-| `qa-audiobook-cachyos` | false | Leave running (QA mirror for released-version smoke testing) |
+| `test-audiobook-cachyos` | true | **ALWAYS shut down** |
+| `qa-audiobook-cachyos` | false | Phase 11 does not touch it (not /test-owned; QA mirror for released-version smoke tests); its lifecycle follows `vm-lifecycle.md` |
 | `dev-audiobook-cachyos` | false | Leave running ONLY if user started it; user owns dev VM lifecycle |
 
 **Verify at end of every /test run**: `sudo virsh domstate test-audiobook-cachyos` must print `shut off`. If not, Phase 11 has a bug — fix it; do not shut down manually as a workaround.
@@ -61,11 +61,7 @@ Without `-E` + explicit `PYTHONPATH`, `test_admin_activity_api.py` fails collect
 | Mount host production paths via NFS/CIFS/virtiofs | **NEVER** |
 | Docker `-v` mount to host production paths | **NEVER** |
 
-| Environment | Databases | Audiobook Library | Configuration |
-|-------------|-----------|-------------------|---------------|
-| **Production** (host) | `/var/lib/audiobooks/db/*.db` | `${AUDIOBOOKS_LIBRARY}` (full) | `/etc/audiobooks/` |
-| **Test VM** / **QA VM** | Own DBs on VM disk (fresh or copied) | Own library on VM disk (<275GB) | Own config on VM disk |
-| **Docker test** | Ephemeral in-container DB | Sample data via volume or none | Container env vars only |
+Production (host): DBs `/var/lib/audiobooks/db/*.db`, library `${AUDIOBOOKS_LIBRARY}`, config `/etc/audiobooks/`. Test VM / QA VM: own DBs, library and config on the VM disk. Docker test: ephemeral in-container DB, sample data or none, configuration through container env vars only.
 
 ### Prohibited actions
 
@@ -78,11 +74,11 @@ Without `-E` + explicit `PYTHONPATH`, `test_admin_activity_api.py` fails collect
 
 `library/tests/conftest.py` pins `COVER_DIR`, `AUDIOBOOKS_COVERS`, `AUDIOBOOKS_LIBRARY` and `AUDIOBOOKS_DATA` into a per-run temp tree **at module scope** (not a fixture — `library/config.py` resolves them at import time). Do not remove that block; do not add tests reading these from the ambient environment.
 
-Why: `import_to_db._cleanup_orphaned_covers()` **deletes** every file in `COVER_DIR` the DB does not reference — with a temp test DB, every cover. On 2026-08-27 a run with config fallen back to production defaults attempted exactly that, stopped only by filesystem permissions (which the `sudo -E -u audiobooks … pytest` invocation above would NOT have). Both guards must stay: the conftest pin, and the refusal in `_cleanup_orphaned_covers()` when a sweep would delete every file present (`Audiobook-Manager-d40`).
+Both guards must stay: the conftest pin, and the refusal in `_cleanup_orphaned_covers()` when a sweep would delete every file present (`Audiobook-Manager-d40`).
 
 ### Release leak prevention (COPYRIGHT/LICENSE CRITICAL)
 
-Production audiobooks are personally owned licensed content; leaking them into a release (GitHub, Docker registry, tarball) exposes private data and creates copyright/trademark liability.
+Production audiobooks are personally owned licensed content; never leak them into a release (GitHub, Docker registry, tarball).
 
 - **Docker test containers**: production data copied in MUST be cleaned up (container removed) in Phase 9c cleanup or Phase 11, BEFORE `/test` ends
 - **Docker test images**: NEVER bake production data in via `COPY`; use runtime `-v` mounts or `docker cp`
@@ -91,7 +87,7 @@ Production audiobooks are personally owned licensed content; leaking them into a
 
 ## Browser for UI/E2E Testing
 
-**Use Brave for all UI/E2E testing.** On a test/QA VM without it: `sudo pacman -S brave-bin --noconfirm` (chaotic-aur), plus codecs `sudo pacman -S opus libopus --noconfirm` (Brave is Chromium-based with full Opus/WebM support). Playwright: `chromium` channel pointed at the Brave binary, or launch with `--ignore-https-errors` for self-signed certs.
+**Use Brave for all UI/E2E testing.** On a test/QA VM without it: `sudo pacman -S brave-bin --noconfirm` (chaotic-aur), plus codecs `sudo pacman -S opus libopus --noconfirm`. Playwright: `chromium` channel pointed at the Brave binary, or launch with `--ignore-https-errors` for self-signed certs.
 
 ## Version-Gated Test Markers (v8 Separation)
 

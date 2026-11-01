@@ -8,6 +8,4 @@
 
 ## Affected Code
 
-- `library/scanner/metadata_utils.py` - `run_ffprobe()` already uses `-show_streams`
-- `library/tests/test_metadata_consistency.py` - `get_file_metadata()` checks both locations
-- Any new code reading audio metadata must handle both locations
+Any new code reading audio metadata must handle both locations. Files: `.claude/docs/rules-reference/audio-metadata.md`.

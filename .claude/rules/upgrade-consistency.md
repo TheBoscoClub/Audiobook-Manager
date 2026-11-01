@@ -1,5 +1,7 @@
 # Upgrade System Consistency — Mandatory Cross-File Review
 
+Detail, incidents and reasoning per section: `.claude/docs/rules-reference/upgrade-consistency.md` (same headings).
+
 A change to upgrade functionality in ANY of these requires review and update of ALL:
 `upgrade.sh` (CLI engine), `scripts/upgrade-helper-process` (privileged bridge for web upgrades), `library/backend/api_modular/utilities_system.py` (API), `library/web-v2/utilities.html` (UI markup), `library/web-v2/js/utilities.js` (UI logic), `install.sh` (first install), `caddy/audiobooks.conf` (Caddy maintenance routing), `caddy/maintenance.html` (external maintenance page).
 
@@ -23,8 +25,6 @@ Every new `scripts/*.py` in a release needs ALL of, before `/git-release`:
 6. **OR** a committed exception comment atop the script explaining why it is stand-alone
 
 **Mental review does NOT count.** Physically open and trace every file above each release; an untouched file's confirmation goes in the release staging notes.
-
-**Why**: v8.3.0/v8.3.1 shipped `scripts/stream-translate-worker.py` with zero wiring; `streaming_segments` rows had no reader and the prod Chinese translation demo hung on a 5-minute "排队中" spinner while CHANGELOG claimed it shipped. Post-mortem: memory `feedback_upgrade_consistency_enforcement.md`.
 
 ## New-Table Wiring Enforcement (MANDATORY — added 2026-04-17)
 

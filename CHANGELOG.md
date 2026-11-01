@@ -11,10 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Always-loaded rules trimmed**: narrative, incidents and mechanism moved verbatim from `CLAUDE.md` and `.claude/rules/*.md` into `.claude/docs/rules-reference/` (not auto-loaded) — loaded size 18,631 → 15,897 chars, every binding rule kept (lossless check: each removed line found whole in a reference doc; independent review)
+
 ### Fixed
 
 ### Security
 
+- **Host-specific notes can no longer be tracked by accident**: `.gitignore` covers `.claude/rules/local-*.md` and `.claude/docs/local/`
 - **VM test manifest is local-only**: `vm-test-manifest.json` is gitignored and untracked; the tracked template is
   `vm-test-manifest.example.json` (placeholders only) — older revisions of the tracked file once carried the test-VM
   password, since rotated. Neither file may hold a password; `ssh_config.password_source` points to

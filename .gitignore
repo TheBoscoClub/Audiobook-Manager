@@ -483,3 +483,7 @@ SESSION_RECORD*.md.zst
 # Local VM test manifest: holds this host's VM names/IPs. Template: vm-test-manifest.example.json.
 # Never put a password in either file; use with-secret VM_PASSWORD (bd Audiobook-Manager-d6n).
 vm-test-manifest.json
+
+# Host-specific rule notes and narrative (never tracked)
+.claude/rules/local-*.md
+.claude/docs/local/
