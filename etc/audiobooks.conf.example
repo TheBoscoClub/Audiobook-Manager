@@ -180,6 +180,18 @@ AUDIOBOOKS_DEV_MODE = "false"
 # Cloudflare CDN cache purge (optional)
 # Set your Cloudflare zone ID to enable automatic cache purging after upgrades.
 # Find it in the Cloudflare dashboard: zone overview → API → Zone ID
+# Both purge pathways read the keys below: the API endpoint
+# (/api/system/purge-cache) and upgrade.sh after it deploys web assets.
+# upgrade.sh takes each key from its environment, else from this file
+# (AUDIOBOOKS_CONF overrides the path); it never reads a home directory.
+# With CF_ZONE_ID or the token unset, the purge is skipped with a message
+# and the upgrade continues. A web-UI upgrade runs upgrade.sh as root (through
+# the privileged helper). A CLI upgrade (./upgrade.sh ... --target ...) runs as
+# the invoking user, who must be able to read both this file (0640
+# root:audiobooks) and the token file, or must supply the keys in the
+# environment; otherwise the purge is skipped and the message names the
+# unreadable file. The /run/audiobooks token below is 0400 audiobooks, so a CLI
+# upgrade by an ordinary user does not purge with it.
 # CF_ZONE_ID=""
 
 # Cloudflare authentication for cache purge. Use a SCOPED API TOKEN — create it

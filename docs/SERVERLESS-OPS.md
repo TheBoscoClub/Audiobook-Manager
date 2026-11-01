@@ -68,18 +68,17 @@ staleness alert are owned by the two monitor timers - see
 
 ## Prerequisites
 
-### API key (`~/.config/api-keys.env`)
+### API key (`/etc/audiobooks/audiobooks.conf`, or a `*_FILE` pointer)
 
 ```bash
 # RunPod — serverless API key
 AUDIOBOOKS_RUNPOD_API_KEY=<runpod-api-key>
 ```
 
-Permissions: `chmod 600` on the key file.
-
 `resolve_secret()` also accepts a `*_FILE` pointer, so the key can live outside
-the config: set `AUDIOBOOKS_RUNPOD_API_KEY_FILE` to a `0600` file containing it.
-An inline value wins over the pointer.
+the config: set `AUDIOBOOKS_RUNPOD_API_KEY_FILE` to a `0600` file owned by
+`audiobooks` containing it. An inline value wins over the pointer. Nothing in
+the application reads a credential file in any user's home directory.
 
 ### Endpoints
 
@@ -109,8 +108,8 @@ means the first segment of every playback session waits for provider cold-start.
 
 ## Configuration
 
-Set the endpoints your deployment uses in `/etc/audiobooks/audiobooks.conf` (or
-`~/.config/api-keys.env` — either is read at startup):
+Set the endpoints your deployment uses in `/etc/audiobooks/audiobooks.conf`
+(read at startup):
 
 ```bash
 # RunPod serverless
@@ -266,7 +265,7 @@ serves free on all future playbacks.
 
 ## Config Reference
 
-### Endpoints (`/etc/audiobooks/audiobooks.conf` or `~/.config/api-keys.env`)
+### Endpoints (`/etc/audiobooks/audiobooks.conf`)
 
 | Variable | Purpose |
 |----------|---------|
@@ -276,7 +275,7 @@ serves free on all future playbacks.
 | `AUDIOBOOKS_WHISPER_GPU_HOST` | Self-hosted `whisper-gpu` service host (optional) |
 | `AUDIOBOOKS_WHISPER_GPU_PORT` | Self-hosted `whisper-gpu` service port (default `8765`) |
 
-### API keys (`~/.config/api-keys.env`)
+### API keys (`/etc/audiobooks/audiobooks.conf`, or a `*_FILE` pointer)
 
 | Variable | Required by |
 |----------|-------------|

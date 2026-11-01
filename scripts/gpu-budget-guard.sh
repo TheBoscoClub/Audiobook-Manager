@@ -10,8 +10,9 @@
 # unit of its own: it lives exactly as long as the node it guards.
 #
 # CREDENTIALS: VAST_API_KEY, else VAST_API_KEY_FILE (pointer to a file holding
-# the key; set-but-unreadable is an error), else — operator CLI only — re-exec
-# under ~/.claude/bin/with-secret. The key is never printed or put in argv.
+# the key; set-but-unreadable is an error), else the guard exits with an error
+# (an operator CLI run injects VAST_API_KEY with the operator's own tooling).
+# The key is never printed or put in argv.
 #
 # WHY THIS EXISTS
 #   A translation campaign on 2026-09-11/12 was estimated at $12-20 and spent
@@ -115,14 +116,7 @@ if [[ -z "${VAST_API_KEY:-}" && -n "${VAST_API_KEY_FILE:-}" ]]; then
     [[ -n "$VAST_API_KEY" ]] || die "VAST_API_KEY_FILE (${VAST_API_KEY_FILE}) is empty"
 fi
 if [[ -z "${VAST_API_KEY:-}" ]]; then
-    WITH_SECRET="${HOME}/.claude/bin/with-secret"
-    [[ -x "$WITH_SECRET" ]] || die "VAST_API_KEY unset and with-secret not found"
-    reexec_args=(--cap "$CAP" --label "$LABEL")
-    [[ -n "$FLOOR" ]] && reexec_args+=(--floor "$FLOOR")
-    [[ -n "$MAX_IDLE" ]] && reexec_args+=(--max-idle "$MAX_IDLE")
-    [[ $CHECK_ONLY -eq 1 ]] && reexec_args+=(--check)
-    [[ "$AWAIT" != "0" ]] && reexec_args+=(--await "$AWAIT")
-    exec "$WITH_SECRET" VAST_API_KEY -- "$0" "${reexec_args[@]}"
+    die "no Vast.ai API key: set VAST_API_KEY in the environment, or VAST_API_KEY_FILE to a file holding it"
 fi
 
 command -v jq >/dev/null || die "jq required"

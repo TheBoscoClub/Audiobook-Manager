@@ -2881,57 +2881,103 @@ do_upgrade() {
 # Cloudflare Cache Purge (post-deploy)
 # -----------------------------------------------------------------------------
 
+_conf_key_value() {
+    # Print the last assignment of KEY ($1) in the config file ($2), with
+    # surrounding whitespace and one layer of matching quotes removed. Accepts
+    # `KEY=value` and `KEY = value`, as lib/audiobook-config.sh, library/config.py
+    # and systemd's EnvironmentFile do. Prints nothing when the file is
+    # unreadable or the key is absent; the caller tells those two apart. The
+    # file is never sourced (it is arbitrary shell); ${...} is not expanded.
+    local key="$1" conf="$2" val
+    [[ -r "$conf" ]] || return 0
+    val=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$conf" 2>/dev/null | tail -1 | cut -d= -f2-) || true
+    val="${val#"${val%%[![:space:]]*}"}"
+    val="${val%"${val##*[![:space:]]}"}"
+    if [[ "$val" =~ ^\"(.*)\"$ || "$val" =~ ^\'(.*)\'$ ]]; then
+        val="${BASH_REMATCH[1]}"
+    fi
+    printf '%s' "$val"
+}
+
 purge_cloudflare_cache() {
     # Purge Cloudflare CDN cache after deploying web assets — INLINE via curl.
-    # Non-fatal: if credentials or the zone ID aren't available, just log and continue.
-    # Credentials sourced from ~/.config/api-keys.env (shared with cloudflare-manager).
-    # When running under sudo, $HOME is /root — use SUDO_USER's home instead.
-    local real_home="$HOME"
-    if [[ -n "$SUDO_USER" ]]; then
-        real_home=$(getent passwd "$SUDO_USER" | cut -d: -f6)
-    fi
-    local cf_keys_file="${CF_KEYS_FILE:-$real_home/.config/api-keys.env}"
-
-    if [[ -f "$cf_keys_file" ]]; then
-        source "$cf_keys_file"
-    fi
-
-    # Scoped Zone > Cache Purge token. The store entry is CF_TOKEN_CACHE_PURGE;
-    # CLOUDFLARE_PURGE_TOKEN is accepted as an alias so a host configured either
-    # way works.
+    # Non-fatal: if the zone ID or the token isn't configured, log and continue.
     #
-    # This used to require CF_GLOBAL_API_KEY + CF_AUTH_EMAIL and send
-    # X-Auth-Key/X-Auth-Email. That Global key was revoked upstream, and this
-    # function treats failure as non-fatal — so every upgrade has been printing
-    # a soft skip/failure and purging NOTHING, for as long as the key has been
-    # dead. It also diverged from the API endpoint, which moved to the scoped
-    # token: two purge pathways, two different credentials, one of them dead.
-    # A Global key also grants full account access for an operation that needs
-    # only Zone > Cache Purge (~/.claude/rules/security.md).
-    local cf_purge_token="${CF_TOKEN_CACHE_PURGE:-${CLOUDFLARE_PURGE_TOKEN:-}}"
-    if [[ -z "$cf_purge_token" ]]; then
-        echo -e "${YELLOW}  Cloudflare cache purge skipped (no CF_TOKEN_CACHE_PURGE in $cf_keys_file)${NC}"
+    # Configuration is the installation's, the same keys the API endpoint
+    # (/api/system/purge-cache) reads: CF_ZONE_ID plus CLOUDFLARE_PURGE_TOKEN or
+    # a CLOUDFLARE_PURGE_TOKEN_FILE pointer, a token scoped to Zone > Cache Purge.
+    # Each key comes from the environment, else from the installed config
+    # (${AUDIOBOOKS_CONF:-/etc/audiobooks/audiobooks.conf}). Precedence matches
+    # library/common_utils/secret_resolver.py: inline token, then the file.
+    # Nothing is read from any user's home directory; with the keys unset the
+    # feature is simply off.
+    #
+    # (The Global API Key path — X-Auth-Key/X-Auth-Email — was removed in v8.4.3:
+    # it grants full account access for an operation that needs only
+    # Zone > Cache Purge.)
+    #
+    # A CLI upgrade runs as the invoking user, not root (only the web-UI path
+    # runs it as root, through the helper). When that user cannot read the
+    # config, an unreadable file must not pass for an unset key.
+    local conf="${AUDIOBOOKS_CONF:-/etc/audiobooks/audiobooks.conf}"
+    local conf_unreadable=""
+    if [[ -e "$conf" && ! -r "$conf" ]]; then
+        conf_unreadable="${conf} not readable by $(id -un); supply CF_ZONE_ID and CLOUDFLARE_PURGE_TOKEN or CLOUDFLARE_PURGE_TOKEN_FILE in the environment"
+    fi
+
+    local zone="${CF_ZONE_ID:-}"
+    [[ -n "$zone" ]] || zone=$(_conf_key_value CF_ZONE_ID "$conf")
+    if [[ -z "$zone" ]]; then
+        if [[ -n "$conf_unreadable" ]]; then
+            echo -e "${YELLOW}  CDN cache purge skipped (${conf_unreadable})${NC}"
+        else
+            echo -e "${YELLOW}  CDN cache purge skipped (CF_ZONE_ID not set)${NC}"
+        fi
+        return 0
+    fi
+    if [[ ! "$zone" =~ ^[A-Za-z0-9]+$ ]]; then
+        echo -e "${YELLOW}  CDN cache purge skipped (CF_ZONE_ID is not a plain zone ID)${NC}"
         return 0
     fi
 
-    # Resolve the Cloudflare zone ID: prefer the environment, then fall back to
-    # /etc/audiobooks/audiobooks.conf if readable by the current user.
-    CF_ZONE_ID="${CF_ZONE_ID:-}"
-    if [[ -z "$CF_ZONE_ID" && -r /etc/audiobooks/audiobooks.conf ]]; then
-        CF_ZONE_ID=$(grep -E '^[[:space:]]*CF_ZONE_ID=' /etc/audiobooks/audiobooks.conf | tail -1 | cut -d= -f2- | tr -d '"'\''[:space:]')
+    local token="${CLOUDFLARE_PURGE_TOKEN:-}"
+    [[ -n "$token" ]] || token=$(_conf_key_value CLOUDFLARE_PURGE_TOKEN "$conf")
+    if [[ -z "$token" ]]; then
+        local token_file="${CLOUDFLARE_PURGE_TOKEN_FILE:-}"
+        [[ -n "$token_file" ]] || token_file=$(_conf_key_value CLOUDFLARE_PURGE_TOKEN_FILE "$conf")
+        if [[ -n "$token_file" ]]; then
+            if [[ ! -r "$token_file" ]]; then
+                echo -e "${YELLOW}  Cloudflare cache purge skipped (CLOUDFLARE_PURGE_TOKEN_FILE ${token_file} not readable by $(id -un))${NC}"
+                return 0
+            fi
+            # || keeps a read error (e.g. a directory) from aborting under set -e.
+            token=$(tr -d '[:space:]' <"$token_file" 2>/dev/null) || token=""
+        fi
     fi
-    if [[ -z "$CF_ZONE_ID" ]]; then
-        echo -e "${YELLOW}  CDN cache purge skipped (CF_ZONE_ID not set)${NC}"
+    if [[ -z "$token" ]]; then
+        if [[ -n "$conf_unreadable" ]]; then
+            echo -e "${YELLOW}  Cloudflare cache purge skipped (${conf_unreadable})${NC}"
+        else
+            echo -e "${YELLOW}  Cloudflare cache purge skipped (no CLOUDFLARE_PURGE_TOKEN or CLOUDFLARE_PURGE_TOKEN_FILE configured)${NC}"
+        fi
+        return 0
+    fi
+    # The token goes into a curl config line; refuse anything that could break
+    # out of the quoted header value.
+    if [[ ! "$token" =~ ^[A-Za-z0-9._~+/=-]+$ ]]; then
+        echo -e "${YELLOW}  Cloudflare cache purge skipped (configured token has unexpected characters)${NC}"
         return 0
     fi
 
     echo -e "${BLUE}Purging Cloudflare CDN cache...${NC}"
 
+    # The Authorization header reaches curl on stdin (-K -), never in argv, so
+    # the token does not appear in /proc/<pid>/cmdline.
     local result
-    result=$(curl -s -X POST "https://api.cloudflare.com/client/v4/zones/$CF_ZONE_ID/purge_cache" \
-        -H "Authorization: Bearer $cf_purge_token" \
-        -H "Content-Type: application/json" \
-        --data '{"purge_everything":true}')
+    result=$(printf 'header = "Authorization: Bearer %s"\n' "$token" |
+        curl -s --max-time 60 -K - -X POST "https://api.cloudflare.com/client/v4/zones/${zone}/purge_cache" \
+            -H "Content-Type: application/json" \
+            --data '{"purge_everything":true}') || true
     if echo "$result" | python3 -c "import sys,json;sys.exit(0 if json.load(sys.stdin).get('success') else 1)" 2>/dev/null; then
         echo -e "${GREEN}  CDN cache purged${NC}"
     else
@@ -3205,6 +3251,23 @@ start_services() {
     fi
 }
 
+_count_links_outside_prefix() {
+    # Print how many audiobook-* symlinks in bin dir $1 resolve (readlink -f,
+    # every hop followed) to a path outside install prefix $2. A link that
+    # cannot be resolved counts as outside. The prefix is resolved too, so a
+    # prefix reached through a symlink compares like the links do.
+    local bin_dir="$1" prefix link resolved count=0
+    prefix=$(readlink -f "$2" 2>/dev/null) || prefix="$2"
+    for link in "$bin_dir"/audiobook-*; do
+        [[ -L "$link" ]] || continue
+        resolved=$(readlink -f "$link" 2>/dev/null) || resolved=""
+        if [[ "$resolved" != "$prefix" && "$resolved" != "$prefix"/* ]]; then
+            count=$((count + 1))
+        fi
+    done
+    echo "$count"
+}
+
 verify_installation_permissions() {
     # Verify that installed files have correct permissions and ownership
     local target_dir="$1"
@@ -3362,16 +3425,26 @@ verify_installation_permissions() {
         echo -e "${GREEN}OK${NC}"
     fi
 
-    # Verify no symlinks point to development project directory
-    # The check must look for ClaudeCodeProjects paths specifically, NOT $SCRIPT_DIR,
-    # because when run from /opt/audiobooks, $SCRIPT_DIR matches legitimate production links
+    # Verify every /usr/local/bin/audiobook-* link resolves inside the install
+    # prefix being upgraded ($target_dir). A link anywhere else — a source
+    # checkout, wherever it lives — makes production depend on a tree upgrade.sh
+    # does not manage. The reference is $target_dir, not $SCRIPT_DIR: when run
+    # from /opt/audiobooks, $SCRIPT_DIR is the install itself.
+    # Only the trees whose links refresh_bin_symlinks manages (the same
+    # condition as its call in do_upgrade) are checked: for a user or staging
+    # target, a system install's links resolve elsewhere by design.
     echo -n "  Checking for project source dependencies... "
-    local project_links=$(find /usr/local/bin -name "audiobook-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "ClaudeCodeProjects" || true)
-    if [[ "$project_links" -gt 0 ]]; then
-        echo -e "${RED}WARNING: $project_links binaries link to project source!${NC}"
-        issues_found=$((issues_found + 1))
+    local project_links=0
+    if [[ "$target_dir" != "/opt/audiobooks" && "$target_dir" != "/usr/local/lib/audiobooks" ]]; then
+        echo "n/a (/usr/local/bin links are not managed for $target_dir)"
     else
-        echo -e "${GREEN}OK (independent)${NC}"
+        project_links=$(_count_links_outside_prefix /usr/local/bin "$target_dir")
+        if [[ "$project_links" -gt 0 ]]; then
+            echo -e "${RED}WARNING: $project_links audiobook-* links in /usr/local/bin resolve outside $target_dir!${NC}"
+            issues_found=$((issues_found + 1))
+        else
+            echo -e "${GREEN}OK (independent)${NC}"
+        fi
     fi
 
     if [[ "$issues_found" -gt 0 ]]; then

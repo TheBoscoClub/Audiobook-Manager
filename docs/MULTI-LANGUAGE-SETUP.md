@@ -175,7 +175,7 @@ Existing translations continue to serve from the translation cache: the `string_
 
 One rented node serves both jobs: vLLM (Qwen3-8B by default) for translation and the `faster-whisper` service for STT. `scripts/gpu-node.sh` has two uses: an operator CLI run by hand from the project tree (the workflow below, as documented in the script headers), and an installed worker that `install.sh` / `upgrade.sh` copy to `/opt/audiobooks/scripts/` for the [scheduled drain](#scheduled-drain-translate-every-new-book-automatically). It has no systemd unit of its own.
 
-1. **Prerequisites**: `jq` and `curl`; a Vast.ai account with credit; your SSH public key registered at console.vast.ai under Keys. The script reads the Vast.ai API key from the `VAST_API_KEY` environment variable and never prints it or puts it on a command line. Export it for your shell session (`export VAST_API_KEY=<your-key>`); operators may instead inject it with their own secret tooling. When the variable is absent, the script tries to re-exec itself under a `with-secret` helper and exits with an error if it cannot find one.
+1. **Prerequisites**: `jq` and `curl`; a Vast.ai account with credit; your SSH public key registered at console.vast.ai under Keys. The script reads the Vast.ai API key from the `VAST_API_KEY` environment variable, or from the file named by `VAST_API_KEY_FILE`, and never prints it or puts it on a command line. Export it for your shell session (`export VAST_API_KEY=<your-key>`); operators may instead inject it with their own secret tooling. When neither is set, the script exits with an error; it never looks for a key or a secret-injection helper on its own.
 
 2. **Rent and bootstrap the node**:
 
@@ -364,14 +364,14 @@ The pipeline uses a **streaming/backlog endpoint split**: a STREAMING pool (warm
    - **STREAMING**: `min_workers=1` — always-warm worker for live playback
    - **BACKLOG**: `min_workers=0` — scale-to-zero for chapter batch runs
 
-3. **Configure API key** in `~/.config/api-keys.env`:
+3. **Configure API key** in `/etc/audiobooks/audiobooks.conf`, or put it in a `0600` file owned by `audiobooks` and point `AUDIOBOOKS_RUNPOD_API_KEY_FILE` at it:
 
    ```bash
    # RunPod — serverless API key
    AUDIOBOOKS_RUNPOD_API_KEY=your-runpod-api-key
    ```
 
-4. **Configure endpoint IDs** in `~/.config/api-keys.env` or `/etc/audiobooks/audiobooks.conf`:
+4. **Configure endpoint IDs** in `/etc/audiobooks/audiobooks.conf`:
 
    ```bash
    # RunPod serverless Whisper endpoints
@@ -518,7 +518,7 @@ Two properties worth knowing:
 
 ## Configuration Reference
 
-All localization settings are environment variables, read from `/etc/audiobooks/audiobooks.conf` or `~/.config/api-keys.env`. API keys should always go in `~/.config/api-keys.env` (permissions `600`, owner-only).
+All localization settings are environment variables, read from `/etc/audiobooks/audiobooks.conf`. An API key sits inline there; a key read through `resolve_secret()` (for example `AUDIOBOOKS_RUNPOD_API_KEY`) may instead live in a separate `0600` file owned by `audiobooks`, named by its `*_FILE` pointer (`AUDIOBOOKS_RUNPOD_API_KEY_FILE`); an inline value wins over the pointer. Nothing in the application reads a credential file in any user's home directory.
 
 ### Core Settings
 

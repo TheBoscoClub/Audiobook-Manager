@@ -147,8 +147,11 @@ class TestRemoteOrchestration:
 
         env = dict(os.environ)
         env["PATH"] = f"{fakebin['bin']}:{env['PATH']}"
-        # Force the Cloudflare purge to no-op (no creds file).
-        env["CF_KEYS_FILE"] = str(tmp_path / "no-such-keys.env")
+        # Force the Cloudflare purge to no-op: no purge keys in the environment
+        # and an installed config that does not exist (never the host's own).
+        for key in ("CF_ZONE_ID", "CLOUDFLARE_PURGE_TOKEN", "CLOUDFLARE_PURGE_TOKEN_FILE"):
+            env.pop(key, None)
+        env["AUDIOBOOKS_CONF"] = str(tmp_path / "no-such-audiobooks.conf")
         cmd = [
             "bash",
             str(UPGRADE_SH),

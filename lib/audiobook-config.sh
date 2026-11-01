@@ -250,7 +250,8 @@ _load_config_file "${HOME:-}/.config/audiobooks/audiobooks.conf"
 : "${AUDIOBOOKS_AUDIBLE_VENV:=${AUDIOBOOKS_VAR_DIR}/audible-venv}"
 : "${AUDIOBOOKS_AUDIBLE_CMD:=${AUDIOBOOKS_AUDIBLE_VENV}/bin/audible}"
 
-# Cloudflare CDN cache purge (credentials from ~/.config/api-keys.env)
+# Cloudflare CDN cache purge (API endpoint and upgrade.sh). Off while empty; the
+# token is CLOUDFLARE_PURGE_TOKEN or CLOUDFLARE_PURGE_TOKEN_FILE (audiobooks.conf).
 : "${CF_ZONE_ID:=}" # Set in /etc/audiobooks/audiobooks.conf or environment
 
 # Localization / i18n

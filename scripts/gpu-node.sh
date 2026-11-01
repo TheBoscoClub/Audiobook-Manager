@@ -36,10 +36,12 @@
 #   2. VAST_API_KEY_FILE — a pointer to a file holding the key (the installed
 #      drain gets this from derive-service-secret at service start); a pointer
 #      that is set but unreadable or empty is an error, never a fallthrough;
-#   3. operator-CLI fallback only: re-exec under the sanctioned injector
-#      ~/.claude/bin/with-secret VAST_API_KEY -- scripts/gpu-node.sh <cmd>
-#      (refuses env-dumping children, fails closed on a missing value). The Authorization header is handed to curl via a 0600 temp config
-# file so the key never appears in /proc/<pid>/cmdline.
+#   3. neither set: the script exits with an error. It never searches for a
+#      key or a secret-injection tool on its own; an operator who keeps keys
+#      in a credential store injects VAST_API_KEY with their own tooling
+#      (e.g. <secret-injector> VAST_API_KEY -- scripts/gpu-node.sh <cmd>).
+# The Authorization header is handed to curl via a 0600 temp config file so
+# the key never appears in /proc/<pid>/cmdline.
 #
 # SSH: Vast instances accept the SSH public keys registered in your account
 # (console.vast.ai -> Keys). If ssh/scp steps fail with "Permission denied",
@@ -111,12 +113,7 @@ if [[ -z "${VAST_API_KEY:-}" && -n "${VAST_API_KEY_FILE:-}" ]]; then
     [[ -n "$VAST_API_KEY" ]] || die "VAST_API_KEY_FILE (${VAST_API_KEY_FILE}) is empty"
 fi
 if [[ -z "${VAST_API_KEY:-}" ]]; then
-    WITH_SECRET="${HOME}/.claude/bin/with-secret"
-    [[ -x "$WITH_SECRET" ]] || WITH_SECRET="$(command -v with-secret || true)"
-    [[ -n "$WITH_SECRET" ]] || die "VAST_API_KEY not in environment and with-secret not found.
-Run: ~/.claude/bin/with-secret VAST_API_KEY -- $0 $*"
-    # with-secret fails closed on a missing/empty value, so this cannot loop.
-    exec "$WITH_SECRET" VAST_API_KEY -- "$0" "$@"
+    die "no Vast.ai API key: set VAST_API_KEY in the environment, or VAST_API_KEY_FILE to a file holding it"
 fi
 
 command -v jq >/dev/null 2>&1 || die "jq is required"

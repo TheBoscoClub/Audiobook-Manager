@@ -881,6 +881,23 @@ prompt_delete_data() {
 # Post-Install Verification
 # -----------------------------------------------------------------------------
 
+_count_links_outside_prefix() {
+    # Print how many audiobook-* symlinks in bin dir $1 resolve (readlink -f,
+    # every hop followed) to a path outside install prefix $2. A link that
+    # cannot be resolved counts as outside. The prefix is resolved too, so a
+    # prefix reached through a symlink compares like the links do.
+    local bin_dir="$1" prefix link resolved count=0
+    prefix=$(readlink -f "$2" 2>/dev/null) || prefix="$2"
+    for link in "$bin_dir"/audiobook-*; do
+        [[ -L "$link" ]] || continue
+        resolved=$(readlink -f "$link" 2>/dev/null) || resolved=""
+        if [[ "$resolved" != "$prefix" && "$resolved" != "$prefix"/* ]]; then
+            count=$((count + 1))
+        fi
+    done
+    echo "$count"
+}
+
 verify_installation_permissions() {
     # Verify that installed files have correct permissions and ownership
     # for the audiobooks service user to access them
@@ -980,13 +997,16 @@ verify_installation_permissions() {
             echo -e "${GREEN}OK${NC}"
         fi
 
-        # Verify no symlinks point to development project directory
-        # Must check for ClaudeCodeProjects specifically, not $SCRIPT_DIR,
-        # because when run from /opt/audiobooks, $SCRIPT_DIR matches legitimate production links
+        # Verify every /usr/local/bin/audiobook-* link resolves inside the
+        # installed app ($APP_DIR). A link anywhere else — a source checkout,
+        # wherever it lives — makes production depend on a tree install.sh does
+        # not manage. The reference is $APP_DIR, not $SCRIPT_DIR: when run from
+        # /opt/audiobooks, $SCRIPT_DIR is the install itself.
         echo -n "  Checking for project source dependencies... "
-        local project_links=$(find /usr/local/bin -name "audiobook-*" -type l -exec readlink {} \; 2>/dev/null | grep -c "ClaudeCodeProjects" || true)
+        local project_links
+        project_links=$(_count_links_outside_prefix /usr/local/bin "$APP_DIR")
         if [[ "$project_links" -gt 0 ]]; then
-            echo -e "${RED}WARNING: $project_links binaries link to project source!${NC}"
+            echo -e "${RED}WARNING: $project_links audiobook-* links in /usr/local/bin resolve outside $APP_DIR!${NC}"
             echo -e "         Production should be independent of source repo."
             ((issues_found++)) || true
         else
@@ -1609,9 +1629,8 @@ EOF
     # ${CONFIG_DIR}/cloudflare-api-token pre-filled with commented
     # CF_GLOBAL_API_KEY / CF_AUTH_EMAIL lines — i.e. it invited the operator to
     # store a GLOBAL API KEY, which grants full account access, for an endpoint
-    # that needs only Zone > Cache Purge. ~/.claude/rules/security.md is explicit
-    # that a service-readable credential must be the narrowest one that does the
-    # job. A hand-populated file is also the rotation-drift vector ac2 exists to
+    # that needs only Zone > Cache Purge. A service-readable credential must be
+    # the narrowest one that does the job. A hand-populated file is also the rotation-drift vector ac2 exists to
     # close: /etc/audiobooks/cloudflare-api-token held a stale pre-rotation
     # Global key for months (Audiobook-Manager-e7x).
     #

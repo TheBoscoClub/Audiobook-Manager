@@ -2006,6 +2006,14 @@ POST /api/system/purge-cache
     CF_GLOBAL_API_KEY / CF_AUTH_EMAIL and the X-Auth-Key header path. Missing
     or empty credential is now a hard 503, not a silent downgrade.
   → Called by the library Refresh flow to push cache invalidation
+  → upgrade.sh purge_cloudflare_cache (after a deploy) reads the same keys —
+    CF_ZONE_ID, CLOUDFLARE_PURGE_TOKEN / CLOUDFLARE_PURGE_TOKEN_FILE — from its
+    environment, else from the installed audiobooks.conf; unset → skipped,
+    non-fatal. No home-directory credential store is read. A web-UI upgrade
+    runs it as root (privileged helper); a CLI upgrade runs it as the invoking
+    user, who must be able to read audiobooks.conf (0640 root:audiobooks) and
+    the token file, or supply the keys in the environment — an unreadable
+    config is reported by name, never as an unset key.
 ```
 
 ### Library Refresh & Cache Invalidation
