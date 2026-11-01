@@ -1,0 +1,19 @@
+node_modules/
+.venv/
+venv/
+library/venv/
+library/venv64/
+.git/
+.snapshots/
+SESSION_RECORD_*.md
+.claude-checkpoint*.md
+.claude-recovery-plan.md
+.claude-task-state.md
+sandbox-*/
+library/.pytest_cache/
+.remember/
+.codeql-db/
+.btrbk-snapshots/
+.playwright-mcp/
+# bd generates .beads/README.md and may regenerate it at any time; a gate on it would go red on its own
+.beads

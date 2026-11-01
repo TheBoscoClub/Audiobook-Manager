@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Markdown lint is a CI gate**: `.github/workflows/ci.yml` runs markdownlint-cli 0.48.0 (pinned, same as local) over every
+  tracked `*.md`; the config is now tracked (`.gitignore` no longer ignores `.markdownlint.*` or `.markdownlintignore`) —
+  `.markdownlint.json` is the one config, `.markdownlint-cli2.jsonc` (unread by markdownlint-cli) removed with its extra
+  ignores folded into `.markdownlintignore`; the tree already passed, no doc needed fixing
 - **Always-loaded rules trimmed**: narrative, incidents and mechanism moved verbatim from `CLAUDE.md` and `.claude/rules/*.md` into `.claude/docs/rules-reference/` (not auto-loaded) — loaded size 18,631 → 15,897 chars, every binding rule kept (lossless check: each removed line found whole in a reference doc; independent review)
 
 ### Fixed

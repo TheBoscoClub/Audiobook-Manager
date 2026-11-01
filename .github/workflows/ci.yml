@@ -274,6 +274,31 @@ jobs:
             echo "$f is valid YAML"
           done
 
+  markdown-lint:
+    name: Markdown Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: >-
+          actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        # v7.0.1
+
+      - name: Set up Node
+        uses: >-
+          actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
+        # v7.0.0
+        with:
+          node-version: '22'
+
+      - name: Markdown lint (markdownlint-cli pinned to the local version)
+        run: |
+          npm install -g --ignore-scripts markdownlint-cli@0.48.0
+          markdownlint --version
+          markdownlint '**/*.md'
+
   eslint:
     name: ESLint (web-v2)
     runs-on: ubuntu-latest

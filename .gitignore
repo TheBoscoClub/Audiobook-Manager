@@ -366,13 +366,7 @@ mypy.ini
 .stylua.toml
 .yamllint
 .yamllint.yml
-.markdownlint.*
-# ...except the rule file the TRACKED .markdownlint-cli2.jsonc loads via
-# "config": ignoring it left every clone, worktree and CI lint without the
-# project's rule set (MD013/MD060 back on, ~600 findings per doc) while the
-# local run looked clean — the config-shadowing failure above (2026-10-13).
-!.markdownlint.json
-.markdownlintignore
+# .markdownlint.* is tracked: CI runs markdownlint (github.md "does CI read this file?")
 setup.cfg
 # ...except the mutation-testing config, which is a project contract, not a
 # machine-local preference: mutmut must be run from library/ (conftest puts
