@@ -158,8 +158,8 @@ Three-tier notification stack for critical changes (username, auth method, crede
 1. **In-app toast + badge**: Always, for all admins. Toast on next load or WebSocket push if connected. Badge count on USERS tab.
 
 2. **Email alert**: For all admins with an email on their account. Sent via existing Resend SMTP path (`library@<your-domain>`). Short, factual:
-   > Subject: [Audiobook Library] Account change: bosco changed username
-   > Body: User "bosco" changed their username to "bosco2" at 2026-03-23 18:15 UTC. Review in Back Office → Users → Audit Log.
+   > Subject: [Audiobook Library] Account change: user1 changed username
+   > Body: User "user1" changed their username to "user2" at 2026-03-23 18:15 UTC. Review in Back Office → Users → Audit Log.
 
 3. **Audit log highlight**: Critical actions get visual indicator (amber left border) persisting until admin has viewed them.
 

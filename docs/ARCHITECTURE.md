@@ -390,7 +390,7 @@ Owner: audiobooks:audiobooks
 └── /srv/audiobooks/.covers/ # Cover art cache
 ```
 
-**Common Issue**: Downloads or writes "fail silently" when directories are owned by a different user (e.g., `root` or `bosco`) but the service runs as `audiobooks`. The service can start successfully but cannot perform write operations.
+**Common Issue**: Downloads or writes "fail silently" when directories are owned by a different user (e.g., `root` or a deploy user) but the service runs as `audiobooks`. The service can start successfully but cannot perform write operations.
 
 **Detection**:
 

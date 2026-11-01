@@ -198,7 +198,7 @@ the fix, it's ASK.
 <!--
   This file is APPENDED to gstack's stock checklist by bin/gstack-seed-checklist.
   It extends — does not replace — the upstream categories. Stock handles Rails/Node
-  well; these extensions cover Rust, Bash, extended Python, and bosco-stack-specific
+  well; these extensions cover Rust, Bash, extended Python, and project-stack-specific
   conventions.
 
   Maintenance: if gstack's stock checklist grows new categories that cover any of
@@ -329,7 +329,7 @@ the fix, it's ASK.
 
 ---
 
-## Bosco-Stack Specific Extensions
+## Project-Stack Specific Extensions
 
 ## API keys + secrets (per `rules/security.md`)
 

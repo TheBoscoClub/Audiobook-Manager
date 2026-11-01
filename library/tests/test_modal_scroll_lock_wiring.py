@@ -1,7 +1,7 @@
 """Regression guard for Audiobook-Manager-v2z (book-detail modal scroll lock).
 
-Bosco reported on 2026-05-02 that tapping a book cover in the main library
-grid on his Pixel 10 XL Pro / Brave Android opened the book-detail modal
+The operator reported on 2026-05-02 that tapping a book cover in the main library
+grid on an Android phone in Brave opened the book-detail modal
 *outside* the visible viewport — he had to scroll a screen-height to find
 it. Same modal opened from "My Library" worked correctly because that view
 typically opens at the top.

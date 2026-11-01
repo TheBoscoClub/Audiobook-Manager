@@ -10,7 +10,7 @@ real-device cloud via Appium/Selenium.
 
 Flow (same as playwright_ios_repro.py):
   1. Session start on real iPhone + chosen browser
-  2. Login as claudecode on the QA host from $AUDIOBOOKS_QA_HOST (TOTP)
+  2. Login as $AUDIOBOOKS_QA_USER on the QA host from $AUDIOBOOKS_QA_HOST (TOTP)
   3. Activate ?debug=1 overlay, enter iframe
   4. Open first book, press play, soak
   5. Harvest debug overlay text + full-page screenshot
@@ -31,8 +31,13 @@ Run with dedicated venv:
   .claude/diagnostics/browserstack-venv/bin/python \\
       .claude/diagnostics/browserstack_ios_repro.py --browser safari
 
-Creds come from ~/.config/BrowserStackLocalCredentials.txt (service account
-'claude-code' / claudecode_7adWNpxXPN). File must be chmod 600.
+Required environment (no defaults):
+  AUDIOBOOKS_QA_USER             QA login name; the TOTP secret is read from the
+                                 "## QA <that user> TOTP" section of
+                                 .claude/secrets/totp-secret
+  BROWSERSTACK_CREDENTIALS_FILE  path to the BrowserStack account file holding a
+                                 service-account block (Identifier 'claude-code').
+                                 Must be chmod 600.
 
 QA-only. Never point this at prod.
 """
@@ -62,12 +67,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 ROOT = Path(__file__).resolve().parents[2]
-CREDS_FILE = Path.home() / ".config" / "BrowserStackLocalCredentials.txt"
+_creds_env = os.environ.get("BROWSERSTACK_CREDENTIALS_FILE", "")
+CREDS_FILE = Path(_creds_env) if _creds_env else None
 TOTP_SECRET_FILE = ROOT / ".claude" / "secrets" / "totp-secret"
 OUT_DIR = ROOT / ".claude" / "diagnostics"
 
 QA_HOST = os.environ.get("AUDIOBOOKS_QA_HOST", "https://qa.example.com")
-USERNAME = "claudecode"
+# QA login name - no default; main() refuses to run without it.
+USERNAME = os.environ.get("AUDIOBOOKS_QA_USER", "")
 HUB_URL = "https://hub-cloud.browserstack.com/wd/hub"
 
 PLAY_WAIT_SEC = 45
@@ -86,6 +93,8 @@ def read_browserstack_creds() -> tuple[str, str]:
     want the service account (identifier: claude-code). Parsing is a tiny
     state machine keyed on the 'Identifier: claude-code' line.
     """
+    if CREDS_FILE is None:
+        raise RuntimeError("BROWSERSTACK_CREDENTIALS_FILE is not set")
     if not CREDS_FILE.exists():
         raise RuntimeError(f"Creds file not found: {CREDS_FILE}")
     # File perms sanity check — user explicitly set 600; if it has drifted
@@ -123,18 +132,22 @@ def read_browserstack_creds() -> tuple[str, str]:
 
 
 def read_qa_totp_secret() -> str:
-    """Pull the QA claudecode TOTP secret. Identical logic to Playwright harness."""
+    """Pull the QA user's TOTP secret. Identical logic to Playwright harness."""
     text = TOTP_SECRET_FILE.read_text()
     lines = text.splitlines()
     for i, line in enumerate(lines):
-        if "QA" in line and "TOTP" in line:
+        # A header names QA, TOTP and the login as whole words; other words
+        # (an environment label, punctuation) may sit around them.
+        if line.lstrip().startswith("#") and {"QA", "TOTP", USERNAME} <= set(
+            re.findall(r"[A-Za-z0-9._-]+", line)
+        ):
             for j in range(i + 1, len(lines)):
                 candidate = lines[j].strip()
                 if candidate and not candidate.startswith("#"):
                     if re.fullmatch(r"[A-Z2-7]+", candidate):
                         return candidate
     raise RuntimeError(
-        f"QA TOTP secret not found under '## QA claudecode TOTP' header in {TOTP_SECRET_FILE}"
+        f"QA TOTP secret not found under '## QA {USERNAME} TOTP' header in {TOTP_SECRET_FILE}"
     )
 
 
@@ -472,6 +485,20 @@ def main() -> int:
         "to confirm the target",
     )
     args = ap.parse_args()
+    missing = [
+        name
+        for name, value in (
+            ("AUDIOBOOKS_QA_USER", USERNAME),
+            ("BROWSERSTACK_CREDENTIALS_FILE", CREDS_FILE),
+        )
+        if not value
+    ]
+    if missing:
+        print(
+            f"Required environment variable(s) not set (no defaults): {', '.join(missing)}",
+            file=sys.stderr,
+        )
+        return 2
     return run(
         device=args.device,
         os_version=args.os_version,

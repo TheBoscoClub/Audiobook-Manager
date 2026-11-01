@@ -1688,11 +1688,11 @@ curl -s http://<test-vm-ip>:5001/api/system/version
 **Step 3: Test per-user features via API**
 
 ```bash
-# Login as claudecode
+# Login as the QA user ($AUDIOBOOKS_QA_USER)
 TOTP=$(python3 -c "import pyotp; print(pyotp.TOTP(open('.claude/secrets/totp-secret').read().strip()).now())")
 curl -c /tmp/cookies.txt -X POST http://<test-vm-ip>:5001/auth/login \
   -H "Content-Type: application/json" \
-  -d "{\"username\":\"claudecode\",\"code\":\"$TOTP\"}"
+  -d "{\"username\":\"$AUDIOBOOKS_QA_USER\",\"code\":\"$TOTP\"}"
 
 # Test new endpoints
 curl -b /tmp/cookies.txt http://<test-vm-ip>:5001/api/user/history

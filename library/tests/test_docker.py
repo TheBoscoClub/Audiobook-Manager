@@ -302,7 +302,7 @@ class TestDockerBuild:
         assert labels.get("org.opencontainers.image.licenses") == "MIT"
 
     def test_docker_image_runs_as_nonroot(self, docker_image):
-        """The image USER directive specifies 'audiobooks' (UID 1000)."""
+        """The image USER directive specifies 'audiobooks'."""
         user = _docker_inspect(docker_image, "{{.Config.User}}")
         assert user == "audiobooks", f"Expected user 'audiobooks', got '{user}'"
 

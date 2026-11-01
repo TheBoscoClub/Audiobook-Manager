@@ -913,7 +913,7 @@ verify_installation_permissions() {
         local SERVICE_GROUP="audiobooks"
 
         # MANDATORY: unconditional full-tree ownership + permission normalization.
-        # Prior deployments left files owned by the deploying user (e.g. bosco)
+        # Prior deployments left files owned by the deploying user (e.g. <deploy-user>)
         # with mode 700 directories, which broke audiobook-proxy static serving.
         # Every install/upgrade now normalizes the entire tree before exiting.
         echo -n "  Normalizing ownership + permissions (entire tree)... "

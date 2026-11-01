@@ -97,7 +97,7 @@ Discovery mechanism: `ls test-*-qa-{app,docker,all}.md` in `$PROJECT_DIR`. Fail 
 4. FULL REGRESSION
    - API endpoint tests (auth, CRUD, search, streaming)
    - Web UI page loads (all routes return 200)
-   - Auth flow (login with claudecode TOTP account)
+   - Auth flow (login with the QA TOTP account, $AUDIOBOOKS_QA_USER)
    - Systemd service restart resilience
    - Log inspection for errors/warnings since last upgrade
    - SSL certificate validity

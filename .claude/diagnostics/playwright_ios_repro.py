@@ -8,7 +8,7 @@ browsers without a Mac.
 
 Flow:
   1. Launch WebKit with iPhone 14 device emulation
-  2. Log in as `claudecode` on the QA host from $AUDIOBOOKS_QA_HOST
+  2. Log in as $AUDIOBOOKS_QA_USER on the QA host from $AUDIOBOOKS_QA_HOST
      (TOTP from .claude/secrets/totp-secret)
   3. Navigate to /?debug=1 — the debug overlay activates
   4. Open first book, switch locale to zh-Hans, press play
@@ -16,6 +16,9 @@ Flow:
   6. Dump artifacts to .claude/diagnostics/repro-<ts>.{png,txt}
 
 Also supports --browser firefox and --browser chromium for cross-browser sanity.
+
+Requires AUDIOBOOKS_QA_USER (the QA login name, no default); the TOTP secret is
+read from the "## QA <that user> TOTP" section of .claude/secrets/totp-secret.
 
 QA-only. Never point this at prod.
 """
@@ -47,15 +50,16 @@ ROOT = Path(__file__).resolve().parents[2]
 SECRETS = ROOT / ".claude" / "secrets" / "totp-secret"
 OUT_DIR = ROOT / ".claude" / "diagnostics"
 QA_HOST = os.environ.get("AUDIOBOOKS_QA_HOST", "https://qa.example.com")
-USERNAME = "claudecode"
+# QA login name - no default; main() refuses to run without it.
+USERNAME = os.environ.get("AUDIOBOOKS_QA_USER", "")
 # Buffer window long enough to see phase transitions (buffering -> streaming/error)
 PLAY_WAIT_SEC = 45
 
 
 def read_qa_totp_secret() -> str:
-    """Pull the QA claudecode TOTP secret from the secrets file.
+    """Pull the QA user's TOTP secret from the secrets file.
 
-    Format: multi-line file with `## QA claudecode TOTP` header followed by
+    Format: multi-line file with `## QA <user> TOTP` header (<user> = $AUDIOBOOKS_QA_USER) followed by
     a base32 secret on its own line. Other environments (prod/dev) have
     their own headers and secrets.
     """
@@ -63,7 +67,11 @@ def read_qa_totp_secret() -> str:
     # Grab the line following the QA header, skipping blank lines
     lines = text.splitlines()
     for i, line in enumerate(lines):
-        if "QA" in line and "TOTP" in line:
+        # A header names QA, TOTP and the login as whole words; other words
+        # (an environment label, punctuation) may sit around them.
+        if line.lstrip().startswith("#") and {"QA", "TOTP", USERNAME} <= set(
+            re.findall(r"[A-Za-z0-9._-]+", line)
+        ):
             for j in range(i + 1, len(lines)):
                 candidate = lines[j].strip()
                 if candidate and not candidate.startswith("#"):
@@ -71,7 +79,7 @@ def read_qa_totp_secret() -> str:
                     if re.fullmatch(r"[A-Z2-7]+", candidate):
                         return candidate
     raise RuntimeError(
-        f"QA TOTP secret not found under '## QA claudecode TOTP' header in {SECRETS}"
+        f"QA TOTP secret not found under '## QA {USERNAME} TOTP' header in {SECRETS}"
     )
 
 
@@ -289,6 +297,12 @@ def main() -> int:
         help="show the browser window (default headless)",
     )
     args = ap.parse_args()
+    if not USERNAME:
+        print(
+            "AUDIOBOOKS_QA_USER is not set: export the QA login name (no default).",
+            file=sys.stderr,
+        )
+        return 2
     return run(args.browser, headless=not args.headed)
 
 

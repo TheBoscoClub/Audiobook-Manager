@@ -28,7 +28,7 @@ class AudiobookLibraryV2 {
     // ~2250 px below the viewport — clipped by body's overflow:hidden, so
     // the user saw only the dim backdrop with no card body. Pinned by
     // diagnostic banner showing top=2251 height=459 vh=701 in
-    // Audiobook-Manager-n9x (2026-05-08, Bosco's Pixel 10 Pro XL Brave).
+    // Audiobook-Manager-n9x (2026-05-08, the operator's Android Brave report).
     document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
   }
@@ -2669,7 +2669,7 @@ class AudiobookLibraryV2 {
     // close. Without this, on mobile (especially Brave Android with its
     // dynamic bottom URL bar) the position:fixed modal can land outside
     // the visible viewport because the visual viewport shifts after the
-    // modal mounts. Bosco reported scrolling deep into the grid, tapping
+    // modal mounts. The operator reported scrolling deep into the grid, tapping
     // a cover, and then needing to scroll a screen-height to find the
     // modal — the scroll-lock + restore-on-close eliminates that.
     AudiobookLibraryV2._lockBodyScroll();

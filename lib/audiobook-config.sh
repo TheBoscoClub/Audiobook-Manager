@@ -374,7 +374,7 @@ audiobooks_check_dirs() {
 # Normalize ownership and permissions on a system installation tree.
 # MUST be called unconditionally at the end of install.sh and upgrade.sh for
 # system installs (/opt/audiobooks). Previous deployments occasionally left
-# files owned by the wrong user (e.g. bosco:bosco with dir mode 700), which
+# files owned by the wrong user (e.g. <deploy-user>:<deploy-user> with dir mode 700), which
 # broke the audiobook-proxy service (static files unreadable -> 404).
 #
 # Usage: audiobooks_normalize_permissions <target_dir>

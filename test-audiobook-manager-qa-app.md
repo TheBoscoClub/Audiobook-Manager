@@ -544,12 +544,15 @@ done
 
 ### 6c. Auth Flow Test
 
-Test TOTP authentication using the `claudecode` admin account:
+Test TOTP authentication using the QA admin account named by `$AUDIOBOOKS_QA_USER` (no default; skip the test when unset):
 
 ```bash
 # Read TOTP secret
 TOTP_SECRET_FILE=".claude/secrets/totp-secret"
-if [[ ! -f "$TOTP_SECRET_FILE" ]]; then
+if [[ -z "${AUDIOBOOKS_QA_USER:-}" ]]; then
+    echo "WARN: AUDIOBOOKS_QA_USER not set — skipping auth test"
+    AUTH_FLOW="SKIP (no QA user)"
+elif [[ ! -f "$TOTP_SECRET_FILE" ]]; then
     echo "WARN: TOTP secret file not found at $TOTP_SECRET_FILE — skipping auth test"
     AUTH_FLOW="SKIP (no TOTP secret)"
 else
@@ -571,7 +574,7 @@ print(f'{code:06d}')
     # Login
     LOGIN_RESP=$(curl -sf -c /tmp/qa-cookies.txt \
         -H "Content-Type: application/json" \
-        -d "{\"username\": \"claudecode\", \"code\": \"$TOTP_CODE\"}" \
+        -d "$(jq -n --arg u "$AUDIOBOOKS_QA_USER" --arg c "$TOTP_CODE" '{username: $u, code: $c}')" \
         "$API_BASE/auth/login" 2>/dev/null)
     LOGIN_STATUS=$?
     echo "Login response: $LOGIN_RESP"
