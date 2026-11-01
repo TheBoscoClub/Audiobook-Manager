@@ -7,6 +7,7 @@ the tests go red against the pre-fix hook).
 """
 
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -415,6 +416,10 @@ def installed_repo(tmp_path: Path) -> Path:
     (scripts / "hooks").mkdir(parents=True)
     (scripts / "install-hooks.sh").write_text((REPO_ROOT / "scripts/install-hooks.sh").read_text())
     (scripts / "hooks" / "pre-commit").write_text(HOOK.read_text())
+    # The installation-value guard the hooks share lives in scripts/hooks/lib/
+    lib = HOOK.parent / "lib"
+    if lib.is_dir():
+        shutil.copytree(lib, scripts / "hooks" / "lib")
     old = tmp_path / ".git/hooks/pre-commit"
     old.write_text("#!/bin/bash\n# old hook\nexit 0\n\n" + BEADS_BLOCK)
     old.chmod(0o755)

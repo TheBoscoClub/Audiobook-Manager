@@ -4,9 +4,18 @@
 # Run this after cloning to set up commit safeguards:
 #   ./scripts/install-hooks.sh
 #
-# Hooks installed:
+# Hooks installed (each with lib/, the installation-value guard they share):
 #   - pre-commit: Blocks hardcoded paths (must use config variables) and, when the
 #     gitignored .claude/local-scrub-map.txt exists, any staged installation value
+#   - commit-msg: Strips AI/vendor promotional lines, then blocks a commit message
+#     carrying an installation value
+#   - pre-push: Blocks a push whose commits the destination lacks (messages,
+#     paths, added lines), ref names or tags (names, messages) carry an
+#     installation value - also covering commits made without the other hooks
+#     (cherry-pick, rebase, am, --no-verify)
+#
+# LIVE-SYNC and BEADS INTEGRATION blocks other tools added to an installed hook
+# are carried over; a rerun with nothing to change reports "already installed".
 
 set -e
 
@@ -35,6 +44,39 @@ if [[ ! -d "$HOOKS_SOURCE" ]]; then
     exit 1
 fi
 
+# Refuse before changing anything: an installed hook whose managed-block
+# markers do not pair up cannot be carried over safely.
+for hook in "$HOOKS_SOURCE"/*; do
+    [[ -f "$hook" ]] || continue
+    dest="$HOOKS_DEST/$(basename "$hook")"
+    [[ -f "$dest" ]] || continue
+    for marker in "BEADS INTEGRATION" "LIVE-SYNC"; do
+        begins=$(grep -c "^# --- BEGIN $marker" "$dest" || true)
+        ends=$(grep -c "^# --- END $marker" "$dest" || true)
+        if [[ "$begins" != "$ends" ]]; then
+            echo "Error: $dest has $begins BEGIN but $ends END $marker markers;" >&2
+            echo "       refusing to guess which block to preserve. Fix the hook by hand and rerun." >&2
+            exit 1
+        fi
+    done
+done
+
+# The shared guard library first, so no hook is ever installed without it.
+if [[ -d "$HOOKS_SOURCE/lib" ]]; then
+    mkdir -p "$HOOKS_DEST/lib"
+    for lib in "$HOOKS_SOURCE/lib"/*; do
+        [[ -f "$lib" ]] || continue
+        lib_name="lib/$(basename "$lib")"
+        if [[ -f "$HOOKS_DEST/$lib_name" ]] && cmp -s "$lib" "$HOOKS_DEST/$lib_name"; then
+            echo -e "  ${GREEN}✓${NC} $lib_name (already installed)"
+        else
+            cp "$lib" "$HOOKS_DEST/$lib_name"
+            chmod 644 "$HOOKS_DEST/$lib_name"
+            echo -e "  ${GREEN}✓${NC} $lib_name installed"
+        fi
+    done
+fi
+
 # Install each hook
 installed=0
 for hook in "$HOOKS_SOURCE"/*; do
@@ -48,15 +90,6 @@ for hook in "$HOOKS_SOURCE"/*; do
         preserved=""
         preserved_head=""
         if [[ -f "$dest" ]]; then
-            for marker in "BEADS INTEGRATION" "LIVE-SYNC"; do
-                begins=$(grep -c "^# --- BEGIN $marker" "$dest" || true)
-                ends=$(grep -c "^# --- END $marker" "$dest" || true)
-                if [[ "$begins" != "$ends" ]]; then
-                    echo "Error: $dest has $begins BEGIN but $ends END $marker markers;" >&2
-                    echo "       refusing to guess which block to preserve. Fix the hook by hand and rerun." >&2
-                    exit 1
-                fi
-            done
             preserved=$(awk '
                 /^# --- BEGIN BEADS INTEGRATION/ { keep = 1 }
                 keep { print }
@@ -112,6 +145,6 @@ if [[ $installed -eq 0 ]]; then
 else
     echo -e "${GREEN}Done!${NC} Installed $installed hook(s)."
     echo ""
-    echo "Hooks will now enforce project coding standards on commit."
+    echo "Hooks will now enforce project coding standards on commit and push."
     echo "See CONTRIBUTING.md for details on the 'No Hardcoded Paths' rule."
 fi

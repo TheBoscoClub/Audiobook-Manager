@@ -1,0 +1,118 @@
+#!/bin/bash
+# commit-msg hook: strip AI/vendor promotional lines from the commit message,
+# then refuse a message that carries a value of this host's installation.
+#
+# Install with scripts/install-hooks.sh (the tracked copy is the canonical one).
+#
+# 1. Promotional lines (Co-Authored-By trailers naming AI tools, vendor
+#    noreply addresses, "Generated with" attribution) are deleted from the
+#    message in place by the checkout's .beads/hooks/commit-msg, the one copy
+#    of that scrubber, when it exists; the commit proceeds with the cleaned
+#    message.
+# 2. The cleaned message is judged against the gitignored
+#    .claude/local-scrub-map.txt by the guard shared with pre-commit and
+#    pre-push (lib/installation-values.sh). Git's comment lines (lines that
+#    start with core.commentChar / core.commentString, '#' by default) and the
+#    `git commit -v` diff below the cut line are not judged, since git strips
+#    them from an edited message. When the configuration says git will keep
+#    comment lines (commit.cleanup verbatim, whitespace or scissors), they are
+#    judged; the cut line still ends the message in every mode, as git
+#    truncates there. With comment string `auto` neither is known, so every
+#    line is judged. Git also keeps comment lines of a message
+#    given with -m/-F, and a --cleanup option is invisible to this hook: pre-push
+#    judges the message as recorded, so such a line is refused there.
+
+# No `set -e` and no trailing `exit 0`, as in pre-commit: a block another tool
+# appends below (scripts/install-hooks.sh) must still run after a clean pass.
+
+RED='\033[0;31m'
+NC='\033[0m'
+
+fail_closed() {
+    echo -e "${RED}commit-msg: cannot inspect the commit message ($1); refusing the commit${NC}" >&2
+    return 1
+}
+
+scrub_promotional_lines() {
+    # The scrubber has one tracked copy, beads' .beads/hooks/commit-msg; run it
+    # when this checkout has one (a checkout without beads has nothing to scrub with).
+    local top scrubber
+    top=$(git rev-parse --show-toplevel 2>/dev/null) || return 0
+    scrubber="$top/.beads/hooks/commit-msg"
+    [[ -f "$scrubber" ]] || return 0
+    bash "$scrubber" "$1"
+}
+
+# The comment string git strips, and the one the -v cut line is written with,
+# as two lines (an empty line = none).
+message_comment_strings() {
+    local cleanup setting comment
+    cleanup=$(git config --get commit.cleanup)
+    # core.commentChar and core.commentString are aliases; the last one set wins.
+    setting=$(git config --get-regexp '^core\.comment(char|string)$' | tail -n 1)
+    comment=${setting#* }
+    [[ -n "$setting" ]] || comment='#'
+    if [[ "$comment" == auto ]]; then
+        # git picks a character the message does not use; it cannot be known here.
+        printf '\n\n'
+        return 0
+    fi
+    case "$cleanup" in
+        # git truncates at the -v cut line in every cleanup mode; only comment lines are kept.
+        verbatim | whitespace) printf '\n%s\n' "$comment" ;;
+        scissors) printf '\n%s\n' "$comment" ;;
+        *) printf '%s\n%s\n' "$comment" "$comment" ;;
+    esac
+}
+
+IV_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/installation-values.sh"
+if [[ -f "$IV_LIB" && -r "$IV_LIB" ]]; then
+    # shellcheck source=lib/installation-values.sh
+    . "$IV_LIB"
+fi
+
+check_message_installation_values() {
+    local msg="$1" map rc=0 comment cut
+    {
+        IFS= read -r comment
+        IFS= read -r cut
+    } < <(message_comment_strings)
+    if ! declare -F iv_locate_map >/dev/null; then
+        fail_closed "installation-value library $IV_LIB is missing"
+        return 1
+    fi
+    map=$(iv_locate_map) || rc=$?
+    case "$rc" in
+        0) ;;
+        1) return 0 ;;
+        2)
+            fail_closed "cannot locate the scrub map (git rev-parse failed)"
+            return 1
+            ;;
+        *)
+            fail_closed "$map is not a readable regular file"
+            return 1
+            ;;
+    esac
+    iv_match commit-msg message "$map" "$msg" "$comment" "$cut" || rc=$?
+    case "$rc" in
+        0) return 0 ;;
+        1)
+            echo -e "${RED}COMMIT BLOCKED: the commit message contains an installation value — use a placeholder (<test-vm-name>, example.org, ...);${NC}" >&2
+            echo -e "${RED}real values belong in .claude/rules/local-*.md or the installation's own config.${NC}" >&2
+            return 1
+            ;;
+        *)
+            fail_closed "scrub map unreadable or invalid (perl exit $rc)"
+            return 1
+            ;;
+    esac
+}
+
+COMMIT_MSG_FILE="$1"
+if [[ -z "$COMMIT_MSG_FILE" || ! -f "$COMMIT_MSG_FILE" ]]; then
+    fail_closed "no commit message file given"
+    exit 1
+fi
+scrub_promotional_lines "$COMMIT_MSG_FILE"
+check_message_installation_values "$COMMIT_MSG_FILE" || exit 1

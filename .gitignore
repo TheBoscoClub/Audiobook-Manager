@@ -481,7 +481,7 @@ vm-test-manifest.json
 # Host-specific rule notes and narrative (never tracked)
 .claude/rules/local-*.md
 .claude/docs/local/
-# Installation values the pre-commit guard refuses (scripts/hooks/pre-commit)
+# Installation values the pre-commit, commit-msg and pre-push hooks refuse (scripts/hooks/lib/installation-values.sh)
 .claude/local-scrub-map.txt
 # Observations of this host's installation (e.g. docs/local-storage-capacity.md)
 docs/**/local-*.md

@@ -144,43 +144,36 @@ check_hardcoded_paths() {
     return 0
 }
 
-# Installation-value guard (production-separation): the real values of the
-# installation this checkout belongs to (VM names and addresses, hostnames,
-# storage paths) are keys in the gitignored .claude/local-scrub-map.txt, one
-# `key==>replacement` per line (literal, or `regex:<perl regex>`; the format
-# git filter-repo --replace-text reads). A staged added line containing a key,
-# in any file and comments included, refuses the commit. No map: this checkout
-# has no installation values to guard, so nothing is checked.
-# The map: this checkout's, else the main worktree's (a linked worktree has no
-# copy of the gitignored file, and must not pass unchecked because of it).
-find_scrub_map() {
-    local top common candidate
-    top=$(git rev-parse --show-toplevel) || return 2
-    common=$(git rev-parse --path-format=absolute --git-common-dir) || return 2
-    for candidate in "$top/.claude/local-scrub-map.txt" "${common%/}/../.claude/local-scrub-map.txt"; do
-        if [[ -e "$candidate" || -L "$candidate" ]]; then
-            printf '%s\n' "$candidate"
-            return 0
-        fi
-    done
-    return 1
-}
+# Installation-value guard (production-separation): a staged added line or a
+# staged path containing a key of the gitignored .claude/local-scrub-map.txt,
+# in any file and comments included, refuses the commit. The map rules (format,
+# fail-closed cases, linked worktrees) and the matcher live in the library
+# shared with the commit-msg and pre-push hooks, lib/installation-values.sh.
+IV_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/installation-values.sh"
+if [[ -f "$IV_LIB" && -r "$IV_LIB" ]]; then
+    # shellcheck source=lib/installation-values.sh
+    . "$IV_LIB"
+fi
 
 check_installation_values() {
     local map raw names_file rc=0
-    map=$(find_scrub_map) || rc=$?
+    if ! declare -F iv_locate_map >/dev/null; then
+        fail_closed "installation-value library $IV_LIB is missing"
+        return 1
+    fi
+    map=$(iv_locate_map) || rc=$?
     case "$rc" in
         0) ;;
         1) return 0 ;;
-        *)
+        2)
             fail_closed "cannot locate the scrub map (git rev-parse failed)"
             return 1
             ;;
+        *)
+            fail_closed "$map is not a readable regular file"
+            return 1
+            ;;
     esac
-    if [[ ! -f "$map" || ! -r "$map" ]]; then
-        fail_closed "$map is not a readable regular file"
-        return 1
-    fi
     names_file=$(mktemp) || {
         fail_closed "mktemp failed"
         return 1
@@ -192,45 +185,7 @@ check_installation_values() {
         fail_closed "git diff failed"
         return 1
     fi
-    printf '%s\n' "$raw" | SCRUB_MAP="$map" SCRUB_NAMES="$names_file" perl -e '
-        open my $m, "<", $ENV{SCRUB_MAP} or do { print STDERR "pre-commit: cannot read scrub map: $!\n"; exit 2 };
-        my @keys;
-        while (my $line = <$m>) {
-            $line =~ s/^\x{EF}\x{BB}\x{BF}// if $. == 1;
-            $line =~ s/\r?\n\z//;
-            next if $line =~ /^\s*(#|$)/;
-            my ($k) = split /==>/, $line, 2;
-            $k =~ s/^\s+|\s+$//g;
-            if ($k =~ s/^regex://) {
-                my $re = eval { qr/$k/ } or do { print STDERR "pre-commit: scrub map line $.: invalid regex\n"; exit 2 };
-                push @keys, $re;
-            } elsif ($k =~ /^glob:/) {
-                print STDERR "pre-commit: scrub map line $.: glob: is unsupported (use a literal or regex:)\n"; exit 2;
-            } else {
-                $k =~ s/^literal://;
-                push @keys, qr/\Q$k\E/i;
-            }
-        }
-        if (!@keys) { print STDERR "pre-commit: scrub map holds no keys\n"; exit 2 }
-        my $bad = 0;
-        my $hit = sub {
-            my ($text, $where) = @_;
-            for my $re (@keys) {
-                if ($text =~ $re) { print STDERR "pre-commit: $where contains an installation value\n"; $bad = 1; return }
-            }
-        };
-        { local $/ = "\0"; open my $n, "<", $ENV{SCRUB_NAMES} or exit 2;
-          while (my $path = <$n>) { chomp $path; $hit->($path, "staged path $path") } }
-        my ($file, $inhunk) = ("", 0);
-        while (my $l = <STDIN>) {
-            if ($l =~ /^diff --git /) { $inhunk = 0; next }
-            if (!$inhunk && $l =~ /^\+\+\+ (?:b\/)?(.*)/) { $file = $1; next }
-            if ($l =~ /^@@/) { $inhunk = 1; next }
-            next unless $inhunk && $l =~ /^\+/;
-            $hit->($l, "added line in $file");
-        }
-        exit $bad;
-    ' || rc=$?
+    printf '%s\n' "$raw" | SCRUB_NAMES="$names_file" iv_match pre-commit staged "$map" || rc=$?
     rm -f "${names_file:?}"
     case "$rc" in
         0) return 0 ;;

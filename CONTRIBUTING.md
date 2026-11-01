@@ -12,10 +12,15 @@ Thank you for your interest in contributing to the Audiobooks project!
    ./scripts/install-hooks.sh
    ```
 
-   This installs commit safeguards that enforce coding standards: the hardcoded-path check below and, in a checkout
-   that keeps a gitignored `.claude/local-scrub-map.txt` (`key==>replacement` lines), a refusal of any staged line or
-   path containing one of its keys — the real values of that checkout's installation (VM names, addresses,
-   hostnames). Rerunning the installer keeps any `LIVE-SYNC` and `BEADS INTEGRATION` blocks other tools added.
+   This installs three hooks that enforce coding standards. `pre-commit` runs the hardcoded-path check below. In a
+   checkout that keeps a gitignored `.claude/local-scrub-map.txt` (`key==>replacement` lines: the real values of that
+   checkout's installation — VM names, addresses, hostnames), all three refuse what carries one of its keys:
+   `pre-commit` a staged line or path, `commit-msg` the commit message (after stripping AI/vendor promotional
+   trailers), and `pre-push` — for every commit the destination remote does not have yet — a commit's message, paths
+   or added lines, a pushed ref name, or the name or message of a pushed or merged tag. `pre-push` also catches commits
+   made without the commit hooks (cherry-pick, rebase, `git am`, `--no-verify`).
+   They share one guard, `scripts/hooks/lib/installation-values.sh`, installed beside them. Rerunning the installer
+   keeps any `LIVE-SYNC` and `BEADS INTEGRATION` blocks other tools added.
 
 3. **Install dependencies**:
 

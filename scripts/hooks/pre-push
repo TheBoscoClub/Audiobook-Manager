@@ -1,0 +1,175 @@
+#!/bin/bash
+# pre-push hook: refuse to publish a value of this host's installation.
+#
+# Install with scripts/install-hooks.sh (the tracked copy is the canonical one).
+#
+# pre-commit and commit-msg judge what `git commit` records, but cherry-pick,
+# rebase, am, merges made without hooks and `--no-verify` commits bypass them.
+# This hook judges what is actually published, with the guard shared with
+# them (lib/installation-values.sh), against the gitignored
+# .claude/local-scrub-map.txt:
+#   - every pushed ref (stdin: <local ref> <local sha> <remote ref> <remote sha>)
+#     except deletions, and of it the commits the DESTINATION does not have yet:
+#     those neither reachable from <remote sha> (when this clone has that
+#     commit) nor on a tracking ref of the remote being pushed to ($1), so a
+#     branch already published there is not judged again. Only that remote's
+#     tracking refs count, and only when it fetches from the URL being pushed
+#     to ($2): a commit already on another remote (a private mirror) or a push
+#     to a bare URL or a separate pushurl is judged in full;
+#   - per commit: its message as recorded, the paths it adds or changes, and
+#     its added lines; a merge by its combined (--cc) diff, i.e. what the merge
+#     itself introduces (its parents' commits are judged on their own);
+#   - per merge of a signed tag: the tag's name and message git embeds in the
+#     commit (its `mergetag` header);
+#   - the pushed ref name, and an annotated tag's name and message, and those of
+#     every tag it points to (a tag of a tag).
+# A tracking ref is taken as what the destination holds; one left stale by a
+# force-push or deletion done elsewhere hides commits until the next fetch.
+# A refusal names the commit (short sha) and where the value sits, never the value.
+
+# No `set -e` and no trailing `exit 0`, as in pre-commit: a block another tool
+# appends below (beads, via scripts/install-hooks.sh) must still run after a
+# clean pass, and it is handed the same stdin.
+
+RED='\033[0;31m'
+NC='\033[0m'
+
+fail_closed() {
+    echo -e "${RED}pre-push: cannot inspect the pushed commits ($1); refusing the push${NC}" >&2
+    return 1
+}
+
+IV_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/installation-values.sh"
+if [[ -f "$IV_LIB" && -r "$IV_LIB" ]]; then
+    # shellcheck source=lib/installation-values.sh
+    . "$IV_LIB"
+fi
+
+is_zero_sha() {
+    [[ "$1" =~ ^0+$ ]]
+}
+
+# The tracking refs of the remote being pushed to, one per line, when they can
+# stand for what the destination holds: $1 must be a configured remote whose
+# fetch URL is the URL being pushed to ($2). A bare URL, a different pushurl or
+# a pushInsteadOf rewrite prints nothing (the whole unpublished range is then
+# judged). Refs of a remote nested under this one's namespace (`<name>/x`) are
+# that other remote's and are left out. 0 = listed (possibly none), 1 = git failed.
+destination_tracking_refs() {
+    local name="$1" url="$2" fetch_url remotes refs other ref rc=0
+    local -a nested=()
+    [[ -n "$name" ]] || return 0
+    # Exit 2 is "no such remote" ($1 is a URL); any other failure is git's.
+    fetch_url=$(git remote get-url -- "$name" 2>/dev/null) || rc=$?
+    case "$rc" in
+        0) ;;
+        2) return 0 ;;
+        *) return 1 ;;
+    esac
+    [[ "$fetch_url" == "$url" ]] || return 0
+    remotes=$(git remote) || return 1
+    refs=$(git for-each-ref --format='%(refname)' "refs/remotes/$name/") || return 1
+    while IFS= read -r other; do
+        if [[ "$other" == "$name/"* ]]; then
+            nested+=("refs/remotes/$other/")
+        fi
+    done <<<"$remotes"
+    while IFS= read -r ref; do
+        [[ -n "$ref" ]] || continue
+        for other in "${nested[@]}"; do
+            [[ "$ref" == "$other"* ]] && continue 2
+        done
+        printf '%s\n' "$ref"
+    done <<<"$refs"
+    return 0
+}
+
+check_pushed_installation_values() {
+    local refs="$1" push_name="$2" push_url="$3" map rc=0 work local_ref local_sha remote_ref remote_sha revs tracking
+    local -a published
+    if ! declare -F iv_locate_map >/dev/null; then
+        fail_closed "installation-value library $IV_LIB is missing"
+        return 1
+    fi
+    map=$(iv_locate_map) || rc=$?
+    case "$rc" in
+        0) ;;
+        1) return 0 ;;
+        2)
+            fail_closed "cannot locate the scrub map (git rev-parse failed)"
+            return 1
+            ;;
+        *)
+            fail_closed "$map is not a readable regular file"
+            return 1
+            ;;
+    esac
+    tracking=$(destination_tracking_refs "$push_name" "$push_url") || {
+        fail_closed "cannot list the tracking refs of $push_name"
+        return 1
+    }
+    work=$(mktemp) || {
+        fail_closed "mktemp failed"
+        return 1
+    }
+    while read -r local_ref local_sha remote_ref remote_sha; do
+        [[ -n "$local_ref" ]] || continue
+        # A deletion publishes nothing.
+        if is_zero_sha "$local_sha"; then
+            continue
+        fi
+        printf 'ref %s\n' "$remote_ref" >>"$work"
+        if [[ "$(git cat-file -t "$local_sha" 2>/dev/null)" == "tag" ]]; then
+            printf 'tag %s\n' "$local_sha" >>"$work"
+        fi
+        # Unpublished commits: none the remote ref already has (when this clone
+        # has that commit), none on the destination's own tracking refs.
+        published=()
+        if [[ -n "$tracking" ]]; then
+            mapfile -t published <<<"$tracking"
+        fi
+        if ! is_zero_sha "$remote_sha" && git cat-file -e "${remote_sha}^{commit}" 2>/dev/null; then
+            published+=("$remote_sha")
+        fi
+        revs=$(printf '%s\n' "$local_sha" --not "${published[@]}" | git rev-list --stdin) || {
+            rm -f "${work:?}"
+            fail_closed "git rev-list failed for $remote_ref"
+            return 1
+        }
+        if [[ -n "$revs" ]]; then
+            printf '%s\n' "$revs" | sed 's/^/commit /' >>"$work"
+        fi
+    done <"$refs"
+    iv_match pre-push commits "$map" <"$work" || rc=$?
+    rm -f "${work:?}"
+    case "$rc" in
+        0) return 0 ;;
+        1)
+            echo -e "${RED}PUSH BLOCKED: a pushed commit carries an installation value — rewrite it with a placeholder (<test-vm-name>, example.org, ...);${NC}" >&2
+            echo -e "${RED}real values belong in .claude/rules/local-*.md or the installation's own config.${NC}" >&2
+            return 1
+            ;;
+        *)
+            fail_closed "scrub map unreadable or invalid, or git failed (perl exit $rc)"
+            return 1
+            ;;
+    esac
+}
+
+# git hands the refs on stdin once; keep a copy so an appended block can read
+# the same lines after this check.
+PUSH_REFS=$(mktemp) || {
+    fail_closed "mktemp failed"
+    exit 1
+}
+if ! cat >"$PUSH_REFS"; then
+    rm -f "${PUSH_REFS:?}"
+    fail_closed "cannot read the pushed refs"
+    exit 1
+fi
+if ! check_pushed_installation_values "$PUSH_REFS" "$1" "$2"; then
+    rm -f "${PUSH_REFS:?}"
+    exit 1
+fi
+exec <"$PUSH_REFS"
+rm -f "${PUSH_REFS:?}"
