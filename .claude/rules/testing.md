@@ -4,7 +4,7 @@ Detail, incidents and reasoning per section: `.claude/docs/rules-reference/testi
 
 ## Dev Machine vs VM
 
-**Dev machine: unit tests, linting, static analysis, code editing ONLY. Integration, API, UI/Playwright, auth and E2E tests MUST run on the test VM.** `/test` Phase 10b (VM Lifecycle) detects pristine state and auto-installs before tests.
+**Dev machine: unit tests, linting, static analysis, code editing ONLY. Integration, API, UI/Playwright, auth and E2E tests MUST run on the test VM** — inside a `/test` audit or as a one-off run (Test VM Lifecycle below). `/test` Phase 10b (VM Lifecycle) detects pristine state and auto-installs before tests.
 
 ### What Runs Where
 
@@ -39,7 +39,9 @@ sudo -E -u audiobooks env PYTHONPATH=/opt/audiobooks/library/venv/lib/python3.14
 
 VM names on this host and the location of the `/test` VM map: gitignored `.claude/rules/local-vms.md`.
 
-**The test VM is EXCLUSIVELY for `/test` audits** (no other workload or user), so it MUST be shut down at the end of every `/test` audit, even if `/test` did not start it. This overrides the generic "preserve VMs /test didn't start" logic in `~/.claude/skills/test-phases/phase-11-cleanup.md`, which is right for shared VMs only.
+**The test VM serves `/test` audits and one-off integration runs, nothing else** (no other workload or user; bd `Audiobook-Manager-x874`). A one-off run outside `/test` starts it with `vm-session up <test-vm-name>`, deploys with `upgrade.sh --remote` when the VM lacks the code under test, and ends with `vm-session down <test-vm-name>`; never while a `/test` audit is using it. Whatever a one-off run leaves on the VM, the next `/test` reverts to pristine.
+
+`/test` MUST shut the test VM down at the end of every audit, even if `/test` did not start it. This overrides the generic "preserve VMs /test didn't start" logic in `~/.claude/skills/test-phases/phase-11-cleanup.md`, which is right for shared VMs only.
 
 **Authoritative source (the contract)**: the `/test` VM map sets `"post_test_restore": true` on both the test VM's `vms.` entry and `projects.Audiobook-Manager`.
 

@@ -241,7 +241,7 @@ ALLOWED_RGLOB_SITES: dict[tuple[str, str], int] = {
     # deletes *every* leftover file and then reaps the emptied directories,
     # so "walk everything, exclude nothing" is the specification rather than
     # an oversight — routing it through the canonical iterator would invite
-    # someone to switch the exclusions on and silently strand files there.
+    # someone to switch the exclusions on and silently leave files stranded there.
     # Two calls: one over files, one over directories in reverse order.
     ("library/backend/api_modular/maintenance_tasks/cleanup.py", "staging"): 2,
     # A per-import temporary directory holding an unpacked Google Play ZIP

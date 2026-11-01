@@ -31,6 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bring the VM up with `vm-session up` instead of a bare `virsh start` and shut it down with `vm-session down`
   (a no-op on an operator-started VM) instead of "Do NOT shut down the QA VM"; `-qa-all.md` shuts it down once, after
   its last phase (bd `Audiobook-Manager-8vw`)
+- **One-off integration runs use the test VM**: `.claude/rules/testing.md` required integration, API, UI, auth and
+  E2E tests to run on the test VM yet reserved that VM for `/test` audits alone, leaving a fix outside `/test` no place
+  to prove itself; the test VM now serves `/test` and one-off runs (`vm-session up`/`down`, never during an audit; the
+  next `/test` reverts it to pristine anyway), and `.claude/rules/vm-lifecycle.md` says the same
+  (bd `Audiobook-Manager-x874`)
 - **`docs/STORAGE-CAPACITY.md` is a generic guide**: what grows, how to measure it, what is safe to reclaim, with
   `${AUDIOBOOKS_VAR_DIR}`/`${AUDIOBOOKS_HOME}` paths and a per-book measuring command; the dated survey of one host
   moved to a gitignored `docs/local-*.md`; its `ls | xargs rm` backup cleanup became review-then-delete-by-path, and a
@@ -45,6 +50,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.claude/rules/*.md` into `.claude/docs/rules-reference/` (not auto-loaded) — loaded size 18,631 → 15,897 chars, every
   binding rule kept (lossless check: each removed line found whole in a reference doc; independent binding-semantics
   review, 0 clauses unloaded)
+
+### Removed
+
+- **Unused `--vm` fixtures in `library/tests/conftest.py`**: `ensure_vm_running` and `deploy_to_vm` had no consumer
+  (no test requested either) — revived, they would have started the VM with a bare `virsh start`, never shut it down,
+  and probed SSH with `StrictHostKeyChecking=no`; the `--vm` files collect the same 94 tests without them; their
+  `.vulture_whitelist.py` entries and a stale `SKIP_VM_DEPLOY` note in `test_auth_integration.py` went with them
+  (bd `Audiobook-Manager-vss9`)
 
 ### Fixed
 

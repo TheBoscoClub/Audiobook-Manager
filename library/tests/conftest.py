@@ -5,7 +5,6 @@ Pytest configuration and shared fixtures for Audiobooks Library tests.
 import encodings.idna  # noqa: F401 — force-load idna codec for Python 3.14 + werkzeug
 import os
 import sqlite3
-import subprocess
 import sys
 import tempfile
 import time
@@ -277,97 +276,6 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # Path to the database schema
 SCHEMA_PATH = LIBRARY_DIR / "backend" / "schema.sql"
-
-# VM connection details — MUST be supplied via environment for integration tests.
-# Example: VM_HOST=10.0.0.50 VM_NAME=my-test-vm pytest ...
-# VM_HOST has no default so integration tests fail fast rather than silently
-# pointing at whatever host happens to own the previous maintainer's LAN IP.
-VM_HOST = os.environ.get("VM_HOST", "")
-VM_API_PORT = int(os.environ.get("VM_API_PORT", "5001"))
-VM_NAME = os.environ.get("VM_NAME", "")
-VM_USER = os.environ.get("VM_USER", os.environ.get("USER", "root"))
-VM_SSH_KEY = os.environ.get("VM_SSH_KEY", "")
-
-
-@pytest.fixture(scope="session", autouse=False)
-def ensure_vm_running():
-    """Start the test VM if it's powered off.
-
-    Checks VM state via virsh and starts it if needed, then waits
-    for SSH connectivity before allowing tests to proceed.
-    """
-    try:
-        result = subprocess.run(
-            ["sudo", "virsh", "domstate", VM_NAME], capture_output=True, text=True, timeout=10
-        )
-    except (FileNotFoundError, subprocess.TimeoutExpired):  # fmt: skip
-        pytest.skip("virsh not available or timed out")
-        return
-
-    if result.returncode != 0:
-        pytest.skip(f"{VM_NAME} not found in libvirt")
-        return
-
-    state = result.stdout.strip()
-
-    if state == "running":
-        return
-
-    # Start the VM
-    start_result = subprocess.run(
-        ["sudo", "virsh", "start", VM_NAME], capture_output=True, text=True, timeout=30
-    )
-    if start_result.returncode != 0:
-        pytest.fail(f"Failed to start VM: {start_result.stderr}")
-
-    # Wait for SSH connectivity (up to 60s)
-    ssh_cmd = ["ssh"]
-    if VM_SSH_KEY:
-        ssh_cmd += ["-i", VM_SSH_KEY]
-    ssh_cmd += ["-o", "BatchMode=yes", "-o", "ConnectTimeout=3", "-o", "StrictHostKeyChecking=no"]
-    deadline = time.time() + 60
-    while time.time() < deadline:
-        try:
-            r = subprocess.run(
-                ssh_cmd + [f"{VM_USER}@{VM_HOST}", "echo", "ok"],
-                capture_output=True,
-                text=True,
-                timeout=10,
-            )
-            if r.returncode == 0:
-                return
-        except subprocess.TimeoutExpired:
-            pass
-        time.sleep(3)
-
-    pytest.fail("VM started but SSH not available within 60s")
-
-
-@pytest.fixture(scope="session")
-def deploy_to_vm(ensure_vm_running):
-    """Deploy latest code to the remote test VM via upgrade.sh --remote.
-
-    Target host comes from VM_HOST (set in the shell before running tests).
-    Runs the full upgrade lifecycle (stop, backup, sync, venv, restart, validate).
-    Skip with SKIP_VM_DEPLOY=1 for rapid iteration when code is already deployed.
-    Depends on ensure_vm_running to guarantee VM is up first.
-    """
-    if os.environ.get("SKIP_VM_DEPLOY", "").strip() == "1":
-        return
-
-    upgrade_script = PROJECT_ROOT / "upgrade.sh"
-    if not upgrade_script.exists():
-        pytest.skip("upgrade.sh not found at project root")
-
-    result = subprocess.run(
-        [str(upgrade_script), "--from-project", str(PROJECT_ROOT), "--remote", VM_HOST, "--yes"],
-        capture_output=True,
-        text=True,
-        timeout=300,
-        cwd=str(PROJECT_ROOT),
-    )
-    if result.returncode != 0:
-        pytest.fail(f"upgrade.sh --remote failed:\n{result.stderr}\n{result.stdout}")
 
 
 def init_test_database(db_path: Path) -> None:

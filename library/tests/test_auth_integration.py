@@ -12,7 +12,6 @@ Required:
   - VM_HOST set to the test VM's reachable address
   - Audiobook API running on VM_HOST:VM_API_PORT
   - testadmin account (TOTP, admin)
-  - SKIP_VM_DEPLOY=1 to skip auto-deploy (optional)
 
 Auth methods tested:
   - TOTP: Full lifecycle with pyotp code generation

@@ -25,4 +25,4 @@ Use `vm-session up` or `vm-session ip <vm>`. Never parse `virsh domifaddr` by ha
 
 ## Exceptions
 
-The test VM is governed by `testing.md`: `/test` owns its lifecycle and must always shut it down (`post_test_restore: true` in the `/test` VM map). Nothing here overrides that.
+The test VM is governed by `testing.md`: `/test` must always shut it down at the end of an audit (`post_test_restore: true` in the `/test` VM map). A one-off integration run outside `/test` uses it under this file (`vm-session up`/`down`). Nothing here overrides `testing.md`.
