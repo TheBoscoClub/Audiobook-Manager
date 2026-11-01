@@ -14,7 +14,7 @@ to lock body scroll while the modal is open and restore on close — that
 freezes the visual viewport too and eliminates the mid-mount shift.
 
 These tests are STRUCTURAL — they assert the source code shape rather than
-runtime behaviour. Runtime UI verification happens against Bosco/Qing's
+runtime behaviour. Runtime UI verification happens against the household's
 actual phones (the headless test browser enforces a 500px minimum width and
 doesn't reproduce the dynamic-toolbar interaction).
 

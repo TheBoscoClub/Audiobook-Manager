@@ -25,7 +25,7 @@
   // is a synchronous swap instead of an async POST. Without this, iOS Chrome
   // rejects the `audio.play()` call inside `enterStreaming` because the chain
   // (POST → bitmap → MSE rebuild → sourceopen → play) crosses too many async
-  // ticks and breaks the user-gesture chain — Qing had to manually tap play
+  // ticks and breaks the user-gesture chain — the listener had to manually tap play
   // at every chapter boundary.
   //
   // 10 s gives the POST + bitmap response plenty of headroom on slow mobile
@@ -662,7 +662,7 @@
     // already ran while playing the previous chapter, the bitmap is
     // already in hand. Skip the network round-trip and go straight to
     // enterBuffering — this keeps audio.play() inside iOS's gesture
-    // chain so Qing doesn't have to manually tap play at every chapter
+    // chain so the listener doesn't have to manually tap play at every chapter
     // boundary.
     if (preloadedNextChapter && preloadedNextChapter.chapterIndex === nextChapter) {
       var preload = preloadedNextChapter;

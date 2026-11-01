@@ -13,8 +13,8 @@ chapter boundaries are available via ANY of three pathways:
   2. Active streaming MSE pipeline (one chapter per MSE chain).
   3. Cached translatedEntries (one URL per pre-translated chapter).
 
-Tests are STRUCTURAL — runtime UI behaviour gets verified by Qing on her
-iPhone Chrome / Safari and Bosco on desktop Brave. Structural assertions
+Tests are STRUCTURAL — runtime UI behaviour gets verified by the listener on an
+iPhone Chrome / Safari and the operator on desktop Brave. Structural assertions
 catch the kinds of regressions that would silently break the buttons:
 missing wiring, missing public-API entry points, hardcoded chapter +1 in
 places that should be parameterised, accidental hide-by-default removal.

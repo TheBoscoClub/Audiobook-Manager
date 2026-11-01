@@ -17,7 +17,7 @@
  * rotates a `?v=<epoch>` stamp on every CSS/JS reference at deploy time,
  * so any *fresh* page load picks up new assets automatically. But a tab
  * that's already open keeps running the old code until the user reloads
- * — which is how Qing's iPhone Chrome ran the broken pre-v8.3.8.9 CSS
+ * — which is how a listener's iPhone Chrome ran the broken pre-v8.3.8.9 CSS
  * for hours after the prod hot-patch was live.
  *
  * Behavior

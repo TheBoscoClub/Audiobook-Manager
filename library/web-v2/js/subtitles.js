@@ -38,7 +38,7 @@
   //
   // v8.3.10 (Audiobook-Manager-ic5) reduced the pause from 4000 ms to 1500 ms.
   // The 4 s window meant any incidental finger-nudge silenced narration-follow
-  // for so long Qing had to manually re-scroll to find the playing line.
+  // for so long the listener had to manually re-scroll to find the playing line.
   // 1.5 s is long enough to honour an intentional reach-ahead but short
   // enough that the panel snaps back to the line within one or two seconds
   // of the user releasing the scroll.

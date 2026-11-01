@@ -14,8 +14,8 @@
 
 **This plan is a documented "maybe". Do not start it without a trigger.**
 
-**Trigger to unpark:** Qing confirms she expects to use the library's translated
-audio. If she does not, the decision moves to Option B or C (see the session
+**Trigger to unpark:** the zh-Hans listener confirms they expect to use the library's translated
+audio. If they do not, the decision moves to Option B or C (see the session
 analysis of 2026-08-26) or to leaving the capability permanently off.
 
 **Why parked:** the operationally valuable half of this plan appeared to need no

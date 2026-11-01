@@ -37,10 +37,10 @@ class TestShellCSS:
 
     def test_version_poller_wired_into_shell(self):
         """Shell must load `version-poller.js` so deploys can prompt
-        currently-open tabs to reload (closes the gap that bit Qing's
-        iPhone Chrome on 2026-04-25, where she ran the broken
+        currently-open tabs to reload (closes the gap that bit a listener's
+        iPhone Chrome on 2026-04-25, where the open tab ran the broken
         pre-v8.3.8.9 CSS for hours after the prod hot-patch was live —
-        because her tab stayed open with cached HTML).
+        because the tab stayed open with cached HTML).
         """
         assert VERSION_POLLER_JS.exists(), f"version-poller.js missing at {VERSION_POLLER_JS}"
         html = SHELL_HTML.read_text()
@@ -78,7 +78,7 @@ class TestShellCSS:
         """`<html>` height MUST be capped at 100svh.
 
         Regression guard for the iOS Chrome bottom-nav clip
-        (Audiobook-Manager-g9f, Qing's iPhone 17 Pro Chrome 2026-04-25):
+        (Audiobook-Manager-g9f, a listener's iPhone 17 Pro Chrome 2026-04-25):
         on iOS Chrome both 100dvh and visualViewport.height include the
         area behind the persistent bottom nav, so without the 100svh cap
         the body extends behind the toolbar and the player's wrapped

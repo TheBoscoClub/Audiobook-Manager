@@ -2,11 +2,11 @@
 
 The next-chapter pre-buffer logic in streaming-translate.js exists to keep
 audio.play() inside iOS's user-gesture chain at chapter boundaries — without
-it, Chinese auto-advance silently fails on Qing's iPhone Chrome and she has
+it, Chinese auto-advance silently fails on a listener's iPhone Chrome and the listener has
 to manually tap play at every chapter end.
 
 These tests are STRUCTURAL — they assert the source code shape rather than
-runtime behaviour. Runtime behaviour is verified by Qing on her actual iPhone
+runtime behaviour. Runtime behaviour is verified by the listener on an actual iPhone
 (visual UAT) because the iOS gesture-chain rule isn't reproducible on desktop
 Chromium.
 

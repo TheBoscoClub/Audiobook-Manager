@@ -281,7 +281,7 @@ def test_process_segment_tts_failure_does_not_silently_complete(tmp_path):
     NOT be invoked with ``audio_path=None``. Instead the failure propagates
     to the outer retry handler in process_segment.
 
-    Regression guard for `Audiobook-Manager-g9f` (Qing's 2026-04-25 prod
+    Regression guard for `Audiobook-Manager-g9f` (a listener's 2026-04-25 prod
     report): the prior implementation rationalized "VTT alone is still
     useful, so a TTS failure downgrades to text-only" and caught Exception,
     POSTing ``audio_path=None`` to the coordinator. The coordinator wrote

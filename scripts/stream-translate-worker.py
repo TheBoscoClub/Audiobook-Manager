@@ -605,7 +605,7 @@ def _synthesize_or_silent_audio(
     # frontend's behavior on those rows is a separate concern; this
     # change does not regress it.
     #
-    # Audiobook-Manager-g9f and Qing's 2026-04-25 prod report drove
+    # Audiobook-Manager-g9f and a listener's 2026-04-25 prod report drove
     # this: 20 orphan rows accumulated in 24h (1 live, blocking
     # Pronto playback). All 20 had `error=NULL` because the TTS
     # exception never made it to the retry handler that persists

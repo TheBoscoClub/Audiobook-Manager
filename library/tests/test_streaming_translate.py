@@ -446,7 +446,7 @@ class TestRequestStreamingTranslation:
         existing and being filtered for in WHERE clauses elsewhere. Every
         active session was perpetually stuck at 'buffering'. The 2026-05-02
         prod incident surfaced this — operators inspecting the table during
-        debugging saw ``state='buffering'`` for every book Qing was actually
+        debugging saw ``state='buffering'`` for every book the listener was actually
         listening to. Now ``_fully_cached_response`` flips a buffering
         session to 'streaming' on the way out.
         """

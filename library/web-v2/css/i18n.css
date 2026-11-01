@@ -419,7 +419,7 @@ html.cjk .subtitle-translated {
 
 /* Active cue — the line the narration is currently on. v8.3.10 (Audiobook-Manager-ic5)
    bumps contrast significantly: stronger background fill, brighter foreground,
-   and a soft gold glow so Qing can find the playing line at a glance even on
+   and a soft gold glow so the listener can find the playing line at a glance even on
    iPhone in bright light. The previous 15 % gold tint read as faintly-shaded
    on the Art Deco dark wood; 35 % is unmistakable without being garish. */
 .transcript-cue.active {

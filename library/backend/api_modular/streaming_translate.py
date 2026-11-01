@@ -938,7 +938,7 @@ def _mark_session_streaming(db, audiobook_id, locale):
     ``'streaming'`` transition exists. Cosmetic but observable: the
     ``streaming_sessions`` table never reflected actual playback state, so
     operators inspecting prod (e.g. during the v8.3.10 incident) saw
-    ``state='buffering'`` for every book Qing was actually listening to.
+    ``state='buffering'`` for every book the listener was actually listening to.
 
     Idempotent — only updates rows currently in ``'buffering'``.
     """
@@ -1106,7 +1106,7 @@ def request_streaming_translation():
         # transition to STREAMING state on receipt — flip the session row
         # to match. Without this, the session perpetually shows
         # state='buffering' even though playback is active. Cosmetic but
-        # observable in prod (v8.3.10 incident showed every of Qing's
+        # observable in prod (v8.3.10 incident showed every one of a listener's
         # active sessions stuck at 'buffering').
         if len(bitmap.get("completed", [])) >= BUFFER_THRESHOLD:
             _mark_session_streaming(db, audiobook_id, locale)
@@ -1689,7 +1689,7 @@ def segment_complete():
 
     # iOS WebKit (Safari + Chrome iOS, both WKWebView) cannot play WebM via
     # MediaSource Extensions, so the per-segment MSE pipeline that drives
-    # mid-streaming playback for non-iOS clients dead-ends on Qing's iPhone
+    # mid-streaming playback for non-iOS clients dead-ends on a listener's iPhone
     # with a perpetual spinner. The fix is to surface the sampler-translated
     # audio as a single concatenated chapter.webm served via native
     # <audio src=…>, which iOS plays fine.
