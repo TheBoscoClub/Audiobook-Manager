@@ -38,7 +38,7 @@ ERROR: Missing QA module file(s). Expected both:
 ### Phase 1: Native App Testing
 
 1. **Read** the contents of `test-audiobook-manager-qa-app.md` from the project root
-2. **Execute** all steps in that module in order (Steps 1-7)
+2. **Execute** all steps in that module in order (Steps 1-7), except its QA VM shutdown step — Phase 5 shuts the VM down
 3. **Record results** from the module's Step 7 report:
    - `native_version` — the version running after any upgrade
    - `native_upgrade_performed` — yes/no
@@ -60,7 +60,7 @@ ERROR: Missing QA module file(s). Expected both:
 ### Phase 2: Docker Testing
 
 1. **Read** the contents of `test-audiobook-manager-qa-docker.md` from the project root
-2. **Execute** all steps in that module in order (Steps 1-8)
+2. **Execute** all steps in that module in order (Steps 1-8), except its QA VM shutdown step — Phase 5 shuts the VM down
 3. **Record results** from the module's Step 8 report:
    - `docker_version` — the version running after any upgrade
    - `docker_upgrade_performed` — yes/no
@@ -85,6 +85,7 @@ After both modules complete, perform additional cross-validation:
 ```bash
 MANIFEST="vm-test-manifest.json"  # local, gitignored; copy from vm-test-manifest.example.json
 QA_IP=$(jq -r '.qa_vm.static_ip' "$MANIFEST")
+QA_VM=$(jq -r '.qa_vm.vm_name' "$MANIFEST")
 SSH_KEY="${QA_SSH_KEY:-$HOME/.ssh/id_ed25519}"
 SSH_USER="${QA_SSH_USER:-$USER}"
 SSH_CMD="ssh -i $SSH_KEY $SSH_USER@$QA_IP"
@@ -225,4 +226,14 @@ SESSION_RECORD="${PROJECT_DIR}/SESSION_RECORD_$(date +%Y-%m-%d).md"
 - **Overall**: {PASS/FAIL/PARTIAL}
 ENTRY
 ) 200>"${SESSION_RECORD}.lock"
+```
+
+### Phase 5: Shut Down the QA VM
+
+The two modules leave the QA VM up when they run inside this module; shut it down now that the last phase is done.
+`vm-session down` does nothing to a VM the operator started (Claude never leaves the QA VM running; the operator may —
+`.claude/rules/vm-lifecycle.md`):
+
+```bash
+vm-session down "$QA_VM"
 ```

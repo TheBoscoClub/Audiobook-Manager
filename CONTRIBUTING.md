@@ -12,7 +12,10 @@ Thank you for your interest in contributing to the Audiobooks project!
    ./scripts/install-hooks.sh
    ```
 
-   This installs commit safeguards that enforce coding standards.
+   This installs commit safeguards that enforce coding standards: the hardcoded-path check below and, in a checkout
+   that keeps a gitignored `.claude/local-scrub-map.txt` (`key==>replacement` lines), a refusal of any staged line or
+   path containing one of its keys — the real values of that checkout's installation (VM names, addresses,
+   hostnames). Rerunning the installer keeps any `LIVE-SYNC` and `BEADS INTEGRATION` blocks other tools added.
 
 3. **Install dependencies**:
 

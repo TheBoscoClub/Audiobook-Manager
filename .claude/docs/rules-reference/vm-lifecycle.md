@@ -2,7 +2,7 @@
 
 Detail moved out of `.claude/rules/vm-lifecycle.md`, same headings. Verbatim; the rule file keeps the binding text.
 
-**Dev, QA and test VMs do not idle.** Boot for a specific job (deploy, test run, repro), shut down when it ends — idle VMs waste RAM/array I/O, and one holding credentials can make unwatched outbound API calls.
+**Dev, QA and test VMs do not idle on Claude's account.** Boot for a specific job (deploy, test run, repro), shut down when it ends — idle VMs waste RAM/array I/O, and one holding credentials can make unwatched outbound API calls. A VM the operator started is the operator's to leave running, the QA VM included (decision 2026-11-01, bd `Audiobook-Manager-8vw`).
 
 ## The two properties that make it safe
 

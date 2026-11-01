@@ -6,11 +6,11 @@ Detail moved out of `CLAUDE.md`, same headings. Verbatim; the rule file keeps th
 
 - `rules/paths-and-separation.md` — NO HARDCODED PATHS (use `lib/audiobook-config.sh` vars); project and installed app COMPLETELY SEPARATE, zero dependencies
 
-- `rules/testing.md` — dev machine = unit tests only; all integration/API/UI tests on `test-audiobook-cachyos`; prod-data isolation
+- `rules/testing.md` — dev machine = unit tests only; all integration/API/UI tests on the test VM; prod-data isolation
 
 - `rules/audio-metadata.md` — Opus metadata is in `streams[0].tags`, not `format.tags`; check both
 
-- `rules/vm-lifecycle.md` — boot VMs on demand with `vm-session up`, shut down after; never leave one idling
+- `rules/vm-lifecycle.md` — boot VMs on demand with `vm-session up`, shut down after; never leave one idling on Claude's account
 
 - `rules/upgrade-consistency.md` — upgrade changes touch ALL upgrade files; new scripts/tables must be wired
 

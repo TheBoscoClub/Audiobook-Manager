@@ -7,6 +7,7 @@ Detail, incidents and reasoning per section: `.claude/docs/rules-reference/paths
 - **NEVER** write literal paths (`/run/audiobooks`, `/var/lib/audiobooks`, `/srv/audiobooks`) in scripts, services or code
 - **ALWAYS** use variables (`$AUDIOBOOKS_RUN_DIR`, `$AUDIOBOOKS_VAR_DIR`, `$AUDIOBOOKS_DATA`, …); if one is missing, **ADD IT** to `lib/audiobook-config.sh` first
 - A pre-commit hook blocks hardcoded paths: replace with the variable (adding it if needed), re-commit
+- The same hook refuses any staged line containing a value of this host's installation (VM names/addresses, hostnames, storage paths): the keys of gitignored `.claude/local-scrub-map.txt`. Use a placeholder (`<test-vm-name>`, `example.org`); add every new real value to the map
 
 | Variable (lib/audiobook-config.sh) | Default | Purpose |
 |----------|---------|---------|

@@ -112,7 +112,9 @@ def test_generator_writes_normalised_lock_from_good_freeze(tmp_path):
     proc = _gen(tmp_path, freeze, out)
     assert proc.returncode == 0, proc.stderr
     text = out.read_text()
-    assert "# Source host:    testhost" in text and "# Python:         3.14.0" in text
+    assert "# Source:         venv " in text and "# Python:         3.14.0" in text
+    # The host is an installation value: never recorded in the tracked lock
+    assert "testhost" not in text
     assert _parse_lock(out) == _parse_lock(LOCK)  # normalised, sorted, tooling excluded
 
 

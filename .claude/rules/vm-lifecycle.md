@@ -2,14 +2,14 @@
 
 Detail, incidents and reasoning per section: `.claude/docs/rules-reference/vm-lifecycle.md` (same headings).
 
-**Dev, QA and test VMs do not idle.** Boot for a specific job (deploy, test run, repro), shut down when it ends.
+**Dev, QA and test VMs do not idle on Claude's account.** Boot for a specific job (deploy, test run, repro), shut down when it ends. A VM the operator started is the operator's to leave running, the QA VM included (property 1 below). VM names on this host: gitignored `.claude/rules/local-vms.md`.
 
 ## Never start a VM with a bare `virsh start`
 
 ```bash
-IP=$(vm-session up dev-audiobook-cachyos)     # start, wait for SSH, print the IP
+IP=$(vm-session up <dev-vm-name>)     # start, wait for SSH, print the IP
 ./upgrade.sh --from-project "$PWD" --remote "$IP" --user claude --yes
-vm-session down dev-audiobook-cachyos          # shut down
+vm-session down <dev-vm-name>         # shut down
 ```
 
 `~/.claude/bin/vm-session` is host-wide, not project-specific.
@@ -25,4 +25,4 @@ Use `vm-session up` or `vm-session ip <vm>`. Never parse `virsh domifaddr` by ha
 
 ## Exceptions
 
-`test-audiobook-cachyos` is governed by `testing.md`: `/test` owns its lifecycle and must always shut it down (`post_test_restore: true` in `~/.claude/config/project-vm-map.json`). Nothing here overrides that.
+The test VM is governed by `testing.md`: `/test` owns its lifecycle and must always shut it down (`post_test_restore: true` in the `/test` VM map). Nothing here overrides that.

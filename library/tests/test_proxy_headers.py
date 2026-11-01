@@ -170,8 +170,8 @@ class TestCorsHeaders:
     def test_resolve_cors_origin_wildcard_with_origin_header_echoes(self):
         """When CORS_ORIGIN='*' and an Origin header is present, echo it."""
         mod = self._get_module(cors_origin="*")
-        headers = _make_headers({"Origin": "https://example.thebosco.club"})
-        assert mod.app._resolve_cors_origin(headers) == "https://example.thebosco.club"
+        headers = _make_headers({"Origin": "https://example.example.org"})
+        assert mod.app._resolve_cors_origin(headers) == "https://example.example.org"
 
     def test_resolve_cors_origin_wildcard_no_origin_header_keeps_wildcard(self):
         """When CORS_ORIGIN='*' and no Origin header, keep wildcard (non-browser caller)."""
@@ -180,14 +180,14 @@ class TestCorsHeaders:
 
     def test_resolve_cors_origin_specific_value_passes_through(self):
         """When CORS_ORIGIN is a specific value, it is used regardless of Origin."""
-        mod = self._get_module(cors_origin="https://library.thebosco.club")
+        mod = self._get_module(cors_origin="https://library.example.org")
         headers = _make_headers({"Origin": "https://attacker.example"})
-        assert mod.app._resolve_cors_origin(headers) == "https://library.thebosco.club"
+        assert mod.app._resolve_cors_origin(headers) == "https://library.example.org"
 
     def test_cors_headers_emit_origin_credentials_and_vary(self):
         """_cors_headers must emit all three: Allow-Origin, Allow-Credentials, Vary."""
         mod = self._get_module(cors_origin="*")
-        emitted = mod.app._cors_headers(_make_headers({"Origin": "https://library.thebosco.club"}))
+        emitted = mod.app._cors_headers(_make_headers({"Origin": "https://library.example.org"}))
         names = [n for n, _ in emitted]
         assert "Access-Control-Allow-Origin" in names
         assert "Access-Control-Allow-Credentials" in names
@@ -211,13 +211,13 @@ class TestCorsHeaders:
         A-C-A-C='true' as a security safeguard.
         """
         mod = self._get_module(cors_origin="*")
-        emitted = mod.app._cors_headers(_make_headers({"Origin": "https://library.thebosco.club"}))
+        emitted = mod.app._cors_headers(_make_headers({"Origin": "https://library.example.org"}))
         for name, value in emitted:
             if name == "Access-Control-Allow-Origin":
                 assert value != "*", (
                     "Allow-Origin='*' alongside Allow-Credentials=true is invalid per CORS spec"
                 )
-                assert value == "https://library.thebosco.club"
+                assert value == "https://library.example.org"
                 return
         raise AssertionError("Access-Control-Allow-Origin header missing")
 
@@ -232,7 +232,7 @@ class TestCorsHeaders:
             recorded["headers"] = headers
 
         mod.app._handle_options(
-            _make_headers({"Origin": "https://library.thebosco.club"}), start_response
+            _make_headers({"Origin": "https://library.example.org"}), start_response
         )
         names = [n for n, _ in recorded["headers"]]
         assert recorded["status"].startswith("204")
@@ -266,7 +266,7 @@ class TestCorsOriginCrlfRejection:
 
     def test_origin_is_safe_helper_accepts_normal_origin(self):
         proxy_mod = self._get_module()
-        assert proxy_mod._origin_is_safe("https://library.thebosco.club") is True
+        assert proxy_mod._origin_is_safe("https://library.example.org") is True
 
     def test_origin_is_safe_helper_rejects_empty(self):
         proxy_mod = self._get_module()
@@ -338,7 +338,7 @@ class TestCorsOriginCrlfRejection:
         """When CORS_ORIGIN is a specific allowlisted value and Origin is
         malicious, the configured value still wins (already covered by the
         existing wildcard-bypass logic, but explicitly covered for CRLF)."""
-        mod = self._get_module(cors_origin="https://library.thebosco.club")
+        mod = self._get_module(cors_origin="https://library.example.org")
         headers = _make_headers({"Origin": "http://evil.com\r\nX-Injected: 1"})
         # Specific configured value short-circuits regardless of Origin
-        assert mod.app._resolve_cors_origin(headers) == "https://library.thebosco.club"
+        assert mod.app._resolve_cors_origin(headers) == "https://library.example.org"

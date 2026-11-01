@@ -5,7 +5,8 @@
 #   ./scripts/install-hooks.sh
 #
 # Hooks installed:
-#   - pre-commit: Blocks hardcoded paths (must use config variables)
+#   - pre-commit: Blocks hardcoded paths (must use config variables) and, when the
+#     gitignored .claude/local-scrub-map.txt exists, any staged installation value
 
 set -e
 
@@ -41,25 +42,41 @@ for hook in "$HOOKS_SOURCE"/*; do
         hook_name=$(basename "$hook")
         dest="$HOOKS_DEST/$hook_name"
 
-        # Another tool (beads) appends a managed block to the installed hook.
-        # Carry it over so replacing the hook does not silently drop it.
+        # Other tools add managed blocks to the installed hook: live-sync puts
+        # its commit gate right after the shebang, beads appends its block at the
+        # end. Carry both over, in place, so replacing the hook drops neither.
         preserved=""
+        preserved_head=""
         if [[ -f "$dest" ]]; then
-            begins=$(grep -c '^# --- BEGIN BEADS INTEGRATION' "$dest" || true)
-            ends=$(grep -c '^# --- END BEADS INTEGRATION' "$dest" || true)
-            if [[ "$begins" != "$ends" ]]; then
-                echo "Error: $dest has $begins BEGIN but $ends END BEADS INTEGRATION markers;" >&2
-                echo "       refusing to guess which block to preserve. Fix the hook by hand and rerun." >&2
-                exit 1
-            fi
+            for marker in "BEADS INTEGRATION" "LIVE-SYNC"; do
+                begins=$(grep -c "^# --- BEGIN $marker" "$dest" || true)
+                ends=$(grep -c "^# --- END $marker" "$dest" || true)
+                if [[ "$begins" != "$ends" ]]; then
+                    echo "Error: $dest has $begins BEGIN but $ends END $marker markers;" >&2
+                    echo "       refusing to guess which block to preserve. Fix the hook by hand and rerun." >&2
+                    exit 1
+                fi
+            done
             preserved=$(awk '
                 /^# --- BEGIN BEADS INTEGRATION/ { keep = 1 }
                 keep { print }
                 /^# --- END BEADS INTEGRATION/ { keep = 0 }' "$dest")
+            preserved_head=$(awk '
+                /^# --- BEGIN LIVE-SYNC ---/ { keep = 1 }
+                keep { print }
+                /^# --- END LIVE-SYNC ---/ { keep = 0 }' "$dest")
         fi
 
         candidate=$(mktemp)
-        cat "$hook" >"$candidate"
+        if [[ -n "$preserved_head" ]]; then
+            {
+                head -n 1 "$hook"
+                printf '%s\n' "$preserved_head"
+                tail -n +2 "$hook"
+            } >"$candidate"
+        else
+            cat "$hook" >"$candidate"
+        fi
         if [[ -n "$preserved" ]]; then
             printf '\n%s\n' "$preserved" >>"$candidate"
         fi
@@ -72,6 +89,9 @@ for hook in "$HOOKS_SOURCE"/*; do
                 mv "$dest" "$dest.backup.$(date +%Y%m%d%H%M%S)"
                 cp "$candidate" "$dest"
                 chmod +x "$dest"
+                if [[ -n "$preserved_head" ]]; then
+                    echo -e "    preserved the LIVE-SYNC block"
+                fi
                 if [[ -n "$preserved" ]]; then
                     echo -e "    preserved the BEADS INTEGRATION block"
                 fi

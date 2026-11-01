@@ -286,7 +286,7 @@ Per `.claude/rules/upgrade-consistency.md`, **all eight files in the consistency
 
 **Task 6.6** — Delete the dead `AUDIOBOOKS_RUNPOD_*` endpoint IDs from prod `/etc/audiobooks/audiobooks.conf` as part of the same change (closes `Audiobook-Manager-6ap`). **The `AUDIOBOOKS_RUNPOD_API_KEY` and the commented `AUDIOBOOKS_VASTAI_SERVERLESS_API_KEY` on lines 94 and 102 were exposed in a session transcript on 2026-08-26 and MUST be rotated or revoked, not merely deleted.**
 
-**Proof:** Fresh `install.sh` on pristine `test-audiobook-cachyos`; `systemctl is-enabled` for all five translation units → expect `disabled`. Then an upgrade run on a deployment with the units previously enabled → confirm Task 6.3's chosen behaviour actually occurred.
+**Proof:** Fresh `install.sh` on pristine `<test-vm-name>`; `systemctl is-enabled` for all five translation units → expect `disabled`. Then an upgrade run on a deployment with the units previously enabled → confirm Task 6.3's chosen behaviour actually occurred.
 
 ---
 

@@ -1,4 +1,4 @@
-"""Behavioural tests for scripts/hooks/pre-commit (hardcoded-path guard).
+"""Behavioural tests for scripts/hooks/pre-commit (hardcoded-path and installation-value guards).
 
 Each test builds a throwaway git repository under tmp_path, stages a file and
 runs the hook script against it, exactly as git would. Set
@@ -210,6 +210,191 @@ def test_git_failure_fails_closed(repo: Path, tmp_path_factory: pytest.TempPathF
     assert "refusing the commit" in result.stderr
 
 
+# --- installation-value guard (.claude/local-scrub-map.txt) ------------------
+# Synthetic values only (documentation-reserved addresses, example.net): a test
+# fixture holding the real values would be the leak the guard exists to stop.
+
+SCRUB_MAP = """# header comment: comment and blank lines are not keys
+
+vm-alpha-01==><test-vm-name>
+corp.example.net==>example.org
+regex:198\\.51\\.100\\.7(?![0-9])==><vm-ip>
+"""
+
+
+def _write_map(repo: Path, text: str = SCRUB_MAP) -> Path:
+    path = repo / ".claude" / "local-scrub-map.txt"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    return path
+
+
+def test_no_map_checks_nothing(repo: Path):
+    _stage(repo, "docs/notes.md", "deploy to vm-alpha-01\n")
+    assert _run_hook(repo).returncode == 0
+
+
+@pytest.mark.parametrize(
+    ("relpath", "content"),
+    [
+        ("docs/notes.md", "deploy to vm-alpha-01 first\n"),  # prose is not skipped
+        (
+            "library/tests/test_x.py",
+            'ORIGIN = "https://corp.example.net"\n',
+        ),  # tests are not skipped
+        ("scripts/x.sh", "# reach it at 198.51.100.7\n"),  # comments are not skipped
+        ("CHANGELOG.md", "- **Fix**: `vm-alpha-01` booted\n"),
+    ],
+)
+def test_map_key_on_added_line_is_refused(repo: Path, relpath: str, content: str):
+    _write_map(repo)
+    _stage(repo, relpath, content)
+    result = _run_hook(repo)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "installation value" in result.stderr
+    assert relpath in result.stderr
+
+
+def test_regex_key_matches_whole_address_only(repo: Path):
+    _write_map(repo)
+    _stage(repo, "docs/notes.md", "an unrelated host 198.51.100.70\n")
+    assert _run_hook(repo).returncode == 0
+
+
+def test_placeholders_pass(repo: Path):
+    _write_map(repo)
+    _stage(
+        repo,
+        "docs/notes.md",
+        "deploy to <test-vm-name> at <vm-ip>; mail from library@example.org\n",
+    )
+    assert _run_hook(repo).returncode == 0
+
+
+def test_key_on_existing_line_only_passes(repo: Path):
+    _stage(repo, "docs/notes.md", "old line names vm-alpha-01\n")
+    _commit(repo)
+    _write_map(repo)
+    _stage(repo, "docs/notes.md", "old line names vm-alpha-01\nnew generic line\n")
+    assert _run_hook(repo).returncode == 0
+
+
+def test_unreadable_map_fails_closed(repo: Path):
+    if os.geteuid() == 0:
+        pytest.skip("root reads a mode-000 file")
+    _write_map(repo).chmod(0)
+    _stage(repo, "a.py", "x = 1\n")
+    result = _run_hook(repo)
+    assert result.returncode != 0
+    assert "refusing the commit" in result.stderr
+
+
+def test_invalid_regex_in_map_fails_closed(repo: Path):
+    _write_map(repo, "regex:([unclosed==>x\n")
+    _stage(repo, "a.py", "x = 1\n")
+    result = _run_hook(repo)
+    assert result.returncode != 0
+    assert "refusing the commit" in result.stderr
+
+
+def test_color_ui_always_does_not_blind_value_guard(repo: Path):
+    subprocess.run(["git", "config", "color.ui", "always"], cwd=repo, check=True)
+    subprocess.run(["git", "config", "color.diff", "always"], cwd=repo, check=True)
+    _write_map(repo)
+    _stage(repo, "docs/notes.md", "deploy to vm-alpha-01\n")
+    assert _run_hook(repo).returncode == 1
+
+
+@pytest.mark.parametrize("setting", ["diff.noprefix", "diff.mnemonicPrefix"])
+def test_diff_prefix_config_does_not_blind_value_guard(repo: Path, setting: str):
+    subprocess.run(["git", "config", setting, "true"], cwd=repo, check=True)
+    _write_map(repo)
+    _stage(repo, "docs/notes.md", "deploy to vm-alpha-01\n")
+    result = _run_hook(repo)
+    assert result.returncode == 1
+    assert "added line in docs/notes.md contains" in result.stderr  # exact path, no i/ or w/ prefix
+
+
+def test_linked_worktree_uses_main_checkout_map(
+    repo: Path, tmp_path_factory: pytest.TempPathFactory
+):
+    _stage(repo, "README.md", "x\n")
+    _commit(repo)
+    _write_map(repo)  # gitignored in real life: present only in the main checkout
+    wt = tmp_path_factory.mktemp("wt") / "linked"
+    subprocess.run(["git", "worktree", "add", "-q", "--detach", str(wt)], cwd=repo, check=True)
+    assert not (wt / ".claude" / "local-scrub-map.txt").exists()
+    _stage(wt, "docs/notes.md", "deploy to vm-alpha-01\n")
+    result = _run_hook(wt)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "installation value" in result.stderr
+
+
+@pytest.mark.parametrize("relpath", ["docs/vm-alpha-01.md", "vm-alpha-01/empty.txt"])
+def test_key_in_staged_path_is_refused_even_when_empty(repo: Path, relpath: str):
+    _write_map(repo)
+    _stage(repo, relpath, "")
+    result = _run_hook(repo)
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "staged path" in result.stderr
+
+
+def test_rename_to_key_path_is_refused(repo: Path):
+    _stage(repo, "docs/plain.md", "generic\n")
+    _commit(repo)
+    _write_map(repo)
+    subprocess.run(["git", "mv", "docs/plain.md", "docs/vm-alpha-01.md"], cwd=repo, check=True)
+    assert _run_hook(repo).returncode == 1
+
+
+@pytest.mark.parametrize(
+    "map_text",
+    [
+        "﻿vm-alpha-01==>x\n",  # UTF-8 BOM on the first key
+        "  vm-alpha-01  ==>x\n",  # surrounding whitespace
+        "vm-alpha-01==>x\r\n",  # CRLF map
+        "vm-alpha-01\r\n",  # key with no replacement, CRLF
+        "literal:vm-alpha-01==>x\n",  # filter-repo literal: prefix
+    ],
+)
+def test_map_key_normalisation(repo: Path, map_text: str):
+    _write_map(repo, map_text)
+    _stage(repo, "docs/notes.md", "deploy to vm-alpha-01\n")
+    assert _run_hook(repo).returncode == 1
+
+
+def test_literal_key_is_case_insensitive(repo: Path):
+    _write_map(repo)
+    _stage(repo, "docs/notes.md", "deploy to VM-ALPHA-01\n")
+    assert _run_hook(repo).returncode == 1
+
+
+@pytest.mark.parametrize(
+    "map_text",
+    ["", "# only a comment\n\n", "glob:*.example.net==>x\n"],
+)
+def test_map_without_usable_keys_fails_closed(repo: Path, map_text: str):
+    _write_map(repo, map_text)
+    _stage(repo, "a.py", "x = 1\n")
+    result = _run_hook(repo)
+    assert result.returncode != 0
+    assert "refusing the commit" in result.stderr
+
+
+@pytest.mark.parametrize("kind", ["directory", "dangling-symlink"])
+def test_map_that_is_not_a_regular_file_fails_closed(repo: Path, kind: str):
+    path = repo / ".claude" / "local-scrub-map.txt"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if kind == "directory":
+        path.mkdir()
+    else:
+        path.symlink_to(repo / "no-such-target")
+    _stage(repo, "a.py", "x = 1\n")
+    result = _run_hook(repo)
+    assert result.returncode != 0
+    assert "is not a readable regular file" in result.stderr
+
+
 # --- installer + appended-block cooperation ----------------------------------
 
 BEADS_BLOCK = """# --- BEGIN BEADS INTEGRATION v1.0.3 ---
@@ -251,6 +436,42 @@ def test_installer_preserves_beads_block(installed_repo: Path):
     # idempotent: a second run changes nothing and does not duplicate the block
     _install(installed_repo)
     assert (installed_repo / ".git/hooks/pre-commit").read_text() == text
+
+
+LIVE_SYNC_BLOCK = """# --- BEGIN LIVE-SYNC ---
+if command -v live-sync >/dev/null 2>&1; then
+  live-sync gate "$(git rev-parse --show-toplevel)" || exit 1
+fi
+# --- END LIVE-SYNC ---
+"""
+
+
+def test_installer_preserves_live_sync_block_after_shebang(installed_repo: Path):
+    # Text checks only: the copied gate is never run (the host's live-sync must not judge a temp repo)
+    hook = installed_repo / ".git/hooks/pre-commit"
+    hook.write_text("#!/bin/bash\n" + LIVE_SYNC_BLOCK + "# old hook\nexit 0\n\n" + BEADS_BLOCK)
+    _install(installed_repo)
+    text = hook.read_text()
+    assert text.startswith("#!/bin/bash\n" + LIVE_SYNC_BLOCK)
+    assert text.count("BEGIN LIVE-SYNC") == 1 and text.count("END LIVE-SYNC") == 1
+    assert text.count("BEGIN BEADS INTEGRATION") == 1
+    assert text.rstrip().endswith("# --- END BEADS INTEGRATION v1.0.3 ---")
+    assert "check_installation_values" in text
+    assert "# old hook" not in text
+    _install(installed_repo)  # idempotent
+    assert hook.read_text() == text
+
+
+def test_installer_refuses_unbalanced_live_sync_markers(installed_repo: Path):
+    hook = installed_repo / ".git/hooks/pre-commit"
+    original = "#!/bin/bash\n# --- BEGIN LIVE-SYNC ---\nlive-sync gate .\n# old hook\n"
+    hook.write_text(original)
+    result = subprocess.run(
+        ["bash", "scripts/install-hooks.sh"], cwd=installed_repo, capture_output=True, text=True
+    )
+    assert result.returncode != 0
+    assert "LIVE-SYNC markers" in result.stderr
+    assert hook.read_text() == original
 
 
 def test_appended_block_runs_after_clean_pass_and_not_after_refusal(installed_repo: Path):

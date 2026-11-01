@@ -28,11 +28,11 @@ Without `-E` + explicit `PYTHONPATH`, `test_admin_activity_api.py` fails collect
 
 ## Test VM Lifecycle — Always Shut Down at End of /test
 
-**Authoritative source (the contract)**: `~/.claude/config/project-vm-map.json` sets `"post_test_restore": true` on both `vms.test-audiobook-cachyos` and `projects.Audiobook-Manager`. phase-11-cleanup.md reads it for the current project and, if any matching VM has `post_test_restore: true`, runs `virsh shutdown` unconditionally.
+**Authoritative source (the contract)**: the `/test` VM map sets `"post_test_restore": true` on both the test VM's `vms.` entry and `projects.Audiobook-Manager`. phase-11-cleanup.md reads it for the current project and, if any matching VM has `post_test_restore: true`, runs `virsh shutdown` unconditionally.
 
-| `test-audiobook-cachyos` | true | **ALWAYS shut down** (revert to pristine BTRFS snapshot on next /test start) |
+| test VM | true | **ALWAYS shut down** (revert to pristine BTRFS snapshot on next /test start) |
 
-| `qa-audiobook-cachyos` | false | Leave running (QA mirror for released-version smoke testing) |
+| QA VM | false | Phase 11 does not touch it (QA mirror for released-version smoke testing). *Superseded 2026-11-01: was "Leave running"; Claude never leaves it running, the operator may; see bd `Audiobook-Manager-8vw`.* |
 
 ## CRITICAL: Test/QA Data Isolation
 

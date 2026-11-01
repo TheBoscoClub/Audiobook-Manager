@@ -69,8 +69,8 @@ def relay(monkeypatch):
     monkeypatch.setenv("SMTP_HOST", "127.0.0.1")
     monkeypatch.setenv("SMTP_PORT", "25")
     monkeypatch.setenv("SMTP_USER", "")
-    monkeypatch.setenv("SMTP_FROM", "library@thebosco.club")
-    monkeypatch.setenv("ADMIN_EMAIL", "admin@thebosco.club")
+    monkeypatch.setenv("SMTP_FROM", "library@example.org")
+    monkeypatch.setenv("ADMIN_EMAIL", "admin@example.org")
     monkeypatch.delenv("SMTP_PASS", raising=False)
     monkeypatch.setattr(smtplib, "SMTP", _FakeSMTP)
     return _FakeSMTP
@@ -95,4 +95,4 @@ def test_inbox_cli_reply_addresses_the_recipient(relay, monkeypatch):
     inbox_cli.send_email_reply("reader@example.com", "reader", "body text")
     frm, to, _ = relay.instances[0].sendmail_calls[0]
     assert to == "reader@example.com"
-    assert frm == "library@thebosco.club"
+    assert frm == "library@example.org"

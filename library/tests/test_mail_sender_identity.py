@@ -23,7 +23,7 @@ from common_utils.mail_identity import SenderIdentityError, resolve_sender  # no
 class TestResolveSender:
     @pytest.mark.parametrize(
         "value",
-        ["library@thebosco.club", "  library@thebosco.club  ", "a.b+c@example.co.uk"],
+        ["library@example.org", "  library@example.org  ", "a.b+c@example.co.uk"],
     )
     def test_accepts_deliverable_addresses(self, value):
         assert resolve_sender(value) == value.strip()
@@ -148,4 +148,4 @@ class TestDomainIsTakenFromTheLastAtSign:
             resolve_sender("a@b@localhost")
 
     def test_multiple_at_signs_with_a_real_domain_are_accepted(self):
-        assert resolve_sender("a@b@thebosco.club") == "a@b@thebosco.club"
+        assert resolve_sender("a@b@example.org") == "a@b@example.org"

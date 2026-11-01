@@ -93,22 +93,11 @@ OVERALL="PASS"
 
 **Goal**: Ensure the QA VM is running and reachable via SSH.
 
-1. Check VM state:
+1. Bring the QA VM up with `vm-session` — never a bare `virsh start` (`.claude/rules/vm-lifecycle.md`). If the
+   operator already started it, `vm-session` leaves it unmarked, so the cleanup below never shuts it down:
 
 ```bash
-VM_STATE=$(sudo virsh domstate "$QA_VM" 2>/dev/null)
-echo "VM state: $VM_STATE"
-```
-
-1. If not running, start it:
-
-```bash
-if [[ "$VM_STATE" != "running" ]]; then
-    echo "Starting QA VM..."
-    sudo virsh start "$QA_VM"
-    echo "Waiting for VM to boot..."
-    sleep 15
-fi
+vm-session up "$QA_VM" >/dev/null || echo "WARNING: vm-session up reported a problem; the SSH wait below decides"
 ```
 
 1. Wait for SSH (poll with timeout, max 120 seconds):
@@ -861,5 +850,12 @@ $SSH_CMD "rm -f /tmp/audiobooks-prod.db /tmp/qa-api-resp" 2>/dev/null || true
 rm -f /tmp/qa-api-resp /tmp/qa-cookies.txt
 ```
 
-1. Do NOT shut down the QA VM (it stays running for Docker QA tests or manual inspection).
+1. Shut the QA VM down — unless this module is running inside `test-audiobook-manager-qa-all.md`, which shuts it down
+   after its last phase. `vm-session down` does nothing to a VM the operator started (Claude never leaves the QA VM
+   running; the operator may):
+
+   ```bash
+   vm-session down "$QA_VM"
+   ```
+
 2. Do NOT revert to snapshot (QA VM is persistent, unlike the test VM).

@@ -37,17 +37,19 @@ sudo -E -u audiobooks env PYTHONPATH=/opt/audiobooks/library/venv/lib/python3.14
 
 ## Test VM Lifecycle — Always Shut Down at End of /test
 
-**`test-audiobook-cachyos` is EXCLUSIVELY for `/test` audits** (no other workload or user), so it MUST be shut down at the end of every `/test` audit, even if `/test` did not start it. This overrides the generic "preserve VMs /test didn't start" logic in `~/.claude/skills/test-phases/phase-11-cleanup.md`, which is right for shared VMs only.
+VM names on this host and the location of the `/test` VM map: gitignored `.claude/rules/local-vms.md`.
 
-**Authoritative source (the contract)**: `~/.claude/config/project-vm-map.json` sets `"post_test_restore": true` on both `vms.test-audiobook-cachyos` and `projects.Audiobook-Manager`.
+**The test VM is EXCLUSIVELY for `/test` audits** (no other workload or user), so it MUST be shut down at the end of every `/test` audit, even if `/test` did not start it. This overrides the generic "preserve VMs /test didn't start" logic in `~/.claude/skills/test-phases/phase-11-cleanup.md`, which is right for shared VMs only.
+
+**Authoritative source (the contract)**: the `/test` VM map sets `"post_test_restore": true` on both the test VM's `vms.` entry and `projects.Audiobook-Manager`.
 
 | VM | post_test_restore | Phase 11 cleanup action |
 |----|--------------------|----------------|
-| `test-audiobook-cachyos` | true | **ALWAYS shut down** |
-| `qa-audiobook-cachyos` | false | Phase 11 does not touch it (not /test-owned; QA mirror for released-version smoke tests); its lifecycle follows `vm-lifecycle.md` |
-| `dev-audiobook-cachyos` | false | Leave running ONLY if user started it; user owns dev VM lifecycle |
+| test VM | true | **ALWAYS shut down** |
+| QA VM | false | Phase 11 does not touch it (not /test-owned; QA mirror for released-version smoke tests). Claude never leaves it running; the operator may (`vm-lifecycle.md`) |
+| dev VM | false | Leave running ONLY if user started it; user owns dev VM lifecycle |
 
-**Verify at end of every /test run**: `sudo virsh domstate test-audiobook-cachyos` must print `shut off`. If not, Phase 11 has a bug — fix it; do not shut down manually as a workaround.
+**Verify at end of every /test run**: `sudo virsh domstate <test-vm-name>` must print `shut off`. If not, Phase 11 has a bug — fix it; do not shut down manually as a workaround.
 
 ## CRITICAL: Test/QA Data Isolation
 

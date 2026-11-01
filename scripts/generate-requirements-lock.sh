@@ -125,7 +125,7 @@ PY
 tmp_out="$work/requirements.lock"
 {
     echo "# Dependency lock — exact package versions, used by pip as a constraint (-c)."
-    echo "# Source host:    $HOST (venv $VENV)"
+    echo "# Source:         venv $VENV on the host named on the command line (address not recorded)"
     echo "# Generated:      $(date +%Y-%m-%d)"
     echo "# Python:         $PY_VERSION"
     echo "# Regenerate:     scripts/generate-requirements-lock.sh <test-vm-ip>   (at release time, from the TEST VM)"

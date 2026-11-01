@@ -1,5 +1,5 @@
 # Dependency lock — exact package versions, used by pip as a constraint (-c).
-# Source host:    192.168.122.104 (venv /opt/audiobooks/library/venv)
+# Source:         venv /opt/audiobooks/library/venv on the host named on the command line (address not recorded)
 # Generated:      2026-10-20
 # Python:         3.14.8
 # Regenerate:     scripts/generate-requirements-lock.sh <test-vm-ip>   (at release time, from the TEST VM)
