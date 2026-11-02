@@ -40,8 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   credential store in the invoking user's home directory; unset means skipped, and an unreadable config is reported
   as unreadable rather than as unset; `KEY = value` spacing is read as the API reads it; documented in
   `etc/audiobooks.conf.example`, `docs/ARCHITECTURE.md`, `docs/MULTI-LANGUAGE-SETUP.md` and `docs/SERVERLESS-OPS.md`
-  (bd `Audiobook-Manager-6lv`; a CLI upgrade by a user who cannot read the config never purges — bd
-  `Audiobook-Manager-obtt`)
+  (bd `Audiobook-Manager-6lv`)
+  - A CLI upgrade by a user who cannot read the config or the token file reads them through `sudo -n` — the
+    sudo the upgrade already holds, never prompting or waiting — and purges like a web-UI upgrade; only the key
+    lines leave the config (privileged `grep`, never sourced), the token reaches `curl` on stdin only; a refused or
+    failed privileged read is reported as unreadable, never as an unset key (bd `Audiobook-Manager-obtt`; an
+    environment `CLOUDFLARE_PURGE_TOKEN_FILE` fallback without a note: bd `Audiobook-Manager-3q1e`)
 - **`scripts/gpu-node.sh` and `scripts/gpu-budget-guard.sh` take the Vast.ai key only as given**: `VAST_API_KEY` or
   `VAST_API_KEY_FILE`; neither set is an error — the fallback to a personal secret-injection tool is gone (the
   services already get `VAST_API_KEY_FILE` from their `derive-secrets` drop-ins) (bd `Audiobook-Manager-6lv`)
