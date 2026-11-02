@@ -57,6 +57,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   bring the VM up with `vm-session up` instead of a bare `virsh start` and shut it down with `vm-session down`
   (a no-op on an operator-started VM) instead of "Do NOT shut down the QA VM"; `-qa-all.md` shuts it down once, after
   its last phase (bd `Audiobook-Manager-8vw`)
+- **About-page creation credit is intentional**: `.claude/rules/testing.md` records it as the one exception to the
+  AI-attribution scans (Phase 5c, Phase 8, QA Step 6h); commits and every other file stay unattributed; the
+  maintainer's login key in the guard map is now case-sensitive, so login-shaped uses are refused and the capitalised
+  author credit passes (bd `Audiobook-Manager-0fh2`)
 - **One-off integration runs use the test VM**: `.claude/rules/testing.md` required integration, API, UI, auth and
   E2E tests to run on the test VM yet reserved that VM for `/test` audits alone, leaving a fix outside `/test` no place
   to prove itself; the test VM now serves `/test` and one-off runs (`vm-session up`/`down`, never during an audit; the

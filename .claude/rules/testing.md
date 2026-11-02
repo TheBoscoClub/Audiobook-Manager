@@ -126,6 +126,8 @@ Global `verification.md` applies. Project proof forms: API → `curl` output wit
 
 Global `git-commits.md` applies to all code, docs, commits, templates and metadata here (also: no Anthropic URLs `claude.ai`/`anthropic.com` as attribution, no AI branding emojis/badges). /test (Phase 5c + Phase 8) and QA modules (Step 6h) scan and remove these; remove any new instance before commit.
 
+**One exception, the operator's own choice** (bd `Audiobook-Manager-0fh2`): the About page's creation credit — `about.creationP1`/`about.creationP2` in `library/web-v2/about.html` and `library/locales/*.json` — credits the operator and the assistant on purpose. Leave it. Commits, PRs, release notes and every other file stay unattributed.
+
 ## Testing & Validation Notes
 
 When running `/test`: **DO NOT** access production data from project code or create symlinks from application to project; **DO** use `./library/testdata/`, verify the application works independently if the project is deleted, and update the application only via `./upgrade.sh`, never manual symlinks.
