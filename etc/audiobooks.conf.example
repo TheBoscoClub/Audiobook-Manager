@@ -187,11 +187,22 @@ AUDIOBOOKS_DEV_MODE = "false"
 # With CF_ZONE_ID or the token unset, the purge is skipped with a message
 # and the upgrade continues. A web-UI upgrade runs upgrade.sh as root (through
 # the privileged helper). A CLI upgrade (./upgrade.sh ... --target ...) runs as
-# the invoking user, who must be able to read both this file (0640
-# root:audiobooks) and the token file, or must supply the keys in the
-# environment; otherwise the purge is skipped and the message names the
-# unreadable file. The /run/audiobooks token below is 0400 audiobooks, so a CLI
-# upgrade by an ordinary user does not purge with it.
+# the invoking user; when a key is needed from a file that user cannot read
+# (this file is 0640 root:audiobooks, the /run/audiobooks token below 0400
+# audiobooks), upgrade.sh reads it through the sudo the upgrade already uses,
+# non-interactively (sudo -n: it never prompts or waits). Only the key lines
+# leave this file, and the token never appears on a command line. If sudo -n
+# is refused or the privileged read fails, the purge is skipped with a message
+# naming the unreadable file, and the upgrade's exit status is unaffected —
+# unless CLOUDFLARE_PURGE_TOKEN_FILE is in the environment: that file is then
+# used, without a note.
+# Each key supplied in the environment wins over this file. No privilege is
+# used when CF_ZONE_ID and CLOUDFLARE_PURGE_TOKEN are both in the environment,
+# when every file still consulted is readable, or as root; CF_ZONE_ID plus
+# CLOUDFLARE_PURGE_TOKEN_FILE in the environment still read this file through
+# sudo -n, because an inline CLOUDFLARE_PURGE_TOKEN here beats the file.
+# upgrade.sh --remote runs the purge on the deploying host, against that
+# host's configuration.
 # CF_ZONE_ID=""
 
 # Cloudflare authentication for cache purge. Use a SCOPED API TOKEN — create it

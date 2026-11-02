@@ -2881,22 +2881,89 @@ do_upgrade() {
 # Cloudflare Cache Purge (post-deploy)
 # -----------------------------------------------------------------------------
 
+_purge_privileged() {
+    # Run "$@" as root for the CDN purge's reads of root-only files, NEVER
+    # prompting: `sudo -n` either runs the command at once (NOPASSWD, root, or a
+    # sudo timestamp still valid from the upgrade's own privileged steps) or
+    # fails at once. `command` bypasses this script's sudo() wrapper, which runs
+    # plain sudo — and so can prompt — whenever a terminal is attached; a purge
+    # must never stop to ask for a password or hang waiting for one. It grants
+    # nothing new: it succeeds only for a user whose sudo already reaches root.
+    #
+    # Test seam: the tests put a recording `sudo` stub first on PATH (or
+    # redefine this function) to prove the privileged and refused paths without
+    # real privilege. Production callers never override it.
+    command sudo -n "$@"
+}
+
 _conf_key_value() {
     # Print the last assignment of KEY ($1) in the config file ($2), with
     # surrounding whitespace and one layer of matching quotes removed. Accepts
     # `KEY=value` and `KEY = value`, as lib/audiobook-config.sh, library/config.py
-    # and systemd's EnvironmentFile do. Prints nothing when the file is
-    # unreadable or the key is absent; the caller tells those two apart. The
-    # file is never sourced (it is arbitrary shell); ${...} is not expanded.
-    local key="$1" conf="$2" val
-    [[ -r "$conf" ]] || return 0
-    val=$(grep -E "^[[:space:]]*${key}[[:space:]]*=" "$conf" 2>/dev/null | tail -1 | cut -d= -f2-) || true
+    # and systemd's EnvironmentFile do. The file is never sourced (it is
+    # arbitrary shell); ${...} is not expanded.
+    #
+    # Exit status: 0 = the file was read (the key's value printed, or nothing
+    # when the key is absent) or does not exist; 2 = the file exists but could
+    # not be read — the caller reports it by name, never as an unset key.
+    #
+    # With $3 = "privileged" and a config this user cannot read, the lines are
+    # read through _purge_privileged (sudo -n). Only the lines assigning KEY
+    # leave the privileged grep — never the rest of the file — and the value
+    # travels through pipes, never through any process's argv.
+    #
+    # Why a sentinel: grep exits 1 for "no match", and sudo -n also exits 1
+    # when it refuses the command (a sudoers rule allowing the `true` probe but
+    # not grep). So grep also reads one sentinel line from stdin, which always
+    # matches: a grep that ran and read the file exits 0, a grep that could not
+    # read it exits 2, and any other status means grep never ran.
+    local key="$1" conf="$2" via="${3:-}" out rc=0 line val=""
+    local pattern="^[[:space:]]*${key}[[:space:]]*="
+    local sentinel="__audiobooks_conf_read_ok__"
+    local -a read_cmd=(grep -h -E -e "$pattern" -e "^${sentinel}\$" -- "$conf" -)
+    if [[ -r "$conf" ]]; then
+        out=$(printf '%s\n' "$sentinel" | "${read_cmd[@]}" 2>/dev/null) || rc=$?
+    elif [[ "$via" == "privileged" ]]; then
+        out=$(printf '%s\n' "$sentinel" | _purge_privileged "${read_cmd[@]}" 2>/dev/null) || rc=$?
+    elif [[ -e "$conf" ]]; then
+        return 2
+    else
+        return 0
+    fi
+    [[ "$rc" -eq 0 ]] || return 2
+    while IFS= read -r line; do
+        if [[ "$line" =~ $pattern ]]; then
+            val="${line#*=}"
+        fi
+    done <<<"$out"
     val="${val#"${val%%[![:space:]]*}"}"
     val="${val%"${val##*[![:space:]]}"}"
     if [[ "$val" =~ ^\"(.*)\"$ || "$val" =~ ^\'(.*)\'$ ]]; then
         val="${BASH_REMATCH[1]}"
     fi
     printf '%s' "$val"
+}
+
+_purge_conf_read() {
+    # purge_cloudflare_cache's config read: KEY ($1) into the variable named
+    # $2, using the caller's locals conf, conf_via, conf_unreadable and
+    # sudo_refused (bash dynamic scope). A failed read marks the config
+    # unreadable — named in the skip message, never reported as an unset key —
+    # and stops further reads of it (no repeated sudo calls).
+    local _v _rc=0
+    _v=$(_conf_key_value "$1" "$conf" "$conf_via") || _rc=$?
+    if [[ "$_rc" -ne 0 ]]; then
+        if [[ -z "$conf_unreadable" ]]; then
+            if [[ "$conf_via" == "privileged" ]]; then
+                conf_unreadable="$sudo_refused"
+            else
+                conf_unreadable="${conf} could not be read by $(id -un); supply CF_ZONE_ID and CLOUDFLARE_PURGE_TOKEN or CLOUDFLARE_PURGE_TOKEN_FILE in the environment"
+            fi
+        fi
+        conf_via="unreadable"
+        _v=""
+    fi
+    printf -v "$2" '%s' "$_v"
 }
 
 purge_cloudflare_cache() {
@@ -2917,16 +2984,38 @@ purge_cloudflare_cache() {
     # Zone > Cache Purge.)
     #
     # A CLI upgrade runs as the invoking user, not root (only the web-UI path
-    # runs it as root, through the helper). When that user cannot read the
-    # config, an unreadable file must not pass for an unset key.
+    # runs it as root, through the helper), and the installed config (0640
+    # root:audiobooks) and token file (0400 audiobooks) are not that user's to
+    # read. When a key is still needed from a file the user cannot read, the
+    # read goes through the same sudo the upgrade already uses, non-interactively
+    # (_purge_privileged: sudo -n), so a CLI upgrade purges like a web-UI one.
+    # If sudo -n is refused or the privileged read fails, the purge is skipped
+    # with a message naming the file — an unreadable file never passes for an
+    # unset key — and the upgrade's exit status is unaffected (an environment
+    # CLOUDFLARE_PURGE_TOKEN_FILE is still used then, without a note: bd
+    # Audiobook-Manager-3q1e). No privilege is
+    # used when CF_ZONE_ID and CLOUDFLARE_PURGE_TOKEN are both in the
+    # environment, when every file still consulted is readable, or as root.
+    # CF_ZONE_ID + CLOUDFLARE_PURGE_TOKEN_FILE in the environment with an
+    # unreadable config still read it through sudo -n: an inline
+    # CLOUDFLARE_PURGE_TOKEN in the config beats the file.
     local conf="${AUDIOBOOKS_CONF:-/etc/audiobooks/audiobooks.conf}"
-    local conf_unreadable=""
-    if [[ -e "$conf" && ! -r "$conf" ]]; then
-        conf_unreadable="${conf} not readable by $(id -un); supply CF_ZONE_ID and CLOUDFLARE_PURGE_TOKEN or CLOUDFLARE_PURGE_TOKEN_FILE in the environment"
+    local conf_via="" conf_unreadable=""
+    local sudo_refused="${conf} not readable by $(id -un) and sudo -n could not read it; supply CF_ZONE_ID and CLOUDFLARE_PURGE_TOKEN or CLOUDFLARE_PURGE_TOKEN_FILE in the environment"
+    if [[ -e "$conf" && ! -r "$conf" ]] &&
+        [[ -z "${CF_ZONE_ID:-}" || -z "${CLOUDFLARE_PURGE_TOKEN:-}" ]]; then
+        # Probe with `true`, not `-v` (see _require_sudo): a refused sudo is
+        # known before any read. A privileged read can still fail after the
+        # probe passes; _purge_conf_read reports that the same way.
+        if [[ "$EUID" -ne 0 ]] && _purge_privileged true 2>/dev/null; then
+            conf_via="privileged"
+        else
+            conf_unreadable="$sudo_refused"
+        fi
     fi
 
     local zone="${CF_ZONE_ID:-}"
-    [[ -n "$zone" ]] || zone=$(_conf_key_value CF_ZONE_ID "$conf")
+    [[ -n "$zone" ]] || _purge_conf_read CF_ZONE_ID zone
     if [[ -z "$zone" ]]; then
         if [[ -n "$conf_unreadable" ]]; then
             echo -e "${YELLOW}  CDN cache purge skipped (${conf_unreadable})${NC}"
@@ -2941,17 +3030,23 @@ purge_cloudflare_cache() {
     fi
 
     local token="${CLOUDFLARE_PURGE_TOKEN:-}"
-    [[ -n "$token" ]] || token=$(_conf_key_value CLOUDFLARE_PURGE_TOKEN "$conf")
+    [[ -n "$token" ]] || _purge_conf_read CLOUDFLARE_PURGE_TOKEN token
     if [[ -z "$token" ]]; then
         local token_file="${CLOUDFLARE_PURGE_TOKEN_FILE:-}"
-        [[ -n "$token_file" ]] || token_file=$(_conf_key_value CLOUDFLARE_PURGE_TOKEN_FILE "$conf")
+        [[ -n "$token_file" ]] || _purge_conf_read CLOUDFLARE_PURGE_TOKEN_FILE token_file
         if [[ -n "$token_file" ]]; then
-            if [[ ! -r "$token_file" ]]; then
-                echo -e "${YELLOW}  Cloudflare cache purge skipped (CLOUDFLARE_PURGE_TOKEN_FILE ${token_file} not readable by $(id -un))${NC}"
+            if [[ -r "$token_file" ]]; then
+                # || keeps a read error (e.g. a directory) from aborting under set -e.
+                token=$(tr -d '[:space:]' <"$token_file" 2>/dev/null) || token=""
+            elif [[ "$EUID" -ne 0 ]] && token=$(_purge_privileged cat -- "$token_file" 2>/dev/null); then
+                # The token comes back on the substitution's pipe and is
+                # stripped in-shell: it never reaches any process's argv.
+                token="${token//[[:space:]]/}"
+            else
+                token=""
+                echo -e "${YELLOW}  Cloudflare cache purge skipped (CLOUDFLARE_PURGE_TOKEN_FILE ${token_file} not readable by $(id -un) and sudo -n could not read it)${NC}"
                 return 0
             fi
-            # || keeps a read error (e.g. a directory) from aborting under set -e.
-            token=$(tr -d '[:space:]' <"$token_file" 2>/dev/null) || token=""
         fi
     fi
     if [[ -z "$token" ]]; then

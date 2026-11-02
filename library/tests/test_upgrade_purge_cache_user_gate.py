@@ -22,6 +22,16 @@ The static tests grep the function; the behavioural tests EXECUTE it with
 ``curl`` stubbed on PATH (the stub records its argv and stdin and never calls
 curl), HOME pointed at a temp dir holding a decoy credential store, and the
 config file pointed at a temp file.
+
+bd Audiobook-Manager-obtt: a CLI upgrade by an ordinary user, who cannot read
+the installed config (0640 root:audiobooks) or the token file (0400
+audiobooks), reads them through ``sudo -n`` (upgrade.sh _purge_privileged) and
+purges. ``sudo`` is ALSO stubbed on PATH in every behavioural test, so no test
+ever reaches the real sudo: the stub records each invocation, refuses by
+default (as ``sudo -n`` does without a cached credential), and in "allow" mode
+stands in for root by making the listed mode-000 files readable for the length
+of the one command it runs. It refuses any call without ``-n`` first, so a
+prompting call can never pass.
 """
 
 import os
@@ -157,15 +167,48 @@ def _harness(tmp_path: Path) -> dict:
     stub_dir.mkdir()
     args_log = tmp_path / "curl-args"
     stdin_log = tmp_path / "curl-stdin"
-    # The stub records and answers; it never invokes curl (or its own name).
+    env_log = tmp_path / "curl-env"
+    # The stub records its environment, argv and stdin, and answers; it never
+    # invokes curl (or its own name).
     curl = stub_dir / "curl"
     curl.write_text(
         "#!/bin/bash\n"
+        f'/usr/bin/env >> "{env_log}"\n'
         f'printf "%s\\n" "$@" >> "{args_log}"\n'
         f'/usr/bin/cat >> "{stdin_log}"\n'
         "echo '{\"success\":true}'\n"
     )
     curl.chmod(0o755)
+
+    # The sudo stub. STUB_SUDO_MODE=allow runs the command with every file in
+    # STUB_SUDO_UNLOCK (colon-separated) made readable for that one command;
+    # allow-true-only runs `true` and refuses every other command with exit 1;
+    # anything else refuses with sudo -n's message and exit status. It never
+    # invokes sudo (or its own name): the command is resolved past this
+    # directory, which holds only the two stubs.
+    sudo_log = tmp_path / "sudo-calls"
+    sudo = stub_dir / "sudo"
+    sudo.write_text(
+        "#!/bin/bash\n"
+        f'printf "%s\\n" "$*" >> "{sudo_log}"\n'
+        'if [[ "$1" != "-n" ]]; then echo "stub: refusing a promptable sudo" >&2; exit 97; fi\n'
+        "shift\n"
+        'if [[ "$1" == "sudo" ]]; then exit 98; fi\n'
+        # allow-true-only: a sudoers rule that permits `true` and nothing else.
+        # Real sudo refuses such a command with exit 1 — grep's "no match" code.
+        'if [[ "${STUB_SUDO_MODE:-}" == "allow-true-only" && "$1" != "true" ]]; then\n'
+        '    echo "Sorry, user stub is not allowed to execute $1 as root." >&2; exit 1\n'
+        "fi\n"
+        'if [[ "${STUB_SUDO_MODE:-refuse}" != "allow" && "${STUB_SUDO_MODE:-}" != "allow-true-only" ]]; then\n'
+        '    echo "sudo: a password is required" >&2; exit 1\n'
+        "fi\n"
+        'IFS=: read -r -a unlock <<< "${STUB_SUDO_UNLOCK:-}"\n'
+        'for f in "${unlock[@]}"; do [[ -n "$f" ]] && /usr/bin/chmod 600 "$f"; done\n'
+        '"$@"; rc=$?\n'
+        'for f in "${unlock[@]}"; do [[ -n "$f" ]] && /usr/bin/chmod 000 "$f"; done\n'
+        'exit "$rc"\n'
+    )
+    sudo.chmod(0o755)
 
     home = tmp_path / "home"
     (home / ".config").mkdir(parents=True)
@@ -183,6 +226,8 @@ def _harness(tmp_path: Path) -> dict:
         "home": home,
         "args": args_log,
         "stdin": stdin_log,
+        "sudo": sudo_log,
+        "curl_env": env_log,
         "sourced": sourced_marker,
         "conf": tmp_path / "audiobooks.conf",
     }
@@ -192,7 +237,12 @@ def _run_purge(h: dict, extra_env: dict | None = None) -> subprocess.CompletedPr
     text = UPGRADE_SH.read_text()
     funcs = [
         f
-        for f in (_extract("_conf_key_value", text), _extract("purge_cloudflare_cache", text))
+        for f in (
+            _extract("_purge_privileged", text),
+            _extract("_conf_key_value", text),
+            _extract("_purge_conf_read", text),
+            _extract("purge_cloudflare_cache", text),
+        )
         if f
     ]
     assert any("purge_cloudflare_cache" in f for f in funcs), "purge_cloudflare_cache() not found"
@@ -394,6 +444,232 @@ def test_token_key_does_not_match_the_file_pointer_key(tmp_path):
     proc = _run_purge(h)
     _, stdin = _curl_seen(h)
     assert "Bearer tokFromFile654" in stdin, proc.stdout
+
+
+# ── bd Audiobook-Manager-obtt: root-only files are read through sudo -n ─────
+
+ROOT_ONLY = pytest.mark.skipif(
+    os.geteuid() == 0, reason="root reads a mode-000 file; the case cannot arise"
+)
+FAKE_TOKEN = "fake-purge-token-obtt"
+
+
+def _sudo_calls(h: dict) -> list[str]:
+    return h["sudo"].read_text().splitlines() if h["sudo"].exists() else []
+
+
+def _root_only(path: Path, text: str) -> Path:
+    path.write_text(text)
+    path.chmod(0o000)
+    return path
+
+
+def _allow(*paths: Path) -> dict:
+    return {"STUB_SUDO_MODE": "allow", "STUB_SUDO_UNLOCK": ":".join(str(p) for p in paths)}
+
+
+def _assert_token_confined(h: dict, proc: subprocess.CompletedProcess, token: str) -> None:
+    """The token reached curl on stdin only: not in any argv, output, or environment."""
+    args, stdin = _curl_seen(h)
+    assert f"Authorization: Bearer {token}" in stdin, stdin
+    assert token not in args, "the token must not be in curl's argv"
+    assert all(token not in call for call in _sudo_calls(h)), "the token is in sudo's argv"
+    assert token not in proc.stdout + proc.stderr, "the token was printed"
+    env = h["curl_env"].read_text() if h["curl_env"].exists() else ""
+    assert token not in env, "the token was exported into curl's environment"
+
+
+@ROOT_ONLY
+def test_unreadable_config_is_read_through_sudo_n_and_purges(tmp_path):
+    """Config 0640 root:audiobooks, user not in the group, sudo -n works → purge."""
+    h = _harness(tmp_path)
+    _root_only(
+        h["conf"],
+        f'OTHER_SECRET="fake-unrelated-value"\nCF_ZONE_ID="rootzone1"\n'
+        f'CLOUDFLARE_PURGE_TOKEN="{FAKE_TOKEN}"\n',
+    )
+    proc = _run_purge(h, _allow(h["conf"]))
+    args, _ = _curl_seen(h)
+    assert "rc=0" in proc.stdout, proc.stdout + proc.stderr
+    assert "CDN cache purged" in proc.stdout, proc.stdout
+    assert "https://api.cloudflare.com/client/v4/zones/rootzone1/purge_cache" in args
+    _assert_token_confined(h, proc, FAKE_TOKEN)
+    calls = _sudo_calls(h)
+    assert calls, "sudo was never invoked for an unreadable config"
+    assert all(c.startswith("-n ") for c in calls), f"a promptable sudo was run: {calls}"
+    # The privileged read is a grep for one key at a time — never the whole
+    # file — plus the stdin sentinel that proves grep ran (_conf_key_value).
+    reads = [c for c in calls if c != "-n true"]
+    key_read = re.compile(
+        r"^-n grep -h -E -e \^\[\[:space:\]\]\*[A-Z_]+\[\[:space:\]\]\*= "
+        r"-e \^__audiobooks_conf_read_ok__\$ -- " + re.escape(str(h["conf"])) + r" -$"
+    )
+    assert reads and all(key_read.match(c) for c in reads), calls
+    assert "fake-unrelated-value" not in proc.stdout + proc.stderr
+
+
+@ROOT_ONLY
+def test_unreadable_config_and_token_file_both_read_through_sudo_n(tmp_path):
+    """The documented layout: 0640 config pointing at a 0400 /run token file."""
+    h = _harness(tmp_path)
+    token_file = _root_only(tmp_path / "cloudflare-purge-token", f"{FAKE_TOKEN}\n")
+    _root_only(h["conf"], f'CF_ZONE_ID="rootzone2"\nCLOUDFLARE_PURGE_TOKEN_FILE="{token_file}"\n')
+    proc = _run_purge(h, _allow(h["conf"], token_file))
+    args, _ = _curl_seen(h)
+    assert "rc=0" in proc.stdout, proc.stdout + proc.stderr
+    assert "/zones/rootzone2/purge_cache" in args, proc.stdout
+    _assert_token_confined(h, proc, FAKE_TOKEN)
+    assert f"-n cat -- {token_file}" in _sudo_calls(h)
+
+
+@ROOT_ONLY
+def test_readable_config_unreadable_token_file_reads_token_through_sudo_n(tmp_path):
+    h = _harness(tmp_path)
+    token_file = _root_only(tmp_path / "cloudflare-purge-token", f"{FAKE_TOKEN}\n")
+    h["conf"].write_text(f'CF_ZONE_ID="abc123"\nCLOUDFLARE_PURGE_TOKEN_FILE="{token_file}"\n')
+    proc = _run_purge(h, _allow(token_file))
+    assert "rc=0" in proc.stdout, proc.stdout + proc.stderr
+    assert "CDN cache purged" in proc.stdout, proc.stdout
+    _assert_token_confined(h, proc, FAKE_TOKEN)
+    assert _sudo_calls(h) == [f"-n cat -- {token_file}"], _sudo_calls(h)
+
+
+@ROOT_ONLY
+def test_sudo_refused_for_config_skips_nonfatal_without_curl(tmp_path):
+    h = _harness(tmp_path)
+    _root_only(h["conf"], f'CF_ZONE_ID="abc123"\nCLOUDFLARE_PURGE_TOKEN="{FAKE_TOKEN}"\n')
+    proc = _run_purge(h)  # the stub refuses, as sudo -n does without a credential
+    args, stdin = _curl_seen(h)
+    assert "rc=0" in proc.stdout, proc.stdout + proc.stderr
+    assert f"{h['conf']} not readable by" in proc.stdout, proc.stdout
+    assert "sudo -n could not read it" in proc.stdout, proc.stdout
+    assert args == "" and stdin == "", "curl was called although sudo -n was refused"
+    assert _sudo_calls(h) == ["-n true"], _sudo_calls(h)
+
+
+@ROOT_ONLY
+@pytest.mark.parametrize(
+    "sudo_env",
+    [
+        # sudoers permits `true` but not grep: sudo exits 1, as grep does on no match
+        pytest.param({"STUB_SUDO_MODE": "allow-true-only"}, id="sudo-refuses-grep"),
+        # sudo runs grep but grep cannot open the file: grep exits 2
+        pytest.param({"STUB_SUDO_MODE": "allow"}, id="privileged-grep-read-error"),
+    ],
+)
+def test_privileged_read_failure_is_reported_not_mistaken_for_unset(tmp_path, sudo_env):
+    """The sudo -n probe passes but the privileged read fails → config named, never "not set"."""
+    h = _harness(tmp_path)
+    _root_only(h["conf"], f'CF_ZONE_ID="abc123"\nCLOUDFLARE_PURGE_TOKEN="{FAKE_TOKEN}"\n')
+    proc = _run_purge(h, sudo_env)  # STUB_SUDO_UNLOCK unset: the file stays mode 000
+    args, stdin = _curl_seen(h)
+    assert "rc=0" in proc.stdout, proc.stdout + proc.stderr
+    assert f"{h['conf']} not readable by" in proc.stdout, proc.stdout
+    assert "sudo -n could not read it" in proc.stdout, proc.stdout
+    assert "not set" not in proc.stdout, proc.stdout
+    assert args == "" and stdin == "", "curl was called although the config was not read"
+    calls = _sudo_calls(h)
+    assert calls[0] == "-n true" and len(calls) == 2, calls  # one failed read, then no retries
+
+
+def test_config_read_error_is_reported_not_mistaken_for_unset(tmp_path):
+    """A config path that passes -r but cannot be read as a file (a directory)."""
+    h = _harness(tmp_path)
+    h["conf"].mkdir()
+    proc = _run_purge(h, {"STUB_SUDO_MODE": "allow"})
+    args, _ = _curl_seen(h)
+    assert "rc=0" in proc.stdout, proc.stdout + proc.stderr
+    assert f"{h['conf']} could not be read by" in proc.stdout, proc.stdout
+    assert "not set" not in proc.stdout, proc.stdout
+    assert args == ""
+    assert _sudo_calls(h) == [], _sudo_calls(h)
+
+
+@ROOT_ONLY
+def test_sudo_refused_for_token_file_skips_nonfatal_without_curl(tmp_path):
+    h = _harness(tmp_path)
+    token_file = _root_only(tmp_path / "cloudflare-purge-token", f"{FAKE_TOKEN}\n")
+    h["conf"].write_text(f'CF_ZONE_ID="abc123"\nCLOUDFLARE_PURGE_TOKEN_FILE="{token_file}"\n')
+    proc = _run_purge(h)
+    args, _ = _curl_seen(h)
+    assert "rc=0" in proc.stdout, proc.stdout + proc.stderr
+    assert f"CLOUDFLARE_PURGE_TOKEN_FILE {token_file} not readable by" in proc.stdout
+    assert "sudo -n could not read it" in proc.stdout, proc.stdout
+    assert args == ""
+
+
+@ROOT_ONLY
+def test_environment_keys_win_and_need_no_privilege(tmp_path):
+    """Both keys in the environment → the unreadable config is never opened via sudo."""
+    h = _harness(tmp_path)
+    _root_only(h["conf"], 'CF_ZONE_ID="confzone"\nCLOUDFLARE_PURGE_TOKEN="fake-conf-token"\n')
+    proc = _run_purge(
+        h,
+        {"CF_ZONE_ID": "envzone", "CLOUDFLARE_PURGE_TOKEN": FAKE_TOKEN, **_allow(h["conf"])},
+    )
+    args, stdin = _curl_seen(h)
+    assert "rc=0" in proc.stdout, proc.stdout + proc.stderr
+    assert "/zones/envzone/purge_cache" in args
+    assert f"Bearer {FAKE_TOKEN}" in stdin and "fake-conf-token" not in stdin
+    assert _sudo_calls(h) == [], (
+        f"sudo was invoked with the keys in the environment: {_sudo_calls(h)}"
+    )
+
+
+@ROOT_ONLY
+def test_env_token_file_still_reads_unreadable_config_for_inline_token(tmp_path):
+    """
+    CF_ZONE_ID + CLOUDFLARE_PURGE_TOKEN_FILE in the environment do NOT make the
+    config irrelevant: an inline CLOUDFLARE_PURGE_TOKEN there beats the file, so
+    the unreadable config is still read through sudo -n (docs/ARCHITECTURE.md,
+    etc/audiobooks.conf.example state exactly when no privilege is used).
+    """
+    h = _harness(tmp_path)
+    token_file = tmp_path / "cloudflare-purge-token"
+    token_file.write_text("fake-file-token-obtt\n")
+    _root_only(h["conf"], f'CLOUDFLARE_PURGE_TOKEN="{FAKE_TOKEN}"\n')
+    proc = _run_purge(
+        h,
+        {
+            "CF_ZONE_ID": "envzone",
+            "CLOUDFLARE_PURGE_TOKEN_FILE": str(token_file),
+            **_allow(h["conf"]),
+        },
+    )
+    _, stdin = _curl_seen(h)
+    assert "rc=0" in proc.stdout, proc.stdout + proc.stderr
+    assert "fake-file-token-obtt" not in stdin, "the file token beat the config's inline token"
+    _assert_token_confined(h, proc, FAKE_TOKEN)
+    assert _sudo_calls(h)[0] == "-n true", _sudo_calls(h)
+
+
+@ROOT_ONLY
+def test_environment_zone_wins_over_privileged_config_zone(tmp_path):
+    """Zone in the environment, token only in the unreadable config → env zone, conf token."""
+    h = _harness(tmp_path)
+    _root_only(h["conf"], f'CF_ZONE_ID="confzone"\nCLOUDFLARE_PURGE_TOKEN="{FAKE_TOKEN}"\n')
+    proc = _run_purge(h, {"CF_ZONE_ID": "envzone", **_allow(h["conf"])})
+    args, _ = _curl_seen(h)
+    assert "rc=0" in proc.stdout, proc.stdout + proc.stderr
+    assert "/zones/envzone/purge_cache" in args and "confzone" not in args
+    _assert_token_confined(h, proc, FAKE_TOKEN)
+
+
+def test_readable_config_and_token_file_never_invoke_privilege(tmp_path):
+    h = _harness(tmp_path)
+    token_file = tmp_path / "cloudflare-purge-token"
+    token_file.write_text(f"{FAKE_TOKEN}\n")
+    h["conf"].write_text(f'CF_ZONE_ID="abc123"\nCLOUDFLARE_PURGE_TOKEN_FILE="{token_file}"\n')
+    proc = _run_purge(h, {"STUB_SUDO_MODE": "allow"})
+    assert "CDN cache purged" in proc.stdout, proc.stdout + proc.stderr
+    assert _sudo_calls(h) == [], f"sudo was invoked for readable files: {_sudo_calls(h)}"
+
+
+def test_privileged_reads_are_non_interactive_in_upgrade_sh():
+    """The seam runs `command sudo -n` — bypassing the prompting sudo() wrapper."""
+    body = _extract("_purge_privileged", UPGRADE_SH.read_text())
+    assert body, "_purge_privileged() not found in upgrade.sh"
+    assert "command sudo -n " in _code_only(body)
 
 
 def test_legacy_install_dir_check_recognises_compat_symlink():

@@ -2011,9 +2011,19 @@ POST /api/system/purge-cache
     environment, else from the installed audiobooks.conf; unset → skipped,
     non-fatal. No home-directory credential store is read. A web-UI upgrade
     runs it as root (privileged helper); a CLI upgrade runs it as the invoking
-    user, who must be able to read audiobooks.conf (0640 root:audiobooks) and
-    the token file, or supply the keys in the environment — an unreadable
-    config is reported by name, never as an unset key.
+    user and reads audiobooks.conf (0640 root:audiobooks) or the token file
+    (0400 audiobooks) through `sudo -n` when that user cannot (never prompts;
+    only the key lines leave the config; the token stays off every argv).
+    Each key in the environment wins over the config. No privilege is used
+    when CF_ZONE_ID and CLOUDFLARE_PURGE_TOKEN are both in the environment,
+    when every file still consulted is readable, or as root. CF_ZONE_ID +
+    CLOUDFLARE_PURGE_TOKEN_FILE in the environment with an unreadable config
+    still read it through sudo -n: an inline CLOUDFLARE_PURGE_TOKEN there
+    beats the file. sudo -n refused, or the privileged read failing → skipped,
+    non-fatal, the unreadable file named, never reported as an unset key —
+    except with CLOUDFLARE_PURGE_TOKEN_FILE in the environment, which is then
+    used without a note (bd Audiobook-Manager-3q1e).
+    `--remote` purges from the deploying host with that host's configuration.
 ```
 
 ### Library Refresh & Cache Invalidation
