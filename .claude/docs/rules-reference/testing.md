@@ -56,4 +56,4 @@ Production audiobooks are personally owned licensed content; leaking them into a
 
 ## Browser for UI/E2E Testing
 
-**Use Brave for all UI/E2E testing.** On a test/QA VM without it: `sudo pacman -S brave-bin --noconfirm` (chaotic-aur), plus codecs `sudo pacman -S opus libopus --noconfirm` (Brave is Chromium-based with full Opus/WebM support). Playwright: `chromium` channel pointed at the Brave binary, or launch with `--ignore-https-errors` for self-signed certs.
+**Use Chromium for all UI/E2E testing** (official Arch/CachyOS repo, never AUR). On a test/QA VM without it: `sudo pacman -S chromium --noconfirm`; Opus/WebM playback is built in. Playwright: `chromium` channel with `executable_path="/usr/bin/chromium"`, or launch with `--ignore-https-errors` for self-signed certs. Brave was the test browser until 2026-11-09; it moved off AUR (`brave-bin`) to the repo package.

@@ -8,7 +8,7 @@ rendering and interaction verification via Playwright.
 Requires:
     - A test VM running the app, reachable via VM_HOST (or set AUDIOBOOKS_WEB_URL directly)
     - Playwright installed (pip install playwright && playwright install chromium)
-    - Brave/Chromium browser available
+    - Chromium browser available
 
 Run with:
     pytest library/tests/test_auth_ui_e2e.py -v --headed
