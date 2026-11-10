@@ -21,7 +21,7 @@ Detail, incidents and reasoning per section: `.claude/docs/rules-reference/testi
 
 After `upgrade.sh`:
 
-1. Wrapper scripts execute: `for cmd in /usr/local/bin/audiobooks-*; do $cmd --help 2>&1 | head -1 || echo "BROKEN: $cmd"; done`
+1. Wrapper scripts execute: `for cmd in /usr/local/bin/audiobooks-*; do if out=$("$cmd" --help 2>&1); then echo "ok: $cmd: ${out%%$'\n'*}"; else echo "BROKEN: $cmd rc=$?: ${out%%$'\n'*}"; fi; done` — the exit status is the wrapper's own, never a `| head`'s
 2. API responds: `curl -s http://localhost:5001/api/system/version`
 3. Web UI loads and buttons work
 
