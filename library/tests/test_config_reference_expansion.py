@@ -850,3 +850,59 @@ def _run_perm_reconciler(
 
 def test_example_conf_documents_that_systemd_does_not_expand():
     assert "does NOT expand" in EXAMPLE_CONF.read_text()
+
+
+# --------------------------------------------------------------------------
+# Shell: a config file the caller may not read (Audiobook-Manager-1sk made the
+# system config 0640 root:audiobooks; every login shell sources this library
+# through /etc/profile.d, including accounts outside the group)
+# --------------------------------------------------------------------------
+
+
+def _sh_unreadable_conf(tmp_path: Path, shell_flags: list[str]) -> subprocess.CompletedProcess:
+    """Source the library with a user config that exists but cannot be read."""
+    sandbox = tmp_path / "sandbox" / "lib"
+    sandbox.mkdir(parents=True, exist_ok=True)
+    text = LIB_SH.read_text().replace("/etc/audiobooks/audiobooks.conf", "/nonexistent/none.conf")
+    (sandbox / "audiobook-config.sh").write_text(text)
+    conf = tmp_path / "home" / ".config" / "audiobooks" / "audiobooks.conf"
+    conf.parent.mkdir(parents=True, exist_ok=True)
+    conf.write_text("AUDIOBOOKS_DATA=/from/unreadable/conf\n")
+    conf.chmod(0o000)
+    try:
+        return subprocess.run(  # noqa: S603  # nosec B603 - fixed argv, test-only
+            [
+                "bash",
+                *shell_flags,
+                "-c",
+                f'source "{sandbox / "audiobook-config.sh"}"; rc=$?; '
+                'echo "DATA=$AUDIOBOOKS_DATA"; exit $rc',
+            ],
+            env={"PATH": os.environ["PATH"], "HOME": str(tmp_path / "home")},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    finally:
+        conf.chmod(0o600)
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads any file; the case cannot arise")
+def test_login_shell_is_silent_when_config_is_unreadable(tmp_path: Path) -> None:
+    # --noprofile: a login shell that does not read the host's own /etc/profile
+    proc = _sh_unreadable_conf(tmp_path, ["--noprofile", "-l"])
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stderr == ""
+    assert "DATA=/from/unreadable/conf" not in proc.stdout
+
+
+@pytest.mark.skipif(os.geteuid() == 0, reason="root reads any file; the case cannot arise")
+def test_script_gets_one_clear_line_when_config_is_unreadable(tmp_path: Path) -> None:
+    proc = _sh_unreadable_conf(tmp_path, [])
+    assert proc.returncode == 0, proc.stderr
+    lines = proc.stderr.strip().splitlines()
+    assert len(lines) == 1, proc.stderr
+    assert "audiobooks.conf" in lines[0]
+    assert "not readable" in lines[0]
+    assert "line " not in lines[0]  # not bash's raw redirect error
+    assert "DATA=/from/unreadable/conf" not in proc.stdout

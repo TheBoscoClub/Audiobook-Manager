@@ -24,6 +24,17 @@ _load_config_file() {
     local config_file="$1"
     [[ -f "$config_file" ]] || return 0
 
+    # The system config is 0640 root:audiobooks (it may hold credentials), and
+    # /etc/profile.d sources this library for every account. A caller outside
+    # the group gets the defaults: silently in a login shell, which did not ask
+    # for this, and with one line anywhere else, where a script is about to run
+    # without the installation's settings.
+    if [[ ! -r "$config_file" ]]; then
+        shopt -q login_shell ||
+            echo "audiobook-config: $config_file is not readable by $(id -un); using defaults" >&2
+        return 0
+    fi
+
     local key value current_val
     while IFS='=' read -r key value; do
         # Skip comments and empty lines

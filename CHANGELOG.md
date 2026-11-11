@@ -95,6 +95,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Login shells outside the `audiobooks` group printed `audiobooks.conf: Permission denied`**:
+  `/etc/profile.d/audiobooks.sh` sources `lib/audiobook-config.sh` for every account, and the system config is `0640
+  root:audiobooks`, so the greeter's login shell wrote the error on the boot console; the loader now skips a config
+  file the caller cannot read — silently in a login shell, with one `not readable … using defaults` line anywhere
+  else; the config's mode is unchanged (bd `Audiobook-Manager-ydh6`)
 - **Source-link check in `install.sh` and `upgrade.sh` could fire on one host only**: it looked for one
   maintainer's projects-directory name in each `/usr/local/bin/audiobook-*` link target; it now flags any link that
   resolves outside the install prefix, for the managed targets only (`/opt/audiobooks`,
