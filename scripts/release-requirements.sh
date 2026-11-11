@@ -58,8 +58,10 @@ REQUIRED_CONFIG_KEYS=(
 )
 
 # ─── Required systemd units ──────────────────────────────────────────────────
-# Every unit in this list MUST exist under /etc/systemd/system/ and be
-# enabled. Missing OR disabled → upgrade fails (hard gate).
+# Every unit in this list MUST exist in the unit directory
+# (/usr/local/lib/systemd/system), or still in /etc/systemd/system on an
+# install whose upgrade engine predates the move, and be enabled. Missing OR
+# disabled → upgrade fails (hard gate).
 REQUIRED_SYSTEMD_UNITS=(
     "audiobook.target"
     "audiobook-api.service"
@@ -111,6 +113,7 @@ validate_release_requirements() {
     local db_path="${2:-}"
     local use_sudo="${3:-}"
     local systemd_dir="${4:-/etc/systemd/system}"
+    local unit_dir="${5:-/usr/local/lib/systemd/system}"
 
     local hard_fail=0
     local soft_warn=0
@@ -158,7 +161,7 @@ validate_release_requirements() {
 
     # ─── systemd units ───
     for unit in "${REQUIRED_SYSTEMD_UNITS[@]}"; do
-        if [[ ! -f "${systemd_dir}/${unit}" ]]; then
+        if [[ ! -f "${unit_dir}/${unit}" && ! -f "${systemd_dir}/${unit}" ]]; then
             missing_units+=("$unit")
             hard_fail=1
         fi
@@ -217,9 +220,9 @@ validate_release_requirements() {
     if [[ ${#missing_units[@]} -gt 0 ]]; then
         echo -e "  ${_red}✗ Required systemd units missing:${_nc}"
         for unit in "${missing_units[@]}"; do
-            echo -e "    ${_red}${systemd_dir}/${unit}${_nc}"
+            echo -e "    ${_red}${unit_dir}/${unit}${_nc}"
         done
-        echo -e "  ${_yellow}  Run: sudo cp ${PROJECT_DIR:-\$PROJECT}/systemd/audiobook*.{service,target,path,timer} ${systemd_dir}/ && sudo systemctl daemon-reload${_nc}"
+        echo -e "  ${_yellow}  Run: sudo cp ${PROJECT_DIR:-\$PROJECT}/systemd/audiobook*.{service,target,path,timer} ${unit_dir}/ && sudo systemctl daemon-reload${_nc}"
     fi
 
     if [[ ${#missing_columns[@]} -gt 0 ]]; then

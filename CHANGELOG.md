@@ -34,6 +34,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Unit files install to `/usr/local/lib/systemd/system`**: a system install keeps its 23 `audiobook*` unit files in
+  the directory systemd searches for administrator-installed units; `/etc/systemd/system` keeps only what belongs to
+  the administrator — drop-ins (`<unit>.d/`) and the links `systemctl enable` writes — so a host can version the unit
+  directory as one flat directory (bd `Audiobook-Manager-b0my.1`)
+  - `upgrade.sh` moves an existing install one unit at a time — disable while the old file still backs the unit,
+    remove it, `daemon-reload`, enable again only if it was `enabled` — and does so on every upgrade, because a
+    regular file left in `/etc/systemd/system` shadows the new copy; a symlink there (a mask, the administrator's
+    own link) is left alone; disabled, static and operator-disabled units come out as they went in
+  - `_unit_file_path` is the one lookup for an installed unit (unit directory, else the legacy one); the orphan
+    audit scans both directories
+  - `install.sh` creates the directory once (`0755 root:root`, both levels named) and retires legacy copies when run
+    over an older deployment; `uninstall.sh` removes only `audiobook*` unit files there and the directory only when
+    that leaves it empty
+  - `scripts/reconcile-filesystem.sh` (new optional `UNIT_DIR`) and `validate_release_requirements` (new fifth
+    argument) accept a unit in either directory, so an upgrade engine from before the move still passes the gate
+  - User installs (`~/.config/systemd/user`) are unchanged
+
 - **Cloudflare purge after an upgrade reads the installation's own configuration**: `upgrade.sh`
   `purge_cloudflare_cache` takes `CF_ZONE_ID` and `CLOUDFLARE_PURGE_TOKEN` or `CLOUDFLARE_PURGE_TOKEN_FILE` from the
   environment or `/etc/audiobooks/audiobooks.conf` — the keys `/api/system/purge-cache` already reads — instead of a

@@ -41,6 +41,11 @@ NC='\033[0m'
 
 # Script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Where a system install keeps its unit files, and where installs made before
+# the move still have them. Same values as scripts/install-manifest.sh, which
+# says why; /etc/systemd/system keeps the drop-ins and the enable links.
+SYSTEM_UNIT_DIR="/usr/local/lib/systemd/system"
+SYSTEM_UNIT_LEGACY_DIR="/etc/systemd/system"
 
 # Defaults
 INSTALL_MODE=""
@@ -169,9 +174,10 @@ detect_install_type() {
 
     # Also check for leftover systemd units or symlinks even if dirs are gone
     if [[ "$has_system" == "false" ]]; then
-        local sys_units=(/etc/systemd/system/audiobook*)
+        local sys_units=("$SYSTEM_UNIT_LEGACY_DIR"/audiobook*)
+        local sys_new_units=("$SYSTEM_UNIT_DIR"/audiobook*)
         local sys_bins=(/usr/local/bin/audiobook-*)
-        [[ ${#sys_units} -gt 0 || ${#sys_bins} -gt 0 ]] && has_system=true
+        [[ ${#sys_units} -gt 0 || ${#sys_new_units} -gt 0 || ${#sys_bins} -gt 0 ]] && has_system=true
     fi
 
     if [[ "$has_user" == "false" ]]; then
@@ -265,11 +271,16 @@ confirm_uninstall() {
 remove_systemd_units() {
     local use_sudo="$1"
     local systemctl_cmd="systemctl"
-    local systemd_dir="/etc/systemd/system"
+    # systemd_dir: drop-ins and enable links (and, before the unit-directory
+    # move, the unit files). unit_dir: the unit files of a system install;
+    # a user install keeps both in one directory.
+    local systemd_dir="$SYSTEM_UNIT_LEGACY_DIR"
+    local unit_dir="$SYSTEM_UNIT_DIR"
 
     if [[ "$use_sudo" != "sudo" ]]; then
         systemctl_cmd="systemctl --user"
         systemd_dir="$HOME/.config/systemd/user"
+        unit_dir="$systemd_dir"
     fi
 
     echo ""
@@ -290,7 +301,8 @@ remove_systemd_units() {
         # Deduplicate
         readarray -t units < <(printf '%s\n' "${units[@]}" | sort -u)
         # Also discover from filesystem (catches units systemd doesn't know about)
-        for f in "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}; do
+        for f in "${unit_dir}"/audiobook*.{service,timer,path,target,socket} \
+            "${systemd_dir}"/audiobook*.{service,timer,path,target,socket}; do
             local unit_name="${f##*/}"
             # Add if not already in list
             if [[ ! " ${units[*]} " =~ \ ${unit_name}\  ]]; then
@@ -354,6 +366,22 @@ remove_systemd_units() {
             remove_dir "$f" "$use_sudo"
         fi
     done
+
+    # The unit directory: only this application's unit files go, one by one.
+    # The directory itself may hold other software's units, so it is removed
+    # only when that leaves it empty, and its parent likewise.
+    if [[ "$unit_dir" != "$systemd_dir" ]]; then
+        log_info "Removing unit files from ${unit_dir}..."
+        for f in "${unit_dir}"/audiobook*.{service,timer,path,target,socket}; do
+            if [[ -f "$f" || -L "$f" ]]; then
+                remove_file "$f" "$use_sudo"
+            fi
+        done
+        if [[ "$DRY_RUN" != "true" && -d "$unit_dir" ]]; then
+            _sudo rmdir "$unit_dir" 2>/dev/null \
+                && _sudo rmdir "$(dirname "$unit_dir")" 2>/dev/null || true
+        fi
+    fi
 
     # Also remove .wants directory symlinks (created by systemctl enable)
     for wants_dir in "${systemd_dir}"/audiobook*.wants; do
@@ -986,6 +1014,7 @@ scan_for_orphans() {
         patterns=(
             "/usr/local/bin/audiobook*"
             "/etc/systemd/system/audiobook*"
+            "/usr/local/lib/systemd/system/audiobook*"
             "/etc/audiobooks"
             "/opt/audiobooks"
             "/var/lib/audiobooks"
@@ -1225,7 +1254,7 @@ if [[ -z "$INSTALL_MODE" ]]; then
             echo -e "${GREEN}No Audiobook Manager installation detected.${NC}"
             echo ""
             echo "Checked:"
-            echo "  System: /opt/audiobooks, /usr/local/bin/audiobook-*, /etc/systemd/system/audiobook*"
+            echo "  System: /opt/audiobooks, /usr/local/bin/audiobook-*, /usr/local/lib/systemd/system/audiobook*, /etc/systemd/system/audiobook*"
             echo "  User:   ~/.local/lib/audiobooks, ~/.local/bin/audiobook-*, ~/.config/systemd/user/audiobook*"
             exit 0
             ;;

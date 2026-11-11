@@ -312,3 +312,45 @@ def test_audit_and_cleanup_accepts_project_arg():
         "check has an authoritative source (the release being installed), "
         "not a blind fallback to SCRIPT_DIR/systemd."
     )
+
+
+# ---------------------------------------------------------------------------
+# Required units may sit in the unit directory or, after an upgrade run by an
+# engine from before the move, still in /etc/systemd/system
+# (Audiobook-Manager-b0my.1). The gate must pass for both and fail for neither.
+# ---------------------------------------------------------------------------
+def _required_units_missing(tmp_path, seed: str) -> str:
+    import subprocess
+
+    legacy = tmp_path / "etc-systemd"
+    unit_dir = tmp_path / "unit-dir"
+    legacy.mkdir()
+    unit_dir.mkdir()
+    conf = tmp_path / "audiobooks.conf"
+    conf.write_text("AUDIOBOOKS_TTS_PROVIDER=edge-tts\n")
+    script = f"""
+        source "{REPO}/scripts/release-requirements.sh"
+        for u in "${{REQUIRED_SYSTEMD_UNITS[@]}}"; do
+            case "{seed}" in
+                unit-dir) : > "{unit_dir}/$u" ;;
+                legacy)   : > "{legacy}/$u" ;;
+            esac
+        done
+        validate_release_requirements "{conf}" "" "" "{legacy}" "{unit_dir}"
+    """
+    proc = subprocess.run(
+        ["bash", "-c", script], capture_output=True, text=True, check=False, timeout=60
+    )
+    return proc.stdout + proc.stderr
+
+
+def test_required_units_found_in_the_unit_directory(tmp_path):
+    assert "Required systemd units missing" not in _required_units_missing(tmp_path, "unit-dir")
+
+
+def test_required_units_found_in_the_legacy_directory(tmp_path):
+    assert "Required systemd units missing" not in _required_units_missing(tmp_path, "legacy")
+
+
+def test_required_units_in_neither_directory_are_reported(tmp_path):
+    assert "Required systemd units missing" in _required_units_missing(tmp_path, "none")

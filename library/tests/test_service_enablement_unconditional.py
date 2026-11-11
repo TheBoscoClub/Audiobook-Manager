@@ -144,7 +144,8 @@ def test_upgrade_parses_target_wants():
     """
     upgrade = _read("upgrade.sh")
     assert (
-        re.search(r"grep\s+'\^Wants='\s+/etc/systemd/system/audiobook\.target", upgrade) is not None
+        re.search(r"grep\s+'\^Wants='\s+\"\$target_file\"", upgrade) is not None
+        and '_unit_file_path "audiobook.target"' in upgrade
     ), "upgrade.sh no longer parses Wants= from audiobook.target"
     # Loop body must invoke the enabling helper (or systemctl enable directly).
     # Either pattern keeps stream-translate / scheduler / api / etc. wired up

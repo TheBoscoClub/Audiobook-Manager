@@ -97,8 +97,21 @@ REQUIRED_DIRS=(
 )
 
 # ---------------------------------------------------------------------------
-# Systemd units that MUST be present under /etc/systemd/system/ (system
-# install) or ~/.config/systemd/user/ (user install). Populated from the
+# Where a system install keeps its unit files. systemd searches this directory
+# (systemd.unit(5): units installed by the administrator), so nothing links to
+# it. /etc/systemd/system keeps what belongs to the administrator: drop-ins
+# (<unit>.d/) and the links `systemctl enable` writes. Installs made before
+# the move have the unit files in SYSTEM_UNIT_LEGACY_DIR; upgrade.sh moves
+# them. install.sh, upgrade.sh and uninstall.sh carry the same two values
+# (library/tests/test_unit_directory.py keeps them equal).
+# ---------------------------------------------------------------------------
+SYSTEM_UNIT_DIR="/usr/local/lib/systemd/system"
+SYSTEM_UNIT_LEGACY_DIR="/etc/systemd/system"
+
+# ---------------------------------------------------------------------------
+# Systemd units that MUST be present in SYSTEM_UNIT_DIR (system install; an
+# install not yet moved has them in SYSTEM_UNIT_LEGACY_DIR) or
+# ~/.config/systemd/user/ (user install). Populated from the
 # canonical systemd/ directory in the project at source time by the caller.
 #
 # Deliberately NOT listed: audiobook-api.service.d/derive-secrets.conf — a

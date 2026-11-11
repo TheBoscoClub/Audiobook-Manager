@@ -377,7 +377,8 @@ migrate_to_modular() {
 
     # Update systemd services
     echo -e "${BOLD}Checking systemd services...${NC}"
-    for service in /etc/systemd/system/audiobook-api.service \
+    for service in /usr/local/lib/systemd/system/audiobook-api.service \
+        /etc/systemd/system/audiobook-api.service \
         "$HOME/.config/systemd/user/audiobook-api.service"; do
         if [[ -f "$service" ]]; then
             update_systemd_service "$service" "api_server.py" $DRY_RUN
@@ -453,7 +454,8 @@ migrate_to_monolithic() {
 
     # Update systemd services
     echo -e "${BOLD}Checking systemd services...${NC}"
-    for service in /etc/systemd/system/audiobook-api.service \
+    for service in /usr/local/lib/systemd/system/audiobook-api.service \
+        /etc/systemd/system/audiobook-api.service \
         "$HOME/.config/systemd/user/audiobook-api.service"; do
         if [[ -f "$service" ]]; then
             update_systemd_service "$service" "api.py" $DRY_RUN

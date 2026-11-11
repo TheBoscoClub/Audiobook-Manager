@@ -48,6 +48,11 @@ NC='\033[0m'
 
 # Script directory (source)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Where a system install keeps its unit files, and where installs made before
+# the move still have them. Same values as scripts/install-manifest.sh, which
+# says why; /etc/systemd/system keeps the drop-ins and the enable links.
+SYSTEM_UNIT_DIR="/usr/local/lib/systemd/system"
+SYSTEM_UNIT_LEGACY_DIR="/etc/systemd/system"
 
 # Default options
 INSTALL_MODE=""
@@ -197,7 +202,7 @@ show_usage() {
     echo "    /var/log/audiobooks/       Log files"
     echo "    /srv/audiobooks/           Data (Library/, Sources/, Supplements/)"
     echo "    /usr/local/bin/audiobook-* CLI commands (symlinks)"
-    echo "    /etc/systemd/system/       audiobook-api, audiobook-proxy, etc."
+    echo "    /usr/local/lib/systemd/system/  audiobook-api, audiobook-proxy, etc."
     echo "    SSL certificate (3-year), Python venv, SQLite database"
     echo ""
     echo "  User (--user):"
@@ -1271,7 +1276,8 @@ do_system_install() {
     local CONFIG_DIR="/etc/audiobooks"
     local APP_DIR="/opt/audiobooks" # Canonical application location
     local BIN_DIR="${INSTALL_PREFIX}/bin"
-    local SYSTEMD_DIR="/etc/systemd/system"
+    local SYSTEMD_DIR="$SYSTEM_UNIT_LEGACY_DIR" # drop-ins and enable links
+    local UNIT_DIR="$SYSTEM_UNIT_DIR"           # the unit files
 
     echo -e "${GREEN}=== System Installation ===${NC}"
     echo ""
@@ -1279,7 +1285,7 @@ do_system_install() {
     echo "  Executables:  ${BIN_DIR}/"
     echo "  Config:       ${CONFIG_DIR}/"
     echo "  Application:  ${APP_DIR}/"
-    echo "  Services:     ${SYSTEMD_DIR}/"
+    echo "  Services:     ${UNIT_DIR}/"
     echo "  Data:         ${data_dir}/"
     echo "  Database:     ${db_dir}/"
     echo ""
@@ -1863,8 +1869,16 @@ EOF
     if [[ "$INSTALL_SERVICES" == "true" ]]; then
         echo -e "${BLUE}Installing systemd services...${NC}"
 
+        # The unit directory is created once and never removed or recreated
+        # by a later install or upgrade (a host may keep it under version
+        # control as a directory). Both levels are named so each gets its
+        # mode whatever the umask is.
+        if [[ ! -d "$UNIT_DIR" ]]; then
+            sudo install -d -m 0755 -o root -g root "$(dirname "$UNIT_DIR")" "$UNIT_DIR"
+        fi
+
         # API service
-        sudo tee "${SYSTEMD_DIR}/audiobook-api.service" >/dev/null <<EOF
+        sudo tee "${UNIT_DIR}/audiobook-api.service" >/dev/null <<EOF
 [Unit]
 Description=Audiobooks Library API Server
 Documentation=https://github.com/TheBoscoClub/Audiobook-Manager
@@ -1885,7 +1899,7 @@ EOF
         # Install services from systemd/ directory (includes proxy, redirect, converter, etc.)
         # Note: audiobook-proxy.service replaces the old audiobook-web.service for system installs
         # Filter to unit types only — audiobooks-tmpfiles.conf is a tmpfiles.d config
-        # and MUST NOT land in ${SYSTEMD_DIR}; it's handled separately below.
+        # and MUST NOT land in ${UNIT_DIR}; it's handled separately below.
         if [[ -d "${SCRIPT_DIR}/systemd" ]]; then
             echo -e "${BLUE}Installing conversion and management services...${NC}"
             for service_file in "${SCRIPT_DIR}/systemd/"*.service "${SCRIPT_DIR}/systemd/"*.timer "${SCRIPT_DIR}/systemd/"*.path "${SCRIPT_DIR}/systemd/"*.target; do
@@ -1895,8 +1909,8 @@ EOF
                     if [[ "$service_name" == "audiobook.target" ]]; then
                         continue
                     fi
-                    sudo cp "$service_file" "${SYSTEMD_DIR}/${service_name}"
-                    sudo chmod 644 "${SYSTEMD_DIR}/${service_name}"
+                    sudo cp "$service_file" "${UNIT_DIR}/${service_name}"
+                    sudo chmod 644 "${UNIT_DIR}/${service_name}"
                     echo "  Installed: ${service_name}"
                 fi
             done
@@ -1905,7 +1919,7 @@ EOF
             # ProtectSystem=strict makes the filesystem read-only except for listed paths.
             # Without this, cover art extraction and other data writes silently fail.
             if [[ "$data_dir" != "/srv/audiobooks" ]]; then
-                local api_service="${SYSTEMD_DIR}/audiobook-api.service"
+                local api_service="${UNIT_DIR}/audiobook-api.service"
                 if sudo grep -q "ReadWritePaths=" "$api_service" 2>/dev/null; then
                     sudo sed -i "s|ReadWritePaths=\(.*\)|ReadWritePaths=\1 ${data_dir}|" "$api_service"
                     echo "  Patched: audiobook-api.service ReadWritePaths += ${data_dir}"
@@ -2011,7 +2025,7 @@ EOF
         fi
 
         # Enable the upgrade helper path unit (monitors for privileged operation requests)
-        if [[ -f "${SYSTEMD_DIR}/audiobook-upgrade-helper.path" ]]; then
+        if [[ -f "${UNIT_DIR}/audiobook-upgrade-helper.path" ]]; then
             echo -e "${BLUE}Enabling privileged operations helper...${NC}"
             sudo systemctl enable audiobook-upgrade-helper.path 2>/dev/null || true
             sudo systemctl start audiobook-upgrade-helper.path 2>/dev/null || true
@@ -2019,8 +2033,23 @@ EOF
         fi
 
         # Target — copy canonical file from systemd/ directory
-        sudo cp "${SCRIPT_DIR}/systemd/audiobook.target" "${SYSTEMD_DIR}/audiobook.target"
-        sudo chmod 644 "${SYSTEMD_DIR}/audiobook.target"
+        sudo cp "${SCRIPT_DIR}/systemd/audiobook.target" "${UNIT_DIR}/audiobook.target"
+        sudo chmod 644 "${UNIT_DIR}/audiobook.target"
+
+        # An install over a deployment made before the unit-directory move:
+        # a regular file left in ${SYSTEMD_DIR} shadows the copy just written
+        # (it sorts first in systemd's search path). Disable while the old
+        # file still backs the unit, so every enable link pointing at it goes,
+        # then remove it; the enable step below sets the links up again. A
+        # symlink there (a mask, the administrator's own link) is left alone.
+        local _legacy_unit
+        for _legacy_unit in "${SYSTEMD_DIR}"/audiobook*; do
+            [[ -f "$_legacy_unit" && ! -L "$_legacy_unit" ]] || continue
+            [[ -f "${UNIT_DIR}/${_legacy_unit##*/}" ]] || continue
+            sudo systemctl disable "${_legacy_unit##*/}" >/dev/null 2>&1 || true
+            sudo rm -f "${_legacy_unit:?}"
+            echo "  Moved: ${_legacy_unit##*/} (${SYSTEMD_DIR} -> ${UNIT_DIR})"
+        done
 
         # Reload systemd
         sudo systemctl daemon-reload
@@ -2036,7 +2065,7 @@ EOF
         # shell library is reachable on the target.
         _enable_unit_smart() {
             local unit="$1"
-            local unit_file="${SYSTEMD_DIR}/${unit}"
+            local unit_file="${UNIT_DIR}/${unit}"
             [[ ! -f "$unit_file" ]] && return 0
 
             # Operator intent — see the long comment in upgrade.sh. A fresh
@@ -2211,7 +2240,8 @@ EOF
         CONFIG_DIR="$CONFIG_DIR" \
         CONF_FILE="$_conf_file" \
         USE_SUDO="sudo" \
-        SYSTEMD_DIR="/etc/systemd/system" \
+        SYSTEMD_DIR="$SYSTEMD_DIR" \
+        UNIT_DIR="$UNIT_DIR" \
         BIN_DIR="/usr/local/bin" \
         RECONCILE_MODE="${RECONCILE_MODE:-enforce}" \
         bash "${SCRIPT_DIR}/scripts/reconcile-filesystem.sh" || true

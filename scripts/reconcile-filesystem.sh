@@ -22,7 +22,9 @@
 # Optional:
 #   RECONCILE_MODE — report (default) | enforce
 #   DRY_RUN        — true | false (default false)
-#   SYSTEMD_DIR    — /etc/systemd/system or ~/.config/systemd/user
+#   SYSTEMD_DIR    — /etc/systemd/system or ~/.config/systemd/user (drop-ins, enable links)
+#   UNIT_DIR       — where the unit files are; default: the manifest's SYSTEM_UNIT_DIR on a
+#                    system install, SYSTEMD_DIR on a user install
 #   BIN_DIR        — /usr/local/bin or ~/.local/bin
 
 # shellcheck disable=SC2154  # vars come from caller environment
@@ -191,12 +193,24 @@ _reconcile_venvs() {
 # ---------------------------------------------------------------------------
 # Step 4 — audit installed systemd units vs canonical list
 # ---------------------------------------------------------------------------
+# A unit counts as present in UNIT_DIR or in SYSTEMD_DIR. An upgrade engine
+# from before the unit-directory move copies units to SYSTEMD_DIR and passes
+# no UNIT_DIR; on a system install the unit directory is then the manifest's
+# SYSTEM_UNIT_DIR, on a user install the two are the same directory.
 _reconcile_units() {
-    local systemd_dir="${SYSTEMD_DIR:-/etc/systemd/system}"
+    local systemd_dir="${SYSTEMD_DIR:-${SYSTEM_UNIT_LEGACY_DIR}}"
+    local unit_dir="${UNIT_DIR:-}"
+    if [[ -z "$unit_dir" ]]; then
+        if [[ "$systemd_dir" == "$SYSTEM_UNIT_LEGACY_DIR" ]]; then
+            unit_dir="$SYSTEM_UNIT_DIR"
+        else
+            unit_dir="$systemd_dir"
+        fi
+    fi
     local unit
     for unit in "${CANONICAL_UNITS[@]}"; do
-        if [[ ! -f "${systemd_dir}/${unit}" ]]; then
-            _issue "missing systemd unit: ${systemd_dir}/${unit}"
+        if [[ ! -f "${unit_dir}/${unit}" && ! -f "${systemd_dir}/${unit}" ]]; then
+            _issue "missing systemd unit: ${unit_dir}/${unit}"
         fi
     done
 }

@@ -13,7 +13,7 @@
       "UI/Playwright E2E tests",
       "WebAuthn/FIDO2 authentication flows"
     ],
-    "reason": "Installs to /etc/systemd/system/, /usr/local/bin/, /usr/local/lib/, /opt/audiobooks/, /etc/profile.d/. Must not contaminate host.",
+    "reason": "Installs to /usr/local/lib/systemd/system/, /etc/systemd/system/ (drop-ins, enable links), /usr/local/bin/, /usr/local/lib/, /opt/audiobooks/, /etc/profile.d/. Must not contaminate host.",
 
     "default_vm": "<test-vm-name>",
 
@@ -93,7 +93,7 @@
       "detects_pristine_by": "getent passwd audiobooks",
       "assert_enabled_timers_active": {
         "unit_pattern": "audiobook-*",
-        "rationale": "Regression guard for Audiobook-Manager-hp2: catch the 'enable without --now' upgrade bug class where new timers in a release are wired but never started in the current boot. Phase 10b runs systemctl is-enabled + is-active for each /etc/systemd/system/audiobook-*.timer and fails if any enabled timer is not active. Shutdown-only units are auto-exempted by the phase logic."
+        "rationale": "Regression guard for Audiobook-Manager-hp2: catch the 'enable without --now' upgrade bug class where new timers in a release are wired but never started in the current boot. Phase 10b runs systemctl is-enabled + is-active for each audiobook-*.timer in /usr/local/lib/systemd/system/ (or /etc/systemd/system/ on an older install) and fails if any enabled timer is not active. Shutdown-only units are auto-exempted by the phase logic."
       }
     },
 

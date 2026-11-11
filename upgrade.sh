@@ -245,6 +245,11 @@ trap _cleanup_on_exit EXIT
 
 # Script location - could be in project OR installed app
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Where a system install keeps its unit files, and where installs made before
+# the move still have them. Same values as scripts/install-manifest.sh, which
+# says why; /etc/systemd/system keeps the drop-ins and the enable links.
+SYSTEM_UNIT_DIR="/usr/local/lib/systemd/system"
+SYSTEM_UNIT_LEGACY_DIR="/etc/systemd/system"
 
 # Options
 PROJECT_DIR=""
@@ -1376,6 +1381,52 @@ apply_data_migrations() {
     fi
 }
 
+# Path of an installed unit file: the unit directory, else the legacy
+# directory on an install not yet moved. Prints nothing and returns 1 when the
+# unit is in neither. Every lookup of an installed unit goes through this.
+_unit_file_path() {
+    local unit="$1"
+    if [[ -f "${SYSTEM_UNIT_DIR}/${unit}" ]]; then
+        printf '%s\n' "${SYSTEM_UNIT_DIR}/${unit}"
+    elif [[ -f "${SYSTEM_UNIT_LEGACY_DIR}/${unit}" ]]; then
+        printf '%s\n' "${SYSTEM_UNIT_LEGACY_DIR}/${unit}"
+    else
+        return 1
+    fi
+}
+
+# Take one unit's regular file out of the legacy directory once its copy is in
+# the unit directory. Runs on every upgrade, not once: a file left there
+# shadows the unit directory (it sorts first in systemd's search path), so an
+# old copy would win silently.
+#
+# One unit at a time, so an interrupted upgrade leaves at most one unit
+# without its enable links: disable while the legacy file still backs the unit
+# (that removes every link pointing at it), remove the file, reload, and enable
+# again only if it was enabled. A unit that was disabled, static or
+# operator-disabled comes out exactly as it went in. A symlink in the legacy
+# directory (a mask, or the administrator's own link) is not ours to touch.
+_retire_legacy_unit() {
+    local unit="$1"
+    local use_sudo="$2"
+    local legacy="${SYSTEM_UNIT_LEGACY_DIR}/${unit}"
+
+    [[ -f "$legacy" && ! -L "$legacy" ]] || return 0
+    [[ -f "${SYSTEM_UNIT_DIR}/${unit}" ]] || return 0
+
+    local was_enabled
+    was_enabled=$(systemctl is-enabled "$unit" 2>/dev/null) || true
+    $use_sudo systemctl disable "$unit" >/dev/null 2>&1 || true
+    $use_sudo rm -f "${legacy:?}"
+    $use_sudo systemctl daemon-reload 2>/dev/null || true
+    if [[ "$was_enabled" == "enabled" ]]; then
+        if ! $use_sudo systemctl enable "$unit" >/dev/null 2>&1; then
+            echo -e "  ${RED}Could not re-enable ${unit} after moving it — run: systemctl enable ${unit}${NC}"
+        fi
+    fi
+    echo "  Moved: ${unit} (${SYSTEM_UNIT_LEGACY_DIR} -> ${SYSTEM_UNIT_DIR})"
+}
+
 # Enable a unit, and start it if it has a runtime target (audiobook.target,
 # multi-user.target, timers.target, etc.). Skips --now for shutdown-only units
 # (WantedBy halt/reboot/shutdown.target) since those must NOT activate during
@@ -1391,11 +1442,8 @@ apply_data_migrations() {
 _enable_unit_smart() {
     local unit="$1"
     local use_sudo="$2"
-    local unit_file="/etc/systemd/system/${unit}"
-
-    if [[ ! -f "$unit_file" ]]; then
-        return 0
-    fi
+    local unit_file
+    unit_file=$(_unit_file_path "$unit") || return 0
 
     # ── Operator intent (Audiobook-Manager P1, 2026-08-26) ──────────────
     # An upgrade must not silently re-enable something the operator turned off.
@@ -1433,6 +1481,9 @@ _enable_unit_smart() {
         #              but these units ARE real files at exactly that path, so
         #              the mask silently does nothing (is-enabled stays
         #              "disabled" and the target still starts them).
+        #              (True while the unit files lived there; they are now in
+        #              the unit directory. The drop-in stays the mechanism: it
+        #              names its reason in `systemctl status`.)
         # A drop-in condition works for both: systemd evaluates it on every
         # start attempt including a Wants= pull, leaves the unit inactive, and
         # reports the reason in `systemctl status`.
@@ -1542,9 +1593,8 @@ enable_new_services() {
     # Note: use_sudo may legitimately be empty when upgrade.sh runs as root
     # (--remote mode sudos once at the boundary and then everything inside is
     # already privileged). Do NOT gate on use_sudo — an empty value is valid.
-    if [[ ! -f "/etc/systemd/system/audiobook.target" ]]; then
-        return 0
-    fi
+    local target_file
+    target_file=$(_unit_file_path "audiobook.target") || return 0
 
     echo -e "${BLUE}Enabling all audiobook services and timers...${NC}"
 
@@ -1558,7 +1608,7 @@ enable_new_services() {
 
     # (1) Parse Wants= lines from the target file
     local target_wants
-    target_wants=$(grep '^Wants=' /etc/systemd/system/audiobook.target \
+    target_wants=$(grep '^Wants=' "$target_file" \
         | sed 's/Wants=//' | tr ' ' '\n' \
         | grep -v 'network-online' | grep -v '^$')
 
@@ -1576,7 +1626,7 @@ enable_new_services() {
         audiobook-translation-reaper.timer          # 4j4: destroy-only guard for drain nodes
     )
     for unit in "${standalone_units[@]}"; do
-        if [[ -f "/etc/systemd/system/${unit}" ]]; then
+        if _unit_file_path "$unit" >/dev/null; then
             _enable_unit_smart "$unit" "$use_sudo"
             echo "  Enabled: $unit"
         fi
@@ -1754,7 +1804,7 @@ audit_and_cleanup() {
                 orphan_found=$((orphan_found + 1))
                 issues=$((issues + 1))
             fi
-        done < <(find /etc/systemd/system -maxdepth 1 -name "audiobook*" -type f 2>/dev/null)
+        done < <(find "$SYSTEM_UNIT_DIR" "$SYSTEM_UNIT_LEGACY_DIR" -maxdepth 1 -name "audiobook*" -type f 2>/dev/null)
         if [[ $orphan_found -eq 0 ]]; then
             echo -e "  ${GREEN}No orphaned systemd units found${NC}"
         fi
@@ -1774,7 +1824,7 @@ audit_and_cleanup() {
             [[ -z "$_ref" ]] && continue
             # If the referenced unit doesn't ship in the project, the drop-in is orphaned
             if [[ ! -f "${project_systemd_dir}/${_ref}" ]] \
-                && [[ ! -f "/etc/systemd/system/${_ref}" ]]; then
+                && ! _unit_file_path "$_ref" >/dev/null; then
                 if [[ "$DRY_RUN" == "true" ]]; then
                     echo -e "  ${YELLOW}[DRY-RUN] Would remove orphan drop-in: $_conf (ref to $_ref)${NC}"
                 else
@@ -2441,16 +2491,29 @@ do_upgrade() {
     if [[ -d "/etc/systemd/system" ]]; then
         echo -e "${BLUE}Updating systemd service files...${NC}"
 
-        # Copy new/updated service, target, path, and timer units
+        # The unit directory is created once and never removed or recreated by
+        # an upgrade (a host may keep it under version control as a directory).
+        # Both levels are named so each gets its mode whatever the umask is.
+        if [[ "$DRY_RUN" != "true" && ! -d "$SYSTEM_UNIT_DIR" ]]; then
+            $use_sudo install -d -m 0755 -o root -g root \
+                "$(dirname "$SYSTEM_UNIT_DIR")" "$SYSTEM_UNIT_DIR"
+        fi
+
+        # Copy new/updated service, target, path, and timer units, and take
+        # each one's old copy out of the legacy directory
         for unit_file in "${project}/systemd/"*.service "${project}/systemd/"*.target "${project}/systemd/"*.path "${project}/systemd/"*.timer; do
             if [[ -f "$unit_file" ]]; then
                 local unit_name=$(basename "$unit_file")
                 if [[ "$DRY_RUN" == "true" ]]; then
                     echo "  [DRY-RUN] Would install: $unit_name"
+                    if [[ -f "${SYSTEM_UNIT_LEGACY_DIR}/${unit_name}" && ! -L "${SYSTEM_UNIT_LEGACY_DIR}/${unit_name}" ]]; then
+                        echo "  [DRY-RUN] Would move: $unit_name (${SYSTEM_UNIT_LEGACY_DIR} -> ${SYSTEM_UNIT_DIR})"
+                    fi
                 else
-                    $use_sudo cp "$unit_file" "/etc/systemd/system/${unit_name}"
-                    $use_sudo chmod 644 "/etc/systemd/system/${unit_name}"
+                    $use_sudo cp "$unit_file" "${SYSTEM_UNIT_DIR}/${unit_name}"
+                    $use_sudo chmod 644 "${SYSTEM_UNIT_DIR}/${unit_name}"
                     echo "  Installed: $unit_name"
+                    _retire_legacy_unit "$unit_name" "$use_sudo"
                 fi
             fi
         done
@@ -2501,7 +2564,7 @@ do_upgrade() {
             conf_data_dir=$(grep -oP '^AUDIOBOOKS_DATA=\K.*' /etc/audiobooks/audiobooks.conf 2>/dev/null)
         fi
         if [[ -n "$conf_data_dir" && "$conf_data_dir" != "/srv/audiobooks" ]]; then
-            local api_svc="/etc/systemd/system/audiobook-api.service"
+            local api_svc="${SYSTEM_UNIT_DIR}/audiobook-api.service"
             if [[ -f "$api_svc" ]] && sudo grep -q "ReadWritePaths=" "$api_svc" 2>/dev/null; then
                 if [[ "$DRY_RUN" == "true" ]]; then
                     echo "  [DRY-RUN] Would patch ReadWritePaths += ${conf_data_dir}"
@@ -2640,7 +2703,7 @@ do_upgrade() {
             sudo systemctl reset-failed 'audiobook-*' 2>/dev/null || true
 
             # Enable and start the privileged helper path unit if not already running
-            if [[ -f "/etc/systemd/system/audiobook-upgrade-helper.path" ]]; then
+            if _unit_file_path "audiobook-upgrade-helper.path" >/dev/null; then
                 sudo systemctl enable audiobook-upgrade-helper.path 2>/dev/null || true
                 sudo systemctl start audiobook-upgrade-helper.path 2>/dev/null || true
             fi
@@ -2850,7 +2913,8 @@ do_upgrade() {
         local recon_state="${AUDIOBOOKS_VAR_DIR:-/var/lib/audiobooks}"
         local recon_log="${AUDIOBOOKS_LOGS:-/var/log/audiobooks}"
         local recon_config="${AUDIOBOOKS_CONFIG_DIR:-/etc/audiobooks}"
-        local recon_systemd="/etc/systemd/system"
+        local recon_systemd="$SYSTEM_UNIT_LEGACY_DIR"
+        local recon_units="$SYSTEM_UNIT_DIR"
         local recon_bin="/usr/local/bin"
         if [[ "$target" != "/opt/audiobooks" && "$target" != "/usr/local/lib/audiobooks" ]]; then
             # User install
@@ -2858,6 +2922,7 @@ do_upgrade() {
             recon_log="${HOME}/.local/state/audiobooks/logs"
             recon_config="${HOME}/.config/audiobooks"
             recon_systemd="${HOME}/.config/systemd/user"
+            recon_units="$recon_systemd"
             recon_bin="${HOME}/.local/bin"
         fi
         PROJECT_DIR="$project" \
@@ -2868,6 +2933,7 @@ do_upgrade() {
             CONF_FILE="${recon_config}/audiobooks.conf" \
             USE_SUDO="$use_sudo" \
             SYSTEMD_DIR="$recon_systemd" \
+            UNIT_DIR="$recon_units" \
             BIN_DIR="$recon_bin" \
             RECONCILE_MODE="${RECONCILE_MODE:-enforce}" \
             DRY_RUN="$DRY_RUN" \

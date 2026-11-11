@@ -1550,7 +1550,7 @@ The scheduler daemon and API server are separate processes. The notification que
 
 ## Systemd Services Reference
 
-All systemd units are located in `systemd/` and installed to `/etc/systemd/system/`. Two exceptions:
+All systemd units are located in `systemd/` and installed to `/usr/local/lib/systemd/system/`, the directory systemd searches for units an administrator installs. `/etc/systemd/system/` holds only what belongs to the administrator: drop-ins (`<unit>.d/`) and the links `systemctl enable` writes. An install made before this layout has regular unit files in `/etc/systemd/system/`; `upgrade.sh` moves each one (disable, remove, reload, enable again if it was enabled), because a file left there would shadow the new copy. Two exceptions:
 
 - `systemd/audiobook-api-derive-secrets.conf.example` is a drop-in **template**, not a unit. It is installed to `/etc/systemd/system/audiobook-api.service.d/derive-secrets.conf` only when `/usr/bin/derive-service-secret` exists on the target host.
 - The optional local-GPU unit ships separately at `extras/whisper-gpu/whisper-gpu.service`.

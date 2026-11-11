@@ -25,7 +25,7 @@ Detail, incidents and reasoning per section: `.claude/docs/rules-reference/paths
 
 **Project (dev):** `<your-projects-dir>/Audiobook-Manager/` (git repo); `./library/testdata/` (synthetic test data, NOT production); `./library/backend/audiobooks-dev.db` (dev DB); `./config.env` (dev paths within project, ports 9090/6001 vs production 8443/5001).
 
-**Installed (prod):** `/opt/audiobooks/` (app code); `/opt/audiobooks/scripts/` (symlinked from `/usr/local/bin/`); `${AUDIOBOOKS_DATA}` (default `/srv/audiobooks/`; Library, Sources, logs); `/usr/local/lib/audiobooks/` (shared config library); `/etc/audiobooks/` (system config); `/etc/systemd/system/audiobook*.service`.
+**Installed (prod):** `/opt/audiobooks/` (app code); `/opt/audiobooks/scripts/` (symlinked from `/usr/local/bin/`); `${AUDIOBOOKS_DATA}` (default `/srv/audiobooks/`; Library, Sources, logs); `/usr/local/lib/audiobooks/` (shared config library); `/etc/audiobooks/` (system config); `/usr/local/lib/systemd/system/audiobook*` (unit files; drop-ins and enable links stay in `/etc/systemd/system/`).
 
 ### NO CROSS-REFERENCES ALLOWED
 

@@ -130,7 +130,7 @@ sudo systemctl stop audiobook-api
 Edit the service file to use the new entry point:
 
 ```bash
-sudo nano /etc/systemd/system/audiobook-api.service
+sudo nano /usr/local/lib/systemd/system/audiobook-api.service   # /etc/systemd/system/ on an install not yet upgraded past the unit-directory move
 ```
 
 Change the `ExecStart` line:

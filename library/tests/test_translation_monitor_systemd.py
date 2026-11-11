@@ -29,12 +29,20 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 
 # Resolve unit-file root: prefer the project tree (`<repo>/systemd/`) for
-# dev-machine runs, fall back to `/etc/systemd/system/` for installed-app
+# dev-machine runs, fall back to the installed unit directory (or, on an
+# install not yet moved, `/etc/systemd/system/`) for installed-app
 # environments (test/dev/QA VMs running these tests against /opt/audiobooks).
 # Skip the whole module if neither layout has the unit files — that's a
 # deeply broken env where the tests can't add value.
 _PROJECT_SYSTEMD_DIR = REPO / "systemd"
-_INSTALLED_SYSTEMD_DIR = Path("/etc/systemd/system")
+_INSTALLED_SYSTEMD_DIR = next(
+    (
+        d
+        for d in (Path("/usr/local/lib/systemd/system"), Path("/etc/systemd/system"))
+        if (d / "audiobook-translation-monitor-live.timer").exists()
+    ),
+    Path("/usr/local/lib/systemd/system"),
+)
 _SENTINEL_UNIT = "audiobook-translation-monitor-live.service"
 
 if (_PROJECT_SYSTEMD_DIR / _SENTINEL_UNIT).exists():

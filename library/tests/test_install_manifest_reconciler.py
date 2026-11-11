@@ -405,3 +405,53 @@ def test_invoker_defaults_to_enforce_mode(script_name):
             f"RECONCILE_MODE={mode}; must be 'enforce' so phantom paths and "
             f"legacy config drift are cleaned on every install/upgrade"
         )
+
+
+# ---------------------------------------------------------------------------
+# Unit files live in the unit directory (/usr/local/lib/systemd/system on a
+# system install), with /etc/systemd/system kept for drop-ins and enable
+# links (Audiobook-Manager-b0my.1). An upgrade engine from before the move
+# copies them to SYSTEMD_DIR and passes no UNIT_DIR, so either place counts.
+# ---------------------------------------------------------------------------
+def _seed_units(directory: Path) -> None:
+    directory.mkdir(parents=True, exist_ok=True)
+    for unit in (PROJECT_ROOT / "systemd").iterdir():
+        if unit.suffix in {".service", ".timer", ".path", ".target"}:
+            (directory / unit.name).write_text("[Unit]\n")
+
+
+def test_units_in_the_unit_directory_are_not_reported_missing(tmp_path):
+    fx = _make_fixture(tmp_path)
+    unit_dir = tmp_path / "units"
+    _seed_units(unit_dir)
+    env = _env_from_fixture(fx, mode="report")
+    env["UNIT_DIR"] = str(unit_dir)
+
+    result = _run_reconciler(env)
+
+    assert "missing systemd unit" not in result.stdout, result.stdout
+
+
+def test_units_left_in_the_legacy_directory_are_not_reported_missing(tmp_path):
+    fx = _make_fixture(tmp_path)
+    _seed_units(fx["SYSTEMD_DIR"])
+    env = _env_from_fixture(fx, mode="report")
+    env["UNIT_DIR"] = str(tmp_path / "units-not-created")
+
+    result = _run_reconciler(env)
+
+    assert "missing systemd unit" not in result.stdout, result.stdout
+
+
+def test_a_unit_in_neither_directory_is_reported_missing(tmp_path):
+    fx = _make_fixture(tmp_path)
+    unit_dir = tmp_path / "units"
+    _seed_units(unit_dir)
+    (unit_dir / "audiobook-api.service").unlink()
+    env = _env_from_fixture(fx, mode="report")
+    env["UNIT_DIR"] = str(unit_dir)
+
+    result = _run_reconciler(env)
+
+    assert "missing systemd unit" in result.stdout
+    assert "audiobook-api.service" in result.stdout
