@@ -859,8 +859,12 @@ def test_example_conf_documents_that_systemd_does_not_expand():
 # --------------------------------------------------------------------------
 
 
-def _sh_unreadable_conf(tmp_path: Path, shell_flags: list[str]) -> subprocess.CompletedProcess:
-    """Source the library with a user config that exists but cannot be read."""
+def _sh_unreadable_conf(tmp_path: Path, via_profile: bool) -> subprocess.CompletedProcess:
+    """Source the library with a user config that exists but cannot be read.
+
+    ``via_profile`` sources it the way a session launcher does: plain ``sh -c``
+    reading a ``profile.d`` script that sources the library (not a login shell).
+    """
     sandbox = tmp_path / "sandbox" / "lib"
     sandbox.mkdir(parents=True, exist_ok=True)
     text = LIB_SH.read_text().replace("/etc/audiobooks/audiobooks.conf", "/nonexistent/none.conf")
@@ -869,14 +873,17 @@ def _sh_unreadable_conf(tmp_path: Path, shell_flags: list[str]) -> subprocess.Co
     conf.parent.mkdir(parents=True, exist_ok=True)
     conf.write_text("AUDIOBOOKS_DATA=/from/unreadable/conf\n")
     conf.chmod(0o000)
+    entry = sandbox / "audiobook-config.sh"
+    if via_profile:
+        entry = tmp_path / "etc" / "profile.d" / "audiobooks.sh"
+        entry.parent.mkdir(parents=True, exist_ok=True)
+        entry.write_text(f'source "{sandbox / "audiobook-config.sh"}"\n')
     try:
         return subprocess.run(  # noqa: S603  # nosec B603 - fixed argv, test-only
             [
                 "bash",
-                *shell_flags,
                 "-c",
-                f'source "{sandbox / "audiobook-config.sh"}"; rc=$?; '
-                'echo "DATA=$AUDIOBOOKS_DATA"; exit $rc',
+                f'. "{entry}"; rc=$?; echo "DATA=$AUDIOBOOKS_DATA"; exit $rc',
             ],
             env={"PATH": os.environ["PATH"], "HOME": str(tmp_path / "home")},
             capture_output=True,
@@ -888,9 +895,8 @@ def _sh_unreadable_conf(tmp_path: Path, shell_flags: list[str]) -> subprocess.Co
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root reads any file; the case cannot arise")
-def test_login_shell_is_silent_when_config_is_unreadable(tmp_path: Path) -> None:
-    # --noprofile: a login shell that does not read the host's own /etc/profile
-    proc = _sh_unreadable_conf(tmp_path, ["--noprofile", "-l"])
+def test_profile_sourcing_is_silent_when_config_is_unreadable(tmp_path: Path) -> None:
+    proc = _sh_unreadable_conf(tmp_path, via_profile=True)
     assert proc.returncode == 0, proc.stderr
     assert proc.stderr == ""
     assert "DATA=/from/unreadable/conf" not in proc.stdout
@@ -898,7 +904,7 @@ def test_login_shell_is_silent_when_config_is_unreadable(tmp_path: Path) -> None
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root reads any file; the case cannot arise")
 def test_script_gets_one_clear_line_when_config_is_unreadable(tmp_path: Path) -> None:
-    proc = _sh_unreadable_conf(tmp_path, [])
+    proc = _sh_unreadable_conf(tmp_path, via_profile=False)
     assert proc.returncode == 0, proc.stderr
     lines = proc.stderr.strip().splitlines()
     assert len(lines) == 1, proc.stderr

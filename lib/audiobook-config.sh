@@ -26,12 +26,16 @@ _load_config_file() {
 
     # The system config is 0640 root:audiobooks (it may hold credentials), and
     # /etc/profile.d sources this library for every account. A caller outside
-    # the group gets the defaults: silently in a login shell, which did not ask
-    # for this, and with one line anywhere else, where a script is about to run
-    # without the installation's settings.
+    # the group gets the defaults: silently when a profile script sourced this
+    # (a login or a session launcher's plain `sh -c`, neither of which asked),
+    # and with one line anywhere else, where a script is about to run without
+    # the installation's settings.
     if [[ ! -r "$config_file" ]]; then
-        shopt -q login_shell ||
-            echo "audiobook-config: $config_file is not readable by $(id -un); using defaults" >&2
+        local _ab_src
+        for _ab_src in "${BASH_SOURCE[@]}"; do
+            [[ "$_ab_src" == */profile.d/* || "$_ab_src" == */profile ]] && return 0
+        done
+        echo "audiobook-config: $config_file is not readable by $(id -un); using defaults" >&2
         return 0
     fi
 
