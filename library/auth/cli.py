@@ -23,8 +23,11 @@ import secrets
 import sys
 from pathlib import Path
 
-# Add library to path if running directly
+# Running directly (the installed wrapper does): put both the install root and
+# library/ on the path. `library.auth` resolves from the root; its modules
+# import `common_utils`, which lives in library/ (bd Audiobook-Manager-b0my.5).
 if __name__ == "__main__":
+    sys.path.insert(0, str(Path(__file__).parent.parent))
     sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 try:
