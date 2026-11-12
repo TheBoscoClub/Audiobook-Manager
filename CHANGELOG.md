@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`audiobook-maintenance`: maintenance from the command line** — a root script on the same host can ask who is
+  connected, warn every user and schedule downtime, with no browser and no account
+  - `status` prints who is connected and in which state; exit `0` nobody (or the app is not running), `10` connected
+    but nobody listening, `20` someone listening, anything else unknown — only `0` means nobody, and "not running" is
+    claimed only when the API unit is inactive or failed and its port refuses connections
+  - `announce "<text>"` and `clear [ID]` post and remove the banner; `window add --start --minutes --lead-hours
+    --message` and `window cancel ID` schedule a host-downtime window; `clear` and `cancel` touch only what this
+    command created
+  - New API paths under `/api/local/maintenance/`, opened by a token the API writes to
+    `AUDIOBOOKS_MAINTENANCE_TOKEN_FILE` (default `${AUDIOBOOKS_RUN_DIR}/maintenance-token`, `0400`) at every start;
+    refused for any non-loopback peer and for anything relayed by the reverse proxy, which itself answers 404 for
+    `/api/local/`
+  - Root steps down to the `audiobooks` user before any application code runs (bd `Audiobook-Manager-bd38.1`)
+- **`host_downtime` maintenance task**: a window type that announces at its lead time and runs no job, also
+  selectable in the Maint Sched tab (bd `Audiobook-Manager-bd38.1`)
+- **Browsers that fell back to polling are counted as connected**: a logged-in session that polled
+  `/api/maintenance/announcements` within the last 60 seconds is reported with state `polling` by the local status
+  (bd `Audiobook-Manager-bd38.1`)
 - **Installation-value guard covers commit messages and pushes**: the map loading and matching move to
   `scripts/hooks/lib/installation-values.sh`, shared by `pre-commit` (messages and behaviour unchanged) and two new
   tracked hooks
@@ -112,6 +130,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`audiobook-user` crashed on every subcommand**: `library/auth/cli.py` put only the install root on `sys.path`, so
+  its audit module could not import `common_utils` and the command died with `ImportError` before parsing arguments;
+  `library/` is now on the path too (bd `Audiobook-Manager-b0my.5`)
+- **One-time maintenance windows ran up to a day late**: the scheduler compared `next_run_at` with SQLite's now as
+  text, and the browser's `toISOString()` form sorts after it, so a window was not due until the UTC date rolled over;
+  both scheduler queries now compare with `datetime()` (bd `Audiobook-Manager-bd38.3`)
 - **Login shells outside the `audiobooks` group printed `audiobooks.conf: Permission denied`**:
   `/etc/profile.d/audiobooks.sh` sources `lib/audiobook-config.sh` for every account, and the system config is `0640
   root:audiobooks`, so the greeter's session shell wrote the error on the boot console; the loader now skips a config
@@ -129,6 +153,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **WebSocket tunnel no longer forwards client address headers**: `proxy_server.py` copied a tunnelled request's
+  headers to the API unchanged, so a network client adding `Upgrade: websocket` (with or without a forged
+  `X-Real-IP` / `X-Forwarded-For`) was treated as localhost by `@localhost_only` and `@admin_or_localhost` routes; the
+  tunnel now drops client forwarding headers and writes the observed address, as ordinary relays already did
+  (bd `Audiobook-Manager-ur75.1`)
 - **Host login, QA login and a vendor account name no longer in the tracked tree**: owner, rename and reporter
   examples use `<deploy-user>`, `user1`/`user2` or "the operator", and the BrowserStack service-account name and a
   personal credentials path are gone from the diagnostics; the guard map refuses all three on new lines; author

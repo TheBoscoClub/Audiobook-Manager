@@ -105,6 +105,11 @@ class ConnectionManager:
         for sid in dead:
             self.unregister(sid)
 
+    def session_ids(self):
+        """Session ids that currently hold a WebSocket."""
+        with self._lock:
+            return set(self._connections)
+
     def admin_connections_list(self):
         """Return connection data for admin dashboard."""
         with self._lock:
@@ -116,6 +121,52 @@ class ConnectionManager:
 
 # Singleton instance -- shared across the Flask app
 connection_manager = ConnectionManager()
+
+
+class PollTracker:
+    """Logged-in browsers that fell back to polling the announcements endpoint.
+
+    A browser whose WebSocket failed polls instead and never appears in
+    ConnectionManager. Recording the time of each poll per session lets the
+    local maintenance status count it. In memory only: it is lost with the
+    same restart that loses the connection list.
+    """
+
+    WINDOW_SECONDS = 60  # the client polls every 30 seconds
+
+    def __init__(self):
+        self._polls = {}  # session_id -> {username, last_poll}
+        self._lock = threading.Lock()
+
+    def note(self, session_id, username, now=None):
+        """Record a poll by a logged-in session."""
+        stamp = time.time() if now is None else now
+        with self._lock:
+            self._polls[session_id] = {"username": username, "last_poll": stamp}
+            self._drop_old(stamp)
+
+    def recent(self, exclude=(), now=None):
+        """Usernames of sessions that polled within the window.
+
+        Sessions in ``exclude`` (those holding a WebSocket) are left out.
+        """
+        stamp = time.time() if now is None else now
+        skip = set(exclude)
+        with self._lock:
+            self._drop_old(stamp)
+            return [p["username"] for sid, p in self._polls.items() if sid not in skip]
+
+    def clear(self):
+        with self._lock:
+            self._polls.clear()
+
+    def _drop_old(self, now):
+        cutoff = now - self.WINDOW_SECONDS
+        for sid in [s for s, p in self._polls.items() if p["last_poll"] < cutoff]:
+            del self._polls[sid]
+
+
+poll_tracker = PollTracker()
 
 _poller_started = False
 _db_path_for_poller = None

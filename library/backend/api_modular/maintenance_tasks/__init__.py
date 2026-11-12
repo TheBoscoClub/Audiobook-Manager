@@ -26,6 +26,7 @@ _ALLOWED_TASK_MODULES = frozenset(
         "db_integrity",
         "db_vacuum",
         "hash_verify",
+        "host_downtime",
         "library_scan",
     }
 )

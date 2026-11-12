@@ -69,9 +69,9 @@ def find_due_windows():
         return [
             dict(r)
             for r in conn.execute("""SELECT * FROM maintenance_windows
-                   WHERE next_run_at <= datetime('now')
+                   WHERE datetime(next_run_at) <= datetime('now')
                      AND status = 'active'
-                   ORDER BY next_run_at ASC""").fetchall()
+                   ORDER BY datetime(next_run_at) ASC""").fetchall()
         ]
     finally:
         conn.close()
@@ -208,7 +208,7 @@ def check_announcements():
                  AND next_run_at IS NOT NULL
                  AND datetime(next_run_at, '-' || lead_time_hours || ' hours')
                      <= datetime('now')
-                 AND next_run_at > datetime('now')""").fetchall()
+                 AND datetime(next_run_at) > datetime('now')""").fetchall()
 
         for window in upcoming:
             # Only announce if not already announced recently

@@ -290,6 +290,9 @@ _load_config_file "${HOME:-}/.config/audiobooks/audiobooks.conf"
 : "${AUDIOBOOKS_DRAIN_MAX_SUSPECT:=3}"            # runs losing the node with the same book in flight before quarantine
 : "${AUDIOBOOKS_DRAIN_REAPER_MARGIN_MINUTES:=30}" # reaper: slack past the drain's longest legitimate run
 : "${AUDIOBOOKS_DRAIN_LOCK:=${AUDIOBOOKS_RUN_DIR}/translation-drain.lock}"
+# Token for the API's local maintenance door; written by the API at every
+# start (0400), read by audiobook-maintenance. MUST match library/config.py.
+: "${AUDIOBOOKS_MAINTENANCE_TOKEN_FILE:=${AUDIOBOOKS_RUN_DIR}/maintenance-token}"
 : "${AUDIOBOOKS_DRAIN_LEDGER:=${AUDIOBOOKS_VAR_DIR}/translation-drain/spend-ledger.tsv}"
 
 # Server settings
@@ -321,6 +324,7 @@ export AUDIOBOOKS_STREAMING_AUDIO_DIR AUDIOBOOKS_STREAMING_SUBTITLES_DIR
 export AUDIOBOOKS_AUDIBLE_VENV AUDIOBOOKS_AUDIBLE_CMD
 export CF_ZONE_ID AUDIOBOOKS_PROJECT_DIR
 export AUDIOBOOKS_DEFAULT_LOCALE AUDIOBOOKS_SUPPORTED_LOCALES
+export AUDIOBOOKS_MAINTENANCE_TOKEN_FILE
 export AUDIOBOOKS_API_PORT AUDIOBOOKS_WEB_PORT AUDIOBOOKS_HTTP_REDIRECT_PORT AUDIOBOOKS_BIND_ADDRESS AUDIOBOOKS_HTTPS_ENABLED AUDIOBOOKS_HTTP_REDIRECT_ENABLED
 
 # -----------------------------------------------------------------------------

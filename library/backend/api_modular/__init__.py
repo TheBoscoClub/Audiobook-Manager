@@ -165,6 +165,11 @@ def _register_extension_blueprints(flask_app, database_path, project_root=None):
     init_maintenance_routes(database_path)
     flask_app.register_blueprint(maintenance_bp)
 
+    from .maintenance_local import init_maintenance_local, maintenance_local_bp
+
+    init_maintenance_local(flask_app, database_path)
+    flask_app.register_blueprint(maintenance_local_bp)
+
     from .roadmap import init_roadmap_routes, roadmap_bp
 
     init_roadmap_routes(database_path)

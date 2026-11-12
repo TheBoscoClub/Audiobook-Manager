@@ -210,6 +210,7 @@ CANONICAL_WRAPPERS=(
     "audiobook-download-monitor"
     "audiobook-save-staging"
     "audiobook-translations"
+    "audiobook-maintenance"
 )
 
 # ---------------------------------------------------------------------------

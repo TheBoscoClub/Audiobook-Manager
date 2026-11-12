@@ -1525,7 +1525,62 @@ Plugin pattern in `api_modular/maintenance_tasks/`:
 - `MaintenanceRegistry`: Auto-discovers task modules via `pkgutil.iter_modules`
 - `@registry.register` decorator for task registration
 
-Built-in tasks (9 registered): `db_vacuum`, `db_integrity`, `db_backup`, `library_scan`, `hash_verify`, `auth_cleanup`, `backup_retention`, `cleanup_orphaned_supplements`, `staging_cleanup`
+Built-in tasks (10 registered): `db_vacuum`, `db_integrity`, `db_backup`, `library_scan`, `hash_verify`, `auth_cleanup`, `backup_retention`, `cleanup_orphaned_supplements`, `staging_cleanup`, `host_downtime`
+
+`host_downtime` is a deliberate no-op: a window of that type exists for its lead-time announcement (the host is going down for a restart or hardware work) and must not set off any of the library's own jobs.
+
+The scheduler compares `next_run_at` through SQLite's `datetime()`, because the browser stores `toISOString()` text (`2031-01-25T09:00:00.000Z`) and SQLite's own now has a space where that has a `T`.
+
+### Maintenance From The Command Line
+
+`audiobook-maintenance` lets a root script on the same host do, without a browser, what an admin does in the Activity and Maint Sched tabs. Its purpose is host maintenance: a script about to restart the machine asks whether anyone is listening and warns users first. Design: `docs/superpowers/specs/2026-11-12-maintenance-cli-design.md`.
+
+```text
+audiobook-maintenance (root → runuser → audiobooks)
+        │  reads $AUDIOBOOKS_MAINTENANCE_TOKEN_FILE (0400 audiobooks)
+        ▼
+http://127.0.0.1:$AUDIOBOOKS_API_PORT/api/local/maintenance/*      (never through the proxy)
+        │  Bearer token + loopback peer + no forwarding header
+        ▼
+maintenance_local.py ──> ConnectionManager / PollTracker (who is there)
+                     ──> maintenance_messages   (announce, clear)
+                     ──> maintenance_windows    (host_downtime window, cancel)
+```
+
+| Command | Does |
+|---------|------|
+| `status` | One summary line (`connected=N listening=N polling=N`) and one line per connection |
+| `announce "<text>"` | Banner to every user now; prints the id |
+| `clear [ID]` | Dismiss one, or all, announcements this command created |
+| `window add --start T --minutes N --lead-hours N --message "<text>"` | Host-downtime window: announced from the lead time until the start, runs nothing. `--start` without a zone is this host's local time |
+| `window cancel ID` | Cancel a host-downtime window this command created |
+
+`status` exit codes — only `0` means nobody:
+
+| Code | Meaning |
+|------|---------|
+| `0` | Nobody connected, or the app is not running (prints `app=down connected=0`) |
+| `10` | Someone connected, nobody listening |
+| `20` | Someone listening, or a browser the app cannot see into (`polling`, or a state it does not know) |
+| `30`, or any other | Unknown: the app is running but gave no usable answer (timeout, token unreadable, malformed answer, the command itself failing), or it reports nobody less than 90 seconds after starting |
+
+"Not running" is claimed only on positive evidence: `systemctl is-active audiobook-api.service` says `inactive` or `failed` **and** the API port refuses the connection. The audio a listener plays is served by the API process (`/api/stream/<id>`), so with that process gone nobody can be streaming. A unit that is starting, stopping, or running but silent is unknown.
+
+**The token.** `api_server.py` writes 32 random bytes (hex) to `AUDIOBOOKS_MAINTENANCE_TOKEN_FILE` at every start, mode `0400`, owned by the service user; the previous value stops working. `create_app()` never writes it, so tests and tools that build an app cannot touch an installation's run directory. If the file cannot be written the door stays shut (503). The token is never logged or returned.
+
+**Just restarted.** The connection list starts empty and fills as browsers reconnect (retries at 1, 2 and 4 seconds, then a poll every 30). The status answer carries `uptime_seconds`; the command treats "nobody" from a process younger than 90 seconds as unknown.
+
+**The locks** — a request must pass all three:
+
+1. `maintenance_local.py` requires a loopback peer **and** no `X-Real-IP` / `X-Forwarded-For` header. `proxy_server.py` re-authors both headers on everything it relays — ordinary requests and the WebSocket tunnel alike — so a request that came through the front door is refused (404) even with a valid token.
+2. A `Bearer` token equal to the issued one, compared in constant time (401 otherwise). The session cookie is not consulted on these paths and the token opens nothing else.
+3. `proxy_server.py` answers 404 for any path that resolves to `/api/local` — judged after dropping the query, decoding percent escapes twice, collapsing repeated slashes and dot segments, and ignoring case.
+
+**Who is counted.** WebSocket connections as in `GET /api/admin/connections`, plus logged-in sessions that polled `GET /api/maintenance/announcements` within the last 60 seconds and hold no WebSocket (`PollTracker` in `websocket.py`; state `polling`). Both live in the memory of the single API worker.
+
+Limits: a paused player stays `connected` for as long as its tab is open; a buffering stream counts as `listening`; two tabs of one session are one entry; audio already buffered in a browser the app can no longer see is undetectable; in single-user mode (`AUTH_ENABLED=false`) there are no sessions, so a polling browser is not counted; the answer is up to about 15 seconds old for WebSocket clients and 60 seconds for polling ones.
+
+The command and the window only inform. Whether the host may restart is the caller's decision, taken on `status` at the moment it acts.
 
 ### Notification Bridge
 
@@ -1621,6 +1676,7 @@ All scripts are located in `scripts/` and installed to `/opt/audiobooks/scripts/
 | `audiobook-start` | Start all audiobook services |
 | `audiobook-stop` | Stop all audiobook services |
 | `audiobook-status` | Show service and timer status |
+| `audiobook-maintenance` | Who is connected, announcements, host-downtime windows (see Maintenance From The Command Line) |
 | `audiobook-enable` | Enable services for auto-start |
 | `audiobook-disable` | Disable services from auto-start |
 
@@ -1658,6 +1714,7 @@ Wrapper scripts in `/usr/local/bin/` provide system-wide access:
 - `audiobook-status` → `audiobook-status`
 - `audiobook-help` → `audiobook-help`
 - `audiobook-translations` → `audiobook-translations`
+- `audiobook-maintenance` → `audiobook-maintenance`
 
 ---
 

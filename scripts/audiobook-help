@@ -19,6 +19,7 @@ cat <<EOF
 📊 MONITORING & STATUS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   audiobook-status              Full system status
+  audiobook-maintenance status  Who is connected / listening (root; exit 0 = nobody)
   monitor-audiobook-conversion  Live progress monitor (auto-refresh)
 
 🎮 CONTROL COMMANDS

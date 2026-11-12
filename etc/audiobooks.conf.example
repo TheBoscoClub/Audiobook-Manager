@@ -72,6 +72,11 @@
 # Default: /var/lib/audiobooks/.run
 # AUDIOBOOKS_RUN_DIR="/var/lib/audiobooks/.run"
 
+# Token for the API's local maintenance door, used by audiobook-maintenance.
+# The API writes a fresh value here at every start (0400, service user).
+# Default: ${AUDIOBOOKS_RUN_DIR}/maintenance-token
+# AUDIOBOOKS_MAINTENANCE_TOKEN_FILE="/var/lib/audiobooks/.run/maintenance-token"
+
 # SSL certificate directory (for HTTPS)
 # Default: ${AUDIOBOOKS_HOME}/library/certs
 # AUDIOBOOKS_CERTS="${AUDIOBOOKS_HOME}/library/certs"

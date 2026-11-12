@@ -210,6 +210,12 @@ class ReverseProxyApp:
     # direct privilege-escalation primitive.
     _CLIENT_HEADERS = ("Content-Type", "Range", "Accept", "Cookie")
 
+    # Never copied from the client into a WebSocket upgrade request; the
+    # tunnel writes its own (see _build_ws_upgrade_request).
+    _WS_REAUTHORED_HEADERS = frozenset(
+        {"x-forwarded-for", "x-real-ip", "x-forwarded-proto", "forwarded"}
+    )
+
     # ------------------------------------------------------------------
     # WSGI entry point
     # ------------------------------------------------------------------
@@ -220,6 +226,9 @@ class ReverseProxyApp:
         headers = EnvironHeaders(environ)
 
         try:
+            if self._is_local_only_path(path):
+                return self._send_error(start_response, 404, "Not Found")
+
             if method == "OPTIONS":
                 return self._handle_options(headers, start_response)
 
@@ -264,6 +273,33 @@ class ReverseProxyApp:
 
     def _is_proxy_path(self, path: str) -> bool:
         return any(path.startswith(p) for p in self.PROXY_PREFIXES)
+
+    # The API's local maintenance door (/api/local/maintenance/*) answers a
+    # root script on the same host and nobody else. It is never forwarded.
+    LOCAL_ONLY_PREFIX = "/api/local"
+
+    @classmethod
+    def _is_local_only_path(cls, path: str) -> bool:
+        """True when ``path`` could resolve to the local-only door.
+
+        Judged on the form the API would route: query dropped, percent
+        escapes decoded (twice, against double encoding), repeated slashes
+        and dot segments collapsed, backslashes as slashes, case ignored.
+        Refusing a look-alike costs nothing; forwarding one is the failure.
+        """
+        bare = path.split("?", 1)[0].split("#", 1)[0]
+        bare = urllib.parse.unquote(urllib.parse.unquote(bare)).replace("\\", "/")
+        parts: list[str] = []
+        for segment in bare.split("/"):
+            if segment in ("", "."):
+                continue
+            if segment == "..":
+                if parts:
+                    parts.pop()
+                continue
+            parts.append(segment.lower())
+        prefix = [s for s in cls.LOCAL_ONLY_PREFIX.split("/") if s]
+        return parts[: len(prefix)] == prefix
 
     def _cache_control_for_path(self, path: str, has_version: bool) -> str | None:
         """Return the Cache-Control value for a static file path, or None."""
@@ -529,12 +565,27 @@ class ReverseProxyApp:
         HOP_BY_HOP_HEADERS filter must not be applied here.
 
         Do not "fix" this to use the filter — it will break WebSocket.
+
+        Forwarding headers are the exception to the passthrough: whatever the
+        client sent is dropped and the same values ``_collect_proxy_headers``
+        writes are written here. The API trusts X-Real-IP / X-Forwarded-For
+        from a loopback peer, and this tunnel's peer address IS loopback, so
+        a client-supplied (or absent) header made any tunnelled request look
+        like localhost (bd Audiobook-Manager-ur75.1).
         """
         method = environ.get("REQUEST_METHOD", "GET").upper()
         request_line = f"{method} {self._raw_path(environ)} HTTP/1.1\r\n"
         header_lines = ""
         for key, value in headers.items():
+            if key.lower() in self._WS_REAUTHORED_HEADERS:
+                continue
             header_lines += f"{key}: {value}\r\n"
+        client_address = self._sanitize_header_value(
+            self._effective_client_address(environ, headers)
+        )
+        header_lines += f"X-Forwarded-For: {client_address}\r\n"
+        header_lines += f"X-Real-IP: {client_address}\r\n"
+        header_lines += "X-Forwarded-Proto: https\r\n"
         header_lines += "\r\n"
         return (request_line + header_lines).encode("latin-1")
 

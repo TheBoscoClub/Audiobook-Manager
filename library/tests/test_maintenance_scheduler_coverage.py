@@ -209,6 +209,29 @@ class TestFindDueWindows:
             assert len(result) == 1
             assert result[0]["name"] == "Test Task"
 
+    def test_window_stored_in_the_browser_time_format_is_due_at_its_time(self, scheduler, db_path):
+        """The UI stores toISOString() text ("...T...Z"); SQLite's now has a space.
+
+        Compared as text the window is not due until the UTC date rolls over
+        (bd Audiobook-Manager-bd38.3).
+        """
+        from datetime import timedelta
+
+        just_past = (datetime.now(timezone.utc) - timedelta(seconds=2)).strftime(
+            "%Y-%m-%dT%H:%M:%S.000Z"
+        )
+        conn = sqlite3.connect(str(db_path))
+        conn.execute(
+            "INSERT INTO maintenance_windows (name, task_type, next_run_at, status) "
+            "VALUES ('Browser window', 'test_type', ?, 'active')",
+            (just_past,),
+        )
+        conn.commit()
+        conn.close()
+
+        with patch.object(scheduler, "DATABASE_PATH", db_path):
+            assert [w["name"] for w in scheduler.find_due_windows()] == ["Browser window"]
+
     def test_ignores_inactive_windows(self, scheduler, db_path):
         conn = sqlite3.connect(str(db_path))
         conn.execute(

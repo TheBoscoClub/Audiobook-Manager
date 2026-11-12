@@ -18,8 +18,15 @@ from pathlib import Path  # noqa: E402
 # Add parent directory to path for config import
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from api_modular import create_app  # noqa: E402
+from api_modular.maintenance_local import issue_maintenance_token  # noqa: E402
 
-from config import API_PORT, DATABASE_PATH, PROJECT_DIR, SUPPLEMENTS_DIR  # noqa: E402
+from config import (  # noqa: E402
+    API_PORT,
+    AUDIOBOOKS_MAINTENANCE_TOKEN_FILE,
+    DATABASE_PATH,
+    PROJECT_DIR,
+    SUPPLEMENTS_DIR,
+)
 
 
 def _env_flag(environ, name: str) -> bool:
@@ -53,7 +60,7 @@ def _create_configured_app():
     auth_key_path = os.environ.get("AUTH_KEY_FILE") if auth_enabled else None
     auth_dev_mode = _env_flag(os.environ, "AUDIOBOOKS_DEV_MODE")
 
-    return create_app(
+    flask_app = create_app(
         database_path=DATABASE_PATH,
         project_dir=PROJECT_DIR,
         supplements_dir=SUPPLEMENTS_DIR,
@@ -62,6 +69,12 @@ def _create_configured_app():
         auth_key_path=Path(auth_key_path) if auth_key_path else None,
         auth_dev_mode=auth_dev_mode,
     )
+    # Arm the local maintenance door. Here, not in create_app(): only the
+    # real server may write into the installation's run directory. The live
+    # connection state the door reports is in this process's memory, which
+    # is why the service runs a single worker.
+    issue_maintenance_token(flask_app, AUDIOBOOKS_MAINTENANCE_TOKEN_FILE)
+    return flask_app
 
 
 # Module-level app object for Gunicorn: `gunicorn api_server:app`

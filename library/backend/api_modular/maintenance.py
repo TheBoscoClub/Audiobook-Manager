@@ -10,7 +10,7 @@ import logging
 import sqlite3
 from datetime import datetime, timezone
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, g, jsonify, request
 
 from .auth import admin_if_enabled, get_current_user, guest_allowed
 
@@ -336,6 +336,22 @@ def dismiss_message(mid):
 # ---------- Public Announcements ----------
 
 
+def _note_poll():
+    """Record that a logged-in session asked for announcements.
+
+    A browser whose WebSocket failed polls this endpoint instead; the local
+    maintenance status counts recent pollers (bd Audiobook-Manager-bd38.1).
+    Guests and single-user mode have no session to record.
+    """
+    user = getattr(g, "user", None)
+    session_id = request.cookies.get("audiobooks_session")
+    if user is None or not session_id:
+        return
+    from .websocket import poll_tracker
+
+    poll_tracker.note(session_id, user.username)
+
+
 @maintenance_bp.route("/api/maintenance/announcements", methods=["GET"])
 @guest_allowed
 def get_announcements():
@@ -344,6 +360,7 @@ def get_announcements():
     Returns manual messages + windows within lead time.
     @guest_allowed populates g.user if session exists but never returns 401.
     """
+    _note_poll()
     conn = _get_db()
     try:
         # Active manual messages

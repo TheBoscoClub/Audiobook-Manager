@@ -302,6 +302,13 @@ AUDIOBOOKS_STREAMING_AUDIO_DIR = Path(
 AUDIOBOOKS_STREAMING_SUBTITLES_DIR = Path(
     get_config("AUDIOBOOKS_STREAMING_SUBTITLES_DIR", f"{_var_dir}/streaming-subtitles")
 )
+# Token for the local maintenance door (/api/local/maintenance/*). The API
+# writes a fresh value here at every start, mode 0400; the
+# audiobook-maintenance command reads it. MUST match lib/audiobook-config.sh.
+AUDIOBOOKS_RUN_DIR = Path(get_config("AUDIOBOOKS_RUN_DIR", f"{_var_dir}/.run"))
+AUDIOBOOKS_MAINTENANCE_TOKEN_FILE = Path(
+    get_config("AUDIOBOOKS_MAINTENANCE_TOKEN_FILE", str(AUDIOBOOKS_RUN_DIR / "maintenance-token"))
+)
 AUDIOBOOKS_CERTS = Path(get_config("AUDIOBOOKS_CERTS", str(AUDIOBOOKS_HOME / "library" / "certs")))
 AUDIOBOOKS_LOGS = Path(get_config("AUDIOBOOKS_LOGS", str(AUDIOBOOKS_DATA / "logs")))
 AUDIOBOOKS_WEBM_CACHE = Path(

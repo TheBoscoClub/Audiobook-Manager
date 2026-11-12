@@ -1,0 +1,31 @@
+#!/bin/bash
+# Audiobook Library maintenance from the command line
+# Wrapper script — who is connected, announcements, host-downtime windows.
+#
+#   audiobook-maintenance status
+#   audiobook-maintenance announce "The Library restarts at 03:00"
+#   audiobook-maintenance clear [ID]
+#   audiobook-maintenance window add --start 2031-01-25T03:00 --minutes 10 \
+#       --lead-hours 24 --message "Host restart"
+#   audiobook-maintenance window cancel ID
+#
+# Run as root or as the audiobooks user. Root steps down to the audiobooks
+# user before anything else runs: the command talks to the API with a token
+# only that user (and root) can read, and no application code runs as root.
+#
+# `status` exit codes: 0 nobody connected (or the app is not running),
+# 10 someone connected but nobody listening, 20 someone listening,
+# anything else unknown. Only 0 means "nobody".
+SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
+
+if [[ "$(id -u)" -eq 0 ]]; then
+    exec runuser -u audiobooks -- "$(readlink -f "$0")" "$@"
+fi
+
+source "${SCRIPT_DIR}/../lib/audiobook-config.sh"
+require_audiobooks_user "$@"
+
+exec "$(audiobooks_python)" "${AUDIOBOOKS_HOME}/library/backend/maintenance_cli.py" \
+    --port "${AUDIOBOOKS_API_PORT}" \
+    --token-file "${AUDIOBOOKS_MAINTENANCE_TOKEN_FILE}" \
+    "$@"

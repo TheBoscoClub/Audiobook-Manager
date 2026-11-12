@@ -68,10 +68,12 @@ rule each one out; none of them is true of it.
 
 ### The token
 
-- At start the API creates `maintenance-token` in its runtime directory: 32 random bytes, hex, mode `0400`, owned
-  by the service user. A new value at every start; the old one stops working.
-- The path comes from configuration (a new variable in `lib/audiobook-config.sh` and `library/config.py`), never
-  a literal.
+- At start the API creates `maintenance-token` in the app's configured run directory (`AUDIOBOOKS_RUN_DIR`, the
+  directory its lock files already use): 32 random bytes, hex, mode `0400`, owned by the service user. A new value
+  at every start; the old one stops working.
+- The path comes from configuration (`AUDIOBOOKS_MAINTENANCE_TOKEN_FILE` in `lib/audiobook-config.sh` and
+  `library/config.py`), never a literal.
+- Only the real server entry point writes it. Building an app in a test or a tool never does.
 - The token is compared in constant time. It is never logged and never returned by any endpoint.
 
 ### The local door
@@ -79,7 +81,9 @@ rule each one out; none of them is true of it.
 New paths under `/api/local/maintenance/`. Each requires both:
 
 - the token in an `Authorization: Bearer` header, and
-- a loopback peer address.
+- a loopback peer address, and
+- no forwarding header. The proxy adds one to everything it relays, so a relayed request is refused here even if
+  the proxy's own refusal were bypassed.
 
 The public-facing proxy refuses to forward `/api/local/` (answers 404), so the paths are unreachable through the
 front door even with a token. The session-cookie login is not accepted on these paths, and the token is not
@@ -103,7 +107,7 @@ never touch what an admin created in the browser.
   time of each poll per session, and a session that polled within the last 60 seconds is reported with state
   `polling`.
 - `polling` is treated as listening for the exit code, because the app cannot see that browser's player.
-- Two tabs of one session still show as one entry; the entry takes the busier state of the two.
+- Two tabs of one session still show as one entry, in the state the newer tab reports.
 
 ### The host-downtime window
 
@@ -118,14 +122,15 @@ never touch what an admin created in the browser.
 
 ### The command
 
-`audiobook-maintenance`, a wrapper in the scripts directory like the others. It reads the token file itself, so
-it runs as root or as the service user; anyone else gets a clear refusal. It talks only to the API on loopback.
+`audiobook-maintenance`, a wrapper in the scripts directory like the others. It runs as root or as the service
+user; anyone else gets a clear refusal. Root steps down to the service user before any application code runs, so
+nothing the service user could alter ever executes as root. It talks only to the API on loopback.
 
 ```text
 audiobook-maintenance status
 audiobook-maintenance announce "The Library restarts at 03:00 and is back in about five minutes"
 audiobook-maintenance clear [ID]
-audiobook-maintenance window add --start 2026-01-25T03:00 --minutes 10 --lead-hours 24 --message "..."
+audiobook-maintenance window add --start 2031-01-25T03:00 --minutes 10 --lead-hours 24 --message "..."
 audiobook-maintenance window cancel ID
 ```
 
@@ -144,7 +149,7 @@ Exit codes of `status`:
 | 0 | nobody connected, or the app is not running | go ahead |
 | 10 | someone connected, nobody listening | decide by its own rule |
 | 20 | someone listening, or polling | not restart |
-| any other | unknown: the app is running but gave no usable answer (timeout, token unreadable, bad answer) | not restart |
+| 30, or any other | unknown: the app is running but gave no usable answer (timeout, token unreadable, bad answer) | not restart |
 
 Zero is the only "nobody". A crash of the command itself therefore also reads as unknown.
 
@@ -152,6 +157,9 @@ Zero is the only "nobody". A crash of the command itself therefore also reads as
 nobody can be streaming. The command says so only on positive evidence: systemd reports the API service as
 inactive or failed, and the connection to its port is refused. It then prints `app=down connected=0` and exits 0.
 A service that is starting, stopping, or running but silent is not "down"; that is unknown.
+
+**App just started.** The connection list is in the API's memory and starts empty; browsers reconnect over the
+next seconds. "Nobody" from an app that started less than 90 seconds ago is therefore reported as unknown.
 
 The other verbs exit 0 on success and print the id they created; any failure is non-zero with the reason on
 standard error.

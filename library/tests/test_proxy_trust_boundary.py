@@ -228,3 +228,132 @@ class TestEffectiveClientAddress:
             headers={"X-Real-IP": "127.0.0.1", "X-Forwarded-For": "127.0.0.1"},
         ):
             assert effective_client_address() == "10.0.0.5"
+
+
+# ============================================================
+# The local maintenance door is never forwarded (bd Audiobook-Manager-bd38.1)
+# ============================================================
+
+
+class TestLocalOnlyPathsAreNotForwarded:
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "/api/local/maintenance/status",
+            "/api/local/",
+            "/api/local",
+            "/api/%6cocal/maintenance/status",  # percent-encoded "l"
+            "/api//local/maintenance/status",
+            "/api/local/maintenance/status?x=1",
+            "/api/./local/maintenance/status",
+            "/api/x/../local/maintenance/status",
+        ],
+    )
+    @pytest.mark.parametrize("method", ["GET", "POST"])
+    def test_refused_without_reaching_the_api(self, path, method, monkeypatch):
+        app = proxy_server.ReverseProxyApp()
+        reached = []
+        monkeypatch.setattr(
+            app, "proxy_to_api", lambda *a, **k: reached.append(a) or [b""], raising=True
+        )
+        monkeypatch.setattr(
+            app, "_tunnel_websocket", lambda *a, **k: reached.append(a) or [b""], raising=True
+        )
+        raw_path, _, query = path.partition("?")
+        environ = {
+            "REQUEST_METHOD": method,
+            "RAW_URI": path,
+            "PATH_INFO": raw_path,
+            "QUERY_STRING": query,
+            "REMOTE_ADDR": "192.0.2.5",
+            "HTTP_UPGRADE": "websocket",
+            "HTTP_CONNECTION": "Upgrade",
+        }
+        seen = {}
+
+        def start_response(status, headers):
+            seen["status"] = status
+
+        app(environ, start_response)
+        assert seen["status"].startswith("404")
+        assert reached == []
+
+    def test_ordinary_api_paths_still_forward(self, monkeypatch):
+        app = proxy_server.ReverseProxyApp()
+        reached = []
+        monkeypatch.setattr(
+            app, "proxy_to_api", lambda *a, **k: reached.append(a) or [b""], raising=True
+        )
+        environ = {
+            "REQUEST_METHOD": "GET",
+            "RAW_URI": "/api/localization/strings",
+            "PATH_INFO": "/api/localization/strings",
+            "QUERY_STRING": "",
+            "REMOTE_ADDR": "192.0.2.5",
+        }
+        app(environ, lambda status, headers: None)
+        assert len(reached) == 1
+
+
+# ============================================================
+# The WebSocket tunnel re-authors forwarding headers too (bd Audiobook-Manager-ur75.1)
+# ============================================================
+
+
+class TestWebSocketTunnelForwardingHeaders:
+    """The tunnel copies client headers to the API. Forwarding headers must not
+    be among them: the API trusts X-Real-IP / X-Forwarded-For from a loopback
+    peer, and the tunnel's peer address IS loopback."""
+
+    def _upgrade_request(self, client_headers, remote_addr="203.0.113.9"):
+        environ = {
+            "REQUEST_METHOD": "POST",
+            "RAW_URI": "/api/translate/segment-complete",
+            "PATH_INFO": "/api/translate/segment-complete",
+            "QUERY_STRING": "",
+            "REMOTE_ADDR": remote_addr,
+            "HTTP_UPGRADE": "websocket",
+            "HTTP_CONNECTION": "Upgrade",
+        }
+        for name, value in client_headers.items():
+            environ["HTTP_" + name.upper().replace("-", "_")] = value
+        raw = proxy_server.app._build_ws_upgrade_request(
+            environ, proxy_server.EnvironHeaders(environ)
+        )
+        lines = raw.decode("latin-1").split("\r\n")
+        sent = {}
+        for line in lines[1:]:
+            if line:
+                name, _, value = line.partition(": ")
+                sent.setdefault(name.lower(), []).append(value)
+        return lines[0], sent
+
+    @pytest.mark.parametrize(
+        "forged",
+        [
+            {"X-Real-IP": "127.0.0.1"},
+            {"X-Forwarded-For": "127.0.0.1"},
+            {"X-Forwarded-For": "127.0.0.1, 198.51.100.7", "X-Real-IP": "::1"},
+            {"Forwarded": "for=127.0.0.1"},
+        ],
+    )
+    def test_forged_forwarding_headers_are_replaced(self, forged):
+        _, sent = self._upgrade_request(forged)
+        assert sent["x-real-ip"] == ["203.0.113.9"]
+        assert sent["x-forwarded-for"] == ["203.0.113.9"]
+        assert "forwarded" not in sent
+
+    def test_a_client_that_sends_none_still_gets_them_written(self):
+        # With no forwarding header at all the API would fall back to the
+        # tunnel's own loopback peer address and call the client "localhost".
+        _, sent = self._upgrade_request({})
+        assert sent["x-real-ip"] == ["203.0.113.9"]
+        assert sent["x-forwarded-for"] == ["203.0.113.9"]
+        assert sent["x-forwarded-proto"] == ["https"]
+
+    def test_the_upgrade_headers_and_cookie_still_pass(self):
+        request_line, sent = self._upgrade_request({"Cookie": "audiobooks_session=abc"})
+        assert request_line == "POST /api/translate/segment-complete HTTP/1.1"
+        assert sent["upgrade"] == ["websocket"]
+        assert sent["connection"] == ["Upgrade"]
+        assert sent["cookie"] == ["audiobooks_session=abc"]
