@@ -22,8 +22,19 @@ import maintenance_cli as cli  # noqa: E402  # type: ignore[import-not-found]
 TOKEN = "c" * 64
 
 
+class _DoorServer(HTTPServer):
+    """HTTPServer that records requests and answers what the test queued."""
+
+    def __init__(self, address, handler):
+        super().__init__(address, handler)
+        self.seen: list[tuple] = []
+        self.answer: tuple = (200, {})
+
+
 class _Door(BaseHTTPRequestHandler):
     """Stand-in for the API's local door; answers what the test queued."""
+
+    server: _DoorServer
 
     def _answer(self):
         self.server.seen.append(
@@ -45,14 +56,13 @@ class _Door(BaseHTTPRequestHandler):
     do_GET = _answer
     do_POST = _answer
 
-    def log_message(self, *args):
+    def log_message(self, format, *args):  # noqa: A002 — the base class's own parameter name
         pass
 
 
 @pytest.fixture
 def door():
-    server = HTTPServer(("127.0.0.1", 0), _Door)
-    server.seen = []
+    server = _DoorServer(("127.0.0.1", 0), _Door)
     server.answer = (200, _status_body())
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

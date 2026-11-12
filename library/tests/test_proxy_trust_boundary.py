@@ -235,6 +235,16 @@ class TestEffectiveClientAddress:
 # ============================================================
 
 
+def _recorder(reached: list):
+    """A stand-in handler that notes it was called and returns an empty body."""
+
+    def handler(*args, **kwargs):
+        reached.append(args)
+        return [b""]
+
+    return handler
+
+
 class TestLocalOnlyPathsAreNotForwarded:
     @pytest.mark.parametrize(
         "path",
@@ -252,13 +262,9 @@ class TestLocalOnlyPathsAreNotForwarded:
     @pytest.mark.parametrize("method", ["GET", "POST"])
     def test_refused_without_reaching_the_api(self, path, method, monkeypatch):
         app = proxy_server.ReverseProxyApp()
-        reached = []
-        monkeypatch.setattr(
-            app, "proxy_to_api", lambda *a, **k: reached.append(a) or [b""], raising=True
-        )
-        monkeypatch.setattr(
-            app, "_tunnel_websocket", lambda *a, **k: reached.append(a) or [b""], raising=True
-        )
+        reached: list = []
+        monkeypatch.setattr(app, "proxy_to_api", _recorder(reached), raising=True)
+        monkeypatch.setattr(app, "_tunnel_websocket", _recorder(reached), raising=True)
         raw_path, _, query = path.partition("?")
         environ = {
             "REQUEST_METHOD": method,
@@ -280,10 +286,8 @@ class TestLocalOnlyPathsAreNotForwarded:
 
     def test_ordinary_api_paths_still_forward(self, monkeypatch):
         app = proxy_server.ReverseProxyApp()
-        reached = []
-        monkeypatch.setattr(
-            app, "proxy_to_api", lambda *a, **k: reached.append(a) or [b""], raising=True
-        )
+        reached: list = []
+        monkeypatch.setattr(app, "proxy_to_api", _recorder(reached), raising=True)
         environ = {
             "REQUEST_METHOD": "GET",
             "RAW_URI": "/api/localization/strings",
@@ -321,7 +325,7 @@ class TestWebSocketTunnelForwardingHeaders:
             environ, proxy_server.EnvironHeaders(environ)
         )
         lines = raw.decode("latin-1").split("\r\n")
-        sent = {}
+        sent: dict[str, list[str]] = {}
         for line in lines[1:]:
             if line:
                 name, _, value = line.partition(": ")
