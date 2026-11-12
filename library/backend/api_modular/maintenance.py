@@ -341,6 +341,8 @@ def _note_poll():
 
     A browser whose WebSocket failed polls this endpoint instead; the local
     maintenance status counts recent pollers (bd Audiobook-Manager-bd38.1).
+    The poll carries the player state (?state=), the same words the WebSocket
+    heartbeat uses; without one the session is recorded as "polling".
     Guests and single-user mode have no session to record.
     """
     user = getattr(g, "user", None)
@@ -349,7 +351,7 @@ def _note_poll():
         return
     from .websocket import poll_tracker
 
-    poll_tracker.note(session_id, user.username)
+    poll_tracker.note(session_id, user.username, state=request.args.get("state"))
 
 
 @maintenance_bp.route("/api/maintenance/announcements", methods=["GET"])

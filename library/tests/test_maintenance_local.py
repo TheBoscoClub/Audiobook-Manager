@@ -200,6 +200,29 @@ class TestStatus:
         assert (body["connected"], body["listening"], body["polling"]) == (1, 0, 1)
         assert body["users"] == [{"username": "carol", "state": "polling"}]
 
+    @pytest.mark.parametrize(
+        "state, listening, polling",
+        [("browsing", 0, 0), ("connected", 0, 0), ("listening", 1, 0)],
+    )
+    def test_a_poller_that_reports_its_player_is_counted_in_that_state(
+        self, client, state, listening, polling
+    ):
+        from api_modular.websocket import poll_tracker
+
+        poll_tracker.note("s9", "carol", state=state)
+        body = client.get(f"{BASE}/status", headers=_auth()).get_json()
+        assert (body["connected"], body["listening"], body["polling"]) == (1, listening, polling)
+        assert body["users"] == [{"username": "carol", "state": state}]
+
+    @pytest.mark.parametrize("state", [None, "", "dancing", "LISTENING", "polling"])
+    def test_a_poller_with_no_usable_state_stays_polling(self, client, state):
+        from api_modular.websocket import poll_tracker
+
+        poll_tracker.note("s9", "carol", state=state)
+        body = client.get(f"{BASE}/status", headers=_auth()).get_json()
+        assert (body["listening"], body["polling"]) == (0, 1)
+        assert body["users"] == [{"username": "carol", "state": "polling"}]
+
     def test_a_poller_that_went_quiet_is_dropped(self, client):
         from api_modular.websocket import poll_tracker
 
@@ -381,3 +404,34 @@ class TestPollRecording:
 
         client.get("/api/maintenance/announcements")
         assert poll_tracker.recent() == []
+
+
+class TestWebSocketClientLeavesPolling:
+    """library/web-v2/js/websocket.js (bd Audiobook-Manager-bd38.4).
+
+    A browser that fell back to polling used to poll forever: nothing tried the
+    WebSocket again, so a tab open across an API restart stayed invisible to
+    the connection list. Source-level checks; the behaviour itself is proven
+    in a real browser on the test VM.
+    """
+
+    SOURCE = (LIBRARY_DIR / "web-v2" / "js" / "websocket.js").read_text()
+
+    def _function(self, name):
+        start = self.SOURCE.index(f"function {name}(")
+        depth, i = 0, self.SOURCE.index("{", start)
+        for j in range(i, len(self.SOURCE)):
+            depth += {"{": 1, "}": -1}.get(self.SOURCE[j], 0)
+            if depth == 0:
+                return self.SOURCE[start : j + 1]
+        raise AssertionError(f"unterminated function {name}")
+
+    def test_each_poll_tick_also_retries_the_websocket(self):
+        assert "connect();" in self._function("pollTick")
+        assert "pollForAnnouncements();" in self._function("pollTick")
+        assert "setInterval(pollTick, POLL_INTERVAL)" in self._function("startPolling")
+
+    def test_the_poll_reports_the_player_state(self):
+        body = self._function("pollForAnnouncements")
+        assert "getPlayerState()" in body
+        assert "/api/maintenance/announcements?state=" in body

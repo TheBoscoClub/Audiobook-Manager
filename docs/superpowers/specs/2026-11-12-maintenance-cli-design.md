@@ -104,9 +104,12 @@ never touch what an admin created in the browser.
 
 - WebSocket connections are counted as today.
 - A logged-in browser that has fallen back to polling is counted too: the announcements endpoint records the
-  time of each poll per session, and a session that polled within the last 60 seconds is reported with state
-  `polling`.
-- `polling` is treated as listening for the exit code, because the app cannot see that browser's player.
+  time of each poll per session, and a session that polled within the last 60 seconds is reported.
+- The poll carries the player state, as the heartbeat does, and the session is counted in that state. A poll with
+  no usable state is reported as `polling` and treated as listening for the exit code, because the app cannot see
+  that browser's player.
+- A polling browser retries its WebSocket on every poll, so a tab that was open across an API restart rejoins the
+  connection list by itself (bd `Audiobook-Manager-bd38.4`).
 - Two tabs of one session still show as one entry, in the state the newer tab reports.
 
 ### The host-downtime window

@@ -16,8 +16,8 @@ vm-session down <dev-vm-name>         # shut down
 
 ## The two properties that make it safe
 
-1. **Only shuts down what it started.** `up` writes `~/.claude/cache/vm-started/<vm>`; `down`/`reap` refuse without it, so operator-started VMs are never touched.
-2. **Forgetting is not fatal.** `SessionEnd` hook runs `vm-session reap`, shutting down every marked VM still running; markers left by a dead session are cleared by the next `reap`.
+1. **Only shuts down what it started.** `up` writes `~/.claude/cache/vm-started/<vm>`, naming the Claude process that started the VM; `down`/`reap` refuse without it, so operator-started VMs are never touched, and they leave alone a VM another live session started.
+2. **Forgetting is not fatal.** `SessionEnd` hook runs `vm-session reap`, shutting down this session's marked VMs still running and those whose owning session has ended or is not named. After a resume the session is a new process: run `vm-session up <vm>` again before a long run. Call `up` outside `bounded-test`.
 
 ## Address lookup
 

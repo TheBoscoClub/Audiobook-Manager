@@ -139,15 +139,13 @@ def status():
     from .websocket import connection_manager, poll_tracker
 
     users = list(connection_manager.admin_connections_list()["users"])
-    listening = sum(1 for u in users if u["state"] == "listening")
-    pollers = poll_tracker.recent(exclude=connection_manager.session_ids())
-    users.extend({"username": name, "state": "polling"} for name in pollers)
+    users.extend(poll_tracker.recent(exclude=connection_manager.session_ids()))
     return jsonify(
         {
             "uptime_seconds": int(time.monotonic() - _STARTED),
             "connected": len(users),
-            "listening": listening,
-            "polling": len(pollers),
+            "listening": sum(1 for u in users if u["state"] == "listening"),
+            "polling": sum(1 for u in users if u["state"] == poll_tracker.UNSEEN),
             "users": users,
         }
     )

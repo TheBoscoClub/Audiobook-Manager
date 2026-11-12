@@ -133,20 +133,25 @@ class PollTracker:
     """
 
     WINDOW_SECONDS = 60  # the client polls every 30 seconds
+    # Player states a poll may report (the same words the heartbeat uses).
+    # Anything else is recorded as "polling": a browser we cannot see into.
+    KNOWN_STATES = frozenset({"browsing", "connected", "listening"})
+    UNSEEN = "polling"
 
     def __init__(self):
-        self._polls = {}  # session_id -> {username, last_poll}
+        self._polls = {}  # session_id -> {username, state, last_poll}
         self._lock = threading.Lock()
 
-    def note(self, session_id, username, now=None):
-        """Record a poll by a logged-in session."""
+    def note(self, session_id, username, state=None, now=None):
+        """Record a poll by a logged-in session, with the player state it reports."""
         stamp = time.time() if now is None else now
+        seen = state if state in self.KNOWN_STATES else self.UNSEEN
         with self._lock:
-            self._polls[session_id] = {"username": username, "last_poll": stamp}
+            self._polls[session_id] = {"username": username, "state": seen, "last_poll": stamp}
             self._drop_old(stamp)
 
     def recent(self, exclude=(), now=None):
-        """Usernames of sessions that polled within the window.
+        """Sessions that polled within the window: [{username, state}].
 
         Sessions in ``exclude`` (those holding a WebSocket) are left out.
         """
@@ -154,7 +159,11 @@ class PollTracker:
         skip = set(exclude)
         with self._lock:
             self._drop_old(stamp)
-            return [p["username"] for sid, p in self._polls.items() if sid not in skip]
+            return [
+                {"username": p["username"], "state": p["state"]}
+                for sid, p in self._polls.items()
+                if sid not in skip
+            ]
 
     def clear(self):
         with self._lock:

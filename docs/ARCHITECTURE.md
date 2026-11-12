@@ -1477,7 +1477,7 @@ The application uses WebSocket for real-time bidirectional communication between
 
 - 10-second heartbeat interval with activity state reporting
 - Exponential backoff reconnection (1s → 2s → 4s → ... → 30s cap)
-- Falls back to REST polling if WebSocket fails 3 consecutive times
+- Falls back to REST polling if WebSocket fails 3 consecutive times; while polling, every 30-second tick also retries the WebSocket (a tab open across an API restart rejoins by itself) and the poll reports the player state (`?state=`)
 - Dispatches custom DOM events: `maintenance-announce`, `maintenance-dismiss`, `maintenance-update`, `ws-connected`
 
 ### Proxy Tunneling
@@ -1576,7 +1576,7 @@ maintenance_local.py ──> ConnectionManager / PollTracker (who is there)
 2. A `Bearer` token equal to the issued one, compared in constant time (401 otherwise). The session cookie is not consulted on these paths and the token opens nothing else.
 3. `proxy_server.py` answers 404 for any path that resolves to `/api/local` — judged after dropping the query, decoding percent escapes twice, collapsing repeated slashes and dot segments, and ignoring case.
 
-**Who is counted.** WebSocket connections as in `GET /api/admin/connections`, plus logged-in sessions that polled `GET /api/maintenance/announcements` within the last 60 seconds and hold no WebSocket (`PollTracker` in `websocket.py`; state `polling`). Both live in the memory of the single API worker.
+**Who is counted.** WebSocket connections as in `GET /api/admin/connections`, plus logged-in sessions that polled `GET /api/maintenance/announcements` within the last 60 seconds and hold no WebSocket (`PollTracker` in `websocket.py`). A poll carries the player state in `?state=` (`browsing`, `connected` or `listening`, the heartbeat's words) and is counted in that state; a poll with no usable state is recorded as `polling`, a browser the app cannot see into. Both live in the memory of the single API worker.
 
 Limits: a paused player stays `connected` for as long as its tab is open; a buffering stream counts as `listening`; two tabs of one session are one entry; audio already buffered in a browser the app can no longer see is undetectable; in single-user mode (`AUTH_ENABLED=false`) there are no sessions, so a polling browser is not counted; the answer is up to about 15 seconds old for WebSocket clients and 60 seconds for polling ones.
 

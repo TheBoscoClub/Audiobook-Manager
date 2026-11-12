@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Root steps down to the `audiobooks` user before any application code runs (bd `Audiobook-Manager-bd38.1`)
 - **`host_downtime` maintenance task**: a window type that announces at its lead time and runs no job, also
   selectable in the Maint Sched tab (bd `Audiobook-Manager-bd38.1`)
+- **A polling browser reports its player and rejoins by itself**: each fallback poll carries `?state=` and is
+  counted as `browsing`, `connected` or `listening`; every poll tick also retries the WebSocket, so a tab that was
+  open across an API restart no longer polls forever and holds `audiobook-maintenance status` at `20`
+  (bd `Audiobook-Manager-bd38.4`)
 - **Browsers that fell back to polling are counted as connected**: a logged-in session that polled
   `/api/maintenance/announcements` within the last 60 seconds is reported with state `polling` by the local status
   (bd `Audiobook-Manager-bd38.1`)

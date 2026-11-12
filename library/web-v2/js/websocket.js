@@ -3,7 +3,8 @@
  *
  * - Sends heartbeat every 10 seconds with player activity state
  * - Auto-reconnects with exponential backoff (1s -> 30s max)
- * - Falls back to REST polling after 3 failed WebSocket attempts
+ * - Falls back to REST polling after 3 failed WebSocket attempts; each poll
+ *   reports the player state and retries the WebSocket
  * - Dispatches custom DOM events for downstream consumers
  * - In iframe context: receives events from parent shell via postMessage
  *   instead of opening a duplicate WebSocket connection
@@ -168,11 +169,21 @@
     if (usingPolling) return;
     usingPolling = true;
     pollForAnnouncements();
-    pollTimer = setInterval(pollForAnnouncements, POLL_INTERVAL);
+    pollTimer = setInterval(pollTick, POLL_INTERVAL);
   }
 
+  // While polling, keep trying the WebSocket. A tab that was open across an
+  // API restart used to poll forever; ws.onopen stops the polling as soon as
+  // a retry gets through. A failed retry lands back here on the next tick.
+  function pollTick() {
+    pollForAnnouncements();
+    connect();
+  }
+
+  // The poll carries the player state, as the heartbeat does, so the server
+  // can tell an idle polling tab from one that is playing.
   function pollForAnnouncements() {
-    fetch("/api/maintenance/announcements")
+    fetch("/api/maintenance/announcements?state=" + encodeURIComponent(getPlayerState()))
       .then(function (r) { return r.json(); })
       .then(function (data) {
         dispatch("maintenance-announce", {
