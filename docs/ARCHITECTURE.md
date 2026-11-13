@@ -1529,7 +1529,7 @@ Built-in tasks (10 registered): `db_vacuum`, `db_integrity`, `db_backup`, `libra
 
 `host_downtime` is a deliberate no-op: a window of that type exists for its lead-time announcement (the host is going down for a restart or hardware work) and must not set off any of the library's own jobs.
 
-The scheduler compares `next_run_at` through SQLite's `datetime()`, because the browser stores `toISOString()` text (`2031-01-25T09:00:00.000Z`) and SQLite's own now has a space where that has a `T`.
+Window times are compared in Python, not SQL (`library/common_utils/maintenance_time.py`): `next_run_at` is a text column that has held three forms — the browser's `toISOString()` (`2031-01-25T09:00:00.000Z`), an aware `isoformat()` with a `Z` appended (`2031-01-25T09:00:00+00:00Z`, written for recurring windows before 8.7.2) and SQLite's own (`2031-01-25 09:00:00`). SQLite's `datetime()` cannot parse the second and text comparison gets the first wrong. `parse_utc()` reads all three as the same moment; `to_storage()` writes the browser's form, which is what the scheduler and the API now write.
 
 ### Maintenance From The Command Line
 

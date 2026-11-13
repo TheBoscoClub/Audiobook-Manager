@@ -8,8 +8,9 @@ task registry listing, and execution history.
 import json
 import logging
 import sqlite3
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
+from common_utils.maintenance_time import parse_utc, to_storage, utc_now
 from flask import Blueprint, g, jsonify, request
 
 from .auth import admin_if_enabled, get_current_user, guest_allowed
@@ -72,7 +73,7 @@ def _compute_next_run_at(schedule_type, scheduled_at, cron_expression):
             from croniter import croniter
 
             cron = croniter(cron_expression, datetime.now(timezone.utc))
-            return cron.get_next(datetime).isoformat() + "Z", None
+            return to_storage(cron.get_next(datetime)), None
         except (ValueError, KeyError):  # fmt: skip
             return None, (jsonify({"error": "Invalid cron expression"}), 400)
     return None, None
@@ -371,18 +372,24 @@ def get_announcements():
                WHERE dismissed_at IS NULL
                ORDER BY created_at DESC""").fetchall()
 
-        # Upcoming windows within lead time
-        windows = conn.execute("""SELECT id, name, description, task_type, next_run_at,
+        # Upcoming windows within lead time. Compared in Python: the column
+        # holds several text forms, one of which SQLite's datetime() cannot
+        # parse (common_utils.maintenance_time).
+        rows = conn.execute("""SELECT id, name, description, task_type, next_run_at,
                       duration_minutes, lead_time_hours
                FROM maintenance_windows
                WHERE status = 'active'
-                 AND next_run_at IS NOT NULL
-                 AND datetime(next_run_at, '-' || lead_time_hours || ' hours')
-                     <= datetime('now')
-               ORDER BY next_run_at ASC""").fetchall()
+                 AND next_run_at IS NOT NULL""").fetchall()
+        now = utc_now()
+        upcoming = []
+        for row in rows:
+            due = parse_utc(row["next_run_at"])
+            if due is not None and due - timedelta(hours=row["lead_time_hours"] or 0) <= now:
+                upcoming.append((due, dict(row)))
+        upcoming.sort(key=lambda pair: pair[0])
 
         return jsonify(
-            {"messages": [dict(r) for r in messages], "windows": [dict(r) for r in windows]}
+            {"messages": [dict(r) for r in messages], "windows": [w for _, w in upcoming]}
         )
     finally:
         conn.close()

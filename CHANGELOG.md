@@ -137,9 +137,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`audiobook-user` crashed on every subcommand**: `library/auth/cli.py` put only the install root on `sys.path`, so
   its audit module could not import `common_utils` and the command died with `ImportError` before parsing arguments;
   `library/` is now on the path too (bd `Audiobook-Manager-b0my.5`)
-- **One-time maintenance windows ran up to a day late**: the scheduler compared `next_run_at` with SQLite's now as
-  text, and the browser's `toISOString()` form sorts after it, so a window was not due until the UTC date rolled over;
-  both scheduler queries now compare with `datetime()` (bd `Audiobook-Manager-bd38.3`)
+- **Maintenance windows ran late, and recurring ones were never announced**: `next_run_at` holds three text forms
+  (the browser's `…T…000Z`, the cron result `…+00:00Z`, SQLite's own) and was compared in SQL — as text in the
+  scheduler, so a browser-made window was not due until the UTC date rolled over, and through `datetime()` in the
+  announcements endpoint, which cannot parse the cron form, so a recurring window never showed its banner
+  - Times are now parsed in Python (`library/common_utils/maintenance_time.py`) by the scheduler and the
+    announcements endpoint; every form is read as the same moment, an unreadable one is logged and skipped
+  - The scheduler and the API write one form, the browser's, for a recurring window's next run and for history
+    start times (bd `Audiobook-Manager-bd38.3`)
 - **Login shells outside the `audiobooks` group printed `audiobooks.conf: Permission denied`**:
   `/etc/profile.d/audiobooks.sh` sources `lib/audiobook-config.sh` for every account, and the system config is `0640
   root:audiobooks`, so the greeter's session shell wrote the error on the boot console; the loader now skips a config

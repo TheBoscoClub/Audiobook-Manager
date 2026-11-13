@@ -20,10 +20,12 @@ import signal
 import sqlite3
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+from common_utils.maintenance_time import parse_utc, to_storage, utc_now
+
 from config import DATABASE_PATH
 
 logging.basicConfig(level=logging.INFO, format="[SCHEDULER] %(asctime)s %(levelname)s %(message)s")
@@ -62,19 +64,38 @@ def get_db():
     return conn
 
 
-def find_due_windows():
-    """Find windows that are due for execution."""
+def _active_windows():
+    """Active windows with the time each is due, as (window dict, due datetime).
+
+    Times are read in Python: the column holds several text forms, one of
+    which SQLite's datetime() cannot parse (common_utils.maintenance_time).
+    A window whose time cannot be read is logged and left out.
+    """
     conn = get_db()
     try:
-        return [
-            dict(r)
-            for r in conn.execute("""SELECT * FROM maintenance_windows
-                   WHERE datetime(next_run_at) <= datetime('now')
-                     AND status = 'active'
-                   ORDER BY datetime(next_run_at) ASC""").fetchall()
-        ]
+        rows = conn.execute(
+            "SELECT * FROM maintenance_windows WHERE status = 'active' AND next_run_at IS NOT NULL"
+        ).fetchall()
     finally:
         conn.close()
+    windows = []
+    for row in rows:
+        due = parse_utc(row["next_run_at"])
+        if due is None:
+            logger.warning(
+                "Window %d has an unreadable next_run_at %r; skipped", row["id"], row["next_run_at"]
+            )
+            continue
+        windows.append((dict(row), due))
+    return windows
+
+
+def find_due_windows():
+    """Find windows that are due for execution, oldest first."""
+    now = utc_now()
+    due = [(window, when) for window, when in _active_windows() if when <= now]
+    due.sort(key=lambda pair: pair[1])
+    return [window for window, _ in due]
 
 
 def record_history(window_id, started_at, status, message, data=None):
@@ -124,7 +145,7 @@ def update_next_run(window):
         from croniter import croniter
 
         cron = croniter(window["cron_expression"], datetime.now(timezone.utc))
-        next_at = cron.get_next(datetime).isoformat() + "Z"
+        next_at = to_storage(cron.get_next(datetime))
         conn = get_db()
         try:
             conn.execute(
@@ -154,7 +175,7 @@ def execute_window(window):
     if task is None:
         msg = f"Unknown task type: {window['task_type']}"
         logger.error(msg)
-        started_at = datetime.now(timezone.utc).isoformat() + "Z"
+        started_at = to_storage(utc_now())
         record_history(window["id"], started_at, "failure", msg)
         write_notification(
             "update", {"window_id": window["id"], "status": "failure", "message": msg}
@@ -170,7 +191,7 @@ def execute_window(window):
     if not validation.ok:
         msg = f"Validation failed: {validation.message}"
         logger.warning(msg)
-        started_at = datetime.now(timezone.utc).isoformat() + "Z"
+        started_at = to_storage(utc_now())
         record_history(window["id"], started_at, "failure", msg)
         write_notification(
             "update", {"window_id": window["id"], "status": "failure", "message": msg}
@@ -178,7 +199,7 @@ def execute_window(window):
         return
 
     # Execute
-    started_at = datetime.now(timezone.utc).isoformat() + "Z"
+    started_at = to_storage(utc_now())
     write_notification(
         "update",
         {"window_id": window["id"], "status": "running", "message": f"Executing: {window['name']}"},
@@ -200,16 +221,14 @@ def execute_window(window):
 
 def check_announcements():
     """Write announcement notifications for windows within lead time."""
+    now = utc_now()
+    upcoming = [
+        window
+        for window, due in _active_windows()
+        if due - timedelta(hours=window["lead_time_hours"] or 0) <= now < due
+    ]
     conn = get_db()
     try:
-        upcoming = conn.execute("""SELECT id, name, description, next_run_at, lead_time_hours
-               FROM maintenance_windows
-               WHERE status = 'active'
-                 AND next_run_at IS NOT NULL
-                 AND datetime(next_run_at, '-' || lead_time_hours || ' hours')
-                     <= datetime('now')
-                 AND datetime(next_run_at) > datetime('now')""").fetchall()
-
         for window in upcoming:
             # Only announce if not already announced recently
             existing = conn.execute(
