@@ -31,7 +31,7 @@
 # Full image CVE delta vs Phase 9c baseline: 15 CRIT / 62 HIGH → 15 CRIT / 60 HIGH.
 # Base-image-only delta: 15 CRIT / 62 HIGH → 0 CRIT / 6 HIGH (digest refresh eliminated
 # all python base CVEs). Residual 15 CRIT / 54 HIGH are in ffmpeg/mesa/mbedtls apt pkgs.
-FROM python:3.14-slim@sha256:5b3879b6f3cb77e712644d50262d05a7c146b7312d784a18eff7ff5462e77033
+FROM python:3.15-slim@sha256:65a65fc7b30b06cb6df4930fd4650697cb23f4c2698ab81fc87e4b031bc36928
 
 # Read version from VERSION file during build
 ARG APP_VERSION=8.7.2
